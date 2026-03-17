@@ -71,7 +71,6 @@ QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     ),
     "xiaohumini": (
         ("gpt-5.3-chat-latest", "gpt-5.3-chat-latest"),
-        ("GPT-5.2- Latest flagship", "gpt-5.2"),
         ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
         ("Claude Sonnet 4.6 - Fast + capable", "claude-sonnet-4-6"),
         ("Gemini 3.1 Pro Preview - Fast + capable", "gemini-3.1-pro-preview"),
@@ -137,7 +136,6 @@ DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     ),
     "xiaohumini": (
         ("gpt-5.3-chat-latest", "gpt-5.3-chat-latest"),
-        ("GPT-5.2- Latest flagship", "gpt-5.2"),
         ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
         ("Claude Sonnet 4.6 - Fast + capable", "claude-sonnet-4-6"),
         ("Gemini 3.1 Pro Preview - Fast + capable", "gemini-3.1-pro-preview"),
