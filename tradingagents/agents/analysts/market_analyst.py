@@ -46,7 +46,27 @@ Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
 - Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."""
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
+            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. After the markdown table, also append a structured highlights block in the following exact format (replace values with your actual analysis findings). This block MUST use the json-highlights code fence:
+
+```json-highlights
+{
+  "category": "market",
+  "signal": "BUY or HOLD or SELL",
+  "signal_confidence": "high or medium or low",
+  "summary": "1-2 sentence executive summary of your analysis",
+  "trend_direction": "bullish or bearish or neutral or mixed",
+  "key_levels": {
+    "support": ["level1", "level2"],
+    "resistance": ["level1", "level2"]
+  },
+  "indicators": [
+    {"name": "indicator name", "value": "current value", "interpretation": "brief meaning"}
+  ],
+  "volatility": "high or moderate or low"
+}
+```
+
+Keep the `json-highlights` fence, JSON keys, and enum literals in English constants exactly as shown; free-form string values should follow the report language."""
         )
 
         prompt = ChatPromptTemplate.from_messages(

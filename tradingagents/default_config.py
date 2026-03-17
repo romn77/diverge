@@ -1,5 +1,12 @@
 import os
 
+from tradingagents.llm_clients.model_config import (
+    DEFAULT_DEEP_MODEL,
+    DEFAULT_LLM_PROVIDER,
+    DEFAULT_QUICK_MODEL,
+    get_provider_base_url,
+)
+
 DEFAULT_CONFIG = {
     "project_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
     "results_dir": os.getenv("TRADINGAGENTS_RESULTS_DIR", "./results"),
@@ -8,10 +15,10 @@ DEFAULT_CONFIG = {
         "dataflows/data_cache",
     ),
     # LLM settings
-    "llm_provider": "openai",
-    "deep_think_llm": "gpt-5.2",
-    "quick_think_llm": "gpt-5-mini",
-    "backend_url": "https://api.openai.com/v1",
+    "llm_provider": DEFAULT_LLM_PROVIDER,
+    "deep_think_llm": DEFAULT_DEEP_MODEL,
+    "quick_think_llm": DEFAULT_QUICK_MODEL,
+    "backend_url": get_provider_base_url(DEFAULT_LLM_PROVIDER),
     "output_language": "en",
     # Provider-specific thinking configuration
     "google_thinking_level": None,  # "high", "minimal", etc.

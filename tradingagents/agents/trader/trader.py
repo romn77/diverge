@@ -31,7 +31,31 @@ def create_trader(llm, memory):
         messages = [
             {
                 "role": "system",
-                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. End with a firm decision and always conclude your response with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' to confirm your recommendation. Do not forget to utilize lessons from past decisions to learn from your mistakes. Here is some reflections from similar situatiosn you traded in and the lessons learned: {past_memory_str}
+                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. Do not forget to utilize lessons from past decisions to learn from your mistakes. Here is some reflections from similar situations you traded in and the lessons learned: {past_memory_str}
+
+Conclude your narrative analysis with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' as your final narrative line.
+
+Then append a structured highlights block at the end of your response:
+
+```json-highlights
+{{
+  "category": "trader",
+  "signal": "BUY or HOLD or SELL",
+  "signal_confidence": "high or medium or low",
+  "summary": "1-2 sentence executive summary of your trading decision",
+  "decision": "BUY or HOLD or SELL",
+  "entry_exit": {{
+    "action": "core trading action description",
+    "exit_target": "target exit price or condition",
+    "stop_loss": "stop loss level",
+    "re_entry": "conditions for re-entry"
+  }},
+  "risk_factors": ["risk 1", "risk 2"]
+}}
+```
+
+Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
+
 {language_instruction}""",
             },
             context,

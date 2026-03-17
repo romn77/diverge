@@ -1,13 +1,18 @@
 # TradingAgents/graph/conditional_logic.py
 
 from tradingagents.agents.utils.agent_states import AgentState
+from tradingagents.agents.risk_mgmt.debate_phase import get_total_risk_turn_limit
 
 
 class ConditionalLogic:
     """Handles conditional logic for determining graph flow."""
 
     def __init__(self, max_debate_rounds=1, max_risk_discuss_rounds=1):
-        """Initialize with configuration parameters."""
+        """Initialize with configuration parameters.
+
+        `max_risk_discuss_rounds` counts rebuttal rounds. The initial
+        Aggressive/Conservative/Neutral thesis cycle is always included.
+        """
         self.max_debate_rounds = max_debate_rounds
         self.max_risk_discuss_rounds = max_risk_discuss_rounds
 
@@ -56,9 +61,8 @@ class ConditionalLogic:
 
     def should_continue_risk_analysis(self, state: AgentState) -> str:
         """Determine if risk analysis should continue."""
-        if (
-            state["risk_debate_state"]["count"] >= 3 * self.max_risk_discuss_rounds
-        ):  # 3 rounds of back-and-forth between 3 agents
+        risk_turn_limit = get_total_risk_turn_limit(self.max_risk_discuss_rounds)
+        if state["risk_debate_state"]["count"] >= risk_turn_limit:
             return "Risk Judge"
         if state["risk_debate_state"]["latest_speaker"].startswith("Aggressive"):
             return "Conservative Analyst"

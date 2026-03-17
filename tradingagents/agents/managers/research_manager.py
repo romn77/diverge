@@ -29,7 +29,7 @@ Additionally, develop a detailed investment plan for the trader. This should inc
 Your Recommendation: A decisive stance supported by the most convincing arguments.
 Rationale: An explanation of why these arguments lead to your conclusion.
 Strategic Actions: Concrete steps for implementing the recommendation.
-Take into account your past mistakes on similar situations. Use these insights to refine your decision-making and ensure you are learning and improving. Present your analysis conversationally, as if speaking naturally, without special formatting. 
+Take into account your past mistakes on similar situations. Use these insights to refine your decision-making and ensure you are learning and improving. Present your analysis conversationally, as if speaking naturally, with a structured decision block at the end.
 
 Here are your past reflections on mistakes:
 \"{past_memory_str}\"
@@ -37,6 +37,24 @@ Here are your past reflections on mistakes:
 Here is the debate:
 Debate History:
 {history}
+
+After your complete decision, append a structured highlights block in the following exact format:
+
+```json-highlights
+{{
+  "category": "research_decision",
+  "signal": "BUY or HOLD or SELL",
+  "signal_confidence": "high or medium or low",
+  "summary": "1-2 sentence executive summary of your ruling",
+  "decision": "BUY or HOLD or SELL",
+  "aligned_with": "bull or bear",
+  "rationale": "one sentence explaining why you sided this way",
+  "action_items": ["action 1", "action 2", "action 3"]
+}}
+```
+
+Keep the fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language; free-form string values should follow the report language.
+
 {language_instruction}"""
         response = llm.invoke(prompt)
 

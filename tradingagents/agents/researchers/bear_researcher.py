@@ -42,6 +42,23 @@ Conversation history of the debate: {history}
 Last bull argument: {current_response}
 Reflections from similar situations and lessons learned: {past_memory_str}
 Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
+
+After your complete analysis, append a structured highlights block:
+
+```json-highlights
+{{
+  "category": "bear_case",
+  "signal": "BUY or HOLD or SELL",
+  "signal_confidence": "high or medium or low",
+  "summary": "1-2 sentence executive summary of your bear case",
+  "stance": "bearish",
+  "key_arguments": [
+    {{"point": "core argument title", "evidence": "supporting evidence or data"}}
+  ],
+  "counterpoints": ["rebuttal to bull argument 1", "rebuttal 2"]
+}}
+```
+Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
 {language_instruction}
 """
 

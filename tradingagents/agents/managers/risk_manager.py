@@ -28,8 +28,12 @@ def create_risk_manager(llm, memory):
 Guidelines for Decision-Making:
 1. **Summarize Key Arguments**: Extract the strongest points from each analyst, focusing on relevance to the context.
 2. **Provide Rationale**: Support your recommendation with direct quotes and counterarguments from the debate.
-3. **Refine the Trader's Plan**: Start with the trader's original plan, **{trader_plan}**, and adjust it based on the analysts' insights.
-4. **Learn from Past Mistakes**: Use lessons from **{past_memory_str}** to address prior misjudgments and improve the decision you are making now to make sure you don't make a wrong BUY/SELL/HOLD call that loses money.
+3. **Refine the Trader's Plan**: Start with the trader's original plan, **{
+            trader_plan
+        }**, and adjust it based on the analysts' insights.
+4. **Learn from Past Mistakes**: Use lessons from **{
+            past_memory_str
+        }** to address prior misjudgments and improve the decision you are making now to make sure you don't make a wrong BUY/SELL/HOLD call that loses money.
 
 Deliverables:
 - A clear and actionable recommendation: Buy, Sell, or Hold.
@@ -43,6 +47,27 @@ Deliverables:
 ---
 
 Focus on actionable insights and continuous improvement. Build on past lessons, critically evaluate all perspectives, and ensure each decision advances better outcomes.
+
+After your complete decision, append a structured highlights block:
+
+```json-highlights
+{{
+            "category": "portfolio_decision",
+  "signal": "BUY or HOLD or SELL",
+  "signal_confidence": "high or medium or low",
+  "summary": "1-2 sentence executive summary of your final ruling",
+  "final_decision": "BUY or HOLD or SELL",
+  "decision_basis": "one sentence explaining the primary reason",
+  "strategic_actions": [
+    {{
+                "action": "action description", "priority": "immediate or conditional or long-term"}}
+  ],
+  "risk_warnings": ["warning 1", "warning 2"]
+}}
+```
+
+Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
+
 {language_instruction}"""
 
         response = llm.invoke(prompt)

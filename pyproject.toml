@@ -35,6 +35,9 @@ dependencies = [
     "tushare>=1.4.24",
 ]
 
+[project.optional-dependencies]
+web = ["fastapi>=0.115.0", "uvicorn[standard]>=0.34.0"]
+
 [project.scripts]
 tradingagents = "cli.main:app"
 
