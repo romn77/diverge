@@ -16,7 +16,6 @@ requests
 tqdm
 pytz
 redis
-chainlit
 rich
 typer
 questionary

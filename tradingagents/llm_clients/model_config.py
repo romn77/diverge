@@ -20,21 +20,22 @@ PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
 
 QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     "openai": (
-        ("GPT-5 Mini - Cost-optimized reasoning", "gpt-5-mini"),
-        ("GPT-5 Nano - Ultra-fast, high-throughput", "gpt-5-nano"),
-        ("GPT-5.2 - Latest flagship", "gpt-5.2"),
+        ("GPT-5 Mini - Balanced speed, cost, and capability", "gpt-5-mini"),
+        ("GPT-5 Nano - High-throughput, simple tasks", "gpt-5-nano"),
+        ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
+        ("GPT-5.2 - Strong reasoning, cost-effective", "gpt-5.2"),
         ("GPT-5.1 - Flexible reasoning", "gpt-5.1"),
-        ("GPT-4.1 - Smartest non-reasoning, 1M context", "gpt-4.1"),
+        ("GPT-4.1 - Smartest non-reasoning model", "gpt-4.1"),
     ),
     "anthropic": (
-        ("Claude Haiku 4.5 - Fast + extended thinking", "claude-haiku-4-5"),
+        ("Claude Sonnet 4.6 - Best speed and intelligence balance", "claude-sonnet-4-6"),
+        ("Claude Haiku 4.5 - Fast, near-instant responses", "claude-haiku-4-5"),
         ("Claude Sonnet 4.5 - Best for agents/coding", "claude-sonnet-4-5"),
-        ("Claude Sonnet 4 - High-performance", "claude-sonnet-4-20250514"),
     ),
     "google": (
         ("Gemini 3 Flash - Next-gen fast", "gemini-3-flash-preview"),
-        ("Gemini 2.5 Flash - Balanced, recommended", "gemini-2.5-flash"),
-        ("Gemini 3 Pro - Reasoning-first", "gemini-3-pro-preview"),
+        ("Gemini 2.5 Flash - Balanced, stable", "gemini-2.5-flash"),
+        ("Gemini 3.1 Flash Lite - Most cost-efficient", "gemini-3.1-flash-lite-preview"),
         ("Gemini 2.5 Flash Lite - Fast, low-cost", "gemini-2.5-flash-lite"),
     ),
     "xai": (
@@ -69,7 +70,9 @@ QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
         ("GLM-4.7-Flash:latest (30B, local)", "glm-4.7-flash:latest"),
     ),
     "xiaohumini": (
-        ("GPT-5.2 - Latest flagship", "gpt-5.2"),
+        ("gpt-5.3-chat-latest", "gpt-5.3-chat-latest"),
+        ("GPT-5.2- Latest flagship", "gpt-5.2"),
+        ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
         ("Claude Sonnet 4.6 - Fast + capable", "claude-sonnet-4-6"),
         ("Gemini 3.1 Pro Preview - Fast + capable", "gemini-3.1-pro-preview"),
         ("Grok 4.2 - Fast + capable", "grok-4.2"),
@@ -78,24 +81,27 @@ QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
 
 DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     "openai": (
-        ("GPT-5.2 - Latest flagship", "gpt-5.2"),
+        ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
+        ("GPT-5.2 - Strong reasoning, cost-effective", "gpt-5.2"),
         ("GPT-5.1 - Flexible reasoning", "gpt-5.1"),
+        ("GPT-5.4 Pro - Most capable, expensive", "gpt-5.4-pro"),
         ("GPT-5 - Advanced reasoning", "gpt-5"),
-        ("GPT-4.1 - Smartest non-reasoning, 1M context", "gpt-4.1"),
-        ("GPT-5 Mini - Cost-optimized reasoning", "gpt-5-mini"),
-        ("GPT-5 Nano - Ultra-fast, high-throughput", "gpt-5-nano"),
+        ("GPT-4.1 - Smartest non-reasoning model", "gpt-4.1"),
+        ("GPT-5 Mini - Balanced speed, cost, and capability", "gpt-5-mini"),
+        ("GPT-5 Nano - High-throughput, simple tasks", "gpt-5-nano"),
     ),
     "anthropic": (
+        ("Claude Opus 4.6 - Most intelligent, agents and coding", "claude-opus-4-6"),
         ("Claude Sonnet 4.5 - Best for agents/coding", "claude-sonnet-4-5"),
         ("Claude Opus 4.5 - Premium, max intelligence", "claude-opus-4-5"),
-        ("Claude Opus 4.1 - Most capable model", "claude-opus-4-1-20250805"),
-        ("Claude Haiku 4.5 - Fast + extended thinking", "claude-haiku-4-5"),
-        ("Claude Sonnet 4 - High-performance", "claude-sonnet-4-20250514"),
+        ("Claude Sonnet 4.6 - Best speed and intelligence balance", "claude-sonnet-4-6"),
+        ("Claude Haiku 4.5 - Fast, near-instant responses", "claude-haiku-4-5"),
     ),
     "google": (
-        ("Gemini 3 Pro - Reasoning-first", "gemini-3-pro-preview"),
+        ("Gemini 3.1 Pro - Reasoning-first, complex workflows", "gemini-3.1-pro-preview"),
         ("Gemini 3 Flash - Next-gen fast", "gemini-3-flash-preview"),
-        ("Gemini 2.5 Flash - Balanced, recommended", "gemini-2.5-flash"),
+        ("Gemini 2.5 Pro - Stable pro model", "gemini-2.5-pro"),
+        ("Gemini 2.5 Flash - Balanced, stable", "gemini-2.5-flash"),
     ),
     "xai": (
         (
@@ -130,7 +136,9 @@ DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
         ("Qwen3:latest (8B, local)", "qwen3:latest"),
     ),
     "xiaohumini": (
-        ("GPT-5.2 - Latest flagship", "gpt-5.2"),
+        ("gpt-5.3-chat-latest", "gpt-5.3-chat-latest"),
+        ("GPT-5.2- Latest flagship", "gpt-5.2"),
+        ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
         ("Claude Sonnet 4.6 - Fast + capable", "claude-sonnet-4-6"),
         ("Gemini 3.1 Pro Preview - Fast + capable", "gemini-3.1-pro-preview"),
         ("Grok 4.2 - Fast + capable", "grok-4.2"),
@@ -150,6 +158,8 @@ EXTRA_VALIDATED_MODELS: Final[dict[str, tuple[str, ...]]] = {
         "gpt-4o-mini",
     ),
     "anthropic": (
+        "claude-opus-4-1-20250805",
+        "claude-sonnet-4-20250514",
         "claude-3-7-sonnet-20250219",
         "claude-3-5-haiku-20241022",
         "claude-3-5-sonnet-20241022",
@@ -158,6 +168,7 @@ EXTRA_VALIDATED_MODELS: Final[dict[str, tuple[str, ...]]] = {
         "gemini-2.5-pro",
         "gemini-2.0-flash",
         "gemini-2.0-flash-lite",
+        "gemini-3-pro-preview",
     ),
     "xai": (
         "grok-4-1-fast",

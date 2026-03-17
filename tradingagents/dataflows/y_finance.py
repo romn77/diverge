@@ -5,6 +5,8 @@ import yfinance as yf
 import os
 import pandas as pd
 
+from .stockstats_utils import _clean_dataframe
+
 
 def _fetch_yfinance_ohlcv_df(
     symbol: str,
@@ -25,11 +27,7 @@ def _fetch_yfinance_ohlcv_df(
     )
 
     if use_cache and os.path.exists(data_file):
-        cached = pd.read_csv(data_file)
-        if "Date" in cached.columns:
-            cached["Date"] = pd.to_datetime(cached["Date"])
-            cached = cached.set_index("Date")
-        return cached
+        return pd.read_csv(data_file, on_bad_lines="skip")
 
     data = yf.download(
         symbol,
@@ -40,9 +38,13 @@ def _fetch_yfinance_ohlcv_df(
         auto_adjust=auto_adjust,
     )
 
+    if data is None or data.empty:
+        return pd.DataFrame()
+
+    data = data.reset_index()
+
     if use_cache and data is not None and not data.empty:
-        to_save = data.reset_index()
-        to_save.to_csv(data_file, index=False)
+        data.to_csv(data_file, index=False)
 
     return data
 
@@ -70,9 +72,9 @@ def get_YFin_data_online(
             f"No data found for symbol '{symbol}' between {start_date} and {end_date}"
         )
 
+    data = _clean_dataframe(data.copy())
+
     if "Date" in data.columns:
-        data = data.copy()
-        data["Date"] = pd.to_datetime(data["Date"], errors="coerce")
         data = data.set_index("Date")
 
     # Remove timezone info from index for cleaner output
@@ -257,9 +259,9 @@ def _get_stock_stats_bulk(
                 os.path.join(
                     config.get("data_cache_dir", "data"),
                     f"{symbol}-YFin-data-2015-01-01-2025-03-25.csv",
-                )
+                ),
+                on_bad_lines="skip",
             )
-            df = wrap(data)
         except FileNotFoundError:
             raise Exception("Stockstats fail: Yahoo Finance data not fetched yet!")
     else:
@@ -281,12 +283,9 @@ def _get_stock_stats_bulk(
         if data is None or data.empty:
             return {}
 
-        data = data.reset_index()
-        if "Date" in data.columns:
-            data["Date"] = pd.to_datetime(data["Date"])
-
-        df = wrap(data)
-        df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
+    data = _clean_dataframe(data)
+    df = wrap(data)
+    df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
 
     # Calculate the indicator for all rows at once
     df[indicator]  # This triggers stockstats to calculate the indicator

@@ -19,10 +19,6 @@ lib/
 web/frontend/lib/*
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
-!web/frontend/lib/
-web/frontend/lib/*
-!web/frontend/lib/highlightTerminal.ts
-!web/frontend/lib/highlightTerminal.test.ts
 lib64/
 parts/
 sdist/
@@ -227,7 +223,6 @@ __marimo__/
 **/data_cache/
 reports/
 results/
-results/
 # Vscode
 .vscode/
 .sisyphus/
@@ -236,3 +231,5 @@ results/
 web/frontend/node_modules/
 web/frontend/.next/
 web/frontend/out/
+web/frontend/.env.local
+web/frontend/tsconfig.tsbuildinfo
