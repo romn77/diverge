@@ -1,109 +1,90 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { listReports, Report } from "@/lib/api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Report } from "@/lib/api";
 
 interface SidebarProps {
   selectedReportId: string | null;
   onSelectReport: (reportId: string) => void;
+  reports: Report[];
+  loading: boolean;
+  error: string | null;
+  searchQuery: string;
+  onSearchQueryChange: (value: string) => void;
+  isOpen: boolean;
+  onClose: () => void;
 }
-
-const parseReportTimestamp = (report: Report): number => {
-  if (report.date) {
-    const isoLikeValue = `${report.date}T${report.time ?? "00:00:00"}`;
-    const parsed = Date.parse(isoLikeValue);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-
-  const fallback = Date.parse(report.id);
-  return Number.isNaN(fallback) ? Number.NEGATIVE_INFINITY : fallback;
-};
-
-const findTickerForReport = (
-  reports: Report[],
-  reportId: string | null
-): string | null => {
-  if (!reportId) {
-    return null;
-  }
-  return reports.find((report) => report.id === reportId)?.ticker ?? null;
-};
-
-const getMostRecentTicker = (reports: Report[]): string | null => {
-  if (reports.length === 0) {
-    return null;
-  }
-
-  const mostRecentReport = reports.reduce((best, current) =>
-    parseReportTimestamp(current) > parseReportTimestamp(best) ? current : best
-  );
-
-  return mostRecentReport.ticker;
-};
-
-const toDomSafeId = (value: string): string =>
-  value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
 
 export function Sidebar({
   selectedReportId,
   onSelectReport,
+  reports,
+  loading,
+  error,
+  searchQuery,
+  onSearchQueryChange,
+  isOpen,
+  onClose,
 }: SidebarProps) {
-  const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [expandedTickers, setExpandedTickers] = useState<Set<string>>(new Set());
+  const [expandedTickers, setExpandedTickers] = useState<Set<string>>(() => new Set());
+  const [isRecentReportsOpen, setIsRecentReportsOpen] = useState(true);
+  const [isAllTickersOpen, setIsAllTickersOpen] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      try {
-        setLoading(true);
-        const data = await listReports();
-        setReports(data);
-        setError(null);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load reports"
-        );
-        setReports([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const sortedReports = useMemo(() => {
+    return [...reports].sort((a, b) => parseReportTimestamp(b) - parseReportTimestamp(a));
+  }, [reports]);
 
-    fetchReports();
-  }, []);
+  const filteredReports = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return sortedReports;
+    }
+    const normalized = searchQuery.toLowerCase();
+    return sortedReports.filter(
+      (report) =>
+        report.ticker.toLowerCase().includes(normalized) ||
+        report.id.toLowerCase().includes(normalized)
+    );
+  }, [searchQuery, sortedReports]);
 
-  const filteredReports = reports.filter((report) =>
-    report.ticker.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    report.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const groupedByTicker = filteredReports.reduce(
-    (acc, report) => {
+  const groupedByTicker = useMemo(() => {
+    return filteredReports.reduce<Record<string, Report[]>>((acc, report) => {
       const ticker = report.ticker;
       if (!acc[ticker]) {
         acc[ticker] = [];
       }
       acc[ticker].push(report);
       return acc;
-    },
-    {} as Record<string, Report[]>
-  );
+    }, {});
+  }, [filteredReports]);
 
-  const sortedTickers = Object.keys(groupedByTicker).sort();
+  const tickerOrder = useMemo(() => {
+    return Object.entries(groupedByTicker)
+      .sort(
+        ([aTicker, reportsA], [bTicker, reportsB]) =>
+          Math.max(...reportsB.map(parseReportTimestamp)) -
+          Math.max(...reportsA.map(parseReportTimestamp))
+      )
+      .map(([ticker]) => ticker);
+  }, [groupedByTicker]);
 
-  const toggleTicker = (ticker: string) => {
-    const newExpanded = new Set(expandedTickers);
-    if (newExpanded.has(ticker)) {
-      newExpanded.delete(ticker);
-    } else {
-      newExpanded.add(ticker);
-    }
-    setExpandedTickers(newExpanded);
-  };
+  const recentReports = useMemo(() => sortedReports.slice(0, 3), [sortedReports]);
+  const isMobileDrawerOpen = isMobileViewport && isOpen;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const syncViewport = (event?: MediaQueryListEvent) => {
+      setIsMobileViewport(event ? event.matches : mediaQuery.matches);
+    };
+
+    syncViewport();
+    mediaQuery.addEventListener("change", syncViewport);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncViewport);
+    };
+  }, []);
 
   useEffect(() => {
     if (loading || reports.length === 0) {
@@ -133,159 +114,389 @@ export function Sidebar({
     });
   }, [loading, reports, selectedReportId]);
 
+  useEffect(() => {
+    if (!isMobileDrawerOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileDrawerOpen]);
+
+  useEffect(() => {
+    if (!isMobileDrawerOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileDrawerOpen, onClose]);
+
+  useEffect(() => {
+    if (isMobileDrawerOpen) {
+      searchInputRef.current?.focus();
+    }
+  }, [isMobileDrawerOpen]);
+
+  const toggleTicker = (ticker: string) => {
+    setExpandedTickers((current) => {
+      const next = new Set(current);
+      if (next.has(ticker)) {
+        next.delete(ticker);
+      } else {
+        next.add(ticker);
+      }
+      return next;
+    });
+  };
+
+  const drawerClasses = [
+    "fixed inset-y-0 left-0 z-50 w-full max-w-xs flex-col overflow-y-auto border-r border-[var(--border)] bg-white px-4 py-5 shadow-lg transition-transform duration-300",
+    "hidden md:flex -translate-x-full md:translate-x-0",
+    isMobileDrawerOpen ? "flex translate-x-0" : "",
+    "md:relative md:w-[19.2rem] md:shadow-none md:border-r-0",
+  ].join(" ");
+
   return (
-    <aside className="glass-panel relative w-full shrink-0 border-b border-[var(--border)] md:h-screen md:w-[19.2rem] md:rounded-r-2xl md:border-b-0 md:border-r">
-      <div className="border-b border-[var(--border)] px-4 py-4 md:px-5">
-        <div className="flex items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5">
-            <div className="grid size-8 place-items-center rounded-lg bg-[var(--primary)] text-white shadow-sm">
-              <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-                <path
-                  d="M4 16l4.2-4.2L11 14.6l8-8"
-                  stroke="currentColor"
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </div>
-            <p className="font-heading text-sm font-bold tracking-tight text-slate-900">
-              Trading<span className="text-[var(--primary)]">Agent</span>
-            </p>
+    <>
+      {isMobileDrawerOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 md:hidden"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        id="report-navigation"
+        className={drawerClasses}
+        role={isMobileDrawerOpen ? "dialog" : undefined}
+        aria-modal={isMobileDrawerOpen ? true : undefined}
+        aria-label="Report navigation"
+      >
+      <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-4">
+        <div className="flex items-center gap-2">
+          <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-sm">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
+              <path
+                d="M4 16l4.2-4.2L11 14.6l8-8"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </div>
-          <div className="rounded-full border border-[var(--border)] bg-white/75 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-            {reports.length} total
+          <div>
+            <p className="text-sm font-semibold text-slate-900">TradingAgent</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Research</p>
           </div>
         </div>
+        <button
+          type="button"
+          className="md:hidden rounded-2xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+          onClick={onClose}
+          aria-label="Close sidebar"
+        >
+          Close
+        </button>
+      </div>
 
-        <div className="relative mt-4">
-          <svg
-            viewBox="0 0 24 24"
-            className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-slate-400"
-            fill="none"
-            aria-hidden
-          >
-            <path
-              d="M11 5a6 6 0 104.24 10.24L19 19"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+      <div className="mt-4">
+        <label
+          className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500"
+          htmlFor="sidebar-search"
+        >
+          Filter reports
+        </label>
+        <div className="relative mt-2">
+          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              aria-hidden
+            >
+              <path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
+              />
+            </svg>
+          </span>
           <input
+            ref={searchInputRef}
+            id="sidebar-search"
             type="text"
-            placeholder="Search reports..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="focus-ring w-full rounded-xl border border-[var(--border-strong)] bg-white/82 py-2.5 pl-8 pr-16 text-sm text-slate-700 placeholder:text-slate-500"
-            aria-label="Search reports"
+            onChange={(event) => onSearchQueryChange(event.target.value)}
+            placeholder="Ticker or report id"
+            className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-12 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery("")}
-              className="interactive-button focus-ring absolute right-2 top-1/2 -translate-y-1/2 rounded-md border border-[var(--border)] bg-white px-2 py-1 text-[11px] font-medium text-slate-500 hover:border-[color:rgba(236,91,19,0.45)] hover:text-[var(--primary-strong)]"
-              aria-label="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:text-[var(--primary)]"
+              onClick={() => onSearchQueryChange("")}
             >
               Clear
             </button>
           )}
         </div>
+        <p className="mt-1 text-xs text-slate-500">Filter by ticker or report ID.</p>
       </div>
 
-      <div className="max-h-[48vh] overflow-y-auto px-1 py-1 md:max-h-[calc(100vh-150px)]">
-        {loading && (
-          <div className="p-4 text-center text-sm text-slate-500">Loading...</div>
-        )}
-
-        {error && (
-          <div className="p-4 text-center text-sm text-rose-600">{error}</div>
-        )}
-
-        {!loading && !error && filteredReports.length === 0 && (
-          <div className="p-4 text-center text-sm text-slate-500">
-            {searchQuery ? (
-              <div>
-                <div>No reports match &quot;{searchQuery}&quot;.</div>
-                <div className="mt-1 text-xs text-slate-500">
-                  Try a ticker symbol (for example AAPL) or part of report id.
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery("")}
-                  className="interactive-button focus-ring mt-3 rounded-md border border-[var(--border)] bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:border-[color:rgba(236,91,19,0.45)] hover:text-[var(--primary-strong)]"
-                >
-                  Clear search
-                </button>
-              </div>
-            ) : (
-              "No reports found"
-            )}
-          </div>
-        )}
-
-        {!loading && !error && filteredReports.length > 0 && (
-          <div className="space-y-4 px-3 py-4">
-            <div className="flex items-center justify-between px-2">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.17em] text-slate-500">
-                Reports
-              </div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                {filteredReports.length} results
-              </div>
+      <div className="mt-6 space-y-4">
+        <section>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => setIsRecentReportsOpen((current) => !current)}
+            aria-expanded={isRecentReportsOpen}
+            aria-controls="recent-reports-panel"
+          >
+            <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+              Recent Reports
+            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                {recentReports.length} shown
+              </span>
+              <svg
+                className={`h-4 w-4 text-slate-400 transition-transform ${
+                  isRecentReportsOpen ? "rotate-90" : ""
+                }`}
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden
+              >
+                <path
+                  d="M7 6l5 4-5 4"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
-            {sortedTickers.map((ticker) => {
-              const isExpanded = expandedTickers.has(ticker);
-              const panelId = `ticker-panel-${toDomSafeId(ticker)}`;
-
-              return (
-                <div key={ticker} className="rounded-xl border border-[var(--border)] bg-white/74 p-1.5">
+          </button>
+          {isRecentReportsOpen && (
+            <div
+              id="recent-reports-panel"
+              className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm"
+            >
+              {loading ? (
+                <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                  Loading reports…
+                </p>
+              ) : recentReports.length === 0 ? (
+                <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                  No reports yet.
+                </p>
+              ) : (
+                recentReports.map((report) => (
                   <button
+                    key={report.id}
                     type="button"
-                    onClick={() => toggleTicker(ticker)}
-                    className="interactive-button focus-ring w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-slate-100"
-                    aria-expanded={isExpanded}
-                    aria-controls={panelId}
+                    className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)]"
+                    onClick={() => onSelectReport(report.id)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold text-slate-700">{ticker}</div>
-                      <span
-                        className={`grid size-5 place-items-center rounded-full border border-[var(--border)] text-[10px] text-slate-500 transition-transform ${
-                          isExpanded ? "rotate-90" : ""
-                        }`}
-                        aria-hidden
-                      >
-                        &gt;
-                      </span>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {report.ticker}
+                      </p>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                        {formatReportDate(report)}
+                      </p>
                     </div>
+                    <svg
+                      className="h-4 w-4 text-slate-400"
+                      viewBox="0 0 20 20"
+                      fill="none"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path
+                        d="M7 6l5 4-5 4"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </button>
-                  {isExpanded && (
-                    <div id={panelId} className="space-y-1 border-l border-[var(--border)] pl-2.5">
-                      {groupedByTicker[ticker].map((report) => (
-                        <button
-                          type="button"
-                          key={report.id}
-                          onClick={() => onSelectReport(report.id)}
-                          className={`interactive-button focus-ring w-full rounded-lg px-2.5 py-2 text-left text-sm transition-all ${
-                            selectedReportId === report.id
-                              ? "border border-[color:rgba(236,91,19,0.3)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-sm"
-                              : "text-slate-600 hover:bg-slate-100"
+                ))
+              )}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between text-left"
+            onClick={() => setIsAllTickersOpen((current) => !current)}
+            aria-expanded={isAllTickersOpen}
+            aria-controls="all-tickers-panel"
+          >
+            <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+              All tickers
+            </h3>
+            <svg
+              className={`h-4 w-4 text-slate-400 transition-transform ${
+                isAllTickersOpen ? "rotate-90" : ""
+              }`}
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden
+            >
+              <path
+                d="M7 6l5 4-5 4"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          {isAllTickersOpen && (
+            <div id="all-tickers-panel" className="mt-3 space-y-3">
+              {tickerOrder.length === 0 ? (
+                <p className="text-xs font-semibold text-slate-500">
+                  No tickers match the current filter.
+                </p>
+              ) : (
+                tickerOrder.map((ticker) => {
+                  const isExpanded = expandedTickers.has(ticker);
+                  const panelId = `ticker-panel-${ticker}`;
+
+                  return (
+                    <div
+                      key={ticker}
+                      className="rounded-2xl border border-[var(--border)] bg-white/80"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleTicker(ticker)}
+                        className="flex h-[44px] w-full items-center justify-between px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                        aria-expanded={isExpanded}
+                        aria-controls={panelId}
+                      >
+                        <span>{ticker}</span>
+                        <svg
+                          className={`h-4 w-4 text-slate-500 transition-transform ${
+                            isExpanded ? "rotate-90" : ""
                           }`}
-                          aria-current={selectedReportId === report.id ? "true" : undefined}
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          aria-hidden
                         >
-                          <div className="font-medium">{report.date ?? "Unknown date"}</div>
-                          <div className="mt-0.5 text-xs text-slate-500">{report.time ?? "--:--:--"}</div>
-                        </button>
-                      ))}
+                          <path
+                            d="M7 6l5 4-5 4"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                      {isExpanded && (
+                        <div
+                          id={panelId}
+                          className="flex flex-col gap-1 border-t border-[var(--border)] px-1.5 py-2"
+                        >
+                          {groupedByTicker[ticker].map((report) => (
+                            <button
+                              key={report.id}
+                              type="button"
+                              className={`flex min-h-[44px] w-full items-center justify-between rounded-xl px-3 text-sm transition hover:bg-slate-100 ${
+                                selectedReportId === report.id
+                                  ? "text-[var(--primary)]"
+                                  : "text-slate-600"
+                              }`}
+                              onClick={() => onSelectReport(report.id)}
+                              aria-current={selectedReportId === report.id ? "true" : undefined}
+                            >
+                              <div>
+                                <p className="font-medium">{report.date ?? "Unknown date"}</p>
+                                <p className="text-[11px] text-slate-500">
+                                  {report.time ?? "--:--:--"}
+                                </p>
+                              </div>
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.3em]">
+                                {selectedReportId === report.id ? "Active" : "View"}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </section>
+        {error && (
+          <div className="text-xs font-semibold text-rose-600">{error}</div>
         )}
       </div>
-    </aside>
+      </aside>
+    </>
   );
+}
+
+function parseReportTimestamp(report: Report): number {
+  if (report.date) {
+    const isoLike = `${report.date}T${report.time ?? "00:00:00"}`;
+    const parsed = Date.parse(isoLike);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  const fallback = Date.parse(report.id);
+  if (!Number.isNaN(fallback)) {
+    return fallback;
+  }
+
+  return Number.NEGATIVE_INFINITY;
+}
+
+function getMostRecentTicker(reports: Report[]): string | null {
+  if (reports.length === 0) {
+    return null;
+  }
+
+  const recent = reports.reduce((best, current) =>
+    parseReportTimestamp(current) > parseReportTimestamp(best) ? current : best
+  );
+  return recent.ticker;
+}
+
+function findTickerForReport(reports: Report[], reportId: string | null): string | null {
+  if (!reportId) {
+    return null;
+  }
+  return reports.find((report) => report.id === reportId)?.ticker ?? null;
+}
+
+function formatReportDate(report: Report) {
+  if (report.date && report.time) {
+    return `${report.date} · ${report.time}`;
+  }
+  if (report.date) {
+    return report.date;
+  }
+  return "Unknown date";
 }

@@ -1,47 +1,237 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { listReports, type Report } from "@/lib/api";
 import { Sidebar } from "@/components/Sidebar";
 import { ReportViewer } from "@/components/ReportViewer";
 
 export default function Home() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [reports, setReports] = useState<Report[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadReports = async () => {
+      setLoadingReports(true);
+      setReportsError(null);
+
+      try {
+        const data = await listReports();
+        if (isMounted) {
+          setReports(data);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setReportsError(
+            error instanceof Error ? error.message : "Unable to load reports"
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingReports(false);
+        }
+      }
+    };
+
+    loadReports();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const sortedReports = useMemo(() => {
+    const reportsWithTimestamp = reports.map((report) => ({
+      report,
+      timestamp: parseReportTimestamp(report),
+    }));
+
+    return reportsWithTimestamp
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .map(({ report }) => report);
+  }, [reports]);
+
+  const recentReports = useMemo(() => sortedReports.slice(0, 5), [sortedReports]);
+  const recentTickers = useMemo(() => {
+    const seen = new Set<string>();
+    return sortedReports.reduce<string[]>((acc, report) => {
+      if (acc.length >= 5) {
+        return acc;
+      }
+      if (!seen.has(report.ticker)) {
+        seen.add(report.ticker);
+        acc.push(report.ticker);
+      }
+      return acc;
+    }, []);
+  }, [sortedReports]);
 
   return (
-    <div className="app-shell relative flex min-h-screen flex-col md:flex-row">
+    <div className="app-shell relative min-h-screen bg-[var(--bg)] md:flex md:items-stretch">
       <Sidebar
         selectedReportId={selectedReportId}
-        onSelectReport={setSelectedReportId}
+        onSelectReport={(reportId) => {
+          setSelectedReportId(reportId);
+          setIsSidebarOpen(false);
+        }}
+        reports={reports}
+        loading={loadingReports}
+        error={reportsError}
+        searchQuery={searchQuery}
+        onSearchQueryChange={(value) => setSearchQuery(value)}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
       {selectedReportId ? (
         <ReportViewer reportId={selectedReportId} />
       ) : (
-        <main className="flex-1 min-w-0 p-4 md:p-7 lg:p-9">
-          <div className="glass-panel fade-in mx-auto mt-5 max-w-3xl rounded-3xl px-7 py-10 text-center md:px-12 md:py-14">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">
-              TradingAgents Report Center
-            </p>
-            <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-5xl">
-              Select a report to start analysis review
-            </h1>
-            <p className="mx-auto mt-5 max-w-xl text-base leading-7 text-slate-600">
-              Use the left panel to search by ticker and date. Once selected,
-              you will get stage-by-stage tabs and a fully formatted markdown
-              report.
-            </p>
-            <div className="mx-auto mt-7 grid max-w-xl grid-cols-1 gap-3 text-left text-sm text-slate-600 md:grid-cols-3">
-              <div className="rounded-xl border border-[var(--border)] bg-white/75 px-3.5 py-3">
-                <p className="font-semibold text-[var(--accent)]">Search</p>
-                <p className="mt-1 text-xs leading-5">Filter by ticker or report id</p>
+        <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+          <div className="mx-auto w-full max-w-5xl">
+            <div className="glass-panel fade-in rounded-3xl border border-[var(--border)] bg-white/95 px-6 py-8 shadow-sm md:px-8 md:py-10">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.4em] text-[var(--primary)]">
+                    TradingAgents Report Center
+                  </p>
+                  <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                    Content-first research workbench
+                  </h1>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                    Jump straight into the freshest report, search across tickers,
+                    or pick a recent ticker chip to get started.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="group md:hidden"
+                  onClick={() => setIsSidebarOpen(true)}
+                  aria-label="Open sidebar"
+                >
+                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border)] text-slate-700 transition hover:border-[var(--primary)]">
+                    <svg
+                      className="h-5 w-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M4 6h16M4 12h16M4 18h16"
+                      />
+                    </svg>
+                  </span>
+                </button>
               </div>
-              <div className="rounded-xl border border-[var(--border)] bg-white/75 px-3.5 py-3">
-                <p className="font-semibold text-[var(--accent)]">Navigate</p>
-                <p className="mt-1 text-xs leading-5">Jump between analyst stages</p>
+
+              <div className="mt-8 space-y-4">
+                <div>
+                  <label
+                    className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500"
+                    htmlFor="page-search"
+                  >
+                    Search reports
+                  </label>
+                  <div className="relative mt-2">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden
+                      >
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      id="page-search"
+                      type="text"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search by ticker or report id"
+                      className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-4 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Filter by ticker, report id, or use the quick chips below.
+                  </p>
+                </div>
               </div>
-              <div className="rounded-xl border border-[var(--border)] bg-white/75 px-3.5 py-3">
-                <p className="font-semibold text-[var(--accent)]">Review</p>
-                <p className="mt-1 text-xs leading-5">Read full markdown output cleanly</p>
+
+              <div className="mt-10 grid gap-6 md:grid-cols-2">
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      Recent reports
+                    </h2>
+                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      Latest
+                    </span>
+                  </div>
+                  <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50 text-sm shadow-sm">
+                    {recentReports.length === 0 ? (
+                      <li className="px-4 py-4 text-xs font-medium text-slate-500">
+                        Reports will appear here as soon as they are generated.
+                      </li>
+                    ) : (
+                      recentReports.map((report) => (
+                        <li
+                          key={report.id}
+                          className="group flex cursor-pointer items-center justify-between gap-4 px-4 py-3 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                          onClick={() => setSelectedReportId(report.id)}
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {report.ticker}
+                            </p>
+                            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                              {formatReportDate(report)}
+                            </p>
+                          </div>
+                          <span className="text-xs font-semibold text-[var(--primary)]">
+                            Open
+                          </span>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </section>
+
+                <section className="space-y-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+                    Recent tickers
+                  </h2>
+                  <div className="flex flex-wrap gap-2">
+                    {recentTickers.length === 0 ? (
+                      <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-slate-500">
+                        Waiting for reports
+                      </span>
+                    ) : (
+                      recentTickers.map((ticker) => (
+                        <button
+                          key={ticker}
+                          type="button"
+                          className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                          onClick={() => setSearchQuery(ticker)}
+                        >
+                          {ticker}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </section>
               </div>
             </div>
           </div>
@@ -49,4 +239,31 @@ export default function Home() {
       )}
     </div>
   );
+}
+
+function parseReportTimestamp(report: Report): number {
+  if (report.date) {
+    const isoLike = `${report.date}T${report.time ?? "00:00:00"}`;
+    const parsed = Date.parse(isoLike);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  const fallback = Date.parse(report.id);
+  if (!Number.isNaN(fallback)) {
+    return fallback;
+  }
+
+  return Number.NEGATIVE_INFINITY;
+}
+
+function formatReportDate(report: Report) {
+  if (report.date && report.time) {
+    return `${report.date} · ${report.time}`;
+  }
+  if (report.date) {
+    return report.date;
+  }
+  return "Unknown date";
 }

@@ -28,58 +28,133 @@ function LoadingSkeleton({ label }: { label: string }) {
   );
 }
 
+function flattenText(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(flattenText).join("");
+  }
+
+  if (React.isValidElement(node)) {
+    const element = node as React.ReactElement<{ children?: React.ReactNode }>;
+    return flattenText(element.props.children);
+  }
+
+  return "";
+}
+
+function slugify(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\u4e00-\u9fff\s-]/g, "")
+    .replace(/\s+/g, "-");
+}
+
 /**
- * Renders markdown content with GFM table support and prose styling.
- * Memoized to avoid re-renders from parent state changes.
+ * Renders markdown content with reading-mode defaults and optional highlights.
  */
-export const MarkdownContent = React.memo(
-  function MarkdownContent({
-    content,
-    isLoading = false,
-    highlightMode = "single",
-  }: MarkdownContentProps) {
-    const { processedContent, highlights } = useMemo(() => {
-      if (highlightMode === "single") {
-        const parsed = parseHighlights(content);
-        return {
-          processedContent: parsed.cleanMarkdown,
-          highlights: parsed.highlights,
-        };
-      }
-
+export const MarkdownContent = React.memo(function MarkdownContent({
+  content,
+  isLoading = false,
+  highlightMode = "single",
+}: MarkdownContentProps) {
+  const { processedContent, highlights } = useMemo(() => {
+    if (highlightMode === "single") {
+      const parsed = parseHighlights(content);
       return {
-        processedContent: stripHighlightsBlocks(content),
-        highlights: null,
+        processedContent: parsed.cleanMarkdown,
+        highlights: parsed.highlights,
       };
-    }, [content, highlightMode]);
-
-    const hasContent = processedContent.trim().length > 0;
-    const showOverlay = isLoading && hasContent;
-
-    if (isLoading && !hasContent) {
-      return (
-        <LoadingSkeleton label="Loading report content" />
-      );
     }
 
-    return (
-      <div className="relative">
-        {highlights && <HighlightCards highlights={highlights} />}
-        <article
-          className="markdown-content max-w-none"
-          aria-busy={isLoading}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {processedContent}
-          </ReactMarkdown>
-        </article>
+    return {
+      processedContent: stripHighlightsBlocks(content),
+      highlights: null,
+    };
+  }, [content, highlightMode]);
 
-        {showOverlay && (
-          <div className="pointer-events-none absolute inset-0 rounded-xl bg-white p-4 md:p-6">
-            <LoadingSkeleton label="Refreshing report content" />
-          </div>
-        )}
-      </div>
-    );
+  const components = useMemo(
+    () => ({
+      h1: ({ children, ...props }: React.ComponentPropsWithoutRef<"h1">) => {
+        const text = flattenText(children);
+        const id = slugify(text);
+
+        return (
+          <h1 id={id} {...props}>
+            {children}
+          </h1>
+        );
+      },
+      h2: ({ children, ...props }: React.ComponentPropsWithoutRef<"h2">) => {
+        const text = flattenText(children);
+        const id = slugify(text);
+
+        return (
+          <h2 id={id} {...props}>
+            {children}
+          </h2>
+        );
+      },
+      h3: ({ children, ...props }: React.ComponentPropsWithoutRef<"h3">) => {
+        const text = flattenText(children);
+        const id = slugify(text);
+
+        return (
+          <h3 id={id} {...props}>
+            {children}
+          </h3>
+        );
+      },
+      h4: ({ children, ...props }: React.ComponentPropsWithoutRef<"h4">) => {
+        const text = flattenText(children);
+        const id = slugify(text);
+
+        return (
+          <h4 id={id} {...props}>
+            {children}
+          </h4>
+        );
+      },
+      table: ({ children, ...props }: React.ComponentPropsWithoutRef<"table">) => (
+        <div
+          className="overflow-x-auto"
+          tabIndex={0}
+          role="region"
+          aria-label="Scrollable table"
+        >
+          <table {...props}>{children}</table>
+        </div>
+      ),
+    }),
+    []
+  );
+
+  const hasContent = processedContent.trim().length > 0;
+  const showProgressBar = isLoading && hasContent;
+
+  if (isLoading && !hasContent) {
+    return <LoadingSkeleton label="Loading report content" />;
   }
-);
+
+  return (
+    <div className="relative space-y-12">
+      {showProgressBar && (
+        <div
+          className="progress-slide pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-full bg-[var(--primary)]"
+          aria-hidden
+        />
+      )}
+
+      {highlights && <HighlightCards highlights={highlights} />}
+
+      <article className="markdown-content w-full max-w-none" aria-busy={isLoading}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+          {processedContent}
+        </ReactMarkdown>
+      </article>
+    </div>
+  );
+});
