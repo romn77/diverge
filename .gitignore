@@ -15,6 +15,10 @@ downloads/
 eggs/
 .eggs/
 lib/
+!web/frontend/lib/
+web/frontend/lib/*
+!web/frontend/lib/highlightTerminal.ts
+!web/frontend/lib/highlightTerminal.test.ts
 lib64/
 parts/
 sdist/
@@ -217,3 +221,13 @@ __marimo__/
 
 # Cache
 **/data_cache/
+reports/
+results/
+# Vscode
+.vscode/
+.sisyphus/
+
+# Frontend artifacts
+web/frontend/node_modules/
+web/frontend/.next/
+web/frontend/out/
