@@ -19,6 +19,10 @@ lib/
 web/frontend/lib/*
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
+!web/frontend/lib/
+web/frontend/lib/*
+!web/frontend/lib/highlightTerminal.ts
+!web/frontend/lib/highlightTerminal.test.ts
 lib64/
 parts/
 sdist/
@@ -222,6 +226,7 @@ __marimo__/
 # Cache
 **/data_cache/
 reports/
+results/
 results/
 # Vscode
 .vscode/
