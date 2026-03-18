@@ -229,6 +229,24 @@ class BackendMainTests(unittest.TestCase):
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertFalse(providers["xiaohumini"]["enabled"])
 
+    def test_frontend_origins_default_to_localhost_3000(self):
+        with patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(
+                backend_main._get_frontend_origins(),
+                ["http://localhost:3000"],
+            )
+
+    def test_frontend_origins_use_frontend_origin_env(self):
+        with patch.dict(
+            os.environ,
+            {"FRONTEND_ORIGIN": "https://reports.example.com, https://alt.example.com"},
+            clear=True,
+        ):
+            self.assertEqual(
+                backend_main._get_frontend_origins(),
+                ["https://reports.example.com", "https://alt.example.com"],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -18,11 +18,17 @@ A read-only web UI for browsing and viewing trading analysis reports generated b
 
 This will:
 1. Install backend dependencies
-2. Start FastAPI backend on http://localhost:8000
+2. Start FastAPI backend on `http://localhost:${BACKEND_PORT:-8000}`
 3. Install frontend dependencies
-4. Start Next.js frontend on http://localhost:3000
+4. Start Next.js frontend on `http://localhost:${FRONTEND_PORT:-3000}`
 
 Press Ctrl+C to stop both servers.
+
+You can override ports before launch:
+
+```bash
+BACKEND_PORT=8010 FRONTEND_PORT=3010 ./start.sh
+```
 
 ### Option 2: Manual Start
 
@@ -75,3 +81,21 @@ cd frontend && npm run build
 ```
 
 Both servers are ready for production deployment once built.
+
+## Single-Host Docker Compose
+
+From the repository root:
+
+```bash
+cp .env.example .env
+# update FRONTEND_PORT, FRONTEND_ORIGIN, NEXT_PUBLIC_API_BASE_URL and any provider keys you need
+
+./scripts/deploy-single-host.sh
+```
+
+Notes:
+
+- frontend host port is controlled by `FRONTEND_PORT`
+- backend remains on `8000`
+- backend CORS uses `FRONTEND_ORIGIN`
+- frontend API target is compiled from `NEXT_PUBLIC_API_BASE_URL`

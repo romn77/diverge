@@ -150,11 +150,18 @@ tasks_lock = threading.Lock()
 # App
 # ---------------------------------------------------------------------------
 
+
+def _get_frontend_origins() -> list[str]:
+    raw_value = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
+    origins = [origin.strip() for origin in raw_value.split(",") if origin.strip()]
+    return origins or ["http://localhost:3000"]
+
+
 app = FastAPI(title="TradingAgents Report Viewer", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_get_frontend_origins(),
     allow_credentials=False,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
