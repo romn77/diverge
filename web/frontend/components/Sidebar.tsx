@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Report } from "@/lib/api";
+import type { Report, Task } from "@/lib/api";
 
 interface SidebarProps {
   selectedReportId: string | null;
@@ -11,6 +11,11 @@ interface SidebarProps {
   error: string | null;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
+  taskQueue: Task[];
+  activeTaskId: string | null;
+  onSelectTask: (taskId: string) => void;
+  onNewAnalysis: () => void;
+  newAnalysisDisabled: boolean;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -23,17 +28,26 @@ export function Sidebar({
   error,
   searchQuery,
   onSearchQueryChange,
+  taskQueue,
+  activeTaskId,
+  onSelectTask,
+  onNewAnalysis,
+  newAnalysisDisabled,
   isOpen,
   onClose,
 }: SidebarProps) {
-  const [expandedTickers, setExpandedTickers] = useState<Set<string>>(() => new Set());
+  const [tickerOverrides, setTickerOverrides] = useState<Record<string, boolean>>(
+    () => ({})
+  );
   const [isRecentReportsOpen, setIsRecentReportsOpen] = useState(true);
   const [isAllTickersOpen, setIsAllTickersOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   const sortedReports = useMemo(() => {
-    return [...reports].sort((a, b) => parseReportTimestamp(b) - parseReportTimestamp(a));
+    return [...reports].sort(
+      (a, b) => parseReportTimestamp(b) - parseReportTimestamp(a)
+    );
   }, [reports]);
 
   const filteredReports = useMemo(() => {
@@ -62,7 +76,7 @@ export function Sidebar({
   const tickerOrder = useMemo(() => {
     return Object.entries(groupedByTicker)
       .sort(
-        ([aTicker, reportsA], [bTicker, reportsB]) =>
+        ([, reportsA], [, reportsB]) =>
           Math.max(...reportsB.map(parseReportTimestamp)) -
           Math.max(...reportsA.map(parseReportTimestamp))
       )
@@ -71,6 +85,13 @@ export function Sidebar({
 
   const recentReports = useMemo(() => sortedReports.slice(0, 3), [sortedReports]);
   const isMobileDrawerOpen = isMobileViewport && isOpen;
+  const autoExpandedTicker = useMemo(() => {
+    if (loading || reports.length === 0) {
+      return null;
+    }
+
+    return findTickerForReport(reports, selectedReportId) ?? getMostRecentTicker(reports);
+  }, [loading, reports, selectedReportId]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
@@ -80,39 +101,10 @@ export function Sidebar({
 
     syncViewport();
     mediaQuery.addEventListener("change", syncViewport);
-
     return () => {
       mediaQuery.removeEventListener("change", syncViewport);
     };
   }, []);
-
-  useEffect(() => {
-    if (loading || reports.length === 0) {
-      return;
-    }
-
-    const selectedTicker = findTickerForReport(reports, selectedReportId);
-
-    setExpandedTickers((previous) => {
-      if (selectedTicker) {
-        if (previous.size === 0) {
-          return new Set([selectedTicker]);
-        }
-        if (!previous.has(selectedTicker)) {
-          const next = new Set(previous);
-          next.add(selectedTicker);
-          return next;
-        }
-      }
-
-      if (previous.size > 0) {
-        return previous;
-      }
-
-      const recentTicker = getMostRecentTicker(reports);
-      return recentTicker ? new Set([recentTicker]) : previous;
-    });
-  }, [loading, reports, selectedReportId]);
 
   useEffect(() => {
     if (!isMobileDrawerOpen) {
@@ -150,14 +142,12 @@ export function Sidebar({
   }, [isMobileDrawerOpen]);
 
   const toggleTicker = (ticker: string) => {
-    setExpandedTickers((current) => {
-      const next = new Set(current);
-      if (next.has(ticker)) {
-        next.delete(ticker);
-      } else {
-        next.add(ticker);
-      }
-      return next;
+    setTickerOverrides((current) => {
+      const isExpanded = current[ticker] ?? (ticker === autoExpandedTicker);
+      return {
+        ...current,
+        [ticker]: !isExpanded,
+      };
     });
   };
 
@@ -185,97 +175,273 @@ export function Sidebar({
         aria-modal={isMobileDrawerOpen ? true : undefined}
         aria-label="Report navigation"
       >
-      <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-4">
-        <div className="flex items-center gap-2">
-          <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-sm">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
-              <path
-                d="M4 16l4.2-4.2L11 14.6l8-8"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+        <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-4">
+          <div className="flex items-center gap-2">
+            <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-sm">
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
+                <path
+                  d="M4 16l4.2-4.2L11 14.6l8-8"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">TradingAgent</p>
+              <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                Research
+              </p>
+            </div>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-900">TradingAgent</p>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Research</p>
-          </div>
-        </div>
-        <button
-          type="button"
-          className="md:hidden rounded-2xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
-          onClick={onClose}
-          aria-label="Close sidebar"
-        >
-          Close
-        </button>
-      </div>
-
-      <div className="mt-4">
-        <label
-          className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500"
-          htmlFor="sidebar-search"
-        >
-          Filter reports
-        </label>
-        <div className="relative mt-2">
-          <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
-              />
-            </svg>
-          </span>
-          <input
-            ref={searchInputRef}
-            id="sidebar-search"
-            type="text"
-            value={searchQuery}
-            onChange={(event) => onSearchQueryChange(event.target.value)}
-            placeholder="Ticker or report id"
-            className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-12 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:text-[var(--primary)]"
-              onClick={() => onSearchQueryChange("")}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-        <p className="mt-1 text-xs text-slate-500">Filter by ticker or report ID.</p>
-      </div>
-
-      <div className="mt-6 space-y-4">
-        <section>
           <button
             type="button"
-            className="flex w-full items-center justify-between text-left"
-            onClick={() => setIsRecentReportsOpen((current) => !current)}
-            aria-expanded={isRecentReportsOpen}
-            aria-controls="recent-reports-panel"
+            className="md:hidden rounded-2xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+            onClick={onClose}
+            aria-label="Close sidebar"
           >
-            <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-              Recent Reports
-            </h3>
-            <div className="flex items-center gap-2">
+            Close
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className={`interactive-button focus-ring mt-3 flex w-full items-center justify-between rounded-[22px] border px-4 py-2.5 text-left shadow-[0_14px_28px_rgba(182,90,43,0.20)] ${
+            newAnalysisDisabled
+              ? "cursor-not-allowed border-slate-200 bg-slate-200 text-slate-500 shadow-none opacity-90"
+              : "border-[var(--primary)] bg-[var(--primary)] text-white"
+          }`}
+          onClick={onNewAnalysis}
+          disabled={newAnalysisDisabled}
+        >
+          <span>
+            <span
+              className={`block text-[10px] font-semibold uppercase tracking-[0.22em] ${
+                newAnalysisDisabled ? "text-slate-500" : "text-white/80"
+              }`}
+            >
+              Launch
+            </span>
+            <span className="mt-1 block text-[13px] font-semibold">New Analysis</span>
+          </span>
+          <span className="text-[20px] font-medium leading-none">+</span>
+        </button>
+        {newAnalysisDisabled ? (
+          <p className="mt-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+            Queue locked until current tasks clear
+          </p>
+        ) : null}
+
+        {taskQueue.length > 0 ? (
+          <section className="mt-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+                Task Queue
+              </h3>
               <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                {recentReports.length} shown
+                {taskQueue.length} active
               </span>
+            </div>
+            <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm shadow-sm">
+              {taskQueue.map((task) => {
+                const isActiveTask = activeTaskId === task.id;
+                const currentAgent = task.latest_progress?.current_agent;
+                return (
+                  <button
+                    key={task.id}
+                    type="button"
+                    data-active={isActiveTask}
+                    className={`sidebar-task-card flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left transition ${
+                      isActiveTask
+                        ? "border border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900 shadow-[0_10px_20px_rgba(28,56,83,0.10)]"
+                        : "border border-transparent bg-white text-slate-700 hover:bg-white"
+                    }`}
+                    onClick={() => onSelectTask(task.id)}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold">{task.ticker}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                        {task.status}
+                        {currentAgent ? ` · ${currentAgent}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] ${
+                          task.status === "running"
+                            ? "bg-[rgba(28,56,83,0.1)] text-[var(--accent)]"
+                            : "bg-[rgba(182,90,43,0.12)] text-[var(--primary-strong)]"
+                        }`}
+                      >
+                        {task.status}
+                      </span>
+                      <svg
+                        className="h-4 w-4 text-slate-400"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        aria-hidden
+                      >
+                        <path
+                          d="M7 6l5 4-5 4"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
+        <div className="mt-5">
+          <label
+            className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500"
+            htmlFor="sidebar-search"
+          >
+            Filter reports
+          </label>
+          <div className="relative mt-2">
+            <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden
+              >
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
+                />
+              </svg>
+            </span>
+            <input
+              ref={searchInputRef}
+              id="sidebar-search"
+              type="text"
+              value={searchQuery}
+              onChange={(event) => onSearchQueryChange(event.target.value)}
+              placeholder="Ticker or report id"
+              className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-12 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:text-[var(--primary)]"
+                onClick={() => onSearchQueryChange("")}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Filter by ticker or report ID.
+          </p>
+        </div>
+
+        <div className="mt-6 space-y-4">
+          <section>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setIsRecentReportsOpen((current) => !current)}
+              aria-expanded={isRecentReportsOpen}
+              aria-controls="recent-reports-panel"
+            >
+              <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+                Recent Reports
+              </h3>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                  {recentReports.length} shown
+                </span>
+                <svg
+                  className={`h-4 w-4 text-slate-400 transition-transform ${
+                    isRecentReportsOpen ? "rotate-90" : ""
+                  }`}
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    d="M7 6l5 4-5 4"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </button>
+            {isRecentReportsOpen && (
+              <div
+                id="recent-reports-panel"
+                className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm"
+              >
+                {loading ? (
+                  <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                    Loading reports...
+                  </p>
+                ) : recentReports.length === 0 ? (
+                  <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                    No reports yet.
+                  </p>
+                ) : (
+                  recentReports.map((report) => (
+                    <button
+                      key={report.id}
+                      type="button"
+                      className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)]"
+                      onClick={() => onSelectReport(report.id)}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          {report.ticker}
+                        </p>
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                          {formatReportDate(report)}
+                        </p>
+                      </div>
+                      <svg
+                        className="h-4 w-4 text-slate-400"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        stroke="currentColor"
+                        aria-hidden
+                      >
+                        <path
+                          d="M7 6l5 4-5 4"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </section>
+
+          <section>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between text-left"
+              onClick={() => setIsAllTickersOpen((current) => !current)}
+              aria-expanded={isAllTickersOpen}
+              aria-controls="all-tickers-panel"
+            >
+              <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+                All tickers
+              </h3>
               <svg
                 className={`h-4 w-4 text-slate-400 transition-transform ${
-                  isRecentReportsOpen ? "rotate-90" : ""
+                  isAllTickersOpen ? "rotate-90" : ""
                 }`}
                 viewBox="0 0 20 20"
                 fill="none"
@@ -289,168 +455,95 @@ export function Sidebar({
                   strokeLinejoin="round"
                 />
               </svg>
-            </div>
-          </button>
-          {isRecentReportsOpen && (
-            <div
-              id="recent-reports-panel"
-              className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm"
-            >
-              {loading ? (
-                <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                  Loading reports…
-                </p>
-              ) : recentReports.length === 0 ? (
-                <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                  No reports yet.
-                </p>
-              ) : (
-                recentReports.map((report) => (
-                  <button
-                    key={report.id}
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)]"
-                    onClick={() => onSelectReport(report.id)}
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {report.ticker}
-                      </p>
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                        {formatReportDate(report)}
-                      </p>
-                    </div>
-                    <svg
-                      className="h-4 w-4 text-slate-400"
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      aria-hidden
-                    >
-                      <path
-                        d="M7 6l5 4-5 4"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </section>
+            </button>
+            {isAllTickersOpen && (
+              <div id="all-tickers-panel" className="mt-3 space-y-3">
+                {tickerOrder.length === 0 ? (
+                  <p className="text-xs font-semibold text-slate-500">
+                    No tickers match the current filter.
+                  </p>
+                ) : (
+                  tickerOrder.map((ticker) => {
+                    const isExpanded =
+                      tickerOverrides[ticker] ?? (ticker === autoExpandedTicker);
+                    const panelId = `ticker-panel-${ticker}`;
 
-        <section>
-          <button
-            type="button"
-            className="flex w-full items-center justify-between text-left"
-            onClick={() => setIsAllTickersOpen((current) => !current)}
-            aria-expanded={isAllTickersOpen}
-            aria-controls="all-tickers-panel"
-          >
-            <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-              All tickers
-            </h3>
-            <svg
-              className={`h-4 w-4 text-slate-400 transition-transform ${
-                isAllTickersOpen ? "rotate-90" : ""
-              }`}
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              aria-hidden
-            >
-              <path
-                d="M7 6l5 4-5 4"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-          {isAllTickersOpen && (
-            <div id="all-tickers-panel" className="mt-3 space-y-3">
-              {tickerOrder.length === 0 ? (
-                <p className="text-xs font-semibold text-slate-500">
-                  No tickers match the current filter.
-                </p>
-              ) : (
-                tickerOrder.map((ticker) => {
-                  const isExpanded = expandedTickers.has(ticker);
-                  const panelId = `ticker-panel-${ticker}`;
-
-                  return (
-                    <div
-                      key={ticker}
-                      className="rounded-2xl border border-[var(--border)] bg-white/80"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleTicker(ticker)}
-                        className="flex h-[44px] w-full items-center justify-between px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-                        aria-expanded={isExpanded}
-                        aria-controls={panelId}
+                    return (
+                      <div
+                        key={ticker}
+                        className="rounded-2xl border border-[var(--border)] bg-white/80"
                       >
-                        <span>{ticker}</span>
-                        <svg
-                          className={`h-4 w-4 text-slate-500 transition-transform ${
-                            isExpanded ? "rotate-90" : ""
-                          }`}
-                          viewBox="0 0 20 20"
-                          fill="none"
-                          stroke="currentColor"
-                          aria-hidden
+                        <button
+                          type="button"
+                          onClick={() => toggleTicker(ticker)}
+                          className="flex h-[44px] w-full items-center justify-between px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                          aria-expanded={isExpanded}
+                          aria-controls={panelId}
                         >
-                          <path
-                            d="M7 6l5 4-5 4"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          />
-                        </svg>
-                      </button>
-                      {isExpanded && (
-                        <div
-                          id={panelId}
-                          className="flex flex-col gap-1 border-t border-[var(--border)] px-1.5 py-2"
-                        >
-                          {groupedByTicker[ticker].map((report) => (
-                            <button
-                              key={report.id}
-                              type="button"
-                              className={`flex min-h-[44px] w-full items-center justify-between rounded-xl px-3 text-sm transition hover:bg-slate-100 ${
-                                selectedReportId === report.id
-                                  ? "text-[var(--primary)]"
-                                  : "text-slate-600"
-                              }`}
-                              onClick={() => onSelectReport(report.id)}
-                              aria-current={selectedReportId === report.id ? "true" : undefined}
-                            >
-                              <div>
-                                <p className="font-medium">{report.date ?? "Unknown date"}</p>
-                                <p className="text-[11px] text-slate-500">
-                                  {report.time ?? "--:--:--"}
-                                </p>
-                              </div>
-                              <span className="text-[10px] font-semibold uppercase tracking-[0.3em]">
-                                {selectedReportId === report.id ? "Active" : "View"}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          )}
-        </section>
-        {error && (
-          <div className="text-xs font-semibold text-rose-600">{error}</div>
-        )}
-      </div>
+                          <span>{ticker}</span>
+                          <svg
+                            className={`h-4 w-4 text-slate-500 transition-transform ${
+                              isExpanded ? "rotate-90" : ""
+                            }`}
+                            viewBox="0 0 20 20"
+                            fill="none"
+                            stroke="currentColor"
+                            aria-hidden
+                          >
+                            <path
+                              d="M7 6l5 4-5 4"
+                              strokeWidth="1.8"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        </button>
+                        {isExpanded && (
+                          <div
+                            id={panelId}
+                            className="flex flex-col gap-1 border-t border-[var(--border)] px-1.5 py-2"
+                          >
+                            {groupedByTicker[ticker].map((report) => (
+                              <button
+                                key={report.id}
+                                type="button"
+                                className={`flex min-h-[44px] w-full items-center justify-between rounded-xl px-3 text-sm transition hover:bg-slate-100 ${
+                                  selectedReportId === report.id
+                                    ? "text-[var(--primary)]"
+                                    : "text-slate-600"
+                                }`}
+                                onClick={() => onSelectReport(report.id)}
+                                aria-current={
+                                  selectedReportId === report.id ? "true" : undefined
+                                }
+                              >
+                                <div>
+                                  <p className="font-medium">
+                                    {report.date ?? "Unknown date"}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500">
+                                    {report.time ?? "--:--:--"}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.3em]">
+                                  {selectedReportId === report.id ? "Active" : "View"}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </section>
+
+          {error ? (
+            <div className="text-xs font-semibold text-rose-600">{error}</div>
+          ) : null}
+        </div>
       </aside>
     </>
   );

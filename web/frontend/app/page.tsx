@@ -1,22 +1,53 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { listReports, type Report } from "@/lib/api";
+import { startTransition, useEffect, useMemo, useState } from "react";
+import { listReports, listTasks, type Report, type Task } from "@/lib/api";
+import { NewAnalysisForm } from "@/components/NewAnalysisForm";
 import { Sidebar } from "@/components/Sidebar";
 import { ReportViewer } from "@/components/ReportViewer";
+import { TaskProgress } from "@/components/TaskProgress";
 
 export default function Home() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [showNewAnalysis, setShowNewAnalysis] = useState(false);
   const [reports, setReports] = useState<Report[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [queueLocked, setQueueLocked] = useState(false);
   const [loadingReports, setLoadingReports] = useState(true);
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const loadReports = async () => {
+    setLoadingReports(true);
+    setReportsError(null);
+
+    try {
+      const data = await listReports();
+      setReports(data);
+    } catch (error) {
+      setReportsError(
+        error instanceof Error ? error.message : "Unable to load reports"
+      );
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  const loadTasks = async () => {
+    try {
+      const data = await listTasks();
+      setTasks(data);
+    } catch {
+      // Keep the report experience usable even if the queue endpoint is temporarily unavailable.
+    }
+  };
+
   useEffect(() => {
     let isMounted = true;
 
-    const loadReports = async () => {
+    const loadReportsSafely = async () => {
       setLoadingReports(true);
       setReportsError(null);
 
@@ -38,10 +69,35 @@ export default function Home() {
       }
     };
 
-    loadReports();
+    void loadReportsSafely();
 
     return () => {
       isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTasksSafely = async () => {
+      try {
+        const data = await listTasks();
+        if (isMounted) {
+          setTasks(data);
+        }
+      } catch {
+        // Ignore transient queue polling issues in the UI.
+      }
+    };
+
+    void loadTasksSafely();
+    const intervalId = window.setInterval(() => {
+      void loadTasksSafely();
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
     };
   }, []);
 
@@ -57,6 +113,14 @@ export default function Home() {
   }, [reports]);
 
   const recentReports = useMemo(() => sortedReports.slice(0, 5), [sortedReports]);
+  const activeTasks = useMemo(
+    () => tasks.filter((task) => task.status === "pending" || task.status === "running"),
+    [tasks]
+  );
+  const visibleTaskQueue = useMemo(() => activeTasks.slice(0, 2), [activeTasks]);
+  const currentTaskId =
+    activeTaskId ?? (selectedReportId ? null : visibleTaskQueue[0]?.id ?? null);
+  const newAnalysisDisabled = queueLocked || visibleTaskQueue.length >= 2;
   const recentTickers = useMemo(() => {
     const seen = new Set<string>();
     return sortedReports.reduce<string[]>((acc, report) => {
@@ -71,6 +135,16 @@ export default function Home() {
     }, []);
   }, [sortedReports]);
 
+  useEffect(() => {
+    if (visibleTaskQueue.length >= 2) {
+      setQueueLocked(true);
+      return;
+    }
+    if (visibleTaskQueue.length === 0) {
+      setQueueLocked(false);
+    }
+  }, [visibleTaskQueue.length]);
+
   return (
     <div className="app-shell relative min-h-screen bg-[var(--bg)] md:flex md:items-stretch">
       <Sidebar
@@ -84,12 +158,53 @@ export default function Home() {
         error={reportsError}
         searchQuery={searchQuery}
         onSearchQueryChange={(value) => setSearchQuery(value)}
+        taskQueue={visibleTaskQueue}
+        activeTaskId={currentTaskId}
+        onSelectTask={(taskId) => {
+          setSelectedReportId(null);
+          setActiveTaskId(taskId);
+          setIsSidebarOpen(false);
+        }}
+        onNewAnalysis={() => {
+          if (newAnalysisDisabled) {
+            return;
+          }
+          setShowNewAnalysis(true);
+          setSelectedReportId(null);
+          setIsSidebarOpen(false);
+        }}
+        newAnalysisDisabled={newAnalysisDisabled}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
 
+      <NewAnalysisForm
+        isOpen={showNewAnalysis}
+        onClose={() => setShowNewAnalysis(false)}
+        onTaskCreated={(taskId) => {
+          setShowNewAnalysis(false);
+          void loadTasks();
+          startTransition(() => {
+            setSelectedReportId(null);
+            setActiveTaskId(taskId);
+          });
+        }}
+      />
+
       {selectedReportId ? (
         <ReportViewer reportId={selectedReportId} />
+      ) : currentTaskId ? (
+        <TaskProgress
+          key={currentTaskId}
+          taskId={currentTaskId}
+          onTaskComplete={() => {
+            void loadReports();
+            void loadTasks();
+          }}
+          onViewReport={(reportId) => {
+            setSelectedReportId(reportId);
+          }}
+        />
       ) : (
         <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
           <div className="mx-auto w-full max-w-5xl">
@@ -104,7 +219,7 @@ export default function Home() {
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                     Jump straight into the freshest report, search across tickers,
-                    or pick a recent ticker chip to get started.
+                    or launch a brand-new background analysis from the sidebar.
                   </p>
                 </div>
                 <button
