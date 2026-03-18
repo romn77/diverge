@@ -32,6 +32,7 @@ dependencies = [
     "yfinance>=0.2.63",
     "akshare>=1.18.30",
     "tushare>=1.4.24",
+    "httpx[socks]>=0.28.1",
 ]
 
 [project.optional-dependencies]

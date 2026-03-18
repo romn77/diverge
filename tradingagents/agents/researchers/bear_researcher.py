@@ -1,4 +1,7 @@
-from tradingagents.agents.utils.agent_utils import get_language_instruction
+from tradingagents.agents.utils.agent_utils import (
+    get_language_instruction,
+    get_research_note_style_instruction,
+)
 
 
 def create_bear_researcher(llm, memory):
@@ -10,6 +13,7 @@ def create_bear_researcher(llm, memory):
         current_response = investment_debate_state.get("current_response", "")
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
+        style_instruction = get_research_note_style_instruction(output_language)
         market_research_report = state["market_report"]
         sentiment_report = state["sentiment_report"]
         news_report = state["news_report"]
@@ -59,6 +63,7 @@ After your complete analysis, append a structured highlights block:
 }}
 ```
 Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
+{style_instruction}
 {language_instruction}
 """
 

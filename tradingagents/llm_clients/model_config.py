@@ -14,7 +14,7 @@ PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
     ("xai", "xAI", "https://api.x.ai/v1"),
     ("openrouter", "Openrouter", "https://openrouter.ai/api/v1"),
     ("deepseek", "DeepSeek", "https://api.deepseek.com/v1"),
-    ("ollama", "Ollama", "http://localhost:11434/v1"),
+    # ("ollama", "Ollama", "http://localhost:11434/v1"),
     ("xiaohumini", "Xiaohumini", "https://xiaohumini.site/v1"),
 )
 
@@ -64,11 +64,11 @@ QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
         ("DeepSeek V3 Chat - Balanced performance", "deepseek-chat"),
         ("DeepSeek R1 Reasoner - Deep reasoning", "deepseek-reasoner"),
     ),
-    "ollama": (
-        ("Qwen3:latest (8B, local)", "qwen3:latest"),
-        ("GPT-OSS:latest (20B, local)", "gpt-oss:latest"),
-        ("GLM-4.7-Flash:latest (30B, local)", "glm-4.7-flash:latest"),
-    ),
+    # "ollama": (
+    #     ("Qwen3:latest (8B, local)", "qwen3:latest"),
+    #     ("GPT-OSS:latest (20B, local)", "gpt-oss:latest"),
+    #     ("GLM-4.7-Flash:latest (30B, local)", "glm-4.7-flash:latest"),
+    # ),
     "xiaohumini": (
         ("gpt-5.3-chat-latest", "gpt-5.3-chat-latest"),
         ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
@@ -129,11 +129,11 @@ DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
         ("DeepSeek R1 Reasoner - Deep reasoning", "deepseek-reasoner"),
         ("DeepSeek V3 Chat - Balanced performance", "deepseek-chat"),
     ),
-    "ollama": (
-        ("GLM-4.7-Flash:latest (30B, local)", "glm-4.7-flash:latest"),
-        ("GPT-OSS:latest (20B, local)", "gpt-oss:latest"),
-        ("Qwen3:latest (8B, local)", "qwen3:latest"),
-    ),
+    # "ollama": (
+    #     ("GLM-4.7-Flash:latest (30B, local)", "glm-4.7-flash:latest"),
+    #     ("GPT-OSS:latest (20B, local)", "gpt-oss:latest"),
+        # ("Qwen3:latest (8B, local)", "qwen3:latest"),
+    # ),
     "xiaohumini": (
         ("gpt-5.3-chat-latest", "gpt-5.3-chat-latest"),
         ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
@@ -174,7 +174,7 @@ EXTRA_VALIDATED_MODELS: Final[dict[str, tuple[str, ...]]] = {
     ),
     "deepseek": (),
     "openrouter": (),
-    "ollama": (),
+    # "ollama": (),
     "xiaohumini": (),
 }
 
