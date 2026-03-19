@@ -1,4 +1,7 @@
-from tradingagents.agents.utils.agent_utils import get_language_instruction
+from tradingagents.agents.utils.agent_utils import (
+    get_language_instruction,
+    get_research_note_style_instruction,
+)
 
 
 def create_research_manager(llm, memory):
@@ -12,6 +15,7 @@ def create_research_manager(llm, memory):
         investment_debate_state = state["investment_debate_state"]
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
+        style_instruction = get_research_note_style_instruction(output_language)
 
         curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
         past_memories = memory.get_memories(curr_situation, n_matches=2)
@@ -55,6 +59,7 @@ After your complete decision, append a structured highlights block in the follow
 
 Keep the fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language; free-form string values should follow the report language.
 
+{style_instruction}
 {language_instruction}"""
         response = llm.invoke(prompt)
 

@@ -1,4 +1,7 @@
-from tradingagents.agents.utils.agent_utils import get_language_instruction
+from tradingagents.agents.utils.agent_utils import (
+    get_language_instruction,
+    get_research_note_style_instruction,
+)
 from tradingagents.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
     get_risk_debate_mode,
@@ -24,6 +27,7 @@ def create_conservative_debator(llm):
         trader_decision = state["trader_investment_plan"]
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
+        style_instruction = get_research_note_style_instruction(output_language)
         debate_mode = get_risk_debate_mode(risk_debate_state.get("count", 0))
 
         if debate_mode == REBUTTAL_MODE:
@@ -88,6 +92,7 @@ After your complete argument, append a structured highlights block:
 }}
 ```
 Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
+{style_instruction}
 {language_instruction}"""
 
         response = llm.invoke(prompt)

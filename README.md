@@ -174,6 +174,27 @@ An interface will appear showing results as they load, letting you track the age
   <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
+## Single-Host Docker Deployment
+
+The current web stack is best deployed on a single machine because the backend keeps task state in memory and writes reports to the local `reports/` directory.
+
+```bash
+cp .env.example .env
+# update FRONTEND_PORT, FRONTEND_ORIGIN, NEXT_PUBLIC_API_BASE_URL and any provider keys you need
+
+./scripts/deploy-single-host.sh
+```
+
+This starts:
+
+- frontend on `http://localhost:${FRONTEND_PORT}`
+- backend on `http://localhost:8000`
+
+If you deploy to a remote host without a reverse proxy, make sure:
+
+- `FRONTEND_ORIGIN=http://<HOST>:<FRONTEND_PORT>`
+- `NEXT_PUBLIC_API_BASE_URL=http://<HOST>:8000`
+
 ## TradingAgents Package
 
 ### Implementation Details

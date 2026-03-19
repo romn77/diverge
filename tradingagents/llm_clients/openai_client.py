@@ -61,6 +61,11 @@ class OpenAIClient(BaseLLMClient):
             api_key = os.environ.get("XIAOHUMINI_API_KEY")
             if api_key:
                 llm_kwargs["api_key"] = api_key
+        elif self.provider == "deepseek":
+            llm_kwargs["base_url"] = "https://api.deepseek.com/v1"
+            api_key = os.environ.get("DEEPSEEK_API_KEY")
+            if api_key:
+                llm_kwargs["api_key"] = api_key
         elif self.provider == "ollama":
             llm_kwargs["base_url"] = "http://localhost:11434/v1"
             llm_kwargs["api_key"] = "ollama"  # Ollama doesn't require auth

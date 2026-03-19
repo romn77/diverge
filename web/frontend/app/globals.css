@@ -237,6 +237,35 @@ input {
   box-shadow: 0 0 0 1px rgba(22, 34, 51, 0.08) inset, 0 4px 10px rgba(18, 28, 41, 0.08);
 }
 
+.modal-backdrop {
+  backdrop-filter: blur(6px);
+}
+
+.modal-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(255, 248, 238, 0.94) 100%);
+}
+
+.field-shell {
+  box-shadow: 0 14px 28px rgba(18, 28, 41, 0.04);
+}
+
+.stage-card {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+  box-shadow: 0 12px 24px rgba(18, 28, 41, 0.04);
+}
+
+.stage-card[data-state="processing"] {
+  box-shadow: 0 18px 34px rgba(28, 56, 83, 0.12);
+}
+
+.stage-card[data-state="completed"] {
+  box-shadow: 0 18px 34px rgba(46, 118, 83, 0.12);
+}
+
 .fade-in {
   animation: rise-in 320ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
 }

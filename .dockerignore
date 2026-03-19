@@ -1,0 +1,12 @@
+.git
+.venv
+.cache
+.ruff_cache
+.sisyphus
+__pycache__
+*.pyc
+reports
+.env
+web/frontend/.next
+web/frontend/node_modules
+node_modules

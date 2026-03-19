@@ -14,9 +14,20 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /error:\s*string \| null/);
   assert.match(source, /searchQuery:\s*string/);
   assert.match(source, /onSearchQueryChange:\s*\(value:\s*string\)/);
+  assert.match(source, /onNewAnalysis:\s*\(\)\s*=>\s*void/);
+  assert.match(source, /taskQueue:\s*Task\[]/);
+  assert.match(source, /activeTaskId:\s*string \| null/);
+  assert.match(source, /onSelectTask:\s*\(taskId:\s*string\)/);
+  assert.match(source, /newAnalysisDisabled:\s*boolean/);
   assert.match(source, /isOpen:\s*boolean/);
   assert.match(source, /onClose:\s*\(\)\s*=>\s*void/);
   assert.match(source, /Recent Reports/);
+  assert.match(source, /New Analysis/);
+  assert.match(source, /Task Queue/);
+  assert.doesNotMatch(source, /Return to Queue/);
+  assert.doesNotMatch(source, /canReturnToQueue/);
+  assert.doesNotMatch(source, /onReturnToQueue/);
+  assert.match(source, /disabled=\{newAnalysisDisabled\}/);
   assert.match(source, /Filter by ticker or report ID/);
   assert.match(source, /document\.body\.style\.overflow/);
   assert.match(source, /event\.key === "Escape"/);
@@ -33,4 +44,17 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /\{isMobileDrawerOpen && \(/);
   assert.match(source, /"hidden md:flex -translate-x-full md:translate-x-0"/);
   assert.equal(source.includes("&gt;"), false);
+});
+
+test("Sidebar keeps the launch CTA and task cards visually compact", () => {
+  const source = readFileSync(sidebarPath, "utf8");
+
+  assert.match(source, /rounded-\[22px\] border px-4 py-2\.5/);
+  assert.match(source, /block text-\[10px\] font-semibold uppercase tracking-\[0\.22em\]/);
+  assert.match(source, /mt-1 block text-\[13px\] font-semibold/);
+  assert.match(source, /rounded-2xl px-3 py-2\.5 text-left transition/);
+  assert.match(source, /border border-transparent bg-white text-slate-700 hover:bg-white/);
+  assert.match(source, /text-\[13px\] font-semibold/);
+  assert.match(source, /text-\[10px\] uppercase tracking-\[0\.22em\]/);
+  assert.match(source, /rounded-full px-2 py-0\.5 text-\[10px\]/);
 });

@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: web/backend/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./reports:/app/reports
+      - ./.env:/app/.env:ro
+    environment:
+      REPORTS_DIR: /app/reports
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./web/frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:8000}
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped

@@ -36,3 +36,13 @@ def get_language_instruction(language_code: str | None) -> str:
     if (language_code or "en").lower() == "cn":
         return "Write your full response in Simplified Chinese (zh-CN)."
     return "Write your full response in English (en)."
+
+
+def get_research_note_style_instruction(language_code: str | None) -> str:
+    return (
+        "Adopt an institutional financial research note style. "
+        "Use an objective, restrained, evidence-first tone. "
+        "Avoid colloquial debate, emotional language, and tutorial-style explanations. "
+        "When disagreeing with another view, critique the reasoning professionally and analytically. "
+        "Write in well-formed paragraphs with natural transitions instead of many short lines."
+    )
