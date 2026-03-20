@@ -220,6 +220,33 @@ def _scan_categories(report_dir: Path) -> dict[str, list[str]]:
     return categories
 
 
+def _scan_artifacts(report_dir: Path) -> list[dict]:
+    artifacts_dir = report_dir / "artifacts"
+    if not artifacts_dir.is_dir():
+        return []
+
+    results = []
+    thesis_path = artifacts_dir / "thesis.json"
+    if thesis_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(thesis_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = payload.get("thesis_summary")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "thesis",
+                "path": "artifacts/thesis.json",
+                "summary": summary,
+            }
+        )
+
+    return results
+
+
 def _resolve_report_dir(report_id: str) -> Path:
     if report_id == ".tmp":
         raise HTTPException(status_code=404, detail="Report not found")
@@ -465,6 +492,7 @@ def get_structure(report_id: str) -> dict:
         "ticker": ticker,
         "has_complete": (report_dir / "complete_report.md").is_file(),
         "categories": _scan_categories(report_dir),
+        "artifacts": _scan_artifacts(report_dir),
     }
 
 
