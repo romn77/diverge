@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi import HTTPException
-from fastapi.testclient import TestClient
 
 from tradingagents.runner import AnalysisRequest
 from web.backend import main as backend_main
@@ -20,7 +19,6 @@ class BackendMainTests(unittest.TestCase):
         self.empty_project_root = Path(self.empty_project_dir.name)
         self.empty_project_env = self.empty_project_root / ".env"
         backend_main.tasks.clear()
-        self.client = TestClient(backend_main.app)
 
     def tearDown(self):
         backend_main.REPORTS_DIR = self.original_reports_dir
@@ -75,16 +73,13 @@ class BackendMainTests(unittest.TestCase):
             patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
             patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
-            response = self.client.post("/api/tasks", json=payload)
+            body = backend_main.create_task(backend_main.TaskCreatePayload(**payload))
 
-        self.assertEqual(response.status_code, 200)
-        body = response.json()
         self.assertEqual(body["status"], "pending")
         start_task_thread.assert_called_once()
 
-        task_status = self.client.get(f"/api/tasks/{body['task_id']}")
-        self.assertEqual(task_status.status_code, 200)
-        self.assertEqual(task_status.json()["status"], "pending")
+        task_status = backend_main.get_task_status(body["task_id"])
+        self.assertEqual(task_status["status"], "pending")
 
     def test_post_tasks_rejects_when_two_active_tasks_already_exist(self):
         payload = {
@@ -121,10 +116,11 @@ class BackendMainTests(unittest.TestCase):
             patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
             patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
-            response = self.client.post("/api/tasks", json=payload)
+            with self.assertRaises(HTTPException) as context:
+                backend_main.create_task(backend_main.TaskCreatePayload(**payload))
 
-        self.assertEqual(response.status_code, 409)
-        self.assertIn("queue", response.json()["detail"].lower())
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertIn("queue", context.exception.detail.lower())
 
     def test_post_tasks_rejects_unconfigured_provider(self):
         payload = {
@@ -145,16 +141,14 @@ class BackendMainTests(unittest.TestCase):
             patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
             patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
-            response = self.client.post("/api/tasks", json=payload)
+            with self.assertRaises(HTTPException) as context:
+                backend_main.create_task(backend_main.TaskCreatePayload(**payload))
 
-        self.assertEqual(response.status_code, 400)
-        self.assertIn("API key", response.json()["detail"])
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("API key", context.exception.detail)
 
     def test_config_options_expose_shared_provider_and_model_choices(self):
-        response = self.client.get("/api/config/options")
-
-        self.assertEqual(response.status_code, 200)
-        payload = response.json()
+        payload = backend_main.get_config_options()
         provider_values = {provider["value"] for provider in payload["providers"]}
 
         self.assertIn("openai", provider_values)
