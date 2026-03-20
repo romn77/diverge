@@ -23,6 +23,7 @@ from .alpha_vantage import (
 from .alpha_vantage_common import AlphaVantageRateLimitError
 from .cn_market_utils import detect_market, normalize_symbol_for_vendor
 from .config import get_config
+from .fundamentals_normalizer import normalize_fundamentals_payload
 from .tushare import (
     get_stock as get_tushare_stock,
     get_indicator as get_tushare_indicator,
@@ -392,4 +393,30 @@ def route_to_vendor(method: str, *args, **kwargs):
         resolved_args=resolved_args,
         resolved_kwargs=resolved_kwargs,
         vendors=vendors,
+    )
+
+
+def route_to_normalized_fundamentals(
+    ticker: str,
+    curr_date: str | None = None,
+    freq: str = "quarterly",
+):
+    market, _, _ = resolve_market_and_symbol("get_fundamentals", (ticker, curr_date), {})
+    raw_payload = {
+        "fundamentals": route_to_vendor("get_fundamentals", ticker, curr_date),
+        "balance_sheet": route_to_vendor("get_balance_sheet", ticker, freq, curr_date),
+        "cashflow": route_to_vendor("get_cashflow", ticker, freq, curr_date),
+        "income_statement": route_to_vendor(
+            "get_income_statement",
+            ticker,
+            freq,
+            curr_date,
+        ),
+    }
+
+    return normalize_fundamentals_payload(
+        raw_payload,
+        market=market,
+        ticker=ticker,
+        frequency=freq,
     )

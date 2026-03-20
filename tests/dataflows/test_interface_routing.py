@@ -6,6 +6,7 @@ import tradingagents.default_config as default_config
 import tradingagents.dataflows.config as config_module
 import tradingagents.dataflows.interface as interface
 from tradingagents.dataflows.vendor_errors import VendorRetryableError
+from tradingagents.valuation.schemas import ValuationInput
 
 
 class InterfaceRoutingTests(unittest.TestCase):
@@ -105,6 +106,53 @@ class InterfaceRoutingTests(unittest.TestCase):
                 ("tushare", "600519.SH"),
             ],
         )
+
+    def test_route_to_normalized_fundamentals_uses_existing_vendor_routing(self):
+        payloads = {
+            "get_fundamentals": (
+                "# Company Fundamentals for MSFT\n"
+                "# Data retrieved on: 2026-03-20 10:00:00\n\n"
+                "Market Cap: 2500\n"
+                "Shares Outstanding: 100\n"
+            ),
+            "get_balance_sheet": (
+                "# Balance Sheet data for MSFT (annual)\n"
+                "# Data retrieved on: 2026-03-20 10:00:00\n\n"
+                ",2025-12-31\n"
+                "Cash And Cash Equivalents,80\n"
+                "Total Debt,150\n"
+                "Stockholders Equity,600\n"
+            ),
+            "get_cashflow": (
+                "# Cash Flow data for MSFT (annual)\n"
+                "# Data retrieved on: 2026-03-20 10:00:00\n\n"
+                ",2025-12-31\n"
+                "Free Cash Flow,120\n"
+            ),
+            "get_income_statement": (
+                "# Income Statement data for MSFT (annual)\n"
+                "# Data retrieved on: 2026-03-20 10:00:00\n\n"
+                ",2025-12-31\n"
+                "Total Revenue,1000\n"
+                "EBITDA,220\n"
+                "Net Income,120\n"
+            ),
+        }
+
+        def fake_route(method, *args, **kwargs):
+            return payloads[method]
+
+        with patch.object(interface, "route_to_vendor", side_effect=fake_route):
+            result = interface.route_to_normalized_fundamentals(
+                "MSFT",
+                curr_date="2026-03-20",
+                freq="annual",
+            )
+
+        self.assertIsInstance(result, ValuationInput)
+        self.assertEqual(result.ticker, "MSFT")
+        self.assertEqual(result.market.market_cap, 2500.0)
+        self.assertEqual(result.latest_financial.revenue, 1000.0)
 
 
 if __name__ == "__main__":
