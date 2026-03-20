@@ -58,3 +58,12 @@ test("Sidebar keeps the launch CTA and task cards visually compact", () => {
   assert.match(source, /text-\[10px\] uppercase tracking-\[0\.22em\]/);
   assert.match(source, /rounded-full px-2 py-0\.5 text-\[10px\]/);
 });
+
+test("Sidebar exposes a hover-revealed task detail trigger with a read-only form preview", () => {
+  const source = readFileSync(sidebarPath, "utf8");
+
+  assert.doesNotMatch(source, /Request details/);
+  assert.doesNotMatch(source, /Task Request Snapshot/);
+  assert.doesNotMatch(source, /quick_think_llm/);
+  assert.doesNotMatch(source, /deep_think_llm/);
+});

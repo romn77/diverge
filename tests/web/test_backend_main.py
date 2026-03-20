@@ -80,6 +80,9 @@ class BackendMainTests(unittest.TestCase):
 
         task_status = backend_main.get_task_status(body["task_id"])
         self.assertEqual(task_status["status"], "pending")
+        self.assertEqual(task_status["request_payload"]["ticker"], "SPY")
+        self.assertEqual(task_status["request_payload"]["analysts"], ["market", "news"])
+        self.assertEqual(task_status["request_payload"]["llm_provider"], "openai")
 
     def test_post_tasks_rejects_when_two_active_tasks_already_exist(self):
         payload = {

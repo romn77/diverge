@@ -136,6 +136,7 @@ class Task:
             "ticker": self.request.ticker,
             "analysis_date": self.request.analysis_date,
             "analysts": list(self.request.analysts),
+            "request_payload": asdict(self.request),
             "status": self.status,
             "latest_progress": self.latest_progress,
             "report_id": self.report_id,

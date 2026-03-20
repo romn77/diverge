@@ -509,7 +509,7 @@ function buildInitialFormState(configOptions: ConfigOptions): FormState {
   return {
     ticker: "SPY",
     analysis_date: new Date().toISOString().slice(0, 10),
-    analysts: configOptions.analysts.slice(0, 2).map((option) => option.value),
+    analysts: configOptions.analysts.map((option) => option.value),
     research_depth: Number(firstDepth),
     llm_provider: provider,
     quick_think_llm: providerModels?.quick[0]?.value ?? "",

@@ -19,6 +19,13 @@ test("TaskProgress subscribes to backend task snapshots and renders the five-sta
   assert.match(source, /Risk/);
   assert.match(source, /Portfolio/);
   assert.match(source, /View Report/);
+  assert.match(source, /Request details for/);
+  assert.match(source, /Task Request Snapshot/);
+  assert.match(source, /analysis_date/);
+  assert.match(source, /quick_think_llm/);
+  assert.match(source, /deep_think_llm/);
+  assert.match(source, /readOnly/);
+  assert.match(source, /scale-y-\[-1\]/);
   assert.equal(source.includes("max-w-5xl"), false);
   assert.match(source, /w-full space-y-6/);
 });
