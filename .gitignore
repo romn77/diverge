@@ -17,8 +17,10 @@ eggs/
 lib/
 !web/frontend/lib/
 web/frontend/lib/*
+!web/frontend/lib/api.ts
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
+!web/frontend/lib/highlightTerminalSkillAdoption.test.mjs
 lib64/
 parts/
 sdist/

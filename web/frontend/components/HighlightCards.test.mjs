@@ -13,3 +13,10 @@ test("HighlightCards flattens the deck into a linear summary rail", () => {
   assert.equal(source.includes("terminal-console-body"), false);
   assert.equal(source.includes("terminal-panel-header"), false);
 });
+
+test("HighlightCards supports panel span modifiers for richer fundamentals layouts", () => {
+  const source = readFileSync(highlightCardsPath, "utf8");
+
+  assert.match(source, /summary-panel--\$\{panel\.span\}/);
+  assert.match(source, /aria-label=\{panel\.title\}/);
+});

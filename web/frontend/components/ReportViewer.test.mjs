@@ -26,3 +26,11 @@ test("ReportViewer lets the reading surface use the full content column", () => 
   assert.equal(source.includes("reader-frame"), false);
   assert.equal(source.includes("p-3 md:h-screen md:overflow-hidden md:p-4 lg:p-5"), false);
 });
+
+test("ReportViewer decorates reports with thesis tracker and valuation-aware highlights", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /buildThesisSummaryMarkdown/);
+  assert.match(source, /injectValuationMetricsIntoHighlights/);
+  assert.match(source, /artifacts\?\.find\(\(artifact\) => artifact\.type === "thesis"\)/);
+});

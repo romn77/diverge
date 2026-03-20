@@ -204,7 +204,11 @@ export function HighlightCards({ highlights }: HighlightCardsProps) {
 
       <div className="summary-panels">
         {panels.map((panel) => (
-          <section key={panel.key} className="summary-panel" aria-label={panel.title}>
+          <section
+            key={panel.key}
+            className={`summary-panel${panel.span ? ` summary-panel--${panel.span}` : ""}`}
+            aria-label={panel.title}
+          >
             <p className="summary-panel-kicker">{panel.title}</p>
             {renderPanelContent(panel)}
           </section>

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "test": "node --test app/*.test.mjs components/*.test.mjs",
+    "test": "node --test app/*.test.mjs components/*.test.mjs lib/*.test.mjs",
     "start": "next start",
     "lint": "eslint"
   },

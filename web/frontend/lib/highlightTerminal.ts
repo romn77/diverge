@@ -163,6 +163,18 @@ function buildMarketDeck(
 function buildFundamentalsDeck(
   highlights: Extract<ReportHighlights, { category: "fundamentals" }>
 ): HighlightDeck {
+  const valuationMetrics = highlights.metrics.filter((metric) =>
+    /fair value|enterprise value|equity value|net debt|p\/e|p\/b|ev\/ebitda|ev\/sales|fcf yield|wacc|growth rate|terminal growth/i.test(
+      metric.name
+    )
+  );
+  const operatingMetrics = highlights.metrics.filter(
+    (metric) => !valuationMetrics.includes(metric)
+  );
+  const fairValueMetric = valuationMetrics.find((metric) =>
+    /fair value/i.test(metric.name)
+  );
+
   return baseDeck(
     highlights,
     "Fundamental Snapshot",
@@ -173,8 +185,8 @@ function buildFundamentalsDeck(
         value: withFallback(highlights.financial_health, "Unspecified"),
       },
       {
-        label: "Metrics",
-        value: compactCount(highlights.metrics.length),
+        label: fairValueMetric ? "Fair Value" : "Metrics",
+        value: fairValueMetric?.value ?? compactCount(highlights.metrics.length),
       },
       {
         label: "Bias",
@@ -199,13 +211,31 @@ function buildFundamentalsDeck(
       },
       {
         key: "metric-console",
-        title: "Metric Console",
+        title: "Valuation Console",
         panels: [
+          ...(valuationMetrics.length > 0
+            ? [
+                {
+                  key: "valuation-table",
+                  title: "Valuation Table",
+                  variant: "table",
+                  span: "wide",
+                  table: {
+                    columns: ["Metric", "Value", "Read"],
+                    rows: valuationMetrics.map((metric) => ({
+                      label: metric.name,
+                      value: metric.value,
+                      detail: metric.assessment,
+                    })),
+                  },
+                } satisfies TerminalPanel,
+              ]
+            : []),
           {
             key: "metric-deck",
             title: "Metric Deck",
             variant: "matrix",
-            entries: highlights.metrics.map((metric) => ({
+            entries: (operatingMetrics.length > 0 ? operatingMetrics : highlights.metrics).map((metric) => ({
               title: metric.name,
               body: metric.value,
               meta: metric.assessment,
