@@ -7,6 +7,13 @@ from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
 )
+from tradingagents.agents.utils.fundamental_data_tools import (
+    get_valuation_ready_fundamentals,
+)
+from tradingagents.valuation.formatter import (
+    format_valuation_sections,
+    inject_valuation_sections,
+)
 
 
 def create_fundamentals_analyst(llm):
@@ -66,6 +73,16 @@ def create_fundamentals_analyst(llm):
 
         if len(result.tool_calls) == 0:
             report = result.content
+            try:
+                valuation_input = get_valuation_ready_fundamentals(
+                    ticker,
+                    curr_date=current_date,
+                    freq="annual",
+                )
+                valuation_sections = format_valuation_sections(valuation_input)
+                report = inject_valuation_sections(report, valuation_sections)
+            except Exception:
+                report = result.content
 
         return {
             "messages": [result],
