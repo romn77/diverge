@@ -5,6 +5,15 @@ from datetime import date
 
 
 @dataclass(slots=True)
+class AssumptionValue:
+    value: float | int | str | None
+    source: str
+    as_of: date | None = None
+    confidence: str = "medium"
+    fallback_reason: str | None = None
+
+
+@dataclass(slots=True)
 class FinancialSnapshot:
     period: str
     report_date: date | None = None
@@ -25,8 +34,10 @@ class MarketContext:
     currency: str
     share_price: float | None = None
     shares_outstanding: float | None = None
+    diluted_shares_outstanding: float | None = None
     market_cap: float | None = None
     enterprise_value: float | None = None
+    beta: float | None = None
     report_date: date | None = None
 
 
@@ -35,6 +46,7 @@ class ValuationInput:
     ticker: str
     market: MarketContext
     financials: list[FinancialSnapshot] = field(default_factory=list)
+    assumptions: dict[str, AssumptionValue] = field(default_factory=dict)
     instrument_type: str = "operating_company"
     valuation_applicability: str = "applicable"
     valuation_applicability_reason: str | None = None

@@ -1,9 +1,9 @@
 from langchain_core.tools import tool
 from typing import Annotated
 from tradingagents.dataflows.interface import (
-    route_to_normalized_fundamentals,
     route_to_vendor,
 )
+from tradingagents.dataflows.valuation_inputs import route_to_valuation_input
 
 
 @tool
@@ -86,4 +86,4 @@ def get_valuation_ready_fundamentals(
     freq: str = "annual",
 ):
     """Return normalized fundamentals for valuation modules without changing tool behavior."""
-    return route_to_normalized_fundamentals(ticker, curr_date=curr_date, freq=freq)
+    return route_to_valuation_input(ticker, curr_date=curr_date, freq=freq)

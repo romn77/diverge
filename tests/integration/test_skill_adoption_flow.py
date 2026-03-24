@@ -10,6 +10,7 @@ from tradingagents.agents.analysts.fundamentals_analyst import (
     create_fundamentals_analyst,
 )
 from tradingagents.runner import save_report_to_disk
+from tradingagents.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
 
 class _FakeLLM:
@@ -36,49 +37,36 @@ class _FakeLLM:
         return RunnableLambda(_invoke)
 
 
-def _vendor_payloads():
-    return {
-        "get_fundamentals": (
-            "# Company Fundamentals for MSFT\n"
-            "# Data retrieved on: 2026-03-20 10:00:00\n\n"
-            "Market Cap: 2500\n"
-            "Shares Outstanding: 100\n"
-            "Free Cash Flow: 120\n"
-            "EBITDA: 220\n"
-            "Net Income: 120\n"
+def _valuation_input() -> ValuationInput:
+    return ValuationInput(
+        ticker="MSFT",
+        market=MarketContext(
+            market="us",
+            currency="USD",
+            share_price=25.0,
+            shares_outstanding=100.0,
+            market_cap=2_500.0,
         ),
-        "get_balance_sheet": (
-            "# Balance Sheet data for MSFT (annual)\n"
-            "# Data retrieved on: 2026-03-20 10:00:00\n\n"
-            ",2025-12-31\n"
-            "Cash And Cash Equivalents,80\n"
-            "Total Debt,150\n"
-            "Stockholders Equity,600\n"
-            "Ordinary Shares Number,100\n"
-        ),
-        "get_cashflow": (
-            "# Cash Flow data for MSFT (annual)\n"
-            "# Data retrieved on: 2026-03-20 10:00:00\n\n"
-            ",2025-12-31\n"
-            "Free Cash Flow,120\n"
-        ),
-        "get_income_statement": (
-            "# Income Statement data for MSFT (annual)\n"
-            "# Data retrieved on: 2026-03-20 10:00:00\n\n"
-            ",2025-12-31\n"
-            "Total Revenue,1000\n"
-            "EBITDA,220\n"
-            "Net Income,120\n"
-        ),
-    }
+        financials=[
+            FinancialSnapshot(
+                period="FY2025",
+                revenue=1_000.0,
+                ebitda=220.0,
+                net_income=120.0,
+                free_cash_flow=120.0,
+                cash_and_equivalents=80.0,
+                total_debt=150.0,
+                shareholders_equity=600.0,
+            )
+        ],
+    )
 
 
-@patch("tradingagents.dataflows.interface.route_to_vendor")
+@patch("tradingagents.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
 def test_skill_adoption_flow_generates_valuation_report_and_artifacts(
-    mock_route_to_vendor,
+    mock_get_valuation_ready_fundamentals,
 ):
-    payloads = _vendor_payloads()
-    mock_route_to_vendor.side_effect = lambda method, *args, **kwargs: payloads[method]
+    mock_get_valuation_ready_fundamentals.return_value = _valuation_input()
 
     llm = _FakeLLM()
     node = create_fundamentals_analyst(llm)

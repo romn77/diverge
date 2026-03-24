@@ -2,8 +2,13 @@ from datetime import date
 
 import pytest
 
-from tradingagents.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
-from tradingagents.valuation.dcf import calculate_dcf
+from tradingagents.valuation.schemas import (
+    AssumptionValue,
+    FinancialSnapshot,
+    MarketContext,
+    ValuationInput,
+)
+from tradingagents.valuation.dcf import calculate_dcf, calculate_dcf_cases
 
 
 def _build_input(shares_outstanding: float | None = 100.0) -> ValuationInput:
@@ -83,3 +88,67 @@ def test_calculate_dcf_bridges_enterprise_value_to_equity_value_with_net_debt():
 
     assert result.net_debt == pytest.approx(150.0)
     assert result.equity_value == pytest.approx(result.enterprise_value - 150.0)
+
+
+def test_calculate_dcf_uses_multi_stage_growth_and_dynamic_cost_of_equity():
+    valuation_input = ValuationInput(
+        ticker="ACME",
+        market=MarketContext(
+            market="us",
+            currency="USD",
+            shares_outstanding=100,
+            market_cap=5_000,
+            beta=1.2,
+        ),
+        financials=[
+            FinancialSnapshot(
+                period="FY2023",
+                report_date=date(2023, 12, 31),
+                free_cash_flow=90,
+                cash_and_equivalents=50,
+                total_debt=200,
+            ),
+            FinancialSnapshot(
+                period="FY2024",
+                report_date=date(2024, 12, 31),
+                free_cash_flow=100,
+                cash_and_equivalents=50,
+                total_debt=200,
+            ),
+            FinancialSnapshot(
+                period="FY2025",
+                report_date=date(2025, 12, 31),
+                free_cash_flow=110,
+                cash_and_equivalents=50,
+                total_debt=200,
+            ),
+        ],
+        assumptions={
+            "short_term_growth": AssumptionValue(value=0.12, source="provider"),
+            "terminal_growth_rate": AssumptionValue(
+                value=0.03,
+                source="internal-default",
+            ),
+            "risk_free_rate": AssumptionValue(value=0.04, source="provider"),
+            "equity_risk_premium": AssumptionValue(
+                value=0.05,
+                source="internal-config",
+            ),
+            "cost_of_debt": AssumptionValue(value=0.05, source="internal-config"),
+            "tax_rate": AssumptionValue(value=0.25, source="internal-config"),
+        },
+    )
+
+    result = calculate_dcf(valuation_input, high_growth_years=3, fade_years=2)
+
+    assert result.assumptions["wacc"] > result.assumptions["terminal_growth_rate"]
+    assert len(result.forecast_cash_flows) == 5
+    assert result.fair_value_per_share is not None
+
+
+def test_calculate_dcf_cases_returns_bear_base_and_bull_in_value_order():
+    cases = calculate_dcf_cases(_build_input())
+
+    assert list(cases.keys()) == ["bear", "base", "bull"]
+    assert cases["bear"].fair_value_per_share < cases["base"].fair_value_per_share
+    assert cases["base"].fair_value_per_share < cases["bull"].fair_value_per_share
