@@ -169,8 +169,14 @@ function buildFundamentalsDeck(
   const dcfApplicabilityReasonMetric = highlights.metrics.find((metric) =>
     /dcf applicability reason/i.test(metric.name)
   );
+  const baseCaseMetric = highlights.metrics.find((metric) =>
+    /base case/i.test(metric.name)
+  );
+  const peg1YMetric = highlights.metrics.find((metric) =>
+    /^peg \(1y(?: forward)?\)$/i.test(metric.name)
+  );
   const valuationMetrics = highlights.metrics.filter((metric) =>
-    /dcf applicability|fair value|enterprise value|equity value|net debt|p\/e|p\/b|ev\/ebitda|ev\/sales|fcf yield|wacc|growth rate|terminal growth/i.test(
+    /dcf applicability|fair value|enterprise value|equity value|net debt|p\/e|peg|p\/b|ev\/ebitda|ev\/sales|fcf yield|wacc|growth rate|terminal growth|Bull Case|Base Case|Bear Case/i.test(
       metric.name
     )
   );
@@ -191,15 +197,12 @@ function buildFundamentalsDeck(
         value: withFallback(highlights.financial_health, "Unspecified"),
       },
       {
-        label: dcfApplicabilityMetric ? "DCF" : fairValueMetric ? "Fair Value" : "Metrics",
-        value:
-          dcfApplicabilityMetric?.value ??
-          fairValueMetric?.value ??
-          compactCount(highlights.metrics.length),
+        label: "Base Case Fair Value",
+        value: baseCaseMetric?.value ?? fairValueMetric?.value ?? "N/A",
       },
       {
-        label: "Bias",
-        value: highlights.signal,
+        label: "PEG (1Y)",
+        value: peg1YMetric?.value ?? "N/A",
       },
     ],
     [
