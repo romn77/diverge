@@ -163,8 +163,14 @@ function buildMarketDeck(
 function buildFundamentalsDeck(
   highlights: Extract<ReportHighlights, { category: "fundamentals" }>
 ): HighlightDeck {
+  const dcfApplicabilityMetric = highlights.metrics.find((metric) =>
+    /dcf applicability$/i.test(metric.name)
+  );
+  const dcfApplicabilityReasonMetric = highlights.metrics.find((metric) =>
+    /dcf applicability reason/i.test(metric.name)
+  );
   const valuationMetrics = highlights.metrics.filter((metric) =>
-    /fair value|enterprise value|equity value|net debt|p\/e|p\/b|ev\/ebitda|ev\/sales|fcf yield|wacc|growth rate|terminal growth/i.test(
+    /dcf applicability|fair value|enterprise value|equity value|net debt|p\/e|p\/b|ev\/ebitda|ev\/sales|fcf yield|wacc|growth rate|terminal growth/i.test(
       metric.name
     )
   );
@@ -185,8 +191,11 @@ function buildFundamentalsDeck(
         value: withFallback(highlights.financial_health, "Unspecified"),
       },
       {
-        label: fairValueMetric ? "Fair Value" : "Metrics",
-        value: fairValueMetric?.value ?? compactCount(highlights.metrics.length),
+        label: dcfApplicabilityMetric ? "DCF" : fairValueMetric ? "Fair Value" : "Metrics",
+        value:
+          dcfApplicabilityMetric?.value ??
+          fairValueMetric?.value ??
+          compactCount(highlights.metrics.length),
       },
       {
         label: "Bias",
@@ -207,6 +216,18 @@ function buildFundamentalsDeck(
               "No explicit financial health tag was provided."
             ),
           },
+          ...(dcfApplicabilityMetric
+            ? [
+                {
+                  key: "dcf-applicability",
+                  title: "DCF Status",
+                  variant: "story",
+                  summary: dcfApplicabilityReasonMetric
+                    ? `${dcfApplicabilityMetric.value}. ${dcfApplicabilityReasonMetric.value}`
+                    : dcfApplicabilityMetric.value,
+                } satisfies TerminalPanel,
+              ]
+            : []),
         ],
       },
       {

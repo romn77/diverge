@@ -17,6 +17,11 @@ interface TaskProgressProps {
 }
 
 const STAGES = ["Analysts", "Research", "Trading", "Risk", "Portfolio"] as const;
+const RESEARCH_DEPTH_LABELS: Record<number, string> = {
+  1: "Shallow",
+  3: "Medium",
+  5: "Deep",
+};
 
 export function TaskProgress({
   taskId,
@@ -319,7 +324,6 @@ function TaskStatusBadge({ status }: { status: Task["status"] }) {
 function TaskRequestDetails({ task }: { task: Task }) {
   const request = task.request_payload;
   const fallbackRequest = {
-    ticker: task.ticker,
     analysis_date: task.analysis_date || "unknown",
     analysts: task.analysts,
     research_depth: null,
@@ -327,13 +331,11 @@ function TaskRequestDetails({ task }: { task: Task }) {
     quick_think_llm: "unknown",
     deep_think_llm: "unknown",
     output_language: "unknown",
-    google_thinking_level: null,
-    openai_reasoning_effort: null,
   };
   const details = request
     ? {
         ...request,
-        research_depth: String(request.research_depth),
+        research_depth: formatResearchDepth(request.research_depth),
       }
     : {
         ...fallbackRequest,
@@ -342,17 +344,7 @@ function TaskRequestDetails({ task }: { task: Task }) {
 
   return (
     <div className="grid gap-4">
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[rgba(182,90,43,0.75)]">
-          Task Request Snapshot
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Read-only form preview for this queued task.
-        </p>
-      </div>
-
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <TaskRequestField label="Ticker" value={details.ticker} name="ticker" readOnly />
         <TaskRequestField
           label="Analysis Date"
           value={details.analysis_date}
@@ -384,36 +376,7 @@ function TaskRequestDetails({ task }: { task: Task }) {
           name="deep_think_llm"
           readOnly
         />
-        <TaskRequestField
-          label="OpenAI Reasoning"
-          value={details.openai_reasoning_effort ?? "N/A"}
-          name="openai_reasoning_effort"
-          readOnly
-        />
-        <TaskRequestField
-          label="Google Thinking"
-          value={details.google_thinking_level ?? "N/A"}
-          name="google_thinking_level"
-          readOnly
-        />
       </div>
-
-      <fieldset className="rounded-2xl border border-[var(--border)] bg-white/72 px-3 py-3">
-        <legend className="px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          Analysts
-        </legend>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {details.analysts.map((analyst) => (
-            <label
-              key={analyst}
-              className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-600"
-            >
-              <input type="checkbox" checked disabled readOnly />
-              <span>{analyst}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
     </div>
   );
 }
@@ -468,4 +431,8 @@ function TaskRequestSelect({
       </select>
     </label>
   );
+}
+
+function formatResearchDepth(value: number): string {
+  return RESEARCH_DEPTH_LABELS[value] ?? "Custom";
 }

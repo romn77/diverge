@@ -84,6 +84,41 @@ function extractTableMetrics(
     .filter((metric) => metric.name && metric.value);
 }
 
+function extractDcfApplicabilityMetrics(
+  markdown: string
+): Array<{ name: string; value: string; assessment: string }> {
+  const section = extractSection(markdown, "DCF Applicability");
+  if (!section) {
+    return [];
+  }
+
+  const lines = section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const metrics: Array<{ name: string; value: string; assessment: string }> = [];
+
+  for (const line of lines) {
+    if (line.startsWith("Status:")) {
+      metrics.push({
+        name: "DCF Applicability",
+        value: line.replace(/^Status:\s*/, "").trim(),
+        assessment: "Valuation applicability state",
+      });
+    }
+    if (line.startsWith("Reason:")) {
+      metrics.push({
+        name: "DCF Applicability Reason",
+        value: line.replace(/^Reason:\s*/, "").trim(),
+        assessment: "Applicability rationale",
+      });
+    }
+  }
+
+  return metrics;
+}
+
 function injectValuationMetricsIntoHighlights(markdown: string): string {
   const match = markdown.match(HIGHLIGHTS_BLOCK_RE);
   if (!match?.[1]) {
@@ -100,6 +135,7 @@ function injectValuationMetricsIntoHighlights(markdown: string): string {
     }
 
     const valuationMetrics = [
+      ...extractDcfApplicabilityMetrics(markdown),
       ...extractTableMetrics(markdown, "DCF Summary", "Intrinsic value output"),
       ...extractTableMetrics(markdown, "Multiples Summary", "Relative valuation output"),
       ...extractTableMetrics(markdown, "Valuation Assumptions", "DCF input assumption"),
@@ -169,7 +205,6 @@ function decorateReportContent(
   const shouldInjectThesis =
     options.thesisArtifact &&
     (options.selectedTab === "complete" ||
-      options.selectedFile === "fundamentals" ||
       options.selectedFile === "manager");
 
   if (shouldInjectThesis) {

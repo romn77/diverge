@@ -14,4 +14,6 @@ test("highlightTerminal builds a valuation-focused fundamentals console", () => 
   assert.match(source, /Valuation Console/);
   assert.match(source, /valuation-table/);
   assert.match(source, /Fair Value/);
+  assert.match(source, /DCF Status/);
+  assert.match(source, /dcf-applicability/);
 });

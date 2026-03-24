@@ -32,5 +32,9 @@ test("ReportViewer decorates reports with thesis tracker and valuation-aware hig
 
   assert.match(source, /buildThesisSummaryMarkdown/);
   assert.match(source, /injectValuationMetricsIntoHighlights/);
+  assert.match(source, /extractDcfApplicabilityMetrics/);
+  assert.match(source, /"DCF Applicability"/);
   assert.match(source, /artifacts\?\.find\(\(artifact\) => artifact\.type === "thesis"\)/);
+  assert.doesNotMatch(source, /selectedFile === "fundamentals"/);
+  assert.match(source, /selectedFile === "manager"/);
 });
