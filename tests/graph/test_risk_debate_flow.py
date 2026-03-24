@@ -23,7 +23,7 @@ class RiskDebateFlowTests(unittest.TestCase):
             {"risk_debate_state": {"count": 6, "latest_speaker": "Neutral"}}
         )
 
-        self.assertEqual(next_step, "Risk Judge")
+        self.assertEqual(next_step, "Portfolio Manager")
 
     @patch("tradingagents.graph.trading_graph.GraphSetup")
     @patch("tradingagents.graph.trading_graph.SignalProcessor")

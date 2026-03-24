@@ -1,8 +1,10 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
 from tradingagents.agents.utils.agent_utils import (
-    get_news,
+    build_instrument_context,
     get_global_news,
     get_language_instruction,
+    get_news,
     get_research_note_style_instruction,
 )
 from tradingagents.research.earnings import (
@@ -15,6 +17,7 @@ def create_news_analyst(llm):
     def news_analyst_node(state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
+        instrument_context = build_instrument_context(ticker)
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
@@ -30,7 +33,7 @@ def create_news_analyst(llm):
         ]
 
         system_message = (
-            "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(query, start_date, end_date) for company-specific or targeted news searches, and get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."
+            "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(query, start_date, end_date) for company-specific or targeted news searches, and get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + f"\n\n{earnings_context.prompt_instruction}"
             + """ After the markdown table, append exactly one structured highlights block in this exact format:
@@ -68,7 +71,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
                     " You have access to the following tools: {tool_names}.\n{system_message}"
                     "\n{style_instruction}"
                     "\n{language_instruction}"
-                    "For your reference, the current date is {current_date}. We are looking at the company {ticker}",
+                    "For your reference, the current date is {current_date}. {instrument_context}",
                 ),
                 MessagesPlaceholder(variable_name="messages"),
             ]
@@ -77,9 +80,9 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
         prompt = prompt.partial(system_message=system_message)
         prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
         prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(ticker=ticker)
         prompt = prompt.partial(style_instruction=style_instruction)
         prompt = prompt.partial(language_instruction=language_instruction)
+        prompt = prompt.partial(instrument_context=instrument_context)
 
         chain = prompt | llm.bind_tools(tools)
         result = chain.invoke(state["messages"])

@@ -1,9 +1,11 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+
 from tradingagents.agents.utils.agent_utils import (
-    get_stock_data,
+    build_instrument_context,
     get_indicators,
     get_language_instruction,
     get_research_note_style_instruction,
+    get_stock_data,
 )
 
 
@@ -12,7 +14,7 @@ def create_market_analyst(llm):
     def market_analyst_node(state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
-        company_name = state["company_of_interest"]
+        instrument_context = build_instrument_context(ticker)
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
@@ -47,7 +49,7 @@ Volatility Indicators:
 Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
-- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Do not simply state the trends are mixed, provide detailed and finegrained analysis and insights that may help traders make decisions."""
+- Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. After the markdown table, also append a structured highlights block in the following exact format (replace values with your actual analysis findings). This block MUST use the json-highlights code fence:
 
 ```json-highlights
@@ -84,7 +86,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
                     " You have access to the following tools: {tool_names}.\n{system_message}"
                     "\n{style_instruction}"
                     "\n{language_instruction}"
-                    "For your reference, the current date is {current_date}. The company we want to look at is {ticker}",
+                    "For your reference, the current date is {current_date}. {instrument_context}",
                 ),
                 MessagesPlaceholder(variable_name="messages"),
             ]
@@ -93,9 +95,9 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
         prompt = prompt.partial(system_message=system_message)
         prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
         prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(ticker=ticker)
         prompt = prompt.partial(style_instruction=style_instruction)
         prompt = prompt.partial(language_instruction=language_instruction)
+        prompt = prompt.partial(instrument_context=instrument_context)
 
         chain = prompt | llm.bind_tools(tools)
 

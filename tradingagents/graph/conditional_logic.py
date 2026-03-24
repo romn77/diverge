@@ -63,7 +63,7 @@ class ConditionalLogic:
         """Determine if risk analysis should continue."""
         risk_turn_limit = get_total_risk_turn_limit(self.max_risk_discuss_rounds)
         if state["risk_debate_state"]["count"] >= risk_turn_limit:
-            return "Risk Judge"
+            return "Portfolio Manager"
         if state["risk_debate_state"]["latest_speaker"].startswith("Aggressive"):
             return "Conservative Analyst"
         if state["risk_debate_state"]["latest_speaker"].startswith("Conservative"):

@@ -5,8 +5,8 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from tradingagents.agents.analysts.fundamentals_analyst import create_fundamentals_analyst
+from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
 from tradingagents.agents.managers.research_manager import create_research_manager
-from tradingagents.agents.managers.risk_manager import create_risk_manager
 from tradingagents.agents.researchers.bear_researcher import create_bear_researcher
 from tradingagents.agents.researchers.bull_researcher import create_bull_researcher
 from tradingagents.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
@@ -114,7 +114,11 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             ("aggressive", create_aggressive_debator(_FakeLLM()), _base_state()),
             ("conservative", create_conservative_debator(_FakeLLM()), _base_state()),
             ("neutral", create_neutral_debator(_FakeLLM()), _base_state()),
-            ("risk_manager", create_risk_manager(_FakeLLM(), _FakeMemory()), _base_state()),
+            (
+                "portfolio_manager",
+                create_portfolio_manager(_FakeLLM(), _FakeMemory()),
+                _base_state(),
+            ),
         ]
 
         for name, node, state in cases:
