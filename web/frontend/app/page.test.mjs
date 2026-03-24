@@ -17,16 +17,27 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /\[isSidebarOpen,\s*setIsSidebarOpen\]/);
   assert.match(source, /\[activeTaskId,\s*setActiveTaskId\]/);
   assert.match(source, /\[showNewAnalysis,\s*setShowNewAnalysis\]/);
+  assert.match(source, /\[showNewScreener,\s*setShowNewScreener\]/);
+  assert.match(source, /\[activeScreenerTaskId,\s*setActiveScreenerTaskId\]/);
+  assert.match(source, /\[selectedScreenerRunId,\s*setSelectedScreenerRunId\]/);
+  assert.match(source, /\[screenerRuns,\s*setScreenerRuns\]/);
+  assert.match(source, /\[screenerTasks,\s*setScreenerTasks\]/);
   assert.match(source, /Recent reports/i);
   assert.match(source, /reports=\{reports\}/);
   assert.match(source, /isOpen=\{isSidebarOpen\}/);
   assert.match(source, /onClose=\{\(\) => setIsSidebarOpen\(false\)\}/);
   assert.match(source, /taskQueue=\{visibleTaskQueue\}/);
   assert.match(source, /newAnalysisDisabled=\{newAnalysisDisabled\}/);
+  assert.match(source, /screenerRuns=\{screenerRuns\}/);
+  assert.match(source, /screenerTaskQueue=\{visibleScreenerTaskQueue\}/);
+  assert.match(source, /<NewScreenerForm/);
+  assert.match(source, /<ScreenerTaskProgress/);
+  assert.match(source, /<ScreenerResultsViewer/);
   assert.doesNotMatch(source, /canReturnToQueue=\{/);
   assert.doesNotMatch(source, /onReturnToQueue=\{\(\) => \{/);
   assert.match(source, /<NewAnalysisForm/);
   assert.match(source, /<TaskProgress/);
+  assert.match(source, /Launch Screener/);
 });
 
 test("page uses a desktop row layout so sidebar and content stay aligned", () => {

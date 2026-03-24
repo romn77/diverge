@@ -175,6 +175,35 @@ An interface will appear showing results as they load, letting you track the age
   <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
 </p>
 
+### Screener CLI
+
+TradingAgents also ships with a daily screener that builds a ranked candidate pool without invoking LLM analysis during screening.
+
+- CN screening requires `TUSHARE_TOKEN`
+- US screening requires a manifest path via `--us-manifest`
+- LLM analysis happens after screener output, not during screener execution
+
+Example:
+
+```bash
+tradingagents screen \
+  --date 2026-03-24 \
+  --markets cn,us \
+  --top-k 100 \
+  --limit-per-market 500 \
+  --us-manifest /absolute/path/to/us_manifest.csv \
+  --output-dir ./results/screener
+```
+
+Artifacts are written to `results/screener/<YYYYMMDD_HHMMSS>/` and include:
+
+- `run_meta.json`
+- `universe.csv`
+- `features.csv`
+- `filtered_out.csv`
+- `candidates.csv`
+- `llm_pool.json`
+
 ## Single-Host Docker Deployment
 
 The current web stack is best deployed on a single machine because the backend keeps task state in memory and writes reports to the local `reports/` directory.

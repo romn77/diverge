@@ -16,14 +16,25 @@ class BackendMainTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.empty_project_dir = tempfile.TemporaryDirectory()
         self.original_reports_dir = backend_main.REPORTS_DIR
+        self.original_screener_results_dir = getattr(
+            backend_main,
+            "SCREENER_RESULTS_DIR",
+            Path(self.temp_dir.name) / "screener",
+        )
         backend_main.REPORTS_DIR = Path(self.temp_dir.name)
+        backend_main.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "screener"
         self.empty_project_root = Path(self.empty_project_dir.name)
         self.empty_project_env = self.empty_project_root / ".env"
         backend_main.tasks.clear()
+        if hasattr(backend_main, "screener_tasks"):
+            backend_main.screener_tasks.clear()
 
     def tearDown(self):
         backend_main.REPORTS_DIR = self.original_reports_dir
+        backend_main.SCREENER_RESULTS_DIR = self.original_screener_results_dir
         backend_main.tasks.clear()
+        if hasattr(backend_main, "screener_tasks"):
+            backend_main.screener_tasks.clear()
         self.empty_project_dir.cleanup()
         self.temp_dir.cleanup()
 
@@ -196,6 +207,115 @@ class BackendMainTests(unittest.TestCase):
 
         self.assertEqual(context.exception.status_code, 409)
         self.assertIn("queue", context.exception.detail.lower())
+
+    def test_post_screener_tasks_creates_a_pending_task(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+            "limit_per_market": 50,
+        }
+
+        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+            body = backend_main.create_screener_task(
+                backend_main.ScreenTaskCreatePayload(**payload)
+            )
+
+        self.assertEqual(body["status"], "pending")
+        start_task_thread.assert_called_once()
+
+        task_status = backend_main.get_screener_task_status(body["task_id"])
+        self.assertEqual(task_status["status"], "pending")
+        self.assertEqual(task_status["request_payload"]["markets"], ["cn"])
+
+    def test_post_screener_tasks_rejects_us_market_without_backend_manifest(self):
+        payload = {
+            "markets": ["us"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+            "limit_per_market": 50,
+        }
+
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(HTTPException) as context:
+                backend_main.create_screener_task(
+                    backend_main.ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("SCREEN_US_MANIFEST_PATH", context.exception.detail)
+
+    def test_post_screener_tasks_rejects_when_combined_queue_limit_is_full(self):
+        analysis_request = AnalysisRequest(
+            ticker="SPY",
+            analysis_date="2026-03-13",
+            analysts=["market", "news"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+            google_thinking_level=None,
+        )
+        backend_main.tasks["task-one"] = backend_main.Task(
+            id="task-one",
+            request=analysis_request,
+            status="running",
+        )
+        backend_main.tasks["task-two"] = backend_main.Task(
+            id="task-two",
+            request=analysis_request,
+            status="pending",
+        )
+
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+            "limit_per_market": 50,
+        }
+        with self.assertRaises(HTTPException) as context:
+            backend_main.create_screener_task(
+                backend_main.ScreenTaskCreatePayload(**payload)
+            )
+
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertIn("queue", context.exception.detail.lower())
+
+    def test_list_screener_runs_reads_run_meta_files(self):
+        run_dir = backend_main.SCREENER_RESULTS_DIR / "20260324_214530"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "run_meta.json").write_text(
+            json.dumps(
+                {
+                    "run_timestamp": "20260324_214530",
+                    "as_of_date": "2026-03-24",
+                    "config": {"markets": ["cn", "us"]},
+                    "candidate_count": 12,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        runs = backend_main.list_screener_runs()
+
+        self.assertEqual(runs[0]["id"], "20260324_214530")
+        self.assertEqual(runs[0]["markets"], ["cn", "us"])
+        self.assertEqual(runs[0]["candidate_count"], 12)
+
+    def test_get_screener_run_candidates_reads_candidates_csv(self):
+        run_dir = backend_main.SCREENER_RESULTS_DIR / "20260324_214530"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "candidates.csv").write_text(
+            "symbol,market,global_rank,total_score\n600519.SH,cn,1,1.23\nAAPL,us,2,0.91\n",
+            encoding="utf-8",
+        )
+
+        rows = backend_main.get_screener_run_candidates("20260324_214530")
+
+        self.assertEqual(rows[0]["symbol"], "600519.SH")
+        self.assertEqual(rows[1]["market"], "us")
 
     def test_post_tasks_rejects_unconfigured_provider(self):
         payload = {

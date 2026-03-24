@@ -94,6 +94,67 @@ export interface ConfigOptions {
   };
 }
 
+export interface ScreenerMarketOption extends SelectOption {
+  enabled: boolean;
+  disabled_reason?: string | null;
+}
+
+export interface ScreenerConfigOptions {
+  markets: ScreenerMarketOption[];
+  defaults: {
+    top_k: number;
+    limit_per_market: number;
+  };
+}
+
+export interface ScreenTaskCreateRequest {
+  markets: string[];
+  as_of_date: string;
+  top_k: number;
+  limit_per_market: number | null;
+}
+
+export interface ScreenerTaskCreateResponse {
+  task_id: string;
+  status: string;
+}
+
+export interface ScreenerTask {
+  id: string;
+  request_payload: ScreenTaskCreateRequest | null;
+  status: TaskStatus;
+  latest_progress: ProgressEvent | null;
+  run_id: string | null;
+  error: string | null;
+}
+
+export interface ScreenerRunSummary {
+  id: string;
+  as_of_date: string;
+  markets: string[];
+  candidate_count: number;
+  generated_at: string;
+}
+
+export interface ScreenerRunDetail extends ScreenerRunSummary {
+  filtered_count_by_reason: Record<string, number>;
+  artifact_paths: Record<string, string>;
+}
+
+export interface ScreenerCandidateRow {
+  symbol: string;
+  market: string;
+  global_rank: number;
+  market_rank?: number;
+  total_score: number;
+  trend_score: number;
+  momentum_score: number;
+  risk_score: number;
+  liquidity_score: number;
+  strategy_tags: string;
+  risk_flags: string;
+}
+
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     let detail = `${response.status}`;
@@ -161,6 +222,52 @@ export async function getConfigOptions(): Promise<ConfigOptions> {
   return parseJsonResponse<ConfigOptions>(response);
 }
 
+export async function getScreenerConfigOptions(): Promise<ScreenerConfigOptions> {
+  const response = await fetch(`${API_BASE}/api/screener/config/options`);
+  return parseJsonResponse<ScreenerConfigOptions>(response);
+}
+
+export async function createScreenerTask(
+  payload: ScreenTaskCreateRequest
+): Promise<ScreenerTaskCreateResponse> {
+  const response = await fetch(`${API_BASE}/api/screener/tasks`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJsonResponse<ScreenerTaskCreateResponse>(response);
+}
+
+export async function listScreenerTasks(): Promise<ScreenerTask[]> {
+  const response = await fetch(`${API_BASE}/api/screener/tasks`);
+  return parseJsonResponse<ScreenerTask[]>(response);
+}
+
+export async function getScreenerTask(taskId: string): Promise<ScreenerTask> {
+  const response = await fetch(`${API_BASE}/api/screener/tasks/${taskId}`);
+  return parseJsonResponse<ScreenerTask>(response);
+}
+
+export async function listScreenerRuns(): Promise<ScreenerRunSummary[]> {
+  const response = await fetch(`${API_BASE}/api/screener/runs`);
+  return parseJsonResponse<ScreenerRunSummary[]>(response);
+}
+
+export async function getScreenerRun(runId: string): Promise<ScreenerRunDetail> {
+  const response = await fetch(`${API_BASE}/api/screener/runs/${runId}`);
+  return parseJsonResponse<ScreenerRunDetail>(response);
+}
+
+export async function listScreenerRunCandidates(
+  runId: string
+): Promise<ScreenerCandidateRow[]> {
+  const response = await fetch(`${API_BASE}/api/screener/runs/${runId}/candidates`);
+  return parseJsonResponse<ScreenerCandidateRow[]>(response);
+}
+
 export function subscribeToTask(
   taskId: string,
   onEvent: (event: ProgressEvent) => void,
@@ -183,6 +290,36 @@ export function subscribeToTask(
 
   eventSource.onerror = () => {
     onError?.(new Error("Task progress stream disconnected"));
+    eventSource.close();
+  };
+
+  return () => {
+    eventSource.close();
+  };
+}
+
+export function subscribeToScreenerTask(
+  taskId: string,
+  onEvent: (event: ProgressEvent) => void,
+  onError?: (error: Error) => void
+): () => void {
+  const eventSource = new EventSource(`${API_BASE}/api/screener/tasks/${taskId}/stream`);
+
+  eventSource.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data) as ProgressEvent;
+      onEvent(payload);
+    } catch (error) {
+      onError?.(
+        error instanceof Error
+          ? error
+          : new Error("Unable to parse screener task stream event")
+      );
+    }
+  };
+
+  eventSource.onerror = () => {
+    onError?.(new Error("Screener task progress stream disconnected"));
     eventSource.close();
   };
 

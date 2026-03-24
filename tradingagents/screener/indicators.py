@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+import pandas as pd
+from stockstats import wrap
+
+
+INDICATOR_COLUMNS = [
+    "rsi",
+    "macd",
+    "macds",
+    "macdh",
+    "atr",
+    "boll",
+    "boll_ub",
+    "boll_lb",
+    "vwma",
+    "mfi",
+]
+
+
+def _blank_feature_row(meta_row: pd.Series, as_of_date: str, working: pd.DataFrame) -> dict:
+    data_end_date = (
+        working.iloc[-1]["Date"].strftime("%Y-%m-%d")
+        if not working.empty
+        else None
+    )
+    data_start_date = (
+        working.iloc[0]["Date"].strftime("%Y-%m-%d")
+        if not working.empty
+        else None
+    )
+    row = {
+        "symbol": meta_row["symbol"],
+        "market": meta_row["market"],
+        "name": meta_row["name"],
+        "exchange": meta_row["exchange"],
+        "sector": meta_row["sector"],
+        "list_date": meta_row["list_date"],
+        "as_of_date": as_of_date,
+        "close": pd.NA,
+        "volume": pd.NA,
+        "amount": pd.NA,
+        "avg_amount_20d": pd.NA,
+        "ma20": pd.NA,
+        "ma60": pd.NA,
+        "ret_20": pd.NA,
+        "ret_60": pd.NA,
+        "rsi": pd.NA,
+        "macd": pd.NA,
+        "macds": pd.NA,
+        "macdh": pd.NA,
+        "atr": pd.NA,
+        "atr_pct": pd.NA,
+        "boll": pd.NA,
+        "boll_ub": pd.NA,
+        "boll_lb": pd.NA,
+        "vwma": pd.NA,
+        "mfi": pd.NA,
+        "data_start_date": data_start_date,
+        "data_end_date": data_end_date,
+        "bar_count": len(working),
+    }
+    return row
+
+
+def _prepare_price_df(price_df: pd.DataFrame) -> pd.DataFrame:
+    if price_df is None or price_df.empty:
+        return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume", "Amount"])
+
+    working = price_df.copy()
+    working["Date"] = pd.to_datetime(working["Date"], errors="coerce")
+    working = working.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
+
+    numeric_columns = ["Open", "High", "Low", "Close", "Volume", "Amount"]
+    for column in numeric_columns:
+        working[column] = pd.to_numeric(working[column], errors="coerce")
+
+    working = working.dropna(subset=["Open", "High", "Low", "Close", "Volume", "Amount"])
+    return working
+
+
+def _latest_row_on_or_before(working: pd.DataFrame, as_of_date: str) -> tuple[pd.DataFrame, pd.Series | None]:
+    as_of_dt = pd.to_datetime(as_of_date)
+    eligible = working[working["Date"] <= as_of_dt].copy()
+    if eligible.empty:
+        return eligible, None
+    return eligible, eligible.iloc[-1]
+
+
+def _compute_indicator_values(eligible: pd.DataFrame) -> dict[str, object]:
+    wrapped = wrap(eligible.copy())
+    values: dict[str, object] = {}
+    latest_index = wrapped.index[-1]
+
+    for indicator in INDICATOR_COLUMNS:
+        try:
+            wrapped[indicator]
+            raw_value = wrapped.loc[latest_index, indicator]
+            values[indicator] = pd.NA if pd.isna(raw_value) else float(raw_value)
+        except Exception:
+            values[indicator] = pd.NA
+
+    return values
+
+
+def build_feature_row(meta_row: pd.Series, price_df: pd.DataFrame, as_of_date: str) -> dict:
+    working = _prepare_price_df(price_df)
+    eligible, latest_row = _latest_row_on_or_before(working, as_of_date)
+
+    if latest_row is None:
+        return _blank_feature_row(meta_row, as_of_date, working)
+
+    if len(eligible) < 20:
+        row = _blank_feature_row(meta_row, as_of_date, eligible)
+        row["close"] = float(latest_row["Close"])
+        row["volume"] = float(latest_row["Volume"])
+        row["amount"] = float(latest_row["Amount"])
+        return row
+
+    trailing_20 = eligible.tail(20)
+    row = {
+        "symbol": meta_row["symbol"],
+        "market": meta_row["market"],
+        "name": meta_row["name"],
+        "exchange": meta_row["exchange"],
+        "sector": meta_row["sector"],
+        "list_date": meta_row["list_date"],
+        "as_of_date": as_of_date,
+        "close": float(latest_row["Close"]),
+        "volume": float(latest_row["Volume"]),
+        "amount": float(latest_row["Amount"]),
+        "avg_amount_20d": float(trailing_20["Amount"].mean()),
+        "ma20": float(trailing_20["Close"].mean()),
+        "ma60": float(eligible.tail(60)["Close"].mean()) if len(eligible) >= 60 else pd.NA,
+        "ret_20": float((latest_row["Close"] / eligible.iloc[-21]["Close"]) - 1) if len(eligible) >= 21 else pd.NA,
+        "ret_60": float((latest_row["Close"] / eligible.iloc[-61]["Close"]) - 1) if len(eligible) >= 61 else pd.NA,
+        "data_start_date": eligible.iloc[0]["Date"].strftime("%Y-%m-%d"),
+        "data_end_date": latest_row["Date"].strftime("%Y-%m-%d"),
+        "bar_count": len(eligible),
+    }
+
+    indicator_values = _compute_indicator_values(eligible)
+    row.update(indicator_values)
+    atr_value = row.get("atr")
+    row["atr_pct"] = (
+        float(atr_value / row["close"])
+        if atr_value is not pd.NA and pd.notna(atr_value) and row["close"]
+        else pd.NA
+    )
+    return row
+
+
+def build_features_table(
+    universe_df: pd.DataFrame,
+    histories: dict[str, pd.DataFrame],
+    as_of_date: str,
+) -> pd.DataFrame:
+    rows = [
+        build_feature_row(row, histories.get(row["symbol"], pd.DataFrame()), as_of_date)
+        for _, row in universe_df.iterrows()
+    ]
+    return pd.DataFrame(rows)

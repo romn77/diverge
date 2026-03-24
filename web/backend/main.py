@@ -45,6 +45,8 @@ from tradingagents.llm_clients.model_config import (
     PROVIDER_OPTIONS,
     QUICK_MODEL_OPTIONS,
 )
+from tradingagents.screener.pipeline import run_screen
+from tradingagents.screener.schema import ScreenRunConfig
 from tradingagents.runner import AnalysisProgress, AnalysisRequest, run_analysis_streaming, save_report_to_disk
 
 # ---------------------------------------------------------------------------
@@ -53,7 +55,11 @@ from tradingagents.runner import AnalysisProgress, AnalysisRequest, run_analysis
 
 REPORTS_DIR = Path(os.environ.get("REPORTS_DIR", PROJECT_ROOT / "reports")).resolve()
 TMP_REPORTS_DIR = REPORTS_DIR / ".tmp"
+SCREENER_RESULTS_DIR = Path(
+    os.environ.get("SCREENER_RESULTS_DIR", PROJECT_ROOT / "results" / "screener")
+).resolve()
 TASKS_STATE_DIRNAME = ".tasks"
+SCREENER_TASKS_STATE_DIRNAME = ".screener_tasks"
 ACTIVE_TASKS_DIRNAME = "active"
 RECOVERED_TASK_ERROR = "Service restarted before task completion."
 
@@ -124,6 +130,13 @@ class TaskCreatePayload(BaseModel):
     openai_reasoning_effort: Optional[str] = None
 
 
+class ScreenTaskCreatePayload(BaseModel):
+    markets: list[str]
+    as_of_date: str
+    top_k: int
+    limit_per_market: Optional[int] = None
+
+
 @dataclass
 class Task:
     id: str
@@ -148,7 +161,32 @@ class Task:
         }
 
 
+@dataclass
+class ScreenerTask:
+    id: str
+    request_payload: dict
+    config_payload: dict
+    status: str = "pending"
+    latest_progress: Optional[dict] = None
+    progress_events: list[dict] = field(default_factory=list)
+    run_id: Optional[str] = None
+    error: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "request_payload": self.request_payload,
+            "config_payload": self.config_payload,
+            "status": self.status,
+            "latest_progress": self.latest_progress,
+            "progress_events": self.progress_events,
+            "run_id": self.run_id,
+            "error": self.error,
+        }
+
+
 tasks: dict[str, Task] = {}
+screener_tasks: dict[str, ScreenerTask] = {}
 tasks_lock = threading.Lock()
 
 # ---------------------------------------------------------------------------
@@ -165,6 +203,7 @@ def _get_frontend_origins() -> list[str]:
 @asynccontextmanager
 async def _app_lifespan(_: FastAPI):
     _restore_persisted_active_tasks()
+    _restore_persisted_screener_tasks()
     yield
 
 
@@ -282,6 +321,14 @@ def _task_snapshot_path(task_id: str) -> Path:
     return _active_tasks_dir() / task_id / "task.json"
 
 
+def _active_screener_tasks_dir() -> Path:
+    return SCREENER_RESULTS_DIR / SCREENER_TASKS_STATE_DIRNAME / ACTIVE_TASKS_DIRNAME
+
+
+def _screener_task_snapshot_path(task_id: str) -> Path:
+    return _active_screener_tasks_dir() / task_id / "task.json"
+
+
 def _write_json_atomic(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
@@ -311,6 +358,29 @@ def _persist_task_snapshot(task_id: str) -> None:
     _write_json_atomic(_task_snapshot_path(task_id), snapshot)
 
 
+def _delete_screener_task_snapshot(task_id: str) -> None:
+    snapshot_path = _screener_task_snapshot_path(task_id)
+    with suppress(FileNotFoundError):
+        snapshot_path.unlink()
+
+    for directory in (
+        snapshot_path.parent,
+        _active_screener_tasks_dir(),
+        _active_screener_tasks_dir().parent,
+    ):
+        with suppress(OSError):
+            directory.rmdir()
+
+
+def _persist_screener_task_snapshot(task_id: str) -> None:
+    task = _get_screener_task(task_id)
+    snapshot = task.to_dict()
+    if snapshot["status"] in TERMINAL_TASK_STATUSES:
+        _delete_screener_task_snapshot(task_id)
+        return
+    _write_json_atomic(_screener_task_snapshot_path(task_id), snapshot)
+
+
 def _task_from_snapshot(payload: dict) -> Task:
     request_payload = payload.get("request_payload")
     if not isinstance(request_payload, dict):
@@ -334,6 +404,14 @@ def _get_task(task_id: str) -> Task:
     return task
 
 
+def _get_screener_task(task_id: str) -> ScreenerTask:
+    with tasks_lock:
+        task = screener_tasks.get(task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"Screener task '{task_id}' not found")
+    return task
+
+
 def _append_progress(task_id: str, progress: AnalysisProgress) -> None:
     event_payload = progress.to_dict()
     with tasks_lock:
@@ -343,6 +421,14 @@ def _append_progress(task_id: str, progress: AnalysisProgress) -> None:
     _persist_task_snapshot(task_id)
 
 
+def _append_screener_progress(task_id: str, progress: dict) -> None:
+    with tasks_lock:
+        task = screener_tasks[task_id]
+        task.latest_progress = progress
+        task.progress_events.append(progress)
+    _persist_screener_task_snapshot(task_id)
+
+
 def _set_task_status(task_id: str, status: str, error: Optional[str] = None) -> None:
     with tasks_lock:
         task = tasks[task_id]
@@ -350,6 +436,15 @@ def _set_task_status(task_id: str, status: str, error: Optional[str] = None) -> 
         if error is not None:
             task.error = error
     _persist_task_snapshot(task_id)
+
+
+def _set_screener_task_status(task_id: str, status: str, error: Optional[str] = None) -> None:
+    with tasks_lock:
+        task = screener_tasks[task_id]
+        task.status = status
+        if error is not None:
+            task.error = error
+    _persist_screener_task_snapshot(task_id)
 
 
 def _build_failure_progress(task: Task, error: str) -> dict:
@@ -373,6 +468,56 @@ def _build_failure_progress(task: Task, error: str) -> dict:
         message=f"System: {error}",
     )
     return failure_progress.to_dict()
+
+
+SCREENER_STAGES = ["Universe", "History", "Features", "Filters", "Ranking", "Export"]
+
+
+def _build_screener_progress(
+    *,
+    status: str,
+    stage: str,
+    current: int,
+    total: int,
+    symbol: str | None = None,
+    message: str | None = None,
+) -> dict:
+    stage_status = {
+        key: (
+            "processing"
+            if key == stage
+            else "completed"
+            if SCREENER_STAGES.index(key) < SCREENER_STAGES.index(stage)
+            else "not_started"
+        )
+        for key in SCREENER_STAGES
+    }
+    if status == "completed":
+        stage_status = {key: "completed" for key in SCREENER_STAGES}
+    if status == "failed" and stage not in SCREENER_STAGES:
+        stage_status = {key: "not_started" for key in SCREENER_STAGES}
+
+    detail = message or f"{stage} {current}/{total}"
+    if symbol:
+        detail = f"{detail} {symbol}"
+
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": status,
+        "stage_status": stage_status,
+        "agent_status": {},
+        "current_agent": symbol,
+        "message": detail,
+    }
+
+
+def _combined_active_task_count() -> int:
+    with tasks_lock:
+        analysis_active = sum(1 for task in tasks.values() if task.status in {"pending", "running"})
+        screener_active = sum(
+            1 for task in screener_tasks.values() if task.status in {"pending", "running"}
+        )
+    return analysis_active + screener_active
 
 
 def _restore_persisted_active_tasks() -> None:
@@ -411,8 +556,64 @@ def _restore_persisted_active_tasks() -> None:
         _delete_task_snapshot(task.id)
 
 
+def _restore_persisted_screener_tasks() -> None:
+    active_dir = _active_screener_tasks_dir()
+    if not active_dir.is_dir():
+        return
+
+    for snapshot_path in sorted(active_dir.glob("*/task.json")):
+        try:
+            payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            task = ScreenerTask(
+                id=str(payload["id"]),
+                request_payload=dict(payload.get("request_payload") or {}),
+                config_payload=dict(payload.get("config_payload") or {}),
+                status=str(payload.get("status") or "pending"),
+                latest_progress=payload.get("latest_progress"),
+                progress_events=list(payload.get("progress_events") or []),
+                run_id=payload.get("run_id"),
+                error=payload.get("error"),
+            )
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+            _delete_screener_task_snapshot(snapshot_path.parent.name)
+            continue
+
+        if task.status in TERMINAL_TASK_STATUSES:
+            _delete_screener_task_snapshot(task.id)
+            continue
+
+        task.status = "failed"
+        task.error = RECOVERED_TASK_ERROR
+        task.latest_progress = _build_screener_progress(
+            status="failed",
+            stage="Universe",
+            current=0,
+            total=1,
+            message=f"System: {RECOVERED_TASK_ERROR}",
+        )
+        task.progress_events = [task.latest_progress]
+
+        with tasks_lock:
+            screener_tasks[task.id] = task
+
+        _delete_screener_task_snapshot(task.id)
+
+
 def _start_task_thread(task_id: str) -> threading.Thread:
     thread = threading.Thread(target=_run_task, args=(task_id,), daemon=True)
+    thread.start()
+    return thread
+
+
+def _start_screener_task_thread(task_id: str) -> threading.Thread:
+    thread = threading.Thread(target=_run_screener_task, args=(task_id,), daemon=True)
     thread.start()
     return thread
 
@@ -456,7 +657,6 @@ def _run_task(task_id: str) -> None:
             if current_task.latest_progress is not None:
                 current_task.latest_progress["status"] = "completed"
         _persist_task_snapshot(task_id)
-
     except Exception as exc:  # pragma: no cover - covered through task failure path
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -469,6 +669,54 @@ def _run_task(task_id: str) -> None:
             current_task.latest_progress = failure_progress
             current_task.progress_events.append(failure_progress)
         _persist_task_snapshot(task_id)
+
+
+def _run_screener_task(task_id: str) -> None:
+    task = _get_screener_task(task_id)
+    _set_screener_task_status(task_id, "running")
+
+    try:
+        def progress_callback(stage: str, current: int, total: int, symbol: str | None = None) -> None:
+            normalized_stage = stage.capitalize()
+            progress = _build_screener_progress(
+                status="running",
+                stage=normalized_stage,
+                current=current,
+                total=total,
+                symbol=symbol,
+            )
+            _append_screener_progress(task_id, progress)
+
+        result = run_screen(ScreenRunConfig(**task.config_payload), progress_callback=progress_callback)
+
+        with tasks_lock:
+            current_task = screener_tasks[task_id]
+            current_task.status = "completed"
+            current_task.run_id = Path(result.run_dir).name
+            current_task.latest_progress = _build_screener_progress(
+                status="completed",
+                stage="Export",
+                current=1,
+                total=1,
+                message=f"Export 1/1 {current_task.run_id}",
+            )
+            current_task.progress_events.append(current_task.latest_progress)
+        _persist_screener_task_snapshot(task_id)
+    except Exception as exc:  # pragma: no cover
+        with tasks_lock:
+            current_task = screener_tasks[task_id]
+            current_task.status = "failed"
+            current_task.error = str(exc)
+            failure_progress = _build_screener_progress(
+                status="failed",
+                stage="Universe",
+                current=0,
+                total=1,
+                message=f"System: {exc}",
+            )
+            current_task.latest_progress = failure_progress
+            current_task.progress_events.append(failure_progress)
+        _persist_screener_task_snapshot(task_id)
 
 
 def _serialize_sse_event(data: dict) -> str:
@@ -551,6 +799,100 @@ def _get_config_options_payload() -> dict:
             "google": {"google_thinking_level": GOOGLE_THINKING_OPTIONS},
         },
     }
+
+
+def _get_screener_config_options_payload() -> dict:
+    return {
+        "markets": [
+            {"label": "A-Share (cn)", "value": "cn", "enabled": True},
+            {
+                "label": "US Equities (us)",
+                "value": "us",
+                "enabled": bool(os.environ.get("SCREEN_US_MANIFEST_PATH")),
+                "disabled_reason": None
+                if os.environ.get("SCREEN_US_MANIFEST_PATH")
+                else "Configure SCREEN_US_MANIFEST_PATH on the backend to enable US screening.",
+            },
+        ],
+        "defaults": {
+            "top_k": 100,
+            "limit_per_market": 500,
+        },
+    }
+
+
+def _resolve_screener_run_dir(run_id: str) -> Path:
+    if "/" in run_id or "\\" in run_id or ".." in run_id:
+        raise HTTPException(status_code=404, detail="Screener run not found")
+    run_dir = SCREENER_RESULTS_DIR / run_id
+    if not run_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
+    return run_dir
+
+
+def list_screener_runs() -> list[dict]:
+    if not SCREENER_RESULTS_DIR.is_dir():
+        return []
+
+    runs: list[dict] = []
+    for entry in SCREENER_RESULTS_DIR.iterdir():
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        meta_path = entry / "run_meta.json"
+        if not meta_path.is_file():
+            continue
+        try:
+            payload = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+
+        runs.append(
+            {
+                "id": entry.name,
+                "as_of_date": payload.get("as_of_date"),
+                "markets": payload.get("config", {}).get("markets", []),
+                "candidate_count": payload.get("candidate_count", 0),
+                "generated_at": payload.get("run_timestamp", entry.name),
+            }
+        )
+
+    runs.sort(key=lambda row: row["generated_at"] or "", reverse=True)
+    return runs
+
+
+def get_screener_run(run_id: str) -> dict:
+    run_dir = _resolve_screener_run_dir(run_id)
+    meta_path = run_dir / "run_meta.json"
+    if not meta_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
+    try:
+        payload = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read screener run: {exc}") from exc
+
+    return {
+        "id": run_id,
+        "as_of_date": payload.get("as_of_date"),
+        "markets": payload.get("config", {}).get("markets", []),
+        "candidate_count": payload.get("candidate_count", 0),
+        "generated_at": payload.get("run_timestamp"),
+        "filtered_count_by_reason": payload.get("filtered_count_by_reason", {}),
+        "artifact_paths": payload.get("artifact_paths", {}),
+    }
+
+
+def get_screener_run_candidates(run_id: str) -> list[dict]:
+    run_dir = _resolve_screener_run_dir(run_id)
+    candidates_path = run_dir / "candidates.csv"
+    if not candidates_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Candidates for run '{run_id}' not found")
+    try:
+        import pandas as pd
+
+        df = pd.read_csv(candidates_path)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read candidates: {exc}") from exc
+    return df.where(pd.notna(df), None).to_dict(orient="records")
 
 
 # ---------------------------------------------------------------------------
@@ -643,15 +985,11 @@ def create_task(payload: TaskCreatePayload) -> dict:
             detail=str(provider_availability["disabled_reason"]),
         )
 
-    with tasks_lock:
-        active_task_count = sum(
-            1 for task in tasks.values() if task.status in {"pending", "running"}
+    if _combined_active_task_count() >= 2:
+        raise HTTPException(
+            status_code=409,
+            detail="Task queue is full. Wait for the active tasks to finish.",
         )
-        if active_task_count >= 2:
-            raise HTTPException(
-                status_code=409,
-                detail="Task queue is full. Wait for the active tasks to finish.",
-            )
 
     task_id = uuid.uuid4().hex
     task = Task(id=task_id, request=request)
@@ -664,15 +1002,61 @@ def create_task(payload: TaskCreatePayload) -> dict:
     return {"task_id": task_id, "status": "pending"}
 
 
+@app.post("/api/screener/tasks")
+def create_screener_task(payload: ScreenTaskCreatePayload) -> dict:
+    if _combined_active_task_count() >= 2:
+        raise HTTPException(
+            status_code=409,
+            detail="Task queue is full. Wait for the active tasks to finish.",
+        )
+
+    request_payload = payload.model_dump()
+    config_payload = dict(request_payload)
+    config_payload["output_dir"] = str(SCREENER_RESULTS_DIR)
+    if "us" in request_payload["markets"]:
+        manifest_path = os.environ.get("SCREEN_US_MANIFEST_PATH")
+        if not manifest_path:
+            raise HTTPException(
+                status_code=400,
+                detail="Configure SCREEN_US_MANIFEST_PATH on the backend before launching US screening tasks.",
+            )
+        config_payload["us_manifest_path"] = manifest_path
+
+    task_id = uuid.uuid4().hex
+    task = ScreenerTask(
+        id=task_id,
+        request_payload=request_payload,
+        config_payload=config_payload,
+    )
+
+    with tasks_lock:
+        screener_tasks[task_id] = task
+
+    _persist_screener_task_snapshot(task_id)
+    _start_screener_task_thread(task_id)
+    return {"task_id": task_id, "status": "pending"}
+
+
 @app.get("/api/tasks")
 def list_tasks() -> list[dict]:
     with tasks_lock:
         return [task.to_dict() for task in tasks.values()]
 
 
+@app.get("/api/screener/tasks")
+def list_screener_tasks() -> list[dict]:
+    with tasks_lock:
+        return [task.to_dict() for task in screener_tasks.values()]
+
+
 @app.get("/api/tasks/{task_id}")
 def get_task_status(task_id: str) -> dict:
     return _get_task(task_id).to_dict()
+
+
+@app.get("/api/screener/tasks/{task_id}")
+def get_screener_task_status(task_id: str) -> dict:
+    return _get_screener_task(task_id).to_dict()
 
 
 @app.get("/api/tasks/{task_id}/stream")
@@ -712,6 +1096,58 @@ async def stream_task(task_id: str, request: Request) -> StreamingResponse:
     )
 
 
+@app.get("/api/screener/tasks/{task_id}/stream")
+async def stream_screener_task(task_id: str, request: Request) -> StreamingResponse:
+    _get_screener_task(task_id)
+
+    async def event_generator():
+        cursor = 0
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            with tasks_lock:
+                task = screener_tasks.get(task_id)
+                if task is None:
+                    break
+                pending_events = task.progress_events[cursor:]
+                task_status = task.status
+
+            for event in pending_events:
+                cursor += 1
+                yield _serialize_sse_event(event)
+
+            if task_status in TERMINAL_TASK_STATUSES and not pending_events:
+                break
+
+            await asyncio.sleep(0.25)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@app.get("/api/screener/runs")
+def list_screener_runs_endpoint() -> list[dict]:
+    return list_screener_runs()
+
+
+@app.get("/api/screener/runs/{run_id}")
+def get_screener_run_endpoint(run_id: str) -> dict:
+    return get_screener_run(run_id)
+
+
+@app.get("/api/screener/runs/{run_id}/candidates")
+def get_screener_run_candidates_endpoint(run_id: str) -> list[dict]:
+    return get_screener_run_candidates(run_id)
+
+
 # ---------------------------------------------------------------------------
 # Config endpoint
 # ---------------------------------------------------------------------------
@@ -720,3 +1156,8 @@ async def stream_task(task_id: str, request: Request) -> StreamingResponse:
 @app.get("/api/config/options")
 def get_config_options() -> dict:
     return _get_config_options_payload()
+
+
+@app.get("/api/screener/config/options")
+def get_screener_config_options() -> dict:
+    return _get_screener_config_options_payload()

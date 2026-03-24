@@ -3,6 +3,7 @@ import typer
 from pathlib import Path
 from functools import wraps
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -23,6 +24,8 @@ from rich.rule import Rule
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.runner import save_report_to_disk
+from tradingagents.screener.pipeline import run_screen
+from tradingagents.screener.schema import ScreenRunConfig
 from cli.utils import *
 from cli.announcements import fetch_announcements, display_announcements
 from cli.stats_handler import StatsCallbackHandler
@@ -1223,6 +1226,67 @@ def run_analysis():
 @app.command()
 def analyze():
     run_analysis()
+
+
+@app.command()
+def screen(
+    date: str = typer.Option(..., "--date"),
+    markets: str = typer.Option(..., "--markets"),
+    top_k: int = typer.Option(100, "--top-k"),
+    limit_per_market: int | None = typer.Option(None, "--limit-per-market"),
+    us_manifest: str | None = typer.Option(None, "--us-manifest"),
+    output_dir: str = typer.Option("./results/screener", "--output-dir"),
+):
+    parsed_markets = [market.strip().lower() for market in markets.split(",") if market.strip()]
+    if "us" in parsed_markets and not us_manifest:
+        raise typer.BadParameter(
+            "Provide --us-manifest when requesting the us market.",
+            param_hint="--us-manifest",
+        )
+
+    config = ScreenRunConfig(
+        markets=parsed_markets,
+        as_of_date=date,
+        top_k=top_k,
+        limit_per_market=limit_per_market,
+        output_dir=output_dir,
+        us_manifest_path=us_manifest,
+    )
+
+    progress_state = {"last": None}
+
+    def progress_callback(stage: str, current: int, total: int, symbol: str | None = None) -> None:
+        message = f"{stage} {current}/{total}"
+        if symbol:
+            message += f" {symbol}"
+        progress_state["last"] = message
+        console.print(message)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task("Running screener", total=None)
+        result = run_screen(config, progress_callback=progress_callback)
+        progress.update(task_id, description="Screener complete")
+
+    console.print("\n[bold]Universe counts[/bold]")
+    for market, count in result.universe_count_by_market.items():
+        console.print(f"- {market}: {count}")
+
+    console.print("\n[bold]Filter counts[/bold]")
+    for reason, count in result.filtered_count_by_reason.items():
+        console.print(f"- {reason}: {count}")
+
+    console.print("\n[bold]Top candidates[/bold]")
+    for row in result.candidate_preview:
+        console.print(
+            f"- {row['symbol']} ({row['market']}) rank={row['global_rank']} score={row['total_score']}"
+        )
+
+    console.print(f"\n[bold]Run directory[/bold] {result.run_dir}")
 
 
 if __name__ == "__main__":
