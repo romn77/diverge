@@ -64,3 +64,20 @@ def test_thesis_artifact_serialization_does_not_break_report_saving():
         payload = json.loads(thesis_path.read_text(encoding="utf-8"))
         assert payload["ticker"] == "MSFT"
         assert payload["thesis_summary"]
+
+
+def test_thesis_artifact_ignores_json_highlights_payload_text():
+    final_state = _final_state()
+    final_state["investment_debate_state"]["bear_history"] = (
+        "Bear Analyst: Demand is softening and valuation remains stretched.\n\n"
+        "```json-highlights\n"
+        '{\n  "category": "bear_case",\n  "signal": "SELL",\n'
+        '  "signal_confidence": "medium",\n  "summary": "Too expensive."\n}\n'
+        "```"
+    )
+
+    artifact = build_thesis_artifact(final_state, ticker="MSFT")
+
+    joined = " ".join(artifact["invalidation_signals"])
+    assert '"category"' not in joined
+    assert '"signal"' not in joined

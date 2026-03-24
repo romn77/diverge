@@ -110,6 +110,7 @@ def _extract_section_lines(text: str, needle: str) -> list[str]:
 
 
 def _clean_text(text: str) -> str:
+    text = re.sub(r"```[\w-]*\n[\s\S]*?\n```", " ", text)
     cleaned_lines = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
