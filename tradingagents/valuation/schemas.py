@@ -35,6 +35,9 @@ class ValuationInput:
     ticker: str
     market: MarketContext
     financials: list[FinancialSnapshot] = field(default_factory=list)
+    instrument_type: str = "operating_company"
+    valuation_applicability: str = "applicable"
+    valuation_applicability_reason: str | None = None
 
     @property
     def latest_financial(self) -> FinancialSnapshot:

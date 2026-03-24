@@ -87,3 +87,32 @@ def test_fundamentals_report_includes_valuation_sections_before_highlights(
     assert "## Valuation Assumptions" in report
     assert report.index("## DCF Summary") < report.index("```json-highlights")
     assert '"category": "fundamentals"' in report
+    assert result["instrument_type"] == "operating_company"
+    assert result["valuation_applicability"] == "applicable"
+
+
+@patch("tradingagents.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+def test_fundamentals_report_surfaces_valuation_preparation_failures(
+    mock_get_valuation_ready_fundamentals,
+):
+    mock_get_valuation_ready_fundamentals.side_effect = RuntimeError("bad payload")
+    llm = _FakeLLM(
+        AIMessage(
+            content=(
+                "Fundamentals analysis body.\n\n"
+                "```json-highlights\n"
+                '{\n  "category": "fundamentals",\n  "signal": "HOLD",\n'
+                '  "signal_confidence": "low",\n  "summary": "Needs more work.",\n'
+                '  "metrics": [],\n  "financial_health": "Mixed"\n}\n'
+                "```"
+            ),
+            tool_calls=[],
+        )
+    )
+
+    node = create_fundamentals_analyst(llm)
+    result = node(_state())
+    report = result["fundamentals_report"]
+
+    assert "Valuation sections unavailable" in report
+    assert '"category": "fundamentals"' in report

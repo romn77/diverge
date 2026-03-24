@@ -345,6 +345,9 @@ def get_fundamentals(
 
         fields = [
             ("Name", info.get("longName")),
+            ("Quote Type", info.get("quoteType")),
+            ("Fund Family", info.get("fundFamily")),
+            ("Category", info.get("category")),
             ("Sector", info.get("sector")),
             ("Industry", info.get("industry")),
             ("Market Cap", info.get("marketCap")),

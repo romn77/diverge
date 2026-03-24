@@ -12,6 +12,7 @@ def test_normalize_alpha_vantage_style_payload():
         {
             "fundamentals": {
                 "Symbol": "MSFT",
+                "AssetType": "Common Stock",
                 "MarketCapitalization": "2500",
                 "SharesOutstanding": "100",
                 "Currency": "USD",
@@ -53,6 +54,8 @@ def test_normalize_alpha_vantage_style_payload():
     )
 
     assert result.ticker == "MSFT"
+    assert result.instrument_type == "operating_company"
+    assert result.valuation_applicability == "applicable"
     assert result.market.market_cap == 2500.0
     assert result.market.shares_outstanding == 100.0
     assert result.market.currency == "USD"
@@ -67,6 +70,7 @@ def test_normalize_yfinance_style_payload():
             "fundamentals": (
                 "# Company Fundamentals for AAPL\n"
                 "# Data retrieved on: 2026-03-20 10:00:00\n\n"
+                "Quote Type: EQUITY\n"
                 "Market Cap: 3000\n"
                 "Free Cash Flow: 140\n"
                 "EBITDA: 400\n"
@@ -102,6 +106,8 @@ def test_normalize_yfinance_style_payload():
     )
 
     assert result.ticker == "AAPL"
+    assert result.instrument_type == "operating_company"
+    assert result.valuation_applicability == "applicable"
     assert result.market.market_cap == 3000.0
     assert result.market.shares_outstanding == 50.0
     assert result.latest_financial.report_date == date(2025, 12, 31)
@@ -147,10 +153,38 @@ def test_normalize_cn_payload_keeps_missing_fields_optional():
     )
 
     assert result.market.market == "cn"
+    assert result.instrument_type == "operating_company"
+    assert result.valuation_applicability == "applicable"
     assert result.latest_financial.report_date == date(2025, 12, 31)
     assert result.latest_financial.revenue == 1800.0
     assert result.latest_financial.free_cash_flow == 650.0
     assert result.latest_financial.shareholders_equity is None
+
+
+def test_normalize_etf_payload_marks_dcf_as_not_applicable():
+    result = normalize_fundamentals_payload(
+        {
+            "fundamentals": (
+                "# Company Fundamentals for SPY\n"
+                "# Data retrieved on: 2026-03-20 10:00:00\n\n"
+                "Quote Type: ETF\n"
+                "Fund Family: SPDR\n"
+                "Market Cap: 500000\n"
+                "Shares Outstanding: 1000\n"
+            ),
+            "balance_sheet": "",
+            "cashflow": "",
+            "income_statement": "",
+        },
+        vendor="yfinance",
+        market="us",
+        ticker="SPY",
+        frequency="annual",
+    )
+
+    assert result.instrument_type == "etf"
+    assert result.valuation_applicability == "not_applicable"
+    assert "etf" in (result.valuation_applicability_reason or "").lower()
 
 
 def test_normalizer_raises_explicit_error_for_unknown_payload():

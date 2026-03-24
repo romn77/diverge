@@ -1,5 +1,5 @@
 from typing import Annotated
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 from tradingagents.agents import *
 from langgraph.graph import MessagesState
 
@@ -48,6 +48,18 @@ class AgentState(MessagesState):
     company_of_interest: Annotated[str, "Company that we are interested in trading"]
     trade_date: Annotated[str, "What date we are trading at"]
     output_language: Annotated[str, "Output language code: en or cn"]
+    earnings_event: NotRequired[
+        Annotated[dict[str, object] | None, "Optional earnings event context"]
+    ]
+    instrument_type: NotRequired[
+        Annotated[str | None, "Normalized instrument classification for valuation logic"]
+    ]
+    valuation_applicability: NotRequired[
+        Annotated[str | None, "Whether operating-company DCF is applicable"]
+    ]
+    valuation_applicability_reason: NotRequired[
+        Annotated[str | None, "Reason why DCF is or is not applicable"]
+    ]
 
     sender: Annotated[str, "Agent that sent this message"]
 

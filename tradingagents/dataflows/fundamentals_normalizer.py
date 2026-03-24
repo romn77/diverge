@@ -47,6 +47,14 @@ ALIASES = {
         "股东权益合计",
     ],
     "currency": ["Currency", "currency"],
+    "instrument_metadata": [
+        "Quote Type",
+        "quoteType",
+        "AssetType",
+        "assetType",
+        "instrument_type",
+    ],
+    "fund_family": ["Fund Family", "fundFamily", "fund_family", "Category", "category"],
 }
 
 
@@ -111,6 +119,13 @@ def normalize_fundamentals_payload(
             f"Could not normalize fundamentals payload: no valuation fields found for vendor '{descriptor}'"
         )
 
+    instrument_type, valuation_applicability, valuation_applicability_reason = (
+        _classify_instrument(
+            merged,
+            ticker=ticker,
+        )
+    )
+
     return ValuationInput(
         ticker=ticker or _first_text(merged, "Symbol") or _first_text(merged, "Ticker") or "UNKNOWN",
         market=MarketContext(
@@ -136,6 +151,9 @@ def normalize_fundamentals_payload(
                 frequency=frequency,
             )
         ],
+        instrument_type=instrument_type,
+        valuation_applicability=valuation_applicability,
+        valuation_applicability_reason=valuation_applicability_reason,
     )
 
 
@@ -294,3 +312,36 @@ def _parse_date(value: object) -> date | None:
         except ValueError:
             continue
     return None
+
+
+def _classify_instrument(
+    data: Mapping[str, object],
+    *,
+    ticker: str | None,
+) -> tuple[str, str, str | None]:
+    quote_type = (_find_value(data, ALIASES["instrument_metadata"]) or "").__str__().strip()
+    fund_family = _first_text(data, "fund_family")
+    normalized_quote_type = quote_type.upper().replace(" ", "")
+
+    if "ETF" in normalized_quote_type:
+        return (
+            "etf",
+            "not_applicable",
+            "ETF instruments do not have operating cash flows suitable for DCF.",
+        )
+    if "INDEX" in normalized_quote_type:
+        return (
+            "index",
+            "not_applicable",
+            "Index instruments do not support company-style DCF valuation.",
+        )
+    if "FUND" in normalized_quote_type or fund_family:
+        return (
+            "fund",
+            "not_applicable",
+            "Fund-like instruments are not suitable for operating-company DCF valuation.",
+        )
+    if normalized_quote_type in {"EQUITY", "COMMONSTOCK", "COMMONSHARES", "STOCK"}:
+        return ("operating_company", "applicable", None)
+
+    return ("operating_company", "applicable", None)

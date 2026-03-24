@@ -21,7 +21,14 @@ def format_valuation_sections(
 ) -> str:
     config = {**DEFAULT_ASSUMPTIONS, **(assumptions or {})}
     latest = valuation_input.latest_financial
-    sections = []
+    sections = [_format_dcf_applicability(valuation_input)]
+
+    if valuation_input.valuation_applicability == "not_applicable":
+        multiples = calculate_multiples(valuation_input.market, latest)
+        sections.append(
+            _format_multiples_summary(multiples, valuation_input.market.currency)
+        )
+        return "\n\n".join(section.strip() for section in sections if section).strip()
 
     try:
         dcf_result = calculate_dcf(
@@ -53,13 +60,37 @@ def format_valuation_sections(
             )
         )
     except ValueError as exc:
-        sections.append(f"## DCF Summary\n\nUnable to calculate DCF: {exc}")
+        sections.append(f"## DCF Summary\n\nInsufficient data to calculate DCF: {exc}")
 
     multiples = calculate_multiples(valuation_input.market, latest)
     sections.append(_format_multiples_summary(multiples, valuation_input.market.currency))
     sections.append(_format_assumptions(config))
 
     return "\n\n".join(section.strip() for section in sections if section).strip()
+
+
+def _format_dcf_applicability(valuation_input: ValuationInput) -> str:
+    if valuation_input.valuation_applicability == "not_applicable":
+        reason = (
+            valuation_input.valuation_applicability_reason
+            or "This instrument is not suitable for operating-company DCF valuation."
+        )
+        return "\n".join(
+            [
+                "## DCF Applicability",
+                "",
+                "Status: DCF Not Applicable",
+                f"Reason: {reason}",
+            ]
+        )
+
+    return "\n".join(
+        [
+            "## DCF Applicability",
+            "",
+            "Status: DCF Applicable",
+        ]
+    )
 
 
 def inject_valuation_sections(report: str, valuation_sections: str) -> str:

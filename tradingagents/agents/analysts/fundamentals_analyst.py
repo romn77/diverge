@@ -80,6 +80,9 @@ def create_fundamentals_analyst(llm):
         result = chain.invoke(state["messages"])
 
         report = ""
+        instrument_type = state.get("instrument_type")
+        valuation_applicability = state.get("valuation_applicability")
+        valuation_applicability_reason = state.get("valuation_applicability_reason")
 
         if len(result.tool_calls) == 0:
             report = inject_earnings_section(
@@ -92,14 +95,30 @@ def create_fundamentals_analyst(llm):
                     curr_date=current_date,
                     freq="annual",
                 )
+                instrument_type = valuation_input.instrument_type
+                valuation_applicability = valuation_input.valuation_applicability
+                valuation_applicability_reason = (
+                    valuation_input.valuation_applicability_reason
+                )
                 valuation_sections = format_valuation_sections(valuation_input)
                 report = inject_valuation_sections(report, valuation_sections)
+            except ValueError as exc:
+                report = inject_valuation_sections(
+                    report,
+                    f"## Valuation Availability\n\nValuation sections unavailable: {exc}",
+                )
             except Exception:
-                report = report
+                report = inject_valuation_sections(
+                    report,
+                    "## Valuation Availability\n\nValuation sections unavailable due to unexpected preparation failure.",
+                )
 
         return {
             "messages": [result],
             "fundamentals_report": report,
+            "instrument_type": instrument_type,
+            "valuation_applicability": valuation_applicability,
+            "valuation_applicability_reason": valuation_applicability_reason,
         }
 
     return fundamentals_analyst_node
