@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import os
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -83,6 +84,77 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(task_status["request_payload"]["ticker"], "SPY")
         self.assertEqual(task_status["request_payload"]["analysts"], ["market", "news"])
         self.assertEqual(task_status["request_payload"]["llm_provider"], "openai")
+
+        snapshot_path = backend_main._task_snapshot_path(body["task_id"])
+        self.assertTrue(snapshot_path.is_file())
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        self.assertEqual(snapshot["status"], "pending")
+        self.assertEqual(snapshot["ticker"], "SPY")
+
+    def test_terminal_task_status_removes_persisted_active_snapshot(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2026-03-13",
+            "analysts": ["market", "news"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+        task = backend_main.Task(
+            id="task-terminal",
+            request=AnalysisRequest(**payload),
+            status="running",
+        )
+        backend_main.tasks[task.id] = task
+
+        backend_main._persist_task_snapshot(task.id)
+        self.assertTrue(backend_main._task_snapshot_path(task.id).is_file())
+
+        backend_main._set_task_status(task.id, "completed")
+
+        self.assertFalse(backend_main._task_snapshot_path(task.id).exists())
+
+    def test_restore_persisted_active_tasks_marks_running_tasks_failed(self):
+        task_dir = backend_main._task_snapshot_path("task-recover").parent
+        task_dir.mkdir(parents=True, exist_ok=True)
+        backend_main._task_snapshot_path("task-recover").write_text(
+            json.dumps(
+                {
+                    "id": "task-recover",
+                    "ticker": "SPY",
+                    "analysis_date": "2026-03-13",
+                    "analysts": ["market", "news"],
+                    "request_payload": {
+                        "ticker": "SPY",
+                        "analysis_date": "2026-03-13",
+                        "analysts": ["market", "news"],
+                        "research_depth": 1,
+                        "llm_provider": "openai",
+                        "quick_think_llm": "gpt-5-mini",
+                        "deep_think_llm": "gpt-5.2",
+                        "output_language": "en",
+                        "openai_reasoning_effort": "medium",
+                        "google_thinking_level": None,
+                    },
+                    "status": "running",
+                    "latest_progress": None,
+                    "report_id": None,
+                    "error": None,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        backend_main._restore_persisted_active_tasks()
+
+        restored = backend_main.get_task_status("task-recover")
+        self.assertEqual(restored["status"], "failed")
+        self.assertIn("restarted", restored["error"].lower())
+        self.assertFalse(backend_main._task_snapshot_path("task-recover").exists())
 
     def test_post_tasks_rejects_when_two_active_tasks_already_exist(self):
         payload = {

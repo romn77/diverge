@@ -20,6 +20,7 @@ import shutil
 import sys
 import threading
 import uuid
+from contextlib import asynccontextmanager, suppress
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -52,6 +53,9 @@ from tradingagents.runner import AnalysisProgress, AnalysisRequest, run_analysis
 
 REPORTS_DIR = Path(os.environ.get("REPORTS_DIR", PROJECT_ROOT / "reports")).resolve()
 TMP_REPORTS_DIR = REPORTS_DIR / ".tmp"
+TASKS_STATE_DIRNAME = ".tasks"
+ACTIVE_TASKS_DIRNAME = "active"
+RECOVERED_TASK_ERROR = "Service restarted before task completion."
 
 CATEGORY_DIR_MAP: dict[str, str] = {
     "analysts": "1_analysts",
@@ -158,7 +162,17 @@ def _get_frontend_origins() -> list[str]:
     return origins or ["http://localhost:3000"]
 
 
-app = FastAPI(title="TradingAgents Report Viewer", version="1.1.0")
+@asynccontextmanager
+async def _app_lifespan(_: FastAPI):
+    _restore_persisted_active_tasks()
+    yield
+
+
+app = FastAPI(
+    title="TradingAgents Report Viewer",
+    version="1.1.0",
+    lifespan=_app_lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -260,6 +274,58 @@ def _resolve_report_dir(report_id: str) -> Path:
     return report_dir
 
 
+def _active_tasks_dir() -> Path:
+    return REPORTS_DIR / TASKS_STATE_DIRNAME / ACTIVE_TASKS_DIRNAME
+
+
+def _task_snapshot_path(task_id: str) -> Path:
+    return _active_tasks_dir() / task_id / "task.json"
+
+
+def _write_json_atomic(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    temp_path.write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    temp_path.replace(path)
+
+
+def _delete_task_snapshot(task_id: str) -> None:
+    snapshot_path = _task_snapshot_path(task_id)
+    with suppress(FileNotFoundError):
+        snapshot_path.unlink()
+
+    for directory in (snapshot_path.parent, _active_tasks_dir(), _active_tasks_dir().parent):
+        with suppress(OSError):
+            directory.rmdir()
+
+
+def _persist_task_snapshot(task_id: str) -> None:
+    task = _get_task(task_id)
+    snapshot = task.to_dict()
+    if snapshot["status"] in TERMINAL_TASK_STATUSES:
+        _delete_task_snapshot(task_id)
+        return
+    _write_json_atomic(_task_snapshot_path(task_id), snapshot)
+
+
+def _task_from_snapshot(payload: dict) -> Task:
+    request_payload = payload.get("request_payload")
+    if not isinstance(request_payload, dict):
+        raise ValueError("Persisted task snapshot is missing request_payload")
+
+    return Task(
+        id=str(payload["id"]),
+        request=AnalysisRequest(**request_payload),
+        status=str(payload.get("status") or "pending"),
+        latest_progress=payload.get("latest_progress"),
+        report_id=payload.get("report_id"),
+        error=payload.get("error"),
+    )
+
+
 def _get_task(task_id: str) -> Task:
     with tasks_lock:
         task = tasks.get(task_id)
@@ -274,6 +340,7 @@ def _append_progress(task_id: str, progress: AnalysisProgress) -> None:
         task = tasks[task_id]
         task.latest_progress = event_payload
         task.progress_events.append(event_payload)
+    _persist_task_snapshot(task_id)
 
 
 def _set_task_status(task_id: str, status: str, error: Optional[str] = None) -> None:
@@ -282,6 +349,7 @@ def _set_task_status(task_id: str, status: str, error: Optional[str] = None) -> 
         task.status = status
         if error is not None:
             task.error = error
+    _persist_task_snapshot(task_id)
 
 
 def _build_failure_progress(task: Task, error: str) -> dict:
@@ -305,6 +373,42 @@ def _build_failure_progress(task: Task, error: str) -> dict:
         message=f"System: {error}",
     )
     return failure_progress.to_dict()
+
+
+def _restore_persisted_active_tasks() -> None:
+    active_dir = _active_tasks_dir()
+    if not active_dir.is_dir():
+        return
+
+    for snapshot_path in sorted(active_dir.glob("*/task.json")):
+        try:
+            payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            task = _task_from_snapshot(payload)
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+            _delete_task_snapshot(snapshot_path.parent.name)
+            continue
+
+        if task.status in TERMINAL_TASK_STATUSES:
+            _delete_task_snapshot(task.id)
+            continue
+
+        task.status = "failed"
+        task.error = RECOVERED_TASK_ERROR
+        failure_progress = _build_failure_progress(task, RECOVERED_TASK_ERROR)
+        task.latest_progress = failure_progress
+        task.progress_events = [failure_progress]
+
+        with tasks_lock:
+            tasks[task.id] = task
+
+        _delete_task_snapshot(task.id)
 
 
 def _start_task_thread(task_id: str) -> threading.Thread:
@@ -351,6 +455,7 @@ def _run_task(task_id: str) -> None:
             current_task.report_id = report_id
             if current_task.latest_progress is not None:
                 current_task.latest_progress["status"] = "completed"
+        _persist_task_snapshot(task_id)
 
     except Exception as exc:  # pragma: no cover - covered through task failure path
         if temp_dir.exists():
@@ -363,6 +468,7 @@ def _run_task(task_id: str) -> None:
             failure_progress = _build_failure_progress(current_task, str(exc))
             current_task.latest_progress = failure_progress
             current_task.progress_events.append(failure_progress)
+        _persist_task_snapshot(task_id)
 
 
 def _serialize_sse_event(data: dict) -> str:
@@ -553,6 +659,7 @@ def create_task(payload: TaskCreatePayload) -> dict:
     with tasks_lock:
         tasks[task_id] = task
 
+    _persist_task_snapshot(task_id)
     _start_task_thread(task_id)
     return {"task_id": task_id, "status": "pending"}
 
