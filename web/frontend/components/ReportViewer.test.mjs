@@ -27,14 +27,17 @@ test("ReportViewer lets the reading surface use the full content column", () => 
   assert.equal(source.includes("p-3 md:h-screen md:overflow-hidden md:p-4 lg:p-5"), false);
 });
 
-test("ReportViewer decorates reports with thesis tracker and valuation-aware highlights", () => {
+test("ReportViewer decorates reports with valuation-aware highlights without injecting thesis tracker", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
-  assert.match(source, /buildThesisSummaryMarkdown/);
   assert.match(source, /injectValuationMetricsIntoHighlights/);
   assert.match(source, /extractDcfApplicabilityMetrics/);
+  assert.match(source, /extractDcfScenarioMetrics/);
+  assert.match(source, /"DCF Scenario Summary"/);
   assert.match(source, /"DCF Applicability"/);
-  assert.match(source, /artifacts\?\.find\(\(artifact\) => artifact\.type === "thesis"\)/);
+  assert.doesNotMatch(source, /buildThesisSummaryMarkdown/);
+  assert.doesNotMatch(source, /artifacts\?\.find\(\(artifact\) => artifact\.type === "thesis"\)/);
+  assert.doesNotMatch(source, /thesisArtifact/);
   assert.doesNotMatch(source, /selectedFile === "fundamentals"/);
-  assert.match(source, /selectedFile === "manager"/);
+  assert.doesNotMatch(source, /selectedFile === "manager"/);
 });

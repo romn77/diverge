@@ -35,15 +35,6 @@ const FILE_LABELS: Record<string, string> = {
   decision: "Portfolio Decision",
 };
 
-interface ThesisArtifact {
-  type: "thesis";
-  ticker: string;
-  thesis_summary: string;
-  supporting_evidence?: string[];
-  invalidation_signals?: string[];
-  next_catalysts?: string[];
-}
-
 const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
 
 function escapeRegExp(value: string): string {
@@ -119,6 +110,29 @@ function extractDcfApplicabilityMetrics(
   return metrics;
 }
 
+function extractDcfScenarioMetrics(
+  markdown: string
+): Array<{ name: string; value: string; assessment: string }> {
+  const section = extractSection(markdown, "DCF Scenario Summary");
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("|"))
+    .filter((line) => !line.includes("---"))
+    .map((line) => line.split("|").map((cell) => cell.trim()).filter(Boolean))
+    .filter((cells) => cells.length >= 5 && cells[0] !== "Case")
+    .map((cells) => ({
+      name: cells[0] ?? "",
+      value: cells[4] ?? "",
+      assessment: `Scenario DCF using growth ${cells[1] ?? "N/A"}, WACC ${cells[2] ?? "N/A"}, terminal growth ${cells[3] ?? "N/A"}`,
+    }))
+    .filter((metric) => metric.name && metric.value);
+}
+
 function injectValuationMetricsIntoHighlights(markdown: string): string {
   const match = markdown.match(HIGHLIGHTS_BLOCK_RE);
   if (!match?.[1]) {
@@ -136,6 +150,7 @@ function injectValuationMetricsIntoHighlights(markdown: string): string {
 
     const valuationMetrics = [
       ...extractDcfApplicabilityMetrics(markdown),
+      ...extractDcfScenarioMetrics(markdown),
       ...extractTableMetrics(markdown, "DCF Summary", "Intrinsic value output"),
       ...extractTableMetrics(markdown, "Multiples Summary", "Relative valuation output"),
       ...extractTableMetrics(markdown, "Valuation Assumptions", "DCF input assumption"),
@@ -165,53 +180,8 @@ function injectValuationMetricsIntoHighlights(markdown: string): string {
   }
 }
 
-function buildThesisSummaryMarkdown(thesis: ThesisArtifact | null): string {
-  if (!thesis) {
-    return "";
-  }
-
-  const evidence = thesis.supporting_evidence?.slice(0, 3) ?? [];
-  const invalidation = thesis.invalidation_signals?.slice(0, 3) ?? [];
-  const catalysts = thesis.next_catalysts?.slice(0, 3) ?? [];
-
-  return [
-    "## Thesis Tracker",
-    "",
-    `**Summary:** ${thesis.thesis_summary}`,
-    "",
-    "### Supporting Evidence",
-    ...(evidence.length > 0 ? evidence.map((item) => `- ${item}`) : ["- No supporting evidence saved."]),
-    "",
-    "### Invalidation Signals",
-    ...(invalidation.length > 0
-      ? invalidation.map((item) => `- ${item}`)
-      : ["- No invalidation signals saved."]),
-    "",
-    "### Next Catalysts",
-    ...(catalysts.length > 0 ? catalysts.map((item) => `- ${item}`) : ["- No catalysts saved."]),
-  ].join("\n");
-}
-
-function decorateReportContent(
-  markdown: string,
-  options: {
-    selectedTab: string;
-    selectedFile: string | null;
-    thesisArtifact: ThesisArtifact | null;
-  }
-): string {
-  let nextContent = injectValuationMetricsIntoHighlights(markdown);
-
-  const shouldInjectThesis =
-    options.thesisArtifact &&
-    (options.selectedTab === "complete" ||
-      options.selectedFile === "manager");
-
-  if (shouldInjectThesis) {
-    nextContent = `${buildThesisSummaryMarkdown(options.thesisArtifact)}\n\n${nextContent}`;
-  }
-
-  return nextContent;
+function decorateReportContent(markdown: string): string {
+  return injectValuationMetricsIntoHighlights(markdown);
 }
 
 function formatGeneratedLabel(reportMeta?: Report | null): string {
@@ -253,7 +223,6 @@ export function ReportViewer({
   const [error, setError] = useState<string | null>(null);
   const [finalSignal, setFinalSignal] = useState<TradeSignal | null>(null);
   const [finalConfidence, setFinalConfidence] = useState<SignalConfidence | null>(null);
-  const [thesisArtifact, setThesisArtifact] = useState<ThesisArtifact | null>(null);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -275,7 +244,6 @@ export function ReportViewer({
         setSelectedTab("complete");
         setSelectedFile(null);
         setContent("");
-        setThesisArtifact(null);
       } catch (err) {
         if (!isActive) {
           return;
@@ -296,36 +264,6 @@ export function ReportViewer({
       isActive = false;
     };
   }, [reportId]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadThesisArtifact = async () => {
-      const thesisPath = structure?.artifacts?.find((artifact) => artifact.type === "thesis")?.path;
-      if (!thesisPath) {
-        setThesisArtifact(null);
-        return;
-      }
-
-      try {
-        const raw = await getContent(reportId, thesisPath);
-        if (!isActive) {
-          return;
-        }
-        setThesisArtifact(JSON.parse(raw) as ThesisArtifact);
-      } catch {
-        if (isActive) {
-          setThesisArtifact(null);
-        }
-      }
-    };
-
-    loadThesisArtifact();
-
-    return () => {
-      isActive = false;
-    };
-  }, [reportId, structure]);
 
   useEffect(() => {
     let isActive = true;
@@ -391,13 +329,7 @@ export function ReportViewer({
           return;
         }
 
-        setContent(
-          decorateReportContent(data, {
-            selectedTab,
-            selectedFile,
-            thesisArtifact,
-          })
-        );
+        setContent(decorateReportContent(data));
       } catch (err) {
         if (thisRequest !== requestIdRef.current) {
           return;
@@ -412,7 +344,7 @@ export function ReportViewer({
     };
 
     loadContent();
-  }, [reportId, selectedFile, selectedTab, structure, thesisArtifact]);
+  }, [reportId, selectedFile, selectedTab, structure]);
 
   const availableCategories = useMemo(
     () =>
