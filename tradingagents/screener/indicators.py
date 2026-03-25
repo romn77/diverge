@@ -155,8 +155,9 @@ def build_features_table(
     histories: dict[str, pd.DataFrame],
     as_of_date: str,
 ) -> pd.DataFrame:
+    successful_universe = universe_df.loc[universe_df["symbol"].isin(histories)].reset_index(drop=True)
     rows = [
-        build_feature_row(row, histories.get(row["symbol"], pd.DataFrame()), as_of_date)
-        for _, row in universe_df.iterrows()
+        build_feature_row(row, histories[row["symbol"]], as_of_date)
+        for _, row in successful_universe.iterrows()
     ]
     return pd.DataFrame(rows)

@@ -24,6 +24,22 @@ class TickerParsingTests(unittest.TestCase):
         self.assertEqual(sz_suffixed["akshare"], "000001")
         self.assertEqual(sz_suffixed["yfinance"], "000001.SZ")
 
+    def test_parse_plain_growth_board_ticker_with_302_prefix(self):
+        parsed = parse_and_normalize_cn_ticker("302132")
+
+        self.assertEqual(parsed["raw"], "302132")
+        self.assertEqual(parsed["exchange"], "SZ")
+        self.assertEqual(parsed["tushare"], "302132.SZ")
+        self.assertEqual(parsed["yfinance"], "302132.SZ")
+
+    def test_parse_plain_beijing_exchange_ticker_with_920_prefix(self):
+        parsed = parse_and_normalize_cn_ticker("920000")
+
+        self.assertEqual(parsed["raw"], "920000")
+        self.assertEqual(parsed["exchange"], "BJ")
+        self.assertEqual(parsed["tushare"], "920000.BJ")
+        self.assertEqual(parsed["yfinance"], "920000.BJ")
+
     def test_detect_market(self):
         self.assertEqual(detect_market("600519"), "cn")
         self.assertEqual(detect_market("000001.SZ"), "cn")

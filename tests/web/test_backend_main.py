@@ -329,6 +329,42 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(rows[0]["symbol"], "600519.SH")
         self.assertEqual(rows[1]["market"], "us")
 
+    def test_run_screener_task_marks_failed_stage_as_not_processing(self):
+        task = backend_main.ScreenerTask(
+            id="task-failed-screener",
+            request_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+            config_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+        )
+        backend_main.screener_tasks[task.id] = task
+
+        with patch("web.backend.main.run_screen", side_effect=ValueError("boom")):
+            backend_main._run_screener_task(task.id)
+
+        task_status = backend_main.get_screener_task_status(task.id)
+        self.assertEqual(task_status["status"], "failed")
+        self.assertEqual(
+            task_status["latest_progress"]["stage_status"],
+            {
+                "Universe": "not_started",
+                "History": "not_started",
+                "Features": "not_started",
+                "Filters": "not_started",
+                "Ranking": "not_started",
+                "Export": "not_started",
+            },
+        )
+        self.assertIn("boom", task_status["error"])
+
     def test_post_tasks_rejects_unconfigured_provider(self):
         payload = {
             "ticker": "SPY",

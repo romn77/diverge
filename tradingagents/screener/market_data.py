@@ -10,16 +10,19 @@ import pandas as pd
 from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df
 from tradingagents.dataflows.cn_market_utils import normalize_symbol_for_vendor
 from tradingagents.dataflows.tushare_stock import _fetch_tushare_stock_df
-from tradingagents.dataflows.vendor_errors import VendorRetryableError
+from tradingagents.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
 from tradingagents.dataflows.y_finance import _fetch_yfinance_ohlcv_df
 from .history_cache import (
     checkpoint_path,
+    delete_history_failure_cache,
     delete_checkpoint,
     load_checkpoint,
+    load_history_failure_cache,
     load_history_cache,
     merge_history_frames,
     resolve_incremental_fetch_start,
     save_checkpoint,
+    save_history_failure_cache,
     save_history_cache,
     slice_history_window,
 )
@@ -29,6 +32,7 @@ REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amo
 CN_REQUEST_DELAY_SECONDS = 0.35
 RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
 LOOKBACK_DAYS = 400
+FAILURE_CACHE_TTL = timedelta(hours=24)
 
 
 def _normalize_price_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -99,6 +103,18 @@ def fetch_history_for_universe(
     )
     checkpoint_payload = load_checkpoint(history_checkpoint_path) or {}
     processed_symbols: set[str] = set(checkpoint_payload.get("processed_symbols") or [])
+    checkpoint_failed_symbols = checkpoint_payload.get("failed_symbols") or [
+        {
+            "symbol": symbol,
+            "drop_reason": "fetch_failed",
+        }
+        for symbol in checkpoint_payload.get("fetch_failed_symbols") or []
+    ]
+    checkpoint_failure_reasons = {
+        str(item.get("symbol")): str(item.get("drop_reason") or "fetch_failed")
+        for item in checkpoint_failed_symbols
+        if item.get("symbol")
+    }
 
     histories: dict[str, pd.DataFrame] = {}
     failures: list[dict[str, str]] = []
@@ -113,7 +129,12 @@ def fetch_history_for_universe(
             as_of_date=as_of_date,
             start_date=start_date,
             processed_symbols=sorted(processed_symbols),
-            fetch_failed_symbols=[failure["symbol"] for failure in failures],
+            fetch_failed_symbols=[
+                failure["symbol"]
+                for failure in failures
+                if failure["drop_reason"] == "fetch_failed"
+            ],
+            failed_symbols=failures,
             universe_total=total,
             last_symbol=current_symbol,
         )
@@ -125,8 +146,15 @@ def fetch_history_for_universe(
             current_symbol = str(symbol)
 
             cached_frame = load_history_cache(history_cache_dir, market, symbol)
+            cached_failure = load_history_failure_cache(
+                history_cache_dir,
+                market,
+                symbol,
+                max_age=FAILURE_CACHE_TTL,
+            )
             fetch_start = resolve_incremental_fetch_start(cached_frame, start_date, as_of_date)
             if fetch_start is None:
+                delete_history_failure_cache(history_cache_dir, market, symbol)
                 cached_window = slice_history_window(cached_frame, start_date, as_of_date)
                 if not cached_window.empty:
                     histories[symbol] = cached_window
@@ -135,6 +163,30 @@ def fetch_history_for_universe(
                 if processed_since_checkpoint >= checkpoint_batch_size:
                     persist_checkpoint()
                     processed_since_checkpoint = 0
+                if progress_callback is not None:
+                    progress_callback("history", index + 1, total, symbol)
+                continue
+
+            if cached_frame.empty and symbol in checkpoint_failure_reasons:
+                failures.append(
+                    {
+                        "symbol": symbol,
+                        "market": market,
+                        "drop_reason": checkpoint_failure_reasons[symbol],
+                    }
+                )
+                if progress_callback is not None:
+                    progress_callback("history", index + 1, total, symbol)
+                continue
+
+            if cached_frame.empty and cached_failure is not None:
+                failures.append(
+                    {
+                        "symbol": symbol,
+                        "market": market,
+                        "drop_reason": str(cached_failure.get("drop_reason") or "fetch_failed"),
+                    }
+                )
                 if progress_callback is not None:
                     progress_callback("history", index + 1, total, symbol)
                 continue
@@ -161,23 +213,51 @@ def fetch_history_for_universe(
                             processed_symbols.add(symbol)
                             processed_since_checkpoint += 1
                         else:
+                            save_history_failure_cache(
+                                history_cache_dir,
+                                market,
+                                symbol,
+                                drop_reason="history_empty",
+                            )
                             failures.append(
                                 {
                                     "symbol": symbol,
                                     "market": market,
-                                    "drop_reason": "fetch_failed",
+                                    "drop_reason": "history_empty",
                                 }
                             )
                         break
 
                     merged_frame = merge_history_frames(cached_frame, frame)
+                    delete_history_failure_cache(history_cache_dir, market, symbol)
                     save_history_cache(history_cache_dir, market, symbol, merged_frame)
                     histories[symbol] = slice_history_window(merged_frame, start_date, as_of_date)
                     processed_symbols.add(symbol)
                     processed_since_checkpoint += 1
                     break
+                except VendorDataEmptyError:
+                    save_history_failure_cache(
+                        history_cache_dir,
+                        market,
+                        symbol,
+                        drop_reason="history_empty",
+                    )
+                    failures.append(
+                        {
+                            "symbol": symbol,
+                            "market": market,
+                            "drop_reason": "history_empty",
+                        }
+                    )
+                    break
                 except VendorRetryableError:
                     if attempt >= len(RETRY_BACKOFF_SECONDS):
+                        save_history_failure_cache(
+                            history_cache_dir,
+                            market,
+                            symbol,
+                            drop_reason="fetch_failed",
+                        )
                         failures.append(
                             {
                                 "symbol": symbol,

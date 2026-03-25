@@ -5,7 +5,8 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from tradingagents.dataflows.vendor_errors import VendorRetryableError
+from tradingagents.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
+from tradingagents.screener.history_cache import checkpoint_path
 from tradingagents.screener.market_data import (
     fetch_history_for_universe,
     fetch_price_history,
@@ -115,7 +116,7 @@ def test_fetch_price_history_uses_yfinance_for_us_and_computes_amount_when_missi
     assert result.loc[0, "Amount"] == 50_500.0
 
 
-def test_fetch_history_for_universe_records_empty_results_as_fetch_failed():
+def test_fetch_history_for_universe_records_empty_results_as_history_empty():
     universe = pd.DataFrame(
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
@@ -131,7 +132,7 @@ def test_fetch_history_for_universe_records_empty_results_as_fetch_failed():
         {
             "symbol": "AAPL",
             "market": "us",
-            "drop_reason": "fetch_failed",
+            "drop_reason": "history_empty",
         }
     ]
 
@@ -207,6 +208,108 @@ def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols():
 
     sleep_values = [call.args[0] for call in mock_sleep.call_args_list]
     assert 0.35 in sleep_values
+
+
+def test_fetch_history_for_universe_persists_empty_failures_and_skips_refetch_on_rerun(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        side_effect=VendorDataEmptyError("empty"),
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert histories == {}
+    assert failures.to_dict("records") == [
+        {
+            "symbol": "AAPL",
+            "market": "us",
+            "drop_reason": "history_empty",
+        }
+    ]
+    assert mock_fetch.call_count == 1
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        side_effect=AssertionError("failure cache should skip refetch"),
+    ):
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert histories == {}
+    assert failures.to_dict("records") == [
+        {
+            "symbol": "AAPL",
+            "market": "us",
+            "drop_reason": "history_empty",
+        }
+    ]
+
+
+def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoint(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+    path = checkpoint_path(checkpoint_dir, universe, "2026-03-24", "tushare")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "as_of_date": "2026-03-24",
+                "start_date": "2025-02-17",
+                "processed_symbols": [],
+                "fetch_failed_symbols": ["AAPL"],
+                "failed_symbols": [
+                    {
+                        "symbol": "AAPL",
+                        "market": "us",
+                        "drop_reason": "fetch_failed",
+                    }
+                ],
+                "universe_total": 1,
+                "last_symbol": "AAPL",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        side_effect=AssertionError("checkpoint failures should skip refetch"),
+    ):
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert histories == {}
+    assert failures.to_dict("records") == [
+        {
+            "symbol": "AAPL",
+            "market": "us",
+            "drop_reason": "fetch_failed",
+        }
+    ]
 
 
 def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_refetch(tmp_path):

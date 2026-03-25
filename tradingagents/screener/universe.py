@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pandas as pd
@@ -18,6 +19,18 @@ CN_EXCHANGE_LABELS = {
     "SZ": "SZSE",
     "BJ": "BSE",
 }
+SPECIAL_TREATMENT_NAME_RE = re.compile(r"^(?:S\*ST|SST|\*ST|ST)", re.IGNORECASE)
+
+
+def _is_special_treatment_name(name: str) -> bool:
+    normalized = "".join(str(name or "").strip().upper().split())
+    return bool(SPECIAL_TREATMENT_NAME_RE.match(normalized))
+
+
+def _filter_special_treatment_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "name" not in df.columns:
+        return df
+    return df.loc[~df["name"].map(_is_special_treatment_name)].reset_index(drop=True)
 
 
 def _load_akshare_cn_universe_rows() -> pd.DataFrame:
@@ -47,7 +60,7 @@ def load_cn_universe(data_source: str = "tushare") -> pd.DataFrame:
             .loc[:, UNIVERSE_COLUMNS]
             .fillna("")
         )
-        return result.reset_index(drop=True)
+        return _filter_special_treatment_rows(result)
 
     pro = get_tushare_pro_client()
     raw = pro.stock_basic(
@@ -70,7 +83,7 @@ def load_cn_universe(data_source: str = "tushare") -> pd.DataFrame:
         .loc[:, ["symbol", "market", "name", "exchange", "sector", "list_date"]]
         .fillna("")
     )
-    return result.reset_index(drop=True)
+    return _filter_special_treatment_rows(result)
 
 
 def load_us_universe(manifest_path: str) -> pd.DataFrame:

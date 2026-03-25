@@ -157,3 +157,35 @@ def test_build_features_table_builds_rows_for_each_symbol():
 
     assert list(result["symbol"]) == ["AAPL", "MSFT"]
     assert set(result.columns).issuperset({"ma20", "macdh", "atr_pct", "bar_count"})
+
+
+def test_build_features_table_skips_symbols_without_successful_history():
+    price_df = _make_price_frame()
+    universe_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+            },
+            {
+                "symbol": "MSFT",
+                "market": "us",
+                "name": "Microsoft",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19860313",
+            },
+        ]
+    )
+
+    histories = {
+        "AAPL": price_df,
+    }
+
+    result = build_features_table(universe_df, histories, "2026-03-20")
+
+    assert list(result["symbol"]) == ["AAPL"]

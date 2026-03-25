@@ -511,6 +511,28 @@ def _build_screener_progress(
     }
 
 
+def _build_screener_failure_progress(task: ScreenerTask, error: str) -> dict:
+    latest_progress = task.latest_progress or {}
+    latest_stage_status = latest_progress.get("stage_status") or {}
+    stage_status = {
+        key: (
+            "not_started"
+            if latest_stage_status.get(key) == "processing"
+            else latest_stage_status.get(key, "not_started")
+        )
+        for key in SCREENER_STAGES
+    }
+
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": "failed",
+        "stage_status": stage_status,
+        "agent_status": latest_progress.get("agent_status") or {},
+        "current_agent": latest_progress.get("current_agent"),
+        "message": f"System: {error}",
+    }
+
+
 def _combined_active_task_count() -> int:
     with tasks_lock:
         analysis_active = sum(1 for task in tasks.values() if task.status in {"pending", "running"})
@@ -591,13 +613,7 @@ def _restore_persisted_screener_tasks() -> None:
 
         task.status = "failed"
         task.error = RECOVERED_TASK_ERROR
-        task.latest_progress = _build_screener_progress(
-            status="failed",
-            stage="Universe",
-            current=0,
-            total=1,
-            message=f"System: {RECOVERED_TASK_ERROR}",
-        )
+        task.latest_progress = _build_screener_failure_progress(task, RECOVERED_TASK_ERROR)
         task.progress_events = [task.latest_progress]
 
         with tasks_lock:
@@ -707,13 +723,7 @@ def _run_screener_task(task_id: str) -> None:
             current_task = screener_tasks[task_id]
             current_task.status = "failed"
             current_task.error = str(exc)
-            failure_progress = _build_screener_progress(
-                status="failed",
-                stage="Universe",
-                current=0,
-                total=1,
-                message=f"System: {exc}",
-            )
+            failure_progress = _build_screener_failure_progress(current_task, str(exc))
             current_task.latest_progress = failure_progress
             current_task.progress_events.append(failure_progress)
         _persist_screener_task_snapshot(task_id)
