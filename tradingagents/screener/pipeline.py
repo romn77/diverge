@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from pathlib import Path
 from typing import Callable
 
 import pandas as pd
@@ -28,11 +29,15 @@ def run_screen(
     _emit(progress_callback, "universe", 0, 1)
     universe_df = load_universe(config)
     _emit(progress_callback, "universe", 1, 1)
+    cache_root = Path(config.output_dir) / ".cache"
 
     histories, fetch_failures = fetch_history_for_universe(
         universe_df,
         config.as_of_date,
+        cn_data_source=config.cn_data_source,
         progress_callback=progress_callback,
+        cache_dir=cache_root,
+        checkpoint_dir=cache_root / "checkpoints",
     )
 
     _emit(progress_callback, "features", 0, 1)

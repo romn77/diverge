@@ -1233,7 +1233,7 @@ def screen(
     date: str = typer.Option(..., "--date"),
     markets: str = typer.Option(..., "--markets"),
     top_k: int = typer.Option(100, "--top-k"),
-    limit_per_market: int | None = typer.Option(None, "--limit-per-market"),
+    cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
 ):
@@ -1248,8 +1248,8 @@ def screen(
         markets=parsed_markets,
         as_of_date=date,
         top_k=top_k,
-        limit_per_market=limit_per_market,
         output_dir=output_dir,
+        cn_data_source=cn_data_source,
         us_manifest_path=us_manifest,
     )
 

@@ -182,6 +182,7 @@ TradingAgents also ships with a daily screener that builds a ranked candidate po
 - CN screening requires `TUSHARE_TOKEN`
 - US screening requires a manifest path via `--us-manifest`
 - LLM analysis happens after screener output, not during screener execution
+- History cache and recovery checkpoints live under `results/screener/.cache/`; reruns reuse cached OHLCV and can resume after mid-history failures
 
 Example:
 
@@ -190,7 +191,6 @@ tradingagents screen \
   --date 2026-03-24 \
   --markets cn,us \
   --top-k 100 \
-  --limit-per-market 500 \
   --us-manifest /absolute/path/to/us_manifest.csv \
   --output-dir ./results/screener
 ```

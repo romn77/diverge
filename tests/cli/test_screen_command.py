@@ -30,6 +30,13 @@ def test_screen_command_requires_us_manifest_for_us_market():
     assert "us-manifest" in result.output
 
 
+def test_screen_command_help_does_not_expose_limit_per_market_option():
+    result = runner.invoke(app, ["screen", "--help"])
+
+    assert result.exit_code == 0
+    assert "--limit-per-market" not in result.output
+
+
 def test_screen_command_prints_progress_and_result_summary():
     def fake_run_screen(config, progress_callback=None):
         if progress_callback is not None:
@@ -69,8 +76,6 @@ def test_screen_command_prints_progress_and_result_summary():
                 "cn,us",
                 "--top-k",
                 "20",
-                "--limit-per-market",
-                "50",
                 "--us-manifest",
                 "/tmp/us_manifest.csv",
             ],
@@ -82,3 +87,37 @@ def test_screen_command_prints_progress_and_result_summary():
     assert "fetch_failed: 1" in result.output
     assert "600519.SH" in result.output
     assert "/tmp/results/screener/20260324_214530" in result.output
+
+
+def test_screen_command_accepts_cn_data_source_override():
+    captured = {}
+
+    def fake_run_screen(config, progress_callback=None):
+        captured["cn_data_source"] = config.cn_data_source
+        return ScreenRunResult(
+            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            universe_count_by_market={"cn": 1},
+            fetch_failed_count=0,
+            filtered_count_by_reason={},
+            candidate_count=0,
+            candidate_preview=[],
+        )
+
+    with patch("cli.main.run_screen", side_effect=fake_run_screen):
+        result = runner.invoke(
+            app,
+            [
+                "screen",
+                "--date",
+                "2026-03-24",
+                "--markets",
+                "cn",
+                "--top-k",
+                "20",
+                "--cn-data-source",
+                "akshare",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert captured["cn_data_source"] == "akshare"

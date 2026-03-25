@@ -4,6 +4,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from tradingagents.dataflows.akshare_stock import _import_akshare
+from tradingagents.dataflows.cn_market_utils import infer_cn_exchange
 from tradingagents.dataflows.tushare_common import get_tushare_pro_client
 
 from .schema import ScreenRunConfig
@@ -11,15 +13,42 @@ from .schema import ScreenRunConfig
 
 UNIVERSE_COLUMNS = ["symbol", "market", "name", "exchange", "sector", "list_date"]
 US_MANIFEST_REQUIRED_COLUMNS = ["symbol", "name", "exchange", "sector", "list_date"]
+CN_EXCHANGE_LABELS = {
+    "SH": "SSE",
+    "SZ": "SZSE",
+    "BJ": "BSE",
+}
 
 
-def _limit_rows(df: pd.DataFrame, limit: int | None) -> pd.DataFrame:
-    if limit is None:
-        return df.reset_index(drop=True)
-    return df.head(limit).reset_index(drop=True)
+def _load_akshare_cn_universe_rows() -> pd.DataFrame:
+    ak = _import_akshare()
+    raw = ak.stock_info_a_code_name()
+    if raw is None:
+        return pd.DataFrame(columns=["code", "name"])
+    return raw
 
 
-def load_cn_universe(limit: int | None = None) -> pd.DataFrame:
+def load_cn_universe(data_source: str = "tushare") -> pd.DataFrame:
+    if data_source == "akshare":
+        raw = _load_akshare_cn_universe_rows()
+        if raw is None or raw.empty:
+            raw = pd.DataFrame(columns=["code", "name"])
+
+        normalized = raw.copy()
+        normalized["code"] = normalized["code"].astype(str).str.zfill(6)
+        normalized["exchange_code"] = normalized["code"].map(infer_cn_exchange)
+        normalized["symbol"] = normalized["code"] + "." + normalized["exchange_code"]
+        normalized["exchange"] = normalized["exchange_code"].map(CN_EXCHANGE_LABELS)
+        normalized["sector"] = ""
+        normalized["list_date"] = ""
+        result = (
+            normalized.loc[:, ["symbol", "name", "exchange", "sector", "list_date"]]
+            .assign(market="cn")
+            .loc[:, UNIVERSE_COLUMNS]
+            .fillna("")
+        )
+        return result.reset_index(drop=True)
+
     pro = get_tushare_pro_client()
     raw = pro.stock_basic(
         exchange="",
@@ -41,10 +70,10 @@ def load_cn_universe(limit: int | None = None) -> pd.DataFrame:
         .loc[:, ["symbol", "market", "name", "exchange", "sector", "list_date"]]
         .fillna("")
     )
-    return _limit_rows(result, limit)
+    return result.reset_index(drop=True)
 
 
-def load_us_universe(manifest_path: str, limit: int | None = None) -> pd.DataFrame:
+def load_us_universe(manifest_path: str) -> pd.DataFrame:
     path = Path(manifest_path)
     raw = pd.read_csv(path, dtype=str, keep_default_na=False)
 
@@ -54,7 +83,7 @@ def load_us_universe(manifest_path: str, limit: int | None = None) -> pd.DataFra
 
     result = raw.loc[:, US_MANIFEST_REQUIRED_COLUMNS].copy()
     result.insert(1, "market", "us")
-    return _limit_rows(result.loc[:, UNIVERSE_COLUMNS], limit)
+    return result.loc[:, UNIVERSE_COLUMNS].reset_index(drop=True)
 
 
 def load_universe(config: ScreenRunConfig) -> pd.DataFrame:
@@ -62,12 +91,15 @@ def load_universe(config: ScreenRunConfig) -> pd.DataFrame:
 
     for market in config.markets:
         if market == "cn":
-            frames.append(load_cn_universe(limit=config.limit_per_market))
+            frames.append(
+                load_cn_universe(
+                    data_source=config.cn_data_source,
+                )
+            )
         elif market == "us":
             frames.append(
                 load_us_universe(
                     manifest_path=config.us_manifest_path or "",
-                    limit=config.limit_per_market,
                 )
             )
 

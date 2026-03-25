@@ -74,6 +74,7 @@ Then open http://localhost:3000 in your browser.
 - CLI US screening requires `--us-manifest /absolute/path/to/us_manifest.csv`
 - Web US screening requires backend env `SCREEN_US_MANIFEST_PATH`
 - LLM analysis happens after screener output, not during screener execution
+- Shared screener cache and recovery checkpoints live under `../results/screener/.cache/`
 
 ## Development
 

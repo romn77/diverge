@@ -22,7 +22,6 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
         markets=["cn", "us"],
         as_of_date="2026-03-24",
         top_k=2,
-        limit_per_market=2,
         output_dir=str(tmp_path),
         us_manifest_path="/tmp/us.csv",
     )

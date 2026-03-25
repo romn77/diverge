@@ -46,6 +46,34 @@ def test_load_cn_universe_maps_tushare_stock_basic_to_shared_shape():
     ]
 
 
+def test_load_cn_universe_maps_akshare_stock_list_to_shared_shape():
+    akshare_df = pd.DataFrame(
+        [
+            {
+                "code": "600519",
+                "name": "Kweichow Moutai",
+            }
+        ]
+    )
+
+    with patch(
+        "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+        return_value=akshare_df,
+    ):
+        result = load_cn_universe(data_source="akshare")
+
+    assert result.to_dict("records") == [
+        {
+            "symbol": "600519.SH",
+            "market": "cn",
+            "name": "Kweichow Moutai",
+            "exchange": "SSE",
+            "sector": "",
+            "list_date": "",
+        }
+    ]
+
+
 def test_load_us_universe_requires_manifest_columns(tmp_path):
     manifest_path = tmp_path / "us_manifest.csv"
     pd.DataFrame(
@@ -93,7 +121,7 @@ def test_load_cn_universe_surfaces_clear_tushare_auth_errors():
             load_cn_universe()
 
 
-def test_load_universe_applies_limit_per_market_and_concatenates_sources(tmp_path):
+def test_load_universe_concatenates_sources_without_truncation(tmp_path):
     manifest_path = tmp_path / "us_manifest.csv"
     pd.DataFrame(
         [
@@ -138,7 +166,6 @@ def test_load_universe_applies_limit_per_market_and_concatenates_sources(tmp_pat
         markets=["cn", "us"],
         as_of_date="2026-03-24",
         top_k=20,
-        limit_per_market=1,
         us_manifest_path=str(manifest_path),
     )
 
@@ -148,5 +175,5 @@ def test_load_universe_applies_limit_per_market_and_concatenates_sources(tmp_pat
     ):
         result = load_universe(config)
 
-    assert list(result["symbol"]) == ["600519.SH", "AAPL"]
-    assert list(result["market"]) == ["cn", "us"]
+    assert list(result["symbol"]) == ["600519.SH", "000001.SZ", "AAPL", "MSFT"]
+    assert list(result["market"]) == ["cn", "cn", "us", "us"]

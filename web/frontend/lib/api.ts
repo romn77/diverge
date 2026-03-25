@@ -101,9 +101,13 @@ export interface ScreenerMarketOption extends SelectOption {
 
 export interface ScreenerConfigOptions {
   markets: ScreenerMarketOption[];
+  cn_data_sources: Array<{
+    label: string;
+    value: string;
+  }>;
   defaults: {
+    cn_data_source: string;
     top_k: number;
-    limit_per_market: number;
   };
 }
 
@@ -111,7 +115,7 @@ export interface ScreenTaskCreateRequest {
   markets: string[];
   as_of_date: string;
   top_k: number;
-  limit_per_market: number | null;
+  cn_data_source: string;
 }
 
 export interface ScreenerTaskCreateResponse {

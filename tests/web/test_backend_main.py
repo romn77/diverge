@@ -213,7 +213,7 @@ class BackendMainTests(unittest.TestCase):
             "markets": ["cn"],
             "as_of_date": "2026-03-24",
             "top_k": 20,
-            "limit_per_market": 50,
+            "cn_data_source": "akshare",
         }
 
         with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
@@ -227,13 +227,26 @@ class BackendMainTests(unittest.TestCase):
         task_status = backend_main.get_screener_task_status(body["task_id"])
         self.assertEqual(task_status["status"], "pending")
         self.assertEqual(task_status["request_payload"]["markets"], ["cn"])
+        self.assertEqual(task_status["request_payload"]["cn_data_source"], "akshare")
+        self.assertEqual(task_status["config_payload"]["cn_data_source"], "akshare")
+        self.assertNotIn("limit_per_market", task_status["request_payload"])
+        self.assertNotIn("limit_per_market", task_status["config_payload"])
+
+    def test_get_screener_config_options_exposes_cn_data_source_choices(self):
+        payload = backend_main._get_screener_config_options_payload()
+
+        self.assertEqual(payload["defaults"]["cn_data_source"], "tushare")
+        self.assertNotIn("limit_per_market", payload["defaults"])
+        self.assertEqual(
+            [option["value"] for option in payload["cn_data_sources"]],
+            ["tushare", "akshare"],
+        )
 
     def test_post_screener_tasks_rejects_us_market_without_backend_manifest(self):
         payload = {
             "markets": ["us"],
             "as_of_date": "2026-03-24",
             "top_k": 20,
-            "limit_per_market": 50,
         }
 
         with patch.dict(os.environ, {}, clear=True):
@@ -273,7 +286,6 @@ class BackendMainTests(unittest.TestCase):
             "markets": ["cn"],
             "as_of_date": "2026-03-24",
             "top_k": 20,
-            "limit_per_market": 50,
         }
         with self.assertRaises(HTTPException) as context:
             backend_main.create_screener_task(

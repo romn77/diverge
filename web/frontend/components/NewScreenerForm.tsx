@@ -43,8 +43,8 @@ export function NewScreenerForm({
         setFormState({
           markets: nextOptions.markets.filter((market) => market.enabled).slice(0, 1).map((market) => market.value),
           as_of_date: new Date().toISOString().slice(0, 10),
+          cn_data_source: nextOptions.defaults.cn_data_source,
           top_k: nextOptions.defaults.top_k,
-          limit_per_market: nextOptions.defaults.limit_per_market,
         });
       } catch (nextError) {
         if (isActive) {
@@ -176,6 +176,38 @@ export function NewScreenerForm({
             </section>
 
             <section className="grid gap-4 md:grid-cols-2">
+              {formState.markets.includes("cn") ? (
+                <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
+                  <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    CN Data Source
+                  </span>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {configOptions.cn_data_sources.map((sourceOption) => {
+                      const active = formState.cn_data_source === sourceOption.value;
+                      return (
+                        <button
+                          key={sourceOption.value}
+                          type="button"
+                          className={`interactive-button focus-ring rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
+                            active
+                              ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+                              : "border-[var(--border)] bg-[var(--surface-strong)] text-slate-600"
+                          }`}
+                          onClick={() =>
+                            setFormState({
+                              ...formState,
+                              cn_data_source: sourceOption.value,
+                            })
+                          }
+                        >
+                          {sourceOption.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </label>
+              ) : null}
+
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   As Of Date
@@ -199,25 +231,6 @@ export function NewScreenerForm({
                   value={formState.top_k}
                   onChange={(event) =>
                     setFormState({ ...formState, top_k: Number(event.target.value) })
-                  }
-                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
-                />
-              </label>
-
-              <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
-                <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Limit Per Market
-                </span>
-                <input
-                  type="number"
-                  value={formState.limit_per_market ?? ""}
-                  onChange={(event) =>
-                    setFormState({
-                      ...formState,
-                      limit_per_market: event.target.value
-                        ? Number(event.target.value)
-                        : null,
-                    })
                   }
                   className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
                 />

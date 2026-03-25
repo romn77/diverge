@@ -134,7 +134,7 @@ class ScreenTaskCreatePayload(BaseModel):
     markets: list[str]
     as_of_date: str
     top_k: int
-    limit_per_market: Optional[int] = None
+    cn_data_source: str = "tushare"
 
 
 @dataclass
@@ -814,9 +814,13 @@ def _get_screener_config_options_payload() -> dict:
                 else "Configure SCREEN_US_MANIFEST_PATH on the backend to enable US screening.",
             },
         ],
+        "cn_data_sources": [
+            {"label": "Tushare", "value": "tushare"},
+            {"label": "AkShare", "value": "akshare"},
+        ],
         "defaults": {
-            "top_k": 100,
-            "limit_per_market": 500,
+            "cn_data_source": "tushare",
+            "top_k": 500,
         },
     }
 
