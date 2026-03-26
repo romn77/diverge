@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -70,7 +70,7 @@ def load_history_failure_cache(
             updated_at = datetime.fromisoformat(updated_at_raw)
         except ValueError:
             updated_at = None
-        if updated_at is not None and datetime.now(UTC) - updated_at > max_age:
+        if updated_at is not None and datetime.now(timezone.utc) - updated_at > max_age:
             try:
                 path.unlink()
             except OSError:
@@ -93,7 +93,7 @@ def save_history_failure_cache(
         "symbol": symbol,
         "market": market,
         "drop_reason": drop_reason,
-        "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
@@ -197,7 +197,7 @@ def save_checkpoint(
         "failed_symbols": failed_symbols or [],
         "universe_total": universe_total,
         "last_symbol": last_symbol,
-        "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     checkpoint_file.write_text(
         json.dumps(payload, ensure_ascii=False, indent=2),

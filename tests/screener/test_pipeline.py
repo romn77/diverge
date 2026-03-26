@@ -136,3 +136,66 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
         "candidates",
         "llm_pool",
     }
+
+
+def test_run_screen_prefilters_too_new_symbols_before_history(tmp_path):
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=2,
+        output_dir=str(tmp_path),
+    )
+    universe_df = pd.DataFrame(
+        [
+            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
+            {"symbol": "301000.SZ", "market": "cn", "name": "Recent Listing", "exchange": "SZSE", "sector": "Technology", "list_date": "20260115"},
+        ]
+    )
+    filtered_universe_df = universe_df.iloc[[0]].reset_index(drop=True)
+    prefiltered_out_df = pd.DataFrame(
+        [
+            {
+                "symbol": "301000.SZ",
+                "market": "cn",
+                "name": "Recent Listing",
+                "exchange": "SZSE",
+                "sector": "Technology",
+                "list_date": "20260115",
+                "drop_reason": "too_new",
+            }
+        ]
+    )
+    features_df = pd.DataFrame()
+    histories = {
+        "600519.SH": pd.DataFrame(
+            [{"Date": "2026-03-24", "Open": 1, "High": 1, "Low": 1, "Close": 1, "Volume": 1, "Amount": 1}]
+        )
+    }
+
+    with (
+        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch(
+            "tradingagents.screener.pipeline.apply_universe_prefilters",
+            return_value=(filtered_universe_df, prefiltered_out_df),
+        ) as mock_prefilter,
+        patch(
+            "tradingagents.screener.pipeline.fetch_history_for_universe",
+            return_value=(histories, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+        ) as mock_fetch,
+        patch("tradingagents.screener.pipeline.build_features_table", return_value=features_df),
+        patch(
+            "tradingagents.screener.pipeline.apply_hard_filters",
+            return_value=(features_df, pd.DataFrame(columns=["drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.score_candidates", return_value=pd.DataFrame()),
+        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+    ):
+        result = run_screen(config)
+
+    mock_prefilter.assert_called_once()
+    fetch_universe = mock_fetch.call_args.args[0]
+    assert fetch_universe["symbol"].tolist() == ["600519.SH"]
+
+    filtered_out = pd.read_csv(Path(result.run_dir) / "filtered_out.csv")
+    assert filtered_out["symbol"].tolist() == ["301000.SZ"]
+    assert filtered_out["drop_reason"].tolist() == ["too_new"]
