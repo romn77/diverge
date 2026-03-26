@@ -1234,10 +1234,16 @@ def screen(
     markets: str = typer.Option(..., "--markets"),
     top_k: int = typer.Option(100, "--top-k"),
     cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
+    cn_data_source_fallbacks: str = typer.Option("", "--cn-data-source-fallbacks"),
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
 ):
     parsed_markets = [market.strip().lower() for market in markets.split(",") if market.strip()]
+    parsed_cn_fallbacks = [
+        source.strip().lower()
+        for source in cn_data_source_fallbacks.split(",")
+        if source.strip()
+    ]
     if "us" in parsed_markets and not us_manifest:
         raise typer.BadParameter(
             "Provide --us-manifest when requesting the us market.",
@@ -1250,6 +1256,7 @@ def screen(
         top_k=top_k,
         output_dir=output_dir,
         cn_data_source=cn_data_source,
+        cn_data_source_fallbacks=parsed_cn_fallbacks,
         us_manifest_path=us_manifest,
     )
 

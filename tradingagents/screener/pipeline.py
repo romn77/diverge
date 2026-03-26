@@ -13,6 +13,7 @@ from .ranker import score_candidates
 from .schema import ScreenRunConfig, ScreenRunResult
 from .storage import prepare_run_dir, write_run_artifacts
 from .universe import load_universe
+from .universe_prefilter import apply_universe_prefilters
 
 
 def _emit(progress_callback: Callable | None, stage: str, current: int, total: int, symbol: str | None = None) -> None:
@@ -25,16 +26,18 @@ def run_screen(
     progress_callback: Callable | None = None,
 ) -> ScreenRunResult:
     started_at = time.perf_counter()
-
-    _emit(progress_callback, "universe", 0, 1)
-    universe_df = load_universe(config)
-    _emit(progress_callback, "universe", 1, 1)
     cache_root = Path(config.output_dir) / ".cache"
 
+    _emit(progress_callback, "universe", 0, 1)
+    universe_df = load_universe(config, cache_dir=cache_root)
+    filtered_universe_df, prefiltered_out_df = apply_universe_prefilters(universe_df, config)
+    _emit(progress_callback, "universe", 1, 1)
+
     histories, fetch_failures = fetch_history_for_universe(
-        universe_df,
+        filtered_universe_df,
         config.as_of_date,
         cn_data_source=config.cn_data_source,
+        cn_data_source_fallbacks=config.cn_data_source_fallbacks,
         progress_callback=progress_callback,
         cache_dir=cache_root,
         checkpoint_dir=cache_root / "checkpoints",
@@ -46,7 +49,11 @@ def run_screen(
 
     _emit(progress_callback, "filters", 0, 1)
     kept_df, dropped_df = apply_hard_filters(features_df, config)
-    combined_filtered_out = pd.concat([fetch_failures, dropped_df], ignore_index=True, sort=False)
+    combined_filtered_out = pd.concat(
+        [prefiltered_out_df, fetch_failures, dropped_df],
+        ignore_index=True,
+        sort=False,
+    )
     _emit(progress_callback, "filters", 1, 1)
 
     _emit(progress_callback, "ranking", 0, 1)

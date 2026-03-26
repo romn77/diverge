@@ -176,6 +176,40 @@ def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding()
     assert 1.0 in sleep_values
 
 
+def test_fetch_history_for_universe_falls_back_cn_source_after_primary_retryable_error():
+    universe = pd.DataFrame(
+        [{"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"}]
+    )
+    success_frame = _price_frame("2026-03-24")
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        side_effect=[
+            VendorRetryableError("akshare down"),
+            VendorRetryableError("akshare down"),
+            VendorRetryableError("akshare down"),
+            VendorRetryableError("akshare down"),
+            success_frame,
+        ],
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cn_data_source="akshare",
+            cn_data_source_fallbacks=["tushare"],
+        )
+
+    assert failures.empty
+    assert "600519.SH" in histories
+    attempted_sources = [
+        call.kwargs["cn_data_source"]
+        for call in mock_fetch.call_args_list
+    ]
+    assert attempted_sources[0] == "akshare"
+    assert attempted_sources[-1] == "tushare"
+    assert "tushare" in attempted_sources
+
+
 def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols():
     universe = pd.DataFrame(
         [

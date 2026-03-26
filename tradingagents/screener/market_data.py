@@ -10,7 +10,12 @@ import pandas as pd
 from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df
 from tradingagents.dataflows.cn_market_utils import normalize_symbol_for_vendor
 from tradingagents.dataflows.tushare_stock import _fetch_tushare_stock_df
-from tradingagents.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
+from tradingagents.dataflows.vendor_errors import (
+    VendorAuthError,
+    VendorDataEmptyError,
+    VendorNotSupportedError,
+    VendorRetryableError,
+)
 from tradingagents.dataflows.y_finance import _fetch_yfinance_ohlcv_df
 from .history_cache import (
     checkpoint_path,
@@ -26,6 +31,7 @@ from .history_cache import (
     save_history_cache,
     slice_history_window,
 )
+from .schema import build_cn_source_chain
 
 
 REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
@@ -33,6 +39,11 @@ CN_REQUEST_DELAY_SECONDS = 0.35
 RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
 LOOKBACK_DAYS = 400
 FAILURE_CACHE_TTL = timedelta(hours=24)
+CN_FALLBACK_ERRORS = (
+    VendorRetryableError,
+    VendorAuthError,
+    VendorNotSupportedError,
+)
 
 
 def _normalize_price_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -82,6 +93,7 @@ def fetch_history_for_universe(
     universe_df: pd.DataFrame,
     as_of_date: str,
     cn_data_source: str = "tushare",
+    cn_data_source_fallbacks: list[str] | None = None,
     progress_callback: Callable | None = None,
     cache_dir: str | Path | None = None,
     checkpoint_dir: str | Path | None = None,
@@ -122,6 +134,63 @@ def fetch_history_for_universe(
     processed_since_checkpoint = 0
     cn_network_fetch_count = 0
     current_symbol: str | None = None
+    cn_source_chain = build_cn_source_chain(
+        cn_data_source,
+        cn_data_source_fallbacks,
+    )
+
+    def fetch_frame_with_retries(
+        symbol: str,
+        market: str,
+        fetch_start: str,
+    ) -> pd.DataFrame:
+        nonlocal cn_network_fetch_count
+
+        if market != "cn":
+            attempt = 0
+            while True:
+                try:
+                    return fetch_price_history(
+                        symbol,
+                        market,
+                        fetch_start,
+                        as_of_date,
+                        cn_data_source=cn_data_source,
+                    )
+                except VendorRetryableError:
+                    if attempt >= len(RETRY_BACKOFF_SECONDS):
+                        raise
+                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
+                    attempt += 1
+
+        last_error: Exception | None = None
+        for source in cn_source_chain:
+            attempt = 0
+            while True:
+                try:
+                    if cn_network_fetch_count > 0:
+                        time.sleep(CN_REQUEST_DELAY_SECONDS)
+                    cn_network_fetch_count += 1
+                    return fetch_price_history(
+                        symbol,
+                        market,
+                        fetch_start,
+                        as_of_date,
+                        cn_data_source=source,
+                    )
+                except VendorDataEmptyError:
+                    raise
+                except CN_FALLBACK_ERRORS as exc:
+                    last_error = exc
+                    if attempt >= len(RETRY_BACKOFF_SECONDS):
+                        break
+                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
+                    attempt += 1
+
+        if last_error is not None:
+            raise VendorRetryableError(str(last_error)) from last_error
+
+        raise VendorRetryableError("CN history fetch failed without a fallback result")
 
     def persist_checkpoint() -> None:
         save_checkpoint(
@@ -191,84 +260,63 @@ def fetch_history_for_universe(
                     progress_callback("history", index + 1, total, symbol)
                 continue
 
-            attempt = 0
-            while True:
-                try:
-                    if market == "cn":
-                        if cn_network_fetch_count > 0:
-                            time.sleep(CN_REQUEST_DELAY_SECONDS)
-                        cn_network_fetch_count += 1
-
-                    frame = fetch_price_history(
-                        symbol,
-                        market,
-                        fetch_start,
-                        as_of_date,
-                        cn_data_source=cn_data_source,
-                    )
-                    if frame.empty:
-                        cached_window = slice_history_window(cached_frame, start_date, as_of_date)
-                        if not cached_window.empty:
-                            histories[symbol] = cached_window
-                            processed_symbols.add(symbol)
-                            processed_since_checkpoint += 1
-                        else:
-                            save_history_failure_cache(
-                                history_cache_dir,
-                                market,
-                                symbol,
-                                drop_reason="history_empty",
-                            )
-                            failures.append(
-                                {
-                                    "symbol": symbol,
-                                    "market": market,
-                                    "drop_reason": "history_empty",
-                                }
-                            )
-                        break
-
+            try:
+                frame = fetch_frame_with_retries(symbol, market, fetch_start)
+                if frame.empty:
+                    cached_window = slice_history_window(cached_frame, start_date, as_of_date)
+                    if not cached_window.empty:
+                        histories[symbol] = cached_window
+                        processed_symbols.add(symbol)
+                        processed_since_checkpoint += 1
+                    else:
+                        save_history_failure_cache(
+                            history_cache_dir,
+                            market,
+                            symbol,
+                            drop_reason="history_empty",
+                        )
+                        failures.append(
+                            {
+                                "symbol": symbol,
+                                "market": market,
+                                "drop_reason": "history_empty",
+                            }
+                        )
+                else:
                     merged_frame = merge_history_frames(cached_frame, frame)
                     delete_history_failure_cache(history_cache_dir, market, symbol)
                     save_history_cache(history_cache_dir, market, symbol, merged_frame)
                     histories[symbol] = slice_history_window(merged_frame, start_date, as_of_date)
                     processed_symbols.add(symbol)
                     processed_since_checkpoint += 1
-                    break
-                except VendorDataEmptyError:
-                    save_history_failure_cache(
-                        history_cache_dir,
-                        market,
-                        symbol,
-                        drop_reason="history_empty",
-                    )
-                    failures.append(
-                        {
-                            "symbol": symbol,
-                            "market": market,
-                            "drop_reason": "history_empty",
-                        }
-                    )
-                    break
-                except VendorRetryableError:
-                    if attempt >= len(RETRY_BACKOFF_SECONDS):
-                        save_history_failure_cache(
-                            history_cache_dir,
-                            market,
-                            symbol,
-                            drop_reason="fetch_failed",
-                        )
-                        failures.append(
-                            {
-                                "symbol": symbol,
-                                "market": market,
-                                "drop_reason": "fetch_failed",
-                            }
-                        )
-                        break
-
-                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                    attempt += 1
+            except VendorDataEmptyError:
+                save_history_failure_cache(
+                    history_cache_dir,
+                    market,
+                    symbol,
+                    drop_reason="history_empty",
+                )
+                failures.append(
+                    {
+                        "symbol": symbol,
+                        "market": market,
+                        "drop_reason": "history_empty",
+                    }
+                )
+            except VendorRetryableError:
+                save_history_failure_cache(
+                    history_cache_dir,
+                    market,
+                    symbol,
+                    drop_reason="fetch_failed",
+                )
+                failures.append(
+                    {
+                        "symbol": symbol,
+                        "market": market,
+                        "drop_reason": "fetch_failed",
+                    }
+                )
 
             if processed_since_checkpoint >= checkpoint_batch_size:
                 persist_checkpoint()

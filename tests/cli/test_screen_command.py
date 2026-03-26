@@ -94,6 +94,7 @@ def test_screen_command_accepts_cn_data_source_override():
 
     def fake_run_screen(config, progress_callback=None):
         captured["cn_data_source"] = config.cn_data_source
+        captured["cn_data_source_fallbacks"] = config.cn_data_source_fallbacks
         return ScreenRunResult(
             run_dir=Path("/tmp/results/screener/20260324_214530"),
             universe_count_by_market={"cn": 1},
@@ -116,8 +117,11 @@ def test_screen_command_accepts_cn_data_source_override():
                 "20",
                 "--cn-data-source",
                 "akshare",
+                "--cn-data-source-fallbacks",
+                "tushare",
             ],
         )
 
     assert result.exit_code == 0
     assert captured["cn_data_source"] == "akshare"
+    assert captured["cn_data_source_fallbacks"] == ["tushare"]
