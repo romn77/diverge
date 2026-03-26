@@ -238,3 +238,4 @@ web/frontend/.next/
 web/frontend/out/
 web/frontend/.env.local
 web/frontend/tsconfig.tsbuildinfo
+web/frontend/next-env.d.ts
