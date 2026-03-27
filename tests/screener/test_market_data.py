@@ -116,6 +116,54 @@ def test_fetch_price_history_uses_yfinance_for_us_and_computes_amount_when_missi
     assert result.loc[0, "Amount"] == 50_500.0
 
 
+def test_fetch_price_history_handles_empty_us_frame_without_columns():
+    with patch(
+        "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
+        return_value=pd.DataFrame(),
+    ) as mock_fetch:
+        result = fetch_price_history("NVDA", "us", "2026-03-26", "2026-03-26")
+
+    mock_fetch.assert_called_once_with(
+        "NVDA",
+        "2026-03-26",
+        "2026-03-26",
+        use_cache=True,
+        auto_adjust=False,
+    )
+    assert result.empty
+    assert result.columns.tolist() == ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
+
+
+def test_fetch_price_history_normalizes_us_share_class_symbol_for_yfinance():
+    frame = pd.DataFrame(
+        [
+            {
+                "Date": "2026-03-24",
+                "Open": 500.0,
+                "High": 505.0,
+                "Low": 498.0,
+                "Close": 503.0,
+                "Volume": 100,
+            }
+        ]
+    )
+
+    with patch(
+        "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
+        return_value=frame,
+    ) as mock_fetch:
+        result = fetch_price_history("BRK.B", "us", "2025-01-01", "2026-03-24")
+
+    mock_fetch.assert_called_once_with(
+        "BRK-B",
+        "2025-01-01",
+        "2026-03-24",
+        use_cache=True,
+        auto_adjust=False,
+    )
+    assert result.loc[0, "Close"] == 503.0
+
+
 def test_fetch_history_for_universe_records_empty_results_as_history_empty():
     universe = pd.DataFrame(
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
@@ -387,6 +435,57 @@ def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_re
     assert histories["AAPL"]["Date"].tolist() == ["2025-02-17", "2026-03-21", "2026-03-24"]
 
 
+def test_fetch_history_for_universe_reports_cache_hit_progress(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+    symbol_cache_path = cache_dir / "history" / "us" / "AAPL.csv"
+    symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
+    _price_frame("2025-02-17", "2026-03-21", "2026-03-24").to_csv(symbol_cache_path, index=False)
+    progress_events: list[dict[str, str | int | None]] = []
+
+    def progress_callback(
+        stage: str,
+        current: int,
+        total: int,
+        symbol: str | None = None,
+        status: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        progress_events.append(
+            {
+                "stage": stage,
+                "current": current,
+                "total": total,
+                "symbol": symbol,
+                "status": status,
+                "detail": detail,
+            }
+        )
+
+    fetch_history_for_universe(
+        universe,
+        "2026-03-24",
+        cache_dir=cache_dir,
+        checkpoint_dir=checkpoint_dir,
+        checkpoint_batch_size=1,
+        progress_callback=progress_callback,
+    )
+
+    assert progress_events == [
+        {
+            "stage": "history",
+            "current": 1,
+            "total": 1,
+            "symbol": "AAPL",
+            "status": "cache_hit",
+            "detail": "cache=2025-02-17..2026-03-24",
+        }
+    ]
+
+
 def test_fetch_history_for_universe_fetches_only_missing_tail_when_cache_is_stale(tmp_path):
     universe = pd.DataFrame(
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
@@ -423,6 +522,61 @@ def test_fetch_history_for_universe_fetches_only_missing_tail_when_cache_is_stal
         "2026-03-21",
         "2026-03-22",
         "2026-03-24",
+    ]
+
+
+def test_fetch_history_for_universe_reports_tail_fetch_progress(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+    symbol_cache_path = cache_dir / "history" / "us" / "AAPL.csv"
+    symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
+    _price_frame("2025-02-17", "2026-03-20", "2026-03-21").to_csv(symbol_cache_path, index=False)
+    progress_events: list[dict[str, str | int | None]] = []
+
+    def progress_callback(
+        stage: str,
+        current: int,
+        total: int,
+        symbol: str | None = None,
+        status: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        progress_events.append(
+            {
+                "stage": stage,
+                "current": current,
+                "total": total,
+                "symbol": symbol,
+                "status": status,
+                "detail": detail,
+            }
+        )
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=_price_frame("2026-03-22", "2026-03-24"),
+    ):
+        fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+            progress_callback=progress_callback,
+        )
+
+    assert progress_events == [
+        {
+            "stage": "history",
+            "current": 1,
+            "total": 1,
+            "symbol": "AAPL",
+            "status": "fetch_tail",
+            "detail": "cache=2025-02-17..2026-03-21 fetch=2026-03-22..2026-03-24 source=yfinance",
+        }
     ]
 
 

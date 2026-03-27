@@ -46,10 +46,52 @@ CN_FALLBACK_ERRORS = (
 )
 
 
-def _normalize_price_frame(df: pd.DataFrame) -> pd.DataFrame:
-    normalized = df.copy()
+def _normalize_us_symbol_for_yfinance(symbol: str) -> str:
+    return str(symbol).strip().upper().replace(".", "-")
 
-    if "Amount" not in normalized.columns:
+
+def _history_span(frame: pd.DataFrame) -> str | None:
+    if frame.empty:
+        return None
+    start = str(frame["Date"].min())
+    end = str(frame["Date"].max())
+    return f"{start}..{end}"
+
+
+def _emit_progress(
+    progress_callback: Callable[..., None] | None,
+    stage: str,
+    current: int,
+    total: int,
+    symbol: str | None = None,
+    *,
+    status: str | None = None,
+    detail: str | None = None,
+) -> None:
+    if progress_callback is None:
+        return
+    progress_callback(
+        stage,
+        current,
+        total,
+        symbol,
+        status=status,
+        detail=detail,
+    )
+
+
+def _normalize_price_frame(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return pd.DataFrame(columns=REQUIRED_PRICE_COLUMNS)
+
+    normalized = df.copy()
+    has_amount = "Amount" in normalized.columns
+
+    for column in REQUIRED_PRICE_COLUMNS:
+        if column not in normalized.columns:
+            normalized[column] = pd.NA
+
+    if not has_amount:
         normalized["Amount"] = normalized["Close"] * normalized["Volume"]
 
     return normalized.loc[:, REQUIRED_PRICE_COLUMNS]
@@ -77,8 +119,9 @@ def fetch_price_history(
         return _normalize_price_frame(frame)
 
     if market == "us":
+        vendor_symbol = _normalize_us_symbol_for_yfinance(symbol)
         frame = _fetch_yfinance_ohlcv_df(
-            symbol,
+            vendor_symbol,
             start_date,
             end_date,
             use_cache=True,
@@ -94,7 +137,7 @@ def fetch_history_for_universe(
     as_of_date: str,
     cn_data_source: str = "tushare",
     cn_data_source_fallbacks: list[str] | None = None,
-    progress_callback: Callable | None = None,
+    progress_callback: Callable[..., None] | None = None,
     cache_dir: str | Path | None = None,
     checkpoint_dir: str | Path | None = None,
     checkpoint_batch_size: int = 100,
@@ -139,17 +182,20 @@ def fetch_history_for_universe(
         cn_data_source_fallbacks,
     )
 
+    last_fetch_source: str | None = None
+
     def fetch_frame_with_retries(
         symbol: str,
         market: str,
         fetch_start: str,
     ) -> pd.DataFrame:
-        nonlocal cn_network_fetch_count
+        nonlocal cn_network_fetch_count, last_fetch_source
 
         if market != "cn":
             attempt = 0
             while True:
                 try:
+                    last_fetch_source = "yfinance"
                     return fetch_price_history(
                         symbol,
                         market,
@@ -171,6 +217,7 @@ def fetch_history_for_universe(
                     if cn_network_fetch_count > 0:
                         time.sleep(CN_REQUEST_DELAY_SECONDS)
                     cn_network_fetch_count += 1
+                    last_fetch_source = source
                     return fetch_price_history(
                         symbol,
                         market,
@@ -213,6 +260,7 @@ def fetch_history_for_universe(
             symbol = row["symbol"]
             market = row["market"]
             current_symbol = str(symbol)
+            last_fetch_source = None
 
             cached_frame = load_history_cache(history_cache_dir, market, symbol)
             cached_failure = load_history_failure_cache(
@@ -221,6 +269,7 @@ def fetch_history_for_universe(
                 symbol,
                 max_age=FAILURE_CACHE_TTL,
             )
+            cached_span = _history_span(cached_frame)
             fetch_start = resolve_incremental_fetch_start(cached_frame, start_date, as_of_date)
             if fetch_start is None:
                 delete_history_failure_cache(history_cache_dir, market, symbol)
@@ -232,42 +281,78 @@ def fetch_history_for_universe(
                 if processed_since_checkpoint >= checkpoint_batch_size:
                     persist_checkpoint()
                     processed_since_checkpoint = 0
-                if progress_callback is not None:
-                    progress_callback("history", index + 1, total, symbol)
+                _emit_progress(
+                    progress_callback,
+                    "history",
+                    index + 1,
+                    total,
+                    symbol,
+                    status="cache_hit",
+                    detail=f"cache={cached_span}" if cached_span else None,
+                )
                 continue
 
             if cached_frame.empty and symbol in checkpoint_failure_reasons:
+                drop_reason = checkpoint_failure_reasons[symbol]
                 failures.append(
                     {
                         "symbol": symbol,
                         "market": market,
-                        "drop_reason": checkpoint_failure_reasons[symbol],
+                        "drop_reason": drop_reason,
                     }
                 )
-                if progress_callback is not None:
-                    progress_callback("history", index + 1, total, symbol)
+                _emit_progress(
+                    progress_callback,
+                    "history",
+                    index + 1,
+                    total,
+                    symbol,
+                    status="skip_checkpoint_failure",
+                    detail=f"drop_reason={drop_reason}",
+                )
                 continue
 
             if cached_frame.empty and cached_failure is not None:
+                drop_reason = str(cached_failure.get("drop_reason") or "fetch_failed")
                 failures.append(
                     {
                         "symbol": symbol,
                         "market": market,
-                        "drop_reason": str(cached_failure.get("drop_reason") or "fetch_failed"),
+                        "drop_reason": drop_reason,
                     }
                 )
-                if progress_callback is not None:
-                    progress_callback("history", index + 1, total, symbol)
+                _emit_progress(
+                    progress_callback,
+                    "history",
+                    index + 1,
+                    total,
+                    symbol,
+                    status="skip_failure_cache",
+                    detail=f"drop_reason={drop_reason}",
+                )
                 continue
+
+            history_status: str | None = None
+            history_detail: str | None = None
 
             try:
                 frame = fetch_frame_with_retries(symbol, market, fetch_start)
+                fetch_range = f"{fetch_start}..{as_of_date}"
+                source_detail = (
+                    f" source={last_fetch_source}" if last_fetch_source is not None else ""
+                )
                 if frame.empty:
                     cached_window = slice_history_window(cached_frame, start_date, as_of_date)
                     if not cached_window.empty:
                         histories[symbol] = cached_window
                         processed_symbols.add(symbol)
                         processed_since_checkpoint += 1
+                        history_status = "fetch_empty_reuse_cache"
+                        history_detail = (
+                            f"cache={cached_span} fetch={fetch_range}{source_detail}"
+                            if cached_span
+                            else f"fetch={fetch_range}{source_detail}"
+                        )
                     else:
                         save_history_failure_cache(
                             history_cache_dir,
@@ -282,6 +367,8 @@ def fetch_history_for_universe(
                                 "drop_reason": "history_empty",
                             }
                         )
+                        history_status = "history_empty"
+                        history_detail = f"fetch={fetch_range}{source_detail}"
                 else:
                     merged_frame = merge_history_frames(cached_frame, frame)
                     delete_history_failure_cache(history_cache_dir, market, symbol)
@@ -289,6 +376,14 @@ def fetch_history_for_universe(
                     histories[symbol] = slice_history_window(merged_frame, start_date, as_of_date)
                     processed_symbols.add(symbol)
                     processed_since_checkpoint += 1
+                    if cached_frame.empty or fetch_start == start_date:
+                        history_status = "fetch_full"
+                        history_detail = f"fetch={fetch_range}{source_detail}"
+                    else:
+                        history_status = "fetch_tail"
+                        history_detail = (
+                            f"cache={cached_span} fetch={fetch_range}{source_detail}"
+                        )
             except VendorDataEmptyError:
                 save_history_failure_cache(
                     history_cache_dir,
@@ -303,6 +398,10 @@ def fetch_history_for_universe(
                         "drop_reason": "history_empty",
                     }
                 )
+                history_status = "history_empty"
+                history_detail = f"fetch={fetch_start}..{as_of_date}"
+                if last_fetch_source is not None:
+                    history_detail += f" source={last_fetch_source}"
             except VendorRetryableError:
                 save_history_failure_cache(
                     history_cache_dir,
@@ -317,13 +416,24 @@ def fetch_history_for_universe(
                         "drop_reason": "fetch_failed",
                     }
                 )
+                history_status = "fetch_failed"
+                history_detail = f"fetch={fetch_start}..{as_of_date}"
+                if last_fetch_source is not None:
+                    history_detail += f" source={last_fetch_source}"
 
             if processed_since_checkpoint >= checkpoint_batch_size:
                 persist_checkpoint()
                 processed_since_checkpoint = 0
 
-            if progress_callback is not None:
-                progress_callback("history", index + 1, total, symbol)
+            _emit_progress(
+                progress_callback,
+                "history",
+                index + 1,
+                total,
+                symbol,
+                status=history_status,
+                detail=history_detail,
+            )
     except Exception:
         persist_checkpoint()
         raise

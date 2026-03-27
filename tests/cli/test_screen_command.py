@@ -40,8 +40,22 @@ def test_screen_command_help_does_not_expose_limit_per_market_option():
 def test_screen_command_prints_progress_and_result_summary():
     def fake_run_screen(config, progress_callback=None):
         if progress_callback is not None:
-            progress_callback("history", 1, 2, "600519.SH")
-            progress_callback("history", 2, 2, "AAPL")
+            progress_callback(
+                "history",
+                1,
+                2,
+                "600519.SH",
+                status="cache_hit",
+                detail="cache=2025-02-17..2026-03-24",
+            )
+            progress_callback(
+                "history",
+                2,
+                2,
+                "AAPL",
+                status="fetch_tail",
+                detail="cache=2025-02-17..2026-03-21 fetch=2026-03-22..2026-03-24 source=yfinance",
+            )
 
         return ScreenRunResult(
             run_dir=Path("/tmp/results/screener/20260324_214530"),
@@ -82,7 +96,8 @@ def test_screen_command_prints_progress_and_result_summary():
         )
 
     assert result.exit_code == 0
-    assert "history 1/2" in result.output
+    assert "history 1/2 600519.SH [cache_hit]" in result.output
+    assert "history 2/2 AAPL [fetch_tail]" in result.output
     assert "Universe counts" in result.output
     assert "fetch_failed: 1" in result.output
     assert "600519.SH" in result.output

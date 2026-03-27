@@ -16,14 +16,30 @@ from .universe import load_universe
 from .universe_prefilter import apply_universe_prefilters
 
 
-def _emit(progress_callback: Callable | None, stage: str, current: int, total: int, symbol: str | None = None) -> None:
+def _emit(
+    progress_callback: Callable[..., None] | None,
+    stage: str,
+    current: int,
+    total: int,
+    symbol: str | None = None,
+    *,
+    status: str | None = None,
+    detail: str | None = None,
+) -> None:
     if progress_callback is not None:
-        progress_callback(stage, current, total, symbol)
+        progress_callback(
+            stage,
+            current,
+            total,
+            symbol,
+            status=status,
+            detail=detail,
+        )
 
 
 def run_screen(
     config: ScreenRunConfig,
-    progress_callback: Callable | None = None,
+    progress_callback: Callable[..., None] | None = None,
 ) -> ScreenRunResult:
     started_at = time.perf_counter()
     cache_root = Path(config.output_dir) / ".cache"

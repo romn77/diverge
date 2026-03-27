@@ -1262,12 +1262,23 @@ def screen(
 
     progress_state = {"last": None}
 
-    def progress_callback(stage: str, current: int, total: int, symbol: str | None = None) -> None:
+    def progress_callback(
+        stage: str,
+        current: int,
+        total: int,
+        symbol: str | None = None,
+        status: str | None = None,
+        detail: str | None = None,
+    ) -> None:
         message = f"{stage} {current}/{total}"
         if symbol:
             message += f" {symbol}"
+        if status:
+            message += f" [{status}]"
+        if detail:
+            message += f" {detail}"
         progress_state["last"] = message
-        console.print(message)
+        console.print(message, markup=False)
 
     with Progress(
         SpinnerColumn(),
