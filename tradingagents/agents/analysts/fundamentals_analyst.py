@@ -6,6 +6,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_cashflow,
     get_fundamentals,
     get_income_statement,
+    get_insider_transactions,
     get_language_instruction,
     get_research_note_style_instruction,
 )
@@ -41,12 +42,13 @@ def create_fundamentals_analyst(llm):
             get_balance_sheet,
             get_cashflow,
             get_income_statement,
+            get_insider_transactions,
         ]
 
         system_message = (
             "You are a researcher tasked with analyzing fundamental information over the past week about a company. Please write a comprehensive report of the company's fundamental information such as financial documents, company profile, basic company financials, and company financial history to gain a full view of the company's fundamental information to inform traders. Make sure to include as much detail as possible. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
             + " Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."
-            + " Use the available tools: `get_fundamentals` for comprehensive company analysis, `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements."
+            + " Use the available tools: `get_fundamentals` for comprehensive company analysis, `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements, and `get_insider_transactions` for recent insider activity."
             + f"\n\n{earnings_context.prompt_instruction}"
             + ' At the very end of your report, append exactly one fenced `json-highlights` block using this schema:\n```json-highlights\n{\n  "category": "fundamentals",\n  "signal": "BUY|HOLD|SELL",\n  "signal_confidence": "high|medium|low",\n  "summary": "string",\n  "metrics": [\n    {\n      "name": "string",\n      "value": "string",\n      "assessment": "string"\n    }\n  ],\n  "financial_health": "string"\n}\n```'
             + " Keep fence/keys/enums as English constants; free-form values should follow the report language."

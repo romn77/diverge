@@ -551,9 +551,11 @@ def get_user_selections():
     )
     selected_research_depth = select_research_depth()
 
-    # Step 5: OpenAI backend
+    # Step 5: LLM Provider
     console.print(
-        create_question_box("Step 5: OpenAI backend", "Select which service to talk to")
+        create_question_box(
+            "Step 5: LLM Provider", "Select your LLM provider"
+        )
     )
     selected_llm_provider, backend_url = select_llm_provider()
 
@@ -575,14 +577,16 @@ def get_user_selections():
     if provider_lower == "google":
         console.print(
             create_question_box(
-                "Step 7: Thinking Mode", "Configure Gemini thinking mode"
+                "Step 7: Thinking Mode",
+                "Configure Gemini thinking mode"
             )
         )
         thinking_level = ask_gemini_thinking_config()
     elif provider_lower == "openai":
         console.print(
             create_question_box(
-                "Step 7: Reasoning Effort", "Configure OpenAI reasoning effort level"
+                "Step 7: Reasoning Effort",
+                "Configure OpenAI reasoning effort level"
             )
         )
         reasoning_effort = ask_openai_reasoning_effort()
@@ -909,6 +913,7 @@ def run_analysis():
     config["google_thinking_level"] = selections.get("google_thinking_level")
     config["openai_reasoning_effort"] = selections.get("openai_reasoning_effort")
     config["anthropic_effort"] = selections.get("anthropic_effort")
+    config["output_language"] = selections.get("output_language", "English")
 
     # Create stats callback handler for tracking LLM/tool calls
     stats_handler = StatsCallbackHandler()
