@@ -72,6 +72,59 @@ def test_apply_hard_filters_drops_rows_with_missing_required_features():
     assert dropped["drop_reason"].tolist() == ["missing_features"]
 
 
+def test_apply_hard_filters_drops_rows_with_stale_data():
+    features = pd.DataFrame([_base_feature_row(data_end_date="2026-03-18")])
+    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept.empty
+    assert dropped["drop_reason"].tolist() == ["stale_data"]
+
+
+def test_apply_hard_filters_prioritizes_stale_data_before_missing_features():
+    features = pd.DataFrame([_base_feature_row(data_end_date="2026-03-18", rsi=pd.NA)])
+    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept.empty
+    assert dropped["drop_reason"].tolist() == ["stale_data"]
+
+
+def test_apply_hard_filters_uses_us_market_holidays_for_stale_data_lag():
+    features = pd.DataFrame(
+        [_base_feature_row(as_of_date="2026-04-07", data_end_date="2026-04-01")]
+    )
+    config = ScreenRunConfig(markets=["us"], as_of_date="2026-04-07", top_k=20, us_manifest_path="/tmp/us.csv")
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept["symbol"].tolist() == ["AAPL"]
+    assert dropped.empty
+
+
+def test_apply_hard_filters_uses_cn_market_holidays_for_stale_data_lag():
+    features = pd.DataFrame(
+        [
+            _base_feature_row(
+                symbol="600519.SH",
+                market="cn",
+                exchange="SSE",
+                as_of_date="2025-10-10",
+                data_end_date="2025-09-30",
+                avg_amount_20d=80_000_000.0,
+            )
+        ]
+    )
+    config = ScreenRunConfig(markets=["cn"], as_of_date="2025-10-10", top_k=20)
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept["symbol"].tolist() == ["600519.SH"]
+    assert dropped.empty
+
+
 def test_apply_hard_filters_uses_cn_liquidity_threshold():
     features = pd.DataFrame(
         [_base_feature_row(symbol="600519.SH", market="cn", exchange="SSE", avg_amount_20d=1_000_000.0)]
@@ -92,4 +145,3 @@ def test_apply_hard_filters_uses_us_dollar_volume_threshold():
 
     assert kept.empty
     assert dropped["drop_reason"].tolist() == ["illiquid_us"]
-

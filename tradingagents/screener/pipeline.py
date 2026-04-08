@@ -16,6 +16,38 @@ from .universe import load_universe
 from .universe_prefilter import apply_universe_prefilters
 
 
+def _select_candidates(ranked_df: pd.DataFrame, config: ScreenRunConfig) -> pd.DataFrame:
+    if ranked_df.empty:
+        return ranked_df.copy()
+
+    if set(config.markets) != {"cn", "us"}:
+        return ranked_df.head(config.top_k).reset_index(drop=True)
+
+    per_market_floor = config.top_k // 2
+    if per_market_floor <= 0:
+        return ranked_df.head(config.top_k).reset_index(drop=True)
+
+    selected_indices: list[int] = []
+    for market in ("cn", "us"):
+        market_rows = ranked_df[ranked_df["market"] == market].head(per_market_floor)
+        selected_indices.extend(market_rows.index.tolist())
+
+    remaining_slots = max(config.top_k - len(selected_indices), 0)
+    if remaining_slots > 0:
+        backfill = ranked_df.drop(index=selected_indices, errors="ignore").head(remaining_slots)
+        selected_indices.extend(backfill.index.tolist())
+
+    if not selected_indices:
+        return ranked_df.head(config.top_k).reset_index(drop=True)
+
+    return (
+        ranked_df.loc[selected_indices]
+        .sort_values(["global_rank", "symbol"], ascending=[True, True])
+        .head(config.top_k)
+        .reset_index(drop=True)
+    )
+
+
 def _emit(
     progress_callback: Callable[..., None] | None,
     stage: str,
@@ -74,7 +106,7 @@ def run_screen(
 
     _emit(progress_callback, "ranking", 0, 1)
     ranked_df = score_candidates(kept_df) if not kept_df.empty else kept_df.copy()
-    candidates_df = ranked_df.head(config.top_k).reset_index(drop=True)
+    candidates_df = _select_candidates(ranked_df, config)
     _emit(progress_callback, "ranking", 1, 1)
 
     _emit(progress_callback, "export", 0, 1)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .market_calendar import trading_day_lag
 from .schema import ScreenRunConfig
 
 
@@ -16,6 +17,7 @@ REQUIRED_FEATURE_COLUMNS = [
     "atr_pct",
     "vwma",
 ]
+MAX_STALE_BUSINESS_DAYS = 3
 
 
 def _is_too_new(row: pd.Series, config: ScreenRunConfig) -> bool:
@@ -34,6 +36,19 @@ def _missing_required_features(row: pd.Series) -> bool:
     return any(pd.isna(row.get(column)) for column in REQUIRED_FEATURE_COLUMNS)
 
 
+def _business_day_lag(as_of_date_value: object, data_end_date_value: object) -> int | None:
+    return trading_day_lag("us", as_of_date_value, data_end_date_value)
+
+
+def _is_stale_data(row: pd.Series) -> bool:
+    lag = trading_day_lag(
+        str(row.get("market") or ""),
+        row.get("as_of_date"),
+        row.get("data_end_date"),
+    )
+    return lag is not None and lag > MAX_STALE_BUSINESS_DAYS
+
+
 def apply_hard_filters(
     features_df: pd.DataFrame,
     config: ScreenRunConfig,
@@ -49,6 +64,10 @@ def apply_hard_filters(
 
         if _is_too_new(row, config):
             dropped_rows.append({**row.to_dict(), "drop_reason": "too_new"})
+            continue
+
+        if _is_stale_data(row):
+            dropped_rows.append({**row.to_dict(), "drop_reason": "stale_data"})
             continue
 
         if int(row.get("bar_count", 0) or 0) < 60:

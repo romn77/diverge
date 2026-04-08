@@ -199,3 +199,209 @@ def test_run_screen_prefilters_too_new_symbols_before_history(tmp_path):
     filtered_out = pd.read_csv(Path(result.run_dir) / "filtered_out.csv")
     assert filtered_out["symbol"].tolist() == ["301000.SZ"]
     assert filtered_out["drop_reason"].tolist() == ["too_new"]
+
+
+def test_run_screen_writes_stale_data_rows_with_as_of_and_data_end_dates(tmp_path):
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=2,
+        output_dir=str(tmp_path),
+        us_manifest_path="/tmp/us.csv",
+    )
+    universe_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+            }
+        ]
+    )
+    stale_features_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+                "as_of_date": "2026-03-24",
+                "close": 210.0,
+                "volume": 1000.0,
+                "amount": 210000.0,
+                "avg_amount_20d": 80_000_000.0,
+                "ma20": 200.0,
+                "ma60": 190.0,
+                "ret_20": 0.15,
+                "ret_60": 0.30,
+                "rsi": 62.0,
+                "macd": 1.0,
+                "macds": 0.8,
+                "macdh": 0.4,
+                "atr": 6.0,
+                "atr_pct": 0.03,
+                "boll": 198.0,
+                "boll_ub": 214.0,
+                "boll_lb": 182.0,
+                "vwma": 205.0,
+                "mfi": 55.0,
+                "data_start_date": "2025-12-01",
+                "data_end_date": "2026-03-18",
+                "bar_count": 80,
+            }
+        ]
+    )
+
+    with (
+        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch(
+            "tradingagents.screener.pipeline.fetch_history_for_universe",
+            return_value=({"AAPL": pd.DataFrame()}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.build_features_table", return_value=stale_features_df),
+        patch("tradingagents.screener.pipeline.score_candidates", return_value=pd.DataFrame()),
+        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+    ):
+        result = run_screen(config)
+
+    filtered_out = pd.read_csv(Path(result.run_dir) / "filtered_out.csv")
+    assert filtered_out["drop_reason"].tolist() == ["stale_data"]
+    assert filtered_out["as_of_date"].tolist() == ["2026-03-24"]
+    assert filtered_out["data_end_date"].tolist() == ["2026-03-18"]
+
+
+def test_run_screen_allocates_dual_market_candidates_with_floor_and_global_backfill(tmp_path):
+    config = ScreenRunConfig(
+        markets=["cn", "us"],
+        as_of_date="2026-03-24",
+        top_k=4,
+        output_dir=str(tmp_path),
+        us_manifest_path="/tmp/us.csv",
+    )
+    universe_df = pd.DataFrame(
+        [
+            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
+            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": "19801212"},
+        ]
+    )
+    ranked_df = pd.DataFrame(
+        [
+            {"symbol": "AAPL", "market": "us", "global_rank": 1, "market_rank": 1, "total_score": 9.5},
+            {"symbol": "MSFT", "market": "us", "global_rank": 2, "market_rank": 2, "total_score": 8.5},
+            {"symbol": "NVDA", "market": "us", "global_rank": 3, "market_rank": 3, "total_score": 8.0},
+            {"symbol": "600519.SH", "market": "cn", "global_rank": 4, "market_rank": 1, "total_score": 7.8},
+            {"symbol": "000001.SZ", "market": "cn", "global_rank": 5, "market_rank": 2, "total_score": 7.2},
+            {"symbol": "AMZN", "market": "us", "global_rank": 6, "market_rank": 4, "total_score": 7.0},
+        ]
+    )
+
+    with (
+        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch(
+            "tradingagents.screener.pipeline.fetch_history_for_universe",
+            return_value=({}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.build_features_table", return_value=pd.DataFrame()),
+        patch(
+            "tradingagents.screener.pipeline.apply_hard_filters",
+            return_value=(ranked_df, pd.DataFrame(columns=["drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.score_candidates", return_value=ranked_df),
+        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+    ):
+        result = run_screen(config)
+
+    candidates = pd.read_csv(Path(result.run_dir) / "candidates.csv")
+    assert candidates["symbol"].tolist() == ["AAPL", "MSFT", "600519.SH", "000001.SZ"]
+    assert candidates["market"].tolist() == ["us", "us", "cn", "cn"]
+
+
+def test_run_screen_backfills_from_global_ranking_when_one_market_cannot_fill_floor(tmp_path):
+    config = ScreenRunConfig(
+        markets=["cn", "us"],
+        as_of_date="2026-03-24",
+        top_k=4,
+        output_dir=str(tmp_path),
+        us_manifest_path="/tmp/us.csv",
+    )
+    universe_df = pd.DataFrame(
+        [
+            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
+            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": "19801212"},
+        ]
+    )
+    ranked_df = pd.DataFrame(
+        [
+            {"symbol": "AAPL", "market": "us", "global_rank": 1, "market_rank": 1, "total_score": 9.5},
+            {"symbol": "MSFT", "market": "us", "global_rank": 2, "market_rank": 2, "total_score": 8.5},
+            {"symbol": "NVDA", "market": "us", "global_rank": 3, "market_rank": 3, "total_score": 8.0},
+            {"symbol": "600519.SH", "market": "cn", "global_rank": 4, "market_rank": 1, "total_score": 7.8},
+            {"symbol": "AMZN", "market": "us", "global_rank": 5, "market_rank": 4, "total_score": 7.0},
+        ]
+    )
+
+    with (
+        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch(
+            "tradingagents.screener.pipeline.fetch_history_for_universe",
+            return_value=({}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.build_features_table", return_value=pd.DataFrame()),
+        patch(
+            "tradingagents.screener.pipeline.apply_hard_filters",
+            return_value=(ranked_df, pd.DataFrame(columns=["drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.score_candidates", return_value=ranked_df),
+        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+    ):
+        result = run_screen(config)
+
+    candidates = pd.read_csv(Path(result.run_dir) / "candidates.csv")
+    assert candidates["symbol"].tolist() == ["AAPL", "MSFT", "NVDA", "600519.SH"]
+    assert candidates["market"].tolist() == ["us", "us", "us", "cn"]
+
+
+def test_run_screen_keeps_single_market_selection_as_plain_top_k(tmp_path):
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=2,
+        output_dir=str(tmp_path),
+        us_manifest_path="/tmp/us.csv",
+    )
+    universe_df = pd.DataFrame(
+        [
+            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": "19801212"},
+        ]
+    )
+    ranked_df = pd.DataFrame(
+        [
+            {"symbol": "AAPL", "market": "us", "global_rank": 1, "market_rank": 1, "total_score": 9.5},
+            {"symbol": "MSFT", "market": "us", "global_rank": 2, "market_rank": 2, "total_score": 8.5},
+            {"symbol": "NVDA", "market": "us", "global_rank": 3, "market_rank": 3, "total_score": 8.0},
+        ]
+    )
+
+    with (
+        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch(
+            "tradingagents.screener.pipeline.fetch_history_for_universe",
+            return_value=({}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.build_features_table", return_value=pd.DataFrame()),
+        patch(
+            "tradingagents.screener.pipeline.apply_hard_filters",
+            return_value=(ranked_df, pd.DataFrame(columns=["drop_reason"])),
+        ),
+        patch("tradingagents.screener.pipeline.score_candidates", return_value=ranked_df),
+        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+    ):
+        result = run_screen(config)
+
+    candidates = pd.read_csv(Path(result.run_dir) / "candidates.csv")
+    assert candidates["symbol"].tolist() == ["AAPL", "MSFT"]
