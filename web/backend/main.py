@@ -692,14 +692,30 @@ def _run_screener_task(task_id: str) -> None:
     _set_screener_task_status(task_id, "running")
 
     try:
-        def progress_callback(stage: str, current: int, total: int, symbol: str | None = None) -> None:
+        def progress_callback(
+            stage: str,
+            current: int,
+            total: int,
+            symbol: str | None = None,
+            *,
+            status: str | None = None,
+            detail: str | None = None,
+        ) -> None:
             normalized_stage = stage.capitalize()
+            message = f"{normalized_stage} {current}/{total}"
+            if symbol:
+                message = f"{message} {symbol}"
+            if status:
+                message = f"{message} [{status}]"
+            if detail:
+                message = f"{message} {detail}"
             progress = _build_screener_progress(
                 status="running",
                 stage=normalized_stage,
                 current=current,
                 total=total,
                 symbol=symbol,
+                message=message,
             )
             _append_screener_progress(task_id, progress)
 
@@ -1035,6 +1051,11 @@ def create_screener_task(payload: ScreenTaskCreatePayload) -> dict:
                 detail="Configure SCREEN_US_MANIFEST_PATH on the backend before launching US screening tasks.",
             )
         config_payload["us_manifest_path"] = manifest_path
+
+    try:
+        ScreenRunConfig(**config_payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     task_id = uuid.uuid4().hex
     task = ScreenerTask(
