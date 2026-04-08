@@ -1,38 +1,54 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Report, Task } from "@/lib/api";
+import type { Report, ScreenerRunSummary, ScreenerTask, Task } from "@/lib/api";
 
 interface SidebarProps {
   selectedReportId: string | null;
+  selectedScreenerRunId: string | null;
   onSelectReport: (reportId: string) => void;
+  onSelectScreenerRun: (runId: string) => void;
   reports: Report[];
+  screenerRuns: ScreenerRunSummary[];
   loading: boolean;
   error: string | null;
   searchQuery: string;
   onSearchQueryChange: (value: string) => void;
   taskQueue: Task[];
+  screenerTaskQueue: ScreenerTask[];
   activeTaskId: string | null;
+  activeScreenerTaskId: string | null;
   onSelectTask: (taskId: string) => void;
+  onSelectScreenerTask: (taskId: string) => void;
   onNewAnalysis: () => void;
+  onNewScreener: () => void;
   newAnalysisDisabled: boolean;
+  newScreenerDisabled: boolean;
   isOpen: boolean;
   onClose: () => void;
 }
 
 export function Sidebar({
   selectedReportId,
+  selectedScreenerRunId,
   onSelectReport,
+  onSelectScreenerRun,
   reports,
+  screenerRuns,
   loading,
   error,
   searchQuery,
   onSearchQueryChange,
   taskQueue,
+  screenerTaskQueue,
   activeTaskId,
+  activeScreenerTaskId,
   onSelectTask,
+  onSelectScreenerTask,
   onNewAnalysis,
+  onNewScreener,
   newAnalysisDisabled,
+  newScreenerDisabled,
   isOpen,
   onClose,
 }: SidebarProps) {
@@ -233,6 +249,29 @@ export function Sidebar({
           </p>
         ) : null}
 
+        <button
+          type="button"
+          className={`interactive-button focus-ring mt-3 flex w-full items-center justify-between rounded-[22px] border px-4 py-2.5 text-left shadow-[0_14px_28px_rgba(28,56,83,0.14)] ${
+            newScreenerDisabled
+              ? "cursor-not-allowed border-slate-200 bg-slate-200 text-slate-500 shadow-none opacity-90"
+              : "border-[var(--accent)] bg-[var(--accent)] text-white"
+          }`}
+          onClick={onNewScreener}
+          disabled={newScreenerDisabled}
+        >
+          <span>
+            <span
+              className={`block text-[10px] font-semibold uppercase tracking-[0.22em] ${
+                newScreenerDisabled ? "text-slate-500" : "text-white/80"
+              }`}
+            >
+              Screen
+            </span>
+            <span className="mt-1 block text-[13px] font-semibold">New Screener</span>
+          </span>
+          <span className="text-[20px] font-medium leading-none">+</span>
+        </button>
+
         {taskQueue.length > 0 ? (
           <section className="mt-5">
             <div className="flex items-center justify-between">
@@ -298,6 +337,47 @@ export function Sidebar({
           </section>
         ) : null}
 
+        {screenerTaskQueue.length > 0 ? (
+          <section className="mt-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
+                Screener Queue
+              </h3>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                {screenerTaskQueue.length} active
+              </span>
+            </div>
+            <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm shadow-sm">
+              {screenerTaskQueue.map((task) => {
+                const isActiveTask = activeScreenerTaskId === task.id;
+                return (
+                  <button
+                    key={task.id}
+                    type="button"
+                    data-active={isActiveTask}
+                    className={`sidebar-task-card flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left transition ${
+                      isActiveTask
+                        ? "border border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900 shadow-[0_10px_20px_rgba(28,56,83,0.10)]"
+                        : "border border-transparent bg-white text-slate-700 hover:bg-white"
+                    }`}
+                    onClick={() => onSelectScreenerTask(task.id)}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-semibold">Screener Run</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                        {task.status}
+                      </p>
+                    </div>
+                    <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] bg-[rgba(28,56,83,0.1)] text-[var(--accent)]">
+                      {task.status}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ) : null}
+
         <div className="mt-5">
           <label
             className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500"
@@ -345,6 +425,40 @@ export function Sidebar({
         </div>
 
         <div className="mt-6 space-y-4">
+          <section>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+              Recent Screeners
+            </h3>
+            <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm">
+              {screenerRuns.length === 0 ? (
+                <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                  No screener runs yet.
+                </p>
+              ) : (
+                screenerRuns.map((run) => (
+                  <button
+                    key={run.id}
+                    type="button"
+                    className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)] ${
+                      selectedScreenerRunId === run.id ? "text-[var(--primary)]" : ""
+                    }`}
+                    onClick={() => onSelectScreenerRun(run.id)}
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">{run.id}</p>
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
+                        {run.as_of_date}
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500">
+                      {run.candidate_count}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          </section>
+
           <section>
             <button
               type="button"

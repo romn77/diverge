@@ -17,8 +17,10 @@ eggs/
 lib/
 !web/frontend/lib/
 web/frontend/lib/*
+!web/frontend/lib/api.ts
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
+!web/frontend/lib/highlightTerminalSkillAdoption.test.mjs
 lib64/
 parts/
 sdist/
@@ -216,6 +218,9 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# Local git worktrees
+.worktrees/
+
 # Streamlit
 .streamlit/secrets.toml
 
@@ -233,3 +238,4 @@ web/frontend/.next/
 web/frontend/out/
 web/frontend/.env.local
 web/frontend/tsconfig.tsbuildinfo
+web/frontend/next-env.d.ts

@@ -35,6 +35,155 @@ const FILE_LABELS: Record<string, string> = {
   decision: "Portfolio Decision",
 };
 
+const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function extractSection(markdown: string, heading: string): string | null {
+  const pattern = new RegExp(
+    `## ${escapeRegExp(heading)}\\s*\\n([\\s\\S]*?)(?=\\n## |\\n\`\`\`json-highlights|$)`,
+    "i"
+  );
+  const match = markdown.match(pattern);
+  return match?.[1]?.trim() ?? null;
+}
+
+function extractTableMetrics(
+  markdown: string,
+  heading: string,
+  assessment: string
+): Array<{ name: string; value: string; assessment: string }> {
+  const section = extractSection(markdown, heading);
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("|"))
+    .filter((line) => !line.includes("---"))
+    .map((line) => line.split("|").map((cell) => cell.trim()).filter(Boolean))
+    .filter((cells) => cells.length >= 2 && cells[0] !== "Metric" && cells[0] !== "Multiple" && cells[0] !== "Assumption")
+    .map((cells) => ({
+      name: cells[0] ?? "",
+      value: cells[1] ?? "",
+      assessment,
+    }))
+    .filter((metric) => metric.name && metric.value);
+}
+
+function extractDcfApplicabilityMetrics(
+  markdown: string
+): Array<{ name: string; value: string; assessment: string }> {
+  const section = extractSection(markdown, "DCF Applicability");
+  if (!section) {
+    return [];
+  }
+
+  const lines = section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const metrics: Array<{ name: string; value: string; assessment: string }> = [];
+
+  for (const line of lines) {
+    if (line.startsWith("Status:")) {
+      metrics.push({
+        name: "DCF Applicability",
+        value: line.replace(/^Status:\s*/, "").trim(),
+        assessment: "Valuation applicability state",
+      });
+    }
+    if (line.startsWith("Reason:")) {
+      metrics.push({
+        name: "DCF Applicability Reason",
+        value: line.replace(/^Reason:\s*/, "").trim(),
+        assessment: "Applicability rationale",
+      });
+    }
+  }
+
+  return metrics;
+}
+
+function extractDcfScenarioMetrics(
+  markdown: string
+): Array<{ name: string; value: string; assessment: string }> {
+  const section = extractSection(markdown, "DCF Scenario Summary");
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("|"))
+    .filter((line) => !line.includes("---"))
+    .map((line) => line.split("|").map((cell) => cell.trim()).filter(Boolean))
+    .filter((cells) => cells.length >= 5 && cells[0] !== "Case")
+    .map((cells) => ({
+      name: cells[0] ?? "",
+      value: cells[4] ?? "",
+      assessment: `Scenario DCF using growth ${cells[1] ?? "N/A"}, WACC ${cells[2] ?? "N/A"}, terminal growth ${cells[3] ?? "N/A"}`,
+    }))
+    .filter((metric) => metric.name && metric.value);
+}
+
+function injectValuationMetricsIntoHighlights(markdown: string): string {
+  const match = markdown.match(HIGHLIGHTS_BLOCK_RE);
+  if (!match?.[1]) {
+    return markdown;
+  }
+
+  try {
+    const payload = JSON.parse(match[1]) as {
+      category?: string;
+      metrics?: Array<{ name: string; value: string; assessment: string }>;
+    };
+    if (payload.category !== "fundamentals") {
+      return markdown;
+    }
+
+    const valuationMetrics = [
+      ...extractDcfApplicabilityMetrics(markdown),
+      ...extractDcfScenarioMetrics(markdown),
+      ...extractTableMetrics(markdown, "DCF Summary", "Intrinsic value output"),
+      ...extractTableMetrics(markdown, "Multiples Summary", "Relative valuation output"),
+      ...extractTableMetrics(markdown, "Valuation Assumptions", "DCF input assumption"),
+    ];
+    if (valuationMetrics.length === 0) {
+      return markdown;
+    }
+
+    const existingMetrics = Array.isArray(payload.metrics) ? payload.metrics : [];
+    const mergedMetrics = [...existingMetrics];
+
+    for (const metric of valuationMetrics) {
+      if (!mergedMetrics.some((existing) => existing.name === metric.name)) {
+        mergedMetrics.push(metric);
+      }
+    }
+
+    const nextBlock = `\`\`\`json-highlights\n${JSON.stringify(
+      { ...payload, metrics: mergedMetrics },
+      null,
+      2
+    )}\n\`\`\``;
+
+    return markdown.replace(HIGHLIGHTS_BLOCK_RE, nextBlock);
+  } catch {
+    return markdown;
+  }
+}
+
+function decorateReportContent(markdown: string): string {
+  return injectValuationMetricsIntoHighlights(markdown);
+}
+
 function formatGeneratedLabel(reportMeta?: Report | null): string {
   if (reportMeta?.date && reportMeta.time) {
     return `${reportMeta.date} ${reportMeta.time}`;
@@ -180,7 +329,7 @@ export function ReportViewer({
           return;
         }
 
-        setContent(data);
+        setContent(decorateReportContent(data));
       } catch (err) {
         if (thisRequest !== requestIdRef.current) {
           return;

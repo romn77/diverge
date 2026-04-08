@@ -11,6 +11,8 @@ from tradingagents.llm_clients.model_config import (
 
 console = Console()
 
+TICKER_INPUT_EXAMPLES = "Examples: SPY, CNC.TO, 7203.T, 0700.HK"
+
 ANALYST_ORDER = [
     ("Market Analyst", AnalystType.MARKET),
     ("Social Media Analyst", AnalystType.SOCIAL),
@@ -22,7 +24,7 @@ ANALYST_ORDER = [
 def get_ticker() -> str:
     """Prompt the user to enter a ticker symbol."""
     ticker = questionary.text(
-        "Enter the ticker symbol to analyze:",
+        f"Enter the exact ticker symbol to analyze ({TICKER_INPUT_EXAMPLES}):",
         validate=lambda x: len(x.strip()) > 0 or "Please enter a valid ticker symbol.",
         style=questionary.Style(
             [
@@ -36,6 +38,11 @@ def get_ticker() -> str:
         console.print("\n[red]No ticker symbol provided. Exiting...[/red]")
         exit(1)
 
+    return normalize_ticker_symbol(ticker)
+
+
+def normalize_ticker_symbol(ticker: str) -> str:
+    """Normalize ticker input while preserving exchange suffixes."""
     return ticker.strip().upper()
 
 
@@ -260,6 +267,26 @@ def ask_openai_reasoning_effort() -> str:
     ).ask()
 
 
+def ask_anthropic_effort() -> str | None:
+    """Ask for Anthropic effort level.
+
+    Controls token usage and response thoroughness on Claude 4.5+ and 4.6 models.
+    """
+    return questionary.select(
+        "Select Effort Level:",
+        choices=[
+            questionary.Choice("High (recommended)", "high"),
+            questionary.Choice("Medium (balanced)", "medium"),
+            questionary.Choice("Low (faster, cheaper)", "low"),
+        ],
+        style=questionary.Style([
+            ("selected", "fg:cyan noinherit"),
+            ("highlighted", "fg:cyan noinherit"),
+            ("pointer", "fg:cyan noinherit"),
+        ]),
+    ).ask()
+
+
 def ask_gemini_thinking_config() -> str | None:
     """Ask for Gemini thinking configuration.
 
@@ -280,3 +307,37 @@ def ask_gemini_thinking_config() -> str | None:
             ]
         ),
     ).ask()
+
+
+def ask_output_language() -> str:
+    """Ask for report output language."""
+    choice = questionary.select(
+        "Select Output Language:",
+        choices=[
+            questionary.Choice("English (default)", "English"),
+            questionary.Choice("Chinese (中文)", "Chinese"),
+            questionary.Choice("Japanese (日本語)", "Japanese"),
+            questionary.Choice("Korean (한국어)", "Korean"),
+            questionary.Choice("Hindi (हिन्दी)", "Hindi"),
+            questionary.Choice("Spanish (Español)", "Spanish"),
+            questionary.Choice("Portuguese (Português)", "Portuguese"),
+            questionary.Choice("French (Français)", "French"),
+            questionary.Choice("German (Deutsch)", "German"),
+            questionary.Choice("Arabic (العربية)", "Arabic"),
+            questionary.Choice("Russian (Русский)", "Russian"),
+            questionary.Choice("Custom language", "custom"),
+        ],
+        style=questionary.Style([
+            ("selected", "fg:yellow noinherit"),
+            ("highlighted", "fg:yellow noinherit"),
+            ("pointer", "fg:yellow noinherit"),
+        ]),
+    ).ask()
+
+    if choice == "custom":
+        return questionary.text(
+            "Enter language name (e.g. Turkish, Vietnamese, Thai, Indonesian):",
+            validate=lambda x: len(x.strip()) > 0 or "Please enter a language name.",
+        ).ask().strip()
+
+    return choice

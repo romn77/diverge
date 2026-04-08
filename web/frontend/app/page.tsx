@@ -1,18 +1,35 @@
 "use client";
 
 import { startTransition, useEffect, useMemo, useState } from "react";
-import { listReports, listTasks, type Report, type Task } from "@/lib/api";
+import {
+  listReports,
+  listScreenerRuns,
+  listScreenerTasks,
+  listTasks,
+  type Report,
+  type ScreenerRunSummary,
+  type ScreenerTask,
+  type Task,
+} from "@/lib/api";
 import { NewAnalysisForm } from "@/components/NewAnalysisForm";
+import { NewScreenerForm } from "@/components/NewScreenerForm";
+import { ScreenerResultsViewer } from "@/components/ScreenerResultsViewer";
+import { ScreenerTaskProgress } from "@/components/ScreenerTaskProgress";
 import { Sidebar } from "@/components/Sidebar";
 import { ReportViewer } from "@/components/ReportViewer";
 import { TaskProgress } from "@/components/TaskProgress";
 
 export default function Home() {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedScreenerRunId, setSelectedScreenerRunId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [activeScreenerTaskId, setActiveScreenerTaskId] = useState<string | null>(null);
   const [showNewAnalysis, setShowNewAnalysis] = useState(false);
+  const [showNewScreener, setShowNewScreener] = useState(false);
   const [reports, setReports] = useState<Report[]>([]);
+  const [screenerRuns, setScreenerRuns] = useState<ScreenerRunSummary[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [screenerTasks, setScreenerTasks] = useState<ScreenerTask[]>([]);
   const [queueLocked, setQueueLocked] = useState(false);
   const [loadingReports, setLoadingReports] = useState(true);
   const [reportsError, setReportsError] = useState<string | null>(null);
@@ -41,6 +58,24 @@ export default function Home() {
       setTasks(data);
     } catch {
       // Keep the report experience usable even if the queue endpoint is temporarily unavailable.
+    }
+  };
+
+  const loadScreenerRuns = async () => {
+    try {
+      const data = await listScreenerRuns();
+      setScreenerRuns(data);
+    } catch {
+      // Keep the existing UI usable even if screener listing is unavailable.
+    }
+  };
+
+  const loadScreenerTasks = async () => {
+    try {
+      const data = await listScreenerTasks();
+      setScreenerTasks(data);
+    } catch {
+      // Ignore transient screener queue polling issues in the UI.
     }
   };
 
@@ -79,6 +114,26 @@ export default function Home() {
   useEffect(() => {
     let isMounted = true;
 
+    const loadScreenerRunsSafely = async () => {
+      try {
+        const data = await listScreenerRuns();
+        if (isMounted) {
+          setScreenerRuns(data);
+        }
+      } catch {
+        // Ignore screener run loading issues in the main page.
+      }
+    };
+
+    void loadScreenerRunsSafely();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
     const loadTasksSafely = async () => {
       try {
         const data = await listTasks();
@@ -93,6 +148,31 @@ export default function Home() {
     void loadTasksSafely();
     const intervalId = window.setInterval(() => {
       void loadTasksSafely();
+    }, 3000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadScreenerTasksSafely = async () => {
+      try {
+        const data = await listScreenerTasks();
+        if (isMounted) {
+          setScreenerTasks(data);
+        }
+      } catch {
+        // Ignore transient screener queue polling issues in the UI.
+      }
+    };
+
+    void loadScreenerTasksSafely();
+    const intervalId = window.setInterval(() => {
+      void loadScreenerTasksSafely();
     }, 3000);
 
     return () => {
@@ -117,10 +197,31 @@ export default function Home() {
     () => tasks.filter((task) => task.status === "pending" || task.status === "running"),
     [tasks]
   );
+  const activeScreenerTasks = useMemo(
+    () =>
+      screenerTasks.filter(
+        (task) => task.status === "pending" || task.status === "running"
+      ),
+    [screenerTasks]
+  );
   const visibleTaskQueue = useMemo(() => activeTasks.slice(0, 2), [activeTasks]);
+  const visibleScreenerTaskQueue = useMemo(
+    () => activeScreenerTasks.slice(0, 2),
+    [activeScreenerTasks]
+  );
   const currentTaskId =
-    activeTaskId ?? (selectedReportId ? null : visibleTaskQueue[0]?.id ?? null);
-  const newAnalysisDisabled = queueLocked || visibleTaskQueue.length >= 2;
+    activeTaskId ??
+    (selectedReportId || selectedScreenerRunId || activeScreenerTaskId
+      ? null
+      : visibleTaskQueue[0]?.id ?? null);
+  const currentScreenerTaskId =
+    activeScreenerTaskId ??
+    (selectedReportId || selectedScreenerRunId || currentTaskId
+      ? null
+      : visibleScreenerTaskQueue[0]?.id ?? null);
+  const combinedActiveCount = visibleTaskQueue.length + visibleScreenerTaskQueue.length;
+  const newAnalysisDisabled = queueLocked || combinedActiveCount >= 2;
+  const newScreenerDisabled = queueLocked || combinedActiveCount >= 2;
   const recentTickers = useMemo(() => {
     const seen = new Set<string>();
     return sortedReports.reduce<string[]>((acc, report) => {
@@ -136,33 +237,56 @@ export default function Home() {
   }, [sortedReports]);
 
   useEffect(() => {
-    if (visibleTaskQueue.length >= 2) {
+    if (combinedActiveCount >= 2) {
       setQueueLocked(true);
       return;
     }
-    if (visibleTaskQueue.length === 0) {
+    if (combinedActiveCount === 0) {
       setQueueLocked(false);
     }
-  }, [visibleTaskQueue.length]);
+  }, [combinedActiveCount]);
 
   return (
     <div className="app-shell relative min-h-screen bg-[var(--bg)] md:flex md:items-stretch">
       <Sidebar
         selectedReportId={selectedReportId}
+        selectedScreenerRunId={selectedScreenerRunId}
         onSelectReport={(reportId) => {
           setSelectedReportId(reportId);
+          setSelectedScreenerRunId(null);
+          setActiveTaskId(null);
+          setActiveScreenerTaskId(null);
+          setIsSidebarOpen(false);
+        }}
+        onSelectScreenerRun={(runId) => {
+          setSelectedScreenerRunId(runId);
+          setSelectedReportId(null);
+          setActiveTaskId(null);
+          setActiveScreenerTaskId(null);
           setIsSidebarOpen(false);
         }}
         reports={reports}
+        screenerRuns={screenerRuns}
         loading={loadingReports}
         error={reportsError}
         searchQuery={searchQuery}
         onSearchQueryChange={(value) => setSearchQuery(value)}
         taskQueue={visibleTaskQueue}
+        screenerTaskQueue={visibleScreenerTaskQueue}
         activeTaskId={currentTaskId}
+        activeScreenerTaskId={currentScreenerTaskId}
         onSelectTask={(taskId) => {
           setSelectedReportId(null);
+          setSelectedScreenerRunId(null);
           setActiveTaskId(taskId);
+          setActiveScreenerTaskId(null);
+          setIsSidebarOpen(false);
+        }}
+        onSelectScreenerTask={(taskId) => {
+          setSelectedReportId(null);
+          setSelectedScreenerRunId(null);
+          setActiveTaskId(null);
+          setActiveScreenerTaskId(taskId);
           setIsSidebarOpen(false);
         }}
         onNewAnalysis={() => {
@@ -170,10 +294,23 @@ export default function Home() {
             return;
           }
           setShowNewAnalysis(true);
+          setShowNewScreener(false);
           setSelectedReportId(null);
+          setSelectedScreenerRunId(null);
+          setIsSidebarOpen(false);
+        }}
+        onNewScreener={() => {
+          if (newScreenerDisabled) {
+            return;
+          }
+          setShowNewScreener(true);
+          setShowNewAnalysis(false);
+          setSelectedReportId(null);
+          setSelectedScreenerRunId(null);
           setIsSidebarOpen(false);
         }}
         newAnalysisDisabled={newAnalysisDisabled}
+        newScreenerDisabled={newScreenerDisabled}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
       />
@@ -191,8 +328,25 @@ export default function Home() {
         }}
       />
 
+      <NewScreenerForm
+        isOpen={showNewScreener}
+        onClose={() => setShowNewScreener(false)}
+        onTaskCreated={(taskId) => {
+          setShowNewScreener(false);
+          void loadScreenerTasks();
+          startTransition(() => {
+            setSelectedReportId(null);
+            setSelectedScreenerRunId(null);
+            setActiveTaskId(null);
+            setActiveScreenerTaskId(taskId);
+          });
+        }}
+      />
+
       {selectedReportId ? (
         <ReportViewer reportId={selectedReportId} />
+      ) : selectedScreenerRunId ? (
+        <ScreenerResultsViewer runId={selectedScreenerRunId} />
       ) : currentTaskId ? (
         <TaskProgress
           key={currentTaskId}
@@ -203,6 +357,23 @@ export default function Home() {
           }}
           onViewReport={(reportId) => {
             setSelectedReportId(reportId);
+          }}
+        />
+      ) : currentScreenerTaskId ? (
+        <ScreenerTaskProgress
+          key={currentScreenerTaskId}
+          taskId={currentScreenerTaskId}
+          onTaskComplete={(runId) => {
+            void loadScreenerRuns();
+            void loadScreenerTasks();
+            if (runId) {
+              setSelectedScreenerRunId(runId);
+              setActiveScreenerTaskId(null);
+            }
+          }}
+          onViewRun={(runId) => {
+            setSelectedScreenerRunId(runId);
+            setActiveScreenerTaskId(null);
           }}
         />
       ) : (
@@ -219,7 +390,7 @@ export default function Home() {
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                     Jump straight into the freshest report, search across tickers,
-                    or launch a brand-new background analysis from the sidebar.
+                    launch a brand-new background analysis, or build a ranked screener pool.
                   </p>
                 </div>
                 <button
@@ -282,6 +453,24 @@ export default function Home() {
                   <p className="mt-1 text-xs text-slate-500">
                     Filter by ticker, report id, or use the quick chips below.
                   </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+                    disabled={newAnalysisDisabled}
+                    onClick={() => setShowNewAnalysis(true)}
+                  >
+                    Launch Analysis
+                  </button>
+                  <button
+                    type="button"
+                    className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+                    disabled={newScreenerDisabled}
+                    onClick={() => setShowNewScreener(true)}
+                  >
+                    Launch Screener
+                  </button>
                 </div>
               </div>
 

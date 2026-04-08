@@ -26,3 +26,10 @@ test("NewAnalysisForm disables providers without configured credentials", () => 
   assert.match(source, /disabled_reason/);
   assert.match(source, /API key/i);
 });
+
+test("NewAnalysisForm defaults to the full analyst set instead of truncating to two", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.doesNotMatch(source, /analysts:\s*configOptions\.analysts\.slice\(0,\s*2\)/);
+  assert.match(source, /analysts:\s*configOptions\.analysts\.map\(\(option\)\s*=>\s*option\.value\)/);
+});

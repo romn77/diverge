@@ -15,19 +15,29 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /searchQuery:\s*string/);
   assert.match(source, /onSearchQueryChange:\s*\(value:\s*string\)/);
   assert.match(source, /onNewAnalysis:\s*\(\)\s*=>\s*void/);
+  assert.match(source, /onNewScreener:\s*\(\)\s*=>\s*void/);
   assert.match(source, /taskQueue:\s*Task\[]/);
+  assert.match(source, /screenerRuns:\s*ScreenerRunSummary\[]/);
+  assert.match(source, /screenerTaskQueue:\s*ScreenerTask\[]/);
   assert.match(source, /activeTaskId:\s*string \| null/);
+  assert.match(source, /activeScreenerTaskId:\s*string \| null/);
   assert.match(source, /onSelectTask:\s*\(taskId:\s*string\)/);
+  assert.match(source, /onSelectScreenerTask:\s*\(taskId:\s*string\)/);
+  assert.match(source, /onSelectScreenerRun:\s*\(runId:\s*string\)/);
   assert.match(source, /newAnalysisDisabled:\s*boolean/);
+  assert.match(source, /newScreenerDisabled:\s*boolean/);
   assert.match(source, /isOpen:\s*boolean/);
   assert.match(source, /onClose:\s*\(\)\s*=>\s*void/);
   assert.match(source, /Recent Reports/);
   assert.match(source, /New Analysis/);
+  assert.match(source, /New Screener/);
   assert.match(source, /Task Queue/);
+  assert.match(source, /Recent Screeners/);
   assert.doesNotMatch(source, /Return to Queue/);
   assert.doesNotMatch(source, /canReturnToQueue/);
   assert.doesNotMatch(source, /onReturnToQueue/);
   assert.match(source, /disabled=\{newAnalysisDisabled\}/);
+  assert.match(source, /disabled=\{newScreenerDisabled\}/);
   assert.match(source, /Filter by ticker or report ID/);
   assert.match(source, /document\.body\.style\.overflow/);
   assert.match(source, /event\.key === "Escape"/);
@@ -57,4 +67,13 @@ test("Sidebar keeps the launch CTA and task cards visually compact", () => {
   assert.match(source, /text-\[13px\] font-semibold/);
   assert.match(source, /text-\[10px\] uppercase tracking-\[0\.22em\]/);
   assert.match(source, /rounded-full px-2 py-0\.5 text-\[10px\]/);
+});
+
+test("Sidebar exposes a hover-revealed task detail trigger with a read-only form preview", () => {
+  const source = readFileSync(sidebarPath, "utf8");
+
+  assert.doesNotMatch(source, /Request details/);
+  assert.doesNotMatch(source, /Task Request Snapshot/);
+  assert.doesNotMatch(source, /quick_think_llm/);
+  assert.doesNotMatch(source, /deep_think_llm/);
 });

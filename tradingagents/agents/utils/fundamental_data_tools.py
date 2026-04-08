@@ -1,6 +1,9 @@
 from langchain_core.tools import tool
 from typing import Annotated
-from tradingagents.dataflows.interface import route_to_vendor
+from tradingagents.dataflows.interface import (
+    route_to_vendor,
+)
+from tradingagents.dataflows.valuation_inputs import route_to_valuation_input
 
 
 @tool
@@ -75,3 +78,12 @@ def get_income_statement(
         str: A formatted report containing income statement data
     """
     return route_to_vendor("get_income_statement", ticker, freq, curr_date)
+
+
+def get_valuation_ready_fundamentals(
+    ticker: str,
+    curr_date: str | None = None,
+    freq: str = "annual",
+):
+    """Return normalized fundamentals for valuation modules without changing tool behavior."""
+    return route_to_valuation_input(ticker, curr_date=curr_date, freq=freq)

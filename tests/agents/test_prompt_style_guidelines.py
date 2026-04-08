@@ -12,7 +12,7 @@ PROMPT_FILES = [
     Path("tradingagents/agents/researchers/bull_researcher.py"),
     Path("tradingagents/agents/researchers/bear_researcher.py"),
     Path("tradingagents/agents/managers/research_manager.py"),
-    Path("tradingagents/agents/managers/risk_manager.py"),
+    Path("tradingagents/agents/managers/portfolio_manager.py"),
     Path("tradingagents/agents/risk_mgmt/aggressive_debator.py"),
     Path("tradingagents/agents/risk_mgmt/conservative_debator.py"),
     Path("tradingagents/agents/risk_mgmt/neutral_debator.py"),

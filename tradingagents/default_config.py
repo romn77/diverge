@@ -19,10 +19,13 @@ DEFAULT_CONFIG = {
     "deep_think_llm": DEFAULT_DEEP_MODEL,
     "quick_think_llm": DEFAULT_QUICK_MODEL,
     "backend_url": get_provider_base_url(DEFAULT_LLM_PROVIDER),
+    # Output language for analyst reports and final decision
+    # Internal agent debate stays in English for reasoning quality
     "output_language": "en",
     # Provider-specific thinking configuration
     "google_thinking_level": None,  # "high", "minimal", etc.
     "openai_reasoning_effort": None,  # "medium", "high", "low"
+    "anthropic_effort": None,  # "high", "medium", "low"
     # Debate and discussion settings
     "max_debate_rounds": 1,
     "max_risk_discuss_rounds": 1,

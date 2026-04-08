@@ -163,6 +163,30 @@ function buildMarketDeck(
 function buildFundamentalsDeck(
   highlights: Extract<ReportHighlights, { category: "fundamentals" }>
 ): HighlightDeck {
+  const dcfApplicabilityMetric = highlights.metrics.find((metric) =>
+    /dcf applicability$/i.test(metric.name)
+  );
+  const dcfApplicabilityReasonMetric = highlights.metrics.find((metric) =>
+    /dcf applicability reason/i.test(metric.name)
+  );
+  const baseCaseMetric = highlights.metrics.find((metric) =>
+    /base case/i.test(metric.name)
+  );
+  const peg1YMetric = highlights.metrics.find((metric) =>
+    /^peg \(1y(?: forward)?\)$/i.test(metric.name)
+  );
+  const valuationMetrics = highlights.metrics.filter((metric) =>
+    /dcf applicability|fair value|enterprise value|equity value|net debt|p\/e|peg|p\/b|ev\/ebitda|ev\/sales|fcf yield|wacc|growth rate|terminal growth|Bull Case|Base Case|Bear Case/i.test(
+      metric.name
+    )
+  );
+  const operatingMetrics = highlights.metrics.filter(
+    (metric) => !valuationMetrics.includes(metric)
+  );
+  const fairValueMetric = valuationMetrics.find((metric) =>
+    /fair value/i.test(metric.name)
+  );
+
   return baseDeck(
     highlights,
     "Fundamental Snapshot",
@@ -173,12 +197,12 @@ function buildFundamentalsDeck(
         value: withFallback(highlights.financial_health, "Unspecified"),
       },
       {
-        label: "Metrics",
-        value: compactCount(highlights.metrics.length),
+        label: "Base Case Fair Value",
+        value: baseCaseMetric?.value ?? fairValueMetric?.value ?? "N/A",
       },
       {
-        label: "Bias",
-        value: highlights.signal,
+        label: "PEG (1Y)",
+        value: peg1YMetric?.value ?? "N/A",
       },
     ],
     [
@@ -195,17 +219,47 @@ function buildFundamentalsDeck(
               "No explicit financial health tag was provided."
             ),
           },
+          ...(dcfApplicabilityMetric
+            ? [
+                {
+                  key: "dcf-applicability",
+                  title: "DCF Status",
+                  variant: "story",
+                  summary: dcfApplicabilityReasonMetric
+                    ? `${dcfApplicabilityMetric.value}. ${dcfApplicabilityReasonMetric.value}`
+                    : dcfApplicabilityMetric.value,
+                } satisfies TerminalPanel,
+              ]
+            : []),
         ],
       },
       {
         key: "metric-console",
-        title: "Metric Console",
+        title: "Valuation Console",
         panels: [
+          ...(valuationMetrics.length > 0
+            ? [
+                {
+                  key: "valuation-table",
+                  title: "Valuation Table",
+                  variant: "table",
+                  span: "wide",
+                  table: {
+                    columns: ["Metric", "Value", "Read"],
+                    rows: valuationMetrics.map((metric) => ({
+                      label: metric.name,
+                      value: metric.value,
+                      detail: metric.assessment,
+                    })),
+                  },
+                } satisfies TerminalPanel,
+              ]
+            : []),
           {
             key: "metric-deck",
             title: "Metric Deck",
             variant: "matrix",
-            entries: highlights.metrics.map((metric) => ({
+            entries: (operatingMetrics.length > 0 ? operatingMetrics : highlights.metrics).map((metric) => ({
               title: metric.name,
               body: metric.value,
               meta: metric.assessment,

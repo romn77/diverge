@@ -23,6 +23,10 @@ class Propagator:
             "company_of_interest": company_name,
             "trade_date": str(trade_date),
             "output_language": output_language,
+            "earnings_event": None,
+            "instrument_type": None,
+            "valuation_applicability": None,
+            "valuation_applicability_reason": None,
             "investment_debate_state": InvestDebateState(
                 {
                     "bull_history": "",

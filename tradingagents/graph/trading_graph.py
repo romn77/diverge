@@ -95,8 +95,8 @@ class TradingAgentsGraph:
         self.invest_judge_memory = FinancialSituationMemory(
             "invest_judge_memory", self.config
         )
-        self.risk_manager_memory = FinancialSituationMemory(
-            "risk_manager_memory", self.config
+        self.portfolio_manager_memory = FinancialSituationMemory(
+            "portfolio_manager_memory", self.config
         )
 
         # Create tool nodes
@@ -120,7 +120,7 @@ class TradingAgentsGraph:
             self.bear_memory,
             self.trader_memory,
             self.invest_judge_memory,
-            self.risk_manager_memory,
+            self.portfolio_manager_memory,
             self.conditional_logic,
         )
 
@@ -150,6 +150,11 @@ class TradingAgentsGraph:
             reasoning_effort = self.config.get("openai_reasoning_effort")
             if reasoning_effort:
                 kwargs["reasoning_effort"] = reasoning_effort
+
+        elif provider == "anthropic":
+            effort = self.config.get("anthropic_effort")
+            if effort:
+                kwargs["effort"] = effort
 
         return kwargs
 
@@ -287,8 +292,8 @@ class TradingAgentsGraph:
         self.reflector.reflect_invest_judge(
             self.curr_state, returns_losses, self.invest_judge_memory
         )
-        self.reflector.reflect_risk_manager(
-            self.curr_state, returns_losses, self.risk_manager_memory
+        self.reflector.reflect_portfolio_manager(
+            self.curr_state, returns_losses, self.portfolio_manager_memory
         )
 
     def process_signal(self, full_signal):

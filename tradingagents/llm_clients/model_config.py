@@ -4,8 +4,8 @@ ProviderOption = tuple[str, str, str]
 ModelOption = tuple[str, str]
 
 DEFAULT_LLM_PROVIDER: Final[str] = "openai"
-DEFAULT_DEEP_MODEL: Final[str] = "gpt-5.2"
-DEFAULT_QUICK_MODEL: Final[str] = "gpt-5-mini"
+DEFAULT_DEEP_MODEL: Final[str] = "gpt-5.4"
+DEFAULT_QUICK_MODEL: Final[str] = "gpt-5.4-mini"
 
 PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
     ("openai", "OpenAI", "https://api.openai.com/v1"),
@@ -20,11 +20,13 @@ PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
 
 QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     "openai": (
-        ("GPT-5 Mini - Balanced speed, cost, and capability", "gpt-5-mini"),
-        ("GPT-5 Nano - High-throughput, simple tasks", "gpt-5-nano"),
+        ("GPT-5.4 Mini - Fast, strong coding and tool use", "gpt-5.4-mini"),
+        ("GPT-5.4 Nano - Cheapest, high-volume tasks", "gpt-5.4-nano"),
         ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
         ("GPT-5.2 - Strong reasoning, cost-effective", "gpt-5.2"),
         ("GPT-5.1 - Flexible reasoning", "gpt-5.1"),
+        ("GPT-5 Mini - Balanced speed, cost, and capability", "gpt-5-mini"),
+        ("GPT-5 Nano - High-throughput, simple tasks", "gpt-5-nano"),
         ("GPT-4.1 - Smartest non-reasoning model", "gpt-4.1"),
     ),
     "anthropic": (

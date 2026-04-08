@@ -7,6 +7,7 @@ import {
   type ProgressEvent,
   type StageStatus,
   type Task,
+  type TaskCreateRequest,
 } from "@/lib/api";
 
 interface TaskProgressProps {
@@ -16,6 +17,11 @@ interface TaskProgressProps {
 }
 
 const STAGES = ["Analysts", "Research", "Trading", "Risk", "Portfolio"] as const;
+const RESEARCH_DEPTH_LABELS: Record<number, string> = {
+  1: "Shallow",
+  3: "Medium",
+  5: "Deep",
+};
 
 export function TaskProgress({
   taskId,
@@ -26,6 +32,7 @@ export function TaskProgress({
   const [events, setEvents] = useState<ProgressEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [showRequestDetails, setShowRequestDetails] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -62,6 +69,7 @@ export function TaskProgress({
               ticker: "Task",
               analysis_date: "",
               analysts: [],
+              request_payload: null,
               status: event.status,
               latest_progress: event,
               report_id: null,
@@ -127,9 +135,32 @@ export function TaskProgress({
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
                 Background Task
               </p>
-              <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-                {task?.ticker ?? "New Analysis"}
-              </h1>
+              <div className="mt-3 flex items-center gap-2">
+                <h1 className="font-heading text-3xl font-bold tracking-tight text-slate-900">
+                  {task?.ticker ?? "New Analysis"}
+                </h1>
+                {task ? (
+                  <button
+                    type="button"
+                    aria-label={`Request details for ${task.ticker}`}
+                    aria-expanded={showRequestDetails}
+                    className="focus-ring inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-300 transition hover:bg-[rgba(28,56,83,0.05)] hover:text-slate-500"
+                    onClick={() =>
+                      setShowRequestDetails((current) => !current)
+                    }
+                  >
+                    <svg
+                      viewBox="0 0 16 16"
+                      className={`h-3.5 w-3.5 fill-current transition-transform ${
+                        showRequestDetails ? "scale-y-[-1]" : ""
+                      }`}
+                      aria-hidden
+                    >
+                      <path d="M8 11.25 2.75 5h10.5L8 11.25Z" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 {task?.analysis_date
                   ? `Tracking ${task.analysis_date} research flow across analyst, debate, trading, and portfolio stages.`
@@ -150,6 +181,12 @@ export function TaskProgress({
               ) : null}
             </div>
           </div>
+
+          {task && showRequestDetails ? (
+            <div className="mt-6 rounded-[24px] border border-[rgba(28,56,83,0.08)] bg-[rgba(248,250,252,0.82)] p-4">
+              <TaskRequestDetails task={task} />
+            </div>
+          ) : null}
 
           <div className="mt-8 grid gap-3 md:grid-cols-5">
             {STAGES.map((stage) => {
@@ -282,4 +319,120 @@ function TaskStatusBadge({ status }: { status: Task["status"] }) {
       {status}
     </span>
   );
+}
+
+function TaskRequestDetails({ task }: { task: Task }) {
+  const request = task.request_payload;
+  const fallbackRequest = {
+    analysis_date: task.analysis_date || "unknown",
+    analysts: task.analysts,
+    research_depth: null,
+    llm_provider: "unknown",
+    quick_think_llm: "unknown",
+    deep_think_llm: "unknown",
+    output_language: "unknown",
+  };
+  const details = request
+    ? {
+        ...request,
+        research_depth: formatResearchDepth(request.research_depth),
+      }
+    : {
+        ...fallbackRequest,
+        research_depth: "N/A",
+      };
+
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <TaskRequestField
+          label="Analysis Date"
+          value={details.analysis_date}
+          name="analysis_date"
+          readOnly
+        />
+        <TaskRequestSelect label="LLM Provider" value={details.llm_provider} disabled />
+        <TaskRequestField
+          label="Output Language"
+          value={details.output_language}
+          name="output_language"
+          readOnly
+        />
+        <TaskRequestField
+          label="Research Depth"
+          value={details.research_depth}
+          name="research_depth"
+          readOnly
+        />
+        <TaskRequestField
+          label="Quick Model"
+          value={details.quick_think_llm}
+          name="quick_think_llm"
+          readOnly
+        />
+        <TaskRequestField
+          label="Deep Model"
+          value={details.deep_think_llm}
+          name="deep_think_llm"
+          readOnly
+        />
+      </div>
+    </div>
+  );
+}
+
+function TaskRequestField({
+  label,
+  value,
+  name,
+  readOnly,
+}: {
+  label: string;
+  value: string;
+  name?: string;
+  readOnly?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </span>
+      <input
+        name={name}
+        type="text"
+        value={value}
+        readOnly={readOnly}
+        className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-white/72 px-3 py-2 text-sm font-medium text-slate-800"
+      />
+    </label>
+  );
+}
+
+function TaskRequestSelect({
+  label,
+  value,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </span>
+      <select
+        value={value}
+        disabled={disabled}
+        className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-white/72 px-3 py-2 text-sm font-medium text-slate-800"
+      >
+        <option value={value}>{value}</option>
+      </select>
+    </label>
+  );
+}
+
+function formatResearchDepth(value: number): string {
+  return RESEARCH_DEPTH_LABELS[value] ?? "Custom";
 }

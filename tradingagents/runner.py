@@ -1,4 +1,5 @@
 import datetime
+import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Generator, Optional
@@ -11,6 +12,7 @@ from tradingagents.llm_clients.model_config import (
     get_model_ids_for_provider,
     get_provider_base_url,
 )
+from tradingagents.research.thesis_tracker import build_thesis_artifact
 
 
 ANALYST_ORDER = ["market", "social", "news", "fundamentals"]
@@ -632,5 +634,13 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
     )
     (save_path / "complete_report.md").write_text(
         header + "\n\n".join(sections), encoding="utf-8"
+    )
+
+    thesis_artifact = build_thesis_artifact(final_state, ticker=ticker)
+    artifacts_dir = save_path / "artifacts"
+    artifacts_dir.mkdir(exist_ok=True)
+    (artifacts_dir / "thesis.json").write_text(
+        json.dumps(thesis_artifact, ensure_ascii=False, indent=2),
+        encoding="utf-8",
     )
     return save_path / "complete_report.md"

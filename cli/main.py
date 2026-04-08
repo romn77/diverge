@@ -3,6 +3,7 @@ import typer
 from pathlib import Path
 from functools import wraps
 from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -23,6 +24,8 @@ from rich.rule import Rule
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.runner import save_report_to_disk
+from tradingagents.screener.pipeline import run_screen
+from tradingagents.screener.schema import ScreenRunConfig
 from cli.utils import *
 from cli.announcements import fetch_announcements, display_announcements
 from cli.stats_handler import StatsCallbackHandler
@@ -472,7 +475,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
 def get_user_selections():
     """Get all user selections before starting the analysis display."""
     # Display ASCII art welcome message
-    with open("./cli/static/welcome.txt", "r", encoding="utf-8") as f:
+    with open(Path(__file__).parent / "static" / "welcome.txt", "r") as f:
         welcome_ascii = f.read()
 
     # Create welcome box content
@@ -511,7 +514,9 @@ def get_user_selections():
     # Step 1: Ticker symbol
     console.print(
         create_question_box(
-            "Step 1: Ticker Symbol", "Enter the ticker symbol to analyze", "SPY"
+            "Step 1: Ticker Symbol",
+            "Enter the exact ticker symbol to analyze, including exchange suffix when needed (examples: SPY, CNC.TO, 7203.T, 0700.HK)",
+            "SPY",
         )
     )
     selected_ticker = get_ticker()
@@ -546,9 +551,11 @@ def get_user_selections():
     )
     selected_research_depth = select_research_depth()
 
-    # Step 5: OpenAI backend
+    # Step 5: LLM Provider
     console.print(
-        create_question_box("Step 5: OpenAI backend", "Select which service to talk to")
+        create_question_box(
+            "Step 5: LLM Provider", "Select your LLM provider"
+        )
     )
     selected_llm_provider, backend_url = select_llm_provider()
 
@@ -564,22 +571,33 @@ def get_user_selections():
     # Step 7: Provider-specific thinking configuration
     thinking_level = None
     reasoning_effort = None
+    anthropic_effort = None
 
     provider_lower = selected_llm_provider.lower()
     if provider_lower == "google":
         console.print(
             create_question_box(
-                "Step 7: Thinking Mode", "Configure Gemini thinking mode"
+                "Step 7: Thinking Mode",
+                "Configure Gemini thinking mode"
             )
         )
         thinking_level = ask_gemini_thinking_config()
     elif provider_lower == "openai":
         console.print(
             create_question_box(
-                "Step 7: Reasoning Effort", "Configure OpenAI reasoning effort level"
+                "Step 7: Reasoning Effort",
+                "Configure OpenAI reasoning effort level"
             )
         )
         reasoning_effort = ask_openai_reasoning_effort()
+    elif provider_lower == "anthropic":
+        console.print(
+            create_question_box(
+                "Step 7: Effort Level",
+                "Configure Claude effort level"
+            )
+        )
+        anthropic_effort = ask_anthropic_effort()
 
     console.print(
         create_question_box(
@@ -601,6 +619,7 @@ def get_user_selections():
         "google_thinking_level": thinking_level,
         "openai_reasoning_effort": reasoning_effort,
         "output_language": selected_output_language,
+        "anthropic_effort": anthropic_effort,
     }
 
 
@@ -759,9 +778,11 @@ ANALYST_REPORT_MAP = {
 
 
 def update_analyst_statuses(message_buffer, chunk):
-    """Update all analyst statuses based on current report state.
+    """Update analyst statuses based on accumulated report state.
 
     Logic:
+    - Store new report content from the current chunk if present
+    - Check accumulated report_sections (not just current chunk) for status
     - Analysts with reports = completed
     - First analyst without report = in_progress
     - Remaining analysts without reports = pending
@@ -776,11 +797,16 @@ def update_analyst_statuses(message_buffer, chunk):
 
         agent_name = ANALYST_AGENT_NAMES[analyst_key]
         report_key = ANALYST_REPORT_MAP[analyst_key]
-        has_report = bool(chunk.get(report_key))
+
+        # Capture new report content from current chunk
+        if chunk.get(report_key):
+            message_buffer.update_report_section(report_key, chunk[report_key])
+
+        # Determine status from accumulated sections, not just current chunk
+        has_report = bool(message_buffer.report_sections.get(report_key))
 
         if has_report:
             message_buffer.update_agent_status(agent_name, "completed")
-            message_buffer.update_report_section(report_key, chunk[report_key])
         elif not found_active:
             message_buffer.update_agent_status(agent_name, "in_progress")
             found_active = True
@@ -886,6 +912,8 @@ def run_analysis():
     # Provider-specific thinking configuration
     config["google_thinking_level"] = selections.get("google_thinking_level")
     config["openai_reasoning_effort"] = selections.get("openai_reasoning_effort")
+    config["anthropic_effort"] = selections.get("anthropic_effort")
+    config["output_language"] = selections.get("output_language", "English")
 
     # Create stats callback handler for tracking LLM/tool calls
     stats_handler = StatsCallbackHandler()
@@ -926,7 +954,7 @@ def run_analysis():
             func(*args, **kwargs)
             timestamp, message_type, content = obj.messages[-1]
             content = content.replace("\n", " ")  # Replace newlines with spaces
-            with open(log_file, "a", encoding="utf-8") as f:
+            with open(log_file, "a") as f:
                 f.write(f"{timestamp} [{message_type}] {content}\n")
 
         return wrapper
@@ -939,7 +967,7 @@ def run_analysis():
             func(*args, **kwargs)
             timestamp, tool_name, args = obj.tool_calls[-1]
             args_str = ", ".join(f"{k}={v}" for k, v in args.items())
-            with open(log_file, "a", encoding="utf-8") as f:
+            with open(log_file, "a") as f:
                 f.write(f"{timestamp} [Tool Call] {tool_name}({args_str})\n")
 
         return wrapper
@@ -957,9 +985,9 @@ def run_analysis():
                 content = obj.report_sections[section_name]
                 if content:
                     file_name = f"{section_name}.md"
-                    with open(report_dir / file_name, "w", encoding="utf-8") as f:
-                        f.write(content)
-
+                    text = "\n".join(str(item) for item in content) if isinstance(content, list) else content
+                    with open(report_dir / file_name, "w") as f:
+                        f.write(text)
         return wrapper
 
     message_buffer.add_message = save_message_decorator(message_buffer, "add_message")
@@ -1203,6 +1231,85 @@ def run_analysis():
 @app.command()
 def analyze():
     run_analysis()
+
+
+@app.command()
+def screen(
+    date: str = typer.Option(..., "--date"),
+    markets: str = typer.Option(..., "--markets"),
+    top_k: int = typer.Option(100, "--top-k"),
+    cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
+    cn_data_source_fallbacks: str = typer.Option("", "--cn-data-source-fallbacks"),
+    us_manifest: str | None = typer.Option(None, "--us-manifest"),
+    output_dir: str = typer.Option("./results/screener", "--output-dir"),
+):
+    parsed_markets = [market.strip().lower() for market in markets.split(",") if market.strip()]
+    parsed_cn_fallbacks = [
+        source.strip().lower()
+        for source in cn_data_source_fallbacks.split(",")
+        if source.strip()
+    ]
+    if "us" in parsed_markets and not us_manifest:
+        raise typer.BadParameter(
+            "Provide --us-manifest when requesting the us market.",
+            param_hint="--us-manifest",
+        )
+
+    config = ScreenRunConfig(
+        markets=parsed_markets,
+        as_of_date=date,
+        top_k=top_k,
+        output_dir=output_dir,
+        cn_data_source=cn_data_source,
+        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        us_manifest_path=us_manifest,
+    )
+
+    progress_state = {"last": None}
+
+    def progress_callback(
+        stage: str,
+        current: int,
+        total: int,
+        symbol: str | None = None,
+        status: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        message = f"{stage} {current}/{total}"
+        if symbol:
+            message += f" {symbol}"
+        if status:
+            message += f" [{status}]"
+        if detail:
+            message += f" {detail}"
+        progress_state["last"] = message
+        console.print(message, markup=False)
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True,
+    ) as progress:
+        task_id = progress.add_task("Running screener", total=None)
+        result = run_screen(config, progress_callback=progress_callback)
+        progress.update(task_id, description="Screener complete")
+
+    console.print("\n[bold]Universe counts[/bold]")
+    for market, count in result.universe_count_by_market.items():
+        console.print(f"- {market}: {count}")
+
+    console.print("\n[bold]Filter counts[/bold]")
+    for reason, count in result.filtered_count_by_reason.items():
+        console.print(f"- {reason}: {count}")
+
+    console.print("\n[bold]Top candidates[/bold]")
+    for row in result.candidate_preview:
+        console.print(
+            f"- {row['symbol']} ({row['market']}) rank={row['global_rank']} score={row['total_score']}"
+        )
+
+    console.print(f"\n[bold]Run directory[/bold] {result.run_dir}")
 
 
 if __name__ == "__main__":
