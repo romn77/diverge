@@ -206,6 +206,43 @@ def test_load_cn_universe_falls_back_to_secondary_source_when_primary_retries_fa
     ]
 
 
+def test_load_cn_universe_falls_back_to_secondary_source_when_primary_auth_fails():
+    akshare_df = pd.DataFrame(
+        [
+            {
+                "code": "600519",
+                "name": "Kweichow Moutai",
+            }
+        ]
+    )
+
+    with (
+        patch(
+            "tradingagents.screener.universe.get_tushare_pro_client",
+            side_effect=VendorAuthError("TUSHARE_TOKEN is not configured."),
+        ),
+        patch(
+            "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+            return_value=akshare_df,
+        ),
+    ):
+        result = load_cn_universe(
+            data_source="tushare",
+            fallback_data_sources=["akshare"],
+        )
+
+    assert result.to_dict("records") == [
+        {
+            "symbol": "600519.SH",
+            "market": "cn",
+            "name": "Kweichow Moutai",
+            "exchange": "SSE",
+            "sector": "",
+            "list_date": "",
+        }
+    ]
+
+
 def test_load_us_universe_requires_manifest_columns(tmp_path):
     manifest_path = tmp_path / "us_manifest.csv"
     pd.DataFrame(

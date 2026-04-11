@@ -5,7 +5,12 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from tradingagents.data.cn_manifest import build_cn_manifest, write_cn_manifest
+from tradingagents.data.cn_manifest import (
+    DEFAULT_FALLBACK_DATA_SOURCES,
+    build_cn_manifest,
+    main,
+    write_cn_manifest,
+)
 
 
 def test_build_cn_manifest_normalizes_shared_schema_and_excludes_bse(tmp_path):
@@ -101,7 +106,7 @@ def test_write_cn_manifest_loads_cn_universe_with_defaults(tmp_path):
     mock_load.assert_called_once_with(
         data_source="tushare",
         cache_dir=None,
-        fallback_data_sources=None,
+        fallback_data_sources=list(DEFAULT_FALLBACK_DATA_SOURCES),
     )
     assert manifest_df.to_dict("records") == [
         {
@@ -113,3 +118,43 @@ def test_write_cn_manifest_loads_cn_universe_with_defaults(tmp_path):
             "mktcap": "",
         }
     ]
+
+
+def test_main_uses_cli_defaults_and_writes_requested_path(tmp_path, capsys):
+    source_df = pd.DataFrame(
+        [
+            {
+                "symbol": "000001.SZ",
+                "market": "cn",
+                "name": "Ping An Bank",
+                "exchange": "SZSE",
+                "sector": "Banking",
+                "list_date": "19910403",
+            }
+        ]
+    )
+    output_path = tmp_path / "cli_cn_manifest.csv"
+
+    with (
+        patch(
+            "tradingagents.data.cn_manifest.load_cn_universe",
+            return_value=source_df,
+        ) as mock_load,
+        patch(
+            "sys.argv",
+            [
+                "python",
+                "--output-path",
+                str(output_path),
+            ],
+        ),
+    ):
+        main()
+
+    mock_load.assert_called_once_with(
+        data_source="tushare",
+        cache_dir=None,
+        fallback_data_sources=list(DEFAULT_FALLBACK_DATA_SOURCES),
+    )
+    assert output_path.is_file()
+    assert f"Wrote 1 rows to {output_path}" in capsys.readouterr().out

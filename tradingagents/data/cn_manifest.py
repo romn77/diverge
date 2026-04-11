@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from collections.abc import Collection
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from tradingagents.screener.universe import load_cn_universe
 
 DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("cn_manifest.csv")
 DEFAULT_ALLOWED_EXCHANGES = ("SSE", "SZSE")
+DEFAULT_DATA_SOURCE = "tushare"
+DEFAULT_FALLBACK_DATA_SOURCES = ("akshare",)
 
 
 def build_cn_manifest(
@@ -52,16 +55,16 @@ def build_cn_manifest(
 def write_cn_manifest(
     source_df: pd.DataFrame | None = None,
     output_path: str | Path = DEFAULT_OUTPUT_PATH,
-    data_source: str = "tushare",
+    data_source: str = DEFAULT_DATA_SOURCE,
     cache_dir: str | Path | None = None,
-    fallback_data_sources: list[str] | None = None,
+    fallback_data_sources: Collection[str] | None = DEFAULT_FALLBACK_DATA_SOURCES,
     allowed_exchanges: Collection[str] | None = DEFAULT_ALLOWED_EXCHANGES,
 ) -> pd.DataFrame:
     if source_df is None:
         source_df = load_cn_universe(
             data_source=data_source,
             cache_dir=cache_dir,
-            fallback_data_sources=fallback_data_sources,
+            fallback_data_sources=list(fallback_data_sources) if fallback_data_sources is not None else None,
         )
 
     manifest_df = build_cn_manifest(
@@ -74,9 +77,46 @@ def write_cn_manifest(
     return manifest_df
 
 
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Export the CN screener universe to a CSV manifest.")
+    parser.add_argument(
+        "--output-path",
+        default=str(DEFAULT_OUTPUT_PATH),
+        help="Destination CSV path. Defaults to tradingagents/data/cn_manifest.csv.",
+    )
+    parser.add_argument(
+        "--data-source",
+        default=DEFAULT_DATA_SOURCE,
+        choices=("akshare", "tushare"),
+        help="Primary CN universe data source. Defaults to tushare.",
+    )
+    parser.add_argument(
+        "--fallback-data-sources",
+        default=",".join(DEFAULT_FALLBACK_DATA_SOURCES),
+        help="Comma-separated CN source fallbacks, in order. Defaults to akshare.",
+    )
+    parser.add_argument(
+        "--cache-dir",
+        default=None,
+        help="Optional cache directory passed to the CN universe loader.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
-    manifest_df = write_cn_manifest()
-    print(f"Wrote {len(manifest_df)} rows to {DEFAULT_OUTPUT_PATH}")
+    args = _parse_args()
+    fallback_data_sources = [
+        source.strip()
+        for source in str(args.fallback_data_sources or "").split(",")
+        if source.strip()
+    ]
+    manifest_df = write_cn_manifest(
+        output_path=args.output_path,
+        data_source=args.data_source,
+        cache_dir=args.cache_dir,
+        fallback_data_sources=fallback_data_sources,
+    )
+    print(f"Wrote {len(manifest_df)} rows to {Path(args.output_path)}")
 
 
 if __name__ == "__main__":
