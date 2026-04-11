@@ -196,6 +196,17 @@ tradingagents screen \
   --output-dir ./results/screener
 ```
 
+Manifest generation lives alongside the screener input data:
+
+```bash
+python -m tradingagents.data.data_demo
+python -m tradingagents.data.cn_manifest
+```
+
+Both exporters write CSVs under `tradingagents/data/` with the shared column order `symbol,name,exchange,sector,list_date,mktcap`. The CN exporter keeps `tushare` as the primary source but falls back to `akshare` by default, so the standalone command works without `TUSHARE_TOKEN` in the common case. You can override the source chain explicitly, for example `python -m tradingagents.data.cn_manifest --data-source akshare --fallback-data-sources ""`.
+
+The CN manifest leaves `mktcap` blank for now because the current CN universe sources do not provide a stable market-cap field in the same path.
+
 Artifacts are written to `results/screener/<YYYYMMDD_HHMMSS>/` and include:
 
 - `run_meta.json`
