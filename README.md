@@ -180,7 +180,7 @@ An interface will appear showing results as they load, letting you track the age
 
 TradingAgents also ships with a daily screener that builds a ranked candidate pool without invoking LLM analysis during screening.
 
-- CN screening requires `TUSHARE_TOKEN`
+- CN screening accepts an optional manifest path via `--cn-manifest`; if omitted, the screener falls back to live CN universe loading with `--cn-data-source`
 - US screening requires a manifest path via `--us-manifest`
 - LLM analysis happens after screener output, not during screener execution
 - History cache and recovery checkpoints live under `results/screener/.cache/`; reruns reuse cached OHLCV and can resume after mid-history failures
@@ -192,6 +192,7 @@ tradingagents screen \
   --date 2026-03-24 \
   --markets cn,us \
   --top-k 100 \
+  --cn-manifest /absolute/path/to/cn_manifest.csv \
   --us-manifest /absolute/path/to/us_manifest.csv \
   --output-dir ./results/screener
 ```
@@ -199,11 +200,13 @@ tradingagents screen \
 Manifest generation lives alongside the screener input data:
 
 ```bash
-python -m tradingagents.data.data_demo
+python -m tradingagents.data.us_manifest
 python -m tradingagents.data.cn_manifest
 ```
 
 Both exporters write CSVs under `tradingagents/data/` with the shared column order `symbol,name,exchange,sector,list_date,mktcap`. The CN exporter keeps `tushare` as the primary source but falls back to `akshare` by default, so the standalone command works without `TUSHARE_TOKEN` in the common case. You can override the source chain explicitly, for example `python -m tradingagents.data.cn_manifest --data-source akshare --fallback-data-sources ""`.
+
+When `--cn-manifest` is supplied, the screener loads the CN universe from that CSV and reuses the manifest normalization rules, including dropping BSE rows. If `--cn-manifest` is omitted, the screener keeps the previous live-universe fetch path as a fallback.
 
 The CN manifest leaves `mktcap` blank for now because the current CN universe sources do not provide a stable market-cap field in the same path.
 

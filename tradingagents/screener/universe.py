@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from tradingagents.data.manifest_schema import COMMON_MANIFEST_COLUMNS
+from tradingagents.data.manifest_schema import COMMON_MANIFEST_COLUMNS, COMPARE_MANIFEST_COLUMNS
 from tradingagents.dataflows.akshare_stock import _import_akshare
 from tradingagents.dataflows.cn_market_utils import infer_cn_exchange
 from tradingagents.dataflows.tushare_common import get_tushare_pro_client
@@ -21,6 +21,7 @@ from .schema import ScreenRunConfig, build_cn_source_chain
 
 UNIVERSE_COLUMNS = ["symbol", "market", "name", "exchange", "sector", "list_date"]
 US_MANIFEST_REQUIRED_COLUMNS = COMMON_MANIFEST_COLUMNS
+CN_MANIFEST_REQUIRED_COLUMNS = COMPARE_MANIFEST_COLUMNS
 CN_EXCHANGE_LABELS = {
     "SH": "SSE",
     "SZ": "SZSE",
@@ -171,11 +172,33 @@ def _load_cn_universe_from_source(
     return result
 
 
+def load_cn_universe_from_manifest(manifest_path: str) -> pd.DataFrame:
+    path = Path(manifest_path)
+    raw = pd.read_csv(path, dtype=str, keep_default_na=False)
+
+    missing_columns = [column for column in CN_MANIFEST_REQUIRED_COLUMNS if column not in raw.columns]
+    if missing_columns:
+        raise ValueError(f"Missing required CN manifest columns: {', '.join(missing_columns)}")
+
+    # Avoid a top-level import cycle because cn_manifest.py imports load_cn_universe().
+    from tradingagents.data.cn_manifest import build_cn_manifest
+
+    manifest_df = build_cn_manifest(raw.loc[:, CN_MANIFEST_REQUIRED_COLUMNS])
+    result = manifest_df.loc[:, COMMON_MANIFEST_COLUMNS].copy()
+    result.insert(1, "market", "cn")
+    result = _filter_special_treatment_rows(result)
+    return result.loc[:, UNIVERSE_COLUMNS].reset_index(drop=True)
+
+
 def load_cn_universe(
     data_source: str = "tushare",
     cache_dir: str | Path | None = None,
     fallback_data_sources: list[str] | None = None,
+    manifest_path: str | None = None,
 ) -> pd.DataFrame:
+    if manifest_path:
+        return load_cn_universe_from_manifest(manifest_path)
+
     source_chain = build_cn_source_chain(data_source, fallback_data_sources)
     last_error: Exception | None = None
 
@@ -218,6 +241,7 @@ def load_universe(config: ScreenRunConfig, cache_dir: str | Path | None = None) 
                     data_source=config.cn_data_source,
                     cache_dir=cache_dir,
                     fallback_data_sources=config.cn_data_source_fallbacks,
+                    manifest_path=config.cn_manifest_path,
                 )
             )
         elif market == "us":

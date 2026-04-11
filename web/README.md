@@ -70,7 +70,8 @@ Then open http://localhost:3000 in your browser.
 
 ## Screener Notes
 
-- CN screening requires `TUSHARE_TOKEN`
+- CLI CN screening can optionally use `--cn-manifest /absolute/path/to/cn_manifest.csv`; otherwise it falls back to live CN universe loading
+- Web CN screening can optionally use backend env `SCREEN_CN_MANIFEST_PATH`; otherwise it falls back to live CN universe loading
 - CLI US screening requires `--us-manifest /absolute/path/to/us_manifest.csv`
 - Web US screening requires backend env `SCREEN_US_MANIFEST_PATH`
 - LLM analysis happens after screener output, not during screener execution

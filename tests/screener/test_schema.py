@@ -10,7 +10,8 @@ def test_screen_run_config_accepts_valid_dual_market_input():
         top_k=100,
         cn_data_source="akshare",
         cn_data_source_fallbacks=["tushare"],
-        us_manifest_path="/tmp/us_manifest.csv",
+        cn_manifest_path=" /tmp/cn_manifest.csv ",
+        us_manifest_path=" /tmp/us_manifest.csv ",
     )
 
     assert config.markets == ["cn", "us"]
@@ -18,6 +19,8 @@ def test_screen_run_config_accepts_valid_dual_market_input():
     assert not hasattr(config, "limit_per_market")
     assert config.cn_data_source == "akshare"
     assert config.cn_data_source_fallbacks == ["tushare"]
+    assert config.cn_manifest_path == "/tmp/cn_manifest.csv"
+    assert config.us_manifest_path == "/tmp/us_manifest.csv"
 
 
 def test_screen_run_config_rejects_future_dates():

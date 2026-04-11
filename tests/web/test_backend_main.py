@@ -243,6 +243,34 @@ class BackendMainTests(unittest.TestCase):
             ["tushare", "akshare"],
         )
 
+    def test_post_screener_tasks_injects_backend_cn_manifest_when_configured(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+        }
+
+        with patch.dict(
+            os.environ,
+            {"SCREEN_CN_MANIFEST_PATH": "/tmp/cn_manifest.csv"},
+            clear=True,
+        ):
+            with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+                body = backend_main.create_screener_task(
+                    backend_main.ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(body["status"], "pending")
+        start_task_thread.assert_called_once()
+
+        task_status = backend_main.get_screener_task_status(body["task_id"])
+        self.assertEqual(task_status["request_payload"]["markets"], ["cn"])
+        self.assertNotIn("cn_manifest_path", task_status["request_payload"])
+        self.assertEqual(
+            task_status["config_payload"]["cn_manifest_path"],
+            "/tmp/cn_manifest.csv",
+        )
+
     def test_post_screener_tasks_rejects_us_market_without_backend_manifest(self):
         payload = {
             "markets": ["us"],

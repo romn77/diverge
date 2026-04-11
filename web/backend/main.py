@@ -1043,6 +1043,10 @@ def create_screener_task(payload: ScreenTaskCreatePayload) -> dict:
     request_payload = payload.model_dump()
     config_payload = dict(request_payload)
     config_payload["output_dir"] = str(SCREENER_RESULTS_DIR)
+    if "cn" in request_payload["markets"]:
+        manifest_path = os.environ.get("SCREEN_CN_MANIFEST_PATH")
+        if manifest_path:
+            config_payload["cn_manifest_path"] = manifest_path
     if "us" in request_payload["markets"]:
         manifest_path = os.environ.get("SCREEN_US_MANIFEST_PATH")
         if not manifest_path:

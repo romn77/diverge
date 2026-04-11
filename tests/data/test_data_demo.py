@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from tradingagents.data.data_demo import build_us_manifest, write_us_manifest
+from tradingagents.data.us_manifest import build_us_manifest, write_us_manifest
 
 
 def test_write_us_manifest_maps_akshare_us_spot_to_manifest_csv(tmp_path):
