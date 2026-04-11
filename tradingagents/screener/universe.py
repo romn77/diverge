@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from tradingagents.data.manifest_schema import COMMON_MANIFEST_COLUMNS
 from tradingagents.dataflows.akshare_stock import _import_akshare
 from tradingagents.dataflows.cn_market_utils import infer_cn_exchange
 from tradingagents.dataflows.tushare_common import get_tushare_pro_client
@@ -15,7 +16,7 @@ from .schema import ScreenRunConfig, build_cn_source_chain
 
 
 UNIVERSE_COLUMNS = ["symbol", "market", "name", "exchange", "sector", "list_date"]
-US_MANIFEST_REQUIRED_COLUMNS = ["symbol", "name", "exchange", "sector", "list_date"]
+US_MANIFEST_REQUIRED_COLUMNS = COMMON_MANIFEST_COLUMNS
 CN_EXCHANGE_LABELS = {
     "SH": "SSE",
     "SZ": "SZSE",

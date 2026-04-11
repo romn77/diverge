@@ -5,9 +5,11 @@ from pathlib import Path
 import akshare as ak
 import pandas as pd
 
+from tradingagents.data.manifest_schema import COMPARE_MANIFEST_COLUMNS
+
 
 DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("us_manifest_short.csv")
-MANIFEST_COLUMNS = ["symbol", "name", "exchange", "sector", "list_date", "mktcap"]
+MANIFEST_COLUMNS = COMPARE_MANIFEST_COLUMNS
 
 
 def build_us_manifest(source_df: pd.DataFrame, limit: int | None = 5500) -> pd.DataFrame:
