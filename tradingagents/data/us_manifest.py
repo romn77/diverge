@@ -45,7 +45,7 @@ def build_us_manifest(source_df: pd.DataFrame, limit: int | None = 5500) -> pd.D
 def write_us_manifest(
     source_df: pd.DataFrame | None = None,
     output_path: str | Path = DEFAULT_OUTPUT_PATH,
-    limit: int | None = 5500,
+    limit: int | None = 4000,
 ) -> pd.DataFrame:
     if source_df is None:
         source_df = ak.stock_us_spot()
