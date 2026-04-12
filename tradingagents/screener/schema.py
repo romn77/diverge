@@ -27,8 +27,14 @@ class ScreenRunConfig:
     as_of_date: str
     top_k: int
     min_listing_days: int = 180
+    cn_min_listing_trading_days: int = 120
     cn_min_avg_amount_20d: float = 50_000_000
     us_min_avg_dollar_volume_20d: float = 10_000_000
+    cn_min_price: float = 3.0
+    us_min_price: float = 5.0
+    min_trading_days_20d: int = 18
+    cn_universe_cap: int | None = None
+    us_universe_cap: int | None = 3000
     output_dir: str = "./results/screener"
     cn_data_source: str = "tushare"
     cn_data_source_fallbacks: list[str] = field(default_factory=list)
@@ -66,6 +72,20 @@ class ScreenRunConfig:
 
         if self.top_k <= 0:
             raise ValueError("top_k must be positive")
+        if self.min_listing_days <= 0:
+            raise ValueError("min_listing_days must be positive")
+        if self.cn_min_listing_trading_days <= 0:
+            raise ValueError("cn_min_listing_trading_days must be positive")
+        if self.cn_min_avg_amount_20d < 0 or self.us_min_avg_dollar_volume_20d < 0:
+            raise ValueError("liquidity thresholds must be non-negative")
+        if self.cn_min_price < 0 or self.us_min_price < 0:
+            raise ValueError("price floors must be non-negative")
+        if self.min_trading_days_20d <= 0:
+            raise ValueError("min_trading_days_20d must be positive")
+        if self.cn_universe_cap is not None and self.cn_universe_cap <= 0:
+            raise ValueError("cn_universe_cap must be positive when provided")
+        if self.us_universe_cap is not None and self.us_universe_cap <= 0:
+            raise ValueError("us_universe_cap must be positive when provided")
 
         if self.cn_data_source not in VALID_CN_DATA_SOURCES:
             raise ValueError("cn_data_source must be one of {'akshare', 'tushare'}")

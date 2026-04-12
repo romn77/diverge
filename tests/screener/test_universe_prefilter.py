@@ -18,6 +18,22 @@ def test_apply_universe_prefilters_drops_recent_listings_before_history():
                 "list_date": "20010827",
             },
             {
+                "symbol": "430047.BJ",
+                "market": "cn",
+                "name": "Example BSE",
+                "exchange": "BSE",
+                "sector": "Industry",
+                "list_date": "20200101",
+            },
+            {
+                "symbol": "000002.SZ",
+                "market": "cn",
+                "name": "*ST Example",
+                "exchange": "SZSE",
+                "sector": "Industry",
+                "list_date": "20010101",
+            },
+            {
                 "symbol": "301000.SZ",
                 "market": "cn",
                 "name": "Recent Listing",
@@ -32,11 +48,35 @@ def test_apply_universe_prefilters_drops_recent_listings_before_history():
     kept, dropped = apply_universe_prefilters(universe, config)
 
     assert kept["symbol"].tolist() == ["600519.SH"]
-    assert dropped["symbol"].tolist() == ["301000.SZ"]
-    assert dropped["drop_reason"].tolist() == ["too_new"]
+    assert dict(zip(dropped["symbol"], dropped["drop_reason"])) == {
+        "430047.BJ": "cn_exchange",
+        "000002.SZ": "cn_special_treatment",
+        "301000.SZ": "too_new",
+    }
 
 
-def test_apply_universe_prefilters_drops_non_primary_us_issues_but_keeps_etfs():
+def test_apply_universe_prefilters_uses_cn_trading_days_instead_of_180_calendar_days():
+    universe = pd.DataFrame(
+        [
+            {
+                "symbol": "000001.SZ",
+                "market": "cn",
+                "name": "Ping An Bank",
+                "exchange": "SZSE",
+                "sector": "Banking",
+                "list_date": "20230802",
+            }
+        ]
+    )
+    config = ScreenRunConfig(markets=["cn"], as_of_date="2024-01-25", top_k=20)
+
+    kept, dropped = apply_universe_prefilters(universe, config)
+
+    assert kept["symbol"].tolist() == ["000001.SZ"]
+    assert dropped.empty
+
+
+def test_apply_universe_prefilters_drops_non_common_us_rows_before_capping():
     universe = pd.DataFrame(
         [
             {
@@ -46,14 +86,16 @@ def test_apply_universe_prefilters_drops_non_primary_us_issues_but_keeps_etfs():
                 "exchange": "NASDAQ",
                 "sector": "Technology",
                 "list_date": "",
+                "mktcap": 900,
             },
             {
-                "symbol": "QQQ",
+                "symbol": "MSFT",
                 "market": "us",
-                "name": "Invesco QQQ Trust, Series 1",
+                "name": "Microsoft Corp.",
                 "exchange": "NASDAQ",
-                "sector": "Equity",
+                "sector": "Technology",
                 "list_date": "",
+                "mktcap": 800,
             },
             {
                 "symbol": "BRK.B",
@@ -62,30 +104,34 @@ def test_apply_universe_prefilters_drops_non_primary_us_issues_but_keeps_etfs():
                 "exchange": "NYSE",
                 "sector": "Insurance",
                 "list_date": "",
+                "mktcap": 700,
             },
             {
-                "symbol": "MKC.V",
+                "symbol": "QQQ",
                 "market": "us",
-                "name": "McCormick & Co., Inc.",
-                "exchange": "NYSE",
-                "sector": "Consumer Staples",
+                "name": "Invesco QQQ Trust, Series 1",
+                "exchange": "NASDAQ",
+                "sector": "Equity",
                 "list_date": "",
+                "mktcap": 2000,
             },
             {
-                "symbol": "AACT",
+                "symbol": "EADR",
                 "market": "us",
-                "name": "Ares Acquisition Corp. II",
-                "exchange": "NYSE",
-                "sector": "",
-                "list_date": "",
-            },
-            {
-                "symbol": "AACT.U",
-                "market": "us",
-                "name": "Ares Acquisition Corporation II Unit",
+                "name": "Example ADR",
                 "exchange": "NYSE",
                 "sector": "",
                 "list_date": "",
+                "mktcap": 1900,
+            },
+            {
+                "symbol": "EPRF",
+                "market": "us",
+                "name": "Example Preferred Stock",
+                "exchange": "NYSE",
+                "sector": "",
+                "list_date": "",
+                "mktcap": 1800,
             },
             {
                 "symbol": "CLACW",
@@ -94,22 +140,25 @@ def test_apply_universe_prefilters_drops_non_primary_us_issues_but_keeps_etfs():
                 "exchange": "NASDAQ",
                 "sector": "",
                 "list_date": "",
+                "mktcap": 1700,
+            },
+            {
+                "symbol": "OTCA",
+                "market": "us",
+                "name": "Example Off Exchange",
+                "exchange": "AMEX",
+                "sector": "",
+                "list_date": "",
+                "mktcap": 1600,
             },
             {
                 "symbol": "ATEST.A",
                 "market": "us",
                 "name": "Tick Pilot Test Group 1",
-                "exchange": "AMEX",
-                "sector": "",
-                "list_date": "",
-            },
-            {
-                "symbol": "CTEST.C",
-                "market": "us",
-                "name": "CTEST.C",
                 "exchange": "NYSE",
                 "sector": "",
                 "list_date": "",
+                "mktcap": 1500,
             },
             {
                 "symbol": "MGR.L",
@@ -118,20 +167,28 @@ def test_apply_universe_prefilters_drops_non_primary_us_issues_but_keeps_etfs():
                 "exchange": "NYSE",
                 "sector": "",
                 "list_date": "",
+                "mktcap": 1400,
             },
         ]
     )
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us_manifest.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us_manifest.csv",
+        us_universe_cap=2,
+    )
 
     kept, dropped = apply_universe_prefilters(universe, config)
 
-    assert kept["symbol"].tolist() == ["AAPL", "QQQ", "BRK.B", "MKC.V"]
-    assert dropped["symbol"].tolist() == ["AACT", "AACT.U", "CLACW", "ATEST.A", "CTEST.C", "MGR.L"]
-    assert dropped["drop_reason"].tolist() == [
-        "us_spac",
-        "us_non_primary_issue",
-        "us_non_primary_issue",
-        "us_test_listing",
-        "us_test_listing",
-        "us_symbol_variant",
-    ]
+    assert kept["symbol"].tolist() == ["AAPL", "MSFT"]
+    assert dict(zip(dropped["symbol"], dropped["drop_reason"])) == {
+        "QQQ": "us_fund_like",
+        "EADR": "us_adr",
+        "EPRF": "us_preferred",
+        "CLACW": "us_non_primary_issue",
+        "OTCA": "us_exchange",
+        "ATEST.A": "us_test_listing",
+        "MGR.L": "us_symbol_variant",
+        "BRK.B": "us_cap",
+    }

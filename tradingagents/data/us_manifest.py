@@ -6,13 +6,19 @@ import akshare as ak
 import pandas as pd
 
 from tradingagents.data.manifest_schema import COMPARE_MANIFEST_COLUMNS
+from tradingagents.screener.universe_rules import (
+    US_UNIVERSE_CAP_DEFAULT,
+    filter_us_common_stock_rows,
+    sort_rows_by_mktcap,
+)
 
 
 DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("us_manifest.csv")
 MANIFEST_COLUMNS = COMPARE_MANIFEST_COLUMNS
+DEFAULT_LIMIT = US_UNIVERSE_CAP_DEFAULT
 
 
-def build_us_manifest(source_df: pd.DataFrame, limit: int | None = 5500) -> pd.DataFrame:
+def build_us_manifest(source_df: pd.DataFrame, limit: int | None = DEFAULT_LIMIT) -> pd.DataFrame:
     required_columns = {"symbol", "name", "market", "category", "mktcap"}
     missing_columns = required_columns.difference(source_df.columns)
     if missing_columns:
@@ -29,9 +35,12 @@ def build_us_manifest(source_df: pd.DataFrame, limit: int | None = 5500) -> pd.D
             "mktcap": pd.to_numeric(source_df["mktcap"], errors="coerce").fillna(0.0),
         }
     )
-    manifest_df = manifest_df.loc[manifest_df["symbol"] != "", MANIFEST_COLUMNS]
+    manifest_df = manifest_df.loc[manifest_df["symbol"] != "", MANIFEST_COLUMNS].reset_index(drop=True)
+    manifest_df, _ = filter_us_common_stock_rows(
+        manifest_df.assign(market="us")
+    )
     manifest_df = (
-        manifest_df.sort_values(["mktcap", "symbol"], ascending=[False, True])
+        sort_rows_by_mktcap(manifest_df.drop(columns=["market"], errors="ignore").loc[:, MANIFEST_COLUMNS])
         .drop_duplicates(subset=["symbol"], keep="first")
         .reset_index(drop=True)
     )
@@ -45,7 +54,7 @@ def build_us_manifest(source_df: pd.DataFrame, limit: int | None = 5500) -> pd.D
 def write_us_manifest(
     source_df: pd.DataFrame | None = None,
     output_path: str | Path = DEFAULT_OUTPUT_PATH,
-    limit: int | None = 4000,
+    limit: int | None = DEFAULT_LIMIT,
 ) -> pd.DataFrame:
     if source_df is None:
         source_df = ak.stock_us_spot()

@@ -19,6 +19,7 @@ def _base_feature_row(**overrides):
         "volume": 1000.0,
         "amount": 100_000.0,
         "avg_amount_20d": 20_000_000.0,
+        "trading_days_20d": 20,
         "ma20": 95.0,
         "ma60": 90.0,
         "ret_20": 0.1,
@@ -52,14 +53,26 @@ def test_apply_hard_filters_drops_rows_with_insufficient_bars():
     assert dropped["drop_reason"].tolist() == ["insufficient_bars"]
 
 
-def test_apply_hard_filters_marks_recent_listings_as_too_new_before_bar_check():
-    features = pd.DataFrame([_base_feature_row(list_date="20260115", bar_count=20)])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+def test_apply_hard_filters_does_not_reapply_listing_age_after_history():
+    features = pd.DataFrame(
+        [
+            _base_feature_row(
+                symbol="000001.SZ",
+                market="cn",
+                exchange="SZSE",
+                list_date="20230802",
+                as_of_date="2024-01-25",
+                data_end_date="2024-01-25",
+                avg_amount_20d=80_000_000.0,
+            )
+        ]
+    )
+    config = ScreenRunConfig(markets=["cn"], as_of_date="2024-01-25", top_k=20)
 
     kept, dropped = apply_hard_filters(features, config)
 
-    assert kept.empty
-    assert dropped["drop_reason"].tolist() == ["too_new"]
+    assert kept["symbol"].tolist() == ["000001.SZ"]
+    assert dropped.empty
 
 
 def test_apply_hard_filters_drops_rows_with_missing_required_features():
@@ -123,6 +136,46 @@ def test_apply_hard_filters_uses_cn_market_holidays_for_stale_data_lag():
 
     assert kept["symbol"].tolist() == ["600519.SH"]
     assert dropped.empty
+
+
+def test_apply_hard_filters_enforces_us_price_floor():
+    features = pd.DataFrame([_base_feature_row(close=4.99)])
+    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept.empty
+    assert dropped["drop_reason"].tolist() == ["low_price_us"]
+
+
+def test_apply_hard_filters_enforces_cn_price_floor():
+    features = pd.DataFrame(
+        [
+            _base_feature_row(
+                symbol="600519.SH",
+                market="cn",
+                exchange="SSE",
+                close=2.99,
+                avg_amount_20d=80_000_000.0,
+            )
+        ]
+    )
+    config = ScreenRunConfig(markets=["cn"], as_of_date="2026-03-24", top_k=20)
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept.empty
+    assert dropped["drop_reason"].tolist() == ["low_price_cn"]
+
+
+def test_apply_hard_filters_requires_recent_trading_continuity():
+    features = pd.DataFrame([_base_feature_row(trading_days_20d=17)])
+    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept.empty
+    assert dropped["drop_reason"].tolist() == ["insufficient_trading_days_20d"]
 
 
 def test_apply_hard_filters_uses_cn_liquidity_threshold():

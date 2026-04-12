@@ -51,6 +51,7 @@ def test_build_feature_row_populates_required_columns_and_formulas():
         "volume",
         "amount",
         "avg_amount_20d",
+        "trading_days_20d",
         "ma20",
         "ma60",
         "ret_20",
@@ -76,6 +77,7 @@ def test_build_feature_row_populates_required_columns_and_formulas():
     trailing_20 = price_df.tail(20)
     assert row["close"] == latest["Close"]
     assert row["bar_count"] == len(price_df)
+    assert row["trading_days_20d"] == 20
     assert row["ma20"] == trailing_20["Close"].mean()
     assert row["avg_amount_20d"] == trailing_20["Amount"].mean()
     assert row["ret_20"] == (latest["Close"] / price_df.iloc[-21]["Close"]) - 1
@@ -119,10 +121,29 @@ def test_build_feature_row_marks_too_short_history_as_insufficient():
     row = build_feature_row(meta_row, price_df, "2025-12-12")
 
     assert row["bar_count"] == 10
+    assert row["trading_days_20d"] == 10
     assert pd.isna(row["ma20"])
     assert pd.isna(row["ret_20"])
     assert pd.isna(row["rsi"])
     assert row["data_end_date"] == price_df.iloc[-1]["Date"]
+
+
+def test_build_feature_row_counts_available_bars_in_latest_20_trading_days():
+    price_df = _make_price_frame(periods=40).drop(index=[30, 34, 36]).reset_index(drop=True)
+    meta_row = pd.Series(
+        {
+            "symbol": "AAPL",
+            "market": "us",
+            "name": "Apple",
+            "exchange": "NASDAQ",
+            "sector": "Technology",
+            "list_date": "19801212",
+        }
+    )
+
+    row = build_feature_row(meta_row, price_df, price_df.iloc[-1]["Date"])
+
+    assert row["trading_days_20d"] == 17
 
 
 def test_build_features_table_builds_rows_for_each_symbol():
@@ -156,7 +177,7 @@ def test_build_features_table_builds_rows_for_each_symbol():
     result = build_features_table(universe_df, histories, "2026-03-20")
 
     assert list(result["symbol"]) == ["AAPL", "MSFT"]
-    assert set(result.columns).issuperset({"ma20", "macdh", "atr_pct", "bar_count"})
+    assert set(result.columns).issuperset({"ma20", "macdh", "atr_pct", "bar_count", "trading_days_20d"})
 
 
 def test_build_features_table_skips_symbols_without_successful_history():

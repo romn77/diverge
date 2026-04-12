@@ -86,6 +86,19 @@ def _parse_date(value: object) -> date | None:
     return parsed.date()
 
 
+def _count_weekdays(start_date: date, end_date: date) -> int:
+    if end_date < start_date:
+        return 0
+
+    count = 0
+    current = start_date
+    while current <= end_date:
+        if current.weekday() < 5:
+            count += 1
+        current += timedelta(days=1)
+    return count
+
+
 @lru_cache(maxsize=1)
 def _cn_closed_dates() -> set[date]:
     closed_dates: set[date] = set()
@@ -121,6 +134,64 @@ def is_market_trading_day(market: str, day: date) -> bool:
     if normalized_market == "cn":
         return day not in _cn_closed_dates()
     return True
+
+
+def count_trading_days(
+    market: str,
+    start_date_value: object,
+    end_date_value: object,
+    *,
+    fallback_to_weekdays: bool = False,
+) -> int | None:
+    start_date = _parse_date(start_date_value)
+    end_date = _parse_date(end_date_value)
+    if start_date is None or end_date is None:
+        return None
+    if end_date < start_date:
+        return 0
+
+    normalized_market = str(market).strip().lower()
+    if normalized_market == "cn":
+        years = range(start_date.year, end_date.year + 1)
+        unsupported_years = [year for year in years if year not in CN_MARKET_CLOSED_RANGES]
+        if unsupported_years:
+            if fallback_to_weekdays:
+                return _count_weekdays(start_date, end_date)
+            unsupported = ", ".join(str(year) for year in unsupported_years)
+            raise ValueError(
+                f"cn market calendar is not configured for year(s): {unsupported}"
+            )
+
+    count = 0
+    current = start_date
+    while current <= end_date:
+        if is_market_trading_day(normalized_market, current):
+            count += 1
+        current += timedelta(days=1)
+    return count
+
+
+def last_n_trading_days(
+    market: str,
+    end_date_value: object,
+    num_days: int,
+) -> list[date]:
+    if num_days <= 0:
+        return []
+
+    end_date = _parse_date(end_date_value)
+    if end_date is None:
+        return []
+
+    normalized_market = str(market).strip().lower()
+    trading_days: list[date] = []
+    current = end_date
+    while len(trading_days) < num_days:
+        if is_market_trading_day(normalized_market, current):
+            trading_days.append(current)
+        current -= timedelta(days=1)
+    trading_days.reverse()
+    return trading_days
 
 
 def trading_day_lag(

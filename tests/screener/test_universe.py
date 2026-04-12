@@ -26,6 +26,13 @@ def test_load_cn_universe_maps_tushare_stock_basic_to_shared_shape():
                 "exchange": "SSE",
                 "industry": "Liquor",
                 "list_date": "20010827",
+            },
+            {
+                "ts_code": "430047.BJ",
+                "name": "Example BSE",
+                "exchange": "BSE",
+                "industry": "Industry",
+                "list_date": "20200101",
             }
         ]
     )
@@ -54,6 +61,10 @@ def test_load_cn_universe_maps_akshare_stock_list_to_shared_shape():
             {
                 "code": "600519",
                 "name": "Kweichow Moutai",
+            },
+            {
+                "code": "430047",
+                "name": "Example BSE",
             }
         ]
     )
@@ -263,6 +274,7 @@ def test_load_us_universe_allows_blank_optional_values(tmp_path):
                 "exchange": "NASDAQ",
                 "sector": "",
                 "list_date": "",
+                "mktcap": "",
             }
         ]
     ).to_csv(manifest_path, index=False)
@@ -277,6 +289,7 @@ def test_load_us_universe_allows_blank_optional_values(tmp_path):
             "exchange": "NASDAQ",
             "sector": "",
             "list_date": "",
+            "mktcap": 0.0,
         }
     ]
 
@@ -363,6 +376,7 @@ def test_load_universe_concatenates_sources_without_truncation(tmp_path):
                 "exchange": "NASDAQ",
                 "sector": "Technology",
                 "list_date": "19801212",
+                "mktcap": "300",
             },
             {
                 "symbol": "MSFT",
@@ -370,6 +384,7 @@ def test_load_universe_concatenates_sources_without_truncation(tmp_path):
                 "exchange": "NASDAQ",
                 "sector": "Technology",
                 "list_date": "19860313",
+                "mktcap": "200",
             },
         ]
     ).to_csv(manifest_path, index=False)

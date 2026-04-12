@@ -18,7 +18,6 @@ XOM,Exxon Mobil Corp.,NYSE,,,633916853549
 V,"Visa, Inc.",NYSE,,,585352213894
 JNJ,Johnson & Johnson,NYSE,制药,,574357940828
 ASML,ASML Holding NV,NASDAQ,半导体,,569755237108
-VXUS,Vanguard Total International Stock ETF,NASDAQ,股权,,551038887481
 MU,"Micron Technology, Inc.",NASDAQ,半导体,,474313656174
 MA,"Mastercard, Inc.",NYSE,商业服务,,444711130269
 COST,Costco Wholesale Corp.,NASDAQ,,,442973738616
@@ -51,7 +50,6 @@ GS,"The Goldman Sachs Group, Inc.",NYSE,,,267795496947
 GEV,"GE Vernova, Inc.",NYSE,,,266522535110
 WFC,Wells Fargo & Co.,NYSE,银行,,262601140684
 SHEL,Shell Plc,NYSE,,,258464624852
-VUG,Vanguard Growth ETF,NYSE,股权,,253664213469
 PM,"Philip Morris International, Inc.",NYSE,农业,,250066176744
 RY,Royal Bank of Canada,NYSE,银行,,240091202709
 LIN,Linde Plc,NYSE,媒体内容,,233156766763
@@ -67,7 +65,6 @@ TTE,TotalEnergies SE,NYSE,,,197993053261
 NEE,"NextEra Energy, Inc.",NYSE,电力,,196185296417
 TXN,Texas Instruments Incorporated,NASDAQ,半导体,,195503797053
 BHP,BHP Group Ltd.,NYSE,,,194943475627
-VO,Vanguard Mid-Cap Index Fund,NYSE,股权,,194857175221
 RDS.A,Shell Plc,NYSE,,,192700601317
 VZ,"Verizon Communications, Inc.",NYSE,,,192447203827
 SAP,SAP SE,NYSE,软件,,190428888181
@@ -93,7 +90,6 @@ ARM,Arm Holdings Plc,NASDAQ,,,158163439252
 SCCO,Southern Copper Corp.,NYSE,,,157726487470
 ETN,Eaton Corp. Plc,NYSE,,,156358092020
 BLK,"BlackRock, Inc.",NYSE,,,155434211960
-VB,Vanguard Small-Cap ETF,NYSE,股权,,155405736732
 PFE,Pfizer Inc.,NYSE,制药,,153130547427
 CRM,"Salesforce, Inc.",NYSE,软件,,152258086197
 HON,"Honeywell International, Inc.",NYSE,电子,,149409212495
@@ -127,12 +123,9 @@ PBR.A,Petr贸leo Brasileiro SA,NYSE,,,125980195084
 SNDK,Sandisk Corp.,NASDAQ,计算机,,125722082803
 SONY,Sony Group Corp.,NYSE,,,124342345493
 PH,Parker-Hannifin Corp.,NYSE,,,124226091873
-VXF,Vanguard Extended Market Index Fund,NYSE,股权,,123072240164
 SPGI,"S&P Global, Inc.",NYSE,,,122955854391
 BP,BP Plc,NYSE,,,121524808752
-JJEB,iPath Series B Bloomberg Energy Subindex Total Return ETN,AMEX,,,121175090554
 BMY,Bristol Myers Squibb Co.,NYSE,制药,,119686529840
-IWF,iShares Russell 1000 Growth ETF,NYSE,股权,,119554330689
 COF,Capital One Financial Corp.,NYSE,,,119476833350
 ENB,"Enbridge, Inc.",NYSE,,,118517013897
 GSK,GSK Plc,NYSE,生物技术和制药,,118119637996
@@ -145,47 +138,29 @@ STX,Seagate Technology Holdings Plc,NASDAQ,计算机硬件,,112713888018
 MO,"Altria Group, Inc.",NYSE,农业,,112613103419
 SNY,Sanofi,NYSE,制药,,112511053965
 MRVL,"Marvell Technology, Inc.",NASDAQ,半导体,,112338811803
-COWB,iPath Series B Bloomberg Livestock Subindex Total Return ETN,AMEX,,,112228641845
-JJTB,iPath Series B Bloomberg Tin Subindex Total Return ETN,AMEX,,,112134968630
 MDT,Medtronic Plc,NYSE,,,111967605227
-BALB,iPath Series B Bloomberg Cotton Subindex Total Return ETN,AMEX,,,111736823963
-JJGB,iPath Series B Bloomberg Grains Subindex Total Return ETN,AMEX,,,111151323931
 VRTX,"Vertex Pharmaceuticals, Inc.",NASDAQ,生物技术,,110969518794
 HCA,"HCA Healthcare, Inc.",NYSE,健康护理服务,,110771716352
 ACN,Accenture Plc,NYSE,,,110231419250
 SBUX,Starbucks Corp.,NASDAQ,零售,,110056376523
 SO,The Southern Co.,NYSE,电力,,109616272720
 AEM,Agnico Eagle Mines Ltd.,NYSE,,,109591445031
-JJAB,iPath Series B Bloomberg Agriculture Subindex Total Return ETN,AMEX,,,107450968374
-BJJN,iPath Series B Bloomberg Nickel Subindex Total Return ETN,AMEX,,,107287029080
 CME,"CME Group, Inc.",NASDAQ,,,107137221890
-BNDX,Vanguard Total International Bond Index Fund,NASDAQ,股权,,106969025808
-IEFA,iShares Core MSCI EAFE ETF,NASDAQ,股权,,106745423651
 MFG,"Mizuho Financial Group, Inc.",NYSE,银行,,106587935900
-JJUB,iPath Series B Bloomberg Aluminum Subindex Total Return ETN,AMEX,,,106467323675
-IAU,iShares Gold Trust,NYSE,股权,,106031606048
 MCK,McKesson Corp.,NYSE,制药,,106025138923
 CEG,Constellation Energy Corp.,NASDAQ,电力,,103797423528
 TT,Trane Technologies Plc,NYSE,,,103076479586
-JJSB,iPath Series B Bloomberg Softs Subindex Total Return ETN,AMEX,,,102696702039
 DUK,Duke Energy Corp.,NYSE,电力,,102561169714
-JJPB,iPath Series B Bloomberg Precious Metals Subindex TR ETN,AMEX,,,101970687717
-SGGB,iPath Series B Bloomberg Sugar Subindex Total Return ETN,AMEX,,,101877005568
 BMO,Bank of Montreal,NYSE,银行,,101726990924
 CVS,CVS Health Corp.,NYSE,,,101669679637
 EQIX,"Equinix, Inc.",NASDAQ,互联网,,101605860284
 HWM,"Howmet Aerospace, Inc.",NYSE,,,101248293713
 ITUB,Ita煤 Unibanco Holding SA,NYSE,银行,,100955646319
 CMCSA,Comcast Corp.,NASDAQ,媒体,,100487840101
-JJMB,iPath Series B Bloomberg Industrial Metals Subindex TR ETN,AMEX,,,100261028696
-JJCB,iPath Series B Bloomberg Copper Subindex Total Return ETN,AMEX,,,99638291662
 IBN,ICICI Bank Ltd.,NYSE,银行,,99047480142
-SCHD,Schwab U.S. Dividend Equity ETF,NYSE,股权,,98861598272
 SPOT,Spotify Technology SA,NYSE,,,97997933006
-BJO,iPath Series B Bloomberg Coffee Subindex Total Return ETN,AMEX,,,97848762489
 FCX,"Freeport-McMoRan, Inc.",NYSE,采矿,,97442273408
 EQNR,Equinor ASA,NYSE,,,97322077713
-PGMB,iPath Series B Bloomberg Platinum Subindex Total Return ETN,AMEX,,,97067705661
 INTU,"Intuit, Inc.",NASDAQ,软件,,97052457675
 CNQ,Canadian Natural Resources Ltd.,NYSE,,,96724582889
 CRWD,"CrowdStrike Holdings, Inc.",NASDAQ,,,96124809606
@@ -214,13 +189,11 @@ JCI,Johnson Controls International Plc,NYSE,汽车部件与设备,,87237795309
 UPS,"United Parcel Service, Inc.",NYSE,运输,,86411731032
 USB,U.S. Bancorp,NYSE,银行,,86398355879
 NOW,"ServiceNow, Inc.",NYSE,软件,,86001006183
-VWO,Vanguard FTSE Emerging Markets ETF,NYSE,股权,,85752668393
 CMI,"Cummins, Inc.",NYSE,,,85185928784
 AMT,American Tower Corp.,NYSE,,,83615486361
 ING,ING Groep NV,NYSE,保险,,83270938819
 SHW,The Sherwin-Williams Co.,NYSE,化学制品,,83140955499
 E,Eni SpA,NYSE,,,83121390450
-IEMG,iShares Core MSCI Emerging Markets ETF,NASDAQ,股权,,82835103458
 AMX,America Movil SAB de CV,NYSE,,,81977851610
 BCS,Barclays PLC,NYSE,银行,,81493679590
 KKR,"KKR & Co., Inc.",NYSE,,,81327274095
@@ -242,11 +215,9 @@ ADP,"Automatic Data Processing, Inc.",NASDAQ,商业服务,,76015226776
 MDLZ,"Mondelez International, Inc.",NASDAQ,,,75723938810
 SNPS,"Synopsys, Inc.",NASDAQ,软件,,75138287208
 RCL,Royal Caribbean Group,NYSE,休闲,,74920108616
-VIG,Vanguard Dividend Appreciation Index Fund,NYSE,股权,,74581918251
 AEP,"American Electric Power Co., Inc.",NYSE,电力,,74087703710
 MNST,Monster Beverage Corp.,NASDAQ,饮料,,74047045180
 HLT,"Hilton Worldwide Holdings, Inc.",NYSE,住宿,,73999467258
-IJR,iShares Core S&P Small Cap ETF,NYSE,股权,,73998836223
 BAM,Brookfield Asset Management Ltd.,NYSE,,,73554679350
 CDNS,"Cadence Design Systems, Inc.",NASDAQ,软件,,73346619796
 CVNA,Carvana Co.,NYSE,,,73161772126
@@ -267,7 +238,6 @@ CTAS,Cintas Corp.,NASDAQ,纺织品,,69987236796
 ABB,ABB Ltd.,NYSE,,,69136501088
 GM,General Motors Co.,NYSE,汽车制造,,69081226103
 ELV,"Elevance Health, Inc.",NYSE,,,68432202602
-IWD,iShares Russell 1000 Value ETF,NYSE,股权,,68180179137
 TDG,"TransDigm Group, Inc.",NYSE,,,68173752780
 CL,Colgate-Palmolive Co.,NYSE,,,67666140573
 TEL,TE Connectivity Plc,NYSE,,,67425326892
@@ -285,14 +255,12 @@ ET,Energy Transfer LP,NYSE,媒体内容,,66019638532
 WPM,Wheaton Precious Metals Corp.,NYSE,,,65765693300
 MPC,Marathon Petroleum Corp.,NYSE,,,65560893542
 SPG,"Simon Property Group, Inc.",NYSE,,,65154803446
-DLR,"Digital Realty Trust, Inc.",NYSE,房地产信托投资基金,,64898647230
 SRE,Sempra,NYSE,,,64562322787
 LITE,"Lumentum Holdings, Inc.",NASDAQ,,,64067219128
 PSX,Phillips 66,NYSE,,,63856477617
 TRV,"The Travelers Cos., Inc.",NYSE,保险,,63210197535
 NKE,"NIKE, Inc.",NYSE,,,63115401762
 IMO,Imperial Oil Ltd.,NYSE,,,62470503511
-VXXB,iPath Series B S&P 500 VIX Short-Term Futures ETN,AMEX,,,62414302518
 BKR,Baker Hughes Co.,NYSE,工程建设,,62312115928
 HOOD,"Robinhood Markets, Inc.",NASDAQ,,,62292339702
 RACE,Ferrari NV,NYSE,,,62284532593
@@ -302,7 +270,6 @@ MFC,Manulife Financial Corp.,NYSE,保险,,61223936069
 APO,"Apollo Global Management, Inc.",NYSE,私募股权投资,,60299631701
 MDLN,"Medline, Inc.",NASDAQ,,,59904417583
 RELX,RELX Plc,NYSE,,,59714057333
-VEU,Vanguard FTSE All-World ex-US Index Fund,NYSE,股权,,59617407316
 O,Realty Income Corp.,NYSE,房地产信托投资基金,,59443727918
 NET,"Cloudflare, Inc.",NYSE,,,58777191897
 DVMT,"Dell Technologies, Inc.",NYSE,,,58636798640
@@ -317,7 +284,6 @@ AZO,"AutoZone, Inc.",NYSE,零售,,56522906364
 FAST,Fastenal Co.,NASDAQ,,,56463308767
 D,"Dominion Energy, Inc.",NYSE,,,56455906724
 CTVA,"Corteva, Inc.",NYSE,,,56279817211
-TOT,Lionshares U.S. Equity Total Return ETF,NYSE,,,56115731544
 FIX,"Comfort Systems USA, Inc.",NYSE,建筑材料,,56042427201
 UI,"Ubiquiti, Inc.",NYSE,,,56024099745
 LNG,"Cheniere Energy, Inc.",NYSE,,,55799756346
@@ -349,7 +315,6 @@ CAH,"Cardinal Health, Inc.",NYSE,卫生保健设施,,50715308774
 CCJ,Cameco Corp.,NYSE,采矿,,50539247282
 FNV,Franco-Nevada Corp.,NYSE,,,50426493185
 ABEV,Ambev SA,NYSE,,,50279628534
-ITOT,iShares Core S&P Total U.S. Stock Market ETF,NASDAQ,股权,,49973439101
 FERG,"Ferguson Enterprises, Inc.",NYSE,,,49911333458
 EXC,Exelon Corp.,NYSE,电力,,49695613712
 ZTS,"Zoetis, Inc.",NYSE,,,49562157331
@@ -361,11 +326,9 @@ MET,"MetLife, Inc.",NYSE,保险,,48173738199
 BSBR,Banco Santander (Brasil) SA,NYSE,银行,,47890378880
 BE,Bloom Energy Corp.,NYSE,,,47376263658
 NDAQ,"Nasdaq, Inc.",NASDAQ,,,47271793147
-AMLP,The Alerian MLP ETF,NYSE,股权,,47253469750
 MT,ArcelorMittal SA,NYSE,,,46154669200
 ADSK,"Autodesk, Inc.",NASDAQ,软件,,46092949356
 WAB,Westinghouse Air Brake Technologies Corp.,NYSE,,,45483544690
-IWB,iShares Russell 1000 ETF,NYSE,股权,,45178979790
 EW,Edwards Lifesciences Corp.,NYSE,,,44895303217
 IDXX,"IDEXX Laboratories, Inc.",NASDAQ,,,44716015457
 YUM,"Yum! Brands, Inc.",NYSE,,,44673787447
@@ -386,7 +349,6 @@ ALNY,"Alnylam Pharmaceuticals, Inc.",NASDAQ,生物技术和制药,,42978462136
 EBAY,"eBay, Inc.",NASDAQ,,,42739200684
 BBD,Banco Bradesco SA,NYSE,银行,,42599971219
 NUE,Nucor Corp.,NYSE,钢铁,,42386156949
-VXZB,Barclays Bank PLC iPath Series B S&#38;P 500 VIX Mid-Term Future,AMEX,,,42038904084
 RKT,"Rocket Cos., Inc.",NYSE,包装容器,,41874259083
 SNOW,"Snowflake, Inc.",NYSE,,,41867727211
 ED,"Consolidated Edison, Inc.",NYSE,电力,,41837915796
@@ -408,7 +370,6 @@ HEI,HEICO Corp.,NYSE,航空航天/国防,,40344536734
 JD,"JD.com, Inc.",NASDAQ,,,39663030418
 ERIC,Telefonaktiebolaget LM Ericsson,NASDAQ,计算机硬件,,39600192382
 RBLX,Roblox Corp.,NYSE,,,39396969261
-EEM,iShares MSCI Emerging Markets ETF,NYSE,股权,,39258393092
 MSCI,"MSCI, Inc.",NYSE,软件,,39227526687
 KB,"KB Financial Group, Inc.",NYSE,多元化金融服务,,39220750000
 RKLB,Rocket Lab Corp.,NASDAQ,,,39180966726
@@ -446,7 +407,6 @@ ROP,"Roper Technologies, Inc.",NYSE,机械-多元,,35129232901
 STM,STMicroelectronics NV,NYSE,半导体,,35088566589
 SYY,Sysco Corp.,NYSE,食品,,34820940893
 NBIS,Nebius Group NV,NASDAQ,,,34647830292
-VV,Vanguard Large-Cap Index Fund,NYSE,股权,,34585994186
 VIK,Viking Holdings Ltd. (Bermuda),NYSE,,,34425536183
 IX,ORIX Corp.,NYSE,,,34416676222
 ONC,BeOne Medicines Ltd.,NASDAQ,,,34372286418
@@ -469,7 +429,6 @@ RYAAY,Ryanair Holdings Plc,NASDAQ,航空公司,,32549790974
 IRM,"Iron Mountain, Inc.",NYSE,,,32535259032
 A,"Agilent Technologies, Inc.",NYSE,电子,,32516222364
 SYM,"Symbotic, Inc.",NASDAQ,,,32414908666
-MDY,State Street SPDR S&P MIDCAP 400 ETF Trust,NYSE,股权,,32342009680
 KMB,Kimberly-Clark Corp.,NYSE,家庭产品/用品,,32289738111
 LTM,LATAM Airlines Group SA,NYSE,休闲,,32260889730
 VG,"Venture Global, Inc.",NYSE,,,32198914666
@@ -485,7 +444,6 @@ AEE,Ameren Corp.,NYSE,电力,,31386306057
 UAL,"United Airlines Holdings, Inc.",NYSE,,,31296200535
 HMC,"Honda Motor Co., Ltd.",NYSE,汽车制造,,31192314267
 DTE,DTE Energy Co.,NYSE,,,31137645382
-QUAL,iShares MSCI Usa Quality Factor ETF,AMEX,,,31110665472
 OTIS,Otis Worldwide Corp.,NYSE,,,31078224775
 XYL,"Xylem, Inc.",NYSE,机械-多元,,30999180423
 CBOE,"Cboe Global Markets, Inc.",NASDAQ,,,30976496174
@@ -494,7 +452,6 @@ HEI.A,HEICO Corp.,NYSE,,,30664747980
 PAYX,"Paychex, Inc.",NASDAQ,商业服务,,30658950920
 CQP,Cheniere Energy Partners LP,NYSE,管道,,30471207349
 TPR,"Tapestry, Inc.",NYSE,,,30430373335
-VGK,Vanguard FTSE Europe ETF,NYSE,资产配置,,30402004620
 TS,Tenaris SA,NYSE,金属构造/部件,,30244449692
 VICI,"VICI Properties, Inc.",NYSE,,,30049281414
 TDY,"Teledyne Technologies, Inc.",NYSE,,,29908923164
@@ -502,14 +459,12 @@ FISV,"Fiserv, Inc.",NASDAQ,软件,,29895913094
 PPL,PPL Corp.,NYSE,电力,,29823347164
 FE,FirstEnergy Corp.,NYSE,,,29747042900
 DVN,Devon Energy Corp.,NYSE,油气,,29698632458
-LQD,iShares iBoxx $ Investment Grade Corporate Bond ETF,NYSE,股权,,29651081723
 ORAN,Orange SA,NYSE,,,29638182995
 FTI,TechnipFMC plc,NYSE,油气服务,,29513142922
 EXR,"Extra Space Storage, Inc.",NYSE,,,29328970797
 FTS,"Fortis, Inc.",NYSE,,,29326059735
 AXIA,AXIA Energia SA,NYSE,,,29302516398
 DOV,Dover Corp.,NYSE,多元化制造商,,29267004566
-IVE,iShares S&P 500 Value ETF,NYSE,股权,,29217177605
 EIX,Edison International,NYSE,电力,,29145079080
 EC,Ecopetrol SA,NYSE,,,28987270548
 WDAY,"Workday, Inc.",NYSE,软件,,28912500000
@@ -517,17 +472,14 @@ WLTW,Willis Towers Watson Plc,NASDAQ,,,28853787517
 RJF,"Raymond James Financial, Inc.",NYSE,,,28812739180
 STZ,"Constellation Brands, Inc.",NYSE,饮料,,28812207017
 MTZ,"MasTec, Inc.",NYSE,工程建设,,28474179096
-VCSH,Vanguard Short-Term Corporate Bond ETF,NASDAQ,股权,,28437987692
 HUBB,"Hubbell, Inc.",NYSE,,,28421788725
 CNP,"CenterPoint Energy, Inc.",NYSE,,,28384142584
 TPL,Texas Pacific Land Corp.,NYSE,,,28263968978
 FLEX,Flex Ltd.,NASDAQ,电子,,28215296142
-NTRS,Northern Trust Corp.,NASDAQ,银行,,28211403012
 SUNB,"Sunbelt Rentals Holdings, Inc.",NYSE,,,28170516495
 IQV,"IQVIA Holdings, Inc.",NYSE,,,28090752386
 DOW,"Dow, Inc.",NYSE,化学制品,,28072349324
 EXPE,"Expedia Group, Inc.",NASDAQ,互联网,,27948978278
-RSP,Invesco S&P 500 Equal Weight ETF,NYSE,股权,,27853554298
 AXON,"Axon Enterprise, Inc.",NYSE,,,27812771886
 ASTS,"AST Spacemobile, Inc.",NASDAQ,,,27805700447
 BAP,Credicorp Ltd.,NYSE,银行,,27732273895
@@ -540,17 +492,13 @@ VIV,Telefonica Brasil SA,NYSE,,,27386345461
 KHC,The Kraft Heinz Co.,NASDAQ,,,27297153372
 CASY,"Casey's General Stores, Inc.",NASDAQ,零售,,27282046543
 CFG,"Citizens Financial Group, Inc. (Rhode Island)",NYSE,,,27271857207
-SDY,SPDR S&P Dividend ETF,NYSE,股权,,27231196422
 GFS,"GLOBALFOUNDRIES, Inc.",NASDAQ,,,27199619582
 ON,ON Semiconductor Corp.,NASDAQ,,,27001920981
 PHG,Koninklijke Philips NV,NYSE,电子,,26930989213
 MTD,"Mettler-Toledo International, Inc.",NYSE,,,26829471808
-DVY,iShares Select Dividend ETF,NYSE,股权,,26814196429
 AWK,"American Water Works Co., Inc.",NYSE,水业,,26796337207
 CW,Curtiss-Wright Corp.,NYSE,,,26783903877
 RDDT,"Reddit, Inc.",NYSE,,,26693429282
-VCIT,Vanguard Intermediate-Term Corporate Bond Index Fund,NASDAQ,股权,,26621693226
-IXUS,ishares Core MSCI Total International Stock ETF,NASDAQ,股权,,26544856891
 QSR,"Restaurant Brands International, Inc.",NYSE,,,26469455092
 WTW,Willis Towers Watson Plc,NYSE,商业服务,,26390058374
 ES,Eversource Energy,NYSE,,,26297899248
@@ -559,7 +507,6 @@ EBR.B,AXIA Energia SA,NYSE,,,26256790914
 ROL,"Rollins, Inc.",NYSE,,,26138254789
 FOXA,Fox Corp.,NASDAQ,,,25957669179
 TW,"Tradeweb Markets, Inc.",NASDAQ,,,25866720520
-OIH,VanEck Oil Services ETF,NYSE,环球,,25847697081
 FTAI,FTAI Aviation Ltd.,NYSE,,,25788974624
 PBA,Pembina Pipeline Corp.,NYSE,管道,,25775044102
 ALAB,"Astera Labs, Inc.",NASDAQ,,,25524294776
@@ -575,7 +522,6 @@ XPO,"XPO, Inc.",NYSE,运输,,24977446216
 EBR,AXIA Energia SA,NYSE,,,24795439400
 VEEV,"Veeva Systems, Inc.",NYSE,软件,,24733201988
 PPG,"PPG Industries, Inc.",NYSE,化学制品,,24691705464
-VOT,Vanguard Mid-Cap Growth Index Fund,NYSE,股权,,24680568110
 DXCM,"DexCom, Inc.",NASDAQ,,,24639045893
 WRB,W.R. Berkley Corp.,NYSE,保险,,24604048096
 UMC,United Microelectronics Corp.,NYSE,半导体,,24502965384
@@ -608,9 +554,7 @@ PHM,"PulteGroup, Inc.",NYSE,房屋建筑商,,23053934803
 KEY,KeyCorp,NYSE,银行,,23020005670
 RL,Ralph Lauren Corp.,NYSE,服饰,,22995967291
 NI,"NiSource, Inc.",NYSE,,,22993518309
-ACWI,iShares MSCI ACWI ETF,NASDAQ,环球,,22932214307
 TSEM,Tower Semiconductor Ltd.,NASDAQ,半导体,,22910796648
-VBR,Vanguard Small Cap Value Index Fund,NYSE,股权,,22860125876
 ULTA,"Ulta Beauty, Inc.",NASDAQ,,,22759667733
 WIT,Wipro Ltd.,NYSE,计算机,,22730551348
 BHGE,"Baker Hughes, a GE Co.",NYSE,,,22666621781
@@ -653,7 +597,6 @@ NVT,nVent Electric Plc,NYSE,,,21111329523
 BWXT,"BWX Technologies, Inc.",NYSE,,,21031348686
 BURL,"Burlington Stores, Inc.",NYSE,,,20968347031
 CDE,"Coeur Mining, Inc.",NYSE,采矿,,20948399763
-EWJ,iShares MSCI Japan ETF,NYSE,股权,,20853676700
 BT,BT Group Plc,NYSE,电信,,20741143516
 SOFI,"SoFi Technologies, Inc.",NASDAQ,,,20684778771
 CPAY,"Corpay, Inc.",NYSE,,,20607670224
@@ -671,7 +614,6 @@ EXAS,EXACT Sciences Corp.,NASDAQ,生物技术,,20026082705
 TROW,"T. Rowe Price Group, Inc.",NASDAQ,多元化金融服务,,19908763875
 PFG,"Principal Financial Group, Inc.",NYSE,保险,,19870049705
 SNA,"Snap-On, Inc.",NYSE,,,19767213968
-TIP,iShares TIPS Bond ETF,NYSE,股权,,19649642364
 LI,"Li Auto, Inc.",NASDAQ,,,19641115071
 DLTR,"Dollar Tree, Inc.",NASDAQ,零售,,19641038602
 BCH,Banco de Chile SA,NYSE,银行,,19465992010
@@ -701,9 +643,7 @@ LULU,"lululemon athletica, Inc.",NASDAQ,零售,,18941992074
 NTAP,"NetApp, Inc.",NASDAQ,计算机,,18929905332
 DKS,"Dick's Sporting Goods, Inc.",NYSE,,,18918474740
 LNT,Alliant Energy Corp.,NYSE,电力,,18880009855
-MTUM,iShares Edge MSCI USA Momentum Factor ETF,AMEX,股权,,18872663163
 NVR,"NVR, Inc.",NYSE,房屋建筑商,,18752414483
-IWS,iShares Russell Mid-Cap Value ETF,NYSE,股权,,18719006094
 RBS,Royal Bank of Scotland Group Plc,NYSE,银行,,18685109280
 CF,"CF Industries Holdings, Inc.",NYSE,化学制品,,18636745969
 TLK,PT Telkom Indonesia (Persero) Tbk,NYSE,电信,,18603884958
@@ -715,10 +655,8 @@ PKG,Packaging Corporation of America,NYSE,包装容器,,18373590200
 ILMN,"Illumina, Inc.",NASDAQ,生物技术,,18370103277
 CNC,Centene Corp.,NYSE,卫生保健设施,,18343113129
 WPPGY,WPP plc,NASDAQ,广告,,18335589543
-IUSG,iShares Core S&P US Growth ETF,NYSE,,,18311745504
 GMAB,Genmab A/S,NASDAQ,,,18147350260
 MKSI,"MKS, Inc.",NASDAQ,半导体,,18094052032
-IJH,iShares Core S&P Mid-Cap ETF,NYSE,股权,,18065348295
 ZBH,"Zimmer Biomet Holdings, Inc.",NYSE,,,18025153541
 GPN,"Global Payments, Inc.",NYSE,商业服务,,18011903443
 FTV,Fortive Corp.,NYSE,,,17966662516
@@ -736,27 +674,21 @@ SRAD,Sportradar Group AG,NASDAQ,,,17404693893
 PR,Permian Resources Corp.,NASDAQ,,,17403778904
 RBC,"RBC Bearings, Inc.",NYSE,,,17309321219
 CX,CEMEX SAB de CV,NYSE,,,17293927385
-DGRO,iShares Core Dividend Growth ETF,NYSE,,,17282674520
 WF,"Woori Financial Group, Inc.",NYSE,银行,,17232398698
-SHY,iShares 1-3 Year Treasury Bond ETF,NYSE,股权,,17205412062
 CG,The Carlyle Group Inc.,NASDAQ,私募股权投资,,17079780326
 THC,Tenet Healthcare Corp.,NYSE,健康护理服务,,16978656598
 RTO,Rentokil Initial Plc,NYSE,,,16974987256
 ULS,"UL Solutions, Inc.",NYSE,,,16965323488
-JNUG,Direxion Daily Junior Gold Miners Index Bull 2X ETF,NYSE,,,16928389297
 HOLX,"Hologic, Inc.",NASDAQ,医疗保健产品,,16906090100
 BIP,Brookfield Infrastructure Partners LP,NYSE,电力,,16889792632
 YPF,YPF SA,NYSE,,,16854038318
 HPQ,"HP, Inc.",NYSE,计算机,,16699687208
 XPEV,"XPeng, Inc.",NYSE,,,16649177075
-PPD,"PPD, Inc.",AMEX,,,16613933753
 WSO,"Watsco, Inc.",NYSE,,,16610234485
 BSAC,Banco Santander Chile SA,NYSE,银行,,16583259483
 BALL,Ball Corp.,NYSE,,,16578674226
 RS,"Reliance, Inc.",NYSE,,,16467282082
-VOE,Vanguard Mid-Cap Value Index Fund,NYSE,股权,,16453254526
 FFIV,"F5, Inc.",NASDAQ,计算机硬件,,16379850370
-GDXJ,VanEck Vectors Junior Gold Miners ETF,NYSE,环球,,16320878042
 CEGVV,Constellation Energy Corp.,NASDAQ,,,16228279602
 CDW,CDW Corp.,NASDAQ,,,16192564944
 SSNC,"SS&C Technologies Holdings, Inc.",NASDAQ,软件,,16192010549
@@ -764,7 +696,6 @@ WES,Western Midstream Partners LP,NYSE,管道,,16171858910
 AFRM,"Affirm Holdings, Inc.",NASDAQ,,,16165859486
 HTHT,H World Group Ltd.,NASDAQ,住宿,,16146422639
 NIO,"NIO, Inc.",NYSE,,,16140605000
-ESS,"Essex Property Trust, Inc.",NYSE,,,16123796121
 EMA,"Emera, Inc.",NYSE,,,16116694981
 SNX,TD SYNNEX Corp.,NYSE,,,16053297557
 MGA,"Magna International, Inc.",NYSE,汽车制造,,15991423360
@@ -775,7 +706,6 @@ NLY,"Annaly Capital Management, Inc.",NYSE,房地产信托投资基金,,15905087
 OVV,"Ovintiv, Inc.",NYSE,,,15892286051
 PTC,"PTC, Inc.",NASDAQ,软件,,15878842276
 EWBC,"East West Bancorp, Inc.",NASDAQ,银行,,15827892901
-SCHF,Schwab International Equity ETF,NYSE,股权,,15796622394
 NVMI,Nova Ltd.,NASDAQ,半导体,,15766261013
 WPC,"W.P. Carey, Inc.",NYSE,,,15705433518
 VTRS,"Viatris, Inc.",NASDAQ,,,15684749955
@@ -787,40 +717,32 @@ HII,"Huntington Ingalls Industries, Inc.",NYSE,造船,,15530750158
 GFL,"GFL Environmental, Inc.",NYSE,,,15439391927
 NDSN,Nordson Corp.,NASDAQ,机械-多元,,15356109065
 PAA,Plains All American Pipeline LP,NYSE,管道,,15352369170
-IWN,iShares Russell 2000 Value ETF,NYSE,股权,,15334662982
 CSGP,"CoStar Group, Inc.",NASDAQ,,,15314059428
 DECK,Deckers Outdoor Corp.,NASDAQ,服饰,,15310724067
 SMMT,"Summit Therapeutics, Inc.",NASDAQ,,,15251581068
 RE,Everest Re Group Ltd.,NYSE,保险,,15250899834
 SMCI,"Super Micro Computer, Inc.",NASDAQ,计算机,,15168174245
 WLK,Westlake Corp.,NYSE,化学制品,,15161243537
-IEF,iShares 7-10 Year Treasury Bond ETF,NYSE,股权,,15099538977
 GRAB,Grab Holdings Ltd. (Singapore),NASDAQ,,,15089773235
 TRMB,"Trimble, Inc.",NASDAQ,,,15032386328
 IOT,"Samsara, Inc.",NYSE,房地产信托投资基金,,15011516499
 GIB,"CGI, Inc.",NYSE,计算机,,14981511493
 TOST,"Toast, Inc.",NYSE,,,14960599547
 GPC,Genuine Parts Co.,NYSE,销售/批发,,14957018343
-WSO.B,"Watsco, Inc.",AMEX,,,14955260455
 IEX,IDEX Corp.,NYSE,,,14921403780
 ASND,Ascendis Pharma A/S,NASDAQ,,,14910989632
 WMG,Warner Music Group Corp.,NASDAQ,,,14886865988
 JLL,"Jones Lang LaSalle, Inc.",NYSE,,,14886586256
-SPYG,SPDR Portfolio S&P 500 Growth ETF,NYSE,股权,,14777292955
 WCC,"WESCO International, Inc.",NYSE,销售/批发,,14769378297
-IVW,iShares S&P 500 Growth ETF,NYSE,股权,,14732424632
 TPG,"TPG, Inc.",NASDAQ,,,14710003399
 MAA,"Mid-America Apartment Communities, Inc.",NYSE,,,14705177643
-IWO,iShares Russell 2000 Growth ETF,NYSE,股权,,14691478475
 SYMC,Symantec Corp.,NASDAQ,软件,,14678251051
 H,Hyatt Hotels Corp.,NYSE,住宿,,14615230187
-GSLC,Goldman Sachs ETF Tr. - ActiveBeta US Large Cap Equity ETF,NYSE,,,14603121090
 PNR,Pentair plc,NYSE,,,14578188440
 MKC.V,"McCormick & Co., Inc.",NYSE,,,14539040478
 GGG,"Graco, Inc.",NYSE,,,14524864191
 LSCC,Lattice Semiconductor Corp.,NASDAQ,半导体,,14521845359
 TME,Tencent Music Entertainment Group,NYSE,,,14497745626
-BBCA,JPMorgan BetaBuilders Canada ETF,AMEX,,,14486987669
 BBIO,"BridgeBio Pharma, Inc.",NASDAQ,,,14460230838
 PKI,"PerkinElmer, Inc. (United States)",NYSE,,,14455820687
 BNT,Brookfield Wealth Solutions Ltd.,NYSE,,,14446120567
@@ -853,11 +775,9 @@ APA,APA Corp.,NYSE,油气,,13651858370
 PODD,Insulet Corp.,NASDAQ,医疗保健产品,,13640102494
 BF.A,Brown-Forman Corp.,NYSE,饮料,,13623498488
 NWSA,News Corp.,NASDAQ,媒体,,13586399746
-GOVT,iShares Core U.S. Treasury Bond ETF,NASDAQ,股权,,13552235464
 COKE,"Coca-Cola Consolidated, Inc.",NASDAQ,饮料,,13540508970
 LAMR,Lamar Advertising Co.,NASDAQ,媒体内容,,13535344073
 OHI,"Omega Healthcare Investors, Inc.",NYSE,房地产信托投资基金,,13534150250
-MINT,PIMCO Enhanced Short Maturity ETF,NYSE,环球,,13529128109
 BF.B,Brown-Forman Corp.,NYSE,饮料,,13527169914
 TYL,"Tyler Technologies, Inc.",NYSE,软件,,13470558492
 AKAM,"Akamai Technologies, Inc.",NASDAQ,软件,,13448824753
@@ -873,7 +793,6 @@ TOL,"Toll Brothers, Inc.",NYSE,房屋建筑商,,13270344518
 GLPI,"Gaming & Leisure Properties, Inc.",NASDAQ,,,13226460191
 KTOS,"Kratos Defense & Security Solutions, Inc.",NASDAQ,,,13177046285
 AVY,Avery Dennison Corp.,NYSE,家庭产品/用品,,13165119308
-MGK,Vanguard Mega Cap Growth ETF,NYSE,股权,,13159480325
 RNR,RenaissanceRe Holdings Ltd.,NYSE,保险,,13107135931
 TRU,TransUnion,NYSE,,,13094871518
 IREN,IREN Ltd.,NASDAQ,,,13054239899
@@ -884,20 +803,16 @@ BEN,"Franklin Resources, Inc.",NYSE,,,12972217410
 PEN,"Penumbra, Inc.",NYSE,,,12941181486
 NBIX,"Neurocrine Biosciences, Inc.",NASDAQ,制药,,12935846685
 HAS,"Hasbro, Inc.",NASDAQ,,,12905105054
-IGSB,iShares 1-5 Year Investment Grade Corporate Bond ETF,NASDAQ,,,12863069891
 FNF,"Fidelity National Financial, Inc.",NYSE,,,12860055075
 MAS,Masco Corp.,NYSE,,,12821138391
 NYT,The New York Times Co.,NYSE,媒体,,12793058328
 ONTO,"Onto Innovation, Inc.",NYSE,,,12791061547
-BBJP,JPMorgan BetaBuilders Japan ETF,AMEX,,,12748074337
 CNA,CNA Financial Corp.,NYSE,保险,,12745546139
 MOD,Modine Manufacturing Co.,NYSE,汽车制造,,12732475182
 CLX,The Clorox Co.,NYSE,,,12729600789
 APTV,Aptiv Plc,NYSE,,,12713880302
 ALLY,"Ally Financial, Inc.",NYSE,,,12707786153
-FVD,First Trust Value Line Dividend Index Fund,NYSE,股权,,12639691700
 TTMI,"TTM Technologies, Inc.",NASDAQ,电子,,12615907838
-OEF,iShares S&P 100 ETF,NYSE,股权,,12540988993
 PNW,Pinnacle West Capital Corp.,NYSE,,,12537046537
 ALLE,Allegion Plc,NYSE,,,12474727328
 VNTV,"Vantiv, Inc.",NYSE,商业服务,,12449117883
@@ -916,7 +831,6 @@ DRS,"Leonardo DRS, Inc.",NYSE,,,12250375947
 GMED,"Globus Medical, Inc.",NYSE,,,12229580624
 JHX,James Hardie Industries Plc,NYSE,,,12195192268
 GNRC,"Generac Holdings, Inc.",NYSE,,,12147656392
-BBEU,JPMorgan BetaBuilders Europe ETF,AMEX,,,12097237944
 CTL,"CenturyLink, Inc.",NYSE,电信,,12072523342
 BJ,"BJ's Wholesale Club Holdings, Inc.",NYSE,,,12022316355
 FIVE,"Five Below, Inc.",NASDAQ,,,12007177694
@@ -941,11 +855,9 @@ IAG,IAMGOLD Corp.,NYSE,采矿,,11656085207
 DOC,"Healthpeak Properties, Inc.",NYSE,,,11638595844
 ENSG,"The Ensign Group, Inc.",NASDAQ,健康护理服务,,11625548957
 SUZ,Suzano SA,NYSE,,,11619309533
-CNR,"Core Natural Resources, Inc.",AMEX,零售,,11614684503
 WBS,Webster Financial Corp.,NYSE,银行,,11572844074
 ELAN,"Elanco Animal Health, Inc.",NYSE,,,11550646005
 WTRG,"Essential Utilities, Inc.",NYSE,,,11519127952
-IUSV,iShares Core S&P U.S. Value ETF,NYSE,股权,,11504807025
 SFD,"Smithfield Foods, Inc.",NASDAQ,,,11497404887
 EXEL,"Exelixis, Inc.",NASDAQ,生物技术和制药,,11497303781
 FHN,First Horizon Corp. (Tennessee),NYSE,银行,,11486904358
@@ -962,12 +874,10 @@ BWA,"BorgWarner, Inc.",NYSE,汽车部件与设备,,11226229881
 WTR,"Aqua America, Inc.",NYSE,水业,,11210768570
 SWK,"Stanley Black & Decker, Inc.",NYSE,,,11210127400
 CRBG,"Corebridge Financial, Inc.",NYSE,,,11173650349
-LUX,Tema Luxury ETF,NYSE,,,11136448677
 CFLT,"Confluent, Inc.",NASDAQ,,,11133730609
 DIDI,"Didi Global, Inc.",NYSE,,,11115746551
 RDY,Dr. Reddy's Laboratories Ltd.,NYSE,制药,,11108709496
 ONON,On Holding AG,NYSE,,,11104966577
-BLD,TopBuild Corp.,AMEX,机械-多元,,11099597541
 CIG.C,Companhia Energ茅tica de Minas Gerais SA,NYSE,,,11099446328
 AAXN,"Axon Enterprise, Inc.",NASDAQ,,,11091998770
 SITM,SiTime Corp.,NASDAQ,,,11054380465
@@ -990,11 +900,8 @@ AIT,"Applied Industrial Technologies, Inc.",NYSE,机械-多元,,10780778549
 ZBRA,Zebra Technologies Corp.,NASDAQ,机械-多元,,10742786351
 SAIA,"Saia, Inc.",NASDAQ,运输,,10717147177
 GIL,"Gildan Activewear, Inc.",NYSE,服饰,,10710665876
-VMBS,Vanguard Mortgage-Backed Securities Index Fund,NASDAQ,股权,,10700828488
 CHK,Chesapeake Energy Corp.,NYSE,油气,,10693673762
-HDV,iShares Core High Dividend ETF,NYSE,股权,,10691603659
 ALSN,"Allison Transmission Holdings, Inc.",NYSE,汽车部件与设备,,10682961179
-CPT,Camden Property Trust,NYSE,,,10676867477
 EHC,Encompass Health Corp.,NYSE,,,10662383374
 JKHY,"Jack Henry & Associates, Inc.",NASDAQ,软件,,10623036791
 IESC,"IES Holdings, Inc.",NASDAQ,,,10617338412
@@ -1007,7 +914,6 @@ IONQ,"IonQ, Inc.",NYSE,,,10555587701
 EQH,"Equitable Holdings, Inc.",NYSE,,,10532401098
 CHWY,"Chewy, Inc.",NYSE,,,10504425629
 BMRN,"BioMarin Pharmaceutical, Inc.",NASDAQ,制药,,10487392532
-IVZ,Invesco Ltd.,NYSE,,,10476912980
 ASR,Grupo Aeroportuario del Sureste SA de CV,NYSE,,,10428299561
 AM,Antero Midstream Corp.,NYSE,家庭产品/用品,,10421974755
 GME,GameStop Corp.,NYSE,零售,,10411270536
@@ -1022,7 +928,6 @@ PAG,"Penske Automotive Group, Inc.",NYSE,零售,,10264773682
 AES,The AES Corp.,NYSE,电力,,10261100900
 OGE,OGE Energy Corp.,NYSE,,,10205165134
 AABA,"Altaba, Inc.",NASDAQ,,,10198008589
-EWY,iShares MSCI South Korea ETF,NYSE,股权,,10187228815
 AG,First Majestic Silver Corp.,NYSE,,,10160853259
 PINS,"Pinterest, Inc.",NYSE,,,10145621768
 HUBS,"HubSpot, Inc.",NYSE,,,10139894777
@@ -1038,7 +943,6 @@ CNM,"Core & Main, Inc.",NYSE,,,10014743163
 ABVX,Abivax SA,NASDAQ,,,9988416034
 GWRE,"Guidewire Software, Inc.",NYSE,软件,,9985348800
 MOG.B,"Moog, Inc.",NYSE,,,9981498437
-JNK,SPDR Bloomberg Barclays High Yield Bond ETF,NYSE,股权,,9973012695
 ORI,Old Republic International Corp.,NYSE,保险,,9951735083
 GTLS,"Chart Industries, Inc.",NASDAQ,机械-多元,,9945991664
 MOG.A,"Moog, Inc.",NYSE,,,9899326448
@@ -1049,7 +953,6 @@ STN,"Stantec, Inc.",NYSE,商业服务,,9862232283
 WTFC,Wintrust Financial Corp.,NASDAQ,银行,,9840450693
 MP,MP Materials Corp.,NYSE,,,9814350236
 VFS,VinFast Auto Ltd.,NASDAQ,,,9802656016
-EWZ,iShares MSCI Brazil ETF,NYSE,股权,,9727558883
 DAR,"Darling Ingredients, Inc.",NYSE,环境控制,,9725339076
 SJM,The J. M. Smucker Co.,NYSE,食品,,9695399434
 BMNR,"Bitmine Immersion Technologies, Inc.",NYSE,,,9679473312
@@ -1064,10 +967,8 @@ GAP,"Gap, Inc.",NYSE,,,9608446745
 BVN,Compa帽铆a de Minas Buenaventura SAA,NYSE,,,9593084121
 ZG,"Zillow Group, Inc.",NASDAQ,,,9582732618
 SSB,SouthState Bank Corp.,NASDAQ,,,9577384327
-EZU,iShares MSCI Eurozone ETF,NYSE,股权,,9574340056
 Z,"Zillow Group, Inc.",NASDAQ,媒体内容,,9565937716
 MGM,MGM Resorts International,NYSE,住宿,,9548196676
-IWP,iShares Russell Mid-Cap Growth ETF,NYSE,股权,,9531534902
 OSK,Oshkosh Corp.,NYSE,汽车制造,,9509518612
 BSY,"Bentley Systems, Inc.",NASDAQ,,,9480607760
 FIG,"Figma, Inc.",NYSE,,,9474364914
@@ -1077,7 +978,6 @@ AHR,"American Healthcare REIT, Inc.",NYSE,,,9445768775
 CART,"Maplebear, Inc.",NASDAQ,,,9444141223
 U,"Unity Software, Inc.",NYSE,,,9433455572
 BAH,Booz Allen Hamilton Holding Corp.,NYSE,,,9426863167
-FRT,Federal Realty Investment Trust,NYSE,房地产信托投资基金,,9420634891
 BPOP,"Popular, Inc.",NASDAQ,银行,,9411672410
 SEIC,SEI Investments Co.,NASDAQ,,,9410661612
 GSAT,"Globalstar, Inc.",NASDAQ,,,9407727249
@@ -1089,14 +989,12 @@ PEAK,"Healthpeak Properties, Inc.",NYSE,,,9356658218
 JEF,"Jefferies Financial Group, Inc.",NYSE,,,9354821659
 MASI,Masimo Corp.,NASDAQ,医疗保健产品,,9337336306
 DDS,"Dillard's, Inc.",NYSE,零售,,9303245113
-CEF,Sprott Physical Gold & Silver Trust,AMEX,环球,,9264281231
 FRHC,Freedom Holding Corp.,NASDAQ,,,9229979774
 GPS,"Gap, Inc.",NYSE,,,9207884719
 BROS,"Dutch Bros, Inc.",NYSE,,,9193298203
 OC,Owens Corning,NYSE,,,9186187998
 BLDR,"Builders FirstSource, Inc.",NASDAQ,建筑材料,,9171061560
 CREE,"Cree, Inc.",NASDAQ,半导体,,9169382163
-NOBL,ProShares S&P 500 Dividend Aristocrats ETF,NYSE,,,9161688369
 ESI,"Element Solutions, Inc.",NYSE,,,9156750785
 UMBF,UMB Financial Corp.,NASDAQ,银行,,9153902231
 MUSA,"Murphy USA, Inc.",NYSE,,,9124834120
@@ -1107,7 +1005,6 @@ AOS,A. O. Smith Corp.,NYSE,,,9112768088
 AXSM,"Axsome Therapeutics, Inc.",NASDAQ,,,9110912335
 RYAN,"Ryan Specialty Holdings, Inc.",NYSE,,,9098117620
 NCLH,Norwegian Cruise Line Holdings Ltd.,NASDAQ,休闲,,9092690577
-FTEC,Fidelity MSCI Information Technology Index ETF,NYSE,,,9086937742
 ONB,Old National Bancorp,NYSE,银行,,9074543631
 SBSW,Sibanye Stillwater Ltd.,NYSE,,,9071967865
 EDU,"New Oriental Education & Technology Group, Inc.",NYSE,,,9053801450
@@ -1138,7 +1035,6 @@ LEVI,Levi Strauss & Co.,NYSE,,,8749564710
 LLYVA,"Liberty Live Holdings, Inc.",NASDAQ,,,8744532530
 PRIM,Primoris Services Corp.,NASDAQ,控股公司-多元经营,,8738867905
 OKLO,"Oklo, Inc.",NYSE,,,8721831999
-IGIB,iShares 5-10 Year Investment Grade Corporate Bond ETF,NASDAQ,,,8710174972
 TECH,Bio-Techne Corp.,NASDAQ,医疗保健产品,,8689415981
 AGNCN,AGNC Investment Corp.,NASDAQ,,,8673854894
 CRL,"Charles River Laboratories International, Inc.",NYSE,生物技术,,8666914622
@@ -1149,21 +1045,17 @@ BNRE.A,Brookfield Reinsurance Ltd.,NYSE,,,8604366691
 AGNCM,AGNC Investment Corp.,NASDAQ,,,8592314999
 MYL,"Viatris, Inc.",NASDAQ,制药,,8586209394
 R,"Ryder System, Inc.",NYSE,运输,,8584875461
-SPDW,State Street SPDR Portfolio Developed World ex-US ETF,AMEX,,,8572411006
-FNDF,Schwab Fundamental International Equity ETF,AMEX,,,8571345626
 AUGO,"Aura Minerals, Inc.",NASDAQ,,,8543987070
 EMN,Eastman Chemical Co.,NYSE,化学制品,,8490480892
 SWKS,"Skyworks Solutions, Inc.",NASDAQ,半导体,,8476880110
 TAP,Molson Coors Beverage Co.,NYSE,饮料,,8466183287
 HNP,"Huaneng Power International, Inc.",NYSE,,,8465197093
 AYI,"Acuity, Inc.",NYSE,,,8441259178
-VGSH,Vanguard Short-Term Government Bond Index Fund,NASDAQ,股权,,8434574939
 PPC,Pilgrim's Pride Corp.,NASDAQ,食品,,8431953262
 CWEN,"Clearway Energy, Inc.",NYSE,,,8428340160
 QGEN,QIAGEN NV,NASDAQ,医疗保健产品,,8426396524
 VICR,Vicor Corp.,NASDAQ,计算机硬件,,8421709286
 AGX,"Argan, Inc.",NYSE,,,8421130069
-SPTM,SPDR Portfolio Total Stock Market ETF,AMEX,,,8418035850
 GDS,GDS Holdings Ltd.,NASDAQ,,,8413856096
 POWL,"Powell Industries, Inc.",NASDAQ,,,8412417059
 BXP,"BXP, Inc.",NYSE,房地产信托投资基金,,8407343572
@@ -1174,7 +1066,6 @@ WAL,Western Alliance Bancorp.,NYSE,银行,,8373888930
 WWE,"World Wrestling Entertainment, Inc.",NYSE,媒体内容,,8370220501
 GGB,Gerdau SA,NYSE,,,8362079036
 DOCU,"DocuSign, Inc.",NASDAQ,,,8339013713
-SCHE,Schwab Emerging Markets Equity ETF,NYSE,股权,,8326647002
 VMI,"Valmont Industries, Inc.",NYSE,金属构造/部件,,8323202631
 BRKS,"Brooks Automation, Inc.",NASDAQ,半导体,,8285524702
 SSL,Sasol Ltd.,NYSE,化学制品,,8279532576
@@ -1185,7 +1076,6 @@ PSO,Pearson Plc,NYSE,媒体内容,,8194748320
 SBGL,Sibanye-Stillwater Ltd.,NYSE,,,8183639810
 IDA,"IDACORP, Inc.",NYSE,电力,,8174376842
 VRX,"Valeant Pharmaceuticals International, Inc.",NYSE,生物技术和制药,,8173601170
-SPYV,SPDR Portfolio S&P 500 Value ETF,NYSE,股权,,8171354811
 JOBY,"Joby Aviation, Inc.",NYSE,,,8167647686
 CRUS,"Cirrus Logic, Inc.",NASDAQ,半导体,,8161182240
 ICLR,ICON plc,NASDAQ,健康护理服务,,8156003830
@@ -1199,11 +1089,9 @@ LUK,"Jefferies Financial Group, Inc.",NYSE,,,8089821162
 ARW,"Arrow Electronics, Inc.",NYSE,销售/批发,,8080989158
 NUVL,"Nuvalent, Inc.",NASDAQ,,,8077110515
 SANM,Sanmina Corp.,NASDAQ,计算机硬件,,8068417655
-FR,"First Industrial Realty Trust, Inc.",NYSE,房地产信托投资基金,,8044373065
 ESE,"ESCO Technologies, Inc.",NYSE,电子,,8042964625
 HALO,"Halozyme Therapeutics, Inc.",NASDAQ,生物技术和制药,,8034926990
 CYTK,"Cytokinetics, Inc.",NASDAQ,生物技术和制药,,8006814346
-VONE,Vanguard Russell 1000 ETF,NASDAQ,股权,,8003661230
 WULF,"TeraWulf, Inc.",NASDAQ,,,8002165875
 ZWS,Zurn Elkay Water Solutions Corp.,NYSE,,,7998469874
 MSGS,Madison Square Garden Sports Corp.,NYSE,,,7968634253
@@ -1211,8 +1099,6 @@ JHG,Janus Henderson Group Plc,NYSE,,,7953382720
 FBHS,"Fortune Brands Home & Security, Inc.",NYSE,建筑材料,,7938212741
 SIRI,"SiriusXM Holdings, Inc.",NASDAQ,媒体内容,,7934117440
 SMTC,Semtech Corp.,NASDAQ,半导体,,7921298139
-VLUE,iShares Edge MSCI USA Value Factor ETF,AMEX,,,7897551311
-DXJ,WisdomTree Japan Hedged Equity Fund,NYSE,股权,,7892208571
 POOL,Pool Corp.,NASDAQ,,,7887323072
 TTEK,"Tetra Tech, Inc.",NASDAQ,环境控制,,7873780798
 RXN,Rexnord Corp.,NYSE,金属构造/部件,,7865792568
@@ -1234,7 +1120,6 @@ WR,"Westar Energy, Inc.",NYSE,电力,,7680589344
 KNTK,"Kinetik Holdings, Inc.",NASDAQ,,,7677994618
 LUMN,"Lumen Technologies, Inc. (Louisiana)",NYSE,,,7664379686
 BEPC,Brookfield Renewable Corp.,NYSE,,,7660800247
-PDI,PIMCO Dynamic Income Fund,NYSE,环球,,7660007193
 FRO,Frontline Plc,NYSE,,,7644870042
 VSAT,"ViaSat, Inc.",NASDAQ,电信,,7640516025
 AAON,"AAON, Inc.",NASDAQ,建筑材料,,7625378497
@@ -1252,9 +1137,7 @@ BIO.B,"Bio-Rad Laboratories, Inc.",NYSE,,,7476339138
 AAL,"American Airlines Group, Inc.",NASDAQ,,,7474647565
 TKR,The Timken Co.,NYSE,金属构造/部件,,7448806731
 PARA,Paramount Global,NASDAQ,,,7443442694
-LFL,LATAM Airlines Group S.A. ADS,NYSE,,,7440622554
 MTDR,Matador Resources Co.,NYSE,,,7437601544
-VOOG,Vanguard S&P 500 Growth ETF,NYSE,股权,,7436440071
 CBSH,"Commerce Bancshares, Inc. (Missouri)",NASDAQ,银行,,7414465937
 QRVO,"Qorvo, Inc.",NASDAQ,,,7398839775
 OR,"OR Royalties, Inc.",NYSE,,,7395422736
@@ -1276,7 +1159,6 @@ CMPO,"CompoSecure, Inc.",NASDAQ,,,7268349789
 CAG,"Conagra Brands, Inc.",NYSE,食品,,7262676144
 SSD,"Simpson Manufacturing Co., Inc.",NYSE,建筑材料,,7256326019
 SNDKV,Sandisk Corp.,NASDAQ,,,7253279846
-MLPA,Global X MLP ETF,NASDAQ,股权,,7252777266
 EGO,Eldorado Gold Corp.,NYSE,,,7245922472
 VLY,Valley National Bancorp,NYSE,银行,,7239378633
 INGR,"Ingredion, Inc.",NYSE,食品,,7229791248
@@ -1289,10 +1171,8 @@ WGP,Western Gas Equity Partners LP,NYSE,天然气,,7163644985
 CWAN,"Clearwater Analytics Holdings, Inc.",NYSE,,,7161332616
 MANH,"Manhattan Associates, Inc.",NASDAQ,计算机,,7160972741
 JXN,"Jackson Financial, Inc.",NYSE,,,7152599194
-SPLG,SPDR Portfolio Large Cap ETF,AMEX,,,7147547280
 VFC,VF Corp.,NYSE,,,7132730564
 PRMB,Primo Brands Corp.,NYSE,,,7121900231
-VIP,VimpelCom Ltd ADS,NYSE,,,7083966320
 PCOR,"Procore Technologies, Inc.",NYSE,,,7083241539
 FLR,Fluor Corp.,NYSE,工程建设,,7067908701
 CE,Celanese Corp.,NYSE,化学制品,,7065684148
@@ -1305,7 +1185,6 @@ FSS,Federal Signal Corp.,NYSE,多元化制造商,,7005033107
 BIRK,Birkenstock Holding Plc,NYSE,,,6993947085
 PB,"Prosperity Bancshares, Inc.",NYSE,银行,,6984474463
 SLAB,"Silicon Laboratories, Inc.",NASDAQ,半导体,,6963589079
-VGIT,Vanguard Intermediate-Term Treasury Bond ETF,NASDAQ,股权,,6958452751
 ALGM,"Allegro MicroSystems, Inc.",NASDAQ,,,6948407625
 KYMR,"Kymera Therapeutics, Inc.",NASDAQ,,,6943685859
 TRNO,Terreno Realty Corp.,NYSE,,,6942795008
@@ -1313,14 +1192,10 @@ SOBO,South Bow Corp.,NYSE,,,6934590008
 BLTE,"Belite Bio, Inc.",NASDAQ,,,6904407427
 BBUC,Brookfield Business Corp.,NYSE,,,6899559321
 VIST,Vista Energy SAB de CV,NASDAQ,,,6892214038
-ACWV,iShares Edge MSCI Min Vol Global ETF,NYSE,环球,,6890798575
 JCOM,"J2 Global, Inc.",NASDAQ,,,6885455612
 AN,"AutoNation, Inc.",NYSE,,,6882946800
-GLDM,SPDR Gold MiniShares Trust,AMEX,,,6878093694
 GATX,GATX Corp.,NYSE,,,6876310094
-EPRT,"Essential Properties Realty Trust, Inc.",NYSE,,,6844054179
 QMMM,QMMM Holdings Ltd.,NASDAQ,,,6830437083
-VTIP,Vanguard Short-Term Inflation-Protected Securities ETF,NASDAQ,股权,,6804817416
 SM,SM Energy Co.,NYSE,,,6803874609
 BHI,Baker Hughes Incorporated,NYSE,油气服务,,6800751784
 SSRM,"SSR Mining, Inc.",NASDAQ,,,6784445471
@@ -1338,23 +1213,17 @@ TAL,TAL Education Group,NYSE,,,6709567557
 FSV,FirstService Corp.,NASDAQ,,,6708738649
 CIFR,"Cipher Digital, Inc.",NASDAQ,,,6696624076
 JBTM,JBT Marel Corp.,NYSE,,,6691041671
-HTA,"Healthcare Trust of America, Inc.",NYSE,,,6686683902
 ICL,ICL Group Ltd.,NYSE,,,6685684515
-SCHX,Schwab U.S. Large-Cap ETF,NYSE,股权,,6684475776
 UBNT,"Ubiquiti Networks, Inc.",NASDAQ,计算机硬件,,6682588421
 MSA,"MSA Safety, Inc.",NYSE,,,6678170032
 MIDD,The Middleby Corp.,NASDAQ,,,6668322004
 PEGA,"Pegasystems, Inc.",NASDAQ,软件,,6655250918
 ECG,"Everus Construction Group, Inc.",NYSE,,,6651742337
-VTEB,Vanguard Tax-Exempt Bond ETF,NYSE,,,6633667666
 UEC,Uranium Energy Corp.,NYSE,,,6632687063
 CENX,Century Aluminum Co.,NASDAQ,,,6627301896
 KMX,"CarMax, Inc.",NYSE,零售,,6624739241
-BTG,B2Gold Corp.,AMEX,,,6593183772
 OMF,"OneMain Holdings, Inc.",NYSE,,,6555829394
-STWD,"Starwood Property Trust, Inc.",NYSE,房地产信托投资基金,,6553616909
 USM,United States Cellular Corp.,NYSE,,,6548136609
-NEAR,iShares Short Duration Bond Active ETF,NYSE,,,6523933817
 BYD,Boyd Gaming Corp.,NYSE,住宿,,6513833022
 LNC,Lincoln National Corp.,NYSE,保险,,6501092030
 VOYA,"Voya Financial, Inc.",NYSE,保险,,6487848643
@@ -1366,13 +1235,11 @@ UGP,Ultrapar Participa莽oes SA,NYSE,,,6433978981
 GXO,"GXO Logistics, Inc.",NYSE,,,6431989947
 WH,"Wyndham Hotels & Resorts, Inc.",NYSE,油气服务,,6429684827
 APGE,"Apogee Therapeutics, Inc.",NASDAQ,,,6425842009
-FLGE,Credit Suisse FI Large Cap Growth Enhanced ETN,NYSE,股权,,6420375885
 AMTM,"Amentum Holdings, Inc.",NYSE,,,6413056000
 MWH,"SOLV Energy, Inc.",NASDAQ,,,6410847173
 RYN,"Rayonier, Inc.",NYSE,,,6405297232
 RHP,"Ryman Hospitality Properties, Inc.",NYSE,,,6375929168
 LAD,"Lithia Motors, Inc.",NYSE,零售,,6363108613
-SPSB,SPDR Portfolio Short Term Corporate Bond ETF,AMEX,,,6355574839
 MHK,"Mohawk Industries, Inc.",NYSE,纺织品,,6332733441
 PBCTP,"People's United Financial, Inc.",NASDAQ,,,6328335876
 LEA,Lear Corp.,NYSE,汽车部件与设备,,6308119014
@@ -1387,15 +1254,12 @@ FNB,F.N.B. Corp. (Pennsylvania),NYSE,银行,,6286670179
 JAN,"Janus Living, Inc.",NASDAQ,,,6275908109
 CCIV,Churchill Capital Corp. IV,NYSE,,,6274687500
 EXP,"Eagle Materials, Inc.",NYSE,建筑材料,,6269768605
-QTEC,First Trust NASDAQ-100 Technology Sector Index Fund,NASDAQ,股权,,6264414746
 GBCI,"Glacier Bancorp, Inc.",NASDAQ,银行,,6262074162
 LTH,"Life Time Group Holdings, Inc.",NYSE,,,6224536722
 THG,"The Hanover Insurance Group, Inc.",NYSE,保险,,6220676021
-ORLA,Orla Mining Ltd.,AMEX,,,6220328364
 POR,Portland General Electric Co.,NYSE,电力,,6214542083
 SEE,Sealed Air Corp.,NYSE,,,6211799235
 ESAB,ESAB Corp.,NYSE,,,6188606804
-IEUR,iShares Core MSCI Europe ETF,NYSE,,,6169268985
 AXTA,Axalta Coating Systems Ltd.,NYSE,,,6155838077
 YOU,"Clear Secure, Inc.",NYSE,,,6155458028
 ROLL,"RBC Bearings, Inc.",NASDAQ,金属构造/部件,,6144332153
@@ -1403,7 +1267,6 @@ ENIC,Enel Chile SA,NYSE,,,6128156730
 UBSI,"United Bankshares, Inc. (West Virginia)",NASDAQ,银行,,6123156626
 MKTX,"MarketAxess Holdings, Inc.",NASDAQ,,,6112168771
 VSEC,VSE Corp.,NASDAQ,工程建设,,6110183853
-HR,"Healthcare Realty Trust, Inc.",NYSE,房地产信托投资基金,,6102464638
 CNTA,Centessa Pharmaceuticals Plc,NASDAQ,,,6102365533
 CHDN,"Churchill Downs, Inc.",NASDAQ,娱乐,,6097039206
 PLXS,Plexus Corp.,NASDAQ,,,6096063981
@@ -1423,7 +1286,6 @@ CRC,California Resources Corp.,NYSE,家具家饰,,5905440300
 COGT,"Cogent Biosciences, Inc.",NASDAQ,,,5903171610
 RRR,"Red Rock Resorts, Inc.",NYSE,,,5902508039
 UWMC,UWM Holdings Corp.,NYSE,,,5901482585
-SNHNI,Senior Housing Properties Trust,NASDAQ,,,5879585448
 NPO,"Enpro, Inc.",NYSE,,,5874236691
 HFC,HollyFrontier Corp.,NYSE,,,5873235531
 URBN,"Urban Outfitters, Inc.",NASDAQ,零售,,5872247677
@@ -1432,14 +1294,12 @@ BLCO,Bausch + Lomb Corp.,NYSE,,,5842706921
 LW,"Lamb Weston Holdings, Inc.",NYSE,,,5825291369
 G,Genpact Ltd.,NYSE,,,5802489480
 DLB,"Dolby Laboratories, Inc.",NYSE,娱乐,,5790668003
-ACWX,iShares MSCI ACWI ex U.S. ETF,NASDAQ,股权,,5788549172
 CORZ,"Core Scientific, Inc.",NASDAQ,,,5781696676
 NICE,NICE Ltd. (Israel),NASDAQ,电信,,5762147260
 MIRM,"Mirum Pharmaceuticals, Inc.",NASDAQ,,,5744521754
 NJR,New Jersey Resources Corp.,NYSE,,,5744141645
 SRRK,Scholar Rock Holding Corp.,NASDAQ,,,5739559371
 LSTR,"Landstar System, Inc.",NASDAQ,,,5739083303
-MOAT,VanEck Vectors Morningstar Wide Moat ETF,NASDAQ,股权,,5737511685
 VSNT,"Versant Media Group, Inc.",NASDAQ,,,5730702486
 GOLF,Acushnet Holdings Corp.,NASDAQ,,,5726617462
 TMHC,Taylor Morrison Home Corp.,NYSE,,,5723183201
@@ -1480,7 +1340,6 @@ MGY,Magnolia Oil & Gas Corp.,NYSE,,,5551112356
 RITM,Rithm Capital Corp.,NYSE,,,5549567340
 SEB,Seaboard Corp.,NYSE,食品,,5547380098
 ALKS,Alkermes Plc,NASDAQ,生物技术和制药,,5546191108
-AAXJ,iShares MSCI All Country Asia ex Japan ETF,NASDAQ,股权,,5545903279
 GVA,"Granite Construction, Inc.",NYSE,工程建设,,5524531341
 CWST,"Casella Waste Systems, Inc.",NASDAQ,环境控制,,5524514212
 WEX,"WEX, Inc.",NYSE,电子,,5522037862
@@ -1503,9 +1362,7 @@ IPGP,IPG Photonics Corp.,NASDAQ,电信,,5403891256
 OBDC,Blue Owl Capital Corp.,NYSE,,,5399731109
 FCN,"FTI Consulting, Inc.",NYSE,商业服务,,5390364997
 TGTX,"TG Therapeutics, Inc.",NASDAQ,生物技术和制药,,5386284802
-BXSL,Blackstone Secured Lending Fund,NYSE,,,5372631810
 KGS,"Kodiak Gas Services, Inc.",NYSE,,,5365735016
-VNQI,Vanguard Global ex-US Real Estate Index Fund,NASDAQ,股权,,5355485947
 SPIL,"Siliconware Precision Industries Co., Ltd.",NASDAQ,半导体,,5353906575
 AVTR,"Avantor, Inc.",NYSE,,,5341274689
 BIPC,Brookfield Infrastructure Corp.,NYSE,,,5333652066
@@ -1516,17 +1373,12 @@ CPG,Crescent Point Energy Corp.,NYSE,,,5308340516
 PACS,"PACS Group, Inc.",NYSE,,,5304319729
 SNRE,Sunrise Communications AG,NASDAQ,,,5304138725
 OZRK,Bank of The Ozarks,NASDAQ,银行,,5304128221
-IOO,iShares Global 100 ETF,NYSE,环球,,5303772158
 OZK,Bank OZK,NASDAQ,,,5291742939
 ERAS,"Erasca, Inc.",NASDAQ,,,5286700076
-IJJ,iShares S&P Mid-Cap 400 Value ETF,NYSE,股权,,5284023436
-MGC,Vanguard Mega Cap Index Fund,NYSE,股权,,5275567602
-EWC,iShares MSCI Canada ETF,NYSE,债务,,5272524222
 QBTS,"D-Wave Quantum, Inc.",NYSE,,,5271269997
 TTAN,"ServiceTitan, Inc.",NASDAQ,,,5266992775
 LYFT,"Lyft, Inc.",NASDAQ,,,5266963379
 DBX,"Dropbox, Inc.",NASDAQ,,,5264366087
-FXL,First Trust Technology AlphaDEX Fund,NYSE,股权,,5260889480
 AVAL,Grupo Aval Acciones y Valores SA,NYSE,,,5259179673
 ORCC,Owl Rock Capital Corp.,NASDAQ,,,5254478816
 LB,LandBridge Co. LLC,NYSE,,,5242829856
@@ -1539,11 +1391,9 @@ OTEX,Open Text Corp.,NASDAQ,软件,,5225067996
 LPX,Louisiana-Pacific Corp.,NYSE,,,5223964892
 TDS,"Telephone & Data Systems, Inc.",NYSE,,,5218605998
 MATX,"Matson, Inc.",NYSE,,,5209915354
-KRG,Kite Realty Group Trust,NYSE,房地产信托投资基金,,5177817100
 SGHC,Super Group (SGHC) Ltd.,NYSE,,,5172875738
 CRK,"Comstock Resources, Inc.",NYSE,油气,,5163021597
 ATMU,"Atmus Filtration Technologies, Inc.",NYSE,,,5161697070
-IJS,iShares S&P Small-cap 600 Value ETF,NYSE,股权,,5159200489
 SBRA,"Sabra Health Care REIT, Inc.",NASDAQ,,,5158901139
 CLF,"Cleveland-Cliffs, Inc.",NYSE,,,5156384528
 CHH,"Choice Hotels International, Inc.",NYSE,住宿,,5152013999
@@ -1552,7 +1402,6 @@ OUT,"OUTFRONT Media, Inc.",NYSE,,,5128341275
 CSWI,"CSW Industrials, Inc.",NASDAQ,,,5128021745
 PCTY,Paylocity Holding Corp.,NASDAQ,,,5123673327
 BMA,Banco Macro SA,NYSE,银行,,5121701236
-VNO,Vornado Realty Trust,NYSE,,,5120956997
 HESM,Hess Midstream LP,NYSE,,,5120485969
 LUNR,"Intuitive Machines, Inc.",NASDAQ,,,5109993658
 MCY,Mercury General Corp.,NYSE,保险,,5107385245
@@ -1600,7 +1449,6 @@ SIGI,"Selective Insurance Group, Inc.",NASDAQ,保险,,4785720482
 CSW,"CSW Industrials, Inc.",NYSE,,,4785260765
 MAIN,Main Street Capital Corp,NYSE,投资公司,,4782764594
 LGN,Legence Corp.,NASDAQ,,,4779432686
-PTLC,Pacer Trendpilot 750 ETF,NYSE,,,4779379649
 MRCY,"Mercury Systems, Inc.",NASDAQ,计算机,,4777164934
 PBF,"PBF Energy, Inc.",NYSE,油气,,4776841764
 KNF,Knife River Corp.,NYSE,,,4770728324
@@ -1609,16 +1457,12 @@ SDRL,Seadrill Ltd.,NYSE,油气,,4767676229
 LANC,Lancaster Colony Corp.,NASDAQ,,,4763115080
 NNI,"Nelnet, Inc.",NYSE,,,4761378396
 PAM,Pampa Energ铆a SA,NYSE,,,4746656924
-MGV,Vanguard Mega Cap Value ETF,NYSE,股权,,4746583791
-MLPX,Global X MLP & Energy Infrastructure ETF,AMEX,股权,,4737655592
 TNL,Travel + Leisure Co.,NYSE,,,4730995945
 ALH,"Alliance Laundry Holdings, Inc. (United States)",NYSE,,,4720981600
 BOOT,"Boot Barn Holdings, Inc.",NYSE,,,4719729839
-SPIB,SPDR Portfolio Intermediate Term Corporate Bond ETF,AMEX,,,4719576855
 EMAT,EMAT,NASDAQ,,,4705264225
 GNTX,Gentex Corp.,NASDAQ,汽车制造,,4698105156
 GPGI,"GPGI, Inc.",NYSE,,,4689313153
-FV,First Trust Dorsey Wright Focus 5 ETF,NASDAQ,,,4687743471
 REYN,"Reynolds Consumer Products, Inc.",NASDAQ,,,4674117669
 PAGP,Plains GP Holdings LP,NYSE,,,4668839985
 HCC,"Warrior Met Coal, Inc.",NYSE,保险,,4664829560
@@ -1633,7 +1477,6 @@ MC,Moelis & Co.,NYSE,,,4629512675
 LAUR,"Laureate Education, Inc.",NASDAQ,,,4609462975
 RDN,Radian Group Inc.,NYSE,保险,,4607027033
 KEN,Kenon Holdings Ltd.,NYSE,,,4594397268
-SPEM,State Street SPDR Portfolio Emerging Markets ETF,AMEX,,,4585655846
 SEI,"Solaris Energy Infrastructure, Inc.",NYSE,,,4584922514
 OLED,Universal Display Corp.,NASDAQ,,,4578895228
 EXLS,"ExlService Holdings, Inc.",NASDAQ,商业服务,,4577351205
@@ -1646,25 +1489,19 @@ FOLD,"Amicus Therapeutics, Inc.",NASDAQ,生物技术和制药,,4540450018
 OPCH,"Option Care Health, Inc.",NASDAQ,,,4536991333
 NTCO,Natura &Co Holding SA,NYSE,,,4535416118
 BMI,"Badger Meter, Inc.",NYSE,,,4529859333
-VAW,Vanguard Materials Index Fund,NYSE,股权,,4525013724
 LOPE,"Grand Canyon Education, Inc.",NASDAQ,,,4519928076
 PHI,"PLDT, Inc.",NYSE,电信,,4519886829
 EOCC,Enel Generaci贸n Chile SA,NYSE,,,4513698994
 KC,Kingsoft Cloud Holdings Ltd.,NASDAQ,,,4512709751
-FPE,First Trust Preferred Securities & Income ETF,AMEX,,,4490889961
 LPL,"LG Display Co., Ltd.",NYSE,电子,,4489999771
-XAR,SPDR S&P Aerospace & Defense ETF,NYSE,股权,,4488039479
 ESTC,Elastic NV,NYSE,,,4481593567
-IWY,iShares Russell Top 200 Growth ETF,NYSE,股权,,4478669903
 LBRT,"Liberty Energy, Inc.",NYSE,,,4477483527
 ALK,"Alaska Air Group, Inc.",NYSE,航空公司,,4475751241
 NOVT,"Novanta, Inc.",NASDAQ,,,4468678512
-XMLV,Invesco S&P MidCap Low Volatility ETF,AMEX,股权,,4464855684
 FFIN,"First Financial Bankshares, Inc.",NASDAQ,银行,,4463002967
 CORT,"Corcept Therapeutics, Inc.",NASDAQ,制药,,4458135162
 IBOC,International Bancshares Corp.,NASDAQ,银行,,4456898917
 TCBI,"Texas Capital Bancshares, Inc.",NASDAQ,银行,,4456244336
-SMH,VanEck Semiconductor ETF,NYSE,股权,,4453958884
 SIM,Grupo SIMEC SAB de CV,NYSE,,,4449989877
 FELE,"Franklin Electric Co., Inc.",NASDAQ,手工/机器工具,,4447880978
 UUUU,"Energy Fuels, Inc.",NYSE,,,4445550308
@@ -1675,12 +1512,9 @@ BFAM,"Bright Horizons Family Solutions, Inc.",NYSE,,,4433892572
 HIMS,"Hims & Hers Health, Inc.",NYSE,,,4428850079
 MAT,"Mattel, Inc.",NASDAQ,玩具/游戏/爱好,,4424208104
 HLS,HealthSouth Corp.,NYSE,健康护理服务,,4423232596
-ATC,Atotech Ltd.,AMEX,汽车制造,,4422159174
 ANF,Abercrombie & Fitch Co.,NYSE,零售,,4420118871
 CAAP,Corporacion America Airports SA,NYSE,,,4417237289
 HBHC,Hancock Holding Co.,NASDAQ,银行,,4405075746
-EMLP,First Trust North American Energy Infrastructure Fund,NASDAQ,股权,,4390378038
-XT,iShares Future Exponential Technologies ETF,NYSE,,,4388724480
 TPC,Tutor Perini Corp.,NYSE,,,4385435415
 CSAN,Cosan SA,NYSE,,,4385066832
 LAZ,"Lazard, Inc.",NYSE,多元化金融服务,,4383620007
@@ -1703,15 +1537,10 @@ TDW,"Tidewater, Inc.",NYSE,,,4268279910
 ONDS,"Ondas, Inc.",NASDAQ,,,4264927082
 SLM,SLM Corp.,NASDAQ,,,4254379856
 YSS,"York Space Systems, Inc.",NYSE,,,4251938972
-PGX,Invesco Preferred ETF,NYSE,股权,,4249111552
-SPHD,Invesco S&P 500 High Dividend Low Volatility ETF,NASDAQ,股权,,4248158576
-HEFA,iShares Currency Hedged MSCI EAFE ETF,NYSE,股权,,4239852162
 DUOL,"Duolingo, Inc.",NASDAQ,,,4226934641
-IJT,iShares S&P Small-Cap 600 Growth ETF,NYSE,股权,,4218492376
 SHAK,"Shake Shack, Inc.",NYSE,,,4209908536
 FHI,"Federated Hermes, Inc.",NYSE,,,4191658375
 NHI,"National Health Investors, Inc.",NYSE,,,4190766134
-FNDX,Schwab Fundamental U.S. Large Company.ETF,AMEX,,,4190062444
 ALHC,"Alignment Healthcare, Inc.",NASDAQ,,,4188078086
 CRGY,Crescent Energy Co.,NYSE,,,4177449390
 SKT,"Tanger, Inc.",NYSE,,,4175909681
@@ -1720,7 +1549,6 @@ THO,"Thor Industries, Inc.",NYSE,,,4167176186
 NG,"NovaGold Resources, Inc.",NYSE,,,4159639802
 LMND,"Lemonade, Inc.",NYSE,,,4159078257
 GLXY,"Galaxy Digital, Inc.",NASDAQ,,,4158719971
-HPT,Hospitality Properties Trust,NYSE,,,4157283214
 PVH,PVH Corp.,NYSE,零售,,4156937862
 TAC,TransAlta Corp.,NYSE,电力,,4155200000
 TFSL,TFS Financial Corp.,NASDAQ,储蓄及贷款,,4146835920
@@ -1732,7 +1560,6 @@ CRNX,"Crinetics Pharmaceuticals, Inc.",NASDAQ,,,4129578071
 WAY,Waystar Holding Corp.,NASDAQ,,,4121153992
 ENPH,"Enphase Energy, Inc.",NASDAQ,能源-替代能源,,4109682254
 FEYE,"FireEye, Inc.",NASDAQ,软件,,4100137091
-SPAB,SPDR Portfolio Aggregate Bond ETF,AMEX,,,4098326800
 AZZ,"AZZ, Inc.",NYSE,,,4095898891
 EPR,EPR Properties,NYSE,房地产信托投资基金,,4088349874
 PYCR,"Paycor HCM, Inc.",NASDAQ,,,4088050956
@@ -1747,7 +1574,6 @@ TREX,"Trex Co., Inc.",NYSE,,,4056866581
 KLIC,"Kulicke & Soffa Industries, Inc.",NASDAQ,半导体,,4053211959
 VSCO,Victoria's Secret & Co.,NYSE,,,4053122906
 HAFN,Hafnia Ltd.,NYSE,,,4038232664
-SKYY,First Trust Cloud Computing ETF,NASDAQ,股权,,4032616621
 SYRE,"Spyre Therapeutics, Inc.",NASDAQ,,,4028325083
 ACHR,"Archer Aviation, Inc.",NYSE,,,4020509764
 CVCO,"Cavco Industries, Inc.",NASDAQ,,,4014849525
@@ -1760,7 +1586,6 @@ DAN,"Dana, Inc.",NYSE,汽车部件与设备,,3994430108
 JBT,JBT Marel Corp.,NYSE,多元化制造商,,3990519384
 TPH,"Tri Pointe Homes, Inc.",NYSE,,,3986046987
 SAIC,Science Applications International Corp.,NYSE,,,3982419441
-SGOL,abrdn Physical Gold Shares ETF,NYSE,环球,,3980852013
 FTDR,"Frontdoor, Inc.",NASDAQ,,,3978282099
 KTB,"Kontoor Brands, Inc.",NYSE,,,3973877720
 AAUC,Allied Gold Corp. (Canada),NYSE,,,3969035237
@@ -1769,8 +1594,6 @@ CNO,"CNO Financial Group, Inc.",NYSE,保险,,3959998156
 BRC,Brady Corp.,NYSE,,,3956292668
 HHC,The Howard Hughes Corp.,NYSE,,,3946102069
 LBTYK,Liberty Global Ltd.,NASDAQ,媒体,,3943288129
-VONG,Vanguard Russell 1000 Growth Index Fund,NASDAQ,股权,,3942785802
-DNP,"DNP Select Income Fund, Inc.",NYSE,股权,,3942185794
 ELY,Callaway Golf Co.,NYSE,休闲,,3941152938
 ABG,"Asbury Automotive Group, Inc.",NYSE,零售,,3936327084
 USLM,"United States Lime & Minerals, Inc.",NASDAQ,,,3922637272
@@ -1792,20 +1615,15 @@ MMYT,MakeMyTrip Ltd.,NASDAQ,媒体内容,,3877129524
 JOE,The St. Joe Co.,NYSE,,,3876588664
 LGF,Lions Gate Entertainment,NYSE,娱乐,,3870006610
 DLO,dLocal Ltd.,NASDAQ,,,3869506717
-FNDE,Schwab Fundamental Emerging Markets Equity ETF,AMEX,,,3867918125
 INDB,Independent Bank Corp. (Massachusetts),NASDAQ,银行,,3867321643
 CVSA,"Covista, Inc.",NYSE,,,3866335061
-RODM,Hartford Multifactor Developed Markets (ex-US) ETF,AMEX,,,3864144299
 GPCR,"Structure Therapeutics, Inc.",NASDAQ,,,3861587053
 STNG,"Scorpio Tankers, Inc.",NYSE,,,3856845593
-HDIV,QRAFT AI-Enhanced U.S. High Dividend ETF,NYSE,股权,,3849687927
 IBKCO,IBERIABANK Corp.,NASDAQ,,,3849264320
-SOXX,iShares PHLX Semiconductor ETF,NASDAQ,股权,,3848636308
 ELF,"e.l.f. Beauty, Inc.",NYSE,,,3846072164
 MIAX,"Miami International Holdings, Inc.",NYSE,,,3844779740
 LRN,"Stride, Inc.",NYSE,商业服务,,3841167922
 KAI,Kadant Inc.,NYSE,,,3837883044
-SPHQ,Invesco S&P 500 Quality ETF,NYSE,股权,,3829739207
 DIOD,"Diodes, Inc.",NASDAQ,半导体,,3821765008
 BANF,BancFirst Corp. (Oklahoma),NASDAQ,银行,,3819603101
 PLUG,"Plug Power, Inc.",NASDAQ,,,3819437012
@@ -1818,18 +1636,14 @@ PLLL,Piedmont Lithium Ltd.,NASDAQ,,,3795690778
 SKYW,"SkyWest, Inc.",NASDAQ,,,3789209433
 OTTR,Otter Tail Corp.,NASDAQ,电力,,3787563915
 HRB,"H&R Block, Inc.",NYSE,,,3777439887
-SUSL,iShares ESG MSCI USA Leaders ETF,NASDAQ,,,3775754623
 YNDX,Nebius Group NV,NASDAQ,互联网,,3768994896
 PNM,"PNM Resources, Inc.",NYSE,电力,,3767670081
-IUSB,Ishares Core Universal USD Bond ETF,NYSE,,,3763078062
-UTG,Reaves Utility Income Fund,AMEX,股权,,3762431848
 SIG,Signet Jewelers Ltd.,NYSE,零售,,3751545570
 PPTA,Perpetua Resources Corp.,NASDAQ,,,3740993815
 BLLN,"BillionToOne, Inc.",NASDAQ,,,3729205877
 INDV,"Indivior Pharmaceuticals, Inc.",NASDAQ,,,3723499885
 SII,"Sprott, Inc.",NYSE,,,3712963431
 AMSG,Amsurg Corp,NASDAQ,卫生保健设施,,3712941258
-SCHA,Schwab U.S. Small-Cap ETF,NYSE,股权,,3710746037
 ACAD,"ACADIA Pharmaceuticals, Inc.",NASDAQ,生物技术和制药,,3706552848
 GTX,"Garrett Motion, Inc.",NYSE,,,3700636006
 STVN,Stevanato Group SpA,NYSE,,,3691010122
@@ -1837,12 +1651,8 @@ AKO.A,Embotelladora Andina SA,NYSE,饮料,,3685315090
 LEU,Centrus Energy Corp.,NYSE,,,3681599883
 AGO,Assured Guaranty Ltd.,NYSE,保险,,3676860957
 GPOR,Gulfport Energy Corp.,NASDAQ,油气,,3674985922
-SCHV,Schwab U.S. Large-Cap Value ETF,NYSE,股权,,3667654790
-SLYV,SPDR S&P 600 Small Cap Value ETF,NYSE,股权,,3663248181
 RNST,Renasant Corp.,NASDAQ,银行,,3656686680
 CDP,COPT Defense Properties,NYSE,,,3655334185
-SHM,SPDR Nuveen ICE Short Term Municipal Bond ETF,NYSE,股权,,3655259300
-EWU,iShares MSCI United Kingdom ETF,NYSE,资产配置,,3651940974
 INSW,"International Seaways, Inc.",NYSE,,,3650717987
 HGV,"Hilton Grand Vacations, Inc.",NYSE,,,3650148202
 PJT,"PJT Partners, Inc.",NYSE,,,3649367586
@@ -1853,7 +1663,6 @@ BBWI,"Bath & Body Works, Inc.",NYSE,,,3640530273
 WHR,Whirlpool Corp.,NYSE,家具家饰,,3640218633
 FOUR,"Shift4 Payments, Inc.",NYSE,,,3638779693
 ASO,"Academy Sports & Outdoors, Inc.",NASDAQ,,,3629295910
-IRT,"Independence Realty Trust, Inc.",AMEX,,,3628968469
 MARA,"MARA Holdings, Inc.",NASDAQ,,,3627438384
 INTR,"Inter & Co., Inc.",NASDAQ,,,3623647922
 WSFS,WSFS Financial Corp.,NASDAQ,银行,,3617252908
@@ -1862,35 +1671,27 @@ IRDM,"Iridium Communications, Inc.",NASDAQ,电信,,3615554757
 CMBT,CMB.TECH NV,NYSE,,,3615515009
 WPP,WPP Plc,NYSE,,,3611830235
 OII,"Oceaneering International, Inc.",NYSE,油气服务,,3610756080
-SCHM,Schwab U.S. Mid-Cap ETF,NYSE,股权,,3606063526
 KNSA,Kiniksa Pharmaceuticals International Plc,NASDAQ,,,3603285689
 MMS,"MAXIMUS, Inc.",NYSE,,,3593659839
 CALM,"Cal-Maine Foods, Inc.",NASDAQ,食品,,3592567058
 WIX,Wix.com Ltd.,NASDAQ,,,3585243524
 CATY,Cathay General Bancorp,NASDAQ,银行,,3580226108
-PDP,Invesco Dorsey Wright Momentum ETF,NYSE,股权,,3578415500
 TLX,Telix Pharmaceuticals Ltd.,NASDAQ,,,3570710084
-SCHC,Schwab International Small-Cap Equity ETF,NYSE,股权,,3567442814
 AXTI,"AXT, Inc.",NASDAQ,半导体,,3567033987
 ZETA,Zeta Global Holdings Corp.,NYSE,,,3566645712
 HSAI,Hesai Group,NASDAQ,,,3560842477
 RELY,"Remitly Global, Inc.",NASDAQ,,,3551633127
 CNK,"Cinemark Holdings, Inc.",NYSE,娱乐,,3547291325
 TCGL,TechCreate Group Ltd.,NYSE,,,3531553225
-USFR,WisdomTree Floating Rate Treasury Fund,NYSE,股权,,3526164771
-BBAX,JPMorgan BetaBuilders Developed Asia ex-Japan ETF,AMEX,,,3526144208
 SMG,Scotts Miracle-Gro Co.,NYSE,家庭产品/用品,,3525334695
 FII,"Federated Investors, Inc.",NYSE,,,3520784945
 EWTX,"Edgewise Therapeutics, Inc.",NASDAQ,,,3520618466
 USAR,"USA Rare Earth, Inc.",NASDAQ,,,3520315143
-USIG,iShares Broad USD Investment Grade Corporate Bond ETF,NASDAQ,,,3519295937
-VCLT,Vanguard Long-Term Corporate Bond Index Fund,NASDAQ,股权,,3510926939
 AB,AllianceBernstein Holding LP,NYSE,,,3509574364
 AVNT,Avient Corp.,NYSE,,,3504231909
 FBP,First BanCorp (Puerto Rico),NYSE,银行,,3503506738
 FSLY,"Fastly, Inc.",NYSE,,,3502025954
 VEON,VEON Ltd.,NASDAQ,,,3493387373
-USSG,Xtrackers MSCI USA Selection Equity ETF,AMEX,,,3490907500
 ZI,"ZoomInfo Technologies, Inc.",NASDAQ,,,3489062143
 GEF.B,"Greif, Inc.",NYSE,,,3482634524
 BHF,"Brighthouse Financial, Inc.",NASDAQ,,,3472790002
@@ -1900,15 +1701,12 @@ WSBC,"WesBanco, Inc.",NASDAQ,银行,,3465786123
 HP,"Helmerich & Payne, Inc.",NYSE,油气,,3462780274
 AVA,Avista Corp.,NYSE,电力,,3455910856
 UCTT,"Ultra Clean Holdings, Inc.",NASDAQ,半导体,,3448599670
-ISTB,iShares Core 1-5 Year USD Bond ETF,NASDAQ,股权,,3447749152
 BTU,Peabody Energy Corp.,NYSE,煤炭,,3446684905
-NEA,Nuveen AMT-Free Quality Municipal Income Fund,AMEX,股权,,3444392493
 FIBK,"First Interstate BancSystem, Inc.",NASDAQ,银行,,3441055694
 BKU,"BankUnited, Inc.",NYSE,银行,,3435977531
 HRI,"Herc Holdings, Inc.",NYSE,,,3435801733
 BILL,"Bill Holdings, Inc.",NYSE,,,3434916782
 LIVN,LivaNova Plc,NASDAQ,,,3433429909
-COLD,"Americold Realty Trust, Inc.",NYSE,,,3426391070
 HYMC,Hycroft Mining Holding Corp.,NASDAQ,,,3414303300
 CC,The Chemours Co.,NYSE,,,3409026645
 ATGE,"Adtalem Global Education, Inc.",NYSE,,,3400467622
@@ -1917,13 +1715,10 @@ CTRI,"Centuri Holdings, Inc.",NYSE,,,3397451572
 LQDA,Liquidia Corp.,NASDAQ,,,3396811171
 ACLS,"Axcelis Technologies, Inc.",NASDAQ,半导体,,3391666873
 MCHB,Mechanics Bancorp,NASDAQ,,,3385030585
-VONV,Vanguard Russell 1000 Value Index Fund,NASDAQ,股权,,3382449158
 ARLP,Alliance Resource Partners LP,NASDAQ,煤炭,,3381153090
 WSC,WillScot Holdings Corp.,NYSE,保险,,3374743785
 GNW,"Genworth Financial, Inc.",NYSE,保险,,3370562772
 LEGN,Legend Biotech Corp.,NASDAQ,,,3358794539
-GBIL,Goldman Sachs TreasuryAccess 0-1 Year ETF,AMEX,,,3357459484
-FXO,First Trust Financials AlphaDEX Fund,NYSE,股权,,3347706710
 GBDC,"Golub Capital BDC, Inc.",NASDAQ,,,3345630191
 NIC,"Nicolet Bankshares, Inc.",NYSE,,,3344977326
 SA,"Seabridge Gold, Inc.",NYSE,,,3344674609
@@ -1931,18 +1726,15 @@ HCACW,"Canoo, Inc.",NASDAQ,,,3343787816
 BBAR,Banco BBVA Argentina SA,NYSE,,,3335185181
 TR,"Tootsie Roll Industries, Inc.",NYSE,,,3325044618
 UCBI,"United Community Banks, Inc.",NASDAQ,银行,,3316634981
-BXMT,"Blackstone Mortgage Trust, Inc.",NYSE,,,3307277448
 IGT,International Game Technology PLC,NYSE,娱乐,,3307068468
 ACXM,"Acxiom Holdings, Inc.",NASDAQ,软件,,3305214239
 TOWN,TowneBank,NASDAQ,银行,,3304837881
 VLYPO,Valley National Bancorp,NASDAQ,,,3304243924
 GTLB,"GitLab, Inc.",NASDAQ,,,3303342013
 OLN,Olin Corp.,NYSE,化学制品,,3296161308
-SPXL,Direxion Daily S&P 500 Bull 3x ETF,NASDAQ,股权,,3294709673
 AAP,"Advance Auto Parts, Inc.",NYSE,,,3293371474
 DORM,"Dorman Products, Inc.",NASDAQ,汽车制造,,3292588297
 KRC,Kilroy Realty Corp.,NYSE,,,3289700929
-IJK,iShares S&P Mid-Cap 400 Growth ETF,NYSE,股权,,3289607220
 KAR,"OPENLANE, Inc.",NYSE,,,3281406909
 CBU,"Community Financial System, Inc.",NYSE,银行,,3280981216
 BFH,"Bread Financial Holdings, Inc.",NYSE,,,3271562379
@@ -1950,29 +1742,23 @@ PAGS,PagSeguro Digital Ltd.,NYSE,,,3261581082
 BGSI,"Boyd Group Services, Inc.",NYSE,,,3257230716
 SXI,Standex International Corp.,NYSE,,,3251213674
 FIZZ,National Beverage Corp.,NASDAQ,饮料,,3249969897
-SCHZ,Schwab U.S. Aggregate Bond ETF,NYSE,股权,,3247553936
 CNS,"Cohen & Steers, Inc. (New York)",NYSE,,,3246038969
-FNDA,Schwab Fundamental U.S. Small Company ETF,AMEX,股权,,3245323705
 WBI,Waterbridge Infrastructure LLC,NYSE,,,3244397485
 GEF,"Greif, Inc.",NYSE,,,3243261057
 TGNA,"TEGNA, Inc.",NYSE,,,3243011542
 PAH,Platform Specialty Products Corp.,NYSE,化学制品,,3240826302
-SHYG,iShares 0-5 Year High Yield Corporate Bond ETF,NYSE,股权,,3235775295
 KBH,KB Home,NYSE,房屋建筑商,,3230159904
 VERA,"Vera Therapeutics, Inc.",NASDAQ,,,3229994077
 BKD,"Brookdale Senior Living, Inc.",NYSE,卫生保健设施,,3222087242
 EXPO,"Exponent, Inc.",NASDAQ,,,3219756276
 DNN,Denison Mines Corp.,NYSE,,,3218296947
 SEAS,"SeaWorld Entertainment, Inc.",NYSE,,,3216384811
-FNDC,Schwab Fundamental International Small Equity ETF,AMEX,股权,,3207980226
-VCX,Fundrise Innovation Fund LLC,NYSE,,,3202882273
 SWI,SolarWinds Corp.,NYSE,软件,,3201198345
 FSM,Fortuna Mining Corp.,NYSE,采矿,,3199124514
 MHO,"M/I Homes, Inc.",NYSE,房屋建筑商,,3198288112
 CLNS,"Colony NorthStar, Inc.",NYSE,,,3184643944
 ZIM,ZIM Integrated Shipping Services Ltd.,NYSE,,,3180509452
 FRPT,"Freshpet, Inc.",NASDAQ,,,3178905219
-NSA,National Storage Affiliates Trust,NYSE,,,3174204128
 SUNC,SunocoCorp LLC,NYSE,,,3173975031
 SBCF,Seacoast Banking Corp. of Florida,NASDAQ,银行,,3170923824
 EURN,Euronav NV,NYSE,,,3167676475
@@ -1982,12 +1768,10 @@ CPK,Chesapeake Utilities Corp.,NYSE,天然气,,3156984130
 OPLN,"OPENLANE, Inc.",NYSE,,,3155964786
 BATRA,"Atlanta Braves Holdings, Inc.",NASDAQ,,,3149340580
 ANDG,"Andersen Group, Inc.",NYSE,,,3149212905
-HYLB,Xtrackers (USD) High Yield Corporate Bond ETF,AMEX,,,3146884876
 PFHC,ProFrac Holding Corp.,NASDAQ,,,3143599318
 ICUI,"ICU Medical, Inc.",NASDAQ,,,3141043331
 KFY,Korn Ferry,NYSE,,,3140725313
 VTMX,Corporaci贸n Inmobiliaria Vesta SAB de CV,NYSE,,,3139925300
-THRK,SPDR Russell 3000 ETF,AMEX,,,3139493124
 HAYW,"Hayward Holdings, Inc.",NYSE,,,3129981023
 PII,Polaris Inc.,NYSE,休闲,,3124631002
 BXS,BancorpSouth Bank,NYSE,银行,,3123373384
@@ -1999,7 +1783,6 @@ VLYPP,Valley National Bancorp,NASDAQ,,,3110447209
 PARR,"Par Pacific Holdings, Inc.",NYSE,,,3105279879
 CWK,Cushman & Wakefield Ltd.,NYSE,,,3097278869
 HWKN,"Hawkins, Inc.",NASDAQ,化学制品,,3095600101
-USMC,Principal U.S. Mega-Cap Multi-Factor Index ETF,NASDAQ,,,3088818483
 TARS,"Tarsus Pharmaceuticals, Inc.",NASDAQ,,,3087971516
 ZGN,Ermenegildo Zegna NV,NYSE,,,3087447065
 CALX,"Calix, Inc.",NYSE,电信,,3083811262
@@ -2019,11 +1802,8 @@ AEO,"American Eagle Outfitters, Inc.",NYSE,,,3053479794
 CPRX,"Catalyst Pharmaceuticals, Inc.",NASDAQ,制药,,3045769732
 MANU,Manchester United Plc,NYSE,娱乐,,3041741899
 BKV,BKV Corp.,NYSE,,,3041492175
-AMZA,InfraCap MLP ETF,NYSE,,,3038532059
 POWI,"Power Integrations, Inc.",NASDAQ,半导体,,3026632943
 CCC,"CCC Intelligent Solutions Holdings, Inc.",NYSE,化学制品,,3023723849
-SLYG,SPDR S&P 600 Small Cap Growth ETF,NYSE,股权,,3020804393
-MPW,"Medical Properties Trust, Inc.",NYSE,房地产信托投资基金,,3019529989
 FTREV,"Fortrea Holdings, Inc.",NASDAQ,,,3013285851
 ATS,ATS Corp.,NYSE,,,3009333444
 MNDY,monday.com Ltd.,NASDAQ,,,3008768012
@@ -2037,36 +1817,25 @@ NSAM,"NorthStar Asset Management Group, Inc.",NYSE,,,2992887261
 BSM,Black Stone Minerals LP,NYSE,,,2989659789
 BELFB,"Bel Fuse, Inc.",NASDAQ,,,2983472845
 IPAR,"Interparfums, Inc.",NASDAQ,,,2982676005
-QDF,FlexShares Quality Dividend Index Fund,NASDAQ,股权,,2979419344
-ERI,"Eldorado Resorts, Inc.",AMEX,,,2975992147
 WK,"Workiva, Inc.",NYSE,,,2975861837
 ADEA,"Adeia, Inc.",NASDAQ,,,2974609372
 SFNC,Simmons First National Corp.,NASDAQ,银行,,2973705708
 TTAM,Titan America SA,NYSE,,,2970079424
 MGEE,"MGE Energy, Inc.",NASDAQ,,,2968486298
 APAM,"Artisan Partners Asset Management, Inc.",NYSE,,,2967182350
-CSQ,Calamos Strategic Total Return Fund,NYSE,股权,,2963630781
 JW.B,"John Wiley & Sons, Inc.",NYSE,,,2962658987
 KMT,"Kennametal, Inc.",NYSE,手工/机器工具,,2960322875
 BOX,"Box, Inc.",NYSE,,,2958667662
 JW.A,"John Wiley & Sons, Inc.",NYSE,媒体内容,,2954302346
-MPT,"Medical Properties Trust, Inc.",NYSE,,,2952638034
 ORKA,"Oruka Therapeutics, Inc.",NASDAQ,,,2951753620
 DBD,"Diebold Nixdorf, Inc.",NYSE,计算机,,2951119610
-VTHR,Vanguard Russell 3000 Index Fund,NASDAQ,股权,,2950622590
 CAKE,"Cheesecake Factory, Inc.",NASDAQ,,,2949165072
 MLHR,"Herman Miller, Inc.",NASDAQ,,,2949109074
-TILT,Flexshares Morningstar US Market Factors Tilt Index Fund,NYSE,股权,,2949056325
-SCHH,Schwab U.S. REIT ETF,NYSE,股权,,2946384677
 APLE,"Apple Hospitality REIT, Inc.",NYSE,,,2945850141
-MDYG,SPDR S&P 400 Mid Cap Growth ETF,NYSE,股权,,2941211192
 NMIH,"NMI Holdings, Inc.",NASDAQ,,,2940397415
-EWG,iShares MSCI Germany ETF,NYSE,债务,,2940150196
 HOVNP,"Hovnanian Enterprises, Inc.",NASDAQ,,,2939951812
 SMR,NuScale Power Corp.,NYSE,,,2937990012
-JPC,Nuveen Preferred & Income Opportunities Fund,NYSE,股权,,2933494942
 ALMS,"Alumis, Inc.",NASDAQ,,,2931944529
-LXP,LXP Industrial Trust,NYSE,,,2931368165
 GBTG,"Global Business Travel Group, Inc.",NYSE,,,2930720291
 CEIX,"CONSOL Energy, Inc.",NYSE,,,2927982776
 PLBL,Polibeli Group Ltd.,NASDAQ,,,2927435801
@@ -2078,9 +1847,7 @@ GRBK,"Green Brick Partners, Inc.",NASDAQ,,,2903622553
 ITGR,Integer Holdings Corp.,NYSE,,,2899705636
 UBSH,Union Bankshares Corp.,NASDAQ,银行,,2894845969
 WDFC,WD-40 Co.,NASDAQ,家庭产品/用品,,2886203417
-SCHG,Schwab U.S. Large-Cap Growth ETF,NYSE,股权,,2882412776
 ESGRP,Enstar Group Ltd.,NASDAQ,,,2881925178
-ADX,"Adams Diversified Equity Fund, Inc.",NYSE,股权,,2879574991
 BCC,Boise Cascade Co.,NYSE,,,2874599826
 PFS,"Provident Financial Services, Inc.",NYSE,储蓄及贷款,,2873416897
 MSGE,Madison Square Garden Entertainment Corp.,NYSE,,,2864749727
@@ -2089,7 +1856,6 @@ GPK,Graphic Packaging Holding Co.,NYSE,包装容器,,2859814651
 SYNA,"Synaptics, Inc.",NASDAQ,计算机硬件,,2858255004
 TNGX,"Tango Therapeutics, Inc.",NASDAQ,,,2846642686
 FBK,FB Financial Corp.,NYSE,,,2846212072
-DUST,Direxion Daily Gold Miners Index Bear 2x ETF,NYSE,股权,,2842895400
 DBRG,"DigitalBridge Group, Inc.",NYSE,,,2838531027
 FSK,FS KKR Capital Corp.,NYSE,,,2837072998
 ADS,Alliance Data Systems Corp.,NYSE,媒体内容,,2837054598
@@ -2107,30 +1873,23 @@ UNFI,"United Natural Foods, Inc.",NASDAQ,,,2810385891
 PRVA,"Privia Health Group, Inc.",NASDAQ,,,2810230930
 CWT,California Water Service Group,NYSE,,,2809088637
 MGRC,McGrath RentCorp,NASDAQ,商业服务,,2808436195
-OFC,Corporate Office Properties Trust,NYSE,,,2806914983
-EXG,Eaton Vance Tax-Managed Global Diversified Equity Income Fund,NYSE,环球,,2802373951
 RCUS,"Arcus Biosciences, Inc.",NYSE,,,2800307313
 CVBF,CVB Financial Corp.,NASDAQ,银行,,2794452820
 BEAM,"Beam Therapeutics, Inc.",NYSE,饮料,,2793916831
-SJNK,SPDR Bloomberg Barclays Short Term High Yield Bond ETF,NASDAQ,股权,,2790726084
 HNGE,"Hinge Health, Inc.",NYSE,,,2789005998
 EXK,Endeavour Silver Corp.,NYSE,采矿,,2785808547
 WU,The Western Union Co.,NYSE,,,2783146033
 YETI,"YETI Holdings, Inc.",NYSE,,,2777199621
 SHOO,Steven Madden Ltd.,NASDAQ,服饰,,2772611240
 DRD,DRDGOLD Ltd.,NYSE,采矿,,2771335718
-BFT,FOLEY TRASIMENE ACQUISITION COR,NYSE,,,2769025703
 IHS,IHS Holding Ltd.,NYSE,,,2764694718
 TRN,"Trinity Industries, Inc.",NYSE,,,2762454190
-NAD,Nuveen Quality Municipal Income Fund,NYSE,股权,,2761177051
-FCPT,"Four Corners Property Trust, Inc.",NYSE,,,2758990289
 KD,"Kyndryl Holdings, Inc.",NYSE,,,2757219055
 BBU,Brookfield Business Partners LP,NYSE,,,2757085863
 CLBT,Cellebrite DI Ltd.,NASDAQ,,,2751320938
 HTGC,"Hercules Capital, Inc.",NYSE,私募股权投资,,2746246748
 PHIN,"PHINIA, Inc.",NYSE,,,2746010293
 SOUN,"SoundHound AI, Inc.",NASDAQ,,,2740530580
-GSY,Invesco Ultra Short Duration ETF,NYSE,股权,,2731368588
 SLG,SL Green Realty Corp.,NYSE,,,2729017882
 BHFAP,"Brighthouse Financial, Inc.",NASDAQ,,,2727360612
 DX,"Dynex Capital, Inc.",NYSE,,,2725493020
@@ -2138,18 +1897,11 @@ INFQ,"Infleqtion, Inc.",NYSE,,,2725381594
 ESGRO,Enstar Group Ltd.,NASDAQ,,,2724170009
 WOR,"Worthington Enterprises, Inc.",NYSE,,,2718765306
 QLYS,"Qualys, Inc.",NASDAQ,软件,,2718505452
-SUB,iShares Short-Term National Muni Bond ETF,NYSE,股权,,2718455295
-NVG,Nuveen AMT-Free Municipal Credit Income Fund,AMEX,股权,,2718139571
-GSIE,Goldman Sachs ActiveBeta International Equity ETF,AMEX,,,2717120945
-AKR,Acadia Realty Trust,NYSE,房地产信托投资基金,,2717036699
 SLNO,"Soleno Therapeutics, Inc.",NASDAQ,,,2716991385
-PKW,Invesco Buyback Achievers ETF,NYSE,股权,,2716733702
 ELVN,"Enliven Therapeutics, Inc.",NASDAQ,,,2710154382
 HE,"Hawaiian Electric Industries, Inc.",NYSE,电力,,2710141440
 BWLP,BW LPG Ltd.,NYSE,,,2709891061
-JHMM,John Hancock Multifactor Mid Cap ETF,NYSE,,,2706999262
 SBLK,Star Bulk Carriers Corp.,NASDAQ,,,2701277934
-TOTL,SPDR DoubleLine Total Return Tactical ETF,AMEX,,,2700703960
 MODG,Topgolf Callaway Brands Corp.,NYSE,,,2699412053
 CRVL,CorVel Corp.,NASDAQ,,,2699314124
 EEFT,"Euronet Worldwide, Inc.",NASDAQ,,,2695330836
@@ -2165,12 +1917,9 @@ RLAY,"Relay Therapeutics, Inc.",NASDAQ,,,2670163511
 CVB,Lehman ABS 7.75% CorTS Kinder Deb-Bkd Series 2002-6,NYSE,,,2669000002
 DKL,Delek Logistics Partners LP,NYSE,油气,,2667054984
 TGB,Taseko Mines Ltd.,NYSE,采矿,,2665465650
-PPA,Invesco Aerospace & Defense ETF,NYSE,股权,,2665218323
-NHC,National HealthCare Corp.,AMEX,卫生保健设施,,2665097104
 HAE,Haemonetics Corp.,NYSE,医疗保健产品,,2663737768
 KYIV,Kyivstar Group Ltd.,NASDAQ,,,2659549054
 HCM,HUTCHMED (China) Ltd.,NASDAQ,,,2658373114
-CWI,SPDR MSCI ACWI ex-US ETF,NYSE,股权,,2656222997
 DW,Drew Industries Inc,NYSE,,,2653286966
 NGVT,Ingevity Corp.,NYSE,,,2650495984
 PLAB,"Photronics, Inc.",NASDAQ,半导体,,2647591181
@@ -2179,21 +1928,14 @@ TRMK,Trustmark Corp.,NASDAQ,银行,,2643936077
 UE,Urban Edge Properties,NYSE,,,2639129900
 MFS,"Manitowoc Food Service, Inc. When Issued",NYSE,,,2635958122
 CHEF,"The Chefs' Warehouse, Inc.",NASDAQ,食品,,2630931608
-ICSH,iShares Ultra Short-Term Bond Active ETF,NYSE,股权,,2628530365
-SIZE,iShares Edge MSCI USA Size Factor ETF,AMEX,,,2623607733
 LMAT,"LeMaitre Vascular, Inc.",NASDAQ,,,2610856030
 EFXT,Enerflex Ltd.,NYSE,,,2608994115
 UAA,"Under Armour, Inc.",NYSE,,,2606446757
-RWR,State Street SPDR Dow Jones REIT ETF,NYSE,股权,,2603181174
 FRME,First Merchants Corp. (Indiana),NASDAQ,银行,,2600789971
 DJT,Trump Media & Technology Group Corp.,NASDAQ,,,2598507096
-TFI,SPDR Nuveen ICE Municipal Bond ETF,NYSE,股权,,2592826486
 BTDR,Bitdeer Technologies Group,NASDAQ,,,2592547779
 UNIT,"Uniti Group, Inc.",NASDAQ,,,2591553774
-UTF,"Cohen & Steers Infrastructure Fund, Inc.",NYSE,股权,,2590447976
-PTY,PIMCO Corporate & Income Opportunity Fund,NYSE,股权,,2590419058
 ATRO,Astronics Corp.,NASDAQ,航空航天/国防,,2587252910
-SCHO,Schwab Short-Term U.S. Treasury ETF,NYSE,股权,,2583827358
 ASH,"Ashland, Inc.",NYSE,化学制品,,2581913904
 BULL,Webull Corp.,NASDAQ,,,2580611910
 ETOR,eToro Group Ltd.,NASDAQ,,,2570233474
@@ -2202,13 +1944,10 @@ AYA,AMAYA INC,NASDAQ,,,2568287811
 CALY,Callaway Golf Co.,NASDAQ,,,2565862741
 CLSK,"CleanSpark, Inc.",NASDAQ,,,2562644115
 TNK,Teekay Tankers Ltd.,NYSE,,,2562260002
-BOND,PIMCO Active Bond ETF,NASDAQ,环球,,2558916024
 UA,"Under Armour, Inc.",NYSE,服饰,,2555340000
-DBC,Invesco DB Commodity Index Tracking Fund,NYSE,环球,,2553601140
 WRBY,"Warby Parker, Inc.",NYSE,,,2549362680
 HOG,"Harley-Davidson, Inc.",NYSE,汽车制造,,2549074091
 RLX,"RLX Technology, Inc.",NYSE,,,2546546934
-USHY,iShares Broad USD High Yield Corporate Bond ETF,AMEX,,,2543545386
 SVM,"Silvercorp Metals, Inc.",NYSE,采矿,,2539696996
 ANDE,"The Andersons, Inc.",NASDAQ,农业,,2537663352
 FLNC,"Fluence Energy, Inc.",NASDAQ,,,2534628013
@@ -2222,14 +1961,11 @@ WRD,"WeRide, Inc.",NYSE,,,2517648562
 DAVE,"Dave, Inc.",NASDAQ,,,2514085115
 HNI,HNI Corp.,NYSE,,,2513992216
 MH,"McGraw Hill, Inc.",NYSE,,,2513579961
-SPSM,SPDR Portfolio Small Cap ETF,AMEX,,,2501809062
-GDV,The Gabelli Dividend & Income Trust,NYSE,股权,,2500090016
 IVT,InvenTrust Properties Corp.,NYSE,,,2498807579
 HTO,H2O America,NASDAQ,,,2496564917
 DK,"Delek US Holdings, Inc.",NYSE,油气,,2496403593
 LFST,"Lifestance Health Group, Inc.",NASDAQ,,,2494612517
 CDLR,Cadeler A/S,NYSE,,,2490427496
-SPYD,SPDR S&P 500 High Dividend ETF,NYSE,,,2481628819
 CLDX,"Celldex Therapeutics, Inc.",NASDAQ,生物技术,,2479621924
 OSW,OneSpaWorld Holdings Ltd.,NASDAQ,,,2472368096
 HIW,"Highwoods Properties, Inc.",NYSE,,,2472009008
@@ -2237,32 +1973,19 @@ VCYT,"Veracyte, Inc.",NASDAQ,,,2470362508
 TBBK,"The Bancorp, Inc. (Delaware)",NASDAQ,银行,,2469182951
 WAFD,"WaFd, Inc.",NASDAQ,银行,,2468592958
 AMBP,Ardagh Metal Packaging SA,NYSE,,,2462522156
-SRNG,Soaring Eagle Acquisition Corp.,NASDAQ,,,2462437528
 AMR,"Alpha Metallurgical Resources, Inc.",NASDAQ,,,2460185989
-KRE,SPDR S&P Regional Banking ETF,NYSE,股权,,2459209498
 KN,Knowles Corp.,NYSE,,,2452990790
-GEM,Goldman Sachs ETF Tr. - ActiveBeta Emerging Markets Equity ETF,NYSE,,,2452838013
 IMNM,"Immunome, Inc.",NASDAQ,,,2451596019
 TALO,"Talos Energy, Inc.",NYSE,,,2448518299
-SDOG,ALPS Sector Dividend Dogs ETF,NASDAQ,股权,,2448473515
-TDIV,First Trust NASDAQ Technology Dividend Index Fund,NASDAQ,,,2440968232
-GOF,Guggenheim Strategic Opportunities Fund,NYSE,股权,,2438495995
-NZF,Nuveen Municipal Credit Income Fund,AMEX,股权,,2433237025
-FEAC,Fidelity Enhanced US All Cap Equity ETF,NYSE,,,2433094606
 FBNC,First Bancorp (North Carolina),NASDAQ,银行,,2429020072
-HACK,Amplify Cybersecurity Etf,AMEX,,,2418811172
 ARCB,ArcBest Corp.,NASDAQ,,,2418649110
 VECO,"Veeco Instruments, Inc.",NASDAQ,半导体,,2418095055
-MDYV,SPDR S&P 400 Mid Cap Value ETF,NYSE,股权,,2413190561
-ARKK,ARK Innovation ETF,NYSE,,,2405620299
-VGLT,Vanguard Long-Term Government Bond Index Fund,NASDAQ,股权,,2403936196
 BCRX,"BioCryst Pharmaceuticals, Inc.",NASDAQ,生物技术,,2397654032
 ACHC,"Acadia Healthcare Co., Inc.",NASDAQ,健康护理服务,,2387368053
 RHI,"Robert Half, Inc.",NYSE,商业服务,,2385977445
 DXPE,"DXP Enterprises, Inc.",NASDAQ,,,2383590990
 HUBG,"Hub Group, Inc.",NASDAQ,运输,,2383152359
 HUN,Huntsman Corp.,NYSE,化学制品,,2374773931
-BOTZ,Global X Robotics & Artificial Intelligence ETF,NASDAQ,,,2372613620
 VRNS,"Varonis Systems, Inc.",NASDAQ,,,2371270135
 CPRI,Capri Holdings Ltd.,NYSE,,,2368937518
 AUO,AU Optronics Corp.,NYSE,计算机硬件,,2367564323
@@ -2274,19 +1997,15 @@ BW,"Babcock & Wilcox Enterprises, Inc.",NYSE,,,2358864887
 HLIO,"Helios Technologies, Inc.",NASDAQ,,,2354908928
 NBTB,"NBT Bancorp, Inc.",NASDAQ,银行,,2348755605
 PAHC,Phibro Animal Health Corp.,NASDAQ,生物技术和制药,,2346554684
-KYN,"Kayne Anderson Energy Infrastructure Fund, Inc.",NYSE,股权,,2342395691
 XRAY,"Dentsply Sirona, Inc.",NASDAQ,医疗保健产品,,2339064697
 AMGP,Antero Midstream GP LP,NYSE,,,2335397489
-FHLC,Fidelity MSCI Health Care Index ETF,NYSE,,,2335301073
 EXTR,"Extreme Networks, Inc.",NASDAQ,电信,,2332262022
-FTC,First Trust Large Cap Growth AlphaDEX Fund,NYSE,股权,,2332041329
 VAC,Marriott Vacations Worldwide Corp.,NYSE,娱乐,,2331489893
 ZLAB,Zai Lab Ltd.,NASDAQ,,,2330004881
 CENT,Central Garden & Pet Co.,NASDAQ,,,2327557048
 GEO,"The GEO Group, Inc.",NYSE,,,2326359060
 TDC,Teradata Corp.,NYSE,计算机,,2324520396
 NTCT,"NetScout Systems, Inc.",NASDAQ,计算机,,2322605995
-MSTX,Defiance Daily Target 2X Long MSTR ETF,AMEX,,,2319570831
 NESR,National Energy Services Reunited Corp.,NASDAQ,,,2318331092
 CCU,Compa帽铆a Cervecer铆as Unidas SA,NYSE,饮料,,2316783000
 XXI,"Twenty One Capital, Inc.",NYSE,,,2314490026
@@ -2296,8 +2015,6 @@ AMBA,"Ambarella, Inc.",NASDAQ,半导体,,2311176980
 HTFL,"HeartFlow, Inc.",NASDAQ,,,2311171536
 NWN,Northwest Natural Holding Co.,NYSE,天然气,,2310949774
 ADMA,"ADMA Biologics, Inc.",NASDAQ,,,2310143952
-RDVY,First Trust Rising Dividend Achievers ETF,NASDAQ,股权,,2306040106
-XSLV,Invesco S&P SmallCap Low Volatility ETF,AMEX,股权,,2300102636
 BUSE,First Busey Corp.,NASDAQ,银行,,2299686071
 OGN,Organon & Co.,NYSE,,,2298586984
 ABM,"ABM Industries, Inc.",NYSE,,,2296242973
@@ -2312,25 +2029,20 @@ AERO,Grupo Aerom茅xico SAB de CV,NYSE,,,2274634169
 DNOW,"DNOW, Inc.",NYSE,,,2270089459
 MTX,"Minerals Technologies, Inc.",NYSE,化学制品,,2265628238
 VNET,"VNET Group, Inc.",NASDAQ,互联网,,2265197888
-RDIV,Invesco S&P Ultra Dividend Revenue ETF,NYSE,,,2260613484
 BRSL,Brightstar Lottery Plc,NYSE,,,2260475852
-ETY,Eaton Vance Tax-Managed Diversified Equity Income Fund,NYSE,股权,,2259678934
 BFR,BBVA Banco Franc茅s SA,NYSE,银行,,2258671947
 BB,BlackBerry Ltd.,NYSE,,,2257468366
 PK,"Park Hotels & Resorts, Inc.",NYSE,,,2254073960
 BHE,"Benchmark Electronics, Inc.",NYSE,,,2247024024
-WT,"WisdomTree, Inc.",NYSE,,,2243208518
 NTB,The Bank of N.T. Butterfield & Son Ltd.,NYSE,,,2240800018
 HTH,"Hilltop Holdings, Inc.",NYSE,保险,,2238276364
 SLDE,"Slide Insurance Holdings, Inc.",NASDAQ,,,2237749002
 NYAX,Nayax Ltd. (Israel),NASDAQ,,,2236707843
 STUB,"Stubhub Holdings, Inc.",NYSE,,,2236660219
 GRND,"Grindr, Inc.",NYSE,,,2236583984
-OMFL,Invesco Russell 1000 Dynamic Multifactor ETF,AMEX,,,2230144110
 SRPT,"Sarepta Therapeutics, Inc.",NASDAQ,生物技术和制药,,2223683022
 NKTR,Nektar Therapeutics,NASDAQ,生物技术和制药,,2223317132
 ITCB,Banco Itau Chile,NYSE,,,2219621048
-MLPI,NEOS MLP & Energy Infrastructure High Income ETF,NYSE,股权,,2218611373
 DAWN,"Day One Biopharmaceuticals, Inc.",NASDAQ,,,2217801355
 AEHR,Aehr Test Systems,NASDAQ,半导体,,2215252689
 PUYI,"Puyi, Inc.",NASDAQ,,,2213429013
@@ -2339,48 +2051,36 @@ PRDO,Perdoceo Education Corp.,NASDAQ,,,2210485929
 VGNT,Versigent Plc,NYSE,,,2207597389
 PRSC,"ModivCare, Inc.",NASDAQ,,,2206689804
 KWR,Quaker Houghton,NYSE,化学制品,,2203288260
-SRLN,SPDR Blackstone / GSO Senior Loan ETF,AMEX,股权,,2203000190
 VRRM,Verra Mobility Corp.,NASDAQ,,,2202644018
 NVTS,Navitas Semiconductor Corp.,NASDAQ,,,2201762969
 PTRN,"Pattern Group, Inc.",NASDAQ,,,2198973929
-VOOV,Vanguard S&P 500 Value ETF,NYSE,股权,,2196594250
 MLYS,"Mineralys Therapeutics, Inc.",NASDAQ,,,2194870579
-CLM,"Cornerstone Strategic Investment Fund, Inc.",AMEX,股权,,2194580545
 DDR,DDR Corp.,NYSE,,,2189100730
 FMC,FMC Corp.,NYSE,化学制品,,2182035921
 GEL,Genesis Energy LP,NYSE,管道,,2181089438
 RSI,"Rush Street Interactive, Inc.",NYSE,,,2175961019
 CDEV,"Centennial Resource Development, Inc.",NASDAQ,,,2172151490
 RUM,"Rumble, Inc.",NASDAQ,,,2171800594
-PXF,Invesco FTSE RAFI Developed Markets ex-U.S. ETF,NYSE,股权,,2169538840
 ARR,"ARMOUR Residential REIT, Inc.",NYSE,,,2169301134
 TSRA,Tessera Technologies,NASDAQ,半导体,,2169269691
-SCHR,Schwab Intermediate-Term US Treasury ETF,NYSE,股权,,2167563824
 BANR,Banner Corp.,NASDAQ,银行,,2167488854
 BLBD,Blue Bird Corp.,NASDAQ,,,2162241970
 BRP,"Baldwin Insurance Group, Inc.",NASDAQ,,,2160188141
 WB,Weibo Corp.,NASDAQ,媒体内容,,2156910820
-ESGD,iShares ESG Aware MSCIi EAFE ETF,NASDAQ,,,2155163326
-FXU,First Trust Utilities AlphaDEX Fund,NYSE,股权,,2153970429
 ALG,"Alamo Group, Inc.",NYSE,,,2152513022
 BRZE,"Braze, Inc.",NASDAQ,,,2152121799
 PLUS,"ePlus, Inc.",NASDAQ,互联网,,2148091012
 DFTX,"Definium Therapeutics, Inc.",NASDAQ,,,2146500786
 OAS,"Oasis Petroleum, Inc.",NYSE,,,2145305593
 PQG,"PQ Group Holdings, Inc.",NYSE,,,2142867575
-PRF,Invesco FTSE RAFI US 1000 ETF,NYSE,股权,,2142386058
 SSW,Seaspan Corp.,NYSE,运输,,2137719533
 EFSC,Enterprise Financial Services Corp.,NASDAQ,银行,,2131991640
-IAGG,iShares Core International Aggregate Bond ETF,AMEX,,,2131852192
 ZIONZ,Zions Bancorporation,NASDAQ,银行,,2130663029
 MNR,Mach Natural Resources LP,NYSE,房地产信托投资基金,,2127967376
 CIXX,CI Financial Corp.,NYSE,,,2127381212
-RVT,"Royce Small-Cap Trust, Inc.",NYSE,股权,,2126983344
 AXL,"American Axle & Manufacturing Holdings, Inc.",NYSE,汽车制造,,2121012000
 IE,"Ivanhoe Electric, Inc.",NYSE,,,2115759933
-DLS,WisdomTree International SmallCap Dividend Fund,NYSE,股权,,2107153663
 FRSH,"Freshworks, Inc.",NASDAQ,,,2106112055
-MCVT,Miller Convertible Total Return ETF,NASDAQ,,,2104758637
 ROG,Rogers Corp.,NYSE,,,2103878631
 SYBT,"Stock Yards Bancorp, Inc.",NASDAQ,银行,,2101210878
 BPFHP,"Boston Private Financial Holdings, Inc.",NASDAQ,,,2099537430
@@ -2392,7 +2092,6 @@ XMTR,"Xometry, Inc.",NASDAQ,,,2094224966
 DAC,Danaos Corp.,NYSE,,,2093763633
 WTTR,"Select Water Solutions, Inc.",NYSE,,,2093059239
 BHC,"Bausch Health Cos., Inc.",NYSE,,,2091396063
-STRP,"Straight Path Communications, Inc.",AMEX,,,2088584244
 NYLD,"NRG Yield, Inc.",NYSE,,,2087282389
 DRH,DiamondRock Hospitality Co.,NYSE,,,2083334059
 VVX,"V2X, Inc.",NYSE,,,2078838081
@@ -2403,7 +2102,6 @@ CASH,"Pathward Financial, Inc.",NASDAQ,,,2065591423
 CENTA,Central Garden & Pet Co.,NASDAQ,,,2064166096
 BOFI,"BofI Holding, Inc.",NASDAQ,储蓄及贷款,,2062393265
 MBFIO,"MB Financial, Inc.",NASDAQ,,,2060367827
-SNHNL,Senior Housing Properties Trust,NASDAQ,,,2060111028
 FLOC,"Flowco Holdings, Inc.",NYSE,,,2058794078
 GNL,"Global Net Lease, Inc.",NYSE,,,2055371846
 NEOG,Neogen Corp.,NASDAQ,,,2050480016
@@ -2413,22 +2111,16 @@ IMAX,IMAX Corp.,NYSE,电子,,2043095696
 PENN,"PENN Entertainment, Inc.",NASDAQ,,,2036580663
 GT,Goodyear Tire & Rubber Co.,NASDAQ,汽车制造,,2034271972
 FUN,Six Flags Entertainment Corp.,NYSE,娱乐,,2033631622
-VR,Global X Metaverse ETF,NASDAQ,保险,,2031627724
-NFRA,FlexShares STOXX Global Broad Infrastructure Index Fund,NYSE,,,2031576156
 STOK,"Stoke Therapeutics, Inc.",NASDAQ,,,2030646729
 SEM,Select Medical Holdings Corp.,NYSE,健康护理服务,,2030179773
 SKWD,"Skyward Specialty Insurance Group, Inc.",NASDAQ,,,2029827003
 GTY,Getty Realty Corp.,NYSE,房地产信托投资基金,,2025387742
 DGII,"Digi International, Inc.",NASDAQ,软件,,2025360909
-RWL,Invesco S&P 500 Revenue ETF,NYSE,股权,,2024917330
 BLX,Banco Latinoamericano de Comercio Exterior SA,NYSE,银行,,2023834021
 SEZL,"Sezzle, Inc.",NASDAQ,,,2018129068
-SNH,Senior Housing Properties Trust,NYSE,房地产信托投资基金,,2007867772
 HURN,"Huron Consulting Group, Inc.",NASDAQ,,,1998819963
 NCNO,"nCino, Inc.",NASDAQ,,,1998631091
 NEXT,NextDecade Corp.,NASDAQ,,,1997572680
-ROBO,ROBO Global Robotics & Automation Index ETF,NASDAQ,,,1991563280
-ITB,iShares U.S. Home Construction ETF,NYSE,股权,,1990742601
 FDP,"Fresh Del Monte Produce, Inc.",NYSE,,,1987265015
 NWBI,"Northwest Bancshares, Inc. (Pennsylvania)",NASDAQ,银行,,1983310652
 COT,Cott Corp. (Canada),NYSE,饮料,,1978955962
@@ -2455,54 +2147,34 @@ HCI,"HCI Group, Inc.",NYSE,保险,,1939178983
 EVCM,"EverCommerce, Inc.",NASDAQ,,,1939030223
 SOC,Sable Offshore Corp.,NYSE,,,1934787341
 AGIO,"Agios Pharmaceuticals, Inc.",NASDAQ,,,1928853899
-SLQD,iShares 0-5 Year Investment Grade Corporate Bond ETF,NYSE,股权,,1924178693
 SPSC,"SPS Commerce, Inc.",NASDAQ,软件,,1923760444
-GVI,iShares Intermediate Government/Credit Bond ETF,NYSE,股权,,1921866472
-PWV,Invesco Large Cap Value ETF,NYSE,股权,,1920333230
-VIOO,Vanguard S&P Small-Cap 600 ETF,NYSE,股权,,1916152064
-FTA,First Trust Large Cap Value AlphaDEX Fund,NYSE,股权,,1915796879
 FCF,First Commonwealth Financial Corp. (Pennsylvania),NYSE,银行,,1914320955
 ECO,Okeanis Eco Tankers Corp.,NYSE,,,1913969006
 COTY,"Coty, Inc.",NYSE,,,1909613866
 EOSE,"Eos Energy Enterprises, Inc.",NASDAQ,,,1907620497
-IVOO,Vanguard S&P Mid-Cap 400 ETF,NYSE,股权,,1906341220
 FA,First Advantage Corp.,NASDAQ,,,1905308002
-NUV,"Nuveen Municipal Value Fund, Inc.",NYSE,股权,,1905231970
-PDO,PIMCO Dynamic Income Opportunities Fund,NYSE,,,1905031988
-ITE,SPDR Bloomberg Barclays Intermediate Term Treasury ETF,NYSE,股权,,1903702197
-GNR,State Street SPDR S&P Global Natural Resources ETF,NYSE,环球,,1900778892
 TYRA,"Tyra Biosciences, Inc.",NASDAQ,,,1899354384
 XPRO,Expro Group Holdings NV,NYSE,,,1898747057
 EMBCV,Embecta Corp.,NASDAQ,,,1897710314
-USRT,iShares Core U.S. REIT ETF,NYSE,,,1897398528
-EVT,Eaton Vance Tax-Advantaged Dividend Income Fund,NYSE,股权,,1896368032
-PZA,Invesco National AMT-Free Municipal Bond ETF,NYSE,股权,,1893364019
 VET,"Vermilion Energy, Inc.",NYSE,,,1892233940
 CLBK,"Columbia Financial, Inc.",NASDAQ,,,1890789983
 IOSP,"Innospec, Inc.",NASDAQ,化学制品,,1883212824
 PSNY,Polestar Automotive Holding UK Plc,NASDAQ,,,1880608997
 EPAC,Enerpac Tool Group Corp.,NYSE,,,1880294782
 TMC,"TMC the metals co., Inc.",NASDAQ,,,1880036798
-LRGF,iShares US Equity Factor ETF,NYSE,,,1878408927
 CHA,Chagee Holdings Ltd.,NASDAQ,,,1875203480
 GRAL,"GRAIL, Inc.",NASDAQ,,,1871754279
 GLOB,Globant SA,NYSE,,,1867947520
 NBHC,National Bank Holdings Corp.,NYSE,控股公司-多元经营,,1865463856
-EWP,iShares MSCI Spain ETF,NYSE,股权,,1865273085
-EZM,WisdomTree U.S. MidCap Earnings Fund,NYSE,股权,,1862750861
 CMPR,Cimpress Plc,NASDAQ,,,1862674152
 FORTY,Formula Systems (1985) Ltd.,NASDAQ,软件,,1860005796
 AMEH,"Apollo Medical Holdings, Inc.",NASDAQ,,,1855248005
-PWB,Invesco Large Cap Growth ETF,NYSE,股权,,1854030963
 MXL,"MaxLinear, Inc.",NYSE,半导体,,1852359527
-REET,iShares Global REIT ETF,NYSE,,,1849444769
 TENB,"Tenable Holdings, Inc.",NASDAQ,,,1842797113
 BPRAP,"Brookfield Property REIT, Inc.",NASDAQ,,,1838336303
 STRA,"Strategic Education, Inc.",NASDAQ,,,1835942137
 SPB,"Spectrum Brands Holdings, Inc.",NYSE,,,1833632225
 KMPR,Kemper Corp.,NYSE,保险,,1830298947
-USAS,Americas Gold & Silver Corp.,AMEX,,,1828260783
-NAC,Nuveen California Quality Municipal Income Fund,NYSE,债务,,1825556039
 AORT,"Artivion, Inc.",NYSE,,,1824904268
 SJW,SJW Group,NYSE,,,1824289005
 CHCO,City Holding Co.,NASDAQ,银行,,1822857514
@@ -2510,31 +2182,22 @@ PVLA,"Palvella Therapeutics, Inc.",NASDAQ,,,1819552371
 INVX,"Innovex International, Inc.",NYSE,,,1817623438
 OFG,OFG Bancorp,NYSE,银行,,1815478206
 BORR,Borr Drilling Ltd.,NYSE,,,1815436372
-JHML,John Hancock Multifactor Large Cap ETF,NYSE,,,1815097985
-GMET,VanEck Green Metals ETF,NYSE,,,1814594014
 GRC,The Gorman-Rupp Co.,NYSE,机械-多元,,1811113032
 SHO,"Sunstone Hotel Investors, Inc.",NYSE,,,1806294437
-PXH,Invesco FTSE RAFI Emerging Markets ETF,NYSE,股权,,1802975987
 SEMR,"SEMrush Holdings, Inc.",NYSE,,,1802452880
-IQLT,iShares Edge MSCI Intl Quality Factor ETF,AMEX,,,1800834034
 SRCE,1st Source Corp.,NASDAQ,银行,,1797511194
 AMSC,American Superconductor Corp.,NASDAQ,电力组件与设备,,1795458960
-DWAC,Digital World Acquisition Corp.,NASDAQ,,,1795078152
 CAPR,"Capricor Therapeutics, Inc.",NASDAQ,,,1794331731
 ARCO,"Arcos Dorados Holdings, Inc.",NYSE,零售,,1790635984
-VTWO,Vanguard Russell 2000 Index Fund,NASDAQ,股权,,1787576055
-BSCK,Invesco BulletShares 2020 Corporate Bond ETF,NASDAQ,股权,,1786317045
 IMKTA,"Ingles Markets, Inc.",NASDAQ,食品,,1786231136
 HMN,Horace Mann Educators Corp.,NYSE,保险,,1785655475
 RNW,ReNew Energy Global Plc,NASDAQ,,,1784568363
 RDW,Redwire Corp.,NYSE,,,1783454989
-SPTS,SPDR Portfolio Short Term Treasury ETF,AMEX,,,1783104560
 MD,"Pediatrix Medical Group, Inc.",NYSE,卫生保健设施,,1781896694
 WMK,"Weis Markets, Inc.",NYSE,,,1781363485
 VRE,"Veris Residential, Inc.",NYSE,,,1773538448
 SMA,"SmartStop Self Storage REIT, Inc.",NYSE,,,1770532476
 EZPW,"EZCORP, Inc.",NASDAQ,零售,,1770093390
-SIL,Global X Silver Miners ETF,NYSE,环球,,1765892240
 DSW,"DSW, Inc.",NYSE,,,1765513567
 ESTA,"Establishment Labs Holdings, Inc.",NASDAQ,,,1764821680
 JBLU,JetBlue Airways Corp.,NASDAQ,航空公司,,1763369472
@@ -2545,28 +2208,19 @@ BRBR,"BellRing Brands, Inc.",NYSE,,,1760215567
 VOYG,"Voyager Technologies, Inc.",NYSE,,,1759629602
 INVA,"Innoviva, Inc.",NASDAQ,,,1759460378
 MCRI,"Monarch Casino & Resort, Inc.",NASDAQ,住宿,,1758742016
-ESGV,Vanguard ESG U.S. Stock ETF,AMEX,,,1757109101
 TY,Tri-Continental Corp.,NYSE,股权,,1755846253
 RVLV,"Revolve Group, Inc.",NYSE,,,1754316955
 POLY,"Plantronics, Inc.",NASDAQ,,,1751835173
-FNCL,Fidelity MSCI Financials Index ETF,NYSE,股权,,1749609604
 AGYS,"Agilysys, Inc.",NASDAQ,软件,,1748051842
-BSCL,Invesco BulletShares 2021 Corporate Bond ETF,AMEX,股权,,1747373149
 WGS,GeneDx Holdings Corp.,NASDAQ,,,1746194588
-URTH,iShares MSCI World ETF,NASDAQ,环球,,1745488247
 PHVS,Pharvaris NV,NASDAQ,,,1741810245
-GAB,"Gabelli Equity Trust, Inc.",NYSE,股权,,1739589612
-RQI,"Cohen & Steers Quality Income Realty Fund, Inc.",NYSE,股权,,1731477014
 BCEI,"Bonanza Creek Energy, Inc.",NYSE,,,1731179362
 CCS,"Century Communities, Inc.",NYSE,,,1731078953
 FIHL,Fidelis Insurance Holdings Ltd.,NYSE,,,1730687283
 RXRX,"Recursion Pharmaceuticals, Inc.",NASDAQ,,,1729865415
 MGNI,"Magnite, Inc.",NASDAQ,,,1729484931
 GLTO,"Galecto, Inc.",NASDAQ,,,1728288501
-USA,Liberty All-Star Equity Fund,NYSE,股权,,1727890760
 VERX,"Vertex, Inc.",NASDAQ,,,1727534032
-ITM,VanEck Vectors AMT-Free Intermediate Municipal Index ETF,NYSE,股权,,1726974373
-DHC,Diversified Healthcare Trust,NASDAQ,,,1726323029
 ALKT,"Alkami Technology, Inc.",NASDAQ,,,1726183701
 ATEN,"A10 Networks, Inc.",NYSE,软件,,1721375136
 ADUS,Addus HomeCare Corp.,NASDAQ,健康护理服务,,1719127722
@@ -2580,40 +2234,25 @@ FLO,"Flowers Foods, Inc.",NYSE,食品,,1705127924
 SION,"Sionna Therapeutics, Inc.",NASDAQ,,,1704976959
 BGCP,"BGC Partners, Inc.",NASDAQ,,,1702765936
 LC,LendingClub Corp.,NYSE,,,1701217485
-ANGL,VanEck Fallen Angel High Yield Bond ETF,NASDAQ,股权,,1700394448
 PUMP,ProPetro Holding Corp.,NASDAQ,,,1695792769
-SIVR,abrdn Physical Silver Shares ETF,NYSE,环球,,1695468928
 TRVI,"Trevi Therapeutics, Inc.",NASDAQ,,,1693559951
 OMAM,OM Asset Management Plc,NYSE,,,1689492527
-XSD,SPDR S&P Semiconductor ETF,NYSE,股权,,1685581505
 HLMN,Hillman Solutions Corp.,NASDAQ,,,1682818229
 SLVM,Sylvamo Corp.,NYSE,,,1681601143
 NGL,NGL Energy Partners LP,NYSE,,,1676445468
 HRMY,"Harmony Biosciences Holdings, Inc.",NASDAQ,,,1671788833
-CDX,Simplify High Yield ETF,NASDAQ,,,1669680029
 CLI,Mack-Cali Realty Corp.,NYSE,,,1668863869
-EPI,WisdomTree India Earnings Fund,NYSE,股权,,1666693640
-RPV,Invesco S&P 500 Pure Value ETF,NYSE,股权,,1666601915
-ILF,iShares Latin America 40 ETF,NYSE,股权,,1662701712
-VWOB,Vanguard Emerging Markets Government Bond ETF,NASDAQ,环球,,1661316785
-JKE,iShares Morningstar Large-Cap Growth ETF,NYSE,股权,,1660267955
-INTF,iShares International Equity Factor ETF,NYSE,,,1660037229
-SPIP,SPDR Portfolio TIPS ETF,AMEX,,,1659141503
 AXGN,"AxoGen, Inc.",NASDAQ,,,1658649869
-JPIN,JPMorgan Diversified Return International Equity ETF,AMEX,,,1658167335
 NRIX,"Nurix Therapeutics, Inc.",NASDAQ,,,1657595253
 LILAK,Liberty Latin America Ltd.,NASDAQ,,,1656827897
 SHI,"Sinopec Shanghai Petrochemical Co., Ltd.",NYSE,化学制品,,1656613787
 QFIN,"Qfin Holdings, Inc.",NYSE,,,1655564272
 GABC,"German American Bancorp, Inc.",NASDAQ,银行,,1655202993
-EUFN,iShares MSCI Europe Financials ETF,NASDAQ,资产配置,,1654487952
 SGML,Sigma Lithium Corp.,NASDAQ,,,1654334043
 ZD,"Ziff Davis, Inc.",NASDAQ,,,1654236047
 AHCO,AdaptHealth Corp.,NASDAQ,,,1654083005
 NWL,"Newell Brands, Inc.",NYSE,家用器具,,1652969078
 ATEC,"Alphatec Holdings, Inc.",NASDAQ,医疗保健产品,,1649787100
-ETV,Eaton Vance Tax-Managed Buy-Write Opportunities Fund,NYSE,股权,,1649742059
-XHB,SPDR S&P Homebuilders ETF,NYSE,股权,,1649740185
 OI,"O-I Glass, Inc.",NYSE,,,1649340835
 CTOS,"Custom Truck One Source, Inc.",NYSE,,,1645304050
 MQ,"Marqeta, Inc.",NASDAQ,,,1644765743
@@ -2626,11 +2265,8 @@ GMLPP,Golar LNG Partners LP,NASDAQ,,,1631574138
 GCT,"GigaCloud Technology, Inc.",NASDAQ,,,1631152797
 LU,Lufax Holding Ltd.,NYSE,,,1629375109
 LILA,Liberty Latin America Ltd.,NASDAQ,,,1626813023
-VRP,Invesco ETF Trust II - Variable Rate Preferred ETF,NYSE,,,1625852895
 RAMP,"LiveRamp Holdings, Inc.",NYSE,,,1625466020
-FNX,First Trust Mid Cap Core AlphaDEX Fund,NYSE,股权,,1623106411
 AIN,Albany International Corp.,NYSE,,,1621903905
-ETG,Eaton Vance Tax-Advantaged Global Dividend Income Fund,NYSE,股权,,1621840545
 DEI,"Douglas Emmett, Inc.",NYSE,房地产信托投资基金,,1621034050
 NVRI,Enviri Corp.,NYSE,,,1617700426
 SYRG,Synergy Resources Corp,NYSE,油气,,1617432523
@@ -2638,7 +2274,6 @@ TCBK,TriCo Bancshares,NASDAQ,银行,,1616212285
 TPB,"Turning Point Brands, Inc.",NYSE,,,1616110683
 ECPG,"Encore Capital Group, Inc.",NASDAQ,多元化金融服务,,1614976899
 GBX,"Greenbrier Cos., Inc.",NYSE,,,1613447724
-BSTZ,Blackrock Science & Technology Term Trust,NYSE,,,1611363030
 SBLKZ,Star Bulk Carriers Corp.,NASDAQ,,,1610119506
 BFC,Bank First Corp.,NASDAQ,,,1609009021
 RAPT,"Rapt Therapeutics, Inc.",NASDAQ,,,1607784748
@@ -2646,11 +2281,9 @@ HIMX,"Himax Technologies, Inc.",NASDAQ,半导体,,1606463006
 STBA,"S&T Bancorp, Inc.",NASDAQ,银行,,1605418026
 WD,"Walker & Dunlop, Inc.",NYSE,银行,,1605414950
 CYD,China Yuchai International Ltd.,NYSE,,,1605033769
-SLY,SPDR S&P 600 Small Cap ETF,NYSE,股权,,1600242414
 PAYO,"Payoneer Global, Inc.",NASDAQ,,,1599746521
 ADNT,Adient plc,NYSE,,,1599725268
 NUVB,"Nuvation Bio, Inc.",NYSE,,,1598947496
-BDJ,BlackRock Enhanced Equity Dividend Trust,NYSE,股权,,1597810494
 NTLA,"Intellia Therapeutics, Inc.",NASDAQ,,,1593621509
 CNXC,Concentrix Corp.,NYSE,,,1593446054
 STGW,"Stagwell, Inc.",NASDAQ,,,1589147509
@@ -2667,9 +2300,7 @@ TIC,"TIC Solutions, Inc.",NYSE,,,1581246774
 BBAI,"BigBear.ai Holdings, Inc.",NYSE,,,1580507804
 ALGT,Allegiant Travel Co.,NASDAQ,,,1578809313
 LWLG,"Lightwave Logic, Inc.",NASDAQ,,,1577609950
-FTSL,First Trust Senior Loan Fund,NASDAQ,股权,,1575039140
 HLF,Herbalife Ltd.,NYSE,,,1574931953
-GOVNI,Government Properties Income Trust,NASDAQ,,,1574837884
 BLKB,"Blackbaud, Inc.",NASDAQ,软件,,1574139798
 IMCR,Immunocore Holdings Plc,NASDAQ,,,1574081667
 CTS,CTS Corp.,NYSE,电子,,1574030246
@@ -2684,30 +2315,21 @@ KRP,Kimbell Royalty Partners LP,NYSE,,,1564376406
 EFC,"Ellington Financial, Inc.",NYSE,,,1564345024
 OMCL,"Omnicell, Inc.",NASDAQ,软件,,1562995717
 GLP,Global Partners LP,NYSE,销售/批发,,1562436044
-BCAT,BlackRock Capital Allocation Term Trust,NYSE,,,1560103821
 GTM,"ZoomInfo Technologies, Inc.",NASDAQ,,,1558829251
 INSP,"Inspire Medical Systems, Inc.",NASDAQ,媒体内容,,1555630537
-IYF,iShares U.S. Financials ETF,NYSE,股权,,1554353274
-XMMO,Invesco S&P MidCap Momentum ETF,AMEX,,,1552559037
 UFPT,"UFP Technologies, Inc.",NASDAQ,,,1552301625
-FDIS,Fidelity MSCI Consumer Discretionary Index ETF,NYSE,股权,,1552193150
 BAMR,Brookfield Asset Management Reinsurance Partners Ltd.,NYSE,,,1550720658
-PEB,Pebblebrook Hotel Trust,NYSE,,,1549524860
 PDFS,"PDF Solutions, Inc.",NASDAQ,软件,,1548956304
 PICS,PicS NV,NASDAQ,,,1545979428
 SNDA,"Sonida Senior Living, Inc.",NYSE,互联网,,1543902072
-BSCM,Invesco BulletShares 2022 Corporate Bond ETF,AMEX,股权,,1540782296
 ECVT,"Ecovyst, Inc.",NYSE,,,1540464407
 GZT,Gazit-Globe Ltd.,NYSE,,,1537890205
-WRE,Washington Real Estate Investment Trust,NYSE,房地产信托投资基金,,1537675227
 VRDN,"Viridian Therapeutics, Inc.",NASDAQ,,,1527988217
 PLPC,Preformed Line Products Co.,NASDAQ,,,1527671860
-HYS,PIMCO 0-5 Year High Yield Corporate Bond Index ETF,NYSE,股权,,1525852127
 HBNB,Hotel101 Global Holdings Corp.,NASDAQ,,,1525502842
 NSSC,"Napco Security Technologies, Inc.",NASDAQ,电子,,1524649851
 IOVA,"Iovance Biotherapeutics, Inc.",NASDAQ,,,1524257966
 KOS,Kosmos Energy Ltd.,NYSE,油气,,1524009960
-CET,Central Securities Corp.,AMEX,股权,,1523560041
 QCRH,"QCR Holdings, Inc.",NASDAQ,银行,,1520124041
 ALEX,"Alexander & Baldwin, Inc.",NYSE,,,1518725014
 YELP,"Yelp, Inc.",NYSE,媒体内容,,1515302944
@@ -2717,7 +2339,6 @@ TLTD,FlexShares Morningstar Developed Markets ex-US Factor Tilt,NASDAQ,股权,,1
 INT,World Fuel Services Corp.,NYSE,零售,,1507253023
 ARI,"Apollo Commercial Real Estate Finance, Inc.",NYSE,房地产信托投资基金,,1506974983
 BAK,Braskem SA,NYSE,化学制品,,1506269989
-QQEW,First Trust Nasdaq-100 Equal Weighted Index Fund,NASDAQ,股权,,1505373038
 DV,"DoubleVerify Holdings, Inc.",NYSE,商业服务,,1501668703
 RCAT,"Red Cat Holdings, Inc.",NASDAQ,,,1498486497
 PRGO,Perrigo Co. Plc,NASDAQ,制药,,1494871915
@@ -2725,15 +2346,12 @@ DOLE,Dole Plc,NYSE,食品,,1493132958
 RCII,"Rent-A-Center, Inc.",NASDAQ,,,1492426033
 KSS,Kohl's Corp.,NYSE,,,1490207720
 WBTN,"WEBTOON Entertainment, Inc.",NASDAQ,,,1484328932
-IPAC,iShares Core MSCI Pacific ETF,NYSE,,,1482673621
 CBZ,"CBIZ, Inc.",NYSE,商业服务,,1481621025
 GAM,"General American Investors Co., Inc.",NYSE,股权,,1480213990
 MNMD,"Definium Therapeutics, Inc.",NASDAQ,,,1479609416
 LPG,Dorian LPG Ltd.,NYSE,,,1479373950
 TFIN,"Triumph Financial, Inc.",NASDAQ,,,1475939620
-ECAT,BlackRock ESG Capital Allocation Term Trust,NYSE,,,1473298103
 MBX,"MBX Biosciences, Inc.",NASDAQ,,,1472817533
-BTT,BlackRock Municipal 2030 Target Term Trust,NYSE,股权,,1472348039
 PGEN,"Precigen, Inc.",NASDAQ,,,1472342947
 NBTX,Nanobiotix SA,NASDAQ,,,1471323987
 RES,"RPC, Inc.",NYSE,油气服务,,1467251935
@@ -2747,18 +2365,13 @@ GENB,"Generate Biomedicines, Inc.",NASDAQ,,,1454206774
 VTOL,"Bristow Group, Inc.",NYSE,,,1452836083
 RYI,Ryerson Holding Corp.,NYSE,,,1449537006
 TROX,Tronox Holdings Plc,NYSE,化学制品,,1448378010
-ABR,"Arbor Realty Trust, Inc.",NYSE,,,1448364870
-LGLV,State Street SPDR US Large Cap Low Volatility Index ETF,AMEX,股权,,1447106697
 BOBS,"Bob鈥檚 Discount Furniture, Inc.",NYSE,,,1447074416
-KWEB,KraneShares CSI China Internet ETF,NASDAQ,,,1443750037
 SFL,SFL Corp. Ltd.,NYSE,,,1441720020
 GSHD,"Goosehead Insurance, Inc.",NASDAQ,,,1441573628
 IMOS,"ChipMOS Technologies, Inc.",NASDAQ,半导体,,1441102037
 TH,Target Hospitality Corp.,NASDAQ,,,1439634697
-BIF,"Boulder Growth & Income Fund, Inc.",NYSE,股权,,1438032458
 IIPR,"Innovative Industrial Properties, Inc.",NYSE,,,1434929013
 QSII,"Quality Systems, Inc.",NASDAQ,软件,,1434547872
-DBEU,Xtrackers MSCI Europe Hedged Equity ETF,NYSE,,,1432336160
 SNHY,Sun Hydraulics Corp.,NASDAQ,,,1431228547
 IAUX,i-80 Gold Corp.,NYSE,,,1429679955
 ATRC,"AtriCure, Inc.",NASDAQ,医疗保健产品,,1429420607
@@ -2772,16 +2385,12 @@ TRS,TriMas Corp.,NASDAQ,多元化制造商,,1413854039
 LAC,Lithium Americas Corp.,NYSE,,,1413794385
 CNOB,"ConnectOne Bancorp, Inc.",NASDAQ,,,1413688050
 HLX,"Helix Energy Solutions Group, Inc.",NYSE,油气服务,,1408150701
-ORC,"Orchid Island Capital, Inc.",AMEX,,,1407679962
 ENOV,Enovis Corp.,NYSE,,,1405103459
 OLMA,"Olema Pharmaceuticals, Inc.",NASDAQ,,,1403227105
 ASTE,"Astec Industries, Inc.",NASDAQ,,,1403143817
-KIE,SPDR S&P Insurance ETF,NYSE,股权,,1402341370
 ARLO,"Arlo Technologies, Inc.",NYSE,,,1401943046
-LABU,Direxion Daily S&P Biotech Bull 3X ETF,NYSE,,,1401905865
 FLYW,Flywire Corp.,NASDAQ,,,1401121736
 NOMD,Nomad Foods Ltd.,NYSE,,,1400968818
-HYT,"BlackRock Corporate High Yield Fund, Inc.",NYSE,股权,,1398952059
 GLUE,"Monte Rosa Therapeutics, Inc.",NASDAQ,,,1398673823
 IMTX,Immatics NV,NASDAQ,,,1398627037
 AMRC,"Ameresco, Inc.",NYSE,电力,,1396033907
@@ -2790,28 +2399,18 @@ CDRE,"Cadre Holdings, Inc.",NYSE,,,1395022380
 KDK,"Kodiak AI, Inc.",NASDAQ,,,1394723109
 CLVT,Clarivate Plc,NYSE,,,1393529655
 WWW,"Wolverine World Wide, Inc.",NYSE,,,1392857154
-QQQX,Nuveen NASDAQ 100 Dynamic Overwrite Fund,NASDAQ,股权,,1388633735
 DQ,Daqo New Energy Corp.,NYSE,化学制品,,1388074052
 OBK,"Origin Bancorp, Inc.",NYSE,,,1387961992
-HEZU,iShares Currency Hedged MSCI Eurozone ETF,NYSE,,,1386876232
 BRAI,Braiin Ltd.,NASDAQ,,,1385599999
-JPUS,JPMorgan Diversified Return U.S. Equity ETF,NYSE,,,1384161462
 BCAX,"Bicara Therapeutics, Inc.",NASDAQ,,,1382667066
 LZB,"La-Z-Boy, Inc.",NYSE,家具家饰,,1382402874
-BXMX,Nuveen S&P 500 Buy-Write Income Fund,NYSE,,,1381231716
-IBDM,iShares iBonds Dec 2021 Term Corporate ETF,NYSE,,,1380490290
 BHVN,Biohaven Ltd.,NYSE,,,1379356767
 AGM.A,Federal Agricultural Mortgage Corp.,NYSE,,,1378619484
 WLFC,Willis Lease Finance Corp.,NASDAQ,,,1377502022
 GSL,"Global Ship Lease, Inc.",NYSE,,,1376386984
-SDIV,Global X SuperDividend ETF,NYSE,环球,,1375122264
-BST,Blackrock Science & Technology Trust,NYSE,,,1373870983
 CSWC,Capital Southwest Corp,NASDAQ,投资公司,,1373498912
-SILA,"Sila Realty Trust, Inc.",NYSE,,,1372872813
 MUX,"McEwen, Inc.",NYSE,采矿,,1369792060
 HCSG,"Healthcare Services Group, Inc.",NASDAQ,,,1369515157
-GLTR,abrdn Precious Metals Basket ETF Trust,NYSE,,,1368894760
-FUTY,Fidelity MSCI Utilities Index ETF,NYSE,股权,,1367752010
 ASTH,"Astrana Health, Inc.",NASDAQ,,,1366878162
 LEG,"Leggett & Platt, Inc.",NYSE,,,1362394740
 AAPGV,"Ascentage Pharma Group International Co., Ltd.",NASDAQ,,,1362137934
@@ -2825,10 +2424,8 @@ ARDT,"Ardent Health, Inc.",NYSE,,,1345099450
 RHLD,"Resolute Holdings Management, Inc.",NASDAQ,,,1344571151
 CXM,"Sprinklr, Inc.",NYSE,生物技术,,1343867487
 DMLP,Dorchester Minerals LP,NASDAQ,,,1343431735
-KONG,Formidable Fortress ETF,NASDAQ,,,1339200139
 CLNC,"Colony Credit Real Estate, Inc.",NYSE,,,1339148795
 HROW,"Harrow, Inc.",NASDAQ,,,1337663312
-BBRE,JPMorgan BetaBuilders MSCI U.S. REIT ETF,AMEX,,,1337156016
 GILT,Gilat Satellite Networks Ltd.,NASDAQ,计算机硬件,,1336589924
 SBH,"Sally Beauty Holdings, Inc.",NYSE,,,1335811413
 UVV,Universal Corp.,NYSE,农业,,1331662025
@@ -2843,27 +2440,22 @@ FOR,"Forestar Group, Inc.",NYSE,,,1322175981
 ATAI,"Atai Beckley, Inc.",NASDAQ,软件,,1322101226
 CBL,"CBL & Associates Properties, Inc.",NYSE,房地产信托投资基金,,1322050995
 HCXY,"Hercules Capital, Inc.",NYSE,,,1320789391
-VTWG,Vanguard Russell 2000 Growth Index Fund,NASDAQ,股权,,1317052183
 IPXL,"Impax Laboratories, Inc.",NASDAQ,制药,,1314078604
 TNDM,"Tandem Diabetes Care, Inc.",NASDAQ,,,1313911018
 WEN,The Wendy's Co.,NASDAQ,,,1312311975
 TICCL,TICC Capital Corp.,NASDAQ,,,1310150769
-EES,WisdomTree SmallCap Earnings Fund,NYSE,股权,,1309944152
 CRI,"Carter's, Inc.",NYSE,,,1309887041
 STAA,STAAR Surgical Co.,NASDAQ,医疗保健产品,,1309117110
 SPH,Suburban Propane Partners LP,NYSE,油气,,1308719971
 PRCT,PROCEPT BioRobotics Corp.,NASDAQ,,,1308252590
-SHLL,Tortoise Acquisition Corp.,NYSE,,,1308055257
 OXSQL,Oxford Square Capital Corp.,NASDAQ,,,1303458392
 WABC,Westamerica Bancorporation,NASDAQ,银行,,1301873716
 ASA,ASA Gold & Precious Metals Ltd.,NYSE,环球,,1300139626
 ASAN,"Asana, Inc.",NYSE,,,1299960871
 OUST,"Ouster, Inc.",NYSE,,,1299414607
 IRS,IRSA Inversiones y Representaciones SA,NYSE,,,1296270985
-ICF,iShares Cohen & Steers REIT ETF,NYSE,股权,,1295447340
 LINC,Lincoln Educational Services Corp.,NASDAQ,商业服务,,1295122360
 ELE,Elemental Royalty Corp.,NASDAQ,,,1291568007
-IYY,iShares Dow Jones U.S. ETF,NYSE,股权,,1291206042
 TSHA,"Taysha Gene Therapies, Inc.",NASDAQ,,,1289841718
 KEEL,Keel Infrastructure Corp.,NASDAQ,,,1289837072
 MLTX,MoonLake Immunotherapeutics,NASDAQ,,,1288232426
@@ -2873,7 +2465,6 @@ TEGP,Tallgrass Energy GP LP,NYSE,,,1285494877
 SBET,"Sharplink, Inc.",NASDAQ,,,1285493778
 ENR,"Energizer Holdings, Inc.",NYSE,电力组件与设备,,1284474010
 DLX,Deluxe Corp.,NYSE,商业服务,,1284453224
-HYLS,First Trust Tactical High Yield ETF,NASDAQ,股权,,1284284506
 FSIC,FS Investment Corp.,NYSE,,,1281865842
 HSLV,Highlander Silver Corp.,NYSE,,,1278673128
 STPK,Star Peak Energy Transition Corp.,NYSE,,,1275899769
@@ -2881,7 +2472,6 @@ DFH,"Dream Finders Homes, Inc.",NASDAQ,,,1275232611
 ZBIO,"Zenas BioPharma, Inc.",NASDAQ,,,1274864173
 PSEC,Prospect Capital Corp.,NASDAQ,投资公司,,1274590500
 GIC,Global Industrial Co.,NYSE,,,1273097481
-JWS,Jaws Acquisition Corp.,NYSE,,,1272187500
 XPEL,"XPEL, Inc.",NASDAQ,,,1271724979
 PLSE,"Pulse Biosciences, Inc.",NASDAQ,,,1269355998
 SCSS,Select Comfort Corporation,NASDAQ,家具家饰,,1269031498
@@ -2889,14 +2479,11 @@ NPKI,"NPK International, Inc.",NYSE,,,1268747974
 RYZ,Ryerson Holding Corp.,NYSE,,,1268533968
 FUBO,"FuboTV, Inc.",NYSE,,,1268110329
 FMSA,"Fairmount Santrol Holdings, Inc.",NYSE,,,1267410442
-IBDL,iShares iBonds Dec 2020 Term Corporate ETF,AMEX,,,1267161072
-DSL,DoubleLine Income Solutions Fund,NYSE,股权,,1264901626
 ALX,"Alexander's, Inc.",NYSE,房地产信托投资基金,,1263543515
 BKSY,"Blacksky Technology, Inc.",NYSE,,,1263002927
 DSGR,"Distribution Solutions Group, Inc.",NASDAQ,,,1262902000
 ASAI,Sendas Distribuidora SA,NYSE,,,1262856335
 EDN,Empresa Distribuidora y Comercializadora Norte SA,NYSE,,,1262733912
-WPF,Foley Trasimene Acquisition Corp.,NYSE,,,1261406250
 LADR,Ladder Capital Corp.,NYSE,,,1258340041
 PRA,ProAssurance Corp.,NYSE,保险,,1258195829
 TRIN,"Trinity Capital, Inc.",NASDAQ,,,1257604675
@@ -2911,26 +2498,18 @@ LIND,"Lindblad Expeditions Holdings, Inc.",NASDAQ,,,1248270954
 GIII,G-III Apparel Group Ltd.,NASDAQ,,,1247537204
 IDT,IDT Corp.,NYSE,,,1245536249
 DFIN,"Donnelley Financial Solutions, Inc.",NYSE,,,1245479065
-XNTK,SPDR NYSE Technology ETF,AMEX,,,1242928710
-NFJ,Virtus Dividend Interest & Premium Strategy Fund,NYSE,股权,,1241400112
 ALNT,"Allient, Inc.",NASDAQ,,,1239767976
 RTRX,"Travere Therapeutics, Inc.",NASDAQ,生物技术和制药,,1238006635
 GOLD,"Gold.com, Inc.",NASDAQ,采矿,,1237484642
 ICFI,"ICF International, Inc.",NASDAQ,,,1234360120
 PEBO,"Peoples Bancorp, Inc. (Ohio)",NASDAQ,银行,,1232322304
-SPTL,SPDR Portfolio Long Term Treasury ETF,AMEX,,,1232255790
-PTNQ,Pacer Trendpilot 100 ETF,NYSE,,,1231126060
-MSDL,Morgan Stanley Direct Lending Fund,NYSE,,,1228744684
 PTNR,Partner Communications Co. Ltd.,NASDAQ,,,1225748536
-NMZ,Nuveen Municipal High Income Opportunity Fund,AMEX,股权,,1220826079
 ADTN,"ADTRAN Holdings, Inc.",NASDAQ,计算机硬件,,1217736016
 TMP,Tompkins Financial Corp.,NYSE,银行,,1215141045
 BHLB,"Berkshire Hills Bancorp, Inc.",NYSE,银行,,1212168492
-JFR,Nuveen Floating Rate Income Fund,NYSE,股权,,1212084774
 NAT,Nordic American Tankers Ltd.,NYSE,,,1211213748
 RTPY,Reinvent Technology Partners Y,NASDAQ,,,1210878067
 SBE,"ChargePoint Holdings, Inc.",NYSE,,,1210530821
-UYG,ProShares Ultra Financials,NYSE,股权,,1208351976
 DEC,Diversified Energy Co.,NYSE,,,1208257680
 PHAR,Pharming Group NV,NASDAQ,,,1206985191
 IQ,"iQIYI, Inc.",NASDAQ,,,1206280919
@@ -2938,15 +2517,11 @@ AI,"C3.ai, Inc.",NYSE,多元化金融服务,,1203010965
 UAMY,United States Antimony Corp.,NYSE,采矿,,1198589336
 WKC,World Kinect Corp.,NYSE,,,1198390039
 LAR,Lithium Argentina AG,NYSE,,,1196938871
-GWX,State Street SPDR S&P International Small Cap ETF,NYSE,股权,,1196387902
 PDS,Precision Drilling Corp.,NYSE,油气,,1194300751
 IRMD,IRadimed Corp.,NASDAQ,,,1193891684
 BITF,Bitfarms Ltd. (Canada),NASDAQ,,,1193645011
 LGVW,"Butterfly Network, Inc.",NYSE,,,1192837461
-RLJ,RLJ Lodging Trust,NYSE,,,1192552651
-AAT,"American Assets Trust, Inc.",NYSE,,,1192211982
 ROCK,"Gibraltar Industries, Inc.",NASDAQ,建筑材料,,1191776016
-IYE,iShares U.S. Energy ETF,NYSE,股权,,1190695957
 SCL,Stepan Co.,NYSE,化学制品,,1189656578
 MTGEP,MTGE Investment Corp.,NASDAQ,,,1188458135
 PLTK,Playtika Holding Corp.,NASDAQ,,,1187316421
@@ -2954,21 +2529,15 @@ TIGR,UP Fintech Holding Ltd.,NASDAQ,软件,,1187166017
 ASM,Avino Silver & Gold Mines Ltd.,NYSE,采矿,,1186741995
 EYPT,EyePoint Plc,NASDAQ,,,1183899335
 JKS,"JinkoSolar Holding Co., Ltd.",NYSE,能源-替代能源,,1183357393
-QLD,ProShares Ultra QQQ,NYSE,股权,,1183180075
-PGF,Invesco Financial Preferred ETF,NYSE,股权,,1182550418
 CCO,"Clear Channel Outdoor Holdings, Inc.",NYSE,广告,,1181416581
-SUSA,iShares ESG Optimized MSCI USA ETF,AMEX,,,1180985505
 KODK,Eastman Kodak Co.,NYSE,计算机硬件,,1180087578
 VIA,"Via Renewables, Inc.",NASDAQ,媒体内容,,1179557749
 PRG,"PROG Holdings, Inc.",NYSE,,,1178116626
-QUS,SPDR MSCI USA StrategicFactors ETF,NYSE,,,1177818452
 NBR,Nabors Industries Ltd.,NYSE,,,1177083400
-CTBI,"Community Trust Bancorp, Inc. (Kentucky)",NASDAQ,银行,,1173083957
 PZZA,"Papa John's International, Inc.",NASDAQ,,,1171909144
 SHLS,"Shoals Technologies Group, Inc.",NASDAQ,,,1171047007
 LUCK,Lucky Strike Entertainment Corp.,NYSE,,,1170488658
 PENG,"Penguin Solutions, Inc.",NASDAQ,,,1168207657
-REGL,ProShares S&amp;P MidCap 400 Dividend Aristocrats ETF,AMEX,,,1163542232
 LSPD,"Lightspeed Commerce, Inc.",NYSE,,,1162938990
 DAO,"Youdao, Inc.",NYSE,,,1162213132
 FMBH,"First Mid Bancshares, Inc.",NASDAQ,,,1160148985
@@ -2977,28 +2546,17 @@ HVBT,Hive Blockchain Technologies Ltd.,NASDAQ,,,1159736465
 PX,"P10, Inc.",NYSE,化学制品,,1159558992
 SVRA,"Savara, Inc.",NASDAQ,,,1158361413
 WLDN,"Willdan Group, Inc.",NASDAQ,,,1157351742
-AFINP,"American Finance Trust, Inc.",NASDAQ,,,1157114735
 USPH,"U.S. Physical Therapy, Inc.",NYSE,健康护理服务,,1156573593
 TWO,Two Harbors Investment Corp.,NYSE,,,1155878051
-ESGE,iShares ESG MSCI EM ETF,NASDAQ,,,1153033471
 REAL,"The RealReal, Inc.",NASDAQ,,,1152943331
-CRF,"Cornerstone Total Return Fund, Inc.",AMEX,股权,,1150678895
-DWM,WisdomTree International Equity Fund,NYSE,股权,,1149098621
-NYMTN,"New York Mortgage Trust, Inc.",NASDAQ,,,1147044786
-JDST,Direxion Daily Junior Gold Miners Index Bear 2X ETF,NYSE,,,1145939975
 LNN,Lindsay Corp.,NYSE,机械-多元,,1145289292
 GTN.A,"Gray Media, Inc.",NYSE,媒体内容,,1144990279
 TASR,TASER International,NASDAQ,电子,,1144975780
 TTI,"TETRA Technologies, Inc.",NYSE,油气服务,,1144589919
-BSJK,Invesco BulletShares 2020 High Yield Corporate Bond ETF,NYSE,股权,,1144086748
 MRTN,Marten Transport Ltd.,NASDAQ,,,1143063800
 SSRI,Silver Standard Resources Inc,NASDAQ,采矿,,1142305330
-TDTT,FlexShares iBoxx 3 Year Target Duration TIPS Index Fund,NYSE,股权,,1141257770
-SECT,Main Sector Rotation ETF,AMEX,,,1140674916
-PFBC,Preferred Bank (California),NASDAQ,银行,,1140674646
 ORIC,"Oric Pharmaceuticals, Inc.",NASDAQ,,,1136874956
 VZLA,Vizsla Silver Corp.,NYSE,,,1135870999
-EOS,Eaton Vance Enhanced Equity Income Fund II,NYSE,股权,,1135631036
 AGBK,"AGI, Inc. (Brazil)",NYSE,,,1135503482
 GLDD,Great Lakes Dredge & Dock Corp.,NASDAQ,,,1135273566
 MPLT,"MapLight Therapeutics, Inc.",NASDAQ,,,1134322975
@@ -3007,7 +2565,6 @@ ALVO,Alvotech,NASDAQ,,,1129614966
 OPY,"Oppenheimer Holdings, Inc.",NYSE,多元化金融服务,,1125439580
 FNFV,Fidelity National Financial Inc,NYSE,,,1125407827
 AVBP,"Arrivent BioPharma, Inc.",NASDAQ,,,1125373256
-EWQ,iShares MSCI France ETF,NYSE,股权,,1123953108
 HGTY,"Hagerty, Inc.",NYSE,,,1123859991
 GGPI,"Gores Guggenheim, Inc.",NASDAQ,,,1122999954
 HFWA,Heritage Financial Corp. (Washington),NASDAQ,银行,,1122878999
@@ -3024,20 +2581,13 @@ BV,"BrightView Holdings, Inc.",NASDAQ,互联网,,1109675975
 CNMD,CONMED Corp.,NASDAQ,,,1107479809
 JCAP,"Jefferson Capital, Inc.",NASDAQ,,,1107135784
 IGIC,International General Insurance Holdings Ltd.,NASDAQ,,,1106614436
-IQDF,FlexShares International Quality Dividend Index Fund,AMEX,,,1105661913
-SBR,Sabine Royalty Trust,NYSE,,,1104822746
 MCB,Metropolitan Bank Holding Corp.,NYSE,,,1104421043
-EVV,Eaton Vance Limited Duration Income Fund,AMEX,股权,,1103932870
 OSBC,"Old Second Bancorp, Inc.",NASDAQ,银行,,1103420968
-FPF,First Trust Intermediate Duration Preferred & Income Fund,NYSE,环球,,1103170944
 INBX,"Inhibrx Biosciences, Inc.",NASDAQ,,,1099471551
 BH.A,"Biglari Holdings, Inc.",NYSE,,,1097878529
 SAFT,"Safety Insurance Group, Inc.",NASDAQ,保险,,1097767872
 ARRY,"Array Technologies, Inc.",NASDAQ,制药,,1095796971
-FYX,First Trust Small Cap Core AlphaDEX Fund,NYSE,股权,,1092618976
 IVA,Inventiva SA,NASDAQ,,,1092228575
-IBDN,iShares iBonds Dec 2022 Term Corporate ETF,NYSE,,,1091109435
-JHEM,John Hancock Multifactor Emerging Markets ETF,AMEX,,,1090042504
 PJC,Piper Jaffray Cos.,NYSE,,,1087394343
 GCVRZ,Sanofi,NASDAQ,制药,,1086348768
 UTZ,"UTZ Brands, Inc.",NYSE,,,1085536445
@@ -3045,10 +2595,8 @@ GOOS,"Canada Goose Holdings, Inc.",NYSE,,,1084924783
 ATNF,180 Life Sciences Corp.,NASDAQ,,,1084384317
 PPHMP,"Peregrine Pharmaceuticals, Inc.",NASDAQ,,,1083712697
 OCFC,OceanFirst Financial Corp.,NASDAQ,储蓄及贷款,,1083176052
-RING,iShares MSCI Global Gold Miners ETF,NYSE,环球,,1082722876
 IPX,IperionX Ltd.,NASDAQ,,,1082295779
 NNE,"NANO Nuclear Energy, Inc.",NASDAQ,,,1081247016
-MOTN,MOTION ACQUISITION CORP,NASDAQ,,,1080298330
 SAFE,"Safehold, Inc.",NYSE,,,1079535983
 POET,"POET Technologies, Inc.",NASDAQ,,,1075086997
 HLIT,"Harmonic, Inc.",NASDAQ,计算机硬件,,1074862971
@@ -3078,37 +2626,26 @@ MLKN,"MillerKnoll, Inc.",NASDAQ,,,1051603386
 FSUN,FirstSun Capital Bancorp,NASDAQ,,,1051592717
 AVO,"Mission Produce, Inc.",NASDAQ,,,1049234681
 SATL,"Satellogic, Inc.",NASDAQ,,,1048619600
-PEY,Invesco High Yield Equity Dividend Achievers ETF,NYSE,股权,,1048437078
-RPG,Invesco S&P 500 Pure Growth ETF,NYSE,股权,,1047639718
 BFLY,"Butterfly Network, Inc.",NYSE,,,1046541117
 MBNAB,Mercantil Bank Holding Corp.,NASDAQ,,,1045217609
-FTOC,FTAC OLYMPUS ACQUISITION CORP,NASDAQ,,,1044316879
 KMTS,Kestra Medical Technologies Ltd.,NASDAQ,,,1043131867
 NCBS,"Nicolet Bankshares, Inc.",NASDAQ,,,1042795505
 UVSP,Univest Financial Corp.,NASDAQ,银行,,1042180001
 FIVN,"Five9, Inc.",NASDAQ,软件,,1042035483
 MYTE,MYT Netherlands Parent BV,NYSE,,,1041895638
-IDLV,Invesco S&P International Developed Low Volatility ETF,NYSE,股权,,1040698688
 CMP,"Compass Minerals International, Inc.",NYSE,采矿,,1038208965
 YALA,Yalla Group Ltd.,NYSE,,,1038161295
 MSEX,Middlesex Water Co.,NASDAQ,水业,,1037777473
 SEPN,"Septerna, Inc.",NASDAQ,,,1036887998
 CRHC,Cohn Robbins Holdings Corp.,NYSE,,,1035000000
-PMT,PennyMac Mortgage Investment Trust,NYSE,,,1034627451
-AOD,abrdn Total Dynamic Dividend Fund,NYSE,环球,,1034278046
-IGE,iShares North American Natural Resources ETF,NYSE,股权,,1030111121
 SBGI,"Sinclair, Inc.",NASDAQ,媒体,,1029165496
 TDAY,"USA TODAY Co., Inc.",NYSE,,,1026810018
 AZTA,"Azenta, Inc.",NASDAQ,,,1023026517
 EPC,Edgewell Personal Care Co.,NYSE,,,1022625973
 TYG,Tortoise Energy Infrastructure Corp.,NYSE,股权,,1021377956
 MFA,"MFA Financial, Inc.",NYSE,房地产信托投资基金,,1019917978
-MUC,"BlackRock MuniHoldings California Quality Fund, Inc.",NYSE,债务,,1018128042
 CCOI,"Cogent Communications Holdings, Inc.",NASDAQ,互联网,,1017578966
-AFIN,"American Finance Trust, Inc.",NASDAQ,,,1016458224
-JKD,iShares Morningstar Large-Cap ETF,NYSE,股权,,1015931419
 PRPB,CC Neuberger Principal Holdings II,NYSE,,,1014475041
-FREL,Fidelity MSCI Real Estate Index ETF,AMEX,,,1013350980
 CLOV,Clover Health Investments Corp.,NASDAQ,,,1012607834
 NBBK,"NB Bancorp, Inc.",NASDAQ,,,1011699880
 LOT,"Lotus Technology, Inc.",NASDAQ,,,1011271006
@@ -3119,31 +2656,22 @@ XERS,"Xeris Biopharma Holdings, Inc.",NASDAQ,,,1008723030
 GHM,Graham Corp.,NYSE,电力组件与设备,,1008619490
 ABTC,"Gryphon Digital Mining, Inc.",NASDAQ,,,1008494995
 GENI,Genius Sports Ltd.,NYSE,,,1008420710
-ARKW,ARK Next Generation Internet ETF,NYSE,,,1008208441
-EMO,ClearBridge Energy MLP Opportunity Fund Inc.,NYSE,,,1007736288
 LXU,"LSB Industries, Inc.",NYSE,多元化制造商,,1007293038
 TWFG,"TWFG, Inc.",NASDAQ,,,1007105796
 LQDT,"Liquidity Services, Inc.",NASDAQ,,,1005780170
 ODV,Osisko Development Corp.,NYSE,,,1005169277
-MNA,NYLI Merger Arbitrage ETF,NYSE,环球,,1005138263
-RYH,Invesco S&P 500 Equal Weight Health Care ETF,NYSE,股权,,1004716614
 VTYX,"Ventyx Biosciences, Inc.",NASDAQ,,,1004650892
 UFCS,"United Fire Group, Inc.",NASDAQ,保险,,1002542551
 NEO,"NeoGenomics, Inc.",NASDAQ,生物技术,,1000806083
-RNP,"Cohen & Steers REIT & Preferred & Income Fund, Inc.",NYSE,股权,,1000706147
 PXED,"Phoenix Education Partners, Inc.",NYSE,,,999125994
-BBN,BlackRock Taxable Municipal Bond Trust,NYSE,股权,,998566984
-ETW,Eaton Vance Tax-Managed Global Buy-Write Opportunities Fund,NYSE,环球,,998013608
 MMI,"Marcus & Millichap, Inc.",NYSE,电信,,997407069
 SIFY,Sify Technologies Ltd.,NASDAQ,互联网,,996265027
 OCIP,OCI Partners LP,NYSE,,,996122389
 KALV,"KalVista Pharmaceuticals, Inc.",NASDAQ,,,993203992
 ZIMVV,"Zimvie, Inc.",NASDAQ,,,991800000
 LGCYP,Legacy Reserves LP,NASDAQ,,,991161393
-XSOE,WisdomTree Emerging Markets ex-State-Owned Enterprises Fund,AMEX,,,989576256
 ASIC,Ategrity Specialty Insurance Company Holdings,NYSE,,,989212147
 RDWR,Radware Ltd.,NASDAQ,计算机硬件,,988713924
-GSAH,GS Acquisition Holdings Corp. II,NYSE,,,988124996
 BTGO,"BitGo Holdings, Inc.",NYSE,,,986088065
 NEP,NextEra Energy Partners LP,NYSE,,,985850001
 NAK,Northern Dynasty Minerals Ltd.,NYSE,采矿,,985580920
@@ -3151,26 +2679,17 @@ ECA,Encana Corp.,NYSE,油气,,984726985
 BSIG,"Acadian Asset Management, Inc.",NYSE,,,982954493
 CFFN,"Capitol Federal Financial, Inc.",NASDAQ,储蓄及贷款,,982863629
 UTL,UNITIL Corp.,NYSE,,,981679679
-CMCTP,Creative Media & Community Trust Corp.,NASDAQ,,,981541316
 SBSI,"Southside Bancshares, Inc.",NASDAQ,银行,,981538008
 HEPS,D-MARKET Elektronik Hizmetler ve Ticaret AS,NASDAQ,,,980588013
 RERE,ATRenew Inc.,NYSE,,,980429887
 BHRB,Burke Herbert Financial Services Corp.,NASDAQ,,,979931977
-PBT,Permian Basin Royalty Trust,NYSE,,,979250815
-PLYM,"Plymouth Industrial REIT, Inc.",AMEX,,,979234982
-FIDU,Fidelity MSCI Industrials Index ETF,NYSE,,,978165303
 CRON,"Cronos Group, Inc.",NASDAQ,,,977951814
-BSCN,Invesco Bulletshares 2023 Corporate Bond ETF,NYSE,,,977698297
-PID,Invesco International Dividend Achievers ETF,NYSE,股权,,977515509
 TPRE,SiriusPoint Ltd.,NYSE,保险,,975899708
 GHRS,GH Research Plc,NASDAQ,,,975102106
-SRCI,"SRC Energy, Inc.",AMEX,,,974270872
 ML,"MoneyLion, Inc.",NYSE,,,972396092
 WSR,Whitestone REIT,NYSE,,,971303753
 LZ,"LegalZoom.com, Inc.",NASDAQ,,,970094597
 OIBR.C,Oi SA,NYSE,,,969641133
-BTZ,BlackRock Credit Allocation Income Trust,NYSE,股权,,969641036
-EQAL,Invesco Russell 1000 Equal Weight ETF,AMEX,,,966357214
 XIFR,XPLR Infrastructure LP,NYSE,,,965576979
 LGCYO,Legacy Reserves LP,NASDAQ,,,965508194
 PGY,Pagaya Technologies Ltd.,NASDAQ,,,964733967
@@ -3183,105 +2702,67 @@ HDL,Super Hi International Holding Ltd.,NASDAQ,,,962442532
 QURE,uniQure NV,NASDAQ,生物技术和制药,,961702010
 DAKT,"Daktronics, Inc.",NASDAQ,电子,,961132351
 ARHS,"Arhaus, Inc.",NASDAQ,,,961102729
-IBDO,iShares iBonds Dec 2023 Term Corporate ETF,NYSE,,,960941446
 AMTB,"Amerant Bancorp, Inc.",NASDAQ,,,957898803
 HKIB,"AMTD International, Inc.",NYSE,,,957884792
 BUR,Burford Capital Ltd.,NASDAQ,生物技术和制药,,954392868
 BLFS,"BioLife Solutions, Inc.",NASDAQ,,,953441989
 OZM,"Och-Ziff Capital Management Group, Inc.",NYSE,多元化金融服务,,952234605
-BCX,BlackRock Resources & Commodities Strategy Trust,NYSE,股权,,951450966
-SCHK,Schwab 1000 Index ETF,AMEX,,,951135400
-BSJL,Invesco Bulletshares 2021 High Yield Corporate Bond ETF,NYSE,,,950241296
 RZLV,Rezolve AI Plc,NASDAQ,,,949209681
-SPTI,SPDR Portfolio Intermediate Term Treasury ETF,AMEX,,,948066699
-TMTS,Spartacus Acquisition Corp. II,NASDAQ,,,947792532
 ACEL,"Accel Entertainment, Inc.",NYSE,,,947064975
 OXLC,Oxford Lane Capital Corp.,NASDAQ,环球,,946812594
 ATLC,Atlanticus Holdings Corp.,NASDAQ,多元化金融服务,,945741835
-VUSE,Vident Core US Equity Fund,NASDAQ,,,945294216
 SMPL,The Simply Good Foods Co.,NASDAQ,储蓄及贷款,,944705373
 NSP,"Insperity, Inc.",NYSE,,,944342028
 QDEL,QuidelOrtho Corp.,NASDAQ,,,942932028
-CHY,Calamos Convertible & High Income Fund,NYSE,股权,,941769349
-IHI,iShares U.S. Medical Devices ETF,NYSE,股权,,941332903
 EXPI,"eXp World Holdings, Inc.",NASDAQ,,,941276302
 EVEX,"Eve Holding, Inc.",NYSE,,,940422393
 ANNX,"Annexon, Inc.",NASDAQ,,,938774833
 SNCY,"Sun Country Airlines Holdings, Inc.",NASDAQ,,,938598980
 NXEOU,"Nexeo Solutions, Inc.",NASDAQ,,,936734400
-SMDV,ProShares Russell 2000 Dividend Growers ETF,AMEX,,,935690597
-EVO,Evotec SE,AMEX,债务,,935052046
 KCAPL,Portman Ridge Finance Corp.,NASDAQ,,,933943092
 WGO,"Winnebago Industries, Inc.",NYSE,,,933901628
-FCOM,Fidelity MSCI Telecommunication Services Index ETF,NYSE,股权,,933836119
 BFST,"Business First Bancshares, Inc.",NASDAQ,,,933689986
 AKTS,"Aktis Oncology, Inc.",NASDAQ,,,933058867
-ULVM,VictoryShares USAA MSCI USA Value Momentum ETF,AMEX,,,932109456
 KBDC,"Kayne Anderson BDC, Inc.",NYSE,,,931144998
 CMPX,"Compass Therapeutics, Inc.",NASDAQ,,,931054534
 TBLA,Taboola.com Ltd.,NASDAQ,,,929954972
 CPLP,Capital Product Partners LP,NASDAQ,运输,,926311921
-SRUN,Silver Run Acquisition Corp. II,NASDAQ,,,925289957
 CCNE,CNB Financial Corp. (Pennsylvania),NASDAQ,银行,,924619011
 MBWM,Mercantile Bank Corp.,NASDAQ,银行,,924103414
-CII,"Blackrock Enhanced Large Cap Core Fund, Inc.",NYSE,股权,,920654708
 TDOC,"Teladoc Health, Inc.",NYSE,,,920198603
 LGIH,"LGI Homes, Inc.",NASDAQ,,,919540010
-JKG,iShares Morningstar Mid-Cap ETF,NYSE,股权,,918862971
 EVMN,"Evommune, Inc.",NYSE,,,918829010
 VRTS,"Virtus Investment Partners, Inc.",NASDAQ,多元化金融服务,,918448439
-BSCJ,Invesco BulletShares 2019 Corporate Bond ETF,NASDAQ,股权,,917439288
-FIW,First Trust Water ETF,NYSE,股权,,917255472
 CPAC,Cementos Pacasmayo SAA,NYSE,,,917005004
 NX,Quanex Building Products Corp.,NYSE,,,915001997
-VIDI,Vident International Equity Fund,NASDAQ,股权,,913649275
 SCHN,"Schnitzer Steel Industries, Inc.",NASDAQ,,,913368176
-NRK,Nuveen New York AMT-Free Quality Municipal Income Fund,AMEX,债务,,913353656
-CCH,Coca-Cola Hellenic Bottling Co S.A. ADS,NYSE,饮料,,912997509
 XNCR,"Xencor, Inc.",NASDAQ,生物技术和制药,,910865939
-HTD,John Hancock Tax-Advantaged Dividend Income Fund,NYSE,股权,,910243577
 JANX,"Janux Therapeutics, Inc.",NASDAQ,,,908216643
 COUR,"Coursera, Inc.",NYSE,,,907520913
-CHI,Calamos Convertible Opportunities & Income Fund,NYSE,股权,,907304237
 HBNC,"Horizon Bancorp, Inc. (Indiana)",NASDAQ,银行,,906699035
-IGM,iShares North American Tech ETF,NYSE,股权,,904867876
-AACQ,"Artius Acquisition, Inc.",NASDAQ,,,904719334
 VVI,"Pursuit Attractions & Hospitality, Inc.",NYSE,,,901292988
 GMHI,"Luminar Technologies, Inc.",NASDAQ,,,900000000
 WOOF,"Petco Health & Wellness Company, Inc.",NASDAQ,卫生保健设施,,898788444
-BMEZ,BlackRock Health Sciences Term Trust,NYSE,,,898144996
 THRM,"Gentherm, Inc.",NASDAQ,汽车制造,,898016585
-AWF,"AllianceBernstein Global High Income Fund, Inc.",NYSE,环球,,897650924
 LMRI,"Lumexa Imaging Holdings, Inc.",NASDAQ,,,895744490
 MOMO,"Hello Group, Inc.",NASDAQ,,,895523013
 MCBS,"MetroCity Bankshares, Inc.",NASDAQ,,,895437969
-OUSA,ALPS O'Shares U.S. Quality Dividend ETF,NYSE,,,894445545
 IIJI,Internet Initiative Japan Inc.,NASDAQ,,,894198538
 AINV,Apollo Investment Corp.,NASDAQ,投资公司,,893411025
-KBWB,Invesco KBW Bank ETF,NYSE,股权,,893380713
 APC,ARKO Petroleum Corp.,NYSE,油气,,892893014
-ESRT,"Empire State Realty Trust, Inc.",NYSE,,,890447385
-FDVV,Fidelity Core Dividend ETF,AMEX,,,890405451
-PDM,"Piedmont Realty Trust, Inc.",NYSE,,,890134988
-PCN,PIMCO Corporate & Income Strategy Fund,NYSE,股权,,889970975
 VYX,NCR Voyix Corp.,NYSE,,,889672743
 CPF,Central Pacific Financial Corp.,NYSE,银行,,888798968
 CRTO,Criteo SA,NASDAQ,媒体内容,,888488897
 VLRS,Controladora Vuela Compa帽铆a de Aviaci贸n SAB de CV,NYSE,,,887535350
-INDY,iShares India 50 ETF,NASDAQ,股权,,886864378
 CRCT,"Cricut, Inc.",NASDAQ,,,885245706
-IYJ,iShares U.S. Industrials ETF,NYSE,股权,,885092238
 JBIO,"Jade Biosciences, Inc.",NASDAQ,,,882267969
-TBT,ProShares UltraShort 20+ Year Treasury,NYSE,股权,,882054290
 AEBI,Aebi Schmidt Holding AG,NASDAQ,,,881984984
-MOO,VanEck Agribusiness ETF,NYSE,环球,,881429515
 EEX,"Emerald Holding, Inc.",NYSE,,,880693579
 OPK,"OPKO Health, Inc.",NYSE,制药,,880517974
 TMST,TimkenSteel Corp.,NYSE,,,880357985
 CGEM,"Cullinan Therapeutics, Inc.",NASDAQ,,,880049899
 AIP,"Arteris, Inc.",NYSE,,,879336835
 MESA,"Mesa Air Group, Inc.",NASDAQ,,,879206397
-CPSR,Capstar Special Purpose Acquisition Corp.,NYSE,,,878197497
 VERB,"Verb Technology Co., Inc.",NASDAQ,,,877814006
 ULCC,"Frontier Group Holdings, Inc.",NASDAQ,,,877576698
 NANO,"Nanometrics, Inc.",NASDAQ,半导体,,877241720
@@ -3290,24 +2771,17 @@ ESBA,Empire State Realty OP LP,NYSE,,,875034445
 BBDC,"Barings BDC, Inc.",NYSE,,,873255429
 NEWP,New Pacific Metals Corp.,NYSE,半导体,,872804683
 VDSI,"VASCO Data Security International, Inc.",NASDAQ,软件,,870451276
-IVOG,Vanguard S&P Mid-Cap 400 Growth ETF,NYSE,股权,,868765726
 LIFE,"Ethos Technologies, Inc.",NASDAQ,生物技术,,868229934
-TPYP,Tortoise North American Pipeline Fund,NYSE,,,867939715
 JBGS,JBG SMITH Properties,NYSE,,,865230570
 RTP,REINVENT TECHNOLOGY PARTNERS,NYSE,,,865087477
 USAT,"USA Technologies, Inc.",NASDAQ,软件,,864312579
 TNP,Tsakos Energy Navigation Ltd.,NYSE,运输,,863924076
 TALK,"Talkspace, Inc.",NASDAQ,,,863782984
 CAC,Camden National Corp. (Maine),NASDAQ,银行,,862727989
-CRBN,iShares Low Carbon Optimized MSCI ACWI ETF,AMEX,,,862603680
-AGGY,WisdomTree Yield Enhanced U.S. Aggregate Bond Fund,NYSE,,,862193979
 FSBC,Five Star Bancorp,NASDAQ,,,862100048
-VSGX,Vanguard ESG International Stock ETF,AMEX,,,860819414
 SSII,"SS Innovations International, Inc.",NASDAQ,,,860566039
 FISK,Empire State Realty OP LP,NYSE,,,860479016
 SCHL,Scholastic Corp.,NASDAQ,媒体内容,,860345812
-SPGP,Invesco S&P 500 GARP ETF,AMEX,,,860169095
-GGN,"GAMCO Global Gold, Natural Resources & Income Trust",AMEX,股权,,859882861
 FTRE,"Fortrea Holdings, Inc.",NASDAQ,,,858330029
 MPB,"Mid Penn Bancorp, Inc.",NASDAQ,银行,,857981941
 INMD,InMode Ltd.,NASDAQ,,,857243573
@@ -3317,19 +2791,13 @@ SLS,"SELLAS Life Sciences Group, Inc.",NASDAQ,,,854813093
 OGCP,Empire State Realty OP LP,NYSE,,,853629025
 HTLD,"Heartland Express, Inc.",NASDAQ,运输,,852779017
 REPX,"Riley Exploration Permian, Inc.",NYSE,,,852776004
-FENY,Fidelity MSCI Energy Index ETF,NYSE,股权,,851710213
 CERT,"Certara, Inc.",NASDAQ,,,850954212
 CRESY,Cresud SA,NASDAQ,,,849787010
 SUPV,Grupo Supervielle SA,NYSE,,,849198123
 MATW,Matthews International Corp.,NASDAQ,商业服务,,847251985
 CSIQ,"Canadian Solar, Inc.",NASDAQ,,,845859475
 BLDP,"Ballard Power Systems, Inc.",NASDAQ,能源-替代能源,,845566794
-IWX,iShares Russell Top 200 Value ETF,NYSE,股权,,844871003
 TMCR,"The Metals Royalty Co., Inc.",NASDAQ,,,844637482
-BTX,BlackRock Technology & Private Equity Term Trust,NYSE,生物技术,,843815001
-PHK,PIMCO High Income Fund,NYSE,股权,,842915017
-JHSC,John Hancock Multifactor Small Cap ETF,AMEX,,,842766582
-GROY,Gold Royalty Corp.,AMEX,,,842392023
 TBPH,"Theravance Biopharma, Inc.",NASDAQ,,,841909327
 ATUS,"Altice USA, Inc.",NYSE,,,840993330
 AEVA,"Aeva Technologies, Inc.",NYSE,,,840351672
@@ -3338,12 +2806,9 @@ WAFDW,"Washington Federal, Inc.",NASDAQ,储蓄及贷款,,838800498
 SHEN,Shenandoah Telecommunications Co. (Virginia),NASDAQ,电信,,837266985
 HAFC,Hanmi Financial Corp.,NASDAQ,银行,,836992492
 MYE,"Myers Industries, Inc.",NYSE,,,835962160
-HZAC,HORIZON ACQUISITION CORPORATION,NYSE,,,835695921
 PFLT,PennantPark Floating Rate Capital Ltd.,NASDAQ,投资公司,,835414692
-QDEF,FlexShares Quality Dividend Defensive Index Fund,AMEX,股权,,832945442
 FBM,"Foundation Building Materials, Inc.",NYSE,股权,,831336917
 SLI,Standard Lithium Ltd.,NYSE,,,831129605
-VOLT,Tema Electrification ETF,AMEX,,,830821180
 SMP,"Standard Motor Products, Inc.",NYSE,汽车制造,,829808361
 BFS,"Saul Centers, Inc.",NYSE,,,829671873
 OMER,Omeros Corp.,NASDAQ,生物技术和制药,,827235988
@@ -3353,7 +2818,6 @@ HTBK,Heritage Commerce Corp.,NASDAQ,银行,,823502200
 ODD,ODDITY Tech Ltd.,NASDAQ,,,823221618
 KNW,"Know Labs, Inc.",NYSE,,,822261040
 FCBC,"First Community Bancshares, Inc. (Virginia)",NASDAQ,银行,,822133678
-MQY,"BlackRock MuniYield Quality Fund, Inc.",NYSE,股权,,820340003
 CAPL,CrossAmerica Partners LP,NYSE,,,819904005
 FMNB,Farmers National Banc Corp.,NASDAQ,银行,,819739205
 SLRC,SLR Investment Corp.,NASDAQ,,,818865069
@@ -3368,22 +2832,16 @@ TRST,TrustCo Bank Corp. NY,NASDAQ,银行,,812669384
 ABUS,Arbutus Biopharma Corp.,NASDAQ,,,811234017
 LPI,"Laredo Petroleum, Inc.",NYSE,油气,,808562997
 EGBN,"Eagle Bancorp, Inc. (Maryland)",NASDAQ,银行,,808445017
-FBND,Fidelity Total Bond ETF,NYSE,,,808227172
 NWPX,"NWPX Infrastructure, Inc.",NASDAQ,金属构造/部件,,806916008
 HMH,"HMH Holding, Inc.",NASDAQ,,,805492298
-IHDG,WisdomTree International Hedged Quality Dividend Growth Fund,NYSE,,,805122121
 HRTG,"Heritage Insurance Holdings, Inc.",NYSE,,,803659210
 CTLP,"Cantaloupe, Inc.",NASDAQ,,,802075719
 APY,Apergy Corp.,NYSE,,,801405000
 HPK,"HighPeak Energy, Inc.",NASDAQ,,,801110399
-FGD,First Trust Dow Jones Global Select Dividend Index Fund,NYSE,环球,,799711572
 SPRY,"ARS Pharmaceuticals, Inc.",NASDAQ,,,799343018
 DGNR,Dragoneer Growth Opportunities Corp.,NYSE,,,798675020
 WLKP,Westlake Chemical Partners LP,NYSE,,,798671613
 AIO,Virtus AllianzGI Artificial Intelligence & Technology Opps,NYSE,,,798442015
-EOI,Eaton Vance Enhanced Equity Income Fund,NYSE,股权,,798303966
-EPS,WisdomTree U.S. Earnings 500 Fund,NYSE,股权,,797378022
-FSTA,Fidelity MSCI Consumer Staples Index ETF,NYSE,股权,,796902492
 CCBG,"Capital City Bank Group, Inc.",NASDAQ,银行,,796036013
 THFF,First Financial Corp. (Indiana),NASDAQ,银行,,794972962
 GSM,Ferroglobe PLC,NASDAQ,采矿,,794157002
@@ -3393,35 +2851,24 @@ MNKD,MannKind Corp.,NASDAQ,生物技术和制药,,793604980
 NABL,"N-able, Inc.",NYSE,,,793064298
 BJRI,"BJ's Restaurants, Inc.",NASDAQ,零售,,792774826
 MRVI,"Maravai Lifesciences Holdings, Inc.",NASDAQ,,,789196287
-SKYH,Sky Harbour Group Corp.,AMEX,,,789030835
 FORD,"Forward Industries, Inc.",NASDAQ,纺织品,,788509992
 QVCB,Liberty Interactive Corp.,NASDAQ,,,788505192
 NMFC,New Mountain Finance Corp.,NYSE,,,787091386
 AMC,"AMC Entertainment Holdings, Inc.",NYSE,,,786776014
 MEG,"Montrose Environmental Group, Inc.",NYSE,媒体,,785969325
 TRCH,"Torchlight Energy Resources, Inc.",NASDAQ,,,785778092
-ALCC,AltC Acquisition Corp.,NYSE,,,785719470
 LAWS,"Lawson Products, Inc.",NASDAQ,,,784963074
-FLCB,Franklin Liberty US Core Bond ETF,AMEX,,,784704721
 BOW,"Bowhead Specialty Holdings, Inc.",NYSE,,,784171962
 MFH,"Mercurity Fintech Holding, Inc.",NASDAQ,,,784024419
-AJAX,"Aspen Digital, Inc.",AMEX,,,779946786
 APOG,"Apogee Enterprises, Inc.",NASDAQ,建筑材料,,779096428
-PKST,Peakstone Realty Trust,NYSE,,,777959553
-EMES,Harbor Emerging Markets Select ETF,NYSE,,,777609545
 NMAX,"Newsmax, Inc.",NYSE,,,777412997
-EMPW,Emerge EMPWR Unified Sustainable Equity ETF - United States,NYSE,,,776931240
 RMG,"Romeo Power, Inc.",NYSE,,,776250000
-BSCO,Invesco BulletShares 2024 Corporate Bond ETF,NYSE,,,775375592
 AOSL,Alpha & Omega Semiconductor Ltd.,NASDAQ,半导体,,773186220
 CGBD,"Carlyle Secured Lending, Inc",NASDAQ,,,772498812
 EH,EHang Holdings Ltd.,NASDAQ,,,771677697
 IART,Integra LifeSciences Holdings Corp.,NASDAQ,医疗保健产品,,771131869
-IYG,iShares US Financial Services ETF,NYSE,股权,,768693077
 SDHC,Smith Douglas Homes Corp.,NYSE,,,768189028
-MTK,SPDR Morgan Stanley Technology,NYSE,股权,,767501041
 STKL,"SunOpta, Inc.",NASDAQ,食品,,767050828
-FFC,"Flaherty & Crumrine Preferred & Income Securities Fund, Inc.",NYSE,股权,,766991997
 HTB,"HomeTrust Bancshares, Inc.",NYSE,,,766064442
 KURA,"Kura Oncology, Inc.",NASDAQ,,,765819017
 TLRY,"Tilray Brands, Inc.",NASDAQ,,,765724736
@@ -3429,14 +2876,11 @@ RLMD,"Relmada Therapeutics, Inc.",NASDAQ,,,764635215
 NEGG,"Newegg Commerce, Inc.",NASDAQ,,,764437987
 BOMN,Boston Omaha Corp.,NASDAQ,,,763771436
 CSV,"Carriage Services, Inc.",NYSE,商业服务,,763706259
-PTMC,Pacer Trendpilot 450 ETF,NYSE,,,760989350
 KRO,"Kronos Worldwide, Inc.",NYSE,化学制品,,760501112
 CLB,Core Laboratories Inc.,NYSE,,,760257196
 OSTK,"Overstock.com, Inc.",NASDAQ,互联网,,760217025
-IBDP,iShares iBonds Dec 2024 Term Corporate ETF,NYSE,,,759529988
 BRSP,"BrightSpire Capital, Inc.",NYSE,,,758218564
 TRNS,"Transcat, Inc.",NASDAQ,,,757959996
-FEP,First Trust Europe AlphaDEX Fund,NASDAQ,资产配置,,756891838
 XON,Intrexon Corp.,NYSE,,,756476017
 VOR,"Vor Biopharma, Inc.",NASDAQ,,,755670915
 NAVI,Navient Corp.,NASDAQ,,,755011969
@@ -3446,556 +2890,112 @@ TWCT,TWC TECH HLDGS II CORP,NASDAQ,,,754500062
 ACVA,"ACV Auctions, Inc.",NASDAQ,,,753729928
 BVS,"Bioventus, Inc.",NASDAQ,,,753382423
 ORRF,"Orrstown Financial Services, Inc.",NASDAQ,银行,,753204033
-WETF,"WisdomTree Investments, Inc.",NASDAQ,,,752821963
-NXP,Nuveen Select Tax-Free Income Portfolio,NYSE,股权,,750974979
 VEL,"Velocity Financial, Inc.",NYSE,,,750963254
 CWH,"Camping World Holdings, Inc.",NYSE,房地产信托投资基金,,750773032
 GDRX,"GoodRx Holdings, Inc.",NASDAQ,,,750238170
 AMPL,"Amplitude, Inc.",NASDAQ,,,750206384
 DSGN,"Design Therapeutics, Inc.",NASDAQ,,,749934988
-CTGO,"Contango Silver & Gold, Inc.",AMEX,,,748686258
 JBI,"Janus International Group, Inc.",NYSE,,,748445507
-BTO,John Hancock - Financial Opportunities Fund,NYSE,股权,,748247006
-PSK,State Street SPDR ICE Preferred Securities ETF,NYSE,股权,,747978161
 BH,"Biglari Holdings, Inc.",NYSE,,,747648744
 SWM,"Schweitzer-Mauduit International, Inc.",NYSE,林产品/造纸,,746234408
 PURR,"Hyperliquid Strategies, Inc.",NASDAQ,,,745044751
 TRNE,"Desktop Metal, Inc.",NYSE,,,743476988
 GSBC,"Great Southern Bancorp, Inc. (Missouri)",NASDAQ,银行,,742971487
-ICVT,iShares Convertible Bond ETF,NYSE,,,742735048
 SMBC,"Southern Missouri Bancorp, Inc.",NASDAQ,银行,,742033071
 GFR,Greenfire Resources Ltd.,NYSE,,,741276979
-RWT,"Redwood Trust, Inc.",NYSE,房地产信托投资基金,,741219919
 LPTH,"LightPath Technologies, Inc.",NASDAQ,电信,,740401372
-CAS,Cascade Acquisition Corp.,NYSE,,,738932490
 SCZM,Santacruz Silver Mining Ltd.,NASDAQ,,,738284888
 GDEN,"Golden Entertainment, Inc.",NASDAQ,,,737846788
-THQ,abrdn Healthcare Opportunities Fund,NYSE,,,737059965
-SVC,Service Properties Trust,NASDAQ,,,736748832
 CODI,Compass Diversified Holdings,NYSE,,,736560104
-IDU,iShares U.S. Utilities ETF,NYSE,股权,,736300429
 PRAA,"PRA Group, Inc.",NASDAQ,多元化金融服务,,735227970
 ASST,"Strive, Inc. (United States)",NASDAQ,,,735157892
-STK,"Columbia Seligman Premium Technology Growth Fund, Inc.",NYSE,股权,,734887827
 GRNT,"Granite Ridge Resources, Inc.",NYSE,,,734717022
 WRLD,World Acceptance Corp.,NASDAQ,,,734607610
-MYI,"BlackRock MuniYield Quality Fund III, Inc.",NYSE,股权,,734463015
-BPI,Grayscale Bitcoin Premium Income ETF,NYSE,商业服务,,733942864
-IVR,"Invesco Mortgage Capital, Inc.",NYSE,房地产信托投资基金,,732089756
 SG,"Sweetgreen, Inc.",NASDAQ,,,731782985
 TNT,"Peak Fintech Group, Inc.",NASDAQ,,,731565030
-EEMA,iShares MSCI Emerging Markets Asia ETF,NASDAQ,股权,,731353516
 MGTX,MeiraGTx Holdings Plc,NASDAQ,,,730571772
-PHB,Invesco Fundamental High Yield Corporate Bond ETF,NYSE,股权,,729779885
 HSC,Harsco Corp.,NYSE,多元化制造商,,729605973
 VTS,"Vitesse Energy, Inc.",NYSE,,,729505179
 LXRX,"Lexicon Pharmaceuticals, Inc.",NASDAQ,生物技术和制药,,728730663
-STPZ,PIMCO 1-5 Year US TIPS Index ETF,NYSE,股权,,728513154
 DJCO,Daily Journal Corp.,NASDAQ,媒体,,728401638
 LCY,LANDCADIA HOLDINGS III INC,NASDAQ,,,728193074
-BIT,BlackRock Multi-Sector Income Trust,NYSE,,,728120014
 ANRO,"Alto Neuroscience, Inc.",NYSE,,,727718876
-RWK,Invesco S&P MidCap 400 Revenue ETF,NYSE,股权,,725374129
-PEO,"Adams Natural Resources Fund, Inc.",NYSE,股权,,724506014
 KOP,"Koppers Holdings, Inc.",NYSE,化学制品,,723985790
-DC,Dakota Gold Corp.,AMEX,,,723663110
 SMBK,"SmartFinancial, Inc.",NASDAQ,,,721384552
 AMRK,"A-Mark Precious Metals, Inc.",NASDAQ,,,720848290
-RBAC,RedBall Acquisition Corp.,NYSE,,,720187533
 SSYS,Stratasys Ltd.,NASDAQ,计算机硬件,,719540734
-GOAC,GO Acquisition Corp.,NYSE,,,719468756
 KIND,"Nextdoor Holdings, Inc.",NYSE,,,719265998
 BIOA,"BioAge Labs, Inc.",NYSE,,,718508225
-VSPR,VESPER HEALTHCARE ACQUISITION C,NASDAQ,,,718174987
 PRCH,"Porch Group, Inc.",NASDAQ,,,717572023
 ACIC,American Coastal Insurance Corp.,NYSE,,,716875017
 NCS,"NCI Building Systems, Inc.",NYSE,建筑材料,,716685476
 GYRE,"Gyre Therapeutics, Inc.",NASDAQ,,,716560991
-RA,"Brookfield Real Assets Income Fund, Inc.",NYSE,,,716100862
 MFI,mF International Ltd.,NASDAQ,,,715014997
 HNRG,Hallador Energy Co.,NASDAQ,煤炭,,714757115
-JKH,iShares Morningstar Mid-Cap Growth ETF,NYSE,股权,,714541538
-JQC,Nuveen Credit Strategies Income Fund,NYSE,股权,,713954548
 IBCP,Independent Bank Corp. (Michigan),NASDAQ,银行,,713711971
 CVLG,"Covenant Logistics Group, Inc.",NASDAQ,,,713361756
 BBSI,"Barrett Business Services, Inc.",NASDAQ,商业服务,,712995439
 CCCX,Churchill Capital Corp. X,NASDAQ,,,711002992
-PSC,Principal U.S. Small Cap Index ETF,NASDAQ,,,710333833
 SGY,Talos Petroleum LLC,NYSE,油气,,709753932
 ETM,Entercom Communications Corp.,NYSE,媒体内容,,709725837
-ADSE,ADS-TEC Energy Plc,NASDAQ,,,709445936
 EHAB,"Enhabit, Inc.",NYSE,,,709110942
 FWRG,"First Watch Restaurant Group, Inc.",NASDAQ,,,707456751
 GMTL,Guardian Metal Resources PLC,NYSE,,,707353077
 IIIN,"Insteel Industries, Inc.",NASDAQ,电力组件与设备,,706610129
 FOXF,Fox Factory Holding Corp.,NASDAQ,,,705725554
 ALOY,"REalloys, Inc.",NASDAQ,,,705403986
-VTWV,Vanguard Russell 2000 Value Index Fund,NASDAQ,股权,,704830608
-GAU,"Galiano Gold, Inc.",AMEX,,,704765012
 NFGC,New Found Gold Corp.,NYSE,,,704233587
 NUTX,"Nutex Health, Inc.",NASDAQ,,,704151789
 HUYA,"HUYA, Inc.",NYSE,,,704129904
 CRY,"Artivion, Inc.",NYSE,医疗保健产品,,703212857
 NRCIA,National Research Corp.,NASDAQ,,,702637634
-FBRT,"Franklin BSP Realty Trust, Inc.",NYSE,,,701973431
-GMF,State Street SPDR S&P Emerging Asia Pacific ETF,NYSE,股权,,701610527
 FFBCW,First Financial Bancorp (Ohio),NASDAQ,银行,,701294962
 DEAC,"DraftKings, Inc.",NASDAQ,,,701200027
 VINP,Vinci Compass Investments Ltd.,NASDAQ,,,700016436
 NRDS,"NerdWallet, Inc.",NASDAQ,,,699247323
-IGR,CBRE Global Real Estate Income Fund,NYSE,环球,,699189355
-IGOV,iShares International Treasury Bond ETF,NASDAQ,股权,,698987917
 LYTS,"LSI Industries, Inc.",NASDAQ,,,698909768
 PDVW,"Pacific DataVision, Inc.",NASDAQ,,,698735184
-VGAC,VG ACQUISITION CORP,NYSE,,,698620988
 OPFI,"OppFi, Inc.",NYSE,,,698023762
 LBRX,"LB Pharmaceuticals, Inc.",NASDAQ,,,697945001
 VTEX,VTEX (Cayman Islands),NYSE,,,697299036
-RSVAU,Rodgers Silicon Valley Acquisition Corp,NASDAQ,,,696324980
 OIS,"Oil States International, Inc.",NYSE,,,695308013
 GRSV,"Gores Holdings V, Inc.",NASDAQ,,,694968802
-IVLU,iShares Edge MSCI Intl Value Factor ETF,NYSE,,,694285740
 SGP,"SpyGlass Pharma, Inc.",NYSE,生物技术和制药,,693600996
 DPHCU,DiamondPeak Holdings Corp.,NASDAQ,,,692934605
 METCB,"Ramaco Resources, Inc.",NASDAQ,,,691987002
 AMN,"AMN Healthcare Services, Inc.",NYSE,,,690787041
-PFN,PIMCO Income Strategy Fund II,NYSE,股权,,689303285
 NB,NioCorp Developments Ltd.,NASDAQ,,,687947023
-AOK,iShares Core 30/70 Conservative Allocation ETF,NYSE,股权,,687388151
-DLY,Doubleline Yield Opportunities Fund,NYSE,,,685169103
 ROOT,"Root, Inc.",NASDAQ,,,684403984
 CBLL,"Ceribell, Inc.",NASDAQ,,,683188274
 GHVIU,"Gores Holdings VI, Inc.",NASDAQ,,,683100007
 QNST,"QuinStreet, Inc.",NASDAQ,互联网,,682786980
-NIE,Virtus Equity & Convertible Income Fund,NYSE,股权,,682748881
 BWMX,Betterware de Mexico SAPI de CV,NASDAQ,,,682519661
-PRFZ,Invesco FTSE RAFI US 1500 Small-Mid ETF,NASDAQ,股权,,682398095
 TRON,"Tron, Inc.",NASDAQ,,,682260003
 NAKD,Cenntro Electric Group Ltd.,NASDAQ,,,681878668
 CFCO,CF Corporation - Class A Ordinary Share,NASDAQ,,,681720018
-GOV,Government Properties Income Trust,NYSE,房地产信托投资基金,,681539685
 CVLB,"LifeMD, Inc.",NASDAQ,,,681516423
-TMQ,"Trilogy Metals, Inc.",AMEX,,,681117099
 FET,"Forum Energy Technologies, Inc.",NYSE,油气服务,,680965579
 THM,International Tower Hill Mines Ltd.,NYSE,,,680257405
-GDVD,Copper Place Global Dividend Growth ETF,AMEX,,,680195707
 CSHR,CSHR,NASDAQ,,,679800013
 FDUS,Fidus Investment Corp.,NASDAQ,私募股权投资,,679762653
-TBLD,Thornburg Income Builder Opportunities Trust,NASDAQ,,,679761026
-WASH,"Washington Trust Bancorp, Inc.",NASDAQ,银行,,679726015
 TCBX,"Third Coast Bancshares, Inc.",NASDAQ,,,679544037
-DEACU,Diamond Eagle Acquisition Corp.,NASDAQ,,,677950029
 MGRT,"Mega Fortune Co., Ltd.",NASDAQ,,,677874990
 FDEF,First Defiance Financial Corp.,NASDAQ,银行,,675617477
-FXR,First Trust Industrials/Producer Durables AlphaDEX Fund,NYSE,股权,,674956889
 PGC,Peapack-Gladstone Financial Corp.,NASDAQ,银行,,674360606
 TXO,TXO Partners LP,NYSE,,,673958575
 SWIM,"Latham Group, Inc.",NASDAQ,,,672516435
 OMDA,"Omada Health, Inc.",NASDAQ,,,672339250
 ATEX,"Anterix, Inc.",NASDAQ,,,672322980
 BBOT,"Bridgebio Oncology Therapeutics, Inc.",NASDAQ,,,672275683
-PFXF,VanEck Preferred Securities ex Financials ETF,NASDAQ,股权,,672191181
 NOAH,Noah Holdings Ltd.,NYSE,多元化金融服务,,671857634
 IMSR,"Terrestrial Energy, Inc.",NASDAQ,,,671630015
 GO,Grocery Outlet Holding Corp.,NASDAQ,,,671367014
 KRUS,"Kura Sushi USA, Inc.",NASDAQ,,,671291939
 FISI,"Financial Institutions, Inc.",NASDAQ,银行,,670266608
-PSQ,ProShares Short QQQ,NYSE,股权,,670063464
 GCI,"Gannett Co., Inc.",NYSE,媒体内容,,669345027
-EWI,iShares MSCI Italy ETF,NYSE,股权,,667368063
-BHK,BlackRock Core Bond Trust,NYSE,股权,,667351813
-ACP,abrdn Income Credit Strategies Fund,NYSE,,,666248990
 HIPO,"Hippo Holdings, Inc.",NYSE,,,666155576
-DFJ,WisdomTree Japan SmallCap Dividend Fund,NYSE,股权,,666056070
 NCDL,Nuveen Churchill Direct Lending Corp.,NYSE,,,665243779
 BUI,"BlackRock Utilities, Infrastructure & Power Opportunities Tr",NYSE,环球,,664805641
-QYLD,Global X NASDAQ 100 Covered Call ETF,NASDAQ,股权,,664158190
-RMT,"Royce Micro-Cap Trust, Inc.",NYSE,股权,,663667991
 VPG,"Vishay Precision Group, Inc.",NYSE,半导体,,663540729
-GLDI,UBS AG ETRACS Gold Shares Covered Call ETN,NASDAQ,环球,,662984406
 STAR,"iStar, Inc.",NYSE,,,662560681
 SLDP,"Solid Power, Inc.",NASDAQ,,,662332011
-FIP,"FTAI Infrastructure, Inc.",NASDAQ,,,660534290
-AVNS,"Avanos Medical, Inc.",NYSE,,,659479980
-RSVR,"Reservoir Media, Inc.",NASDAQ,,,659282012
-PDT,John Hancock Premium Dividend Fund,NYSE,股权,,659081983
-IYM,iShares U.S. Basic Materials ETF,NYSE,股权,,658383024
-SB,"Safe Bulkers, Inc.",NYSE,运输,,657433982
-VMO,Invesco Municipal Opportunity Trust,NYSE,股权,,655734316
-NTGR,"NETGEAR, Inc.",NASDAQ,电信,,655317978
-DMII,Drugs Made In America Acquisition II Corp.,NASDAQ,,,655094215
-UMAC,"Unusual Machines, Inc.",AMEX,,,654648298
-DMYT,"Rush Street Interactive, Inc.",NYSE,,,654350007
-HEWJ,iShares Currency Hedged MSCI Japan ETF,NYSE,股权,,654073391
-RGR,"Sturm, Ruger & Co., Inc.",NYSE,多元化制造商,,653078513
-SHBI,"Shore Bancshares, Inc.",NASDAQ,银行,,652824568
-AC,"Associated Capital Group, Inc.",NYSE,,,652214114
-ANL,Adlai Nortye Ltd.,NASDAQ,,,652176207
-HY,"Hyster-Yale, Inc.",NYSE,,,651921136
-ALRS,Alerus Financial Corp.,NASDAQ,,,651785890
-AOBC,American Outdoor Brands Corp.,NASDAQ,,,650907242
-INDI,"indie Semiconductor, Inc.",NASDAQ,,,650852671
-NXRT,"NexPoint Residential Trust, Inc.",NYSE,,,650782026
-ICLN,iShares Global Clean Energy ETF,NASDAQ,环球,,649909154
-MDIV,First Trust Multi-Asset Diversified Income Index Fund,NASDAQ,,,649184088
-CWBC,Community West Bancshares,NASDAQ,银行,,648601784
-DGICB,"Donegal Group, Inc.",NASDAQ,保险,,647921908
-VLGEA,"Village Super Market, Inc.",NASDAQ,,,647463998
-PVAC,Penn Virginia Corp.,NASDAQ,,,646565987
-GLADO,GLADSTONE CAPITAL,NASDAQ,,,646494878
-MTA,Metalla Royalty & Streaming Ltd.,AMEX,,,645689471
-MWK,"Mohawk Group Holdings, Inc.",NASDAQ,,,645319144
-MOBBW,Mobilicom Ltd.,NASDAQ,,,643843219
-ASIX,"Advansix, Inc.",NYSE,,,643337528
-SPMB,SPDR Portfolio Mortgage Backed Bond ETF,AMEX,,,643309550
-RYAM,"Rayonier Advanced Materials, Inc.",NYSE,,,642934617
-NYMT,"New York Mortgage Trust, Inc.",NASDAQ,,,642132438
-CMLF,CM LIFE SCIENCES INC,NASDAQ,,,641987521
-DRTS,Alpha Tau Medical Ltd.,NASDAQ,,,641590979
-NPB,"Northpointe Bancshares, Inc.",NYSE,,,641590571
-GDOT,Green Dot Corp.,NYSE,,,641249963
-NKX,Nuveen California AMT-Free Quality Municipal Income Fund,AMEX,债务,,641121400
-TSAT,Telesat Corp.,NASDAQ,,,640502010
-DGICA,"Donegal Group, Inc.",NASDAQ,保险,,640151249
-BZH,"Beazer Homes USA, Inc.",NYSE,,,640003007
-HIFS,Hingham Institution for Savings,NASDAQ,银行,,639629729
-MXI,iShares Global Materials ETF,NYSE,环球,,639123370
-BOE,BlackRock Enhanced Global Dividend Trust,NYSE,环球,,638288973
-SWBI,"Smith & Wesson Brands, Inc.",NASDAQ,,,638040310
-HTBI,"HomeTrust Bancshares, Inc.",NASDAQ,银行,,637579356
-DPHC,Lordstown Motors Corp.,NASDAQ,,,637342101
-OXM,"Oxford Industries, Inc.",NYSE,,,637182977
-TIPT,"Tiptree, Inc.",NASDAQ,,,637091986
-CTO,"CTO Realty Growth, Inc.",NYSE,,,636539921
-SGDM,Sprott Gold Miners ETF,NYSE,,,635711981
-PWE,Penn West Petroleum Ltd,NYSE,油气,,635324755
-CBRL,"Cracker Barrel Old Country Store, Inc.",NASDAQ,零售,,634545529
-MUJ,"BlackRock MuniHoldings New Jersey Quality Fund, Inc.",NYSE,债务,,633966003
-MAMA,"Mama's Creations, Inc.",NASDAQ,,,633785468
-SRET,Global X SuperDividend REIT ETF,NASDAQ,,,633386444
-IIIV,"i3 Verticals, Inc.",NASDAQ,,,632983439
-QD,"Qudian, Inc.",NYSE,,,632433988
-FDRR,Fidelity Dividend ETF for Rising Rates,AMEX,,,631902349
-ASC,Ardmore Shipping Corp.,AMEX,,,631623982
-CRNCV,"Cerence, Inc.",NASDAQ,,,631442032
-HSHP,Himalaya Shipping Ltd.,NYSE,,,630656990
-PACE,Pace Holdings Corp,NASDAQ,,,629999989
-SGOC,SGOCO Group Ltd.,NASDAQ,零售,,629907568
-CIICU,CIIG Merger Corp.,NASDAQ,,,629774995
-KE,"Kimball Electronics, Inc.",NASDAQ,,,628114649
-GLRE,Greenlight Capital Re Ltd.,NASDAQ,保险,,627677124
-CCD,Calamos Dynamic Convertible & Income Fund,NASDAQ,,,627674489
-ACTC,ARCLIGHT CLEAN TRANSITION CORP,NASDAQ,,,627496880
-NR,"Newpark Resources, Inc.",NYSE,油气服务,,627105410
-BOWX,BOWX ACQUISITION CORP,NASDAQ,,,626692507
-UDMY,"Udemy, Inc.",NASDAQ,,,625586996
-TRTX,"TPG RE Finance Trust, Inc.",NYSE,,,625583980
-SERV,"Serve Robotics, Inc.",NASDAQ,,,625200879
-OFRM,Once Upon A Farm PBC,NYSE,,,624870372
-MFEM,PIMCO RAFI Dynamic Multi-Factor Emerging Markets Equity ETF,AMEX,,,624723138
-GHVI,GORES HLDGS VI INC,NASDAQ,,,624018762
-BMM,Blue Moon Metals Inc.,NASDAQ,,,623488590
-PCPL,"E2open Parent Holdings, Inc.",NYSE,,,623114930
-AMSF,"AMERISAFE, Inc.",NASDAQ,保险,,621922615
-CINT,"CI&T, Inc. (Brazil)",NYSE,,,621756826
-HOV,"Hovnanian Enterprises, Inc.",NYSE,,,621135083
-PKE,Park Aerospace Corp.,NYSE,半导体,,620887863
-IYH,iShares U.S. Healthcare ETF,NYSE,股权,,620543385
-MNTN,"MNTN, Inc.",NYSE,,,620530736
-WRN,Western Copper & Gold Corp.,NYSE,,,620478881
-IVOV,Vanguard S&P Mid-Cap 400 Value ETF,NYSE,股权,,620158512
-FDUSL,Fidus Investment Corporation,NASDAQ,,,619603973
-ONEO,SPDR Russell 1000 Momentum Focus ETF,AMEX,,,619340455
-FAX,abrdn Asia Pacific Income Fund Inc.,AMEX,股权,,618000952
-DBJP,Xtrackers MSCI Japan Hedged Equity ETF,NASDAQ,股权,,617433069
-FMCI,"Tattooed Chef, Inc.",NASDAQ,,,617405000
-AXG,Solowin Holdings,NASDAQ,,,617308547
-GOODP,Gladstone Commercial Corp.,NASDAQ,,,615816805
-DXYZ,"Destiny Tech100, Inc.",NYSE,,,615336400
-WDH,"Waterdrop, Inc.",NYSE,,,614826284
-GOGO,"Gogo, Inc.",NASDAQ,,,614149447
-MITK,"Mitek Systems, Inc.",NASDAQ,软件,,614035725
-GHIV,UWM Holdings Corp.,NASDAQ,,,613062994
-AMBQ,"Ambiq Micro, Inc.",NYSE,,,612790748
-UXIN,Uxin Ltd.,NASDAQ,,,612322462
-CDXC,Chromadex Corp.,NASDAQ,,,611895993
-OBE,Obsidian Energy Ltd.,NYSE,,,611524233
-TREB,Trebia Acquisition Corp.,NYSE,,,611296853
-MHD,"BlackRock MuniHoldings Fund, Inc.",NYSE,股权,,610578255
-NGVC,"Natural Grocers by Vitamin Cottage, Inc.",NYSE,,,609455620
-DSU,"BlackRock Debt Strategies Fund, Inc.",NYSE,股权,,608702861
-EVGO,"EVgo, Inc.",NASDAQ,,,608345214
-GPRK,GeoPark Ltd.,NYSE,,,607979972
-PXMG,Invesco Russell MidCap Pure Growth ETF,NYSE,股权,,607583880
-AMWD,American Woodmark Corp.,NASDAQ,,,607405979
-CRSR,"Corsair Gaming, Inc.",NASDAQ,,,606908704
-EMD,"Western Asset Emerging Markets Debt Fund, Inc.",NYSE,股权,,606881801
-ITRG,Integra Resources Corp.,AMEX,,,606476430
-ROUS,Hartford Multifactor US Equity ETF,AMEX,,,605444062
-LOAK,"Danimer Scientific, Inc.",NYSE,,,605000019
-EGY,"VAALCO Energy, Inc.",NYSE,油气,,604697887
-FWRD,Forward Air Corp.,NASDAQ,运输,,603947981
-ARKO,Arko Corp.,NASDAQ,,,603249005
-CASS,"Cass Information Systems, Inc.",NASDAQ,,,602172028
-DSP,"Viant Technology, Inc.",NASDAQ,,,601853262
-AROW,Arrow Financial Corp.,NASDAQ,银行,,601519014
-IWL,iShares Russell Top 200 ETF,NYSE,环球,,601177794
-LDP,"Cohen & Steers Ltd. Duration Preferred & Income Fund, Inc.",NYSE,股权,,601117604
-SPAR,"Spartan Motors, Inc.",NASDAQ,,,600590852
-CMLT,"CM Life Sciences III, Inc.",NASDAQ,,,599609971
-ONEQ,Fidelity Nasdaq Composite Index Tracking Stock,NASDAQ,股权,,598928883
-FBYD,"Falcon鈥檚 Beyond Global, Inc.",NASDAQ,,,598464315
-PJP,Invesco Pharmaceuticals ETF,NYSE,股权,,597882520
-HZO,"MarineMax, Inc.",NYSE,零售,,597603723
-UHT,Universal Health Realty Income Trust,NYSE,房地产信托投资基金,,596470797
-URG,"Ur-Energy, Inc.",NYSE,,,595997780
-FDLO,Fidelity Low Volatility Factor ETF,AMEX,,,594704215
-KRT,"Karat Packaging, Inc.",NASDAQ,,,594519923
-BCAL,California Bancorp,NASDAQ,,,594167770
-EUSA,iShares MSCI USA Equal Weighted ETF,NYSE,股权,,593769555
-BSJM,Invesco BulletShares 2022 High Yield Corporate Bond ETF,NYSE,,,593485482
-CIVB,"Civista Bancshares, Inc.",NASDAQ,,,593046983
-RSKD,Riskified Ltd.,NYSE,,,592820000
-SSTK,"Shutterstock, Inc.",NYSE,互联网,,592564008
-IRWD,"Ironwood Pharmaceuticals, Inc.",NASDAQ,制药,,591901706
-NMCO,Nuveen Municipal Credit Opportunities Fund,NYSE,,,590944494
-GOOD,Gladstone Commercial Corp.,NASDAQ,房地产信托投资基金,,590564988
-IPAY,Amplify Mobile Payments ETF,NYSE,,,590375998
-MOV,"Movado Group, Inc.",NYSE,,,590365394
-IAI,iShares U.S. Broker-Dealers ETF,NYSE,股权,,590357270
-CGNT,Cognyte Software Ltd.,NASDAQ,,,589401978
-DWAS,Invesco Dorsey Wright Smallcap Momentum ETF,NASDAQ,股权,,589375150
-PROK,ProKidney Corp.,NASDAQ,,,588736380
-SSPK,Silver Spike Acquisition Corp.,NASDAQ,,,588723158
-CNNX,CONE Midstream Partners LP,NYSE,,,588348590
-BHB,Bar Harbor Bankshares,NYSE,银行,,587815001
-IIM,Invesco Value Municipal Income Trust,NYSE,股权,,587178794
-AACT,Ares Acquisition Corp. II,NYSE,,,587048539
-AIV,Apartment Investment & Management Co.,NYSE,,,586990988
-ERII,"Energy Recovery, Inc.",NASDAQ,,,586926483
-SAGA,Sagaliam Acquisition Corp.,NASDAQ,,,586887008
-TSCBP,"TriState Capital Holdings, Inc.",NASDAQ,,,586547740
-TASK,"TaskUs, Inc.",NASDAQ,,,585930984
-EXTO,Almacenes 脡xito SA,NYSE,,,585660929
-IDR,"Idaho Strategic Resources, Inc.",NYSE,,,585623403
-RSVA,RODGERS SILICON VALLEY ACQ CORP,NASDAQ,,,585350018
-JKF,iShares Morningstar Large Cap Value ETF,NYSE,股权,,585180309
-GII,State Street SPDR S&P Global Infrastructure ETF,NYSE,环球,,585129092
-MCS,Marcus Corp.,NYSE,住宿,,584947777
-CFII,CF FINANCE ACQUISITION CORP. II,NASDAQ,,,584483973
-GAIN,Gladstone Investment Corp.,NASDAQ,,,584188010
-VITL,"Vital Farms, Inc.",NASDAQ,,,584154508
-HSTM,"HealthStream, Inc.",NASDAQ,互联网,,583604213
-OPT,Opthea Ltd.,NASDAQ,,,583101016
-CEPF,"Cantor Equity Partners IV, Inc.",NASDAQ,,,582929989
-CTKB,"Cytek Biosciences, Inc.",NASDAQ,,,582332143
-JAGG,JPMorgan U.S. Aggregate Bond ETF,AMEX,,,581745166
-NFBK,"Northfield Bancorp, Inc. (New Jersey)",NASDAQ,储蓄及贷款,,580519987
-TATT,TAT Technologies Ltd.,NASDAQ,航空航天/国防,,580475641
-PFIS,Peoples Financial Services Corp.,NASDAQ,银行,,577445022
-CNNE,"Cannae Holdings, Inc.",NYSE,,,577206001
-OCGN,"Ocugen, Inc.",NASDAQ,,,577098997
-TECX,"Tectonic Therapeutic, Inc.",NASDAQ,,,576817938
-RHS,Invesco S&P 500 Equal Weight Consumer Staples ETF,NYSE,股权,,576438519
-KBA,KraneShares Bosera MSCI China A 50 Connect Index ETF,NYSE,股权,,575315929
-MDXG,"MiMedx Group, Inc.",NASDAQ,,,574952326
-DDL,Dingdong (Cayman) Ltd.,NYSE,,,574440020
-MAX,"MediaAlpha, Inc.",NYSE,,,574293627
-OUNZ,VanEck Merk Gold ETF,NYSE,,,573879671
-TREE,"LendingTree, Inc.",NASDAQ,,,573352688
-INTL,"INTL FCStone, Inc.",NASDAQ,,,572495598
-CRMD,"CorMedix, Inc.",NYSE,制药,,572324842
-CARS,"Cars.com, Inc.",NYSE,,,571708439
-DNUT,"Krispy Kreme, Inc.",NASDAQ,,,571703989
-NML,"Neuberger Energy Infrastructure & Income Fund, Inc.",AMEX,股权,,571688592
-CEVA,"CEVA, Inc.",NASDAQ,半导体,,571457664
-MMU,"Western Asset Managed Municipals Fund, Inc.",NYSE,股权,,571313006
-TRNC,"tronc, Inc.",NASDAQ,,,571272527
-UPB,"Upstream Bio, Inc.",NASDAQ,,,570865641
-FTK,"Flotek Industries, Inc.",NYSE,油气服务,,570830997
-RESI,Kelly Residential & Apartment Real Estate ETF,NYSE,,,570035327
-ETD,"Ethan Allen Interiors, Inc.",NYSE,,,569743515
-MTC,"MMTec, Inc.",NASDAQ,,,569642195
-DCRC,Decarbonization Plus Acquisition Corp. III,NASDAQ,,,569187510
-JIH,"Juniper Industrial Holdings, Inc.",NYSE,,,568818732
-PPR,Voya Prime Rate Trust,NYSE,股权,,568691431
-TRXC,"Asensus Surgical, Inc.",NYSE,,,568402762
-SD,"SandRidge Energy, Inc.",NYSE,油气,,568212014
-GOL,GOL Linhas A茅reas Inteligentes SA,NYSE,,,567738419
-DBA,Invesco DB Agriculture Fund,NYSE,股权,,566796577
-RONI,Rice Acquisition Corp. II,NYSE,,,565832795
-HDEF,Xtrackers MSCI EAFE High Dividend Yield Hedged Equity ETF,NYSE,,,565544047
-PRTA,Prothena Corp. Plc,NASDAQ,生物技术,,565245996
-CEL,Cellcom Israel Ltd.,NYSE,电信,,564021396
-NRGV,"Energy Vault Holdings, Inc.",NYSE,,,563898652
-CWCO,Consolidated Water Co. Ltd.,NASDAQ,,,563696030
-EBF,"Ennis, Inc.",NYSE,,,562513334
-ULH,"Universal Logistics Holdings, Inc.",NASDAQ,,,560728997
-MSIF,"MSC Income Fund, Inc.",NYSE,,,560142229
-ASPI,"ASP Isotopes, Inc.",NYSE,,,560000002
-NXTG,First Trust Indxx NextG ETF,NASDAQ,,,559992103
-UNTY,"Unity Bancorp, Inc.",NASDAQ,银行,,559617766
-DMYD,"dMY Technology Group, Inc. II",NYSE,,,559244968
-LCAP,Principal Capital Appreciation Select ETF,NASDAQ,,,559145005
-VGM,Invesco Trust For Investment Grade Municipals,NYSE,股权,,559131613
-GRSH,"Gores Holdings III, Inc.",NASDAQ,,,557499981
-ESPR,"Esperion Therapeutics, Inc.",NASDAQ,,,557278805
-TPGH,TPG Pace Holdings Corp.,NYSE,,,556528696
-WYFI,"WhiteFiber, Inc.",NASDAQ,,,556297749
-MLR,"Miller Industries, Inc. (Tennessee)",NYSE,汽车制造,,556077614
-ZVRA,"Zevra Therapeutics, Inc.",NASDAQ,,,555998716
-AVR,Anteris Technologies Global Corp.,NASDAQ,,,552277982
-PSTL,"Postal Realty Trust, Inc.",NYSE,,,551644990
-AMOT,"Allied Motion Technologies, Inc.",NASDAQ,,,551420223
-EDIV,State Street SPDR S&P Emerging Markets Dividend ETF,NYSE,股权,,550519970
-PPGH,Poema Global Holdings Corp.,NASDAQ,,,549412490
-NRIM,"Northrim BanCorp, Inc.",NASDAQ,银行,,548773639
-QEFA,State Street SPDR MSCI EAFE StrategicFactors ETF,NYSE,股权,,548667114
-MVST,"Microvast Holdings, Inc.",NASDAQ,,,547854353
-QNC,Quantum eMotion Corp.,NYSE,,,547796675
-AEXA,American Exceptionalism Acquisition Corp. A,NYSE,,,547035020
-DPG,"Duff & Phelps Utility & Infrastructure Fund, Inc.",NYSE,股权,,546967988
-ATMP,Barclays ETN + Select MLP ETN,AMEX,股权,,545669205
-GUT,Gabelli Utility Trust,NYSE,股权,,545253140
-EVER,"EverQuote, Inc.",NYSE,储蓄及贷款,,543687922
-UIVM,VictoryShares USAA MSCI International Value Momentum ETF,AMEX,,,543489778
-MSC,Studio City International Holdings Ltd.,NYSE,,,542329989
-IHRT,"iHeartMedia, Inc.",NASDAQ,,,542312417
-NHF,NexPoint Strategic Opportunities Fund,NYSE,股权,,542311994
-BYON,"Beyond, Inc.",NYSE,,,541911974
-GTN,"Gray Media, Inc.",NYSE,媒体,,541660553
-TMFC,Motley Fool 100 Index ETF,AMEX,,,541420600
-KYTX,"Kyverna Therapeutics, Inc.",NASDAQ,,,540937093
-CARE,"Carter Bankshares, Inc.",NASDAQ,,,540812645
-SMC,Summit Midstream Corp.,NYSE,,,540095019
-FFIC,Flushing Financial Corp.,NASDAQ,银行,,539766013
-RIGL,"Rigel Pharmaceuticals, Inc.",NASDAQ,生物技术和制药,,539616569
-JOUT,"Johnson Outdoors, Inc.",NASDAQ,,,539586636
-FEIM,"Frequency Electronics, Inc.",NASDAQ,,,539337592
-ETH,Grayscale Ethereum Mini Trust,NYSE,,,538959301
-VBNK,VersaBank,NASDAQ,,,538766685
-VKQ,Invesco Municipal Trust,NYSE,股权,,538414536
-BBG,Bill Barrett Corp.,NYSE,油气,,538061326
-PFM,Invesco Dividend Achievers ETF,NYSE,股权,,537495738
-RVI,Robinhood Ventures Fund I,NYSE,,,537431026
-VALN,Valneva SE,NASDAQ,,,536896755
-AVK,Advent Convertible & Income Fund,NYSE,股权,,536406980
-SMLF,iShares U.S. Small-Cap Equity Factor ETF,NYSE,,,536134124
-ZURA,Zura Bio Ltd.,NASDAQ,,,536076009
-TWI,"Titan International, Inc.",NYSE,汽车部件与设备,,535240977
-AIQ,Global X Artificial Intelligence & Technology ETF,NYSE,卫生保健设施,,534740776
-FWAA,FIFTH WALL ACQUISITION CORP I,NASDAQ,,,534487279
-IMAB,I-Mab,NASDAQ,,,533682015
-CPS,"Cooper-Standard Holdings, Inc.",NYSE,汽车制造,,533368748
-KELYB,"Kelly Services, Inc.",NASDAQ,,,533357727
-AAAU,Goldman Sachs Physical Gold ETF,AMEX,,,532769031
-JKI,iShares Morningstar Mid-Cap Value ETF,NYSE,股权,,532566654
-PV,Primavera Capital Acquisition Corp.,NYSE,,,532124979
-MG,"MISTRAS Group, Inc.",NYSE,,,531338597
-NXDR,"Nextdoor Holdings, Inc.",NYSE,,,531184001
-KVSB,KHOSLA VENTURES ACQUISITION II,NASDAQ,,,531170147
-SXC,"SunCoke Energy, Inc.",NYSE,煤炭,,531122020
-DRQ,"Dril-Quip, Inc.",NYSE,,,530908859
-TLTE,FlexShares Morningstar Emerging Markets Factor Tilt Index,NASDAQ,股权,,530605806
-TSCAP,"TriState Capital Holdings, Inc.",NASDAQ,,,530537483
-ACNB,ACNB Corp.,NASDAQ,银行,,530306744
-GEMI,Gemini Space Station  Inc.,NASDAQ,,,529735501
-OWLS,"OBOOK Holdings, Inc.",NASDAQ,,,529561929
-MLAB,"Mesa Laboratories, Inc.",NASDAQ,电子,,529497674
-BWMN,Bowman Consulting Group Ltd.,NASDAQ,,,527575303
-HIVE,HIVE Digital Technologies Ltd.,NYSE,计算机硬件,,526773981
-TDAC,Translational Development Acquisition Corp.,NASDAQ,,,526471088
-BWB,"Bridgewater Bancshares, Inc.",NASDAQ,,,526440772
-BALY,Bally's Corp.,NYSE,,,526425878
-GSHT,"Gores Holdings II, Inc.",NASDAQ,,,525500011
-RMR,"The RMR Group, Inc.",NASDAQ,,,525433501
-GUG,Guggenheim Active Allocation Fund,NYSE,,,525372732
-SMMC,"BTRS Holdings, Inc.",NASDAQ,,,524999976
-TMCXU,Trinity Merger Corp.,NASDAQ,,,524448193
-UROY,Uranium Royalty Corp.,NASDAQ,,,524389439
-EMBC,Embecta Corp.,NASDAQ,,,524095730
-MOTV,Motive Capital Corp.,NYSE,,,523192482
-STTK,"Shattuck Labs, Inc.",NASDAQ,,,523025972
-TRC,Tejon Ranch Co.,NYSE,农业,,522801987
-IQI,Invesco Quality Municipal Income Trust,NYSE,股权,,522491920
-LYEL,"Lyell Immunopharma, Inc.",NASDAQ,,,522322526
-WIW,Western Asset Inflation-Linked Opportunities & Income Fund,NYSE,股权,,521288850
-CABO,"Cable One, Inc.",NYSE,,,520876483
-MSBI,"Midland States Bancorp, Inc.",NASDAQ,,,520125168
-KRNY,Kearny Financial Corp.,NASDAQ,储蓄及贷款,,519855365
-HOND,HCM II Acquisition Corp.,NASDAQ,,,518650026
-REAX,"The Real Brokerage, Inc.",NASDAQ,,,518012012
-SBEA,SilverBox Engaged Merger Corp. I,NASDAQ,,,517931260
-POCT,Innovator S&P 500 Power Buffer ETF - October,AMEX,,,516987801
-ARKQ,Ark Industrial Innovation ETF,NYSE,,,516984488
-TRDA,"Entrada Therapeutics, Inc.",NASDAQ,,,516837996
-NGA,Northern Genesis Acquisition Corp.,NYSE,,,516556215
-LMHB,"Legg Mason, Inc.",NYSE,,,515994360
-INN,"Summit Hotel Properties, Inc.",NYSE,房地产信托投资基金,,515705974
-BGY,BlackRock Enhanced International Dividend Trust,NYSE,股权,,515596157
-XHE,SPDR S&P Health Care Equipment ETF,NYSE,股权,,515266961
-CBNK,"Capital Bancorp, Inc. (Maryland)",NASDAQ,银行,,514883996
-KFRC,"Kforce, Inc.",NASDAQ,,,514566184
-SVAC,STARBOARD VALUE ACQUISITION COR,NASDAQ,,,513883148
-NGAB,NORTHERN GENESIS ACQ CORP II,NYSE,,,513877019
-NXJ,Nuveen New Jersey Quality Municipal Income Fund,AMEX,债务,,513761998
-AGMB,AgomAb Therapeutics NV,NASDAQ,,,513685649
-FPI,"Farmland Partners, Inc.",NYSE,,,512644862
-VCV,Invesco California Value Municipal Income Trust,NYSE,债务,,512210569
-IEO,iShares U.S. Oil & Gas Exploration & Production ETF,NYSE,股权,,512168516
-IBDQ,iShares iBonds Dec 2025 Term Corporate ETF,NYSE,,,511715342
-DIAX,Nuveen Dow 30 Dynamic Overwrite Fund,NYSE,,,511319016
-HTRB,Hartford Total Return Bond ETF,AMEX,,,510724713
-MRAC,MARQUEE RAINE ACQUISITION CORP,NASDAQ,,,510169005
-IIAC,INVESTINDUSTRIAL ACQUISITION CO,NYSE,,,510168767
-CRD.A,Crawford & Co.,NYSE,,,509608776
-CATX,"Perspective Therapeutics, Inc.",AMEX,,,509282435
-HBCP,"Home Bancorp, Inc.",NASDAQ,银行,,508496719
-HQL,abrdn Life Sciences Investors,NYSE,股权,,507913996
-BME,BlackRock Health Sciences Trust,NYSE,股权,,507658750
-PICK,iShares MSCI Global Metals & Mining Producers ETF,NYSE,环球,,507320444
-EIM,Eaton Vance Municipal Bond Fund,AMEX,股权,,507047546
-BLMN,"Bloomin' Brands, Inc.",NASDAQ,零售,,505477597
-AGCC,Agencia Comercial Spirits Ltd.,NASDAQ,,,505228354
-ADGI,"Adagio Therapeutics, Inc.",NASDAQ,,,504973621
-MCTA,Charming Medical Ltd.,NASDAQ,,,504260182
-PML,PIMCO Municipal Income Fund II,NYSE,股权,,504024992
-LRMR,"Larimar Therapeutics, Inc.",NASDAQ,,,503832235
-FTAC,"Paya Holdings, Inc.",NASDAQ,,,503548870
-ECC,"Eagle Point Credit Co., Inc.",NYSE,,,503514279
-NAAS,"NaaS Technology, Inc.",NASDAQ,,,503275980
-BLE,BlackRock Municipal Income Trust II,AMEX,股权,,503043000
-HKD,"AMTD Digital, Inc.",NYSE,,,502846969
-RILYG,"BRC Group Holdings, Inc.",NASDAQ,,,502838176
-FULC,"Fulcrum Therapeutics, Inc.",NASDAQ,,,502831591
-TRX,TRX Gold Corp.,NYSE,,,501423988
-RDVT,"Red Violet, Inc.",NASDAQ,,,501184010
-DMRL,DeltaShares S&P 500 Managed Risk ETF,AMEX,,,500990055
-AHH,"Armada Hoffler Properties, Inc.",NYSE,,,500959000
-FDMT,"4D Molecular Therapeutics, Inc.",NASDAQ,,,500815021
-IPI,"Intrepid Potash, Inc.",NYSE,化学制品,,500748180
-CBIO,"Crescent Biopharma, Inc.",NASDAQ,,,500707058
-BGB,Blackstone Strategic Credit 2027 Term Fund,NYSE,股权,,499347804
-DEH,D8 Holdings Corp.,NYSE,,,498956237
-BLW,BlackRock Ltd. Duration Income Trust,NYSE,股权,,498326100
-BSPE,BESPOKE CAPITAL ACQUISITION COR,NASDAQ,,,498147562
-NWAX,New America Acquisition I Corp.,NYSE,,,498000000
-AQST,"Aquestive Therapeutics, Inc.",NASDAQ,,,497943791
-FYC,First Trust Small Cap Growth AlphaDEX Fund,NYSE,股权,,497924513
-FMAC,FirstMark Horizon Acquisition Corp.,NYSE,,,497834994
-IVVD,"Invivyd, Inc.",NASDAQ,,,497734796
-JKL,iShares Morningstar Small Cap Value ETF,NYSE,股权,,497610630
-CRD.B,Crawford & Co.,NYSE,,,497382007
-OFIX,"Orthofix Medical, Inc.",NASDAQ,医疗保健产品,,496987639
-SHAZ,"SharonAI Holdings, Inc.",NASDAQ,,,496802022
-STPC,STAR PEAK CORP II,NYSE,,,496584359
-FVAC,MP Materials Corp.,NYSE,,,496455012
-IFN,"The India Fund, Inc.",NYSE,股权,,496276174
-OLP,"One Liberty Properties, Inc.",NYSE,房地产信托投资基金,,496248639
-CLNE,Clean Energy Fuels Corp.,NASDAQ,能源-替代能源,,495913945
-SWMR,"Swarmer, Inc.",NASDAQ,,,495054534
-SPLB,SPDR Portfolio Long Term Corporate Bond ETF,AMEX,,,494797824
-ASTL,"Algoma Steel Group, Inc.",NASDAQ,,,494238211
-THW,abrdn World Healthcare Fund,NYSE,,,494191010
-CVGW,"Calavo Growers, Inc.",NASDAQ,,,493860788
-CHW,Calamos Global Dynamic Income Fund,NYSE,环球,,493032985

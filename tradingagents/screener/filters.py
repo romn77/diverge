@@ -20,24 +20,8 @@ REQUIRED_FEATURE_COLUMNS = [
 MAX_STALE_BUSINESS_DAYS = 3
 
 
-def _is_too_new(row: pd.Series, config: ScreenRunConfig) -> bool:
-    if not row.get("list_date"):
-        return False
-
-    list_date = pd.to_datetime(str(row["list_date"]), errors="coerce")
-    as_of_date = pd.to_datetime(row["as_of_date"], errors="coerce")
-    if pd.isna(list_date) or pd.isna(as_of_date):
-        return False
-
-    return (as_of_date - list_date).days < config.min_listing_days
-
-
 def _missing_required_features(row: pd.Series) -> bool:
     return any(pd.isna(row.get(column)) for column in REQUIRED_FEATURE_COLUMNS)
-
-
-def _business_day_lag(as_of_date_value: object, data_end_date_value: object) -> int | None:
-    return trading_day_lag("us", as_of_date_value, data_end_date_value)
 
 
 def _is_stale_data(row: pd.Series) -> bool:
@@ -47,6 +31,24 @@ def _is_stale_data(row: pd.Series) -> bool:
         row.get("data_end_date"),
     )
     return lag is not None and lag > MAX_STALE_BUSINESS_DAYS
+
+
+def _price_floor_drop_reason(row: pd.Series, config: ScreenRunConfig) -> str | None:
+    close = pd.to_numeric(row.get("close"), errors="coerce")
+    if pd.isna(close):
+        return None
+
+    market = str(row.get("market") or "").strip().lower()
+    if market == "cn" and float(close) < config.cn_min_price:
+        return "low_price_cn"
+    if market == "us" and float(close) < config.us_min_price:
+        return "low_price_us"
+    return None
+
+
+def _has_insufficient_trading_continuity(row: pd.Series, config: ScreenRunConfig) -> bool:
+    trading_days_20d = pd.to_numeric(row.get("trading_days_20d"), errors="coerce")
+    return pd.isna(trading_days_20d) or float(trading_days_20d) < config.min_trading_days_20d
 
 
 def apply_hard_filters(
@@ -62,10 +64,6 @@ def apply_hard_filters(
             dropped_rows.append({**row.to_dict(), "drop_reason": reason})
             continue
 
-        if _is_too_new(row, config):
-            dropped_rows.append({**row.to_dict(), "drop_reason": "too_new"})
-            continue
-
         if _is_stale_data(row):
             dropped_rows.append({**row.to_dict(), "drop_reason": "stale_data"})
             continue
@@ -76,6 +74,15 @@ def apply_hard_filters(
 
         if _missing_required_features(row):
             dropped_rows.append({**row.to_dict(), "drop_reason": "missing_features"})
+            continue
+
+        price_floor_reason = _price_floor_drop_reason(row, config)
+        if price_floor_reason is not None:
+            dropped_rows.append({**row.to_dict(), "drop_reason": price_floor_reason})
+            continue
+
+        if _has_insufficient_trading_continuity(row, config):
+            dropped_rows.append({**row.to_dict(), "drop_reason": "insufficient_trading_days_20d"})
             continue
 
         if row["market"] == "cn" and float(row["avg_amount_20d"]) < config.cn_min_avg_amount_20d:

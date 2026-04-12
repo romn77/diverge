@@ -20,8 +20,10 @@ from .schema import ScreenRunConfig, build_cn_source_chain
 
 
 UNIVERSE_COLUMNS = ["symbol", "market", "name", "exchange", "sector", "list_date"]
-US_MANIFEST_REQUIRED_COLUMNS = COMMON_MANIFEST_COLUMNS
+US_UNIVERSE_COLUMNS = UNIVERSE_COLUMNS + ["mktcap"]
+US_MANIFEST_REQUIRED_COLUMNS = COMPARE_MANIFEST_COLUMNS
 CN_MANIFEST_REQUIRED_COLUMNS = COMPARE_MANIFEST_COLUMNS
+CN_PRIMARY_EXCHANGES = {"SSE", "SZSE"}
 CN_EXCHANGE_LABELS = {
     "SH": "SSE",
     "SZ": "SZSE",
@@ -42,6 +44,19 @@ def _filter_special_treatment_rows(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty or "name" not in df.columns:
         return df
     return df.loc[~df["name"].map(_is_special_treatment_name)].reset_index(drop=True)
+
+
+def _filter_cn_primary_board_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty or "exchange" not in df.columns:
+        return df
+    exchanges = df["exchange"].fillna("").astype(str).str.strip().str.upper()
+    return df.loc[exchanges.isin(CN_PRIMARY_EXCHANGES)].reset_index(drop=True)
+
+
+def _filter_cn_universe_rows(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+    return _filter_special_treatment_rows(_filter_cn_primary_board_rows(df))
 
 
 def _universe_cache_path(cache_dir: str | Path, market: str, source: str) -> Path:
@@ -103,7 +118,7 @@ def _load_cn_universe_from_source(
     if cache_dir is not None:
         cached = _load_universe_cache(cache_dir, "cn", data_source)
         if cached is not None:
-            return _filter_special_treatment_rows(cached)
+            return _filter_cn_universe_rows(cached)
 
     if data_source == "akshare":
         try:
@@ -112,7 +127,7 @@ def _load_cn_universe_from_source(
             if cache_dir is not None:
                 stale_cached = _load_universe_cache(cache_dir, "cn", data_source, allow_stale=True)
                 if stale_cached is not None:
-                    return _filter_special_treatment_rows(stale_cached)
+                    return _filter_cn_universe_rows(stale_cached)
             raise
         if raw is None or raw.empty:
             raw = pd.DataFrame(columns=["code", "name"])
@@ -130,7 +145,7 @@ def _load_cn_universe_from_source(
             .loc[:, UNIVERSE_COLUMNS]
             .fillna("")
         )
-        result = _filter_special_treatment_rows(result)
+        result = _filter_cn_universe_rows(result)
         if cache_dir is not None:
             _save_universe_cache(cache_dir, "cn", data_source, result)
         return result
@@ -149,7 +164,7 @@ def _load_cn_universe_from_source(
         if cache_dir is not None:
             stale_cached = _load_universe_cache(cache_dir, "cn", data_source, allow_stale=True)
             if stale_cached is not None:
-                return _filter_special_treatment_rows(stale_cached)
+                return _filter_cn_universe_rows(stale_cached)
         raise
 
     if raw is None:
@@ -166,7 +181,7 @@ def _load_cn_universe_from_source(
         .loc[:, ["symbol", "market", "name", "exchange", "sector", "list_date"]]
         .fillna("")
     )
-    result = _filter_special_treatment_rows(result)
+    result = _filter_cn_universe_rows(result)
     if cache_dir is not None:
         _save_universe_cache(cache_dir, "cn", data_source, result)
     return result
@@ -186,7 +201,7 @@ def load_cn_universe_from_manifest(manifest_path: str) -> pd.DataFrame:
     manifest_df = build_cn_manifest(raw.loc[:, CN_MANIFEST_REQUIRED_COLUMNS])
     result = manifest_df.loc[:, COMMON_MANIFEST_COLUMNS].copy()
     result.insert(1, "market", "cn")
-    result = _filter_special_treatment_rows(result)
+    result = _filter_cn_universe_rows(result)
     return result.loc[:, UNIVERSE_COLUMNS].reset_index(drop=True)
 
 
@@ -227,8 +242,11 @@ def load_us_universe(manifest_path: str) -> pd.DataFrame:
         raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
 
     result = raw.loc[:, US_MANIFEST_REQUIRED_COLUMNS].copy()
+    for column in COMMON_MANIFEST_COLUMNS:
+        result[column] = result[column].fillna("").astype(str).str.strip()
+    result["mktcap"] = pd.to_numeric(result["mktcap"], errors="coerce").fillna(0.0)
     result.insert(1, "market", "us")
-    return result.loc[:, UNIVERSE_COLUMNS].reset_index(drop=True)
+    return result.loc[:, US_UNIVERSE_COLUMNS].reset_index(drop=True)
 
 
 def load_universe(config: ScreenRunConfig, cache_dir: str | Path | None = None) -> pd.DataFrame:

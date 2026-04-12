@@ -124,3 +124,58 @@ def test_build_us_manifest_requires_market_cap_field():
 
     with pytest.raises(ValueError, match="mktcap"):
         build_us_manifest(source_df=source_df, limit=1)
+
+
+def test_build_us_manifest_filters_non_common_stock_rows_before_limit():
+    source_df = pd.DataFrame(
+        [
+            {
+                "name": "Invesco QQQ Trust, Series 1",
+                "category": "ETF",
+                "symbol": "QQQ",
+                "market": "NASDAQ",
+                "mktcap": "5000",
+            },
+            {
+                "name": "Example ADR",
+                "category": "Finance",
+                "symbol": "EADR",
+                "market": "NYSE",
+                "mktcap": "4000",
+            },
+            {
+                "name": "Example Preferred Stock",
+                "category": "Finance",
+                "symbol": "EPRF",
+                "market": "NYSE",
+                "mktcap": "3000",
+            },
+            {
+                "name": "Apple, Inc.",
+                "category": "计算机",
+                "symbol": "AAPL",
+                "market": "NASDAQ",
+                "mktcap": "2000",
+            },
+            {
+                "name": "Microsoft Corp.",
+                "category": "软件",
+                "symbol": "MSFT",
+                "market": "NASDAQ",
+                "mktcap": "1000",
+            },
+        ]
+    )
+
+    manifest_df = build_us_manifest(source_df=source_df, limit=1)
+
+    assert manifest_df.to_dict("records") == [
+        {
+            "symbol": "AAPL",
+            "name": "Apple, Inc.",
+            "exchange": "NASDAQ",
+            "sector": "计算机",
+            "list_date": "",
+            "mktcap": 2000.0,
+        }
+    ]
