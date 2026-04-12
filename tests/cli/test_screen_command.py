@@ -140,3 +140,37 @@ def test_screen_command_accepts_cn_data_source_override():
     assert result.exit_code == 0
     assert captured["cn_data_source"] == "akshare"
     assert captured["cn_data_source_fallbacks"] == ["tushare"]
+
+
+def test_screen_command_accepts_cn_manifest_override():
+    captured = {}
+
+    def fake_run_screen(config, progress_callback=None):
+        captured["cn_manifest_path"] = config.cn_manifest_path
+        return ScreenRunResult(
+            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            universe_count_by_market={"cn": 1},
+            fetch_failed_count=0,
+            filtered_count_by_reason={},
+            candidate_count=0,
+            candidate_preview=[],
+        )
+
+    with patch("cli.main.run_screen", side_effect=fake_run_screen):
+        result = runner.invoke(
+            app,
+            [
+                "screen",
+                "--date",
+                "2026-03-24",
+                "--markets",
+                "cn",
+                "--top-k",
+                "20",
+                "--cn-manifest",
+                "/tmp/cn_manifest.csv",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert captured["cn_manifest_path"] == "/tmp/cn_manifest.csv"

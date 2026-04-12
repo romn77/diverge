@@ -36,3 +36,11 @@ test("NewScreenerForm includes a CN data-source selector wired to form state", (
   assert.match(source, /sourceOption\.label/);
   assert.match(source, /sourceOption\.value/);
 });
+
+test("NewScreenerForm performs submit-time validation before posting", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /Select at least one market/i);
+  assert.match(source, /Top K must be positive/i);
+  assert.match(source, /as_of_date must use YYYY-MM-DD format/i);
+});

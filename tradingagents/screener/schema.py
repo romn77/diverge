@@ -32,6 +32,7 @@ class ScreenRunConfig:
     output_dir: str = "./results/screener"
     cn_data_source: str = "tushare"
     cn_data_source_fallbacks: list[str] = field(default_factory=list)
+    cn_manifest_path: str | None = None
     us_manifest_path: str | None = None
 
     def __post_init__(self) -> None:
@@ -48,6 +49,12 @@ class ScreenRunConfig:
         self.cn_data_source_fallbacks = [
             source.strip().lower() for source in self.cn_data_source_fallbacks
         ]
+        if self.cn_manifest_path is not None:
+            normalized_cn_manifest_path = self.cn_manifest_path.strip()
+            self.cn_manifest_path = normalized_cn_manifest_path or None
+        if self.us_manifest_path is not None:
+            normalized_us_manifest_path = self.us_manifest_path.strip()
+            self.us_manifest_path = normalized_us_manifest_path or None
 
         try:
             parsed_date = datetime.strptime(self.as_of_date, "%Y-%m-%d").date()

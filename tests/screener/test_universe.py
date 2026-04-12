@@ -206,6 +206,43 @@ def test_load_cn_universe_falls_back_to_secondary_source_when_primary_retries_fa
     ]
 
 
+def test_load_cn_universe_falls_back_to_secondary_source_when_primary_auth_fails():
+    akshare_df = pd.DataFrame(
+        [
+            {
+                "code": "600519",
+                "name": "Kweichow Moutai",
+            }
+        ]
+    )
+
+    with (
+        patch(
+            "tradingagents.screener.universe.get_tushare_pro_client",
+            side_effect=VendorAuthError("TUSHARE_TOKEN is not configured."),
+        ),
+        patch(
+            "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+            return_value=akshare_df,
+        ),
+    ):
+        result = load_cn_universe(
+            data_source="tushare",
+            fallback_data_sources=["akshare"],
+        )
+
+    assert result.to_dict("records") == [
+        {
+            "symbol": "600519.SH",
+            "market": "cn",
+            "name": "Kweichow Moutai",
+            "exchange": "SSE",
+            "sector": "",
+            "list_date": "",
+        }
+    ]
+
+
 def test_load_us_universe_requires_manifest_columns(tmp_path):
     manifest_path = tmp_path / "us_manifest.csv"
     pd.DataFrame(
@@ -242,6 +279,69 @@ def test_load_us_universe_allows_blank_optional_values(tmp_path):
             "list_date": "",
         }
     ]
+
+
+def test_load_cn_universe_from_manifest_normalizes_rows_and_filters_bse_and_st(tmp_path):
+    manifest_path = tmp_path / "cn_manifest.csv"
+    pd.DataFrame(
+        [
+            {
+                "symbol": " 600519.SH ",
+                "name": " Kweichow Moutai ",
+                "exchange": " SSE ",
+                "sector": " Liquor ",
+                "list_date": " 20010827 ",
+                "mktcap": "",
+            },
+            {
+                "symbol": "430047.BJ",
+                "name": "Example BSE",
+                "exchange": "BSE",
+                "sector": "Industry",
+                "list_date": "20100101",
+                "mktcap": "",
+            },
+            {
+                "symbol": "000002.SZ",
+                "name": "*ST Example",
+                "exchange": "SZSE",
+                "sector": "Industry",
+                "list_date": "19910129",
+                "mktcap": "",
+            },
+        ]
+    ).to_csv(manifest_path, index=False)
+
+    result = load_cn_universe(manifest_path=str(manifest_path))
+
+    assert result.to_dict("records") == [
+        {
+            "symbol": "600519.SH",
+            "market": "cn",
+            "name": "Kweichow Moutai",
+            "exchange": "SSE",
+            "sector": "Liquor",
+            "list_date": "20010827",
+        }
+    ]
+
+
+def test_load_cn_universe_from_manifest_requires_generated_schema_columns(tmp_path):
+    manifest_path = tmp_path / "cn_manifest.csv"
+    pd.DataFrame(
+        [
+            {
+                "symbol": "600519.SH",
+                "name": "Kweichow Moutai",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "20010827",
+            }
+        ]
+    ).to_csv(manifest_path, index=False)
+
+    with pytest.raises(ValueError, match="Missing required CN manifest columns: mktcap"):
+        load_cn_universe(manifest_path=str(manifest_path))
 
 
 def test_load_cn_universe_surfaces_clear_tushare_auth_errors():
@@ -309,3 +409,43 @@ def test_load_universe_concatenates_sources_without_truncation(tmp_path):
 
     assert list(result["symbol"]) == ["600519.SH", "000001.SZ", "AAPL", "MSFT"]
     assert list(result["market"]) == ["cn", "cn", "us", "us"]
+
+
+def test_load_universe_uses_cn_manifest_when_configured(tmp_path):
+    manifest_path = tmp_path / "cn_manifest.csv"
+    pd.DataFrame(
+        [
+            {
+                "symbol": "600519.SH",
+                "name": "Kweichow Moutai",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "20010827",
+                "mktcap": "",
+            }
+        ]
+    ).to_csv(manifest_path, index=False)
+
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        cn_manifest_path=str(manifest_path),
+    )
+
+    with patch(
+        "tradingagents.screener.universe.get_tushare_pro_client",
+        side_effect=AssertionError("CN manifest path should bypass live universe loading"),
+    ):
+        result = load_universe(config)
+
+    assert result.to_dict("records") == [
+        {
+            "symbol": "600519.SH",
+            "market": "cn",
+            "name": "Kweichow Moutai",
+            "exchange": "SSE",
+            "sector": "Liquor",
+            "list_date": "20010827",
+        }
+    ]

@@ -7,11 +7,28 @@ import {
   type ScreenTaskCreateRequest,
   type ScreenerConfigOptions,
 } from "@/lib/api";
+import { getLocalDateInputValue } from "@/lib/localDate";
 
 interface NewScreenerFormProps {
   isOpen: boolean;
   onClose: () => void;
   onTaskCreated: (taskId: string) => void;
+}
+
+function validateScreenerRequest(formState: ScreenTaskCreateRequest): string | null {
+  if (formState.markets.length === 0) {
+    return "Select at least one market.";
+  }
+
+  if (!Number.isFinite(formState.top_k) || formState.top_k <= 0) {
+    return "Top K must be positive.";
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(formState.as_of_date)) {
+    return "as_of_date must use YYYY-MM-DD format.";
+  }
+
+  return null;
 }
 
 export function NewScreenerForm({
@@ -42,7 +59,7 @@ export function NewScreenerForm({
         setConfigOptions(nextOptions);
         setFormState({
           markets: nextOptions.markets.filter((market) => market.enabled).slice(0, 1).map((market) => market.value),
-          as_of_date: new Date().toISOString().slice(0, 10),
+          as_of_date: getLocalDateInputValue(),
           cn_data_source: nextOptions.defaults.cn_data_source,
           top_k: nextOptions.defaults.top_k,
         });
@@ -86,8 +103,14 @@ export function NewScreenerForm({
     if (!formState) {
       return;
     }
-    setLoading(true);
     setError(null);
+    const validationError = validateScreenerRequest(formState);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setLoading(true);
     try {
       const response = await createScreenerTask(formState);
       onClose();

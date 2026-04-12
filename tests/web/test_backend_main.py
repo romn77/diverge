@@ -8,6 +8,7 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from tradingagents.runner import AnalysisRequest
+from tradingagents.screener.schema import ScreenRunResult
 from web.backend import main as backend_main
 
 
@@ -242,6 +243,34 @@ class BackendMainTests(unittest.TestCase):
             ["tushare", "akshare"],
         )
 
+    def test_post_screener_tasks_injects_backend_cn_manifest_when_configured(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+        }
+
+        with patch.dict(
+            os.environ,
+            {"SCREEN_CN_MANIFEST_PATH": "/tmp/cn_manifest.csv"},
+            clear=True,
+        ):
+            with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+                body = backend_main.create_screener_task(
+                    backend_main.ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(body["status"], "pending")
+        start_task_thread.assert_called_once()
+
+        task_status = backend_main.get_screener_task_status(body["task_id"])
+        self.assertEqual(task_status["request_payload"]["markets"], ["cn"])
+        self.assertNotIn("cn_manifest_path", task_status["request_payload"])
+        self.assertEqual(
+            task_status["config_payload"]["cn_manifest_path"],
+            "/tmp/cn_manifest.csv",
+        )
+
     def test_post_screener_tasks_rejects_us_market_without_backend_manifest(self):
         payload = {
             "markets": ["us"],
@@ -364,6 +393,102 @@ class BackendMainTests(unittest.TestCase):
             },
         )
         self.assertIn("boom", task_status["error"])
+
+    def test_run_screener_task_accepts_extended_progress_callback_signature(self):
+        task = backend_main.ScreenerTask(
+            id="task-progress-screener",
+            request_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+            config_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+        )
+        backend_main.screener_tasks[task.id] = task
+
+        def fake_run_screen(config, progress_callback=None):
+            assert progress_callback is not None
+            progress_callback(
+                "history",
+                1,
+                2,
+                "600519.SH",
+                status="cache_hit",
+                detail="cache=2025-02-17..2026-03-24",
+            )
+            return ScreenRunResult(
+                run_dir=Path("/tmp/results/screener/20260324_214530"),
+                universe_count_by_market={"cn": 1},
+                fetch_failed_count=0,
+                filtered_count_by_reason={},
+                candidate_count=1,
+                candidate_preview=[],
+            )
+
+        with patch("web.backend.main.run_screen", side_effect=fake_run_screen):
+            backend_main._run_screener_task(task.id)
+
+        task_status = backend_main.get_screener_task_status(task.id)
+        self.assertEqual(task_status["status"], "completed")
+        self.assertIn("cache_hit", task_status["progress_events"][0]["message"])
+        self.assertIn("600519.SH", task_status["progress_events"][0]["message"])
+
+    def test_post_screener_tasks_rejects_empty_markets_before_queueing(self):
+        payload = {
+            "markets": [],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+        }
+
+        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+            with self.assertRaises(HTTPException) as context:
+                backend_main.create_screener_task(
+                    backend_main.ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("markets", context.exception.detail.lower())
+        start_task_thread.assert_not_called()
+
+    def test_post_screener_tasks_rejects_non_positive_top_k_before_queueing(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 0,
+        }
+
+        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+            with self.assertRaises(HTTPException) as context:
+                backend_main.create_screener_task(
+                    backend_main.ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("top_k", context.exception.detail.lower())
+        start_task_thread.assert_not_called()
+
+    def test_post_screener_tasks_rejects_invalid_as_of_date_before_queueing(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "03/24/2026",
+            "top_k": 20,
+        }
+
+        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+            with self.assertRaises(HTTPException) as context:
+                backend_main.create_screener_task(
+                    backend_main.ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("as_of_date", context.exception.detail.lower())
+        start_task_thread.assert_not_called()
 
     def test_post_tasks_rejects_unconfigured_provider(self):
         payload = {
