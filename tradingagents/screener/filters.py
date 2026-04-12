@@ -18,6 +18,18 @@ REQUIRED_FEATURE_COLUMNS = [
     "vwma",
 ]
 MAX_STALE_BUSINESS_DAYS = 3
+HARD_FILTER_DROP_REASONS = frozenset(
+    {
+        "stale_data",
+        "insufficient_bars",
+        "missing_features",
+        "low_price_cn",
+        "low_price_us",
+        "insufficient_trading_days_20d",
+        "illiquid_cn",
+        "illiquid_us",
+    }
+)
 
 
 def _missing_required_features(row: pd.Series) -> bool:

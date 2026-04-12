@@ -1,15 +1,92 @@
 from __future__ import annotations
 
+import json
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
+import pandas as pd
 from typer.testing import CliRunner
 
 from cli.main import app
+from tradingagents.screener.replay import HardFilterReplayResult
 from tradingagents.screener.schema import ScreenRunResult
 
 
 runner = CliRunner()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _base_feature_row(symbol: str) -> dict:
+    return {
+        "symbol": symbol,
+        "market": "cn",
+        "name": symbol,
+        "exchange": "SZSE",
+        "sector": "Technology",
+        "list_date": "20000101",
+        "as_of_date": "2026-03-24",
+        "close": 10.0,
+        "volume": 1000.0,
+        "amount": 100000.0,
+        "avg_amount_20d": 80_000_000.0,
+        "ma20": 9.5,
+        "ma60": 9.0,
+        "ret_20": 0.1,
+        "ret_60": 0.2,
+        "rsi": 55.0,
+        "macd": 1.0,
+        "macds": 0.8,
+        "macdh": 0.2,
+        "atr": 0.5,
+        "atr_pct": 0.05,
+        "boll": 9.3,
+        "boll_ub": 10.4,
+        "boll_lb": 8.2,
+        "vwma": 9.7,
+        "mfi": 50.0,
+        "data_start_date": "2025-12-01",
+        "data_end_date": "2026-03-24",
+        "bar_count": 80,
+        "trading_days_20d": 20,
+    }
+
+
+def _write_replay_run_artifacts(
+    run_dir: Path,
+    features_df: pd.DataFrame,
+    filtered_out_df: pd.DataFrame,
+) -> None:
+    run_dir.mkdir(parents=True)
+    (run_dir / "features.csv").write_text(features_df.to_csv(index=False), encoding="utf-8")
+    (run_dir / "filtered_out.csv").write_text(filtered_out_df.to_csv(index=False), encoding="utf-8")
+    (run_dir / "run_meta.json").write_text(
+        json.dumps(
+            {
+                "run_timestamp": run_dir.name,
+                "as_of_date": "2026-03-24",
+                "config": {
+                    "markets": ["cn"],
+                    "as_of_date": "2026-03-24",
+                    "top_k": 20,
+                    "output_dir": str(run_dir.parent),
+                    "cn_data_source": "tushare",
+                    "cn_data_source_fallbacks": [],
+                    "cn_manifest_path": None,
+                    "us_manifest_path": None,
+                },
+                "artifact_paths": {
+                    "run_meta": str(run_dir / "run_meta.json"),
+                    "features": str(run_dir / "features.csv"),
+                    "filtered_out": str(run_dir / "filtered_out.csv"),
+                },
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_screen_command_requires_us_manifest_for_us_market():
@@ -174,3 +251,88 @@ def test_screen_command_accepts_cn_manifest_override():
 
     assert result.exit_code == 0
     assert captured["cn_manifest_path"] == "/tmp/cn_manifest.csv"
+
+
+def test_screen_replay_command_prints_summary_for_matching_run():
+    replay_result = HardFilterReplayResult(
+        run_dir=Path("/tmp/results/screener/20260324_214530"),
+        features_count=12,
+        kept_count=10,
+        replay_filtered_count_by_reason={"illiquid_cn": 2},
+        saved_filtered_count_by_reason={"illiquid_cn": 2},
+        saved_filtered_out_present=True,
+        exported_filtered_out_path=Path("/tmp/replayed_filtered_out.csv"),
+    )
+
+    with patch("cli.main.replay_screen_hard_filters", return_value=replay_result):
+        result = runner.invoke(
+            app,
+            [
+                "screen-replay",
+                "/tmp/results/screener/20260324_214530",
+                "--export-filtered-out",
+                "/tmp/replayed_filtered_out.csv",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert "Replay hard-filter counts" in result.output
+    assert "illiquid_cn: 2" in result.output
+    assert "Replay matches saved hard-filter rows." in result.output
+    assert "/tmp/replayed_filtered_out.csv" in result.output
+
+
+def test_screen_replay_command_fails_when_saved_rows_do_not_match():
+    replay_result = HardFilterReplayResult(
+        run_dir=Path("/tmp/results/screener/20260324_214530"),
+        features_count=2,
+        kept_count=1,
+        replay_filtered_count_by_reason={"low_price_cn": 1},
+        saved_filtered_count_by_reason={"missing_features": 1},
+        new_drops=[{"symbol": "000002.SZ", "market": "cn", "drop_reason": "low_price_cn"}],
+        missing_drops=[{"symbol": "000003.SZ", "market": "cn", "drop_reason": "missing_features"}],
+        saved_filtered_out_present=True,
+    )
+
+    with patch("cli.main.replay_screen_hard_filters", return_value=replay_result):
+        result = runner.invoke(
+            app,
+            [
+                "screen-replay",
+                "/tmp/results/screener/20260324_214530",
+            ],
+        )
+
+    assert result.exit_code == 1
+    assert "Replay differs from saved hard-filter rows." in result.output
+    assert "+ 000002.SZ (cn) low_price_cn" in result.output
+    assert "- 000003.SZ (cn) missing_features" in result.output
+
+
+def test_main_py_screen_replay_command_dispatches_to_typer_app(tmp_path):
+    run_dir = tmp_path / "20260324_214530"
+    features_df = pd.DataFrame(
+        [
+            _base_feature_row("000001.SZ"),
+            {**_base_feature_row("000002.SZ"), "close": 2.5},
+        ]
+    )
+    filtered_out_df = pd.DataFrame(
+        [
+            {"symbol": "000002.SZ", "market": "cn", "drop_reason": "low_price_cn"},
+        ]
+    )
+    _write_replay_run_artifacts(run_dir, features_df, filtered_out_df)
+
+    result = subprocess.run(
+        [sys.executable, "main.py", "screen-replay", str(run_dir)],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "Replay hard-filter counts" in result.stdout
+    assert "low_price_cn: 1" in result.stdout
+    assert "Replay matches saved hard-filter rows." in result.stdout

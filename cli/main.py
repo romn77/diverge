@@ -25,6 +25,7 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.runner import save_report_to_disk
 from tradingagents.screener.pipeline import run_screen
+from tradingagents.screener.replay import replay_screen_hard_filters
 from tradingagents.screener.schema import ScreenRunConfig
 from cli.utils import *
 from cli.announcements import fetch_announcements, display_announcements
@@ -1312,6 +1313,59 @@ def screen(
         )
 
     console.print(f"\n[bold]Run directory[/bold] {result.run_dir}")
+
+
+@app.command("screen-replay")
+def screen_replay(
+    run_dir: str = typer.Argument(...),
+    export_filtered_out: str | None = typer.Option(None, "--export-filtered-out"),
+    fail_on_diff: bool = typer.Option(True, "--fail-on-diff/--no-fail-on-diff"),
+):
+    result = replay_screen_hard_filters(
+        run_dir,
+        export_filtered_out_path=export_filtered_out,
+    )
+
+    console.print(f"\n[bold]Replay run[/bold] {result.run_dir}")
+    console.print(f"- features rows: {result.features_count}")
+    console.print(f"- kept rows: {result.kept_count}")
+
+    console.print("\n[bold]Replay hard-filter counts[/bold]")
+    if result.replay_filtered_count_by_reason:
+        for reason, count in result.replay_filtered_count_by_reason.items():
+            console.print(f"- {reason}: {count}")
+    else:
+        console.print("- none")
+
+    if result.saved_filtered_out_present:
+        console.print("\n[bold]Saved hard-filter counts[/bold]")
+        if result.saved_filtered_count_by_reason:
+            for reason, count in result.saved_filtered_count_by_reason.items():
+                console.print(f"- {reason}: {count}")
+        else:
+            console.print("- none")
+
+        if result.matches_saved:
+            console.print("\n[green]Replay matches saved hard-filter rows.[/green]")
+        else:
+            console.print("\n[red]Replay differs from saved hard-filter rows.[/red]")
+            for row in result.new_drops[:10]:
+                console.print(
+                    f"+ {row.get('symbol', '?')} ({row.get('market', '?')}) {row.get('drop_reason', '?')}"
+                )
+            for row in result.missing_drops[:10]:
+                console.print(
+                    f"- {row.get('symbol', '?')} ({row.get('market', '?')}) {row.get('drop_reason', '?')}"
+                )
+            if fail_on_diff:
+                raise typer.Exit(code=1)
+    else:
+        console.print("\n[yellow]Saved filtered_out.csv not found; comparison skipped.[/yellow]")
+
+    if result.exported_filtered_out_path is not None:
+        console.print(
+            f"\n[bold]Exported replay filtered_out[/bold] {result.exported_filtered_out_path}"
+        )
 
 
 if __name__ == "__main__":
