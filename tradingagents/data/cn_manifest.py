@@ -4,18 +4,21 @@ import argparse
 from collections.abc import Collection
 from pathlib import Path
 
+from dotenv import load_dotenv
 import pandas as pd
 
 from tradingagents.data.manifest_schema import COMMON_MANIFEST_COLUMNS, COMPARE_MANIFEST_COLUMNS
 from tradingagents.screener.universe import load_cn_universe
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ENV_FILE = PROJECT_ROOT / ".env"
+load_dotenv(PROJECT_ENV_FILE)
+
 DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("cn_manifest.csv")
 DEFAULT_ALLOWED_EXCHANGES = ("SSE", "SZSE")
 DEFAULT_DATA_SOURCE = "tushare"
-DEFAULT_FALLBACK_DATA_SOURCES = ("akshare",)
-
-
+DEFAULT_FALLBACK_DATA_SOURCES: tuple[str, ...] = ()
 def build_cn_manifest(
     source_df: pd.DataFrame,
     allowed_exchanges: Collection[str] | None = DEFAULT_ALLOWED_EXCHANGES,
@@ -43,6 +46,12 @@ def build_cn_manifest(
         manifest_df = manifest_df.loc[
             manifest_df["exchange"].str.upper().isin(normalized_allowed_exchanges)
         ]
+
+    blank_list_date_mask = manifest_df["list_date"] == ""
+    if blank_list_date_mask.any():
+        raise ValueError(
+            "CN manifest requires non-empty list_date values; use tushare stock metadata"
+        )
 
     manifest_df = (
         manifest_df.sort_values(["symbol", "exchange"], ascending=[True, True])
@@ -93,7 +102,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fallback-data-sources",
         default=",".join(DEFAULT_FALLBACK_DATA_SOURCES),
-        help="Comma-separated CN source fallbacks, in order. Defaults to akshare.",
+        help="Comma-separated CN source fallbacks, in order. Defaults to none.",
     )
     parser.add_argument(
         "--cache-dir",

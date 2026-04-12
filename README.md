@@ -204,7 +204,7 @@ python -m tradingagents.data.us_manifest
 python -m tradingagents.data.cn_manifest
 ```
 
-Both exporters write CSVs under `tradingagents/data/` with the shared column order `symbol,name,exchange,sector,list_date,mktcap`. The CN exporter keeps `tushare` as the primary source but falls back to `akshare` by default, so the standalone command works without `TUSHARE_TOKEN` in the common case. You can override the source chain explicitly, for example `python -m tradingagents.data.cn_manifest --data-source akshare --fallback-data-sources ""`.
+Both exporters write CSVs under `tradingagents/data/` with the shared column order `symbol,name,exchange,sector,list_date,mktcap`. The CN exporter expects `tushare` stock metadata so `list_date` stays populated for downstream filters. You can still override the source chain explicitly when needed, but a source that yields blank `list_date` values will now fail manifest generation instead of silently producing incomplete rows.
 
 When `--cn-manifest` is supplied, the screener loads the CN universe from that CSV and reuses the manifest normalization rules, including dropping BSE rows. If `--cn-manifest` is omitted, the screener keeps the previous live-universe fetch path as a fallback.
 

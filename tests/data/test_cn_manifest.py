@@ -83,6 +83,23 @@ def test_build_cn_manifest_requires_shared_columns():
         build_cn_manifest(source_df=source_df)
 
 
+def test_build_cn_manifest_rejects_blank_list_date_values():
+    source_df = pd.DataFrame(
+        [
+            {
+                "symbol": "600519.SH",
+                "name": "Kweichow Moutai",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "",
+            }
+        ]
+    )
+
+    with pytest.raises(ValueError, match="non-empty list_date"):
+        build_cn_manifest(source_df=source_df)
+
+
 def test_write_cn_manifest_loads_cn_universe_with_defaults(tmp_path):
     source_df = pd.DataFrame(
         [
