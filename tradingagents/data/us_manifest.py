@@ -8,7 +8,7 @@ import pandas as pd
 from tradingagents.data.manifest_schema import COMPARE_MANIFEST_COLUMNS
 
 
-DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("us_manifest_short.csv")
+DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("us_manifest.csv")
 MANIFEST_COLUMNS = COMPARE_MANIFEST_COLUMNS
 
 
