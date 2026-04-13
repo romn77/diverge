@@ -60,6 +60,12 @@ class AgentState(MessagesState):
     valuation_applicability_reason: NotRequired[
         Annotated[str | None, "Reason why DCF is or is not applicable"]
     ]
+    historical_trade_feedback: NotRequired[
+        Annotated[str | None, "Ticker-matched historical trade review prompt block"]
+    ]
+    historical_trade_reviews: NotRequired[
+        Annotated[list[dict[str, object]], "Structured historical trade review payloads"]
+    ]
 
     sender: Annotated[str, "Agent that sent this message"]
 

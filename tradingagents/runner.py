@@ -13,6 +13,7 @@ from tradingagents.llm_clients.model_config import (
     get_provider_base_url,
 )
 from tradingagents.research.thesis_tracker import build_thesis_artifact
+from tradingagents.trade_feedback import get_trade_feedback_payload
 
 
 ANALYST_ORDER = ["market", "social", "news", "fundamentals"]
@@ -472,12 +473,20 @@ def build_analysis_config(request: AnalysisRequest) -> dict:
 
 
 def run_analysis_streaming(
-    request: AnalysisRequest, temp_dir: Path
+    request: AnalysisRequest,
+    temp_dir: Path,
+    *,
+    reports_dir: Path | None = None,
 ) -> Generator[AnalysisProgress, None, dict]:
     config = build_analysis_config(request)
     selected_analysts = [key for key in ANALYST_ORDER if key in request.analysts]
     tracker = AnalysisTracker(selected_analysts, temp_dir)
     tracker.mark_started()
+    trade_feedback_payload = get_trade_feedback_payload(
+        request.ticker,
+        reports_dir=reports_dir,
+        analysis_date=request.analysis_date,
+    )
 
     graph = TradingAgentsGraph(
         selected_analysts,
@@ -488,6 +497,8 @@ def run_analysis_streaming(
         request.ticker,
         request.analysis_date,
         request.output_language,
+        historical_trade_feedback=trade_feedback_payload["prompt"],
+        historical_trade_reviews=trade_feedback_payload["reviews"],
     )
     args = graph.propagator.get_graph_args()
 
@@ -643,4 +654,15 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         json.dumps(thesis_artifact, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    if final_state.get("historical_trade_reviews"):
+        trade_feedback_artifact = {
+            "type": "trade_feedback",
+            "ticker": ticker,
+            "prompt": final_state.get("historical_trade_feedback", ""),
+            "reviews": final_state["historical_trade_reviews"],
+        }
+        (artifacts_dir / "trade_feedback.json").write_text(
+            json.dumps(trade_feedback_artifact, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     return save_path / "complete_report.md"

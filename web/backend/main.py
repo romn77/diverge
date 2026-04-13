@@ -5,6 +5,14 @@ Endpoints:
   GET  /api/reports
   GET  /api/reports/{report_id}/structure
   GET  /api/reports/{report_id}/content?path=...
+  GET  /api/trades
+  POST /api/trades
+  GET  /api/trades/{trade_id}
+  PUT  /api/trades/{trade_id}
+  GET  /api/trades/{trade_id}/reviews
+  POST /api/trades/{trade_id}/reviews
+  PUT  /api/trades/{trade_id}/reviews/{review_type}
+  GET  /api/trade-feedback/{ticker}
   POST /api/tasks
   GET  /api/tasks
   GET  /api/tasks/{task_id}
@@ -48,6 +56,16 @@ from tradingagents.llm_clients.model_config import (
 from tradingagents.screener.pipeline import run_screen
 from tradingagents.screener.schema import ScreenRunConfig
 from tradingagents.runner import AnalysisProgress, AnalysisRequest, run_analysis_streaming, save_report_to_disk
+from tradingagents.trade_feedback import (
+    create_trade_record as create_trade_record_file,
+    generate_trade_review as generate_trade_review_file,
+    get_trade_feedback_payload as get_trade_feedback_payload_file,
+    get_trade_record as get_trade_record_file,
+    list_trade_records as list_trade_records_file,
+    list_trade_reviews as list_trade_reviews_file,
+    save_trade_review as save_trade_review_file,
+    update_trade_record as update_trade_record_file,
+)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -128,6 +146,72 @@ class TaskCreatePayload(BaseModel):
     output_language: str
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
+
+
+class AnalysisReferencePayload(BaseModel):
+    analysis_date: str
+    report_path: str
+    full_state_log_path: str
+
+
+class TradeRecordCreatePayload(BaseModel):
+    ticker: str
+    exchange_or_market: str
+    side: str
+    status: str
+    entry_timestamp: Optional[str] = None
+    entry_price: Optional[float] = None
+    exit_timestamp: Optional[str] = None
+    exit_price: Optional[float] = None
+    size: Optional[float] = None
+    initial_thesis: str
+    planned_horizon: str
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    notes: str = ""
+    analysis_references: list[AnalysisReferencePayload] = []
+
+
+class TradeRecordUpdatePayload(BaseModel):
+    ticker: Optional[str] = None
+    exchange_or_market: Optional[str] = None
+    side: Optional[str] = None
+    status: Optional[str] = None
+    entry_timestamp: Optional[str] = None
+    entry_price: Optional[float] = None
+    exit_timestamp: Optional[str] = None
+    exit_price: Optional[float] = None
+    size: Optional[float] = None
+    initial_thesis: Optional[str] = None
+    planned_horizon: Optional[str] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    notes: Optional[str] = None
+    analysis_references: Optional[list[AnalysisReferencePayload]] = None
+
+
+class TradeReviewCreatePayload(BaseModel):
+    review_type: str
+    llm_provider: str
+    model: str
+    output_language: str = "en"
+    google_thinking_level: Optional[str] = None
+    openai_reasoning_effort: Optional[str] = None
+    analysis_date: Optional[str] = None
+    analysis_references: Optional[list[AnalysisReferencePayload]] = None
+
+
+class TradeReviewSavePayload(BaseModel):
+    thesis_assessment: str
+    timing_assessment: str
+    sizing_assessment: str
+    discipline_assessment: str
+    outcome_summary: str
+    improvement_actions: str | list[str]
+    ticker_specific_lessons: str | list[str]
+    cross_ticker_tags: str | list[str]
+    analysis_date: Optional[str] = None
+    analysis_references: Optional[list[AnalysisReferencePayload]] = None
 
 
 class ScreenTaskCreatePayload(BaseModel):
@@ -217,7 +301,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_frontend_origins(),
     allow_credentials=False,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT"],
     allow_headers=["*"],
 )
 
@@ -298,11 +382,30 @@ def _scan_artifacts(report_dir: Path) -> list[dict]:
             }
         )
 
+    trade_feedback_path = artifacts_dir / "trade_feedback.json"
+    if trade_feedback_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(trade_feedback_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                review_count = len(payload.get("reviews") or [])
+                summary = f"{review_count} historical review(s)" if review_count else "Historical feedback prompt"
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "trade_feedback",
+                "path": "artifacts/trade_feedback.json",
+                "summary": summary,
+            }
+        )
+
     return results
 
 
 def _resolve_report_dir(report_id: str) -> Path:
-    if report_id == ".tmp":
+    if report_id.startswith("."):
         raise HTTPException(status_code=404, detail="Report not found")
     if "/" in report_id or "\\" in report_id or ".." in report_id:
         raise HTTPException(status_code=404, detail="Report not found")
@@ -311,6 +414,12 @@ def _resolve_report_dir(report_id: str) -> Path:
     if not report_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found")
     return report_dir
+
+
+def _translate_trade_feedback_error(exc: Exception) -> HTTPException:
+    detail = str(exc)
+    status_code = 404 if "not found" in detail.lower() else 400
+    return HTTPException(status_code=status_code, detail=detail)
 
 
 def _active_tasks_dir() -> Path:
@@ -645,7 +754,11 @@ def _run_task(task_id: str) -> None:
             shutil.rmtree(temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)
 
-        progress_stream = run_analysis_streaming(task.request, temp_dir)
+        progress_stream = run_analysis_streaming(
+            task.request,
+            temp_dir,
+            reports_dir=REPORTS_DIR,
+        )
         final_state = None
         while True:
             try:
@@ -937,7 +1050,7 @@ def list_reports() -> list[dict]:
 
     results = []
     for entry in REPORTS_DIR.iterdir():
-        if not entry.is_dir() or entry.name == ".tmp":
+        if not entry.is_dir() or entry.name.startswith("."):
             continue
 
         report_id = entry.name
@@ -997,6 +1110,131 @@ def get_content(report_id: str, path: str) -> dict:
         ) from exc
 
     return {"content": content}
+
+
+# ---------------------------------------------------------------------------
+# Trade feedback endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/trades")
+def list_trades(ticker: Optional[str] = None) -> list[dict]:
+    try:
+        return list_trade_records_file(ticker=ticker, reports_dir=REPORTS_DIR)
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
+
+
+@app.post("/api/trades")
+def create_trade(payload: TradeRecordCreatePayload) -> dict:
+    try:
+        return create_trade_record_file(payload.model_dump(), reports_dir=REPORTS_DIR)
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
+
+
+@app.get("/api/trades/{trade_id}")
+def get_trade(trade_id: str) -> dict:
+    try:
+        return {
+            "record": get_trade_record_file(trade_id, reports_dir=REPORTS_DIR),
+            "reviews": list_trade_reviews_file(trade_id, reports_dir=REPORTS_DIR),
+        }
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
+
+
+@app.put("/api/trades/{trade_id}")
+def update_trade(trade_id: str, payload: TradeRecordUpdatePayload) -> dict:
+    try:
+        return update_trade_record_file(
+            trade_id,
+            payload.model_dump(exclude_unset=True),
+            reports_dir=REPORTS_DIR,
+        )
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
+
+
+@app.get("/api/trades/{trade_id}/reviews")
+def get_trade_reviews(trade_id: str) -> list[dict]:
+    try:
+        return list_trade_reviews_file(trade_id, reports_dir=REPORTS_DIR)
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
+
+
+@app.post("/api/trades/{trade_id}/reviews")
+def create_trade_review(trade_id: str, payload: TradeReviewCreatePayload) -> dict:
+    _hydrate_provider_credentials(payload.llm_provider)
+    provider_availability = _get_provider_availability(payload.llm_provider)
+    if not provider_availability["enabled"]:
+        raise HTTPException(
+            status_code=400,
+            detail=str(provider_availability["disabled_reason"]),
+        )
+
+    try:
+        return generate_trade_review_file(
+            trade_id,
+            review_type=payload.review_type,
+            llm_provider=payload.llm_provider,
+            model=payload.model,
+            output_language=payload.output_language,
+            google_thinking_level=payload.google_thinking_level,
+            openai_reasoning_effort=payload.openai_reasoning_effort,
+            analysis_date=payload.analysis_date,
+            analysis_references=(
+                payload.model_dump()["analysis_references"]
+                if payload.analysis_references is not None
+                else None
+            ),
+            reports_dir=REPORTS_DIR,
+        )
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
+
+
+@app.put("/api/trades/{trade_id}/reviews/{review_type}")
+def save_trade_review(
+    trade_id: str,
+    review_type: str,
+    payload: TradeReviewSavePayload,
+) -> dict:
+    try:
+        return save_trade_review_file(
+            trade_id,
+            review_type=review_type,
+            payload=payload.model_dump(
+                exclude={"analysis_date", "analysis_references"}
+            ),
+            analysis_date=payload.analysis_date,
+            analysis_references=(
+                payload.model_dump()["analysis_references"]
+                if payload.analysis_references is not None
+                else None
+            ),
+            reports_dir=REPORTS_DIR,
+        )
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
+
+
+@app.get("/api/trade-feedback/{ticker}")
+def get_ticker_trade_feedback(
+    ticker: str,
+    limit: int = 3,
+    analysis_date: Optional[str] = None,
+) -> dict:
+    try:
+        return get_trade_feedback_payload_file(
+            ticker,
+            reports_dir=REPORTS_DIR,
+            limit=limit,
+            analysis_date=analysis_date,
+        )
+    except ValueError as exc:
+        raise _translate_trade_feedback_error(exc) from exc
 
 
 # ---------------------------------------------------------------------------

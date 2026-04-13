@@ -1,6 +1,7 @@
 from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
+    get_trade_feedback_message,
 )
 
 from tradingagents.agents.utils.agent_utils import build_instrument_context
@@ -19,6 +20,7 @@ def create_research_manager(llm, memory):
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
+        trade_feedback_message = get_trade_feedback_message(state)
 
         curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
         past_memories = memory.get_memories(curr_situation, n_matches=2)
@@ -40,6 +42,8 @@ Take into account your past mistakes on similar situations. Use these insights t
 
 Here are your past reflections on mistakes:
 \"{past_memory_str}\"
+
+{trade_feedback_message}
 
 {instrument_context}
 

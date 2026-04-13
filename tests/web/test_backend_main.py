@@ -42,6 +42,8 @@ class BackendMainTests(unittest.TestCase):
     def test_list_reports_ignores_tmp_directory(self):
         temp_report_dir = backend_main.REPORTS_DIR / ".tmp" / "task-123"
         temp_report_dir.mkdir(parents=True)
+        (backend_main.REPORTS_DIR / ".tasks").mkdir(parents=True)
+        (backend_main.REPORTS_DIR / ".trade_feedback").mkdir(parents=True)
 
         report_dir = backend_main.REPORTS_DIR / "SPY_20260305_155836"
         report_dir.mkdir(parents=True)
@@ -58,6 +60,12 @@ class BackendMainTests(unittest.TestCase):
     def test_resolve_report_dir_rejects_tmp_report_id(self):
         with self.assertRaises(HTTPException) as context:
             backend_main._resolve_report_dir(".tmp")
+
+        self.assertEqual(context.exception.status_code, 404)
+
+    def test_resolve_report_dir_rejects_hidden_trade_feedback_directory(self):
+        with self.assertRaises(HTTPException) as context:
+            backend_main._resolve_report_dir(".trade_feedback")
 
         self.assertEqual(context.exception.status_code, 404)
 

@@ -1,6 +1,7 @@
 from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
+    get_trade_feedback_message,
 )
 
 
@@ -14,6 +15,7 @@ def create_bear_researcher(llm, memory):
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
+        trade_feedback_message = get_trade_feedback_message(state)
         market_research_report = state["market_report"]
         sentiment_report = state["sentiment_report"]
         news_report = state["news_report"]
@@ -45,6 +47,7 @@ Company fundamentals report: {fundamentals_report}
 Conversation history of the debate: {history}
 Last bull argument: {current_response}
 Reflections from similar situations and lessons learned: {past_memory_str}
+{trade_feedback_message}
 Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
 
 After your complete analysis, append a structured highlights block:

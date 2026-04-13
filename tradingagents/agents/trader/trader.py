@@ -4,6 +4,7 @@ from tradingagents.agents.utils.agent_utils import build_instrument_context
 from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
+    get_trade_feedback_message,
 )
 
 
@@ -19,6 +20,7 @@ def create_trader(llm, memory):
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
+        trade_feedback_message = get_trade_feedback_message(state)
 
         curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
         past_memories = memory.get_memories(curr_situation, n_matches=2)
@@ -39,6 +41,8 @@ def create_trader(llm, memory):
             {
                 "role": "system",
                 "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. Apply lessons from past decisions to strengthen your analysis. Here are reflections from similar situations you traded in and the lessons learned: {past_memory_str}
+
+{trade_feedback_message}
 
 Conclude your narrative analysis with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' as your final narrative line.
 

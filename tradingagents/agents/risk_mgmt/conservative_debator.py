@@ -1,6 +1,7 @@
 from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
+    get_trade_feedback_message,
 )
 from tradingagents.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
@@ -28,6 +29,7 @@ def create_conservative_debator(llm):
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
+        trade_feedback_message = get_trade_feedback_message(state)
         debate_mode = get_risk_debate_mode(risk_debate_state.get("count", 0))
 
         if debate_mode == REBUTTAL_MODE:
@@ -75,6 +77,7 @@ Latest World Affairs Report: {news_report}
 Company Fundamentals Report: {fundamentals_report}
 Here is the current conversation history: {history}
 {counterpart_context}
+{trade_feedback_message}
 
 {engagement_instruction}
 After your complete argument, append a structured highlights block:

@@ -2,6 +2,7 @@ from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
     get_language_instruction,
     get_research_note_style_instruction,
+    get_trade_feedback_message,
 )
 
 
@@ -19,6 +20,7 @@ def create_portfolio_manager(llm, memory):
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
+        trade_feedback_message = get_trade_feedback_message(state)
 
         curr_situation = (
             f"{market_research_report}\n\n{sentiment_report}\n\n"
@@ -55,6 +57,7 @@ Guidelines for Decision-Making:
 **Context:**
 - Trader's proposed plan: **{trader_plan}**
 - Lessons from past decisions: **{past_memory_str}**
+{trade_feedback_message}
 
 **Required Output Structure:**
 1. **Rating**: State one of Buy / Overweight / Hold / Underweight / Sell.

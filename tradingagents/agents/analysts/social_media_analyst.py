@@ -5,6 +5,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_news,
     get_research_note_style_instruction,
+    get_trade_feedback_message,
 )
 
 
@@ -16,6 +17,7 @@ def create_social_media_analyst(llm):
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
+        trade_feedback_message = get_trade_feedback_message(state)
 
         tools = [
             get_news,
@@ -53,7 +55,8 @@ def create_social_media_analyst(llm):
                     " You have access to the following tools: {tool_names}.\n{system_message}"
                     "\n{style_instruction}"
                     "\n{language_instruction}"
-                    "For your reference, the current date is {current_date}. {instrument_context}",
+                    "\n{trade_feedback_message}"
+                    "\nFor your reference, the current date is {current_date}. {instrument_context}",
                 ),
                 MessagesPlaceholder(variable_name="messages"),
             ]
@@ -65,6 +68,7 @@ def create_social_media_analyst(llm):
         prompt = prompt.partial(style_instruction=style_instruction)
         prompt = prompt.partial(language_instruction=language_instruction)
         prompt = prompt.partial(instrument_context=instrument_context)
+        prompt = prompt.partial(trade_feedback_message=trade_feedback_message)
 
         chain = prompt | llm.bind_tools(tools)
 

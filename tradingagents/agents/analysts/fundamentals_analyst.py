@@ -9,6 +9,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_insider_transactions,
     get_language_instruction,
     get_research_note_style_instruction,
+    get_trade_feedback_message,
 )
 from tradingagents.agents.utils.fundamental_data_tools import (
     get_valuation_ready_fundamentals,
@@ -31,6 +32,7 @@ def create_fundamentals_analyst(llm):
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
+        trade_feedback_message = get_trade_feedback_message(state)
         earnings_context = build_earnings_workflow_context(
             trade_date=current_date,
             ticker=ticker,
@@ -67,7 +69,8 @@ def create_fundamentals_analyst(llm):
                     " You have access to the following tools: {tool_names}.\n{system_message}"
                     "\n{style_instruction}"
                     "\n{language_instruction}"
-                    "For your reference, the current date is {current_date}. {instrument_context}",
+                    "\n{trade_feedback_message}"
+                    "\nFor your reference, the current date is {current_date}. {instrument_context}",
                 ),
                 MessagesPlaceholder(variable_name="messages"),
             ]
@@ -79,6 +82,7 @@ def create_fundamentals_analyst(llm):
         prompt = prompt.partial(style_instruction=style_instruction)
         prompt = prompt.partial(language_instruction=language_instruction)
         prompt = prompt.partial(instrument_context=instrument_context)
+        prompt = prompt.partial(trade_feedback_message=trade_feedback_message)
         chain = prompt | llm.bind_tools(tools)
 
         result = chain.invoke(state["messages"])
