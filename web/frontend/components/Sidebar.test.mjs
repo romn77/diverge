@@ -12,10 +12,12 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /reports:\s*Report\[]/);
   assert.match(source, /loading:\s*boolean/);
   assert.match(source, /error:\s*string \| null/);
+  assert.match(source, /selectedTradeJournal:\s*boolean/);
   assert.match(source, /searchQuery:\s*string/);
   assert.match(source, /onSearchQueryChange:\s*\(value:\s*string\)/);
   assert.match(source, /onNewAnalysis:\s*\(\)\s*=>\s*void/);
   assert.match(source, /onNewScreener:\s*\(\)\s*=>\s*void/);
+  assert.match(source, /onSelectTradeJournal:\s*\(\)\s*=>\s*void/);
   assert.match(source, /taskQueue:\s*Task\[]/);
   assert.match(source, /screenerRuns:\s*ScreenerRunSummary\[]/);
   assert.match(source, /screenerTaskQueue:\s*ScreenerTask\[]/);
@@ -31,6 +33,8 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /Recent Reports/);
   assert.match(source, /New Analysis/);
   assert.match(source, /New Screener/);
+  assert.match(source, /Trade Journal/);
+  assert.match(source, /Manual records and reviews only\. No broker or account sync\./);
   assert.match(source, /Task Queue/);
   assert.match(source, /Recent Screeners/);
   assert.doesNotMatch(source, /Return to Queue/);
@@ -38,6 +42,7 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.doesNotMatch(source, /onReturnToQueue/);
   assert.match(source, /disabled=\{newAnalysisDisabled\}/);
   assert.match(source, /disabled=\{newScreenerDisabled\}/);
+  assert.match(source, /data-active=\{selectedTradeJournal\}/);
   assert.match(source, /Filter by ticker or report ID/);
   assert.match(source, /document\.body\.style\.overflow/);
   assert.match(source, /event\.key === "Escape"/);

@@ -18,6 +18,7 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /\[activeTaskId,\s*setActiveTaskId\]/);
   assert.match(source, /\[showNewAnalysis,\s*setShowNewAnalysis\]/);
   assert.match(source, /\[showNewScreener,\s*setShowNewScreener\]/);
+  assert.match(source, /\[showTradeJournal,\s*setShowTradeJournal\]/);
   assert.match(source, /\[activeScreenerTaskId,\s*setActiveScreenerTaskId\]/);
   assert.match(source, /\[selectedScreenerRunId,\s*setSelectedScreenerRunId\]/);
   assert.match(source, /\[screenerRuns,\s*setScreenerRuns\]/);
@@ -30,14 +31,18 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /newAnalysisDisabled=\{newAnalysisDisabled\}/);
   assert.match(source, /screenerRuns=\{screenerRuns\}/);
   assert.match(source, /screenerTaskQueue=\{visibleScreenerTaskQueue\}/);
+  assert.match(source, /selectedTradeJournal=\{showTradeJournal\}/);
+  assert.match(source, /onSelectTradeJournal=\{\(\) => \{/);
   assert.match(source, /<NewScreenerForm/);
   assert.match(source, /<ScreenerTaskProgress/);
   assert.match(source, /<ScreenerResultsViewer/);
+  assert.match(source, /<TradeJournal/);
   assert.doesNotMatch(source, /canReturnToQueue=\{/);
   assert.doesNotMatch(source, /onReturnToQueue=\{\(\) => \{/);
   assert.match(source, /<NewAnalysisForm/);
   assert.match(source, /<TaskProgress/);
   assert.match(source, /Launch Screener/);
+  assert.match(source, /Open Manual Journal/);
 });
 
 test("page uses a desktop row layout so sidebar and content stay aligned", () => {

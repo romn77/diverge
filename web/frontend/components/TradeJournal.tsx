@@ -1,0 +1,1039 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  getTickerTradeFeedback,
+  getTrade,
+  listTrades,
+  type Report,
+  type TradeDetail,
+  type TradeFeedbackPayload,
+  type TradeRecord,
+  type TradeReview,
+  type TradeReviewType,
+} from "@/lib/api";
+import { TradeRecordForm } from "./TradeRecordForm";
+import { TradeReviewForm } from "./TradeReviewForm";
+
+interface TradeJournalProps {
+  reports: Report[];
+  onOpenSidebar?: () => void;
+  sidebarOpen?: boolean;
+}
+
+type TimeWindow = "all" | "30d" | "90d" | "365d";
+
+export function TradeJournal({
+  reports,
+  onOpenSidebar,
+  sidebarOpen = false,
+}: TradeJournalProps) {
+  const [trades, setTrades] = useState<TradeRecord[]>([]);
+  const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
+  const [tradeDetail, setTradeDetail] = useState<TradeDetail | null>(null);
+  const [feedback, setFeedback] = useState<TradeFeedbackPayload | null>(null);
+  const [tickerFilter, setTickerFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
+  const [reviewTab, setReviewTab] = useState<TradeReviewType>("entry_review");
+  const [loadingTrades, setLoadingTrades] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [loadingFeedback, setLoadingFeedback] = useState(false);
+  const [tradesError, setTradesError] = useState<string | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
+  const [showCreateTrade, setShowCreateTrade] = useState(false);
+  const [showEditTrade, setShowEditTrade] = useState(false);
+  const [editingReviewType, setEditingReviewType] = useState<TradeReviewType | null>(
+    null
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadTrades = async () => {
+      setLoadingTrades(true);
+      setTradesError(null);
+
+      try {
+        const data = await listTrades();
+        if (!isActive) {
+          return;
+        }
+
+        setTrades(data);
+        setSelectedTradeId((current) => {
+          if (current && data.some((trade) => trade.trade_id === current)) {
+            return current;
+          }
+          return data[0]?.trade_id ?? null;
+        });
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setTrades([]);
+        setSelectedTradeId(null);
+        setTradesError(
+          error instanceof Error ? error.message : "Unable to load trade history"
+        );
+      } finally {
+        if (isActive) {
+          setLoadingTrades(false);
+        }
+      }
+    };
+
+    void loadTrades();
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTradeId) {
+      setTradeDetail(null);
+      setDetailError(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadTradeDetail = async () => {
+      setLoadingDetail(true);
+      setDetailError(null);
+
+      try {
+        const data = await getTrade(selectedTradeId);
+        if (!isActive) {
+          return;
+        }
+        setTradeDetail(data);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setTradeDetail(null);
+        setDetailError(
+          error instanceof Error ? error.message : "Unable to load trade details"
+        );
+      } finally {
+        if (isActive) {
+          setLoadingDetail(false);
+        }
+      }
+    };
+
+    void loadTradeDetail();
+    return () => {
+      isActive = false;
+    };
+  }, [selectedTradeId]);
+
+  useEffect(() => {
+    if (!tradeDetail?.record.ticker) {
+      setFeedback(null);
+      setFeedbackError(null);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadFeedback = async () => {
+      setLoadingFeedback(true);
+      setFeedbackError(null);
+
+      try {
+        const data = await getTickerTradeFeedback(tradeDetail.record.ticker, {
+          limit: 3,
+        });
+        if (!isActive) {
+          return;
+        }
+        setFeedback(data);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        setFeedback(null);
+        setFeedbackError(
+          error instanceof Error
+            ? error.message
+            : "Unable to load same-ticker feedback"
+        );
+      } finally {
+        if (isActive) {
+          setLoadingFeedback(false);
+        }
+      }
+    };
+
+    void loadFeedback();
+    return () => {
+      isActive = false;
+    };
+  }, [tradeDetail?.record.ticker]);
+
+  const refreshTrades = async (preferredTradeId?: string) => {
+    setLoadingTrades(true);
+    setTradesError(null);
+
+    try {
+      const data = await listTrades();
+      setTrades(data);
+      setSelectedTradeId((current) => {
+        if (preferredTradeId && data.some((trade) => trade.trade_id === preferredTradeId)) {
+          return preferredTradeId;
+        }
+        if (current && data.some((trade) => trade.trade_id === current)) {
+          return current;
+        }
+        return data[0]?.trade_id ?? null;
+      });
+    } catch (error) {
+      setTradesError(
+        error instanceof Error ? error.message : "Unable to load trade history"
+      );
+    } finally {
+      setLoadingTrades(false);
+    }
+  };
+
+  const refreshTradeDetail = async (tradeId: string) => {
+    setLoadingDetail(true);
+    setDetailError(null);
+
+    try {
+      const data = await getTrade(tradeId);
+      setTradeDetail(data);
+    } catch (error) {
+      setDetailError(
+        error instanceof Error ? error.message : "Unable to load trade details"
+      );
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const refreshFeedback = async (ticker: string) => {
+    setLoadingFeedback(true);
+    setFeedbackError(null);
+
+    try {
+      const data = await getTickerTradeFeedback(ticker, { limit: 3 });
+      setFeedback(data);
+    } catch (error) {
+      setFeedbackError(
+        error instanceof Error ? error.message : "Unable to load same-ticker feedback"
+      );
+    } finally {
+      setLoadingFeedback(false);
+    }
+  };
+
+  const filteredTrades = useMemo(() => {
+    return trades.filter((trade) => {
+      const normalizedFilter = tickerFilter.trim().toUpperCase();
+      const matchesTicker =
+        !normalizedFilter ||
+        trade.ticker.includes(normalizedFilter) ||
+        trade.trade_id.toUpperCase().includes(normalizedFilter);
+      const matchesStatus =
+        statusFilter === "all" || trade.status.toLowerCase() === statusFilter;
+      const matchesTimeWindow = withinTimeWindow(trade, timeWindow);
+      return matchesTicker && matchesStatus && matchesTimeWindow;
+    });
+  }, [statusFilter, tickerFilter, timeWindow, trades]);
+
+  useEffect(() => {
+    if (filteredTrades.length === 0 || !selectedTradeId) {
+      return;
+    }
+
+    if (!filteredTrades.some((trade) => trade.trade_id === selectedTradeId)) {
+      setSelectedTradeId(filteredTrades[0].trade_id);
+    }
+  }, [filteredTrades, selectedTradeId]);
+
+  const statusOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(
+        trades
+          .map((trade) => trade.status.trim().toLowerCase())
+          .filter((status) => status.length > 0)
+      )
+    ).sort();
+
+    return ["all", ...values];
+  }, [trades]);
+
+  const selectedReview =
+    tradeDetail?.reviews.find((review) => review.review_type === reviewTab) ?? null;
+  const openTrades = trades.filter((trade) => trade.status.toLowerCase() === "open");
+
+  const handleTradeSaved = (record: TradeRecord) => {
+    setShowCreateTrade(false);
+    setShowEditTrade(false);
+    setSelectedTradeId(record.trade_id);
+    void refreshTrades(record.trade_id);
+    void refreshTradeDetail(record.trade_id);
+    void refreshFeedback(record.ticker);
+  };
+
+  const handleReviewSaved = (review: TradeReview) => {
+    setEditingReviewType(null);
+    setReviewTab(review.review_type);
+    void refreshTrades(review.trade_id);
+    void refreshTradeDetail(review.trade_id);
+    void refreshFeedback(review.ticker);
+  };
+
+  return (
+    <>
+      <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+          <section className="viewer-frame overflow-hidden px-6 py-7 md:px-8 md:py-8">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="max-w-3xl">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.38em] text-[var(--primary)]">
+                  Manual Trade Journal MVP
+                </p>
+                <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                  Record trades, separate entry and exit reviews, and preview future
+                  same-ticker feedback
+                </h1>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  This surface is intentionally manual. It stores hand-entered trade
+                  records, shows snapshot references instead of full copied reports,
+                  and makes it explicit that later analysis for the same ticker will
+                  read the saved review feedback.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {onOpenSidebar ? (
+                  <button
+                    type="button"
+                    className={`interactive-button focus-ring rounded-full border px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] md:hidden ${
+                      sidebarOpen
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+                        : "border-[var(--border)] bg-white text-slate-600"
+                    }`}
+                    onClick={onOpenSidebar}
+                  >
+                    Menu
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+                  onClick={() => setShowCreateTrade(true)}
+                >
+                  New Manual Trade
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-7 grid gap-4 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
+              <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
+                <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Filter by Ticker or Trade ID
+                </span>
+                <input
+                  type="text"
+                  value={tickerFilter}
+                  onChange={(event) => setTickerFilter(event.target.value)}
+                  placeholder="MSFT or trade_id"
+                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
+                />
+              </label>
+
+              <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
+                <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Status
+                </span>
+                <select
+                  value={statusFilter}
+                  onChange={(event) => setStatusFilter(event.target.value)}
+                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
+                <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  Time Window
+                </span>
+                <select
+                  value={timeWindow}
+                  onChange={(event) => setTimeWindow(event.target.value as TimeWindow)}
+                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
+                >
+                  <option value="all">all</option>
+                  <option value="30d">last 30 days</option>
+                  <option value="90d">last 90 days</option>
+                  <option value="365d">last 12 months</option>
+                </select>
+              </label>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <SummaryCard
+                label="Total Records"
+                value={String(trades.length)}
+                hint="Hand-entered trades saved against the backend schema"
+              />
+              <SummaryCard
+                label="Open Status"
+                value={String(openTrades.length)}
+                hint="Trades still marked open in the manual journal"
+              />
+              <SummaryCard
+                label="Visible in Filter"
+                value={String(filteredTrades.length)}
+                hint="History filtered by ticker, status, and activity window"
+              />
+            </div>
+          </section>
+
+          <section className="grid gap-6 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)]">
+            <div className="card-surface p-4 md:p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                    History
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold text-slate-900">
+                    Trade records
+                  </h2>
+                </div>
+                <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  {filteredTrades.length} shown
+                </span>
+              </div>
+
+              {tradesError ? (
+                <div className="mt-4 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
+                  {tradesError}
+                </div>
+              ) : loadingTrades ? (
+                <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-8 text-sm text-slate-500">
+                  Loading manual trade history...
+                </div>
+              ) : filteredTrades.length === 0 ? (
+                <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
+                  <p>No trade records match the current filters.</p>
+                  <button
+                    type="button"
+                    className="interactive-button focus-ring mt-4 rounded-full border border-[var(--primary)] bg-[var(--primary)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white"
+                    onClick={() => setShowCreateTrade(true)}
+                  >
+                    Record First Trade
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {filteredTrades.map((trade) => {
+                    const isSelected = selectedTradeId === trade.trade_id;
+                    return (
+                      <button
+                        key={trade.trade_id}
+                        type="button"
+                        data-active={isSelected}
+                        className={`interactive-button w-full rounded-[26px] border p-4 text-left transition ${
+                          isSelected
+                            ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 shadow-[0_18px_36px_rgba(182,90,43,0.14)]"
+                            : "border-[var(--border)] bg-white/85 hover:border-[var(--primary)] hover:bg-white"
+                        }`}
+                        onClick={() => setSelectedTradeId(trade.trade_id)}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-lg font-semibold text-slate-900">
+                              {trade.ticker}
+                            </p>
+                            <p className="mt-1 font-mono text-[11px] text-slate-500">
+                              {trade.trade_id}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <StatusBadge label={trade.side} tone="accent" />
+                            <StatusBadge label={trade.status} tone="primary" />
+                          </div>
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                          <MetaItem
+                            label="Entry"
+                            value={formatDateTime(trade.entry_timestamp)}
+                          />
+                          <MetaItem
+                            label="Exit"
+                            value={formatDateTime(trade.exit_timestamp)}
+                          />
+                          <MetaItem
+                            label="Entry Px"
+                            value={formatNumber(trade.entry_price)}
+                          />
+                          <MetaItem
+                            label="Exit Px"
+                            value={formatNumber(trade.exit_price)}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <section className="viewer-frame px-6 py-6 md:px-8">
+                {detailError ? (
+                  <div className="rounded-3xl border border-rose-200 bg-rose-50 px-5 py-5 text-sm text-rose-700">
+                    {detailError}
+                  </div>
+                ) : loadingDetail ? (
+                  <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-10 text-sm text-slate-500">
+                    Loading trade record and review details...
+                  </div>
+                ) : !tradeDetail ? (
+                  <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-10 text-sm text-slate-500">
+                    Select a trade record to inspect its fields, snapshot references,
+                    and review history.
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--primary)]">
+                          Stable trade_id
+                        </p>
+                        <h2 className="mt-2 text-3xl font-semibold text-slate-900">
+                          {tradeDetail.record.ticker}
+                        </h2>
+                        <p className="mt-2 font-mono text-[12px] text-slate-500">
+                          {tradeDetail.record.trade_id}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                        <StatusBadge label={tradeDetail.record.side} tone="accent" />
+                        <StatusBadge label={tradeDetail.record.status} tone="primary" />
+                        <button
+                          type="button"
+                          className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
+                          onClick={() => setShowEditTrade(true)}
+                        >
+                          Edit Trade
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <MetaCard
+                        label="Market / Exchange"
+                        value={tradeDetail.record.exchange_or_market}
+                      />
+                      <MetaCard
+                        label="Planned Horizon"
+                        value={tradeDetail.record.planned_horizon}
+                      />
+                      <MetaCard
+                        label="Size"
+                        value={formatNumber(tradeDetail.record.size)}
+                      />
+                      <MetaCard
+                        label="Last Updated"
+                        value={formatDateTime(tradeDetail.record.updated_at)}
+                      />
+                      <MetaCard
+                        label="Entry"
+                        value={formatDateTime(tradeDetail.record.entry_timestamp)}
+                      />
+                      <MetaCard
+                        label="Exit"
+                        value={formatDateTime(tradeDetail.record.exit_timestamp)}
+                      />
+                      <MetaCard
+                        label="Stop Loss"
+                        value={formatNumber(tradeDetail.record.stop_loss)}
+                      />
+                      <MetaCard
+                        label="Take Profit"
+                        value={formatNumber(tradeDetail.record.take_profit)}
+                      />
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+                      <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+                          Initial Thesis
+                        </p>
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                          {tradeDetail.record.initial_thesis}
+                        </p>
+                      </section>
+
+                      <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+                          Notes
+                        </p>
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                          {tradeDetail.record.notes || "No notes saved."}
+                        </p>
+                      </section>
+                    </div>
+
+                    <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+                            Linked Snapshot References
+                          </p>
+                          <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                            Snapshot references only, not copied report content
+                          </h3>
+                        </div>
+                        <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          {tradeDetail.record.analysis_references.length} linked
+                        </span>
+                      </div>
+
+                      {tradeDetail.record.analysis_references.length === 0 ? (
+                        <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
+                          No analysis snapshots are attached yet. Add them on the trade
+                          record before saving manual reviews.
+                        </div>
+                      ) : (
+                        <div className="mt-4 space-y-3">
+                          {tradeDetail.record.analysis_references.map((reference) => (
+                            <div
+                              key={`${reference.report_path}-${reference.full_state_log_path}-${reference.analysis_date}`}
+                              className="rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)]/85 p-4"
+                            >
+                              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                {reference.analysis_date}
+                              </p>
+                              <p className="mt-2 break-all text-sm font-medium text-slate-800">
+                                {reference.report_path}
+                              </p>
+                              <p className="mt-1 break-all text-xs text-slate-500">
+                                {reference.full_state_log_path}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+                            Trade Reviews
+                          </p>
+                          <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                            Distinguish entry_review and exit_review on the same trade_id
+                          </h3>
+                        </div>
+                        <button
+                          type="button"
+                          className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
+                          onClick={() => setEditingReviewType(reviewTab)}
+                        >
+                          {selectedReview ? "Edit Review" : "Create Review"}
+                        </button>
+                      </div>
+
+                      <div className="mt-5 flex flex-wrap gap-2">
+                        {(["entry_review", "exit_review"] as TradeReviewType[]).map((type) => {
+                          const review = tradeDetail.reviews.find(
+                            (item) => item.review_type === type
+                          );
+                          return (
+                            <button
+                              key={type}
+                              type="button"
+                              data-active={reviewTab === type}
+                              className="pill-tab"
+                              onClick={() => setReviewTab(type)}
+                            >
+                              <span className="capitalize">
+                                {type === "entry_review" ? "Entry Review" : "Exit Review"}
+                              </span>
+                              <span className="ml-2 text-[11px] opacity-70">
+                                {review ? "saved" : "empty"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {!selectedReview ? (
+                        <div className="mt-5 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
+                          No {reviewTab} saved for this trade yet. Use the manual review
+                          editor to add the structured assessment fields required by the
+                          backend schema.
+                        </div>
+                      ) : (
+                        <div className="mt-5 space-y-5">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <ReviewCard
+                              label="Thesis Assessment"
+                              value={selectedReview.thesis_assessment}
+                            />
+                            <ReviewCard
+                              label="Timing Assessment"
+                              value={selectedReview.timing_assessment}
+                            />
+                            <ReviewCard
+                              label="Sizing Assessment"
+                              value={selectedReview.sizing_assessment}
+                            />
+                            <ReviewCard
+                              label="Discipline Assessment"
+                              value={selectedReview.discipline_assessment}
+                            />
+                          </div>
+
+                          <ReviewCard
+                            label="Outcome Summary"
+                            value={selectedReview.outcome_summary}
+                          />
+
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <TagCard
+                              label="Improvement Actions"
+                              values={selectedReview.improvement_actions}
+                            />
+                            <TagCard
+                              label="Ticker-Specific Lessons"
+                              values={selectedReview.ticker_specific_lessons}
+                            />
+                            <TagCard
+                              label="Cross-Ticker Tags"
+                              values={selectedReview.cross_ticker_tags}
+                            />
+                          </div>
+
+                          <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)]/85 px-4 py-4 text-sm text-slate-600">
+                            Saved as
+                            <span className="mx-1 rounded bg-white px-2 py-1 font-mono text-[12px] text-slate-700">
+                              {selectedReview.review_id}
+                            </span>
+                            on {selectedReview.analysis_date}, updated{" "}
+                            {formatDateTime(selectedReview.updated_at)}.
+                          </div>
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                )}
+              </section>
+
+              <section className="card-surface p-5 md:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      Same-Ticker Feedback
+                    </p>
+                    <h2 className="mt-2 text-xl font-semibold text-slate-900">
+                      Future analyses will read this saved review context
+                    </h2>
+                  </div>
+                  {tradeDetail?.record.ticker ? (
+                    <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {tradeDetail.record.ticker}
+                    </span>
+                  ) : null}
+                </div>
+
+                {feedbackError ? (
+                  <div className="mt-4 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
+                    {feedbackError}
+                  </div>
+                ) : loadingFeedback ? (
+                  <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-8 text-sm text-slate-500">
+                    Loading same-ticker feedback preview...
+                  </div>
+                ) : !feedback || feedback.reviews.length === 0 ? (
+                  <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
+                    No saved feedback prompt is available yet for this ticker. Once an
+                    entry_review or exit_review is stored, later analyses can reuse it.
+                  </div>
+                ) : (
+                  <div className="mt-4 space-y-5">
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {feedback.reviews.map((review) => (
+                        <div
+                          key={review.review_id}
+                          className="rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)]/85 p-4"
+                        >
+                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+                            {review.review_type}
+                          </p>
+                          <p className="mt-2 font-mono text-[11px] text-slate-500">
+                            {review.trade_id}
+                          </p>
+                          <p className="mt-3 text-sm leading-6 text-slate-700">
+                            {review.outcome_summary}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="rounded-[28px] border border-[var(--border)] bg-[#f8f3eb] px-5 py-5">
+                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                        Prompt Preview
+                      </p>
+                      <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-3xl bg-white/85 px-4 py-4 font-mono text-[12px] leading-6 text-slate-700">
+                        {feedback.prompt}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
+          </section>
+        </div>
+      </main>
+
+      <TradeRecordForm
+        isOpen={showCreateTrade}
+        mode="create"
+        reports={reports}
+        onClose={() => setShowCreateTrade(false)}
+        onSaved={handleTradeSaved}
+      />
+
+      <TradeRecordForm
+        isOpen={showEditTrade && Boolean(tradeDetail)}
+        mode="edit"
+        initialRecord={tradeDetail?.record ?? null}
+        reports={reports}
+        onClose={() => setShowEditTrade(false)}
+        onSaved={handleTradeSaved}
+      />
+
+      {editingReviewType && tradeDetail ? (
+        <TradeReviewForm
+          isOpen={Boolean(editingReviewType)}
+          reviewType={editingReviewType}
+          tradeRecord={tradeDetail.record}
+          existingReview={
+            tradeDetail.reviews.find(
+              (review) => review.review_type === editingReviewType
+            ) ?? null
+          }
+          onClose={() => setEditingReviewType(null)}
+          onSaved={handleReviewSaved}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-[28px] border border-[var(--border)] bg-white/90 px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-3 text-3xl font-semibold text-slate-900">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p>
+    </div>
+  );
+}
+
+function MetaCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="viewer-meta-card">
+      <p className="viewer-meta-label">{label}</p>
+      <p className="mt-3 text-sm font-semibold text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function MetaItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)]/80 px-3 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function ReviewCard({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]/80 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function TagCard({
+  label,
+  values,
+}: {
+  label: string;
+  values: string[];
+}) {
+  return (
+    <div className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]/80 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+        {label}
+      </p>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {values.length === 0 ? (
+          <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-slate-500">
+            None saved
+          </span>
+        ) : (
+          values.map((value) => (
+            <span
+              key={value}
+              className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-medium text-slate-700"
+            >
+              {value}
+            </span>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({
+  label,
+  tone,
+}: {
+  label: string;
+  tone: "primary" | "accent";
+}) {
+  const classes =
+    tone === "primary"
+      ? "border-[rgba(182,90,43,0.18)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+      : "border-[rgba(28,56,83,0.14)] bg-[var(--accent-soft)] text-[var(--accent)]";
+
+  return (
+    <span
+      className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${classes}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function formatNumber(value: number | null): string {
+  if (typeof value !== "number") {
+    return "Not set";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatDateTime(value: string | null): string {
+  if (!value) {
+    return "Not set";
+  }
+
+  const normalized = value.replace("Z", "+00:00");
+  const parsed = new Date(normalized);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+
+  return parsed.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function withinTimeWindow(record: TradeRecord, timeWindow: TimeWindow): boolean {
+  if (timeWindow === "all") {
+    return true;
+  }
+
+  const timestamp = activityTimestamp(record);
+  if (timestamp === null) {
+    return false;
+  }
+
+  const now = Date.now();
+  const maxAgeMs =
+    timeWindow === "30d"
+      ? 30 * 24 * 60 * 60 * 1000
+      : timeWindow === "90d"
+        ? 90 * 24 * 60 * 60 * 1000
+        : 365 * 24 * 60 * 60 * 1000;
+
+  return now - timestamp <= maxAgeMs;
+}
+
+function activityTimestamp(record: TradeRecord): number | null {
+  const candidates = [
+    record.updated_at,
+    record.exit_timestamp,
+    record.entry_timestamp,
+    record.created_at,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) {
+      continue;
+    }
+
+    const parsed = Date.parse(candidate);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}

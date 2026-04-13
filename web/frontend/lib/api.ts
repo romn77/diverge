@@ -19,6 +19,149 @@ export interface ReportStructure {
   }>;
 }
 
+export interface AnalysisReference {
+  analysis_date: string;
+  report_path: string;
+  full_state_log_path: string;
+}
+
+export type TradeReviewType = "entry_review" | "exit_review";
+
+export interface TradeRecord {
+  type: "trade_record";
+  schema_version: number;
+  trade_id: string;
+  ticker: string;
+  exchange_or_market: string;
+  side: string;
+  status: string;
+  entry_timestamp: string | null;
+  entry_price: number | null;
+  exit_timestamp: string | null;
+  exit_price: number | null;
+  size: number | null;
+  initial_thesis: string;
+  planned_horizon: string;
+  stop_loss: number | null;
+  take_profit: number | null;
+  notes: string;
+  analysis_references: AnalysisReference[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TradeReview {
+  type: "trade_review";
+  schema_version: number;
+  review_id: string;
+  trade_id: string;
+  ticker: string;
+  review_type: TradeReviewType;
+  analysis_date: string;
+  analysis_references: AnalysisReference[];
+  thesis_assessment: string;
+  timing_assessment: string;
+  sizing_assessment: string;
+  discipline_assessment: string;
+  outcome_summary: string;
+  improvement_actions: string[];
+  ticker_specific_lessons: string[];
+  cross_ticker_tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TradeDetail {
+  record: TradeRecord;
+  reviews: TradeReview[];
+}
+
+export interface TradeRecordCreateRequest {
+  ticker: string;
+  exchange_or_market: string;
+  side: string;
+  status: string;
+  entry_timestamp?: string | null;
+  entry_price?: number | null;
+  exit_timestamp?: string | null;
+  exit_price?: number | null;
+  size?: number | null;
+  initial_thesis: string;
+  planned_horizon: string;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  notes?: string;
+  analysis_references: AnalysisReference[];
+}
+
+export interface TradeRecordUpdateRequest {
+  ticker?: string;
+  exchange_or_market?: string;
+  side?: string;
+  status?: string;
+  entry_timestamp?: string | null;
+  entry_price?: number | null;
+  exit_timestamp?: string | null;
+  exit_price?: number | null;
+  size?: number | null;
+  initial_thesis?: string;
+  planned_horizon?: string;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  notes?: string;
+  analysis_references?: AnalysisReference[];
+}
+
+export interface TradeReviewSaveRequest {
+  thesis_assessment: string;
+  timing_assessment: string;
+  sizing_assessment: string;
+  discipline_assessment: string;
+  outcome_summary: string;
+  improvement_actions: string[];
+  ticker_specific_lessons: string[];
+  cross_ticker_tags: string[];
+  analysis_date?: string | null;
+  analysis_references?: AnalysisReference[];
+}
+
+export interface TradeFeedbackEntry {
+  trade_id: string;
+  ticker: string;
+  exchange_or_market: string;
+  side: string;
+  status: string;
+  entry_timestamp: string | null;
+  entry_price: number | null;
+  exit_timestamp: string | null;
+  exit_price: number | null;
+  size: number | null;
+  initial_thesis: string;
+  planned_horizon: string;
+  stop_loss: number | null;
+  take_profit: number | null;
+  review_id: string;
+  review_type: TradeReviewType;
+  analysis_date: string | null;
+  analysis_references: AnalysisReference[];
+  thesis_assessment: string;
+  timing_assessment: string;
+  sizing_assessment: string;
+  discipline_assessment: string;
+  outcome_summary: string;
+  improvement_actions: string[];
+  ticker_specific_lessons: string[];
+  cross_ticker_tags: string[];
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export interface TradeFeedbackPayload {
+  ticker: string;
+  reviews: TradeFeedbackEntry[];
+  prompt: string;
+}
+
 export interface TaskCreateRequest {
   ticker: string;
   analysis_date: string;
@@ -195,6 +338,82 @@ export async function getContent(reportId: string, path: string): Promise<string
   const response = await fetch(url.toString());
   const data = await parseJsonResponse<{ content: string }>(response);
   return data.content;
+}
+
+export async function listTrades(ticker?: string): Promise<TradeRecord[]> {
+  const url = new URL(`${API_BASE}/api/trades`);
+  if (ticker) {
+    url.searchParams.set("ticker", ticker);
+  }
+
+  const response = await fetch(url.toString());
+  return parseJsonResponse<TradeRecord[]>(response);
+}
+
+export async function createTrade(
+  payload: TradeRecordCreateRequest
+): Promise<TradeRecord> {
+  const response = await fetch(`${API_BASE}/api/trades`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJsonResponse<TradeRecord>(response);
+}
+
+export async function getTrade(tradeId: string): Promise<TradeDetail> {
+  const response = await fetch(`${API_BASE}/api/trades/${tradeId}`);
+  return parseJsonResponse<TradeDetail>(response);
+}
+
+export async function updateTrade(
+  tradeId: string,
+  payload: TradeRecordUpdateRequest
+): Promise<TradeRecord> {
+  const response = await fetch(`${API_BASE}/api/trades/${tradeId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJsonResponse<TradeRecord>(response);
+}
+
+export async function saveTradeReview(
+  tradeId: string,
+  reviewType: TradeReviewType,
+  payload: TradeReviewSaveRequest
+): Promise<TradeReview> {
+  const response = await fetch(`${API_BASE}/api/trades/${tradeId}/reviews/${reviewType}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  return parseJsonResponse<TradeReview>(response);
+}
+
+export async function getTickerTradeFeedback(
+  ticker: string,
+  options: { limit?: number; analysisDate?: string } = {}
+): Promise<TradeFeedbackPayload> {
+  const url = new URL(`${API_BASE}/api/trade-feedback/${ticker}`);
+  if (typeof options.limit === "number") {
+    url.searchParams.set("limit", String(options.limit));
+  }
+  if (options.analysisDate) {
+    url.searchParams.set("analysis_date", options.analysisDate);
+  }
+
+  const response = await fetch(url.toString());
+  return parseJsonResponse<TradeFeedbackPayload>(response);
 }
 
 export async function createTask(

@@ -16,6 +16,7 @@ import { NewScreenerForm } from "@/components/NewScreenerForm";
 import { ScreenerResultsViewer } from "@/components/ScreenerResultsViewer";
 import { ScreenerTaskProgress } from "@/components/ScreenerTaskProgress";
 import { Sidebar } from "@/components/Sidebar";
+import { TradeJournal } from "@/components/TradeJournal";
 import { ReportViewer } from "@/components/ReportViewer";
 import { TaskProgress } from "@/components/TaskProgress";
 
@@ -26,6 +27,7 @@ export default function Home() {
   const [activeScreenerTaskId, setActiveScreenerTaskId] = useState<string | null>(null);
   const [showNewAnalysis, setShowNewAnalysis] = useState(false);
   const [showNewScreener, setShowNewScreener] = useState(false);
+  const [showTradeJournal, setShowTradeJournal] = useState(false);
   const [reports, setReports] = useState<Report[]>([]);
   const [screenerRuns, setScreenerRuns] = useState<ScreenerRunSummary[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -211,12 +213,15 @@ export default function Home() {
   );
   const currentTaskId =
     activeTaskId ??
-    (selectedReportId || selectedScreenerRunId || activeScreenerTaskId
+    (selectedReportId ||
+    selectedScreenerRunId ||
+    activeScreenerTaskId ||
+    showTradeJournal
       ? null
       : visibleTaskQueue[0]?.id ?? null);
   const currentScreenerTaskId =
     activeScreenerTaskId ??
-    (selectedReportId || selectedScreenerRunId || currentTaskId
+    (selectedReportId || selectedScreenerRunId || currentTaskId || showTradeJournal
       ? null
       : visibleScreenerTaskQueue[0]?.id ?? null);
   const combinedActiveCount = visibleTaskQueue.length + visibleScreenerTaskQueue.length;
@@ -256,6 +261,7 @@ export default function Home() {
           setSelectedScreenerRunId(null);
           setActiveTaskId(null);
           setActiveScreenerTaskId(null);
+          setShowTradeJournal(false);
           setIsSidebarOpen(false);
         }}
         onSelectScreenerRun={(runId) => {
@@ -263,6 +269,18 @@ export default function Home() {
           setSelectedReportId(null);
           setActiveTaskId(null);
           setActiveScreenerTaskId(null);
+          setShowTradeJournal(false);
+          setIsSidebarOpen(false);
+        }}
+        selectedTradeJournal={showTradeJournal}
+        onSelectTradeJournal={() => {
+          setShowTradeJournal(true);
+          setSelectedReportId(null);
+          setSelectedScreenerRunId(null);
+          setActiveTaskId(null);
+          setActiveScreenerTaskId(null);
+          setShowNewAnalysis(false);
+          setShowNewScreener(false);
           setIsSidebarOpen(false);
         }}
         reports={reports}
@@ -280,6 +298,7 @@ export default function Home() {
           setSelectedScreenerRunId(null);
           setActiveTaskId(taskId);
           setActiveScreenerTaskId(null);
+          setShowTradeJournal(false);
           setIsSidebarOpen(false);
         }}
         onSelectScreenerTask={(taskId) => {
@@ -287,6 +306,7 @@ export default function Home() {
           setSelectedScreenerRunId(null);
           setActiveTaskId(null);
           setActiveScreenerTaskId(taskId);
+          setShowTradeJournal(false);
           setIsSidebarOpen(false);
         }}
         onNewAnalysis={() => {
@@ -295,6 +315,7 @@ export default function Home() {
           }
           setShowNewAnalysis(true);
           setShowNewScreener(false);
+          setShowTradeJournal(false);
           setSelectedReportId(null);
           setSelectedScreenerRunId(null);
           setIsSidebarOpen(false);
@@ -305,6 +326,7 @@ export default function Home() {
           }
           setShowNewScreener(true);
           setShowNewAnalysis(false);
+          setShowTradeJournal(false);
           setSelectedReportId(null);
           setSelectedScreenerRunId(null);
           setIsSidebarOpen(false);
@@ -320,6 +342,7 @@ export default function Home() {
         onClose={() => setShowNewAnalysis(false)}
         onTaskCreated={(taskId) => {
           setShowNewAnalysis(false);
+          setShowTradeJournal(false);
           void loadTasks();
           startTransition(() => {
             setSelectedReportId(null);
@@ -333,6 +356,7 @@ export default function Home() {
         onClose={() => setShowNewScreener(false)}
         onTaskCreated={(taskId) => {
           setShowNewScreener(false);
+          setShowTradeJournal(false);
           void loadScreenerTasks();
           startTransition(() => {
             setSelectedReportId(null);
@@ -347,6 +371,12 @@ export default function Home() {
         <ReportViewer reportId={selectedReportId} />
       ) : selectedScreenerRunId ? (
         <ScreenerResultsViewer runId={selectedScreenerRunId} />
+      ) : showTradeJournal ? (
+        <TradeJournal
+          reports={sortedReports}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+          sidebarOpen={isSidebarOpen}
+        />
       ) : currentTaskId ? (
         <TaskProgress
           key={currentTaskId}
@@ -459,7 +489,10 @@ export default function Home() {
                     type="button"
                     className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
                     disabled={newAnalysisDisabled}
-                    onClick={() => setShowNewAnalysis(true)}
+                    onClick={() => {
+                      setShowTradeJournal(false);
+                      setShowNewAnalysis(true);
+                    }}
                   >
                     Launch Analysis
                   </button>
@@ -467,9 +500,19 @@ export default function Home() {
                     type="button"
                     className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
                     disabled={newScreenerDisabled}
-                    onClick={() => setShowNewScreener(true)}
+                    onClick={() => {
+                      setShowTradeJournal(false);
+                      setShowNewScreener(true);
+                    }}
                   >
                     Launch Screener
+                  </button>
+                  <button
+                    type="button"
+                    className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700"
+                    onClick={() => setShowTradeJournal(true)}
+                  >
+                    Open Manual Journal
                   </button>
                 </div>
               </div>

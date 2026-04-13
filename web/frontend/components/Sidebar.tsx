@@ -6,8 +6,10 @@ import type { Report, ScreenerRunSummary, ScreenerTask, Task } from "@/lib/api";
 interface SidebarProps {
   selectedReportId: string | null;
   selectedScreenerRunId: string | null;
+  selectedTradeJournal: boolean;
   onSelectReport: (reportId: string) => void;
   onSelectScreenerRun: (runId: string) => void;
+  onSelectTradeJournal: () => void;
   reports: Report[];
   screenerRuns: ScreenerRunSummary[];
   loading: boolean;
@@ -31,8 +33,10 @@ interface SidebarProps {
 export function Sidebar({
   selectedReportId,
   selectedScreenerRunId,
+  selectedTradeJournal,
   onSelectReport,
   onSelectScreenerRun,
+  onSelectTradeJournal,
   reports,
   screenerRuns,
   loading,
@@ -271,6 +275,30 @@ export function Sidebar({
           </span>
           <span className="text-[20px] font-medium leading-none">+</span>
         </button>
+
+        <button
+          type="button"
+          data-active={selectedTradeJournal}
+          className={`interactive-button focus-ring mt-3 flex w-full items-center justify-between rounded-[22px] border px-4 py-2.5 text-left ${
+            selectedTradeJournal
+              ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_14px_28px_rgba(182,90,43,0.16)]"
+              : "border-[var(--border)] bg-white text-slate-700 shadow-[0_14px_28px_rgba(18,28,41,0.05)]"
+          }`}
+          onClick={onSelectTradeJournal}
+        >
+          <span>
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Manual
+            </span>
+            <span className="mt-1 block text-[13px] font-semibold">Trade Journal</span>
+          </span>
+          <span className="rounded-full border border-current/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em]">
+            MVP
+          </span>
+        </button>
+        <p className="mt-2 px-1 text-[11px] leading-5 text-slate-500">
+          Manual records and reviews only. No broker or account sync.
+        </p>
 
         {taskQueue.length > 0 ? (
           <section className="mt-5">
