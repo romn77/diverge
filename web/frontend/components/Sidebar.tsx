@@ -292,13 +292,7 @@ export function Sidebar({
             </span>
             <span className="mt-1 block text-[13px] font-semibold">Trade Journal</span>
           </span>
-          <span className="rounded-full border border-current/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.2em]">
-            MVP
-          </span>
         </button>
-        <p className="mt-2 px-1 text-[11px] leading-5 text-slate-500">
-          Manual records and reviews only. No broker or account sync.
-        </p>
 
         {taskQueue.length > 0 ? (
           <section className="mt-5">

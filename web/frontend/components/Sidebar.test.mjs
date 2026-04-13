@@ -34,7 +34,6 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /New Analysis/);
   assert.match(source, /New Screener/);
   assert.match(source, /Trade Journal/);
-  assert.match(source, /Manual records and reviews only\. No broker or account sync\./);
   assert.match(source, /Task Queue/);
   assert.match(source, /Recent Screeners/);
   assert.doesNotMatch(source, /Return to Queue/);

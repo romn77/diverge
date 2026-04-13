@@ -299,18 +299,12 @@ export function TradeJournal({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-3xl">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.38em] text-[var(--primary)]">
-                  Manual Trade Journal MVP
+                  Trade Journal
                 </p>
                 <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
                   Record trades, separate entry and exit reviews, and preview future
                   same-ticker feedback
                 </h1>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  This surface is intentionally manual. It stores hand-entered trade
-                  records, shows snapshot references instead of full copied reports,
-                  and makes it explicit that later analysis for the same ticker will
-                  read the saved review feedback.
-                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -332,7 +326,7 @@ export function TradeJournal({
                   className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
                   onClick={() => setShowCreateTrade(true)}
                 >
-                  New Manual Trade
+                  Record Trade
                 </button>
               </div>
             </div>

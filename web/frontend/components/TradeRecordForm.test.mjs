@@ -17,7 +17,7 @@ test("TradeRecordForm keeps the manual trade payload aligned with backend schema
   assert.match(source, /initial_thesis:\s*string/);
   assert.match(source, /planned_horizon:\s*string/);
   assert.match(source, /analysis_references:\s*AnalysisReference\[]/);
-  assert.match(source, /Manual-only MVP/);
+  assert.match(source, /Capture a hand-entered trade record for the manual review\./);
   assert.match(source, /Bind analysis snapshots instead of copying full reports/);
   assert.match(source, /Quick add from reports/);
   assert.match(source, /Add Blank Reference/);

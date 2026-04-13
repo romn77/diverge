@@ -97,10 +97,10 @@ export function TradeRecordForm({
     return null;
   }
 
-  const title = mode === "create" ? "New Manual Trade" : "Edit Manual Trade";
+  const title = mode === "create" ? "Record Trade" : "Edit Trade";
   const description =
     mode === "create"
-      ? "Capture a hand-entered trade record for the manual review MVP. This does not sync broker accounts or positions."
+      ? "Capture a hand-entered trade record for the manual review."
       : "Update the saved hand-entered trade record without changing the backend schema.";
 
   const submitTrade = async () => {
@@ -156,11 +156,6 @@ export function TradeRecordForm({
           >
             Close
           </button>
-        </div>
-
-        <div className="mt-6 rounded-[26px] border border-[rgba(182,90,43,0.16)] bg-[var(--primary-soft)]/70 px-5 py-4 text-sm text-[var(--primary-strong)]">
-          Manual-only MVP: the journal stores typed trade records and linked analysis
-          snapshots. It does not pull from brokers, portfolios, or account sync.
         </div>
 
         <div className="mt-8 grid gap-6">

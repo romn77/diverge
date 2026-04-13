@@ -18,7 +18,7 @@ test("TradeJournal wires the manual trade history and review workflow to backend
   assert.match(source, /\[statusFilter,\s*setStatusFilter\]/);
   assert.match(source, /\[timeWindow,\s*setTimeWindow\]/);
   assert.match(source, /\[reviewTab,\s*setReviewTab\]/);
-  assert.match(source, /Manual Trade Journal MVP/);
+  assert.match(source, /Trade Journal/);
   assert.match(source, /Snapshot references only, not copied report content/);
   assert.match(source, /Distinguish entry_review and exit_review on the same trade_id/);
   assert.match(source, /Future analyses will read this saved review context/);
@@ -33,8 +33,6 @@ test("TradeJournal exposes history filters and manual-only language rather than 
   assert.match(source, /Filter by Ticker or Trade ID/);
   assert.match(source, /Time Window/);
   assert.match(source, /Status/);
-  assert.match(source, /New Manual Trade/);
-  assert.match(source, /This surface is intentionally manual\./);
-  assert.match(source, /hand-entered trade/);
-  assert.match(source, /snapshot references instead of full copied reports/);
+  assert.match(source, /Record Trade/);
+  assert.doesNotMatch(source, /This surface is intentionally manual\./);
 });
