@@ -116,6 +116,21 @@ def test_load_cn_universe_retries_akshare_universe_fetch_before_succeeding():
     assert 0.5 in sleep_values
 
 
+def test_load_cn_universe_reraises_raw_akshare_error_after_retries_exhausted():
+    akshare_client = Mock()
+    akshare_client.stock_info_a_code_name.side_effect = RuntimeError("akshare boom")
+
+    with (
+        patch(
+            "tradingagents.screener.universe._import_akshare",
+            return_value=akshare_client,
+        ),
+        patch("tradingagents.screener.universe.time.sleep"),
+    ):
+        with pytest.raises(RuntimeError, match="akshare boom"):
+            load_cn_universe(data_source="akshare")
+
+
 def test_load_cn_universe_reuses_fresh_akshare_cache_without_refetch(tmp_path):
     cache_dir = tmp_path / "cache"
     akshare_df = pd.DataFrame(

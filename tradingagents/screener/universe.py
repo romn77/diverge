@@ -35,6 +35,11 @@ UNIVERSE_CACHE_DIRNAME = "universe"
 UNIVERSE_CACHE_MAX_AGE_SECONDS = 60 * 60 * 24
 
 
+def _unwrap_vendor_error(exc: Exception) -> Exception:
+    cause = getattr(exc, "__cause__", None)
+    return cause if isinstance(cause, Exception) else exc
+
+
 def _is_special_treatment_name(name: str) -> bool:
     normalized = "".join(str(name or "").strip().upper().split())
     return bool(SPECIAL_TREATMENT_NAME_RE.match(normalized))
@@ -106,7 +111,7 @@ def _retry_universe_request(loader, *, label: str) -> pd.DataFrame:
             return loader()
         except Exception as exc:
             if attempt >= len(UNIVERSE_RETRY_BACKOFF_SECONDS):
-                raise VendorRetryableError(f"{label} fetch failed: {exc}") from exc
+                raise _unwrap_vendor_error(exc)
             time.sleep(UNIVERSE_RETRY_BACKOFF_SECONDS[attempt])
             attempt += 1
 

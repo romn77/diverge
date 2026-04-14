@@ -10,12 +10,26 @@ import pandas as pd
 from typer.testing import CliRunner
 
 from cli.main import app
+from tradingagents.screener.debug import ScreenDebugResult
 from tradingagents.screener.replay import HardFilterReplayResult
 from tradingagents.screener.schema import ScreenRunResult
 
 
 runner = CliRunner()
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+class _FixedDateTime:
+    @classmethod
+    def now(cls, tz=None):
+        return cls()
+
+    def strftime(self, fmt):
+        if fmt == "%Y-%m-%d":
+            return "2026-04-14"
+        if fmt == "%Y%m%d_%H%M%S":
+            return "20260414_120000"
+        raise AssertionError(f"unexpected format: {fmt}")
 
 
 def _base_feature_row(symbol: str) -> dict:
@@ -251,6 +265,135 @@ def test_screen_command_accepts_cn_manifest_override():
 
     assert result.exit_code == 0
     assert captured["cn_manifest_path"] == "/tmp/cn_manifest.csv"
+
+
+def test_screen_command_defaults_date_to_today_when_omitted():
+    captured = {}
+
+    def fake_run_screen(config, progress_callback=None):
+        captured["as_of_date"] = config.as_of_date
+        return ScreenRunResult(
+            run_dir=Path("/tmp/results/screener/20260414_120000"),
+            universe_count_by_market={"cn": 1},
+            fetch_failed_count=0,
+            filtered_count_by_reason={},
+            candidate_count=0,
+            candidate_preview=[],
+        )
+
+    with (
+        patch("cli.main.run_screen", side_effect=fake_run_screen),
+        patch("cli.main.datetime.datetime", _FixedDateTime),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "screen",
+                "--markets",
+                "cn",
+                "--top-k",
+                "20",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert captured["as_of_date"] == "2026-04-14"
+
+
+def test_screen_debug_command_prints_stage_summary_for_ranked_symbol():
+    debug_result = ScreenDebugResult(
+        symbol="AAPL",
+        market="us",
+        as_of_date="2026-03-24",
+        universe_row={
+            "symbol": "AAPL",
+            "market": "us",
+            "name": "Apple Inc.",
+            "exchange": "NASDAQ",
+            "sector": "Technology",
+            "list_date": "19801212",
+        },
+        history_rows=65,
+        history_start_date="2025-12-17",
+        history_end_date="2026-03-24",
+        feature_row={
+            "symbol": "AAPL",
+            "market": "us",
+            "close": 101.0,
+            "avg_amount_20d": 20_000_000.0,
+        },
+        score_row={
+            "symbol": "AAPL",
+            "market": "us",
+            "global_rank": 1,
+            "market_rank": 1,
+            "total_score": 0.71,
+            "strategy_tags": "trend_up,momentum_positive,above_vwma",
+            "risk_flags": "",
+        },
+    )
+
+    with patch("cli.main.debug_screen_symbol", return_value=debug_result):
+        result = runner.invoke(
+            app,
+            [
+                "screen-debug",
+                "--symbol",
+                "AAPL",
+                "--market",
+                "us",
+                "--date",
+                "2026-03-24",
+                "--us-manifest",
+                "/tmp/us_manifest.csv",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert "Debug target" in result.output
+    assert "Universe match" in result.output
+    assert "History summary" in result.output
+    assert "Feature row" in result.output
+    assert "Hard filter result" in result.output
+    assert "kept" in result.output
+    assert "Rank result" in result.output
+    assert "total_score" in result.output
+
+
+def test_screen_debug_command_defaults_date_to_today_when_omitted():
+    captured = {}
+
+    def fake_debug_screen_symbol(config, symbol, market):
+        captured["as_of_date"] = config.as_of_date
+        return ScreenDebugResult(
+            symbol=symbol,
+            market=market,
+            as_of_date=config.as_of_date,
+            universe_row={
+                "symbol": symbol,
+                "market": market,
+            },
+        )
+
+    with (
+        patch("cli.main.debug_screen_symbol", side_effect=fake_debug_screen_symbol),
+        patch("cli.main.datetime.datetime", _FixedDateTime),
+    ):
+        result = runner.invoke(
+            app,
+            [
+                "screen-debug",
+                "--symbol",
+                "AAPL",
+                "--market",
+                "us",
+                "--us-manifest",
+                "/tmp/us_manifest.csv",
+            ],
+        )
+
+    assert result.exit_code == 0
+    assert captured["as_of_date"] == "2026-04-14"
 
 
 def test_screen_replay_command_prints_summary_for_matching_run():

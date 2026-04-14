@@ -4,6 +4,7 @@ import json
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from tradingagents.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
 from tradingagents.screener.history_cache import checkpoint_path
@@ -28,6 +29,12 @@ def _price_frame(*dates: str) -> pd.DataFrame:
             for date in dates
         ]
     )
+
+
+def _wrapped_retry_error(message: str, cause: Exception) -> VendorRetryableError:
+    error = VendorRetryableError(message)
+    error.__cause__ = cause
+    return error
 
 
 def test_fetch_price_history_uses_tushare_for_cn_and_normalizes_amount():
@@ -224,6 +231,25 @@ def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding()
     assert 1.0 in sleep_values
 
 
+def test_fetch_history_for_universe_reraises_raw_cn_error_after_retries_exhausted():
+    universe = pd.DataFrame(
+        [{"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"}]
+    )
+
+    def raise_wrapped(*args, **kwargs):
+        raise _wrapped_retry_error(
+            "tushare stock fetch failed: boom",
+            RuntimeError("boom"),
+        )
+
+    with (
+        patch("tradingagents.screener.market_data.fetch_price_history", side_effect=raise_wrapped),
+        patch("tradingagents.screener.market_data.time.sleep"),
+    ):
+        with pytest.raises(RuntimeError, match="boom"):
+            fetch_history_for_universe(universe, "2026-03-24")
+
+
 def test_fetch_history_for_universe_falls_back_cn_source_after_primary_retryable_error():
     universe = pd.DataFrame(
         [{"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"}]
@@ -290,6 +316,36 @@ def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols():
 
     sleep_values = [call.args[0] for call in mock_sleep.call_args_list]
     assert 0.35 in sleep_values
+
+
+def test_fetch_history_for_universe_rate_limits_us_requests_between_symbols(tmp_path):
+    universe = pd.DataFrame(
+        [
+            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": ""},
+            {"symbol": "MSFT", "market": "us", "name": "Microsoft", "exchange": "NASDAQ", "sector": "Technology", "list_date": ""},
+        ]
+    )
+    frame = _price_frame("2026-03-24")
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with (
+        patch(
+            "tradingagents.screener.market_data.fetch_price_history",
+            return_value=frame,
+        ),
+        patch("tradingagents.screener.market_data.time.sleep") as mock_sleep,
+    ):
+        fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    sleep_values = [call.args[0] for call in mock_sleep.call_args_list]
+    assert 2.0 in sleep_values
 
 
 def test_fetch_history_for_universe_persists_empty_failures_and_skips_refetch_on_rerun(tmp_path):

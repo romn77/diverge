@@ -1,4 +1,5 @@
 import datetime
+import json
 import typer
 from pathlib import Path
 from functools import wraps
@@ -21,15 +22,9 @@ from rich import box
 from rich.align import Align
 from rich.rule import Rule
 
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.runner import save_report_to_disk
-from tradingagents.screener.pipeline import run_screen
-from tradingagents.screener.replay import replay_screen_hard_filters
+from tradingagents.screener.debug import debug_screen_symbol
 from tradingagents.screener.schema import ScreenRunConfig
-from cli.utils import *
 from cli.announcements import fetch_announcements, display_announcements
-from cli.stats_handler import StatsCallbackHandler
 
 console = Console()
 
@@ -38,6 +33,26 @@ app = typer.Typer(
     help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
     add_completion=True,  # Enable shell completion
 )
+
+
+def _resolve_screen_date(date: str | None) -> str:
+    if date is not None and str(date).strip():
+        return str(date).strip()
+    return datetime.datetime.now().strftime("%Y-%m-%d")
+
+
+def run_screen(*args, **kwargs):
+    from tradingagents.screener.pipeline import run_screen as _run_screen
+
+    return _run_screen(*args, **kwargs)
+
+
+def replay_screen_hard_filters(*args, **kwargs):
+    from tradingagents.screener.replay import (
+        replay_screen_hard_filters as _replay_screen_hard_filters,
+    )
+
+    return _replay_screen_hard_filters(*args, **kwargs)
 
 
 # Create a deque to store recent messages with a maximum length
@@ -475,6 +490,18 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
 
 def get_user_selections():
     """Get all user selections before starting the analysis display."""
+    from cli.utils import (
+        ask_anthropic_effort,
+        ask_gemini_thinking_config,
+        ask_openai_reasoning_effort,
+        select_analysts,
+        select_deep_thinking_agent,
+        select_llm_provider,
+        select_output_language,
+        select_research_depth,
+        select_shallow_thinking_agent,
+    )
+
     # Display ASCII art welcome message
     with open(Path(__file__).parent / "static" / "welcome.txt", "r") as f:
         welcome_ascii = f.read()
@@ -898,6 +925,11 @@ def format_tool_args(args, max_length=80) -> str:
 
 
 def run_analysis():
+    from tradingagents.default_config import DEFAULT_CONFIG
+    from tradingagents.graph.trading_graph import TradingAgentsGraph
+    from tradingagents.runner import save_report_to_disk
+    from cli.stats_handler import StatsCallbackHandler
+
     # First get all user selections
     selections = get_user_selections()
 
@@ -1236,7 +1268,7 @@ def analyze():
 
 @app.command()
 def screen(
-    date: str = typer.Option(..., "--date"),
+    date: str | None = typer.Option(None, "--date"),
     markets: str = typer.Option(..., "--markets"),
     top_k: int = typer.Option(100, "--top-k"),
     cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
@@ -1245,6 +1277,7 @@ def screen(
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
 ):
+    resolved_date = _resolve_screen_date(date)
     parsed_markets = [market.strip().lower() for market in markets.split(",") if market.strip()]
     parsed_cn_fallbacks = [
         source.strip().lower()
@@ -1259,7 +1292,7 @@ def screen(
 
     config = ScreenRunConfig(
         markets=parsed_markets,
-        as_of_date=date,
+        as_of_date=resolved_date,
         top_k=top_k,
         output_dir=output_dir,
         cn_data_source=cn_data_source,
@@ -1313,6 +1346,94 @@ def screen(
         )
 
     console.print(f"\n[bold]Run directory[/bold] {result.run_dir}")
+
+
+def _print_debug_payload(title: str, payload: dict | None) -> None:
+    console.print(f"\n[bold]{title}[/bold]")
+    if payload is None:
+        console.print("- none")
+        return
+    console.print(
+        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, default=str),
+        markup=False,
+    )
+
+
+@app.command("screen-debug")
+def screen_debug(
+    symbol: str = typer.Option(..., "--symbol"),
+    market: str = typer.Option(..., "--market"),
+    date: str | None = typer.Option(None, "--date"),
+    cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
+    cn_data_source_fallbacks: str = typer.Option("", "--cn-data-source-fallbacks"),
+    cn_manifest: str | None = typer.Option(None, "--cn-manifest"),
+    us_manifest: str | None = typer.Option(None, "--us-manifest"),
+    output_dir: str = typer.Option("./results/screener", "--output-dir"),
+):
+    resolved_date = _resolve_screen_date(date)
+    normalized_market = market.strip().lower()
+    parsed_cn_fallbacks = [
+        source.strip().lower()
+        for source in cn_data_source_fallbacks.split(",")
+        if source.strip()
+    ]
+    if normalized_market == "us" and not us_manifest:
+        raise typer.BadParameter(
+            "Provide --us-manifest when requesting the us market.",
+            param_hint="--us-manifest",
+        )
+
+    config = ScreenRunConfig(
+        markets=[normalized_market],
+        as_of_date=resolved_date,
+        top_k=1,
+        output_dir=output_dir,
+        cn_data_source=cn_data_source,
+        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        cn_manifest_path=cn_manifest,
+        us_manifest_path=us_manifest,
+    )
+
+    result = debug_screen_symbol(
+        config,
+        symbol=symbol,
+        market=normalized_market,
+    )
+
+    console.print("\n[bold]Debug target[/bold]")
+    console.print(f"- symbol: {result.symbol}")
+    console.print(f"- market: {result.market}")
+    console.print(f"- as_of_date: {result.as_of_date}")
+
+    if result.universe_row is None:
+        console.print("\n[red]Symbol was not found in the loaded universe.[/red]")
+        raise typer.Exit(code=1)
+
+    _print_debug_payload("Universe match", result.universe_row)
+
+    console.print("\n[bold]Prefilter result[/bold]")
+    if result.prefilter_drop_reason:
+        console.print(f"- dropped: {result.prefilter_drop_reason}")
+        return
+    console.print("- kept")
+
+    console.print("\n[bold]History summary[/bold]")
+    if result.fetch_drop_reason:
+        console.print(f"- dropped: {result.fetch_drop_reason}")
+        return
+    console.print(f"- rows: {result.history_rows}")
+    console.print(f"- start: {result.history_start_date}")
+    console.print(f"- end: {result.history_end_date}")
+
+    _print_debug_payload("Feature row", result.feature_row)
+
+    console.print("\n[bold]Hard filter result[/bold]")
+    if result.hard_filter_drop_reason:
+        console.print(f"- dropped: {result.hard_filter_drop_reason}")
+        return
+    console.print("- kept")
+
+    _print_debug_payload("Rank result", result.score_row)
 
 
 @app.command("screen-replay")

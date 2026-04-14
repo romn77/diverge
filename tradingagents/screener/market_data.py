@@ -36,6 +36,7 @@ from .schema import build_cn_source_chain
 
 REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
 CN_REQUEST_DELAY_SECONDS = 0.35
+US_REQUEST_DELAY_SECONDS = 2.0
 RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
 LOOKBACK_DAYS = 400
 FAILURE_CACHE_TTL = timedelta(hours=24)
@@ -44,6 +45,11 @@ CN_FALLBACK_ERRORS = (
     VendorAuthError,
     VendorNotSupportedError,
 )
+
+
+def _unwrap_vendor_error(exc: Exception) -> Exception:
+    cause = getattr(exc, "__cause__", None)
+    return cause if isinstance(cause, Exception) else exc
 
 
 def _normalize_us_symbol_for_yfinance(symbol: str) -> str:
@@ -176,6 +182,7 @@ def fetch_history_for_universe(
     total = len(universe_df.index)
     processed_since_checkpoint = 0
     cn_network_fetch_count = 0
+    us_network_fetch_count = 0
     current_symbol: str | None = None
     cn_source_chain = build_cn_source_chain(
         cn_data_source,
@@ -189,12 +196,15 @@ def fetch_history_for_universe(
         market: str,
         fetch_start: str,
     ) -> pd.DataFrame:
-        nonlocal cn_network_fetch_count, last_fetch_source
+        nonlocal cn_network_fetch_count, us_network_fetch_count, last_fetch_source
 
         if market != "cn":
             attempt = 0
             while True:
                 try:
+                    if us_network_fetch_count > 0:
+                        time.sleep(US_REQUEST_DELAY_SECONDS)
+                    us_network_fetch_count += 1
                     last_fetch_source = "yfinance"
                     return fetch_price_history(
                         symbol,
@@ -235,7 +245,7 @@ def fetch_history_for_universe(
                     attempt += 1
 
         if last_error is not None:
-            raise VendorRetryableError(str(last_error)) from last_error
+            raise _unwrap_vendor_error(last_error)
 
         raise VendorRetryableError("CN history fetch failed without a fallback result")
 
