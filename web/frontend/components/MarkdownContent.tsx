@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { HighlightCards } from "@/components/HighlightCards";
@@ -61,6 +62,7 @@ export const MarkdownContent = React.memo(function MarkdownContent({
   isLoading = false,
   highlightMode = "single",
 }: MarkdownContentProps) {
+  const { t } = usePreferences();
   const { processedContent, highlights } = useMemo(() => {
     if (highlightMode === "single") {
       const parsed = parseHighlights(content);
@@ -123,20 +125,24 @@ export const MarkdownContent = React.memo(function MarkdownContent({
           className="overflow-x-auto"
           tabIndex={0}
           role="region"
-          aria-label="Scrollable table"
+          aria-label={t("markdown.scrollableTable", "Scrollable table")}
         >
           <table {...props}>{children}</table>
         </div>
       ),
     }),
-    []
+    [t]
   );
 
   const hasContent = processedContent.trim().length > 0;
   const showProgressBar = isLoading && hasContent;
 
   if (isLoading && !hasContent) {
-    return <LoadingSkeleton label="Loading report content" />;
+    return (
+      <LoadingSkeleton
+        label={t("markdown.loadingContent", "Loading report content")}
+      />
+    );
   }
 
   return (

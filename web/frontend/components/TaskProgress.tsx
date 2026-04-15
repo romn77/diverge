@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   getTask,
   subscribeToTask,
@@ -28,6 +29,7 @@ export function TaskProgress({
   onViewReport,
   onTaskComplete,
 }: TaskProgressProps) {
+  const { t } = usePreferences();
   const [task, setTask] = useState<Task | null>(null);
   const [events, setEvents] = useState<ProgressEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +87,9 @@ export function TaskProgress({
     void syncTask().catch((error) => {
       if (isActive) {
         setStreamError(
-          error instanceof Error ? error.message : "Unable to load task"
+          error instanceof Error
+            ? error.message
+            : t("task.error.loadTask", "Unable to load task")
         );
         setLoading(false);
       }
@@ -101,7 +105,7 @@ export function TaskProgress({
       isActive = false;
       unsubscribe();
     };
-  }, [onTaskComplete, taskId]);
+  }, [onTaskComplete, taskId, t]);
 
   const stageStatus = task?.latest_progress?.stage_status ?? {};
   const eventLog = useMemo(
@@ -119,7 +123,7 @@ export function TaskProgress({
       <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
         <div className="w-full">
           <div className="fade-in rounded-[30px] border border-[var(--border)] bg-white/92 p-8 shadow-[0_24px_60px_rgba(18,28,41,0.08)]">
-            Loading task progress...
+            {t("task.loading", "Loading task progress...")}
           </div>
         </div>
       </main>
@@ -133,16 +137,20 @@ export function TaskProgress({
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-                Background Task
+                {t("task.kicker", "Background Task")}
               </p>
               <div className="mt-3 flex items-center gap-2">
                 <h1 className="font-heading text-3xl font-bold tracking-tight text-slate-900">
-                  {task?.ticker ?? "New Analysis"}
+                  {task?.ticker ?? t("task.fallbackTitle", "New Analysis")}
                 </h1>
                 {task ? (
                   <button
                     type="button"
-                    aria-label={`Request details for ${task.ticker}`}
+                    aria-label={t(
+                      "task.requestDetails",
+                      ({ ticker }) => `Request details for ${ticker}`,
+                      { ticker: task.ticker }
+                    )}
                     aria-expanded={showRequestDetails}
                     className="focus-ring inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-300 transition hover:bg-[rgba(28,56,83,0.05)] hover:text-slate-500"
                     onClick={() =>
@@ -163,20 +171,25 @@ export function TaskProgress({
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 {task?.analysis_date
-                  ? `Tracking ${task.analysis_date} research flow across analyst, debate, trading, and portfolio stages.`
-                  : "Tracking the live research pipeline."}
+                  ? t(
+                      "task.trackingDate",
+                      ({ date }) =>
+                        `Tracking ${date} research flow across analyst, debate, trading, and portfolio stages.`,
+                      { date: task.analysis_date }
+                    )
+                  : t("task.trackingLive", "Tracking the live research pipeline.")}
               </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <TaskStatusBadge status={task?.status ?? "pending"} />
+              <TaskStatusBadge status={task?.status ?? "pending"} labelForStatus={t} />
               {task?.report_id ? (
                 <button
                   type="button"
                   className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
                   onClick={() => onViewReport(task.report_id!)}
                 >
-                  View Report
+                  {t("task.viewReport", "View Report")}
                 </button>
               ) : null}
             </div>
@@ -204,7 +217,7 @@ export function TaskProgress({
                   }`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {stage}
+                    {t(`task.stage.${stage}`, stage)}
                   </p>
                   <div className="mt-3 flex items-center gap-2">
                     <span
@@ -217,7 +230,7 @@ export function TaskProgress({
                       }`}
                     />
                     <span className="text-sm font-semibold text-slate-800">
-                      {formatStageLabel(state)}
+                      {formatStageLabel(state, t)}
                     </span>
                   </div>
                 </div>
@@ -227,7 +240,7 @@ export function TaskProgress({
 
           {task?.latest_progress?.current_agent ? (
             <p className="mt-6 text-sm text-slate-600">
-              Current agent:{" "}
+              {t("task.currentAgent", "Current agent")}:{" "}
               <span className="font-semibold text-slate-900">
                 {task.latest_progress.current_agent}
               </span>
@@ -236,7 +249,7 @@ export function TaskProgress({
 
           {task?.status === "failed" ? (
             <div className="mt-6 rounded-2xl border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
-              {task.error ?? "The analysis task failed."}
+              {task.error ?? t("task.failedFallback", "The analysis task failed.")}
             </div>
           ) : null}
 
@@ -251,21 +264,23 @@ export function TaskProgress({
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-                Event Log
+                {t("task.eventLog", "Event Log")}
               </p>
               <h2 className="font-heading mt-3 text-2xl font-bold tracking-tight text-slate-900">
-                Live progress feed
+                {t("task.liveFeed", "Live progress feed")}
               </h2>
             </div>
             <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-              {eventLog.length} updates
+              {t("common.updates", ({ count }) => `${count} updates`, {
+                count: eventLog.length,
+              })}
             </span>
           </div>
 
           <div className="mt-6 space-y-3">
             {eventLog.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-slate-600">
-                Waiting for the first streamed update...
+                {t("task.waitingUpdate", "Waiting for the first streamed update...")}
               </div>
             ) : (
               eventLog.map((event) => (
@@ -294,17 +309,26 @@ function buildEventKey(event: ProgressEvent): string {
   return `${event.timestamp}|${event.status}|${event.current_agent ?? ""}|${event.message ?? ""}`;
 }
 
-function formatStageLabel(state: StageStatus): string {
+function formatStageLabel(
+  state: StageStatus,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
   if (state === "not_started") {
-    return "Not started";
+    return t("task.stage.not_started", "Not started");
   }
   if (state === "processing") {
-    return "Processing";
+    return t("task.stage.processing", "Processing");
   }
-  return "Completed";
+  return t("task.stage.completed", "Completed");
 }
 
-function TaskStatusBadge({ status }: { status: Task["status"] }) {
+function TaskStatusBadge({
+  labelForStatus,
+  status,
+}: {
+  labelForStatus: ReturnType<typeof usePreferences>["t"];
+  status: Task["status"];
+}) {
   const classes =
     status === "completed"
       ? "border-[rgba(46,118,83,0.2)] bg-[rgba(46,118,83,0.1)] text-[var(--success)]"
@@ -316,62 +340,68 @@ function TaskStatusBadge({ status }: { status: Task["status"] }) {
     <span
       className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${classes}`}
     >
-      {status}
+      {labelForStatus(`task.status.${status}`, status)}
     </span>
   );
 }
 
 function TaskRequestDetails({ task }: { task: Task }) {
+  const { t } = usePreferences();
+  const notSetLabel = t("common.notSet", "Not set");
   const request = task.request_payload;
   const fallbackRequest = {
-    analysis_date: task.analysis_date || "unknown",
+    analysis_date: task.analysis_date || notSetLabel,
     analysts: task.analysts,
     research_depth: null,
-    llm_provider: "unknown",
-    quick_think_llm: "unknown",
-    deep_think_llm: "unknown",
-    output_language: "unknown",
+    llm_provider: notSetLabel,
+    quick_think_llm: notSetLabel,
+    deep_think_llm: notSetLabel,
+    output_language: notSetLabel,
   };
   const details = request
     ? {
         ...request,
-        research_depth: formatResearchDepth(request.research_depth),
+        research_depth: formatResearchDepth(request.research_depth, t),
       }
     : {
         ...fallbackRequest,
-        research_depth: "N/A",
+        research_depth: t("task.depth.custom", "N/A"),
       };
 
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         <TaskRequestField
-          label="Analysis Date"
+          label={t("task.request.analysisDate", "Analysis Date")}
           value={details.analysis_date}
           name="analysis_date"
           readOnly
         />
-        <TaskRequestSelect label="LLM Provider" value={details.llm_provider} disabled />
+        <TaskRequestSelect
+          label={t("task.request.provider", "LLM Provider")}
+          value={details.llm_provider}
+          disabled
+        />
         <TaskRequestField
-          label="Output Language"
+          label={t("task.request.outputLanguage", "Output Language")}
           value={details.output_language}
           name="output_language"
           readOnly
         />
         <TaskRequestField
-          label="Research Depth"
+          label={t("task.request.researchDepth", "Research Depth")}
           value={details.research_depth}
           name="research_depth"
           readOnly
         />
         <TaskRequestField
-          label="Quick Model"
+          label={t("task.request.quickModel", "Quick Model")}
           value={details.quick_think_llm}
           name="quick_think_llm"
           readOnly
         />
         <TaskRequestField
-          label="Deep Model"
+          label={t("task.request.deepModel", "Deep Model")}
           value={details.deep_think_llm}
           name="deep_think_llm"
           readOnly
@@ -433,6 +463,10 @@ function TaskRequestSelect({
   );
 }
 
-function formatResearchDepth(value: number): string {
-  return RESEARCH_DEPTH_LABELS[value] ?? "Custom";
+function formatResearchDepth(
+  value: number,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const label = RESEARCH_DEPTH_LABELS[value];
+  return label ? t(`analysis.depth.${value}`, label) : t("task.depth.custom", "Custom");
 }

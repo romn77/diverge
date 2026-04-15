@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   createTrade,
   updateTrade,
@@ -51,6 +52,7 @@ export function TradeRecordForm({
   onClose,
   onSaved,
 }: TradeRecordFormProps) {
+  const { t } = usePreferences();
   const [formState, setFormState] = useState<TradeRecordFormState>(() =>
     buildInitialState(initialRecord)
   );
@@ -97,18 +99,27 @@ export function TradeRecordForm({
     return null;
   }
 
-  const title = mode === "create" ? "Record Trade" : "Edit Trade";
+  const localizedTitle =
+    mode === "create"
+      ? t("tradeRecord.recordTrade", "Record Trade")
+      : t("tradeRecord.editTrade", "Edit Trade");
   const description =
     mode === "create"
-      ? "Capture a hand-entered trade record for the manual review."
-      : "Update the saved hand-entered trade record without changing the backend schema.";
+      ? t(
+          "tradeRecord.createDescription",
+          "Capture a hand-entered trade record for the manual review."
+        )
+      : t(
+          "tradeRecord.editDescription",
+          "Update the saved hand-entered trade record without changing the backend schema."
+        );
 
   const submitTrade = async () => {
     setSaving(true);
     setError(null);
 
     try {
-      const payload = buildPayload(formState, initialRecord);
+      const payload = buildPayload(formState, initialRecord, t);
       const record =
         mode === "create" || !initialRecord
           ? await createTrade(payload)
@@ -118,7 +129,7 @@ export function TradeRecordForm({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Unable to save the trade record"
+          : t("tradeRecord.error.save", "Unable to save the trade record")
       );
     } finally {
       setSaving(false);
@@ -133,17 +144,17 @@ export function TradeRecordForm({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={localizedTitle}
         className="modal-panel fade-in max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              Manual Journal
+              {t("tradeRecord.manualJournal", "Manual Journal")}
             </p>
             <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-              {title}
+              {localizedTitle}
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               {description}
@@ -154,7 +165,7 @@ export function TradeRecordForm({
             className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
             onClick={onClose}
           >
-            Close
+            {t("common.close", "Close")}
           </button>
         </div>
 
@@ -162,7 +173,7 @@ export function TradeRecordForm({
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Ticker
+                {t("analysis.ticker", "Ticker")}
               </span>
               <input
                 type="text"
@@ -180,7 +191,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Market / Exchange
+                {t("tradeRecord.marketExchange", "Market / Exchange")}
               </span>
               <input
                 type="text"
@@ -198,7 +209,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Side
+                {t("tradeRecord.side", "Side")}
               </span>
               <select
                 value={formState.side}
@@ -210,14 +221,14 @@ export function TradeRecordForm({
                 }
                 className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
               >
-                <option value="long">long</option>
-                <option value="short">short</option>
+                <option value="long">{t("trade.side.long", "long")}</option>
+                <option value="short">{t("trade.side.short", "short")}</option>
               </select>
             </label>
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Status
+                {t("tradeRecord.status", "Status")}
               </span>
               <input
                 type="text"
@@ -237,7 +248,7 @@ export function TradeRecordForm({
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Entry Time
+                {t("tradeRecord.entryTime", "Entry Time")}
               </span>
               <input
                 type="datetime-local"
@@ -254,7 +265,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Entry Price
+                {t("tradeRecord.entryPrice", "Entry Price")}
               </span>
               <input
                 type="number"
@@ -273,7 +284,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Exit Time
+                {t("tradeRecord.exitTime", "Exit Time")}
               </span>
               <input
                 type="datetime-local"
@@ -290,7 +301,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Exit Price
+                {t("tradeRecord.exitPrice", "Exit Price")}
               </span>
               <input
                 type="number"
@@ -311,7 +322,7 @@ export function TradeRecordForm({
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Size
+                {t("tradeRecord.size", "Size")}
               </span>
               <input
                 type="number"
@@ -330,7 +341,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Planned Horizon
+                {t("tradeRecord.plannedHorizon", "Planned Horizon")}
               </span>
               <input
                 type="text"
@@ -348,7 +359,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Stop Loss
+                {t("tradeRecord.stopLoss", "Stop Loss")}
               </span>
               <input
                 type="number"
@@ -367,7 +378,7 @@ export function TradeRecordForm({
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Take Profit
+                {t("tradeRecord.takeProfit", "Take Profit")}
               </span>
               <input
                 type="number"
@@ -388,7 +399,7 @@ export function TradeRecordForm({
           <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Initial Thesis
+                {t("tradeRecord.initialThesis", "Initial Thesis")}
               </span>
               <textarea
                 value={formState.initial_thesis}
@@ -399,14 +410,17 @@ export function TradeRecordForm({
                   }))
                 }
                 rows={6}
-                placeholder="Document the setup, catalyst, and why this trade exists."
+                placeholder={t(
+                  "tradeRecord.initialThesisPlaceholder",
+                  "Document the setup, catalyst, and why this trade exists."
+                )}
                 className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm leading-6 text-slate-800"
               />
             </label>
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Notes
+                {t("tradeRecord.notes", "Notes")}
               </span>
               <textarea
                 value={formState.notes}
@@ -417,7 +431,10 @@ export function TradeRecordForm({
                   }))
                 }
                 rows={6}
-                placeholder="Execution notes, context, or manual follow-up items."
+                placeholder={t(
+                  "tradeRecord.notesPlaceholder",
+                  "Execution notes, context, or manual follow-up items."
+                )}
                 className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm leading-6 text-slate-800"
               />
             </label>
@@ -427,13 +444,19 @@ export function TradeRecordForm({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  Snapshot References
+                  {t("tradeRecord.snapshots", "Snapshot References")}
                 </p>
                 <h3 className="mt-2 text-xl font-semibold text-slate-900">
-                  Bind analysis snapshots instead of copying full reports
+                  {t(
+                    "tradeRecord.bindSnapshots",
+                    "Bind analysis snapshots instead of copying full reports"
+                  )}
                 </h3>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  The defaults follow the MAY-8 file contract:
+                  {t(
+                    "tradeRecord.contractPrefix",
+                    "The defaults follow the MAY-8 file contract:"
+                  )}
                   <code className="ml-1 rounded bg-slate-100 px-2 py-1 text-[12px]">
                     reports/&lt;report_id&gt;/complete_report.md
                   </code>
@@ -455,18 +478,21 @@ export function TradeRecordForm({
                   }))
                 }
               >
-                Add Blank Reference
+                {t("tradeRecord.addBlankReference", "Add Blank Reference")}
               </button>
             </div>
 
             <div className="mt-5">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Quick add from reports
+                {t("tradeRecord.quickAdd", "Quick add from reports")}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {suggestedReports.length === 0 ? (
                   <span className="rounded-full border border-[var(--border)] px-3 py-2 text-xs font-medium text-slate-500">
-                    No reports available for quick attach yet.
+                    {t(
+                      "tradeRecord.noQuickReports",
+                      "No reports available for quick attach yet."
+                    )}
                   </span>
                 ) : (
                   suggestedReports.map((report) => {
@@ -506,9 +532,10 @@ export function TradeRecordForm({
             <div className="mt-5 space-y-4">
               {formState.analysis_references.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
-                  No snapshot references linked yet. Records can still be saved, but
-                  entry/exit review saving will need at least one valid report plus full
-                  state log reference.
+                  {t(
+                    "tradeRecord.noReferences",
+                    "No snapshot references linked yet. Records can still be saved, but entry/exit review saving will need at least one valid report plus full state log reference."
+                  )}
                 </div>
               ) : (
                 formState.analysis_references.map((reference, index) => (
@@ -518,7 +545,9 @@ export function TradeRecordForm({
                   >
                     <div className="flex items-center justify-between gap-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Snapshot {index + 1}
+                        {t("tradeRecord.snapshot", ({ index: snapshotIndex }) => `Snapshot ${snapshotIndex}`, {
+                          index: index + 1,
+                        })}
                       </p>
                       <button
                         type="button"
@@ -532,14 +561,14 @@ export function TradeRecordForm({
                           }))
                         }
                       >
-                        Remove
+                        {t("tradeRecord.remove", "Remove")}
                       </button>
                     </div>
 
                     <div className="mt-4 grid gap-4 xl:grid-cols-[180px_minmax(0,1fr)]">
                       <label className="block">
                         <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                          Analysis Date
+                          {t("analysis.analysisDate", "Analysis Date")}
                         </span>
                         <input
                           type="date"
@@ -559,7 +588,7 @@ export function TradeRecordForm({
                       <div className="grid gap-4">
                         <label className="block">
                           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                            Report Path
+                            {t("tradeRecord.reportPath", "Report Path")}
                           </span>
                           <input
                             type="text"
@@ -578,7 +607,10 @@ export function TradeRecordForm({
 
                         <label className="block">
                           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                            Full State Log Path
+                            {t(
+                              "tradeRecord.fullStateLogPath",
+                              "Full State Log Path"
+                            )}
                           </span>
                           <input
                             type="text"
@@ -615,7 +647,7 @@ export function TradeRecordForm({
               onClick={onClose}
               disabled={saving}
             >
-              Cancel
+              {t("common.cancel", "Cancel")}
             </button>
             <button
               type="button"
@@ -623,7 +655,11 @@ export function TradeRecordForm({
               onClick={() => void submitTrade()}
               disabled={saving}
             >
-              {saving ? "Saving..." : mode === "create" ? "Create Trade" : "Save Changes"}
+              {saving
+                ? t("tradeRecord.saving", "Saving...")
+                : mode === "create"
+                  ? t("tradeRecord.create", "Create Trade")
+                  : t("tradeRecord.saveChanges", "Save Changes")}
             </button>
           </div>
         </div>
@@ -655,33 +691,52 @@ function buildInitialState(record: TradeRecord | null): TradeRecordFormState {
 
 function buildPayload(
   state: TradeRecordFormState,
-  record: TradeRecord | null
+  record: TradeRecord | null,
+  t: ReturnType<typeof usePreferences>["t"]
 ): TradeRecordCreateRequest {
   return {
-    ticker: requireText(state.ticker, "Ticker").toUpperCase(),
+    ticker: requireText(state.ticker, t("analysis.ticker", "Ticker")).toUpperCase(),
     exchange_or_market: requireText(
       state.exchange_or_market,
-      "Market / exchange"
+      t("tradeRecord.marketExchange", "Market / exchange")
     ),
-    side: requireText(state.side, "Side").toLowerCase(),
-    status: requireText(state.status, "Status"),
+    side: requireText(state.side, t("tradeRecord.side", "Side")).toLowerCase(),
+    status: requireText(state.status, t("tradeRecord.status", "Status")),
     entry_timestamp: normalizeOptionalTimestamp(
       state.entry_timestamp,
-      "Entry time",
+      t("tradeRecord.entryTime", "Entry time"),
       record?.entry_timestamp ?? null
     ),
-    entry_price: parseOptionalNumber(state.entry_price, "Entry price"),
+    entry_price: parseOptionalNumber(
+      state.entry_price,
+      t("tradeRecord.entryPrice", "Entry price")
+    ),
     exit_timestamp: normalizeOptionalTimestamp(
       state.exit_timestamp,
-      "Exit time",
+      t("tradeRecord.exitTime", "Exit time"),
       record?.exit_timestamp ?? null
     ),
-    exit_price: parseOptionalNumber(state.exit_price, "Exit price"),
-    size: parseOptionalNumber(state.size, "Size"),
-    initial_thesis: requireText(state.initial_thesis, "Initial thesis"),
-    planned_horizon: requireText(state.planned_horizon, "Planned horizon"),
-    stop_loss: parseOptionalNumber(state.stop_loss, "Stop loss"),
-    take_profit: parseOptionalNumber(state.take_profit, "Take profit"),
+    exit_price: parseOptionalNumber(
+      state.exit_price,
+      t("tradeRecord.exitPrice", "Exit price")
+    ),
+    size: parseOptionalNumber(state.size, t("tradeRecord.size", "Size")),
+    initial_thesis: requireText(
+      state.initial_thesis,
+      t("tradeRecord.initialThesis", "Initial thesis")
+    ),
+    planned_horizon: requireText(
+      state.planned_horizon,
+      t("tradeRecord.plannedHorizon", "Planned horizon")
+    ),
+    stop_loss: parseOptionalNumber(
+      state.stop_loss,
+      t("tradeRecord.stopLoss", "Stop loss")
+    ),
+    take_profit: parseOptionalNumber(
+      state.take_profit,
+      t("tradeRecord.takeProfit", "Take profit")
+    ),
     notes: state.notes.trim(),
     analysis_references: normalizeAnalysisReferences(state.analysis_references),
   };

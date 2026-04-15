@@ -19,6 +19,6 @@ test("MarkdownContent renders highlights outside the article and enables reading
   assert.match(source, /overflow-x-auto/);
   assert.match(source, /tabIndex=\{0\}/);
   assert.match(source, /role="region"/);
-  assert.match(source, /aria-label="Scrollable table"/);
+  assert.match(source, /aria-label=\{t\("markdown\.scrollableTable", "Scrollable table"\)\}/);
   assert.match(source, /progress-slide/);
 });

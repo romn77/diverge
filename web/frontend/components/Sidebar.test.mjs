@@ -30,6 +30,10 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /newScreenerDisabled:\s*boolean/);
   assert.match(source, /isOpen:\s*boolean/);
   assert.match(source, /onClose:\s*\(\)\s*=>\s*void/);
+  assert.match(source, /usePreferences/);
+  assert.match(source, /Interface Preferences/);
+  assert.match(source, /setTheme/);
+  assert.match(source, /setLanguage/);
   assert.match(source, /Recent Reports/);
   assert.match(source, /New Analysis/);
   assert.match(source, /New Screener/);

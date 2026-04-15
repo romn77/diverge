@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   getScreenerTask,
   subscribeToScreenerTask,
@@ -21,6 +22,7 @@ export function ScreenerTaskProgress({
   onViewRun,
   onTaskComplete,
 }: ScreenerTaskProgressProps) {
+  const { t } = usePreferences();
   const [task, setTask] = useState<ScreenerTask | null>(null);
   const [events, setEvents] = useState<ProgressEvent[]>([]);
 
@@ -79,10 +81,10 @@ export function ScreenerTaskProgress({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-                Background Screener
+                {t("screenerTask.kicker", "Background Screener")}
               </p>
               <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-                Candidate Pool Build
+                {t("screenerTask.title", "Candidate Pool Build")}
               </h1>
             </div>
             {task?.run_id ? (
@@ -91,7 +93,7 @@ export function ScreenerTaskProgress({
                 className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
                 onClick={() => onViewRun(task.run_id!)}
               >
-                View Results
+                {t("screenerTask.viewResults", "View Results")}
               </button>
             ) : null}
           </div>
@@ -111,9 +113,11 @@ export function ScreenerTaskProgress({
                   }`}
                 >
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {stage}
+                    {t(`screenerTask.stage.${stage}`, stage)}
                   </p>
-                  <p className="mt-2 text-sm font-semibold text-slate-800">{state}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-800">
+                    {t(`task.stage.${state}`, state)}
+                  </p>
                 </div>
               );
             })}
@@ -121,12 +125,16 @@ export function ScreenerTaskProgress({
 
           <div className="mt-8 rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
             <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-              Progress Log
+              {t("screenerTask.progressLog", "Progress Log")}
             </h2>
             <div className="mt-3 space-y-2 text-sm text-slate-600">
-              {eventLog.map((event, index) => (
-                <p key={`${event.timestamp}-${index}`}>{event.message}</p>
-              ))}
+              {eventLog.length === 0 ? (
+                <p>{t("screenerTask.noUpdates", "No progress updates yet.")}</p>
+              ) : (
+                eventLog.map((event, index) => (
+                  <p key={`${event.timestamp}-${index}`}>{event.message}</p>
+                ))
+              )}
             </div>
           </div>
         </section>

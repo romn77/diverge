@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
 import { parseHighlights, type SignalConfidence, type TradeSignal } from "@/lib/highlights";
 import { MarkdownContent } from "./MarkdownContent";
@@ -184,16 +185,40 @@ function decorateReportContent(markdown: string): string {
   return injectValuationMetricsIntoHighlights(markdown);
 }
 
-function formatGeneratedLabel(reportMeta?: Report | null): string {
+function formatGeneratedLabel(
+  reportMeta: Report | null | undefined,
+  locale: string,
+  fallback: string
+): string {
   if (reportMeta?.date && reportMeta.time) {
+    const parsed = new Date(`${reportMeta.date}T${reportMeta.time}`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(parsed);
+    }
+
     return `${reportMeta.date} ${reportMeta.time}`;
   }
 
   if (reportMeta?.date) {
+    const parsed = new Date(`${reportMeta.date}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(parsed);
+    }
+
     return reportMeta.date;
   }
 
-  return "Generated time unavailable";
+  return fallback;
 }
 
 function signalClass(signal: TradeSignal | null): string {
@@ -215,6 +240,7 @@ export function ReportViewer({
   onOpenSidebar,
   sidebarOpen = false,
 }: ReportViewerProps) {
+  const { locale, t } = usePreferences();
   const [structure, setStructure] = useState<ReportStructure | null>(null);
   const [selectedTab, setSelectedTab] = useState("complete");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -249,7 +275,11 @@ export function ReportViewer({
           return;
         }
 
-        setError(err instanceof Error ? err.message : "Failed to load report");
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("report.error.loadReport", "Failed to load report")
+        );
         setStructure(null);
       } finally {
         if (isActive) {
@@ -263,7 +293,7 @@ export function ReportViewer({
     return () => {
       isActive = false;
     };
-  }, [reportId]);
+  }, [reportId, t]);
 
   useEffect(() => {
     let isActive = true;
@@ -335,7 +365,11 @@ export function ReportViewer({
           return;
         }
 
-        setError(err instanceof Error ? err.message : "Failed to load content");
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("report.error.loadContent", "Failed to load content")
+        );
       } finally {
         if (thisRequest === requestIdRef.current) {
           setIsLoading(false);
@@ -344,7 +378,7 @@ export function ReportViewer({
     };
 
     loadContent();
-  }, [reportId, selectedFile, selectedTab, structure]);
+  }, [reportId, selectedFile, selectedTab, structure, t]);
 
   const availableCategories = useMemo(
     () =>
@@ -362,7 +396,12 @@ export function ReportViewer({
   );
 
   const selectedCategoryMeta = selectedTab !== "complete" ? CATEGORY_MAP[selectedTab] : null;
-  const selectedFileLabel = selectedFile ? FILE_LABELS[selectedFile] || selectedFile : null;
+  const selectedCategoryLabel = selectedCategoryMeta
+    ? t(`report.category.${selectedTab}`, selectedCategoryMeta.label)
+    : null;
+  const selectedFileLabel = selectedFile
+    ? t(`report.file.${selectedFile}`, FILE_LABELS[selectedFile] || selectedFile)
+    : null;
 
   const handleTabChange = useCallback(
     (tabKey: string) => {
@@ -389,10 +428,10 @@ export function ReportViewer({
       <div className="flex min-w-0 flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
         <div className="viewer-frame mx-auto flex min-h-0 w-full flex-1 items-center justify-center p-8 text-sm text-slate-600">
           {isLoading
-            ? "Loading report..."
+            ? t("report.loadingReport", "Loading report...")
             : error
-              ? `Error: ${error}`
-              : "No report data"}
+              ? `${t("report.errorPrefix", "Error")}: ${error}`
+              : t("report.noReportData", "No report data")}
         </div>
       </div>
     );
@@ -420,7 +459,10 @@ export function ReportViewer({
                           aria-expanded={sidebarOpen}
                           aria-haspopup="dialog"
                           className="interactive-button focus-ring grid min-h-11 min-w-11 place-items-center rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 text-slate-500 md:hidden"
-                          aria-label="Open report navigation"
+                          aria-label={t(
+                            "report.openNavigation",
+                            "Open report navigation"
+                          )}
                         >
                           <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
                             <path
@@ -435,13 +477,20 @@ export function ReportViewer({
 
                       <div className="min-w-0">
                         <p className="viewer-meta-label">
-                          {selectedCategoryMeta ? selectedCategoryMeta.label : "Research workbench"}
+                          {selectedCategoryLabel ??
+                            t("report.researchWorkbench", "Research workbench")}
                         </p>
                         <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
                           {structure.ticker}
                         </h2>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
-                          <span>{formatGeneratedLabel(reportMeta)}</span>
+                          <span>
+                            {formatGeneratedLabel(
+                              reportMeta,
+                              locale,
+                              t("report.generatedUnavailable", "Generated time unavailable")
+                            )}
+                          </span>
                           <span className="hidden text-[var(--border-strong)] sm:inline">
                             /
                           </span>
@@ -454,11 +503,21 @@ export function ReportViewer({
                             <span className="size-2 rounded-full bg-[var(--primary)]" aria-hidden />
                             {selectedFileLabel ??
                               (selectedCategoryMeta
-                                ? `${selectedCategoryMeta.label} view`
-                                : "Full report")}
+                                ? t(
+                                    "report.categoryView",
+                                    ({ label }) => `${label} view`,
+                                    { label: selectedCategoryLabel ?? selectedCategoryMeta.label }
+                                  )
+                                : t("report.completeReport", "Complete Report"))}
                           </span>
                           {selectedTab !== "complete" && categoryFiles.length > 0 && (
-                            <span>{categoryFiles.length} files in this track</span>
+                            <span>
+                              {t(
+                                "report.fileCount",
+                                ({ count }) => `${count} files in this track`,
+                                { count: categoryFiles.length }
+                              )}
+                            </span>
                           )}
                         </div>
                       </div>
@@ -476,7 +535,7 @@ export function ReportViewer({
                         aria-pressed={selectedTab === "complete"}
                         aria-controls="report-content-panel"
                       >
-                        Complete Report
+                        {t("report.completeReport", "Complete Report")}
                       </button>
 
                       {availableCategories.map(([key, meta]) => (
@@ -492,33 +551,51 @@ export function ReportViewer({
                           aria-pressed={selectedTab === key}
                           aria-controls="report-content-panel"
                         >
-                          {meta.label}
+                          {t(`report.category.${key}`, meta.label)}
                         </button>
                       ))}
                     </div>
                   </div>
 
                   <aside className="viewer-meta-card">
-                    <p className="viewer-meta-label">House View</p>
+                    <p className="viewer-meta-label">
+                      {t("report.houseView", "House View")}
+                    </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                       <span
                         className={`signal-badge viewer-signal-badge min-h-11 ${
                           finalSignal ? signalClass(finalSignal) : "border-[color:rgba(22,34,51,0.1)] bg-white/70 text-slate-600"
                         }`}
                       >
-                        {finalSignal ?? "Pending"}
+                        {finalSignal ?? t("report.pending", "Pending")}
                       </span>
                       {finalConfidence && (
                         <span className="rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 px-3 py-2 text-xs font-semibold text-slate-600">
-                          Confidence {finalConfidence}
+                          {t(
+                            "report.confidence",
+                            ({ value }) => `Confidence ${value}`,
+                            { value: finalConfidence }
+                          )}
                         </span>
                       )}
                     </div>
 
                     <p className="mt-4 text-sm leading-6 text-slate-600">
                       {selectedCategoryMeta
-                        ? `Reading ${selectedFileLabel ?? selectedCategoryMeta.label}.`
-                        : "Use the category rail to move between the full report and individual agent views."}
+                        ? t(
+                            "report.readingFile",
+                            ({ label }) => `Reading ${label}.`,
+                            {
+                              label:
+                                selectedFileLabel ??
+                                selectedCategoryLabel ??
+                                selectedCategoryMeta.label,
+                            }
+                          )
+                        : t(
+                            "report.defaultRailHint",
+                            "Use the category rail to move between the full report and individual agent views."
+                          )}
                     </p>
                   </aside>
                 </div>
@@ -556,13 +633,23 @@ export function ReportViewer({
               {selectedTab !== "complete" && selectedCategoryMeta && (
                 <div className="mb-8 flex w-full flex-col gap-3 border-b border-[color:rgba(22,34,51,0.08)] pb-5 md:flex-row md:items-end md:justify-between">
                   <div className="space-y-1">
-                    <p className="viewer-meta-label">Current file</p>
+                    <p className="viewer-meta-label">
+                      {t("report.currentFile", "Current file")}
+                    </p>
                     <h3 className="font-heading text-2xl font-semibold tracking-tight text-[var(--text)] md:text-3xl">
-                      {selectedFileLabel ?? selectedCategoryMeta.label}
+                      {selectedFileLabel ?? selectedCategoryLabel ?? selectedCategoryMeta.label}
                     </h3>
                   </div>
                   <p className="max-w-xl text-sm leading-6 text-[var(--muted)]">
-                    {selectedCategoryMeta.label} captures one desk&apos;s perspective for {structure.ticker}. Read this layer on its own, then compare it against the full report.
+                    {t(
+                      "report.filePerspective",
+                      ({ label, ticker }) =>
+                        `${label} captures one desk's perspective for ${ticker}. Read this layer on its own, then compare it against the full report.`,
+                      {
+                        label: selectedCategoryLabel ?? selectedCategoryMeta.label,
+                        ticker: structure.ticker,
+                      }
+                    )}
                   </p>
                 </div>
               )}
@@ -579,7 +666,7 @@ export function ReportViewer({
                 />
               ) : categoryFiles.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-500">
-                  No data available for this category
+                  {t("report.noCategoryData", "No data available for this category")}
                 </div>
               ) : (
                 <MarkdownContent

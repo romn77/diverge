@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import type { Report, ScreenerRunSummary, ScreenerTask, Task } from "@/lib/api";
 
 interface SidebarProps {
@@ -56,6 +57,7 @@ export function Sidebar({
   isOpen,
   onClose,
 }: SidebarProps) {
+  const { language, locale, setLanguage, setTheme, t, theme } = usePreferences();
   const [tickerOverrides, setTickerOverrides] = useState<Record<string, boolean>>(
     () => ({})
   );
@@ -172,7 +174,7 @@ export function Sidebar({
   };
 
   const drawerClasses = [
-    "fixed inset-y-0 left-0 z-50 w-full max-w-xs flex-col overflow-y-auto border-r border-[var(--border)] bg-white px-4 py-5 shadow-lg transition-transform duration-300",
+    "sidebar-surface fixed inset-y-0 left-0 z-50 w-full max-w-xs flex-col overflow-y-auto border-r border-[var(--border)] px-4 py-5 shadow-lg transition-transform duration-300",
     "hidden md:flex -translate-x-full md:translate-x-0",
     isMobileDrawerOpen ? "flex translate-x-0" : "",
     "md:relative md:w-[19.2rem] md:shadow-none md:border-r-0",
@@ -193,7 +195,7 @@ export function Sidebar({
         className={drawerClasses}
         role={isMobileDrawerOpen ? "dialog" : undefined}
         aria-modal={isMobileDrawerOpen ? true : undefined}
-        aria-label="Report navigation"
+        aria-label={t("sidebar.reportNavigation", "Report navigation")}
       >
         <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-4">
           <div className="flex items-center gap-2">
@@ -209,9 +211,9 @@ export function Sidebar({
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-900">TradingAgent</p>
+              <p className="text-sm font-semibold text-slate-900">TradingAgents</p>
               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                Research
+                {t("sidebar.brandSubline", "Research")}
               </p>
             </div>
           </div>
@@ -219,11 +221,61 @@ export function Sidebar({
             type="button"
             className="md:hidden rounded-2xl border border-[var(--border)] px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
             onClick={onClose}
-            aria-label="Close sidebar"
+            aria-label={t("sidebar.closeSidebar", "Close sidebar")}
           >
-            Close
+            {t("common.close", "Close")}
           </button>
         </div>
+
+        <section className="mt-4 rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)]/80 p-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-500">
+              {t("common.interfacePreferences", "Interface Preferences")}
+            </p>
+            <div className="mt-3 grid gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  {t("preferences.themeLabel", "Theme")}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {(["light", "dark"] as const).map((themeValue) => (
+                    <button
+                      key={themeValue}
+                      type="button"
+                      data-active={theme === themeValue}
+                      className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
+                      onClick={() => setTheme(themeValue)}
+                    >
+                      {themeValue === "light"
+                        ? t("common.light", "Light")
+                        : t("common.dark", "Dark")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                  {t("preferences.languageLabel", "UI Language")}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {(["en", "zh"] as const).map((languageValue) => (
+                    <button
+                      key={languageValue}
+                      type="button"
+                      data-active={language === languageValue}
+                      className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
+                      onClick={() => setLanguage(languageValue)}
+                    >
+                      {languageValue === "en"
+                        ? t("common.english", "English")
+                        : t("common.chinese", "中文")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <button
           type="button"
@@ -241,15 +293,20 @@ export function Sidebar({
                 newAnalysisDisabled ? "text-slate-500" : "text-white/80"
               }`}
             >
-              Launch
+              {t("sidebar.launch", "Launch")}
             </span>
-            <span className="mt-1 block text-[13px] font-semibold">New Analysis</span>
+            <span className="mt-1 block text-[13px] font-semibold">
+              {t("sidebar.newAnalysis", "New Analysis")}
+            </span>
           </span>
           <span className="text-[20px] font-medium leading-none">+</span>
         </button>
         {newAnalysisDisabled ? (
           <p className="mt-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Queue locked until current tasks clear
+            {t(
+              "sidebar.queueLocked",
+              "Queue locked until current tasks clear"
+            )}
           </p>
         ) : null}
 
@@ -269,9 +326,11 @@ export function Sidebar({
                 newScreenerDisabled ? "text-slate-500" : "text-white/80"
               }`}
             >
-              Screen
+              {t("sidebar.screen", "Screen")}
             </span>
-            <span className="mt-1 block text-[13px] font-semibold">New Screener</span>
+            <span className="mt-1 block text-[13px] font-semibold">
+              {t("sidebar.newScreener", "New Screener")}
+            </span>
           </span>
           <span className="text-[20px] font-medium leading-none">+</span>
         </button>
@@ -288,9 +347,11 @@ export function Sidebar({
         >
           <span>
             <span className="block text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-              Manual
+              {t("sidebar.manual", "Manual")}
             </span>
-            <span className="mt-1 block text-[13px] font-semibold">Trade Journal</span>
+            <span className="mt-1 block text-[13px] font-semibold">
+              {t("sidebar.tradeJournal", "Trade Journal")}
+            </span>
           </span>
         </button>
 
@@ -298,10 +359,12 @@ export function Sidebar({
           <section className="mt-5">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-                Task Queue
+                {t("sidebar.taskQueue", "Task Queue")}
               </h3>
               <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                {taskQueue.length} active
+                {t("sidebar.activeCount", ({ count }) => `${count} active`, {
+                  count: taskQueue.length,
+                })}
               </span>
             </div>
             <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm shadow-sm">
@@ -323,7 +386,10 @@ export function Sidebar({
                     <div className="min-w-0">
                       <p className="text-[13px] font-semibold">{task.ticker}</p>
                       <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                        {task.status}
+                        {t(
+                          `task.status.${task.status}`,
+                          task.status
+                        )}
                         {currentAgent ? ` · ${currentAgent}` : ""}
                       </p>
                     </div>
@@ -335,7 +401,7 @@ export function Sidebar({
                             : "bg-[rgba(182,90,43,0.12)] text-[var(--primary-strong)]"
                         }`}
                       >
-                        {task.status}
+                        {t(`task.status.${task.status}`, task.status)}
                       </span>
                       <svg
                         className="h-4 w-4 text-slate-400"
@@ -363,10 +429,12 @@ export function Sidebar({
           <section className="mt-5">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-                Screener Queue
+                {t("sidebar.screenerQueue", "Screener Queue")}
               </h3>
               <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                {screenerTaskQueue.length} active
+                {t("sidebar.activeCount", ({ count }) => `${count} active`, {
+                  count: screenerTaskQueue.length,
+                })}
               </span>
             </div>
             <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm shadow-sm">
@@ -385,13 +453,15 @@ export function Sidebar({
                     onClick={() => onSelectScreenerTask(task.id)}
                   >
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold">Screener Run</p>
+                      <p className="text-[13px] font-semibold">
+                        {t("sidebar.screenerRun", "Screener Run")}
+                      </p>
                       <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
-                        {task.status}
+                        {t(`task.status.${task.status}`, task.status)}
                       </p>
                     </div>
                     <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] bg-[rgba(28,56,83,0.1)] text-[var(--accent)]">
-                      {task.status}
+                      {t(`task.status.${task.status}`, task.status)}
                     </span>
                   </button>
                 );
@@ -405,7 +475,7 @@ export function Sidebar({
             className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500"
             htmlFor="sidebar-search"
           >
-            Filter reports
+            {t("sidebar.filterReports", "Filter reports")}
           </label>
           <div className="relative mt-2">
             <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
@@ -428,7 +498,10 @@ export function Sidebar({
               type="text"
               value={searchQuery}
               onChange={(event) => onSearchQueryChange(event.target.value)}
-              placeholder="Ticker or report id"
+              placeholder={t(
+                "sidebar.filterReportsPlaceholder",
+                "Ticker or report id"
+              )}
               className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-12 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
             />
             {searchQuery && (
@@ -437,24 +510,24 @@ export function Sidebar({
                 className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:text-[var(--primary)]"
                 onClick={() => onSearchQueryChange("")}
               >
-                Clear
+                {t("common.clear", "Clear")}
               </button>
             )}
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Filter by ticker or report ID.
+            {t("sidebar.filterReportsHint", "Filter by ticker or report ID.")}
           </p>
         </div>
 
         <div className="mt-6 space-y-4">
           <section>
             <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-              Recent Screeners
+              {t("sidebar.recentScreeners", "Recent Screeners")}
             </h3>
             <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm">
               {screenerRuns.length === 0 ? (
                 <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                  No screener runs yet.
+                  {t("sidebar.noScreenerRuns", "No screener runs yet.")}
                 </p>
               ) : (
                 screenerRuns.map((run) => (
@@ -469,7 +542,11 @@ export function Sidebar({
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{run.id}</p>
                       <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                        {run.as_of_date}
+                        {formatReportDate(
+                          { id: run.id, ticker: "", date: run.as_of_date, time: "" },
+                          locale,
+                          t("common.unknownDate", "Unknown date")
+                        )}
                       </p>
                     </div>
                     <span className="text-xs font-semibold text-slate-500">
@@ -490,11 +567,13 @@ export function Sidebar({
               aria-controls="recent-reports-panel"
             >
               <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-                Recent Reports
+                {t("sidebar.recentReports", "Recent Reports")}
               </h3>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                  {recentReports.length} shown
+                  {t("sidebar.shownCount", ({ count }) => `${count} shown`, {
+                    count: recentReports.length,
+                  })}
                 </span>
                 <svg
                   className={`h-4 w-4 text-slate-400 transition-transform ${
@@ -521,11 +600,11 @@ export function Sidebar({
               >
                 {loading ? (
                   <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                    Loading reports...
+                    {t("sidebar.loadingReports", "Loading reports...")}
                   </p>
                 ) : recentReports.length === 0 ? (
                   <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                    No reports yet.
+                    {t("sidebar.noReports", "No reports yet.")}
                   </p>
                 ) : (
                   recentReports.map((report) => (
@@ -540,7 +619,11 @@ export function Sidebar({
                           {report.ticker}
                         </p>
                         <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                          {formatReportDate(report)}
+                          {formatReportDate(
+                            report,
+                            locale,
+                            t("common.unknownDate", "Unknown date")
+                          )}
                         </p>
                       </div>
                       <svg
@@ -573,7 +656,7 @@ export function Sidebar({
               aria-controls="all-tickers-panel"
             >
               <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-                All tickers
+                {t("sidebar.allTickers", "All tickers")}
               </h3>
               <svg
                 className={`h-4 w-4 text-slate-400 transition-transform ${
@@ -596,7 +679,10 @@ export function Sidebar({
               <div id="all-tickers-panel" className="mt-3 space-y-3">
                 {tickerOrder.length === 0 ? (
                   <p className="text-xs font-semibold text-slate-500">
-                    No tickers match the current filter.
+                    {t(
+                      "sidebar.noTickerMatches",
+                      "No tickers match the current filter."
+                    )}
                   </p>
                 ) : (
                   tickerOrder.map((ticker) => {
@@ -655,14 +741,17 @@ export function Sidebar({
                               >
                                 <div>
                                   <p className="font-medium">
-                                    {report.date ?? "Unknown date"}
+                                    {report.date ??
+                                      t("common.unknownDate", "Unknown date")}
                                   </p>
                                   <p className="text-[11px] text-slate-500">
                                     {report.time ?? "--:--:--"}
                                   </p>
                                 </div>
                                 <span className="text-[10px] font-semibold uppercase tracking-[0.3em]">
-                                  {selectedReportId === report.id ? "Active" : "View"}
+                                  {selectedReportId === report.id
+                                    ? t("common.active", "Active")
+                                    : t("sidebar.viewLabel", "View")}
                                 </span>
                               </button>
                             ))}
@@ -720,12 +809,32 @@ function findTickerForReport(reports: Report[], reportId: string | null): string
   return reports.find((report) => report.id === reportId)?.ticker ?? null;
 }
 
-function formatReportDate(report: Report) {
+function formatReportDate(report: Report, locale: string, unknownDateLabel: string) {
   if (report.date && report.time) {
+    const parsed = new Date(`${report.date}T${report.time}`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(parsed);
+    }
+
     return `${report.date} · ${report.time}`;
   }
   if (report.date) {
+    const parsed = new Date(`${report.date}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(parsed);
+    }
+
     return report.date;
   }
-  return "Unknown date";
+  return unknownDateLabel;
 }

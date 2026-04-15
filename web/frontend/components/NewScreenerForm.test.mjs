@@ -24,7 +24,7 @@ test("NewScreenerForm disables backend-unavailable markets with an explanation",
 
   assert.match(source, /market\.enabled/);
   assert.match(source, /disabled=\{!market\.enabled\}/);
-  assert.match(source, /disabled_reason/);
+  assert.match(source, /screener\.marketHelp/);
   assert.match(source, /SCREEN_US_MANIFEST_PATH/i);
 });
 
