@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   getTickerTradeFeedback,
   getTrade,
@@ -28,6 +29,7 @@ export function TradeJournal({
   onOpenSidebar,
   sidebarOpen = false,
 }: TradeJournalProps) {
+  const { locale, t } = usePreferences();
   const [trades, setTrades] = useState<TradeRecord[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
   const [tradeDetail, setTradeDetail] = useState<TradeDetail | null>(null);
@@ -76,7 +78,9 @@ export function TradeJournal({
         setTrades([]);
         setSelectedTradeId(null);
         setTradesError(
-          error instanceof Error ? error.message : "Unable to load trade history"
+          error instanceof Error
+            ? error.message
+            : t("journal.error.loadHistory", "Unable to load trade history")
         );
       } finally {
         if (isActive) {
@@ -89,7 +93,7 @@ export function TradeJournal({
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!selectedTradeId) {
@@ -117,7 +121,9 @@ export function TradeJournal({
 
         setTradeDetail(null);
         setDetailError(
-          error instanceof Error ? error.message : "Unable to load trade details"
+          error instanceof Error
+            ? error.message
+            : t("journal.error.loadDetail", "Unable to load trade details")
         );
       } finally {
         if (isActive) {
@@ -130,7 +136,7 @@ export function TradeJournal({
     return () => {
       isActive = false;
     };
-  }, [selectedTradeId]);
+  }, [selectedTradeId, t]);
 
   useEffect(() => {
     if (!tradeDetail?.record.ticker) {
@@ -162,7 +168,10 @@ export function TradeJournal({
         setFeedbackError(
           error instanceof Error
             ? error.message
-            : "Unable to load same-ticker feedback"
+            : t(
+                "journal.error.loadFeedback",
+                "Unable to load same-ticker feedback"
+              )
         );
       } finally {
         if (isActive) {
@@ -175,7 +184,7 @@ export function TradeJournal({
     return () => {
       isActive = false;
     };
-  }, [tradeDetail?.record.ticker]);
+  }, [tradeDetail?.record.ticker, t]);
 
   const refreshTrades = async (preferredTradeId?: string) => {
     setLoadingTrades(true);
@@ -195,7 +204,9 @@ export function TradeJournal({
       });
     } catch (error) {
       setTradesError(
-        error instanceof Error ? error.message : "Unable to load trade history"
+        error instanceof Error
+          ? error.message
+          : t("journal.error.loadHistory", "Unable to load trade history")
       );
     } finally {
       setLoadingTrades(false);
@@ -211,7 +222,9 @@ export function TradeJournal({
       setTradeDetail(data);
     } catch (error) {
       setDetailError(
-        error instanceof Error ? error.message : "Unable to load trade details"
+        error instanceof Error
+          ? error.message
+          : t("journal.error.loadDetail", "Unable to load trade details")
       );
     } finally {
       setLoadingDetail(false);
@@ -227,7 +240,12 @@ export function TradeJournal({
       setFeedback(data);
     } catch (error) {
       setFeedbackError(
-        error instanceof Error ? error.message : "Unable to load same-ticker feedback"
+        error instanceof Error
+          ? error.message
+          : t(
+              "journal.error.loadFeedback",
+              "Unable to load same-ticker feedback"
+            )
       );
     } finally {
       setLoadingFeedback(false);
@@ -299,11 +317,13 @@ export function TradeJournal({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-3xl">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.38em] text-[var(--primary)]">
-                  Trade Journal
+                  {t("sidebar.tradeJournal", "Trade Journal")}
                 </p>
                 <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                  Record trades, separate entry and exit reviews, and preview future
-                  same-ticker feedback
+                  {t(
+                    "journal.title",
+                    "Record trades, separate entry and exit reviews, and preview future same-ticker feedback"
+                  )}
                 </h1>
               </div>
 
@@ -318,7 +338,7 @@ export function TradeJournal({
                     }`}
                     onClick={onOpenSidebar}
                   >
-                    Menu
+                    {t("common.menu", "Menu")}
                   </button>
                 ) : null}
                 <button
@@ -326,7 +346,7 @@ export function TradeJournal({
                   className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
                   onClick={() => setShowCreateTrade(true)}
                 >
-                  Record Trade
+                  {t("journal.recordTrade", "Record Trade")}
                 </button>
               </div>
             </div>
@@ -334,20 +354,20 @@ export function TradeJournal({
             <div className="mt-7 grid gap-4 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Filter by Ticker or Trade ID
+                  {t("journal.filterLabel", "Filter by Ticker or Trade ID")}
                 </span>
                 <input
                   type="text"
                   value={tickerFilter}
                   onChange={(event) => setTickerFilter(event.target.value)}
-                  placeholder="MSFT or trade_id"
+                  placeholder={t("journal.filterPlaceholder", "MSFT or trade_id")}
                   className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
                 />
               </label>
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Status
+                  {t("journal.status", "Status")}
                 </span>
                 <select
                   value={statusFilter}
@@ -356,7 +376,7 @@ export function TradeJournal({
                 >
                   {statusOptions.map((status) => (
                     <option key={status} value={status}>
-                      {status}
+                      {localizeTradeValue(status, t)}
                     </option>
                   ))}
                 </select>
@@ -364,36 +384,51 @@ export function TradeJournal({
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Time Window
+                  {t("journal.timeWindow", "Time Window")}
                 </span>
                 <select
                   value={timeWindow}
                   onChange={(event) => setTimeWindow(event.target.value as TimeWindow)}
                   className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
                 >
-                  <option value="all">all</option>
-                  <option value="30d">last 30 days</option>
-                  <option value="90d">last 90 days</option>
-                  <option value="365d">last 12 months</option>
+                  <option value="all">{t("journal.timeWindow.all", "all")}</option>
+                  <option value="30d">
+                    {t("journal.timeWindow.30d", "last 30 days")}
+                  </option>
+                  <option value="90d">
+                    {t("journal.timeWindow.90d", "last 90 days")}
+                  </option>
+                  <option value="365d">
+                    {t("journal.timeWindow.365d", "last 12 months")}
+                  </option>
                 </select>
               </label>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               <SummaryCard
-                label="Total Records"
+                label={t("journal.summary.totalRecords", "Total Records")}
                 value={String(trades.length)}
-                hint="Hand-entered trades saved against the backend schema"
+                hint={t(
+                  "journal.summary.totalHint",
+                  "Hand-entered trades saved against the backend schema"
+                )}
               />
               <SummaryCard
-                label="Open Status"
+                label={t("journal.summary.openStatus", "Open Status")}
                 value={String(openTrades.length)}
-                hint="Trades still marked open in the manual journal"
+                hint={t(
+                  "journal.summary.openHint",
+                  "Trades still marked open in the manual journal"
+                )}
               />
               <SummaryCard
-                label="Visible in Filter"
+                label={t("journal.summary.visible", "Visible in Filter")}
                 value={String(filteredTrades.length)}
-                hint="History filtered by ticker, status, and activity window"
+                hint={t(
+                  "journal.summary.visibleHint",
+                  "History filtered by ticker, status, and activity window"
+                )}
               />
             </div>
           </section>
@@ -403,14 +438,16 @@ export function TradeJournal({
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    History
+                    {t("journal.history", "History")}
                   </p>
                   <h2 className="mt-2 text-xl font-semibold text-slate-900">
-                    Trade records
+                    {t("journal.tradeRecords", "Trade records")}
                   </h2>
                 </div>
                 <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                  {filteredTrades.length} shown
+                  {t("sidebar.shownCount", ({ count }) => `${count} shown`, {
+                    count: filteredTrades.length,
+                  })}
                 </span>
               </div>
 
@@ -420,17 +457,22 @@ export function TradeJournal({
                 </div>
               ) : loadingTrades ? (
                 <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-8 text-sm text-slate-500">
-                  Loading manual trade history...
+                  {t("journal.loadingHistory", "Loading manual trade history...")}
                 </div>
               ) : filteredTrades.length === 0 ? (
                 <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                  <p>No trade records match the current filters.</p>
+                  <p>
+                    {t(
+                      "journal.noTradeMatch",
+                      "No trade records match the current filters."
+                    )}
+                  </p>
                   <button
                     type="button"
                     className="interactive-button focus-ring mt-4 rounded-full border border-[var(--primary)] bg-[var(--primary)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white"
                     onClick={() => setShowCreateTrade(true)}
                   >
-                    Record First Trade
+                    {t("journal.recordFirstTrade", "Record First Trade")}
                   </button>
                 </div>
               ) : (
@@ -465,20 +507,36 @@ export function TradeJournal({
                         </div>
                         <div className="mt-4 grid gap-3 sm:grid-cols-2">
                           <MetaItem
-                            label="Entry"
-                            value={formatDateTime(trade.entry_timestamp)}
+                            label={t("journal.entry", "Entry")}
+                            value={formatDateTime(
+                              trade.entry_timestamp,
+                              locale,
+                              t("common.notSet", "Not set")
+                            )}
                           />
                           <MetaItem
-                            label="Exit"
-                            value={formatDateTime(trade.exit_timestamp)}
+                            label={t("journal.exit", "Exit")}
+                            value={formatDateTime(
+                              trade.exit_timestamp,
+                              locale,
+                              t("common.notSet", "Not set")
+                            )}
                           />
                           <MetaItem
-                            label="Entry Px"
-                            value={formatNumber(trade.entry_price)}
+                            label={t("journal.entryPrice", "Entry Px")}
+                            value={formatNumber(
+                              trade.entry_price,
+                              locale,
+                              t("common.notSet", "Not set")
+                            )}
                           />
                           <MetaItem
-                            label="Exit Px"
-                            value={formatNumber(trade.exit_price)}
+                            label={t("journal.exitPrice", "Exit Px")}
+                            value={formatNumber(
+                              trade.exit_price,
+                              locale,
+                              t("common.notSet", "Not set")
+                            )}
                           />
                         </div>
                       </button>
@@ -496,19 +554,24 @@ export function TradeJournal({
                   </div>
                 ) : loadingDetail ? (
                   <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-10 text-sm text-slate-500">
-                    Loading trade record and review details...
+                    {t(
+                      "journal.loadingDetail",
+                      "Loading trade record and review details..."
+                    )}
                   </div>
                 ) : !tradeDetail ? (
                   <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-10 text-sm text-slate-500">
-                    Select a trade record to inspect its fields, snapshot references,
-                    and review history.
+                    {t(
+                      "journal.selectTrade",
+                      "Select a trade record to inspect its fields, snapshot references, and review history."
+                    )}
                   </div>
                 ) : (
                   <div className="space-y-6">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--primary)]">
-                          Stable trade_id
+                          {t("journal.stableTradeId", "Stable trade_id")}
                         </p>
                         <h2 className="mt-2 text-3xl font-semibold text-slate-900">
                           {tradeDetail.record.ticker}
@@ -526,50 +589,74 @@ export function TradeJournal({
                           className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
                           onClick={() => setShowEditTrade(true)}
                         >
-                          Edit Trade
+                          {t("journal.editTrade", "Edit Trade")}
                         </button>
                       </div>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <MetaCard
-                        label="Market / Exchange"
+                        label={t("journal.marketExchange", "Market / Exchange")}
                         value={tradeDetail.record.exchange_or_market}
                       />
                       <MetaCard
-                        label="Planned Horizon"
+                        label={t("journal.plannedHorizon", "Planned Horizon")}
                         value={tradeDetail.record.planned_horizon}
                       />
                       <MetaCard
-                        label="Size"
-                        value={formatNumber(tradeDetail.record.size)}
+                        label={t("journal.size", "Size")}
+                        value={formatNumber(
+                          tradeDetail.record.size,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
                       />
                       <MetaCard
-                        label="Last Updated"
-                        value={formatDateTime(tradeDetail.record.updated_at)}
+                        label={t("journal.lastUpdated", "Last Updated")}
+                        value={formatDateTime(
+                          tradeDetail.record.updated_at,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
                       />
                       <MetaCard
-                        label="Entry"
-                        value={formatDateTime(tradeDetail.record.entry_timestamp)}
+                        label={t("journal.entry", "Entry")}
+                        value={formatDateTime(
+                          tradeDetail.record.entry_timestamp,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
                       />
                       <MetaCard
-                        label="Exit"
-                        value={formatDateTime(tradeDetail.record.exit_timestamp)}
+                        label={t("journal.exit", "Exit")}
+                        value={formatDateTime(
+                          tradeDetail.record.exit_timestamp,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
                       />
                       <MetaCard
-                        label="Stop Loss"
-                        value={formatNumber(tradeDetail.record.stop_loss)}
+                        label={t("journal.stopLoss", "Stop Loss")}
+                        value={formatNumber(
+                          tradeDetail.record.stop_loss,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
                       />
                       <MetaCard
-                        label="Take Profit"
-                        value={formatNumber(tradeDetail.record.take_profit)}
+                        label={t("journal.takeProfit", "Take Profit")}
+                        value={formatNumber(
+                          tradeDetail.record.take_profit,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
                       />
                     </div>
 
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
                       <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
                         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-                          Initial Thesis
+                          {t("journal.initialThesis", "Initial Thesis")}
                         </p>
                         <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
                           {tradeDetail.record.initial_thesis}
@@ -578,10 +665,11 @@ export function TradeJournal({
 
                       <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
                         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-                          Notes
+                          {t("journal.notes", "Notes")}
                         </p>
                         <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                          {tradeDetail.record.notes || "No notes saved."}
+                          {tradeDetail.record.notes ||
+                            t("journal.noNotes", "No notes saved.")}
                         </p>
                       </section>
                     </div>
@@ -590,21 +678,31 @@ export function TradeJournal({
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-                            Linked Snapshot References
+                            {t(
+                              "journal.snapshotReferences",
+                              "Linked Snapshot References"
+                            )}
                           </p>
                           <h3 className="mt-2 text-xl font-semibold text-slate-900">
-                            Snapshot references only, not copied report content
+                            {t(
+                              "journal.snapshotOnly",
+                              "Snapshot references only, not copied report content"
+                            )}
                           </h3>
                         </div>
                         <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          {tradeDetail.record.analysis_references.length} linked
+                          {t("journal.linkedCount", ({ count }) => `${count} linked`, {
+                            count: tradeDetail.record.analysis_references.length,
+                          })}
                         </span>
                       </div>
 
                       {tradeDetail.record.analysis_references.length === 0 ? (
                         <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
-                          No analysis snapshots are attached yet. Add them on the trade
-                          record before saving manual reviews.
+                          {t(
+                            "journal.noSnapshots",
+                            "No analysis snapshots are attached yet. Add them on the trade record before saving manual reviews."
+                          )}
                         </div>
                       ) : (
                         <div className="mt-4 space-y-3">
@@ -632,10 +730,13 @@ export function TradeJournal({
                       <div className="flex flex-wrap items-center justify-between gap-4">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-                            Trade Reviews
+                            {t("journal.tradeReviews", "Trade Reviews")}
                           </p>
                           <h3 className="mt-2 text-xl font-semibold text-slate-900">
-                            Distinguish entry_review and exit_review on the same trade_id
+                            {t(
+                              "journal.distinguishReviews",
+                              "Distinguish entry_review and exit_review on the same trade_id"
+                            )}
                           </h3>
                         </div>
                         <button
@@ -643,7 +744,9 @@ export function TradeJournal({
                           className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
                           onClick={() => setEditingReviewType(reviewTab)}
                         >
-                          {selectedReview ? "Edit Review" : "Create Review"}
+                          {selectedReview
+                            ? t("journal.editReview", "Edit Review")
+                            : t("journal.createReview", "Create Review")}
                         </button>
                       </div>
 
@@ -661,10 +764,14 @@ export function TradeJournal({
                               onClick={() => setReviewTab(type)}
                             >
                               <span className="capitalize">
-                                {type === "entry_review" ? "Entry Review" : "Exit Review"}
+                                {type === "entry_review"
+                                  ? t("journal.entryReview", "Entry Review")
+                                  : t("journal.exitReview", "Exit Review")}
                               </span>
                               <span className="ml-2 text-[11px] opacity-70">
-                                {review ? "saved" : "empty"}
+                                {review
+                                  ? t("journal.reviewSaved", "saved")
+                                  : t("journal.reviewEmpty", "empty")}
                               </span>
                             </button>
                           );
@@ -673,58 +780,85 @@ export function TradeJournal({
 
                       {!selectedReview ? (
                         <div className="mt-5 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
-                          No {reviewTab} saved for this trade yet. Use the manual review
-                          editor to add the structured assessment fields required by the
-                          backend schema.
+                          {t(
+                            "journal.noReview",
+                            ({ reviewType }) =>
+                              `No ${reviewType} saved for this trade yet. Use the manual review editor to add the structured assessment fields required by the backend schema.`,
+                            {
+                              reviewType:
+                                reviewTab === "entry_review"
+                                  ? t("journal.entryReview", "Entry Review")
+                                  : t("journal.exitReview", "Exit Review"),
+                            }
+                          )}
                         </div>
                       ) : (
                         <div className="mt-5 space-y-5">
                           <div className="grid gap-4 md:grid-cols-2">
                             <ReviewCard
-                              label="Thesis Assessment"
+                              label={t("journal.thesisAssessment", "Thesis Assessment")}
                               value={selectedReview.thesis_assessment}
                             />
                             <ReviewCard
-                              label="Timing Assessment"
+                              label={t("journal.timingAssessment", "Timing Assessment")}
                               value={selectedReview.timing_assessment}
                             />
                             <ReviewCard
-                              label="Sizing Assessment"
+                              label={t("journal.sizingAssessment", "Sizing Assessment")}
                               value={selectedReview.sizing_assessment}
                             />
                             <ReviewCard
-                              label="Discipline Assessment"
+                              label={t(
+                                "journal.disciplineAssessment",
+                                "Discipline Assessment"
+                              )}
                               value={selectedReview.discipline_assessment}
                             />
                           </div>
 
                           <ReviewCard
-                            label="Outcome Summary"
+                            label={t("journal.outcomeSummary", "Outcome Summary")}
                             value={selectedReview.outcome_summary}
                           />
 
                           <div className="grid gap-4 md:grid-cols-3">
                             <TagCard
-                              label="Improvement Actions"
+                              label={t(
+                                "journal.improvementActions",
+                                "Improvement Actions"
+                              )}
                               values={selectedReview.improvement_actions}
                             />
                             <TagCard
-                              label="Ticker-Specific Lessons"
+                              label={t(
+                                "journal.tickerSpecificLessons",
+                                "Ticker-Specific Lessons"
+                              )}
                               values={selectedReview.ticker_specific_lessons}
                             />
                             <TagCard
-                              label="Cross-Ticker Tags"
+                              label={t("journal.crossTickerTags", "Cross-Ticker Tags")}
                               values={selectedReview.cross_ticker_tags}
                             />
                           </div>
 
                           <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)]/85 px-4 py-4 text-sm text-slate-600">
-                            Saved as
+                            {t(
+                              "journal.savedMeta",
+                              ({ date, updatedAt }) =>
+                                `Saved on ${date}, updated ${updatedAt}.`,
+                              {
+                                date: selectedReview.analysis_date,
+                                updatedAt: formatDateTime(
+                                  selectedReview.updated_at,
+                                  locale,
+                                  t("common.notSet", "Not set")
+                                ),
+                              }
+                            )}
                             <span className="mx-1 rounded bg-white px-2 py-1 font-mono text-[12px] text-slate-700">
                               {selectedReview.review_id}
                             </span>
-                            on {selectedReview.analysis_date}, updated{" "}
-                            {formatDateTime(selectedReview.updated_at)}.
                           </div>
                         </div>
                       )}
@@ -737,10 +871,13 @@ export function TradeJournal({
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                      Same-Ticker Feedback
+                      {t("journal.sameTickerFeedback", "Same-Ticker Feedback")}
                     </p>
                     <h2 className="mt-2 text-xl font-semibold text-slate-900">
-                      Future analyses will read this saved review context
+                      {t(
+                        "journal.futureAnalyses",
+                        "Future analyses will read this saved review context"
+                      )}
                     </h2>
                   </div>
                   {tradeDetail?.record.ticker ? (
@@ -756,12 +893,17 @@ export function TradeJournal({
                   </div>
                 ) : loadingFeedback ? (
                   <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-8 text-sm text-slate-500">
-                    Loading same-ticker feedback preview...
+                    {t(
+                      "journal.loadingFeedback",
+                      "Loading same-ticker feedback preview..."
+                    )}
                   </div>
                 ) : !feedback || feedback.reviews.length === 0 ? (
                   <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                    No saved feedback prompt is available yet for this ticker. Once an
-                    entry_review or exit_review is stored, later analyses can reuse it.
+                    {t(
+                      "journal.noFeedback",
+                      "No saved feedback prompt is available yet for this ticker. Once an entry_review or exit_review is stored, later analyses can reuse it."
+                    )}
                   </div>
                 ) : (
                   <div className="mt-4 space-y-5">
@@ -772,7 +914,9 @@ export function TradeJournal({
                           className="rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)]/85 p-4"
                         >
                           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                            {review.review_type}
+                            {review.review_type === "entry_review"
+                              ? t("journal.entryReview", "Entry Review")
+                              : t("journal.exitReview", "Exit Review")}
                           </p>
                           <p className="mt-2 font-mono text-[11px] text-slate-500">
                             {review.trade_id}
@@ -784,9 +928,9 @@ export function TradeJournal({
                       ))}
                     </div>
 
-                    <div className="rounded-[28px] border border-[var(--border)] bg-[#f8f3eb] px-5 py-5">
+                    <div className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] px-5 py-5">
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Prompt Preview
+                        {t("journal.promptPreview", "Prompt Preview")}
                       </p>
                       <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-3xl bg-white/85 px-4 py-4 font-mono text-[12px] leading-6 text-slate-700">
                         {feedback.prompt}
@@ -913,6 +1057,7 @@ function TagCard({
   label: string;
   values: string[];
 }) {
+  const { t } = usePreferences();
   return (
     <div className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]/80 p-4">
       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -921,7 +1066,7 @@ function TagCard({
       <div className="mt-4 flex flex-wrap gap-2">
         {values.length === 0 ? (
           <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-slate-500">
-            None saved
+            {t("journal.noneSaved", "None saved")}
           </span>
         ) : (
           values.map((value) => (
@@ -945,6 +1090,7 @@ function StatusBadge({
   label: string;
   tone: "primary" | "accent";
 }) {
+  const { t } = usePreferences();
   const classes =
     tone === "primary"
       ? "border-[rgba(182,90,43,0.18)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
@@ -954,24 +1100,24 @@ function StatusBadge({
     <span
       className={`rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${classes}`}
     >
-      {label}
+      {localizeTradeValue(label, t)}
     </span>
   );
 }
 
-function formatNumber(value: number | null): string {
+function formatNumber(value: number | null, locale: string, notSetLabel: string): string {
   if (typeof value !== "number") {
-    return "Not set";
+    return notSetLabel;
   }
 
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(locale, {
     maximumFractionDigits: 2,
   }).format(value);
 }
 
-function formatDateTime(value: string | null): string {
+function formatDateTime(value: string | null, locale: string, notSetLabel: string): string {
   if (!value) {
-    return "Not set";
+    return notSetLabel;
   }
 
   const normalized = value.replace("Z", "+00:00");
@@ -980,13 +1126,30 @@ function formatDateTime(value: string | null): string {
     return value;
   }
 
-  return parsed.toLocaleString("en-US", {
+  return parsed.toLocaleString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function localizeTradeValue(
+  value: string,
+  t: ReturnType<typeof usePreferences>["t"]
+) {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "all") {
+    return t("journal.timeWindow.all", "all");
+  }
+  if (normalized === "long" || normalized === "short") {
+    return t(`trade.side.${normalized}`, value);
+  }
+  if (normalized === "open") {
+    return t("trade.status.open", value);
+  }
+  return value;
 }
 
 function withinTimeWindow(record: TradeRecord, timeWindow: TimeWindow): boolean {

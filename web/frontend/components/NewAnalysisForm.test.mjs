@@ -23,7 +23,9 @@ test("NewAnalysisForm disables providers without configured credentials", () => 
 
   assert.match(source, /provider\.enabled/);
   assert.match(source, /disabled=\{!provider\.enabled\}/);
-  assert.match(source, /disabled_reason/);
+  assert.match(source, /providerUnavailableLabel/);
+  assert.match(source, /analysis\.disabledProvider/);
+  assert.match(source, /analysis\.providerHint/);
   assert.match(source, /API key/i);
 });
 
