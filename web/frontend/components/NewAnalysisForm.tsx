@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   createTask,
   getConfigOptions,
   type ConfigOptions,
   type TaskCreateRequest,
 } from "@/lib/api";
+import { optionKey } from "@/lib/uiPreferences";
 
 interface NewAnalysisFormProps {
   isOpen: boolean;
   onClose: () => void;
   onTaskCreated: (taskId: string) => void;
+  defaultOutputLanguage: string | null;
 }
 
 type FormState = TaskCreateRequest;
@@ -20,12 +23,31 @@ export function NewAnalysisForm({
   isOpen,
   onClose,
   onTaskCreated,
+  defaultOutputLanguage,
 }: NewAnalysisFormProps) {
+  const { t } = usePreferences();
   const [configOptions, setConfigOptions] = useState<ConfigOptions | null>(null);
   const [formState, setFormState] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadOptionsErrorLabel = t(
+    "analysis.error.loadOptions",
+    "Unable to load analysis options"
+  );
+  const createTaskErrorLabel = t(
+    "analysis.error.createTask",
+    "Unable to create analysis task"
+  );
+  const providerUnavailableLabel = t(
+    "analysis.providerUnavailable",
+    "This provider is unavailable because its API key is not configured."
+  );
+  const selectAnalystErrorLabel = t(
+    "analysis.pickAnalyst",
+    "Pick at least one analyst before launching the task."
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -48,13 +70,10 @@ export function NewAnalysisForm({
           return;
         }
         setConfigOptions(nextOptions);
-        setFormState(buildInitialFormState(nextOptions));
       } catch (nextError) {
         if (isActive) {
           setError(
-            nextError instanceof Error
-              ? nextError.message
-              : "Unable to load analysis options"
+            nextError instanceof Error ? nextError.message : loadOptionsErrorLabel
           );
         }
       } finally {
@@ -69,7 +88,21 @@ export function NewAnalysisForm({
     return () => {
       isActive = false;
     };
-  }, [configOptions, isOpen]);
+  }, [configOptions, isOpen, loadOptionsErrorLabel]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormState(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    if (configOptions && formState === null) {
+      setFormState(buildInitialFormState(configOptions, defaultOutputLanguage));
+      setError(null);
+    }
+  }, [configOptions, formState, isOpen]);
 
   useEffect(() => {
     if (!isOpen || !configOptions) {
@@ -156,13 +189,12 @@ export function NewAnalysisForm({
     }
     if (!selectedProviderOption?.enabled) {
       setError(
-        selectedProviderOption?.disabled_reason ??
-          "This provider is unavailable because its API key is not configured."
+        providerUnavailableLabel
       );
       return;
     }
     if (formState.analysts.length === 0) {
-      setError("Pick at least one analyst before launching the task.");
+      setError(selectAnalystErrorLabel);
       return;
     }
 
@@ -175,9 +207,7 @@ export function NewAnalysisForm({
       onTaskCreated(response.task_id);
     } catch (submitError) {
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Unable to create analysis task"
+        submitError instanceof Error ? submitError.message : createTaskErrorLabel
       );
     } finally {
       setLoading(false);
@@ -192,21 +222,23 @@ export function NewAnalysisForm({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="New analysis"
+        aria-label={t("analysis.dialog", "New analysis")}
         className="modal-panel fade-in w-full max-w-3xl rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              Launch Analysis
+              {t("analysis.kicker", "Launch Analysis")}
             </p>
             <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-              New Analysis
+              {t("analysis.title", "New Analysis")}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Pick the ticker, debate depth, provider stack, and language we
-              should use for this research run.
+              {t(
+                "analysis.description",
+                "Pick the ticker, debate depth, provider stack, and language we should use for this research run."
+              )}
             </p>
           </div>
           <button
@@ -214,20 +246,20 @@ export function NewAnalysisForm({
             className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
             onClick={onClose}
           >
-            Close
+            {t("common.close", "Close")}
           </button>
         </div>
 
         {loadingOptions || !formState || !configOptions ? (
           <div className="mt-8 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-600">
-            Loading analysis options...
+            {t("analysis.loadingOptions", "Loading analysis options...")}
           </div>
         ) : (
           <div className="mt-8 grid gap-6">
             <section className="grid gap-4 md:grid-cols-2">
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Ticker
+                  {t("analysis.ticker", "Ticker")}
                 </span>
                 <input
                   type="text"
@@ -245,7 +277,7 @@ export function NewAnalysisForm({
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Analysis Date
+                  {t("analysis.analysisDate", "Analysis Date")}
                 </span>
                 <input
                   type="date"
@@ -263,7 +295,7 @@ export function NewAnalysisForm({
 
             <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Analysts
+                {t("analysis.analysts", "Analysts")}
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {configOptions.analysts.map((analyst) => {
@@ -279,7 +311,10 @@ export function NewAnalysisForm({
                       }`}
                       onClick={() => toggleAnalyst(analyst.value)}
                     >
-                      {analyst.label}
+                      {t(
+                        `analysis.analyst.${optionKey(analyst.value)}`,
+                        analyst.label
+                      )}
                     </button>
                   );
                 })}
@@ -288,11 +323,19 @@ export function NewAnalysisForm({
 
             <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Research Depth
+                {t("analysis.researchDepth", "Research Depth")}
               </p>
               <div className="mt-3 grid gap-3 md:grid-cols-3">
                 {configOptions.research_depth.map((option) => {
                   const active = formState.research_depth === option.value;
+                  const localizedLabel = t(
+                    `analysis.depth.${option.value}`,
+                    option.label
+                  );
+                  const localizedDescription = t(
+                    `analysis.depthDescription.${option.value}`,
+                    option.description
+                  );
                   return (
                     <button
                       key={option.value}
@@ -309,9 +352,11 @@ export function NewAnalysisForm({
                         })
                       }
                     >
-                      <p className="text-sm font-semibold">{option.label}</p>
-                      {option.description ? (
-                        <p className="mt-2 text-xs leading-5">{option.description}</p>
+                      <p className="text-sm font-semibold">{localizedLabel}</p>
+                      {localizedDescription ? (
+                        <p className="mt-2 text-xs leading-5">
+                          {localizedDescription}
+                        </p>
                       ) : null}
                     </button>
                   );
@@ -322,35 +367,48 @@ export function NewAnalysisForm({
             <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:grid-cols-2">
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  LLM Provider
+                  {t("analysis.provider", "LLM Provider")}
                 </span>
                 <select
                   value={formState.llm_provider}
                   onChange={(event) => onProviderChange(event.target.value)}
                   className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
                 >
-                  {configOptions.providers.map((provider) => (
-                    <option
-                      key={provider.value}
-                      value={provider.value}
-                      disabled={!provider.enabled}
-                    >
-                      {provider.enabled
-                        ? provider.label
-                        : `${provider.label} (API key not configured)`}
-                    </option>
-                  ))}
+                  {configOptions.providers.map((provider) => {
+                    const providerLabel = t(
+                      `analysis.provider.${optionKey(provider.value)}`,
+                      provider.label
+                    );
+                    return (
+                      <option
+                        key={provider.value}
+                        value={provider.value}
+                        disabled={!provider.enabled}
+                      >
+                        {provider.enabled
+                          ? providerLabel
+                          : t(
+                              "analysis.disabledProvider",
+                              ({ label }) => `${label} (API key not configured)`,
+                              { label: providerLabel }
+                            )}
+                      </option>
+                    );
+                  })}
                 </select>
                 <p className="mt-2 text-xs leading-5 text-slate-500">
                   {selectedProviderOption?.enabled
-                    ? "Providers without a configured API key are unavailable in web tasks."
-                    : selectedProviderOption?.disabled_reason}
+                    ? t(
+                        "analysis.providerHint",
+                        "Providers without a configured API key are unavailable in web tasks."
+                      )
+                    : providerUnavailableLabel}
                 </p>
               </label>
 
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Output Language
+                  {t("analysis.outputLanguage", "Output Language")}
                 </span>
                 <select
                   value={formState.output_language}
@@ -364,7 +422,10 @@ export function NewAnalysisForm({
                 >
                   {configOptions.output_languages.map((language) => (
                     <option key={language.value} value={language.value}>
-                      {language.label}
+                      {t(
+                        `analysis.outputLanguage.${optionKey(language.value)}`,
+                        language.label
+                      )}
                     </option>
                   ))}
                 </select>
@@ -372,7 +433,7 @@ export function NewAnalysisForm({
 
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Quick Model
+                  {t("analysis.quickModel", "Quick Model")}
                 </span>
                 <select
                   value={formState.quick_think_llm}
@@ -394,7 +455,7 @@ export function NewAnalysisForm({
 
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Deep Model
+                  {t("analysis.deepModel", "Deep Model")}
                 </span>
                 <select
                   value={formState.deep_think_llm}
@@ -418,7 +479,7 @@ export function NewAnalysisForm({
             {formState.llm_provider === "openai" ? (
               <label className="block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  OpenAI Reasoning Effort
+                  {t("analysis.openaiReasoning", "OpenAI Reasoning Effort")}
                 </span>
                 <select
                   value={formState.openai_reasoning_effort ?? ""}
@@ -433,7 +494,10 @@ export function NewAnalysisForm({
                   {configOptions.provider_settings.openai?.openai_reasoning_effort?.map(
                     (option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(
+                          `analysis.reasoning.${optionKey(option.value)}`,
+                          option.label
+                        )}
                       </option>
                     )
                   )}
@@ -444,7 +508,7 @@ export function NewAnalysisForm({
             {formState.llm_provider === "google" ? (
               <label className="block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Google Thinking Level
+                  {t("analysis.googleThinking", "Google Thinking Level")}
                 </span>
                 <select
                   value={formState.google_thinking_level ?? ""}
@@ -459,7 +523,10 @@ export function NewAnalysisForm({
                   {configOptions.provider_settings.google?.google_thinking_level?.map(
                     (option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {t(
+                          `analysis.googleThinking.${optionKey(option.value)}`,
+                          option.label
+                        )}
                       </option>
                     )
                   )}
@@ -479,7 +546,7 @@ export function NewAnalysisForm({
                 className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
                 onClick={onClose}
               >
-                Cancel
+                {t("common.cancel", "Cancel")}
               </button>
               <button
                 type="button"
@@ -487,7 +554,9 @@ export function NewAnalysisForm({
                 disabled={loading || !selectedProviderOption?.enabled}
                 onClick={() => void submitTask()}
               >
-                {loading ? "Launching..." : "Start Analysis"}
+                {loading
+                  ? t("analysis.starting", "Launching...")
+                  : t("analysis.start", "Start Analysis")}
               </button>
             </div>
           </div>
@@ -497,14 +566,22 @@ export function NewAnalysisForm({
   );
 }
 
-function buildInitialFormState(configOptions: ConfigOptions): FormState {
+function buildInitialFormState(
+  configOptions: ConfigOptions,
+  defaultOutputLanguage: string | null
+): FormState {
   const provider =
     configOptions.providers.find((option) => option.enabled)?.value ??
     configOptions.providers[0]?.value ??
     "openai";
   const providerModels = configOptions.models[provider];
   const firstDepth = configOptions.research_depth[0]?.value ?? 1;
-  const firstLanguage = configOptions.output_languages[0]?.value ?? "en";
+  const firstLanguage =
+    configOptions.output_languages.find(
+      (option) => option.value === defaultOutputLanguage
+    )?.value ??
+    configOptions.output_languages[0]?.value ??
+    "en";
 
   return {
     ticker: "SPY",

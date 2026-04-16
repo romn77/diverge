@@ -11,6 +11,7 @@ test("NewAnalysisForm is driven by backend config options and task creation call
   assert.match(source, /getConfigOptions/);
   assert.match(source, /createTask/);
   assert.match(source, /onTaskCreated:\s*\(taskId:\s*string\)/);
+  assert.match(source, /defaultOutputLanguage:\s*string \| null/);
   assert.match(source, /Ticker/);
   assert.match(source, /Research Depth/i);
   assert.match(source, /LLM Provider/i);
@@ -23,7 +24,9 @@ test("NewAnalysisForm disables providers without configured credentials", () => 
 
   assert.match(source, /provider\.enabled/);
   assert.match(source, /disabled=\{!provider\.enabled\}/);
-  assert.match(source, /disabled_reason/);
+  assert.match(source, /providerUnavailableLabel/);
+  assert.match(source, /analysis\.disabledProvider/);
+  assert.match(source, /analysis\.providerHint/);
   assert.match(source, /API key/i);
 });
 
@@ -32,4 +35,18 @@ test("NewAnalysisForm defaults to the full analyst set instead of truncating to 
 
   assert.doesNotMatch(source, /analysts:\s*configOptions\.analysts\.slice\(0,\s*2\)/);
   assert.match(source, /analysts:\s*configOptions\.analysts\.map\(\(option\)\s*=>\s*option\.value\)/);
+});
+
+test("NewAnalysisForm preserves an open draft when the sidebar language default changes", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /formState === null/);
+  assert.match(source, /setFormState\(buildInitialFormState\(configOptions,\s*defaultOutputLanguage\)\)/);
+  assert.match(source, /setFormState\(null\)/);
+  assert.match(source, /option\.value === defaultOutputLanguage/);
+  assert.match(source, /\}, \[configOptions, formState, isOpen\]\);/);
+  assert.doesNotMatch(
+    source,
+    /\}, \[configOptions, defaultOutputLanguage, formState, isOpen\]\);/
+  );
 });

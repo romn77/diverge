@@ -1,4 +1,5 @@
 import { type ReportHighlights, type TradeSignal } from "@/lib/highlights";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   buildHighlightDeck,
   type TerminalEntry,
@@ -166,11 +167,18 @@ function renderPanelContent(panel: TerminalPanel) {
 }
 
 export function HighlightCards({ highlights }: HighlightCardsProps) {
+  const { t } = usePreferences();
   const deck = buildHighlightDeck(highlights);
   const panels = deck.consoles.flatMap((consolePanel) => consolePanel.panels);
 
   return (
-    <section className="highlights-container summary-deck" aria-label="Structured report highlights">
+    <section
+      className="highlights-container summary-deck"
+      aria-label={t(
+        "highlights.ariaLabel",
+        "Structured report highlights"
+      )}
+    >
       <header className={`summary-hero ${heroSignalClass(deck.signal)}`}>
         <div className="summary-hero-top">
           <div className="summary-hero-copy">
@@ -185,7 +193,13 @@ export function HighlightCards({ highlights }: HighlightCardsProps) {
               {deck.signal}
             </p>
             {deck.confidence && (
-              <p className="summary-confidence">Confidence {deck.confidence}</p>
+              <p className="summary-confidence">
+                {t(
+                  "report.confidence",
+                  ({ value }) => `Confidence ${value}`,
+                  { value: deck.confidence }
+                )}
+              </p>
             )}
           </div>
         </div>

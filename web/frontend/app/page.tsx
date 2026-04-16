@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { NewAnalysisForm } from "@/components/NewAnalysisForm";
 import { NewScreenerForm } from "@/components/NewScreenerForm";
+import { usePreferences } from "@/components/PreferencesProvider";
 import { ScreenerResultsViewer } from "@/components/ScreenerResultsViewer";
 import { ScreenerTaskProgress } from "@/components/ScreenerTaskProgress";
 import { Sidebar } from "@/components/Sidebar";
@@ -21,6 +22,7 @@ import { ReportViewer } from "@/components/ReportViewer";
 import { TaskProgress } from "@/components/TaskProgress";
 
 export default function Home() {
+  const { locale, t } = usePreferences();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedScreenerRunId, setSelectedScreenerRunId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -37,6 +39,9 @@ export default function Home() {
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [defaultOutputLanguage, setDefaultOutputLanguage] = useState<string | null>(
+    null
+  );
 
   const loadReports = async () => {
     setLoadingReports(true);
@@ -47,7 +52,9 @@ export default function Home() {
       setReports(data);
     } catch (error) {
       setReportsError(
-        error instanceof Error ? error.message : "Unable to load reports"
+        error instanceof Error
+          ? error.message
+          : t("page.error.loadReports", "Unable to load reports")
       );
     } finally {
       setLoadingReports(false);
@@ -96,7 +103,9 @@ export default function Home() {
       } catch (error) {
         if (isMounted) {
           setReportsError(
-            error instanceof Error ? error.message : "Unable to load reports"
+            error instanceof Error
+              ? error.message
+              : t("page.error.loadReports", "Unable to load reports")
           );
         }
       } finally {
@@ -111,7 +120,7 @@ export default function Home() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -335,11 +344,14 @@ export default function Home() {
         newScreenerDisabled={newScreenerDisabled}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        selectedOutputLanguage={defaultOutputLanguage}
+        onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
       />
 
       <NewAnalysisForm
         isOpen={showNewAnalysis}
         onClose={() => setShowNewAnalysis(false)}
+        defaultOutputLanguage={defaultOutputLanguage}
         onTaskCreated={(taskId) => {
           setShowNewAnalysis(false);
           setShowTradeJournal(false);
@@ -413,21 +425,23 @@ export default function Home() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[12px] font-semibold uppercase tracking-[0.4em] text-[var(--primary)]">
-                    TradingAgents Report Center
+                    {t("home.heroKicker", "TradingAgents Report Center")}
                   </p>
                   <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                    Content-first research workbench
+                    {t("home.heroTitle", "Content-first research workbench")}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                    Jump straight into the freshest report, search across tickers,
-                    launch a brand-new background analysis, or build a ranked screener pool.
+                    {t(
+                      "home.heroDescription",
+                      "Jump straight into the freshest report, search across tickers, launch a brand-new background analysis, or build a ranked screener pool."
+                    )}
                   </p>
                 </div>
                 <button
                   type="button"
                   className="group md:hidden"
                   onClick={() => setIsSidebarOpen(true)}
-                  aria-label="Open sidebar"
+                  aria-label={t("home.openSidebar", "Open sidebar")}
                 >
                   <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border)] text-slate-700 transition hover:border-[var(--primary)]">
                     <svg
@@ -454,7 +468,7 @@ export default function Home() {
                     className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500"
                     htmlFor="page-search"
                   >
-                    Search reports
+                    {t("home.searchLabel", "Search reports")}
                   </label>
                   <div className="relative mt-2">
                     <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
@@ -476,12 +490,18 @@ export default function Home() {
                       type="text"
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Search by ticker or report id"
+                      placeholder={t(
+                        "home.searchPlaceholder",
+                        "Search by ticker or report id"
+                      )}
                       className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-4 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
                     />
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    Filter by ticker, report id, or use the quick chips below.
+                    {t(
+                      "home.searchHint",
+                      "Filter by ticker, report id, or use the quick chips below."
+                    )}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -494,7 +514,7 @@ export default function Home() {
                       setShowNewAnalysis(true);
                     }}
                   >
-                    Launch Analysis
+                    {t("home.launchAnalysis", "Launch Analysis")}
                   </button>
                   <button
                     type="button"
@@ -505,14 +525,14 @@ export default function Home() {
                       setShowNewScreener(true);
                     }}
                   >
-                    Launch Screener
+                    {t("home.launchScreener", "Launch Screener")}
                   </button>
                   <button
                     type="button"
                     className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700"
                     onClick={() => setShowTradeJournal(true)}
                   >
-                    Open Manual Journal
+                    {t("home.openManualJournal", "Open Manual Journal")}
                   </button>
                 </div>
               </div>
@@ -521,16 +541,19 @@ export default function Home() {
                 <section className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
-                      Recent reports
+                      {t("home.recentReports", "Recent reports")}
                     </h2>
                     <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      Latest
+                      {t("home.reportsLatest", "Latest")}
                     </span>
                   </div>
                   <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50 text-sm shadow-sm">
                     {recentReports.length === 0 ? (
                       <li className="px-4 py-4 text-xs font-medium text-slate-500">
-                        Reports will appear here as soon as they are generated.
+                        {t(
+                          "home.reportsEmpty",
+                          "Reports will appear here as soon as they are generated."
+                        )}
                       </li>
                     ) : (
                       recentReports.map((report) => (
@@ -544,11 +567,15 @@ export default function Home() {
                               {report.ticker}
                             </p>
                             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                              {formatReportDate(report)}
+                              {formatReportDate(
+                                report,
+                                locale,
+                                t("common.unknownDate", "Unknown date")
+                              )}
                             </p>
                           </div>
                           <span className="text-xs font-semibold text-[var(--primary)]">
-                            Open
+                            {t("common.open", "Open")}
                           </span>
                         </li>
                       ))
@@ -558,12 +585,12 @@ export default function Home() {
 
                 <section className="space-y-3">
                   <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    Recent tickers
+                    {t("home.recentTickers", "Recent tickers")}
                   </h2>
                   <div className="flex flex-wrap gap-2">
                     {recentTickers.length === 0 ? (
                       <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-slate-500">
-                        Waiting for reports
+                        {t("home.waitingForReports", "Waiting for reports")}
                       </span>
                     ) : (
                       recentTickers.map((ticker) => (
@@ -605,12 +632,32 @@ function parseReportTimestamp(report: Report): number {
   return Number.NEGATIVE_INFINITY;
 }
 
-function formatReportDate(report: Report) {
+function formatReportDate(report: Report, locale: string, unknownDateLabel: string) {
   if (report.date && report.time) {
+    const parsed = new Date(`${report.date}T${report.time}`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(parsed);
+    }
+
     return `${report.date} · ${report.time}`;
   }
   if (report.date) {
+    const parsed = new Date(`${report.date}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(parsed);
+    }
+
     return report.date;
   }
-  return "Unknown date";
+  return unknownDateLabel;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   createScreenerTask,
   getScreenerConfigOptions,
@@ -8,6 +9,7 @@ import {
   type ScreenerConfigOptions,
 } from "@/lib/api";
 import { getLocalDateInputValue } from "@/lib/localDate";
+import { optionKey } from "@/lib/uiPreferences";
 
 interface NewScreenerFormProps {
   isOpen: boolean;
@@ -15,17 +17,23 @@ interface NewScreenerFormProps {
   onTaskCreated: (taskId: string) => void;
 }
 
-function validateScreenerRequest(formState: ScreenTaskCreateRequest): string | null {
+function validateScreenerRequest(
+  formState: ScreenTaskCreateRequest,
+  t: ReturnType<typeof usePreferences>["t"]
+): string | null {
   if (formState.markets.length === 0) {
-    return "Select at least one market.";
+    return t("screener.selectMarket", "Select at least one market.");
   }
 
   if (!Number.isFinite(formState.top_k) || formState.top_k <= 0) {
-    return "Top K must be positive.";
+    return t("screener.topKPositive", "Top K must be positive.");
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(formState.as_of_date)) {
-    return "as_of_date must use YYYY-MM-DD format.";
+    return t(
+      "screener.dateFormat",
+      "as_of_date must use YYYY-MM-DD format."
+    );
   }
 
   return null;
@@ -36,11 +44,21 @@ export function NewScreenerForm({
   onClose,
   onTaskCreated,
 }: NewScreenerFormProps) {
+  const { t } = usePreferences();
   const [configOptions, setConfigOptions] = useState<ScreenerConfigOptions | null>(null);
   const [formState, setFormState] = useState<ScreenTaskCreateRequest | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadOptionsErrorLabel = t(
+    "screener.error.loadOptions",
+    "Unable to load screener options"
+  );
+  const createTaskErrorLabel = t(
+    "screener.error.createTask",
+    "Unable to create screener task"
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -66,9 +84,7 @@ export function NewScreenerForm({
       } catch (nextError) {
         if (isActive) {
           setError(
-            nextError instanceof Error
-              ? nextError.message
-              : "Unable to load screener options"
+            nextError instanceof Error ? nextError.message : loadOptionsErrorLabel
           );
         }
       } finally {
@@ -82,7 +98,7 @@ export function NewScreenerForm({
     return () => {
       isActive = false;
     };
-  }, [isOpen]);
+  }, [isOpen, loadOptionsErrorLabel]);
 
   if (!isOpen) {
     return null;
@@ -104,7 +120,7 @@ export function NewScreenerForm({
       return;
     }
     setError(null);
-    const validationError = validateScreenerRequest(formState);
+    const validationError = validateScreenerRequest(formState, t);
     if (validationError) {
       setError(validationError);
       return;
@@ -117,9 +133,7 @@ export function NewScreenerForm({
       onTaskCreated(response.task_id);
     } catch (submitError) {
       setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Unable to create screener task"
+        submitError instanceof Error ? submitError.message : createTaskErrorLabel
       );
     } finally {
       setLoading(false);
@@ -134,17 +148,17 @@ export function NewScreenerForm({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="New screener"
+        aria-label={t("screener.dialog", "New screener")}
         className="modal-panel fade-in w-full max-w-2xl rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              Launch Screener
+              {t("screener.kicker", "Launch Screener")}
             </p>
             <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-              New Screener
+              {t("screener.title", "New Screener")}
             </h2>
           </div>
           <button
@@ -152,19 +166,19 @@ export function NewScreenerForm({
             className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
             onClick={onClose}
           >
-            Close
+            {t("common.close", "Close")}
           </button>
         </div>
 
         {loadingOptions || !configOptions || !formState ? (
           <div className="mt-8 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-600">
-            Loading screener options...
+            {t("screener.loadingOptions", "Loading screener options...")}
           </div>
         ) : (
           <div className="mt-8 grid gap-6">
             <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Markets
+                {t("screener.markets", "Markets")}
               </p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {configOptions.markets.map((market) => {
@@ -181,20 +195,16 @@ export function NewScreenerForm({
                       }`}
                       onClick={() => toggleMarket(market.value)}
                     >
-                      {market.label}
+                      {t(`screener.market.${optionKey(market.value)}`, market.label)}
                     </button>
                   );
                 })}
               </div>
               <p className="mt-2 text-xs leading-5 text-slate-500">
-                {
-                  configOptions.markets.find((market) => !market.enabled)
-                    ?.disabled_reason
-                }
-                {" "}
-                Disabled backend markets usually require server-side setup such as
-                {" "}
-                SCREEN_US_MANIFEST_PATH.
+                {t(
+                  "screener.marketHelp",
+                  "Disabled backend markets usually require server-side setup such as SCREEN_US_MANIFEST_PATH."
+                )}
               </p>
             </section>
 
@@ -202,7 +212,7 @@ export function NewScreenerForm({
               {formState.markets.includes("cn") ? (
                 <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
                   <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    CN Data Source
+                    {t("screener.cnDataSource", "CN Data Source")}
                   </span>
                   <div className="mt-3 flex flex-wrap gap-3">
                     {configOptions.cn_data_sources.map((sourceOption) => {
@@ -223,7 +233,10 @@ export function NewScreenerForm({
                             })
                           }
                         >
-                          {sourceOption.label}
+                          {t(
+                            `screener.cnSource.${optionKey(sourceOption.value)}`,
+                            sourceOption.label
+                          )}
                         </button>
                       );
                     })}
@@ -233,7 +246,7 @@ export function NewScreenerForm({
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  As Of Date
+                  {t("screener.asOfDate", "As Of Date")}
                 </span>
                 <input
                   type="date"
@@ -247,7 +260,7 @@ export function NewScreenerForm({
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Top K
+                  {t("screener.topK", "Top K")}
                 </span>
                 <input
                   type="number"
@@ -272,7 +285,7 @@ export function NewScreenerForm({
                 className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
                 onClick={onClose}
               >
-                Cancel
+                {t("common.cancel", "Cancel")}
               </button>
               <button
                 type="button"
@@ -280,7 +293,9 @@ export function NewScreenerForm({
                 disabled={loading}
                 onClick={() => void submitTask()}
               >
-                {loading ? "Launching..." : "Start Screener"}
+                {loading
+                  ? t("screener.starting", "Launching...")
+                  : t("screener.start", "Start Screener")}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import {
   saveTradeReview,
   type TradeRecord,
@@ -37,6 +38,7 @@ export function TradeReviewForm({
   onClose,
   onSaved,
 }: TradeReviewFormProps) {
+  const { t } = usePreferences();
   const [formState, setFormState] = useState<TradeReviewFormState>(() =>
     buildInitialState(existingReview, tradeRecord)
   );
@@ -83,16 +85,27 @@ export function TradeReviewForm({
   }
 
   const reviewTitle =
-    reviewType === "entry_review" ? "Entry Review" : "Exit Review";
+    reviewType === "entry_review"
+      ? t("journal.entryReview", "Entry Review")
+      : t("journal.exitReview", "Exit Review");
   const reviewFocus =
     reviewType === "entry_review"
-      ? "Stay anchored on thesis quality, timing, sizing, and discipline at the point of entry."
-      : "Judge the exit relative to the original thesis, stated horizon, and how risk was actually managed.";
+      ? t(
+          "tradeReview.entryFocus",
+          "Stay anchored on thesis quality, timing, sizing, and discipline at the point of entry."
+        )
+      : t(
+          "tradeReview.exitFocus",
+          "Judge the exit relative to the original thesis, stated horizon, and how risk was actually managed."
+        );
 
   const submitReview = async () => {
     if (referenceSummary.length === 0) {
       setError(
-        "Link at least one analysis snapshot on the trade record before saving a review."
+        t(
+          "tradeReview.linkSnapshotFirst",
+          "Link at least one analysis snapshot on the trade record before saving a review."
+        )
       );
       return;
     }
@@ -102,28 +115,35 @@ export function TradeReviewForm({
 
     try {
       const review = await saveTradeReview(tradeRecord.trade_id, reviewType, {
-        analysis_date: requireText(formState.analysis_date, "Analysis date"),
+        analysis_date: requireText(
+          formState.analysis_date,
+          t("tradeReview.analysisDate", "Analysis date")
+        ),
         analysis_references: referenceSummary,
         thesis_assessment: requireText(
           formState.thesis_assessment,
-          "Thesis assessment"
+          t("journal.thesisAssessment", "Thesis assessment")
         ),
         timing_assessment: requireText(
           formState.timing_assessment,
-          "Timing assessment"
+          t("journal.timingAssessment", "Timing assessment")
         ),
         sizing_assessment: requireText(
           formState.sizing_assessment,
-          "Sizing assessment"
+          t("journal.sizingAssessment", "Sizing assessment")
         ),
         discipline_assessment: requireText(
           formState.discipline_assessment,
-          "Discipline assessment"
+          t("journal.disciplineAssessment", "Discipline assessment")
         ),
-        outcome_summary: requireText(formState.outcome_summary, "Outcome summary"),
-        improvement_actions: splitMultilineList(formState.improvement_actions),
+        outcome_summary: requireText(
+          formState.outcome_summary,
+          t("journal.outcomeSummary", "Outcome summary")
+        ),
+        improvement_actions: splitMultilineList(formState.improvement_actions, t),
         ticker_specific_lessons: splitMultilineList(
-          formState.ticker_specific_lessons
+          formState.ticker_specific_lessons,
+          t
         ),
         cross_ticker_tags: splitTagList(formState.cross_ticker_tags),
       });
@@ -132,7 +152,7 @@ export function TradeReviewForm({
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "Unable to save the review"
+          : t("tradeReview.error.save", "Unable to save the review")
       );
     } finally {
       setSaving(false);
@@ -154,7 +174,7 @@ export function TradeReviewForm({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              Manual Review
+              {t("tradeReview.manualReview", "Manual Review")}
             </p>
             <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
               {reviewTitle}
@@ -172,13 +192,15 @@ export function TradeReviewForm({
             className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
             onClick={onClose}
           >
-            Close
+            {t("common.close", "Close")}
           </button>
         </div>
 
         <div className="mt-6 rounded-[26px] border border-[rgba(28,56,83,0.12)] bg-[var(--accent-soft)]/70 px-5 py-4 text-sm text-slate-700">
-          Manual-only MVP: reviews stay process-focused and snapshot-linked. The UI
-          does not imply automated trade execution or broker sync.
+          {t(
+            "tradeReview.manualOnly",
+            "Manual-only MVP: reviews stay process-focused and snapshot-linked. The UI does not imply automated trade execution or broker sync."
+          )}
         </div>
 
         <div className="mt-8 grid gap-6">
@@ -186,16 +208,19 @@ export function TradeReviewForm({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  Snapshot Context
+                  {t("tradeReview.snapshotContext", "Snapshot Context")}
                 </p>
                 <h3 className="mt-2 text-xl font-semibold text-slate-900">
-                  Using {referenceSummary.length} linked snapshot
-                  {referenceSummary.length === 1 ? "" : "s"}
+                  {t(
+                    "tradeReview.linkedSnapshots",
+                    ({ count }) => `Using ${count} linked snapshot${count === 1 ? "" : "s"}`,
+                    { count: referenceSummary.length }
+                  )}
                 </h3>
               </div>
               <label className="block rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3">
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Analysis Date
+                  {t("tradeReview.analysisDate", "Analysis Date")}
                 </span>
                 <input
                   type="date"
@@ -213,9 +238,10 @@ export function TradeReviewForm({
 
             {referenceSummary.length === 0 ? (
               <div className="mt-4 rounded-3xl border border-dashed border-amber-300 bg-amber-50 px-5 py-5 text-sm text-amber-800">
-                No analysis references are currently attached to this trade. Edit the
-                trade record first so the review can stay aligned with the MAY-8
-                report and full-state-log contract.
+                {t(
+                  "tradeReview.noReferences",
+                  "No analysis references are currently attached to this trade. Edit the trade record first so the review can stay aligned with the MAY-8 report and full-state-log contract."
+                )}
               </div>
             ) : (
               <div className="mt-4 space-y-3">
@@ -241,7 +267,7 @@ export function TradeReviewForm({
 
           <section className="grid gap-4 md:grid-cols-2">
             <ReviewField
-              label="Thesis Assessment"
+              label={t("journal.thesisAssessment", "Thesis Assessment")}
               value={formState.thesis_assessment}
               onChange={(value) =>
                 setFormState((current) => ({
@@ -249,10 +275,13 @@ export function TradeReviewForm({
                   thesis_assessment: value,
                 }))
               }
-              placeholder="Was the thesis explicit, evidence-based, and appropriate for this setup?"
+              placeholder={t(
+                "tradeReview.thesisPlaceholder",
+                "Was the thesis explicit, evidence-based, and appropriate for this setup?"
+              )}
             />
             <ReviewField
-              label="Timing Assessment"
+              label={t("journal.timingAssessment", "Timing Assessment")}
               value={formState.timing_assessment}
               onChange={(value) =>
                 setFormState((current) => ({
@@ -260,10 +289,13 @@ export function TradeReviewForm({
                   timing_assessment: value,
                 }))
               }
-              placeholder="Judge the entry or exit timing relative to the plan and information available then."
+              placeholder={t(
+                "tradeReview.timingPlaceholder",
+                "Judge the entry or exit timing relative to the plan and information available then."
+              )}
             />
             <ReviewField
-              label="Sizing Assessment"
+              label={t("journal.sizingAssessment", "Sizing Assessment")}
               value={formState.sizing_assessment}
               onChange={(value) =>
                 setFormState((current) => ({
@@ -271,10 +303,13 @@ export function TradeReviewForm({
                   sizing_assessment: value,
                 }))
               }
-              placeholder="Did size respect the stop distance, risk budget, and conviction?"
+              placeholder={t(
+                "tradeReview.sizingPlaceholder",
+                "Did size respect the stop distance, risk budget, and conviction?"
+              )}
             />
             <ReviewField
-              label="Discipline Assessment"
+              label={t("journal.disciplineAssessment", "Discipline Assessment")}
               value={formState.discipline_assessment}
               onChange={(value) =>
                 setFormState((current) => ({
@@ -282,13 +317,16 @@ export function TradeReviewForm({
                   discipline_assessment: value,
                 }))
               }
-              placeholder="Did execution stay aligned with the stated rules and risk plan?"
+              placeholder={t(
+                "tradeReview.disciplinePlaceholder",
+                "Did execution stay aligned with the stated rules and risk plan?"
+              )}
             />
           </section>
 
           <section className="grid gap-4">
             <ReviewField
-              label="Outcome Summary"
+              label={t("journal.outcomeSummary", "Outcome Summary")}
               value={formState.outcome_summary}
               onChange={(value) =>
                 setFormState((current) => ({
@@ -296,14 +334,17 @@ export function TradeReviewForm({
                   outcome_summary: value,
                 }))
               }
-              placeholder="Summarize what happened without reducing the verdict to PnL alone."
+              placeholder={t(
+                "tradeReview.outcomePlaceholder",
+                "Summarize what happened without reducing the verdict to PnL alone."
+              )}
               rows={4}
             />
 
             <div className="grid gap-4 md:grid-cols-3">
               <ListField
-                label="Improvement Actions"
-                helper="One concrete action per line."
+                label={t("journal.improvementActions", "Improvement Actions")}
+                helper={t("tradeReview.actionsHelper", "One concrete action per line.")}
                 value={formState.improvement_actions}
                 onChange={(value) =>
                   setFormState((current) => ({
@@ -311,11 +352,20 @@ export function TradeReviewForm({
                     improvement_actions: value,
                   }))
                 }
-                placeholder={"Write the invalidation clause before entry.\nConfirm catalyst quality before adding."}
+                placeholder={t(
+                  "tradeReview.actionsPlaceholder",
+                  "Write the invalidation clause before entry.\nConfirm catalyst quality before adding."
+                )}
               />
               <ListField
-                label="Ticker-Specific Lessons"
-                helper="Lessons that apply directly to this ticker or setup."
+                label={t(
+                  "journal.tickerSpecificLessons",
+                  "Ticker-Specific Lessons"
+                )}
+                helper={t(
+                  "tradeReview.lessonsHelper",
+                  "Lessons that apply directly to this ticker or setup."
+                )}
                 value={formState.ticker_specific_lessons}
                 onChange={(value) =>
                   setFormState((current) => ({
@@ -323,11 +373,17 @@ export function TradeReviewForm({
                     ticker_specific_lessons: value,
                   }))
                 }
-                placeholder={"MSFT setups improve when cloud commentary confirms demand durability."}
+                placeholder={t(
+                  "tradeReview.lessonsPlaceholder",
+                  "MSFT setups improve when cloud commentary confirms demand durability."
+                )}
               />
               <ListField
-                label="Cross-Ticker Tags"
-                helper="Optional. Use one per line or separate with commas."
+                label={t("journal.crossTickerTags", "Cross-Ticker Tags")}
+                helper={t(
+                  "tradeReview.tagsHelper",
+                  "Optional. Use one per line or separate with commas."
+                )}
                 value={formState.cross_ticker_tags}
                 onChange={(value) =>
                   setFormState((current) => ({
@@ -335,7 +391,10 @@ export function TradeReviewForm({
                     cross_ticker_tags: value,
                   }))
                 }
-                placeholder={"planned_stop\nquality_growth"}
+                placeholder={t(
+                  "tradeReview.tagsPlaceholder",
+                  "planned_stop\nquality_growth"
+                )}
               />
             </div>
           </section>
@@ -353,7 +412,7 @@ export function TradeReviewForm({
               onClick={onClose}
               disabled={saving}
             >
-              Cancel
+              {t("common.cancel", "Cancel")}
             </button>
             <button
               type="button"
@@ -365,7 +424,13 @@ export function TradeReviewForm({
               onClick={() => void submitReview()}
               disabled={saving || referenceSummary.length === 0}
             >
-              {saving ? "Saving..." : `Save ${reviewTitle}`}
+              {saving
+                ? t("tradeRecord.saving", "Saving...")
+                : t(
+                    "tradeReview.save",
+                    ({ title }) => `Save ${title}`,
+                    { title: reviewTitle }
+                  )}
             </button>
           </div>
         </div>
@@ -405,14 +470,22 @@ function requireText(value: string, fieldName: string): string {
   return normalized;
 }
 
-function splitMultilineList(value: string): string[] {
+function splitMultilineList(
+  value: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string[] {
   const items = value
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
 
   if (items.length === 0) {
-    throw new Error("Add at least one list item before saving the review.");
+    throw new Error(
+      t(
+        "tradeReview.listItemRequired",
+        "Add at least one list item before saving the review."
+      )
+    );
   }
 
   return items;

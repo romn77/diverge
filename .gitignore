@@ -5,7 +5,7 @@ __pycache__/
 
 # C extensions
 *.so
-
+.codex
 # Distribution / packaging
 .Python
 build/
@@ -22,6 +22,7 @@ web/frontend/lib/*
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
 !web/frontend/lib/highlightTerminalSkillAdoption.test.mjs
+!web/frontend/lib/uiPreferences.ts
 lib64/
 parts/
 sdist/
