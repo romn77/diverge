@@ -14,6 +14,7 @@ interface NewAnalysisFormProps {
   isOpen: boolean;
   onClose: () => void;
   onTaskCreated: (taskId: string) => void;
+  defaultOutputLanguage: string | null;
 }
 
 type FormState = TaskCreateRequest;
@@ -22,6 +23,7 @@ export function NewAnalysisForm({
   isOpen,
   onClose,
   onTaskCreated,
+  defaultOutputLanguage,
 }: NewAnalysisFormProps) {
   const { t } = usePreferences();
   const [configOptions, setConfigOptions] = useState<ConfigOptions | null>(null);
@@ -68,7 +70,6 @@ export function NewAnalysisForm({
           return;
         }
         setConfigOptions(nextOptions);
-        setFormState(buildInitialFormState(nextOptions));
       } catch (nextError) {
         if (isActive) {
           setError(
@@ -88,6 +89,20 @@ export function NewAnalysisForm({
       isActive = false;
     };
   }, [configOptions, isOpen, loadOptionsErrorLabel]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setFormState(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    if (configOptions && formState === null) {
+      setFormState(buildInitialFormState(configOptions, defaultOutputLanguage));
+      setError(null);
+    }
+  }, [configOptions, formState, isOpen]);
 
   useEffect(() => {
     if (!isOpen || !configOptions) {
@@ -551,14 +566,22 @@ export function NewAnalysisForm({
   );
 }
 
-function buildInitialFormState(configOptions: ConfigOptions): FormState {
+function buildInitialFormState(
+  configOptions: ConfigOptions,
+  defaultOutputLanguage: string | null
+): FormState {
   const provider =
     configOptions.providers.find((option) => option.enabled)?.value ??
     configOptions.providers[0]?.value ??
     "openai";
   const providerModels = configOptions.models[provider];
   const firstDepth = configOptions.research_depth[0]?.value ?? 1;
-  const firstLanguage = configOptions.output_languages[0]?.value ?? "en";
+  const firstLanguage =
+    configOptions.output_languages.find(
+      (option) => option.value === defaultOutputLanguage
+    )?.value ??
+    configOptions.output_languages[0]?.value ??
+    "en";
 
   return {
     ticker: "SPY",

@@ -15,6 +15,7 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /\[queueLocked,\s*setQueueLocked\]/);
   assert.match(source, /\[searchQuery,\s*setSearchQuery\]/);
   assert.match(source, /\[isSidebarOpen,\s*setIsSidebarOpen\]/);
+  assert.match(source, /\[defaultOutputLanguage,\s*setDefaultOutputLanguage\]/);
   assert.match(source, /\[activeTaskId,\s*setActiveTaskId\]/);
   assert.match(source, /\[showNewAnalysis,\s*setShowNewAnalysis\]/);
   assert.match(source, /\[showNewScreener,\s*setShowNewScreener\]/);
@@ -31,6 +32,8 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /newAnalysisDisabled=\{newAnalysisDisabled\}/);
   assert.match(source, /screenerRuns=\{screenerRuns\}/);
   assert.match(source, /screenerTaskQueue=\{visibleScreenerTaskQueue\}/);
+  assert.match(source, /selectedOutputLanguage=\{defaultOutputLanguage\}/);
+  assert.match(source, /onOutputLanguageChange=\{\(value\) => setDefaultOutputLanguage\(value\)\}/);
   assert.match(source, /selectedTradeJournal=\{showTradeJournal\}/);
   assert.match(source, /onSelectTradeJournal=\{\(\) => \{/);
   assert.match(source, /<NewScreenerForm/);
@@ -40,6 +43,7 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.doesNotMatch(source, /canReturnToQueue=\{/);
   assert.doesNotMatch(source, /onReturnToQueue=\{\(\) => \{/);
   assert.match(source, /<NewAnalysisForm/);
+  assert.match(source, /defaultOutputLanguage=\{defaultOutputLanguage\}/);
   assert.match(source, /<TaskProgress/);
   assert.match(source, /Launch Screener/);
   assert.match(source, /Open Manual Journal/);

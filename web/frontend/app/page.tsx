@@ -39,6 +39,9 @@ export default function Home() {
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [defaultOutputLanguage, setDefaultOutputLanguage] = useState<string | null>(
+    null
+  );
 
   const loadReports = async () => {
     setLoadingReports(true);
@@ -341,11 +344,14 @@ export default function Home() {
         newScreenerDisabled={newScreenerDisabled}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
+        selectedOutputLanguage={defaultOutputLanguage}
+        onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
       />
 
       <NewAnalysisForm
         isOpen={showNewAnalysis}
         onClose={() => setShowNewAnalysis(false)}
+        defaultOutputLanguage={defaultOutputLanguage}
         onTaskCreated={(taskId) => {
           setShowNewAnalysis(false);
           setShowTradeJournal(false);
