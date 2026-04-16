@@ -28,6 +28,7 @@ def fetch_history_for_universe(
     as_of_date: str,
     cn_data_source: str = "tushare",
     cn_data_source_fallbacks: list[str] | None = None,
+    us_data_source: str = "yfinance",
     cache_dir: str | Path | None = None,
     checkpoint_dir: str | Path | None = None,
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
@@ -38,6 +39,7 @@ def fetch_history_for_universe(
         as_of_date,
         cn_data_source=cn_data_source,
         cn_data_source_fallbacks=cn_data_source_fallbacks,
+        us_data_source=us_data_source,
         cache_dir=cache_dir,
         checkpoint_dir=checkpoint_dir,
     )
@@ -160,6 +162,7 @@ def debug_screen_symbol(
         config.as_of_date,
         cn_data_source=config.cn_data_source,
         cn_data_source_fallbacks=config.cn_data_source_fallbacks,
+        us_data_source=config.us_data_source,
         cache_dir=cache_root,
         checkpoint_dir=cache_root / "checkpoints",
     )

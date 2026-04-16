@@ -7,6 +7,7 @@ from pathlib import Path
 
 VALID_MARKETS = {"cn", "us"}
 VALID_CN_DATA_SOURCES = {"akshare", "tushare"}
+VALID_US_DATA_SOURCES = {"akshare", "alpha_vantage", "massive", "tushare", "yfinance"}
 
 
 def build_cn_source_chain(
@@ -38,6 +39,7 @@ class ScreenRunConfig:
     output_dir: str = "./results/screener"
     cn_data_source: str = "tushare"
     cn_data_source_fallbacks: list[str] = field(default_factory=list)
+    us_data_source: str = "yfinance"
     cn_manifest_path: str | None = None
     us_manifest_path: str | None = None
 
@@ -55,6 +57,7 @@ class ScreenRunConfig:
         self.cn_data_source_fallbacks = [
             source.strip().lower() for source in self.cn_data_source_fallbacks
         ]
+        self.us_data_source = self.us_data_source.strip().lower()
         if self.cn_manifest_path is not None:
             normalized_cn_manifest_path = self.cn_manifest_path.strip()
             self.cn_manifest_path = normalized_cn_manifest_path or None
@@ -89,6 +92,8 @@ class ScreenRunConfig:
 
         if self.cn_data_source not in VALID_CN_DATA_SOURCES:
             raise ValueError("cn_data_source must be one of {'akshare', 'tushare'}")
+        if self.us_data_source not in VALID_US_DATA_SOURCES:
+            raise ValueError("us_data_source must be one of {'akshare', 'alpha_vantage', 'massive', 'tushare', 'yfinance'}")
 
         if any(
             source not in VALID_CN_DATA_SOURCES

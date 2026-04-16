@@ -35,6 +35,19 @@ class VendorRegistryTests(unittest.TestCase):
         chain = interface.build_vendor_chain("get_stock_data", market)
         self.assertEqual(chain[0], "tushare")
 
+    def test_us_massive_vendor_selected_when_configured(self):
+        config_module.set_config(
+            {
+                "market": "auto",
+                "market_overrides": {"us": {"core_stock_apis": "massive,yfinance"}},
+            }
+        )
+        market, _, _ = interface.resolve_market_and_symbol(
+            "get_stock_data", ("AAPL", "2024-01-01", "2024-02-01"), {}
+        )
+        chain = interface.build_vendor_chain("get_stock_data", market)
+        self.assertEqual(chain[0], "massive")
+
 
 if __name__ == "__main__":
     unittest.main()

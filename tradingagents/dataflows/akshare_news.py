@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .akshare_rate_limit import call_akshare_api
 from .cn_market_utils import dataframe_to_standard_string, parse_and_normalize_cn_ticker
 from .vendor_errors import VendorDataEmptyError, VendorNotSupportedError, VendorRetryableError
 
@@ -18,7 +19,7 @@ def get_news(ticker: str, start_date: str, end_date: str) -> str:
     ak = _import_akshare()
     symbol = parse_and_normalize_cn_ticker(ticker)["raw"]
     try:
-        df = ak.stock_research_report_em(symbol=symbol)
+        df = call_akshare_api(ak.stock_research_report_em, symbol=symbol)
     except Exception as exc:
         raise VendorRetryableError(f"akshare news fetch failed: {exc}") from exc
 

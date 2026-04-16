@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from tradingagents.dataflows.akshare_rate_limit import call_akshare_api
 from tradingagents.data.manifest_schema import COMMON_MANIFEST_COLUMNS, COMPARE_MANIFEST_COLUMNS
 from tradingagents.dataflows.akshare_stock import _import_akshare
 from tradingagents.dataflows.cn_market_utils import infer_cn_exchange
@@ -96,7 +97,7 @@ def _save_universe_cache(cache_dir: str | Path, market: str, source: str, frame:
 def _load_akshare_cn_universe_rows() -> pd.DataFrame:
     ak = _import_akshare()
     raw = _retry_universe_request(
-        ak.stock_info_a_code_name,
+        lambda: call_akshare_api(ak.stock_info_a_code_name),
         label="akshare CN universe",
     )
     if raw is None:

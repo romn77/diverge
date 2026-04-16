@@ -20,6 +20,16 @@ TS_RENAME_MAP = {
     "amount": "Amount",
 }
 
+TS_US_RENAME_MAP = {
+    "trade_date": "Date",
+    "open": "Open",
+    "close": "Close",
+    "high": "High",
+    "low": "Low",
+    "vol": "Volume",
+    "amount": "Amount",
+}
+
 
 def _fetch_tushare_stock_df(symbol: str, start_date: str, end_date: str):
     pro = get_tushare_pro_client()
@@ -44,6 +54,33 @@ def _fetch_tushare_stock_df(symbol: str, start_date: str, end_date: str):
         )
 
     renamed = rename_columns(df, TS_RENAME_MAP)
+    renamed["Date"] = renamed["Date"].dt.strftime("%Y-%m-%d")
+    return renamed
+
+
+def _fetch_tushare_us_stock_df(symbol: str, start_date: str, end_date: str):
+    pro = get_tushare_pro_client()
+    try:
+        df = pro.us_daily(
+            ts_code=symbol,
+            start_date=to_tushare_date(start_date),
+            end_date=to_tushare_date(end_date),
+        )
+    except Exception as exc:
+        raise VendorRetryableError(f"tushare us stock fetch failed: {exc}") from exc
+
+    if df is None or df.empty:
+        raise VendorDataEmptyError(f"No tushare us stock data found for {symbol}")
+
+    if "trade_date" in df.columns:
+        df = df.copy()
+        df["trade_date"] = pd.to_datetime(
+            df["trade_date"].astype(str),
+            format="%Y%m%d",
+            errors="coerce",
+        )
+
+    renamed = rename_columns(df, TS_US_RENAME_MAP)
     renamed["Date"] = renamed["Date"].dt.strftime("%Y-%m-%d")
     return renamed
 

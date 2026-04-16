@@ -86,6 +86,7 @@ def run_screen(
         config.as_of_date,
         cn_data_source=config.cn_data_source,
         cn_data_source_fallbacks=config.cn_data_source_fallbacks,
+        us_data_source=config.us_data_source,
         progress_callback=progress_callback,
         cache_dir=cache_root,
         checkpoint_dir=cache_root / "checkpoints",

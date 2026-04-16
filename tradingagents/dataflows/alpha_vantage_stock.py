@@ -1,5 +1,21 @@
 from datetime import datetime
+from io import StringIO
+
+import pandas as pd
+
 from .alpha_vantage_common import _make_api_request, _filter_csv_by_date_range
+from .cn_market_utils import rename_columns
+from .vendor_errors import VendorDataEmptyError, VendorRetryableError
+
+
+AV_RENAME_MAP = {
+    "timestamp": "Date",
+    "open": "Open",
+    "close": "Close",
+    "high": "High",
+    "low": "Low",
+    "volume": "Volume",
+}
 
 def get_stock(
     symbol: str,
@@ -36,3 +52,19 @@ def get_stock(
     response = _make_api_request("TIME_SERIES_DAILY_ADJUSTED", params)
 
     return _filter_csv_by_date_range(response, start_date, end_date)
+
+
+def _fetch_alpha_vantage_stock_df(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+    csv_text = get_stock(symbol, start_date, end_date)
+    if not csv_text or not str(csv_text).strip():
+        raise VendorDataEmptyError(f"No Alpha Vantage stock data found for {symbol}")
+
+    try:
+        df = pd.read_csv(StringIO(csv_text))
+    except Exception as exc:
+        raise VendorRetryableError(f"alpha_vantage stock fetch failed: {exc}") from exc
+
+    if df is None or df.empty:
+        raise VendorDataEmptyError(f"No Alpha Vantage stock data found for {symbol}")
+
+    return rename_columns(df, AV_RENAME_MAP)

@@ -123,6 +123,127 @@ def test_fetch_price_history_uses_yfinance_for_us_and_computes_amount_when_missi
     assert result.loc[0, "Amount"] == 50_500.0
 
 
+def test_fetch_price_history_uses_alpha_vantage_for_us_and_computes_amount_when_missing():
+    frame = pd.DataFrame(
+        [
+            {
+                "Date": "2026-03-24",
+                "Open": 100.0,
+                "High": 102.0,
+                "Low": 99.5,
+                "Close": 101.0,
+                "Volume": 500,
+            }
+        ]
+    )
+
+    with patch(
+        "tradingagents.screener.market_data._fetch_alpha_vantage_stock_df",
+        return_value=frame,
+    ) as mock_fetch:
+        result = fetch_price_history(
+            "AAPL",
+            "us",
+            "2025-01-01",
+            "2026-03-24",
+            us_data_source="alpha_vantage",
+        )
+
+    mock_fetch.assert_called_once_with("AAPL", "2025-01-01", "2026-03-24")
+    assert result.loc[0, "Amount"] == 50_500.0
+
+
+def test_fetch_price_history_uses_tushare_for_us_and_keeps_amount():
+    frame = pd.DataFrame(
+        [
+            {
+                "Date": "2026-03-24",
+                "Open": 100.0,
+                "High": 102.0,
+                "Low": 99.5,
+                "Close": 101.0,
+                "Volume": 500,
+                "Amount": 50_500.0,
+            }
+        ]
+    )
+
+    with patch(
+        "tradingagents.screener.market_data._fetch_tushare_us_stock_df",
+        return_value=frame,
+    ) as mock_fetch:
+        result = fetch_price_history(
+            "AAPL",
+            "us",
+            "2025-01-01",
+            "2026-03-24",
+            us_data_source="tushare",
+        )
+
+    mock_fetch.assert_called_once_with("AAPL", "2025-01-01", "2026-03-24")
+    assert result.loc[0, "Amount"] == 50_500.0
+
+
+def test_fetch_price_history_uses_akshare_for_us_and_computes_amount_when_missing():
+    frame = pd.DataFrame(
+        [
+            {
+                "Date": "2026-03-24",
+                "Open": 100.0,
+                "High": 102.0,
+                "Low": 99.5,
+                "Close": 101.0,
+                "Volume": 500,
+            }
+        ]
+    )
+
+    with patch(
+        "tradingagents.screener.market_data._fetch_akshare_us_stock_df",
+        return_value=frame,
+    ) as mock_fetch:
+        result = fetch_price_history(
+            "AAPL",
+            "us",
+            "2025-01-01",
+            "2026-03-24",
+            us_data_source="akshare",
+        )
+
+    mock_fetch.assert_called_once_with("AAPL", "2025-01-01", "2026-03-24")
+    assert result.loc[0, "Amount"] == 50_500.0
+
+
+def test_fetch_price_history_uses_massive_for_us_and_computes_amount_when_missing():
+    frame = pd.DataFrame(
+        [
+            {
+                "Date": "2026-03-24",
+                "Open": 100.0,
+                "High": 102.0,
+                "Low": 99.5,
+                "Close": 101.0,
+                "Volume": 500,
+            }
+        ]
+    )
+
+    with patch(
+        "tradingagents.screener.market_data._fetch_massive_stock_df",
+        return_value=frame,
+    ) as mock_fetch:
+        result = fetch_price_history(
+            "AAPL",
+            "us",
+            "2025-01-01",
+            "2026-03-24",
+            us_data_source="massive",
+        )
+
+    mock_fetch.assert_called_once_with("AAPL", "2025-01-01", "2026-03-24")
+    assert result.loc[0, "Amount"] == 50_500.0
+
+
 def test_fetch_price_history_handles_empty_us_frame_without_columns():
     with patch(
         "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
@@ -229,6 +350,134 @@ def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding()
     sleep_values = [call.args[0] for call in mock_sleep.call_args_list]
     assert 0.5 in sleep_values
     assert 1.0 in sleep_values
+
+
+def test_fetch_history_for_universe_uses_configured_us_data_source(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    success_frame = _price_frame("2026-03-24")
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=success_frame,
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            us_data_source="alpha_vantage",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert "AAPL" in histories
+    assert failures.empty
+    mock_fetch.assert_called_once_with(
+        "AAPL",
+        "us",
+        "2025-02-17",
+        "2026-03-24",
+        us_data_source="alpha_vantage",
+    )
+
+
+def test_fetch_history_for_universe_uses_configured_tushare_us_data_source(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    success_frame = _price_frame("2026-03-24")
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=success_frame,
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            us_data_source="tushare",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert "AAPL" in histories
+    assert failures.empty
+    mock_fetch.assert_called_once_with(
+        "AAPL",
+        "us",
+        "2025-02-17",
+        "2026-03-24",
+        us_data_source="tushare",
+    )
+
+
+def test_fetch_history_for_universe_uses_configured_akshare_us_data_source(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    success_frame = _price_frame("2026-03-24")
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=success_frame,
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            us_data_source="akshare",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert "AAPL" in histories
+    assert failures.empty
+    mock_fetch.assert_called_once_with(
+        "AAPL",
+        "us",
+        "2025-02-17",
+        "2026-03-24",
+        us_data_source="akshare",
+    )
+
+
+def test_fetch_history_for_universe_uses_configured_massive_us_data_source(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    success_frame = _price_frame("2026-03-24")
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=success_frame,
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            us_data_source="massive",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert "AAPL" in histories
+    assert failures.empty
+    mock_fetch.assert_called_once_with(
+        "AAPL",
+        "us",
+        "2025-02-17",
+        "2026-03-24",
+        us_data_source="massive",
+    )
 
 
 def test_fetch_history_for_universe_reraises_raw_cn_error_after_retries_exhausted():
@@ -450,6 +699,89 @@ def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoi
     ]
 
 
+def test_fetch_history_for_universe_reports_checkpoint_source_in_progress_detail(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+    path = checkpoint_path(checkpoint_dir, universe, "2026-03-24", "tushare")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "as_of_date": "2026-03-24",
+                "start_date": "2025-02-17",
+                "processed_symbols": [],
+                "fetch_failed_symbols": [],
+                "failed_symbols": [
+                    {
+                        "symbol": "AAPL",
+                        "market": "us",
+                        "drop_reason": "history_empty",
+                    }
+                ],
+                "universe_total": 1,
+                "last_symbol": "AAPL",
+                "updated_at": "2026-04-16T10:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    progress_events: list[dict[str, str | int | None]] = []
+
+    def progress_callback(
+        stage: str,
+        current: int,
+        total: int,
+        symbol: str | None = None,
+        status: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        progress_events.append(
+            {
+                "stage": stage,
+                "current": current,
+                "total": total,
+                "symbol": symbol,
+                "status": status,
+                "detail": detail,
+            }
+        )
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        side_effect=AssertionError("checkpoint failures should skip refetch"),
+    ):
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+            progress_callback=progress_callback,
+        )
+
+    assert histories == {}
+    assert failures.to_dict("records") == [
+        {
+            "symbol": "AAPL",
+            "market": "us",
+            "drop_reason": "history_empty",
+        }
+    ]
+    assert progress_events == [
+        {
+            "stage": "history",
+            "current": 1,
+            "total": 1,
+            "symbol": "AAPL",
+            "status": "skip_checkpoint_failure",
+            "detail": "drop_reason=history_empty source=checkpoint updated_at=2026-04-16T10:00:00+00:00",
+        }
+    ]
+
+
 def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_refetch(tmp_path):
     universe = pd.DataFrame(
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
@@ -570,7 +902,7 @@ def test_fetch_history_for_universe_fetches_only_missing_tail_when_cache_is_stal
         "us",
         "2026-03-22",
         "2026-03-24",
-        cn_data_source="tushare",
+        us_data_source="yfinance",
     )
     assert histories["AAPL"]["Date"].tolist() == [
         "2025-02-17",
@@ -632,6 +964,62 @@ def test_fetch_history_for_universe_reports_tail_fetch_progress(tmp_path):
             "symbol": "AAPL",
             "status": "fetch_tail",
             "detail": "cache=2025-02-17..2026-03-21 fetch=2026-03-22..2026-03-24 source=yfinance",
+        }
+    ]
+
+
+def test_fetch_history_for_universe_reports_tail_fetch_progress_for_akshare_us(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+    symbol_cache_path = cache_dir / "history" / "us" / "AAPL.csv"
+    symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
+    _price_frame("2025-02-17", "2026-03-20", "2026-03-21").to_csv(symbol_cache_path, index=False)
+    progress_events: list[dict[str, str | int | None]] = []
+
+    def progress_callback(
+        stage: str,
+        current: int,
+        total: int,
+        symbol: str | None = None,
+        status: str | None = None,
+        detail: str | None = None,
+    ) -> None:
+        progress_events.append(
+            {
+                "stage": stage,
+                "current": current,
+                "total": total,
+                "symbol": symbol,
+                "status": status,
+                "detail": detail,
+            }
+        )
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=_price_frame("2026-03-22", "2026-03-24"),
+    ):
+        fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            us_data_source="akshare",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+            progress_callback=progress_callback,
+        )
+
+    assert progress_events == [
+        {
+            "stage": "history",
+            "current": 1,
+            "total": 1,
+            "symbol": "AAPL",
+            "status": "fetch_tail",
+            "detail": "cache=2025-02-17..2026-03-21 fetch=2026-03-22..2026-03-24 source=akshare",
         }
     ]
 

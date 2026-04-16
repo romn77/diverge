@@ -116,6 +116,27 @@ def test_load_cn_universe_retries_akshare_universe_fetch_before_succeeding():
     assert 0.5 in sleep_values
 
 
+def test_load_akshare_cn_universe_rows_uses_rate_limiter():
+    akshare_client = Mock()
+    akshare_df = pd.DataFrame(
+        [
+            {
+                "code": "600519",
+                "name": "Kweichow Moutai",
+            }
+        ]
+    )
+
+    with (
+        patch("tradingagents.screener.universe._import_akshare", return_value=akshare_client),
+        patch("tradingagents.screener.universe.call_akshare_api", return_value=akshare_df) as mock_rate_limit,
+    ):
+        result = load_cn_universe(data_source="akshare")
+
+    assert result["symbol"].tolist() == ["600519.SH"]
+    mock_rate_limit.assert_called_once_with(akshare_client.stock_info_a_code_name)
+
+
 def test_load_cn_universe_reraises_raw_akshare_error_after_retries_exhausted():
     akshare_client = Mock()
     akshare_client.stock_info_a_code_name.side_effect = RuntimeError("akshare boom")

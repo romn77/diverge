@@ -20,6 +20,7 @@ from .alpha_vantage import (
     get_news as get_alpha_vantage_news,
     get_global_news as get_alpha_vantage_global_news,
 )
+from .massive import get_stock as get_massive_stock
 from .alpha_vantage_common import AlphaVantageRateLimitError
 from .cn_market_utils import detect_market, normalize_symbol_for_vendor
 from .config import get_config
@@ -86,11 +87,12 @@ VENDOR_LIST = [
     "tushare",
     "yfinance",
     "alpha_vantage",
+    "massive",
 ]
 
 MARKET_VENDOR_ALLOWLIST = {
     "cn": {"akshare", "tushare", "yfinance"},
-    "us": {"yfinance", "alpha_vantage"},
+    "us": {"yfinance", "alpha_vantage", "massive"},
     "global": {"yfinance", "alpha_vantage"},
 }
 
@@ -114,6 +116,7 @@ VENDOR_METHODS = {
         "tushare": get_tushare_stock,
         "alpha_vantage": get_alpha_vantage_stock,
         "yfinance": get_YFin_data_online,
+        "massive": get_massive_stock,
     },
     # technical_indicators
     "get_indicators": {

@@ -7,9 +7,12 @@ from typing import Callable
 
 import pandas as pd
 
-from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df
+from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df, _fetch_akshare_us_stock_df
+from tradingagents.dataflows.alpha_vantage_common import AlphaVantageRateLimitError
+from tradingagents.dataflows.alpha_vantage_stock import _fetch_alpha_vantage_stock_df
 from tradingagents.dataflows.cn_market_utils import normalize_symbol_for_vendor
-from tradingagents.dataflows.tushare_stock import _fetch_tushare_stock_df
+from tradingagents.dataflows.massive_stock import _fetch_massive_stock_df
+from tradingagents.dataflows.tushare_stock import _fetch_tushare_stock_df, _fetch_tushare_us_stock_df
 from tradingagents.dataflows.vendor_errors import (
     VendorAuthError,
     VendorDataEmptyError,
@@ -44,6 +47,19 @@ CN_FALLBACK_ERRORS = (
     VendorRetryableError,
     VendorAuthError,
     VendorNotSupportedError,
+)
+
+try:
+    from yfinance.exceptions import YFRateLimitError
+except ModuleNotFoundError:  # pragma: no cover
+    class YFRateLimitError(Exception):
+        pass
+
+
+US_RETRYABLE_ERRORS = (
+    VendorRetryableError,
+    AlphaVantageRateLimitError,
+    YFRateLimitError,
 )
 
 
@@ -109,6 +125,7 @@ def fetch_price_history(
     start_date: str,
     end_date: str,
     cn_data_source: str = "tushare",
+    us_data_source: str = "yfinance",
 ) -> pd.DataFrame:
     if market == "cn":
         vendor_symbol = normalize_symbol_for_vendor(symbol, market="cn", vendor=cn_data_source)
@@ -125,14 +142,25 @@ def fetch_price_history(
         return _normalize_price_frame(frame)
 
     if market == "us":
-        vendor_symbol = _normalize_us_symbol_for_yfinance(symbol)
-        frame = _fetch_yfinance_ohlcv_df(
-            vendor_symbol,
-            start_date,
-            end_date,
-            use_cache=True,
-            auto_adjust=False,
-        )
+        if us_data_source == "yfinance":
+            vendor_symbol = _normalize_us_symbol_for_yfinance(symbol)
+            frame = _fetch_yfinance_ohlcv_df(
+                vendor_symbol,
+                start_date,
+                end_date,
+                use_cache=True,
+                auto_adjust=False,
+            )
+        elif us_data_source == "alpha_vantage":
+            frame = _fetch_alpha_vantage_stock_df(symbol, start_date, end_date)
+        elif us_data_source == "tushare":
+            frame = _fetch_tushare_us_stock_df(symbol, start_date, end_date)
+        elif us_data_source == "akshare":
+            frame = _fetch_akshare_us_stock_df(symbol, start_date, end_date)
+        elif us_data_source == "massive":
+            frame = _fetch_massive_stock_df(symbol, start_date, end_date)
+        else:
+            raise ValueError(f"Unsupported US data source '{us_data_source}'")
         return _normalize_price_frame(frame)
 
     raise ValueError(f"Unsupported market '{market}'")
@@ -143,6 +171,7 @@ def fetch_history_for_universe(
     as_of_date: str,
     cn_data_source: str = "tushare",
     cn_data_source_fallbacks: list[str] | None = None,
+    us_data_source: str = "yfinance",
     progress_callback: Callable[..., None] | None = None,
     cache_dir: str | Path | None = None,
     checkpoint_dir: str | Path | None = None,
@@ -176,6 +205,7 @@ def fetch_history_for_universe(
         for item in checkpoint_failed_symbols
         if item.get("symbol")
     }
+    checkpoint_updated_at = checkpoint_payload.get("updated_at")
 
     histories: dict[str, pd.DataFrame] = {}
     failures: list[dict[str, str]] = []
@@ -205,16 +235,18 @@ def fetch_history_for_universe(
                     if us_network_fetch_count > 0:
                         time.sleep(US_REQUEST_DELAY_SECONDS)
                     us_network_fetch_count += 1
-                    last_fetch_source = "yfinance"
+                    last_fetch_source = us_data_source
                     return fetch_price_history(
                         symbol,
                         market,
                         fetch_start,
                         as_of_date,
-                        cn_data_source=cn_data_source,
+                        us_data_source=us_data_source,
                     )
-                except VendorRetryableError:
+                except US_RETRYABLE_ERRORS as exc:
                     if attempt >= len(RETRY_BACKOFF_SECONDS):
+                        if isinstance(exc, VendorRetryableError):
+                            raise _unwrap_vendor_error(exc)
                         raise
                     time.sleep(RETRY_BACKOFF_SECONDS[attempt])
                     attempt += 1
@@ -304,6 +336,9 @@ def fetch_history_for_universe(
 
             if cached_frame.empty and symbol in checkpoint_failure_reasons:
                 drop_reason = checkpoint_failure_reasons[symbol]
+                checkpoint_detail = f"drop_reason={drop_reason} source=checkpoint"
+                if checkpoint_updated_at:
+                    checkpoint_detail += f" updated_at={checkpoint_updated_at}"
                 failures.append(
                     {
                         "symbol": symbol,
@@ -318,7 +353,7 @@ def fetch_history_for_universe(
                     total,
                     symbol,
                     status="skip_checkpoint_failure",
-                    detail=f"drop_reason={drop_reason}",
+                    detail=checkpoint_detail,
                 )
                 continue
 

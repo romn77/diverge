@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -179,3 +180,29 @@ def test_build_us_manifest_filters_non_common_stock_rows_before_limit():
             "mktcap": 2000.0,
         }
     ]
+
+
+def test_write_us_manifest_uses_akshare_rate_limiter_when_loading_source(tmp_path):
+    source_df = pd.DataFrame(
+        [
+            {
+                "name": "Apple, Inc.",
+                "category": "计算机",
+                "symbol": "AAPL",
+                "market": "NASDAQ",
+                "mktcap": "2000",
+            }
+        ]
+    )
+    output_path = tmp_path / "us_manifest.csv"
+    akshare_client = type("AkshareClient", (), {"stock_us_spot": object()})()
+
+    with (
+        patch("tradingagents.data.us_manifest._import_akshare", return_value=akshare_client),
+        patch("tradingagents.data.us_manifest.call_akshare_api", return_value=source_df) as mock_rate_limit,
+    ):
+        manifest_df = write_us_manifest(output_path=output_path, limit=1)
+
+    assert output_path.is_file()
+    assert manifest_df["symbol"].tolist() == ["AAPL"]
+    mock_rate_limit.assert_called_once()

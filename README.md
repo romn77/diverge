@@ -182,6 +182,7 @@ TradingAgents also ships with a daily screener that builds a ranked candidate po
 
 - CN screening accepts an optional manifest path via `--cn-manifest`; if omitted, the screener falls back to live CN universe loading with `--cn-data-source`
 - US screening requires a manifest path via `--us-manifest`
+- US screening uses `yfinance` by default and can switch to `alpha_vantage`, `tushare`, `akshare`, or `massive` with `--us-data-source`
 - LLM analysis happens after screener output, not during screener execution
 - History cache and recovery checkpoints live under `results/screener/.cache/`; reruns reuse cached OHLCV and can resume after mid-history failures
 
@@ -194,6 +195,7 @@ tradingagents screen \
   --top-k 100 \
   --cn-manifest /absolute/path/to/cn_manifest.csv \
   --us-manifest /absolute/path/to/us_manifest.csv \
+  --us-data-source alpha_vantage \
   --output-dir ./results/screener
 ```
 

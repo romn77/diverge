@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .akshare_rate_limit import call_akshare_api
 from .cn_market_utils import dataframe_to_standard_string, parse_and_normalize_cn_ticker
 from .vendor_errors import VendorDataEmptyError, VendorRetryableError
 
@@ -18,7 +19,11 @@ def _fetch_report(symbol: str, report_name: str):
     ak = _import_akshare()
     qualified_symbol = parse_and_normalize_cn_ticker(symbol)["akshare_prefixed"]
     try:
-        df = ak.stock_financial_report_sina(stock=qualified_symbol, symbol=report_name)
+        df = call_akshare_api(
+            ak.stock_financial_report_sina,
+            stock=qualified_symbol,
+            symbol=report_name,
+        )
     except Exception as exc:
         raise VendorRetryableError(f"akshare financial fetch failed: {exc}") from exc
 

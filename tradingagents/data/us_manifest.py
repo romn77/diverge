@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import akshare as ak
 import pandas as pd
 
 from tradingagents.data.manifest_schema import COMPARE_MANIFEST_COLUMNS
+from tradingagents.dataflows.akshare_rate_limit import call_akshare_api
 from tradingagents.screener.universe_rules import (
     US_UNIVERSE_CAP_DEFAULT,
     filter_us_common_stock_rows,
@@ -16,6 +16,12 @@ from tradingagents.screener.universe_rules import (
 DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("us_manifest.csv")
 MANIFEST_COLUMNS = COMPARE_MANIFEST_COLUMNS
 DEFAULT_LIMIT = US_UNIVERSE_CAP_DEFAULT
+
+
+def _import_akshare():
+    import akshare as ak
+
+    return ak
 
 
 def build_us_manifest(source_df: pd.DataFrame, limit: int | None = DEFAULT_LIMIT) -> pd.DataFrame:
@@ -57,7 +63,8 @@ def write_us_manifest(
     limit: int | None = DEFAULT_LIMIT,
 ) -> pd.DataFrame:
     if source_df is None:
-        source_df = ak.stock_us_spot()
+        ak = _import_akshare()
+        source_df = call_akshare_api(ak.stock_us_spot)
 
     manifest_df = build_us_manifest(source_df=source_df, limit=limit)
     output = Path(output_path)

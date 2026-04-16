@@ -4,6 +4,7 @@ from datetime import date
 
 import pandas as pd
 
+from .akshare_rate_limit import call_akshare_api
 from .cn_market_utils import parse_and_normalize_cn_ticker
 from .vendor_errors import VendorDataEmptyError, VendorRetryableError
 from tradingagents.valuation.schemas import (
@@ -40,7 +41,11 @@ def _fetch_multi_period_reports(
     reports = []
     for report_name in ("利润表", "资产负债表", "现金流量表"):
         try:
-            df = ak.stock_financial_report_sina(stock=normalized, symbol=report_name)
+            df = call_akshare_api(
+                ak.stock_financial_report_sina,
+                stock=normalized,
+                symbol=report_name,
+            )
         except Exception as exc:
             raise VendorRetryableError(f"akshare financial fetch failed: {exc}") from exc
         if df is None or df.empty:
@@ -52,7 +57,7 @@ def _fetch_multi_period_reports(
 
 def _get_cn_risk_free_rate() -> AssumptionValue:
     ak = _import_akshare()
-    rates = ak.bond_zh_us_rate()
+    rates = call_akshare_api(ak.bond_zh_us_rate)
     latest = rates.dropna(subset=["中国国债收益率10年"]).iloc[-1]
     return AssumptionValue(
         value=float(latest["中国国债收益率10年"]) / 100.0,
@@ -147,7 +152,8 @@ def _build_cn_snapshots(
 def _load_stock_returns(ticker: str) -> list[float]:
     ak = _import_akshare()
     symbol = parse_and_normalize_cn_ticker(ticker)["akshare"]
-    df = ak.stock_zh_a_hist(
+    df = call_akshare_api(
+        ak.stock_zh_a_hist,
         symbol=symbol,
         period="daily",
         start_date="20240101",
@@ -165,7 +171,7 @@ def _load_stock_returns(ticker: str) -> list[float]:
 def _load_index_returns(symbol: str) -> list[float]:
     ak = _import_akshare()
     normalized = parse_and_normalize_cn_ticker(symbol)["akshare"]
-    df = ak.stock_zh_index_daily(symbol=normalized)
+    df = call_akshare_api(ak.stock_zh_index_daily, symbol=normalized)
     if df is None or df.empty or "close" not in df.columns:
         return []
     close = pd.to_numeric(df["close"], errors="coerce").dropna()
@@ -201,7 +207,10 @@ def build_akshare_valuation_input(
 
     income_df, balance_df, cashflow_df = _fetch_multi_period_reports(ticker)
     ak = _import_akshare()
-    research_df = ak.stock_research_report_em(symbol=parse_and_normalize_cn_ticker(ticker)["raw"])
+    research_df = call_akshare_api(
+        ak.stock_research_report_em,
+        symbol=parse_and_normalize_cn_ticker(ticker)["raw"],
+    )
 
     assumptions = {
         "risk_free_rate": _get_cn_risk_free_rate(),

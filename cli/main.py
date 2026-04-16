@@ -1273,6 +1273,7 @@ def screen(
     top_k: int = typer.Option(100, "--top-k"),
     cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
     cn_data_source_fallbacks: str = typer.Option("", "--cn-data-source-fallbacks"),
+    us_data_source: str = typer.Option("yfinance", "--us-data-source"),
     cn_manifest: str | None = typer.Option(None, "--cn-manifest"),
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
@@ -1297,6 +1298,7 @@ def screen(
         output_dir=output_dir,
         cn_data_source=cn_data_source,
         cn_data_source_fallbacks=parsed_cn_fallbacks,
+        us_data_source=us_data_source,
         cn_manifest_path=cn_manifest,
         us_manifest_path=us_manifest,
     )
@@ -1366,6 +1368,7 @@ def screen_debug(
     date: str | None = typer.Option(None, "--date"),
     cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
     cn_data_source_fallbacks: str = typer.Option("", "--cn-data-source-fallbacks"),
+    us_data_source: str = typer.Option("yfinance", "--us-data-source"),
     cn_manifest: str | None = typer.Option(None, "--cn-manifest"),
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
@@ -1390,6 +1393,7 @@ def screen_debug(
         output_dir=output_dir,
         cn_data_source=cn_data_source,
         cn_data_source_fallbacks=parsed_cn_fallbacks,
+        us_data_source=us_data_source,
         cn_manifest_path=cn_manifest,
         us_manifest_path=us_manifest,
     )
