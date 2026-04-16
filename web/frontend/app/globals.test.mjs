@@ -28,3 +28,12 @@ test("globals.css keeps markdown typography compact for dense report reading", (
   assert.match(source, /\.markdown-content h2\s*\{\s*margin:\s*0\.5em 0 0\.48em;/);
   assert.match(source, /\.markdown-content h3\s*\{\s*margin:\s*1em 0 0\.38em;/);
 });
+
+test("globals.css provides a reusable hidden-scrollbar utility for modal panels", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  assert.match(source, /\.scrollbar-hidden\s*\{/);
+  assert.match(source, /scrollbar-width:\s*none;/);
+  assert.match(source, /-ms-overflow-style:\s*none;/);
+  assert.match(source, /\.scrollbar-hidden::\-webkit-scrollbar\s*\{\s*display:\s*none;/);
+});

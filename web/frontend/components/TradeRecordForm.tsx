@@ -145,7 +145,7 @@ export function TradeRecordForm({
         role="dialog"
         aria-modal="true"
         aria-label={localizedTitle}
-        className="modal-panel fade-in max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
+        className="modal-panel scrollbar-hidden fade-in max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex flex-wrap items-start justify-between gap-4">

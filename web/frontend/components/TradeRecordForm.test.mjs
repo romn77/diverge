@@ -41,3 +41,11 @@ test("TradeRecordForm preserves offset-aware timestamps through the datetime-loc
   assert.match(source, /getTimezoneOffset/);
   assert.equal(source.includes('return value.replace("Z", "").slice(0, 16);'), false);
 });
+
+test("TradeRecordForm hides native scrollbar chrome while keeping internal modal scrolling", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /max-h-\[92vh\]/);
+  assert.match(source, /overflow-y-auto/);
+  assert.match(source, /scrollbar-hidden/);
+});

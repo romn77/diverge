@@ -50,3 +50,11 @@ test("NewAnalysisForm preserves an open draft when the sidebar language default 
     /\}, \[configOptions, defaultOutputLanguage, formState, isOpen\]\);/
   );
 });
+
+test("NewAnalysisForm keeps tall dialog content inside an internal scroll container", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /max-h-\[92vh\]/);
+  assert.match(source, /overflow-y-auto/);
+  assert.match(source, /scrollbar-hidden/);
+});

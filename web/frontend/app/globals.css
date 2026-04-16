@@ -282,6 +282,15 @@ input {
     linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(255, 248, 238, 0.94) 100%);
 }
 
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
+
 .field-shell {
   box-shadow: 0 14px 28px rgba(18, 28, 41, 0.04);
 }
