@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import {
   getConfigOptions,
@@ -17,8 +24,7 @@ type FocusTarget =
   | "search"
   | "screeners"
   | "recentReports"
-  | "allTickers"
-  | "settings";
+  | "allTickers";
 
 interface SidebarProps {
   selectedReportId: string | null;
@@ -101,7 +107,10 @@ export function Sidebar({
   const allTickersToggleRef = useRef<HTMLButtonElement>(null);
   const firstTickerButtonRef = useRef<HTMLButtonElement>(null);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
+  const settingsPopoverRef = useRef<HTMLDivElement>(null);
   const settingsLanguageSelectRef = useRef<HTMLSelectElement>(null);
+  const [settingsPopoverStyle, setSettingsPopoverStyle] =
+    useState<CSSProperties | null>(null);
 
   const sortedReports = useMemo(() => {
     return [...reports].sort(
@@ -186,7 +195,7 @@ export function Sidebar({
   }, [isMobileDrawerOpen]);
 
   useEffect(() => {
-    if (!isMobileDrawerOpen) {
+    if (!isMobileDrawerOpen || isSettingsOpen) {
       return;
     }
 
@@ -200,7 +209,40 @@ export function Sidebar({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMobileDrawerOpen, onClose]);
+  }, [isMobileDrawerOpen, isSettingsOpen, onClose]);
+
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+      if (settingsPopoverRef.current?.contains(target)) {
+        return;
+      }
+      if (settingsTriggerRef.current?.contains(target)) {
+        return;
+      }
+      setIsSettingsOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeSettingsPopover();
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isSettingsOpen]);
 
   useEffect(() => {
     if (isMobileDrawerOpen) {
@@ -273,16 +315,9 @@ export function Sidebar({
                 ? firstRecentReportButtonRef.current ?? recentReportsToggleRef.current
                 : pendingFocusTarget === "allTickers"
                   ? firstTickerButtonRef.current ?? allTickersToggleRef.current
-                  : settingsConfig
-                    ? settingsLanguageSelectRef.current ?? settingsTriggerRef.current
-                    : settingsError
-                      ? settingsTriggerRef.current
-                      : null;
+                  : null;
 
     if (!targetElement) {
-      if (pendingFocusTarget === "settings" && settingsConfig === null && settingsError === null) {
-        return;
-      }
       setPendingFocusTarget(null);
       return;
     }
@@ -302,11 +337,61 @@ export function Sidebar({
     pendingFocusTarget,
     recentReports.length,
     screenerRuns.length,
-    settingsConfig,
-    settingsError,
     taskQueue.length,
     screenerTaskQueue.length,
     tickerOrder.length,
+  ]);
+
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      setSettingsPopoverStyle(null);
+      return;
+    }
+
+    const updateSettingsPopoverPosition = () => {
+      const trigger = settingsTriggerRef.current;
+      if (!trigger) {
+        return;
+      }
+      const panelWidth = settingsPopoverRef.current?.offsetWidth ?? 320;
+      const triggerRect = trigger.getBoundingClientRect();
+      const viewportPadding = 16;
+      const gap = 12;
+      const left = isDesktopRail
+        ? Math.min(
+            window.innerWidth - panelWidth - viewportPadding,
+            triggerRect.right + gap
+          )
+        : Math.min(
+            window.innerWidth - panelWidth - viewportPadding,
+            Math.max(viewportPadding, triggerRect.right - panelWidth)
+          );
+
+      setSettingsPopoverStyle({
+        left,
+        bottom: Math.max(viewportPadding, window.innerHeight - triggerRect.top + gap),
+      });
+    };
+
+    const rafId = window.requestAnimationFrame(() => {
+      updateSettingsPopoverPosition();
+      settingsLanguageSelectRef.current?.focus();
+    });
+
+    window.addEventListener("resize", updateSettingsPopoverPosition);
+    window.addEventListener("scroll", updateSettingsPopoverPosition, true);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", updateSettingsPopoverPosition);
+      window.removeEventListener("scroll", updateSettingsPopoverPosition, true);
+    };
+  }, [
+    isDesktopRail,
+    isSettingsOpen,
+    outputLanguageOptions.length,
+    settingsError,
+    settingsLoading,
   ]);
 
   const toggleTicker = (ticker: string) => {
@@ -344,15 +429,24 @@ export function Sidebar({
     }
   };
 
+  const closeSettingsPopover = () => {
+    setIsSettingsOpen(false);
+    window.requestAnimationFrame(() => {
+      settingsTriggerRef.current?.focus();
+    });
+  };
+
+  const toggleSettingsPopover = () => {
+    setPendingFocusTarget(null);
+    setIsSettingsOpen((current) => !current);
+  };
+
   const openBrowseTarget = (target: FocusTarget) => {
     if (target === "recentReports") {
       setIsRecentReportsOpen(true);
     }
     if (target === "allTickers") {
       setIsAllTickersOpen(true);
-    }
-    if (target === "settings") {
-      setIsSettingsOpen(true);
     }
 
     setPendingFocusTarget(target);
@@ -369,7 +463,6 @@ export function Sidebar({
     }
 
     setPendingFocusTarget(null);
-    setIsSettingsOpen(false);
     setIsDesktopCollapsed(true);
   };
 
@@ -426,22 +519,43 @@ export function Sidebar({
             ) : (
               <button
                 type="button"
-                className="interactive-button focus-ring rounded-2xl border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                className="interactive-button focus-ring rounded-xl p-2 text-slate-500 transition hover:bg-white/80 hover:text-[var(--primary)]"
                 onClick={toggleDesktopCollapse}
                 aria-label={
                   isDesktopRail
                     ? t("sidebar.expand", "Expand sidebar")
                     : t("sidebar.collapse", "Collapse sidebar")
                 }
+                aria-expanded={!isDesktopRail}
                 title={
                   isDesktopRail
                     ? t("sidebar.expand", "Expand sidebar")
                     : t("sidebar.collapse", "Collapse sidebar")
                 }
               >
-                {isDesktopRail
-                  ? t("sidebar.expandShort", "Expand")
-                  : t("sidebar.collapseShort", "Collapse")}
+                <svg
+                  viewBox="0 0 16 16"
+                  className={`h-4 w-4 transition-transform ${
+                    isDesktopRail ? "rotate-180" : ""
+                  }`}
+                  fill="none"
+                  aria-hidden
+                >
+                  <path
+                    d="M9.5 3.5 5 8l4.5 4.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M13 3.5 8.5 8 13 12.5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
             )}
           </div>
@@ -642,7 +756,10 @@ export function Sidebar({
                   label="Settings"
                   title="Settings"
                   active={isSettingsOpen}
-                  onClick={() => openBrowseTarget("settings")}
+                  buttonRef={(element) => {
+                    settingsTriggerRef.current = element;
+                  }}
+                  onClick={toggleSettingsPopover}
                 >
                   <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
                     <path
@@ -1147,176 +1264,158 @@ export function Sidebar({
               </div>
 
               <div className="mt-auto border-t border-[var(--border)] pt-4">
-                <button
-                  ref={settingsTriggerRef}
-                  type="button"
-                  className="flex w-full items-center justify-between rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-left transition hover:border-[var(--primary)]"
-                  onClick={() => setIsSettingsOpen((current) => !current)}
-                  aria-expanded={isSettingsOpen}
-                  aria-controls="sidebar-settings-panel"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--surface-strong)] text-slate-600">
-                      <svg
-                        viewBox="0 0 20 20"
-                        className="h-4 w-4"
-                        fill="none"
-                        aria-hidden
-                      >
-                        <path
-                          d="M8.2 4.75h3.6l.55 1.63 1.66.69 1.53-.64 1.8 3.11-1.2 1.14.12.9 1.08 1.36-1.8 3.11-1.67-.7-1.52.63-.55 1.68H8.2l-.55-1.68-1.52-.63-1.67.7-1.8-3.11 1.08-1.36.12-.9-1.2-1.14 1.8-3.11 1.53.64 1.66-.69.55-1.63Z"
-                          stroke="currentColor"
-                          strokeWidth="1.2"
-                        />
-                        <circle
-                          cx="10"
-                          cy="10"
-                          r="2.1"
-                          stroke="currentColor"
-                          strokeWidth="1.4"
-                        />
-                      </svg>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Workspace
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">
-                        Settings
-                      </p>
-                    </div>
-                  </div>
-
-                  <svg
-                    className={`h-4 w-4 text-slate-400 transition-transform ${
-                      isSettingsOpen ? "rotate-90" : ""
+                <div className="flex justify-end">
+                  <button
+                    ref={settingsTriggerRef}
+                    type="button"
+                    className={`interactive-button focus-ring flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
+                      isSettingsOpen
+                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
+                        : "border-[var(--border)] bg-white text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
                     }`}
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    aria-hidden
+                    onClick={toggleSettingsPopover}
+                    aria-label={t("sidebar.openSettings", "Open settings")}
+                    aria-haspopup="dialog"
+                    aria-expanded={isSettingsOpen}
+                    title={t("common.settings", "Settings")}
                   >
-                    <path
-                      d="M7 6l5 4-5 4"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-
-                {isSettingsOpen ? (
-                  <div
-                    id="sidebar-settings-panel"
-                    className="mt-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)] p-4"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                      {t("common.interfacePreferences", "Interface Preferences")}
-                    </p>
-
-                    <div className="mt-3 grid gap-3">
-                      <div className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                          {t("preferences.themeLabel", "Theme")}
-                        </p>
-                        <div className="mt-3 flex gap-2">
-                          {(["light", "dark"] as const).map((themeValue) => (
-                            <button
-                              key={themeValue}
-                              type="button"
-                              data-active={theme === themeValue}
-                              className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
-                              onClick={() => setTheme(themeValue)}
-                            >
-                              {themeValue === "light"
-                                ? t("common.light", "Light")
-                                : t("common.dark", "Dark")}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                          {t("preferences.languageLabel", "UI Language")}
-                        </p>
-                        <div className="mt-3 flex gap-2">
-                          {(["en", "zh"] as const).map((languageValue) => (
-                            <button
-                              key={languageValue}
-                              type="button"
-                              data-active={language === languageValue}
-                              className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
-                              onClick={() => setLanguage(languageValue)}
-                            >
-                              {languageValue === "en"
-                                ? t("common.english", "English")
-                                : t("common.chinese", "中文")}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {settingsLoading ? (
-                        <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/80 px-4 py-5 text-sm text-slate-600">
-                          {t("sidebar.loadingSettings", "Loading settings...")}
-                        </div>
-                      ) : settingsError ? (
-                        <div className="rounded-2xl border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
-                          <p>{settingsError}</p>
-                          <button
-                            type="button"
-                            className="focus-ring mt-3 rounded-full border border-current px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
-                            onClick={() => void retrySettingsLoad()}
-                          >
-                            {t("sidebar.retry", "Retry")}
-                          </button>
-                        </div>
-                      ) : outputLanguageOptions.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-[var(--border)] bg-white/80 px-4 py-5 text-sm text-slate-600">
-                          {t(
-                            "sidebar.noOutputLanguages",
-                            "No output languages available."
-                          )}
-                        </div>
-                      ) : (
-                        <label className="block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-                          <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                            {t("analysis.outputLanguage", "Output Language")}
-                          </span>
-                          <select
-                            ref={settingsLanguageSelectRef}
-                            value={selectedOutputLanguageValue}
-                            onChange={(event) =>
-                              onOutputLanguageChange(event.target.value)
-                            }
-                            className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
-                          >
-                            {outputLanguageOptions.map((languageOption) => (
-                              <option
-                                key={languageOption.value}
-                                value={languageOption.value}
-                              >
-                                {languageOption.label}
-                              </option>
-                            ))}
-                          </select>
-                          <p className="mt-2 text-xs leading-5 text-slate-500">
-                            {t(
-                              "sidebar.outputLanguageHint",
-                              "New analysis forms start with this output language by default."
-                            )}
-                          </p>
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                ) : null}
+                    <svg
+                      viewBox="0 0 20 20"
+                      className="h-4 w-4"
+                      fill="none"
+                      aria-hidden
+                    >
+                      <path
+                        d="M8.2 4.75h3.6l.55 1.63 1.66.69 1.53-.64 1.8 3.11-1.2 1.14.12.9 1.08 1.36-1.8 3.11-1.67-.7-1.52.63-.55 1.68H8.2l-.55-1.68-1.52-.63-1.67.7-1.8-3.11 1.08-1.36.12-.9-1.2-1.14 1.8-3.11 1.53.64 1.66-.69.55-1.63Z"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                      />
+                      <circle
+                        cx="10"
+                        cy="10"
+                        r="2.1"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                      />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
       </aside>
+
+      {isSettingsOpen ? (
+        <div
+          ref={settingsPopoverRef}
+          id="sidebar-settings-dialog"
+          role="dialog"
+          aria-labelledby="sidebar-settings-title"
+          className="fade-in fixed z-[90] w-[20rem] max-w-[calc(100vw-2rem)] rounded-[26px] border border-[var(--border)] bg-[rgba(255,253,248,0.98)] p-4 shadow-[0_22px_48px_rgba(18,28,41,0.18)] backdrop-blur-sm"
+          style={settingsPopoverStyle ?? { visibility: "hidden" }}
+        >
+          <div className="space-y-3">
+            <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                {t("common.interfacePreferences", "Interface Preferences")}
+              </p>
+              <div className="mt-3 space-y-3">
+                <div className="rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    {t("preferences.themeLabel", "Theme")}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    {(["light", "dark"] as const).map((themeValue) => (
+                      <button
+                        key={themeValue}
+                        type="button"
+                        data-active={theme === themeValue}
+                        className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
+                        onClick={() => setTheme(themeValue)}
+                      >
+                        {themeValue === "light"
+                          ? t("common.light", "Light")
+                          : t("common.dark", "Dark")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                    {t("preferences.languageLabel", "UI Language")}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    {(["en", "zh"] as const).map((languageValue) => (
+                      <button
+                        key={languageValue}
+                        type="button"
+                        data-active={language === languageValue}
+                        className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
+                        onClick={() => setLanguage(languageValue)}
+                      >
+                        {languageValue === "en"
+                          ? t("common.english", "English")
+                          : t("common.chinese", "中文")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {settingsError ? (
+                  <div className="rounded-[20px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
+                    <p>{settingsError}</p>
+                    <button
+                      type="button"
+                      className="focus-ring mt-3 rounded-full border border-current px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+                      onClick={() => void retrySettingsLoad()}
+                    >
+                      {t("sidebar.retry", "Retry")}
+                    </button>
+                  </div>
+                ) : !settingsLoading && outputLanguageOptions.length === 0 ? (
+                  <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-white/80 px-4 py-4 text-sm text-slate-600">
+                    {t(
+                      "sidebar.noOutputLanguages",
+                      "No output languages available."
+                    )}
+                  </div>
+                ) : !settingsLoading ? (
+                  <label className="block rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      {t("analysis.outputLanguage", "Output Language")}
+                    </span>
+                    <select
+                      ref={settingsLanguageSelectRef}
+                      value={selectedOutputLanguageValue}
+                      onChange={(event) =>
+                        onOutputLanguageChange(event.target.value)
+                      }
+                      className="focus-ring mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                    >
+                      {outputLanguageOptions.map((languageOption) => (
+                        <option
+                          key={languageOption.value}
+                          value={languageOption.value}
+                        >
+                          {languageOption.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {t(
+                        "sidebar.outputLanguageHint",
+                        "New analysis forms start with this output language by default."
+                      )}
+                    </p>
+                  </label>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -1327,6 +1426,7 @@ interface RailButtonProps {
   active?: boolean;
   disabled?: boolean;
   count?: number;
+  buttonRef?: (element: HTMLButtonElement | null) => void;
   onClick: () => void;
   children: ReactNode;
 }
@@ -1337,12 +1437,14 @@ function RailButton({
   active = false,
   disabled = false,
   count,
+  buttonRef,
   onClick,
   children,
 }: RailButtonProps) {
   return (
     <div className="group relative flex justify-center">
       <button
+        ref={buttonRef}
         type="button"
         data-active={active}
         className={`interactive-button focus-ring relative flex h-12 w-12 items-center justify-center rounded-2xl border transition ${
@@ -1355,6 +1457,8 @@ function RailButton({
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
+        aria-haspopup={label === "Settings" ? "dialog" : undefined}
+        aria-expanded={label === "Settings" ? active : undefined}
         title={title}
       >
         {children}

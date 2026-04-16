@@ -61,7 +61,7 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /const \[isRecentReportsOpen,\s*setIsRecentReportsOpen\] = useState\(true\)/);
   assert.match(source, /const \[isAllTickersOpen,\s*setIsAllTickersOpen\] = useState\(false\)/);
   assert.match(source, /getConfigOptions/);
-  assert.match(source, /sidebar-settings-panel/);
+  assert.match(source, /sidebar-settings-dialog/);
   assert.match(source, /Collapse sidebar/);
   assert.match(source, /Expand sidebar/);
   assert.match(source, /count=\{taskQueue\.length\}/);
@@ -88,6 +88,33 @@ test("Sidebar keeps the launch CTA and task cards visually compact", () => {
   assert.match(source, /text-\[13px\] font-semibold/);
   assert.match(source, /text-\[10px\] uppercase tracking-\[0\.22em\]/);
   assert.match(source, /rounded-full px-2 py-0\.5 text-\[10px\]/);
+});
+
+test("Sidebar uses a compact chevron-only toggle for desktop collapse instead of a text pill", () => {
+  const source = readFileSync(sidebarPath, "utf8");
+
+  assert.match(source, /rounded-xl p-2 text-slate-500/);
+  assert.match(source, /viewBox="0 0 16 16"/);
+  assert.match(source, /d="M9\.5 3\.5 5 8l4\.5 4\.5"/);
+  assert.match(source, /d="M13 3\.5 8\.5 8 13 12\.5"/);
+  assert.doesNotMatch(source, /sidebar\.collapseShort/);
+  assert.doesNotMatch(source, /sidebar\.expandShort/);
+});
+
+test("Sidebar opens settings in a lightweight anchored popover from a compact gear trigger", () => {
+  const source = readFileSync(sidebarPath, "utf8");
+
+  assert.match(source, /aria-haspopup="dialog"/);
+  assert.match(source, /h-11 w-11 items-center justify-center rounded-2xl/);
+  assert.match(source, /id="sidebar-settings-dialog"/);
+  assert.match(source, /fixed z-\[90\] w-\[20rem\]/);
+  assert.match(source, /role="dialog"/);
+  assert.match(source, /pointerdown/);
+  assert.doesNotMatch(source, /modal-backdrop fixed inset-0 z-\[80\]/);
+  assert.doesNotMatch(source, /aria-modal="true"/);
+  assert.doesNotMatch(source, /aria-controls="sidebar-settings-panel"/);
+  assert.doesNotMatch(source, /id="sidebar-settings-panel"/);
+  assert.doesNotMatch(source, /Loading settings\.\.\./);
 });
 
 test("Sidebar exposes a hover-revealed task detail trigger with a read-only form preview", () => {
