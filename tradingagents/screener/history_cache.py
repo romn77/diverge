@@ -17,7 +17,12 @@ def _normalize_history_frame(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume", "Amount"])
 
     normalized = df.copy()
-    normalized["Date"] = pd.to_datetime(normalized["Date"], errors="coerce").dt.strftime("%Y-%m-%d")
+    # Normalize mixed naive/tz-aware timestamps onto one UTC timeline before stringifying.
+    normalized["Date"] = pd.to_datetime(
+        normalized["Date"],
+        errors="coerce",
+        utc=True,
+    ).dt.strftime("%Y-%m-%d")
     normalized = normalized.dropna(subset=["Date"])
     normalized = normalized.drop_duplicates(subset=["Date"], keep="last")
     normalized = normalized.sort_values("Date").reset_index(drop=True)
@@ -152,6 +157,9 @@ def checkpoint_path(
     universe_df: pd.DataFrame,
     as_of_date: str,
     cn_data_source: str,
+    *,
+    cn_data_source_fallbacks: list[str] | None = None,
+    us_data_source: str | None = None,
 ) -> Path:
     symbols = [
         f"{row.market}:{row.symbol}"
@@ -160,7 +168,9 @@ def checkpoint_path(
     payload = {
         "as_of_date": as_of_date,
         "cn_data_source": cn_data_source,
+        "cn_data_source_fallbacks": list(cn_data_source_fallbacks or []),
         "symbols": symbols,
+        "us_data_source": us_data_source,
     }
     digest = hashlib.sha1(
         json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("utf-8")
@@ -168,12 +178,27 @@ def checkpoint_path(
     return Path(checkpoint_dir) / digest / "history.json"
 
 
-def load_checkpoint(path: str | Path) -> dict | None:
+def load_checkpoint(path: str | Path, *, max_age: timedelta | None = None) -> dict | None:
     checkpoint_file = Path(path)
     if not checkpoint_file.is_file():
         return None
 
-    return json.loads(checkpoint_file.read_text(encoding="utf-8"))
+    try:
+        payload = json.loads(checkpoint_file.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return None
+
+    updated_at_raw = payload.get("updated_at")
+    if max_age is not None and isinstance(updated_at_raw, str):
+        try:
+            updated_at = datetime.fromisoformat(updated_at_raw)
+        except ValueError:
+            updated_at = None
+        if updated_at is not None and datetime.now(timezone.utc) - updated_at > max_age:
+            delete_checkpoint(checkpoint_file)
+            return None
+
+    return payload
 
 
 def save_checkpoint(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import json
 import subprocess
 import sys
@@ -30,6 +31,10 @@ class _FixedDateTime:
         if fmt == "%Y%m%d_%H%M%S":
             return "20260414_120000"
         raise AssertionError(f"unexpected format: {fmt}")
+
+
+def _utc_dt(value: str) -> datetime.datetime:
+    return datetime.datetime.fromisoformat(value)
 
 
 def _base_feature_row(symbol: str) -> dict:
@@ -411,7 +416,7 @@ def test_screen_command_accepts_cn_manifest_override():
     assert captured["cn_manifest_path"] == "/tmp/cn_manifest.csv"
 
 
-def test_screen_command_defaults_date_to_today_when_omitted():
+def test_screen_command_defaults_date_to_latest_completed_trading_day_when_omitted():
     captured = {}
 
     def fake_run_screen(config, progress_callback=None):
@@ -427,21 +432,25 @@ def test_screen_command_defaults_date_to_today_when_omitted():
 
     with (
         patch("cli.main.run_screen", side_effect=fake_run_screen),
-        patch("cli.main.datetime.datetime", _FixedDateTime),
+        patch("cli.main._current_utc_datetime", return_value=_utc_dt("2026-04-14T12:00:00+00:00")),
     ):
         result = runner.invoke(
             app,
             [
                 "screen",
                 "--markets",
-                "cn",
+                "cn,us",
                 "--top-k",
                 "20",
+                "--us-manifest",
+                "/tmp/us_manifest.csv",
             ],
         )
 
     assert result.exit_code == 0
-    assert captured["as_of_date"] == "2026-04-14"
+    assert captured["as_of_date"] == "2026-04-13"
+    assert "Auto as-of date 2026-04-13" in result.output
+    assert "us=2026-04-13 (before close" in result.output
 
 
 def test_screen_debug_command_prints_stage_summary_for_ranked_symbol():
@@ -504,7 +513,7 @@ def test_screen_debug_command_prints_stage_summary_for_ranked_symbol():
     assert "total_score" in result.output
 
 
-def test_screen_debug_command_defaults_date_to_today_when_omitted():
+def test_screen_debug_command_defaults_date_to_latest_completed_trading_day_when_omitted():
     captured = {}
 
     def fake_debug_screen_symbol(config, symbol, market):
@@ -521,7 +530,7 @@ def test_screen_debug_command_defaults_date_to_today_when_omitted():
 
     with (
         patch("cli.main.debug_screen_symbol", side_effect=fake_debug_screen_symbol),
-        patch("cli.main.datetime.datetime", _FixedDateTime),
+        patch("cli.main._current_utc_datetime", return_value=_utc_dt("2026-04-18T14:00:00+00:00")),
     ):
         result = runner.invoke(
             app,
@@ -537,7 +546,9 @@ def test_screen_debug_command_defaults_date_to_today_when_omitted():
         )
 
     assert result.exit_code == 0
-    assert captured["as_of_date"] == "2026-04-14"
+    assert captured["as_of_date"] == "2026-04-17"
+    assert "Auto as-of date 2026-04-17" in result.output
+    assert "non-trading day 2026-04-18" in result.output
 
 
 def test_screen_replay_command_prints_summary_for_matching_run():

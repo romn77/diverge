@@ -25,7 +25,6 @@ from .history_cache import (
     delete_history_failure_cache,
     delete_checkpoint,
     load_checkpoint,
-    load_history_failure_cache,
     load_history_cache,
     merge_history_frames,
     resolve_incremental_fetch_start,
@@ -42,7 +41,7 @@ CN_REQUEST_DELAY_SECONDS = 0.35
 US_REQUEST_DELAY_SECONDS = 2.0
 RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
 LOOKBACK_DAYS = 400
-FAILURE_CACHE_TTL = timedelta(hours=24)
+CHECKPOINT_TTL = timedelta(hours=24)
 CN_FALLBACK_ERRORS = (
     VendorRetryableError,
     VendorAuthError,
@@ -190,8 +189,10 @@ def fetch_history_for_universe(
         universe_df,
         as_of_date,
         cn_data_source,
+        cn_data_source_fallbacks=cn_data_source_fallbacks,
+        us_data_source=us_data_source,
     )
-    checkpoint_payload = load_checkpoint(history_checkpoint_path) or {}
+    checkpoint_payload = load_checkpoint(history_checkpoint_path, max_age=CHECKPOINT_TTL) or {}
     processed_symbols: set[str] = set(checkpoint_payload.get("processed_symbols") or [])
     checkpoint_failed_symbols = checkpoint_payload.get("failed_symbols") or [
         {
@@ -305,12 +306,6 @@ def fetch_history_for_universe(
             last_fetch_source = None
 
             cached_frame = load_history_cache(history_cache_dir, market, symbol)
-            cached_failure = load_history_failure_cache(
-                history_cache_dir,
-                market,
-                symbol,
-                max_age=FAILURE_CACHE_TTL,
-            )
             cached_span = _history_span(cached_frame)
             fetch_start = resolve_incremental_fetch_start(cached_frame, start_date, as_of_date)
             if fetch_start is None:
@@ -354,26 +349,6 @@ def fetch_history_for_universe(
                     symbol,
                     status="skip_checkpoint_failure",
                     detail=checkpoint_detail,
-                )
-                continue
-
-            if cached_frame.empty and cached_failure is not None:
-                drop_reason = str(cached_failure.get("drop_reason") or "fetch_failed")
-                failures.append(
-                    {
-                        "symbol": symbol,
-                        "market": market,
-                        "drop_reason": drop_reason,
-                    }
-                )
-                _emit_progress(
-                    progress_callback,
-                    "history",
-                    index + 1,
-                    total,
-                    symbol,
-                    status="skip_failure_cache",
-                    detail=f"drop_reason={drop_reason}",
                 )
                 continue
 
@@ -479,7 +454,7 @@ def fetch_history_for_universe(
                 status=history_status,
                 detail=history_detail,
             )
-    except Exception:
+    except BaseException:
         persist_checkpoint()
         raise
 
