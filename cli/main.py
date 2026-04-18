@@ -3,6 +3,7 @@ import json
 import typer
 from pathlib import Path
 from functools import wraps
+from zoneinfo import ZoneInfo
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from dotenv import load_dotenv
@@ -23,10 +24,22 @@ from rich.align import Align
 from rich.rule import Rule
 
 from tradingagents.screener.debug import debug_screen_symbol
+from tradingagents.screener.market_calendar import is_market_trading_day, last_n_trading_days
 from tradingagents.screener.schema import ScreenRunConfig
 from cli.announcements import fetch_announcements, display_announcements
 
 console = Console()
+
+MARKET_CLOSE_CONFIG = {
+    "cn": {
+        "close_time": datetime.time(hour=15, minute=0),
+        "timezone": ZoneInfo("Asia/Shanghai"),
+    },
+    "us": {
+        "close_time": datetime.time(hour=16, minute=0),
+        "timezone": ZoneInfo("America/New_York"),
+    },
+}
 
 app = typer.Typer(
     name="TradingAgents",
@@ -35,10 +48,115 @@ app = typer.Typer(
 )
 
 
-def _resolve_screen_date(date: str | None) -> str:
+def _current_utc_datetime() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _latest_completed_trading_day_for_market(
+    market: str,
+    *,
+    now_utc: datetime.datetime | None = None,
+) -> tuple[str, str]:
+    normalized_market = str(market).strip().lower()
+    config = MARKET_CLOSE_CONFIG.get(normalized_market)
+    current_utc = now_utc or _current_utc_datetime()
+    if current_utc.tzinfo is None:
+        current_utc = current_utc.replace(tzinfo=datetime.timezone.utc)
+
+    if config is None:
+        resolved = current_utc.date().strftime("%Y-%m-%d")
+        return resolved, f"{normalized_market}={resolved} (no market calendar)"
+
+    local_now = current_utc.astimezone(config["timezone"])
+    local_day = local_now.date()
+    close_time = config["close_time"]
+
+    if is_market_trading_day(normalized_market, local_day) and local_now.time() >= close_time:
+        resolved = local_day.strftime("%Y-%m-%d")
+        return resolved, f"{normalized_market}={resolved} (after close on {local_day.isoformat()})"
+
+    anchor_day = (
+        local_day - datetime.timedelta(days=1)
+        if is_market_trading_day(normalized_market, local_day)
+        else local_day
+    )
+    previous_days = last_n_trading_days(normalized_market, anchor_day, 1)
+    resolved_day = previous_days[-1] if previous_days else anchor_day
+    resolved = resolved_day.strftime("%Y-%m-%d")
+    if is_market_trading_day(normalized_market, local_day):
+        return (
+            resolved,
+            f"{normalized_market}={resolved} (before close on {local_day.isoformat()})",
+        )
+    return (
+        resolved,
+        f"{normalized_market}={resolved} (non-trading day {local_day.isoformat()})",
+    )
+
+
+def _resolve_screen_date(date: str | None, markets: list[str]) -> tuple[str, str | None]:
     if date is not None and str(date).strip():
-        return str(date).strip()
-    return datetime.datetime.now().strftime("%Y-%m-%d")
+        return str(date).strip(), None
+
+    normalized_markets = [
+        market.strip().lower() for market in markets if str(market).strip()
+    ]
+    normalized_markets = list(dict.fromkeys(normalized_markets))
+    if not normalized_markets:
+        resolved = _current_utc_datetime().strftime("%Y-%m-%d")
+        return resolved, f"Auto as-of date {resolved} (no market context supplied)"
+
+    per_market = [
+        _latest_completed_trading_day_for_market(market)
+        for market in normalized_markets
+    ]
+    resolved = min(day for day, _detail in per_market)
+    details = "; ".join(detail for _day, detail in per_market)
+    markets_label = ",".join(normalized_markets)
+    note = (
+        f"Auto as-of date {resolved} "
+        f"(latest completed trading day across {markets_label}; {details})"
+    )
+    return resolved, note
+
+
+def _build_screener_config(
+    *,
+    date: str | None,
+    markets: list[str],
+    top_k: int,
+    cn_data_source: str,
+    cn_data_source_fallbacks: str,
+    us_data_source: str,
+    cn_manifest: str | None,
+    us_manifest: str | None,
+    output_dir: str,
+) -> tuple[ScreenRunConfig, str | None]:
+    normalized_markets = [market.strip().lower() for market in markets if market.strip()]
+    resolved_date, date_resolution_note = _resolve_screen_date(date, normalized_markets)
+    parsed_cn_fallbacks = [
+        source.strip().lower()
+        for source in cn_data_source_fallbacks.split(",")
+        if source.strip()
+    ]
+    if "us" in normalized_markets and not us_manifest:
+        raise typer.BadParameter(
+            "Provide --us-manifest when requesting the us market.",
+            param_hint="--us-manifest",
+        )
+
+    config = ScreenRunConfig(
+        markets=normalized_markets,
+        as_of_date=resolved_date,
+        top_k=top_k,
+        output_dir=output_dir,
+        cn_data_source=cn_data_source,
+        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        us_data_source=us_data_source,
+        cn_manifest_path=cn_manifest,
+        us_manifest_path=us_manifest,
+    )
+    return config, date_resolution_note
 
 
 def run_screen(*args, **kwargs):
@@ -1278,29 +1396,16 @@ def screen(
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
 ):
-    resolved_date = _resolve_screen_date(date)
-    parsed_markets = [market.strip().lower() for market in markets.split(",") if market.strip()]
-    parsed_cn_fallbacks = [
-        source.strip().lower()
-        for source in cn_data_source_fallbacks.split(",")
-        if source.strip()
-    ]
-    if "us" in parsed_markets and not us_manifest:
-        raise typer.BadParameter(
-            "Provide --us-manifest when requesting the us market.",
-            param_hint="--us-manifest",
-        )
-
-    config = ScreenRunConfig(
-        markets=parsed_markets,
-        as_of_date=resolved_date,
+    config, date_resolution_note = _build_screener_config(
+        date=date,
+        markets=markets.split(","),
         top_k=top_k,
-        output_dir=output_dir,
         cn_data_source=cn_data_source,
-        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        cn_data_source_fallbacks=cn_data_source_fallbacks,
         us_data_source=us_data_source,
-        cn_manifest_path=cn_manifest,
-        us_manifest_path=us_manifest,
+        cn_manifest=cn_manifest,
+        us_manifest=us_manifest,
+        output_dir=output_dir,
     )
 
     progress_state = {"last": None}
@@ -1322,6 +1427,9 @@ def screen(
             message += f" {detail}"
         progress_state["last"] = message
         console.print(message, markup=False)
+
+    if date_resolution_note is not None:
+        console.print(date_resolution_note, markup=False)
 
     with Progress(
         SpinnerColumn(),
@@ -1373,29 +1481,17 @@ def screen_debug(
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
 ):
-    resolved_date = _resolve_screen_date(date)
     normalized_market = market.strip().lower()
-    parsed_cn_fallbacks = [
-        source.strip().lower()
-        for source in cn_data_source_fallbacks.split(",")
-        if source.strip()
-    ]
-    if normalized_market == "us" and not us_manifest:
-        raise typer.BadParameter(
-            "Provide --us-manifest when requesting the us market.",
-            param_hint="--us-manifest",
-        )
-
-    config = ScreenRunConfig(
+    config, date_resolution_note = _build_screener_config(
+        date=date,
         markets=[normalized_market],
-        as_of_date=resolved_date,
         top_k=1,
-        output_dir=output_dir,
         cn_data_source=cn_data_source,
-        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        cn_data_source_fallbacks=cn_data_source_fallbacks,
         us_data_source=us_data_source,
-        cn_manifest_path=cn_manifest,
-        us_manifest_path=us_manifest,
+        cn_manifest=cn_manifest,
+        us_manifest=us_manifest,
+        output_dir=output_dir,
     )
 
     result = debug_screen_symbol(
@@ -1403,6 +1499,9 @@ def screen_debug(
         symbol=symbol,
         market=normalized_market,
     )
+
+    if date_resolution_note is not None:
+        console.print(date_resolution_note, markup=False)
 
     console.print("\n[bold]Debug target[/bold]")
     console.print(f"- symbol: {result.symbol}")

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
 from tradingagents.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
-from tradingagents.screener.history_cache import checkpoint_path
+from tradingagents.screener.history_cache import checkpoint_path, save_checkpoint
 from tradingagents.screener.market_data import (
     fetch_history_for_universe,
     fetch_price_history,
@@ -597,7 +598,7 @@ def test_fetch_history_for_universe_rate_limits_us_requests_between_symbols(tmp_
     assert 2.0 in sleep_values
 
 
-def test_fetch_history_for_universe_persists_empty_failures_and_skips_refetch_on_rerun(tmp_path):
+def test_fetch_history_for_universe_persists_empty_failures_and_retries_refetch_on_rerun(tmp_path):
     universe = pd.DataFrame(
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
@@ -628,7 +629,37 @@ def test_fetch_history_for_universe_persists_empty_failures_and_skips_refetch_on
 
     with patch(
         "tradingagents.screener.market_data.fetch_price_history",
-        side_effect=AssertionError("failure cache should skip refetch"),
+        return_value=_price_frame("2026-03-24"),
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert failures.empty
+    assert histories["AAPL"]["Date"].tolist() == ["2026-03-24"]
+    mock_fetch.assert_called_once_with(
+        "AAPL",
+        "us",
+        "2025-02-17",
+        "2026-03-24",
+        us_data_source="yfinance",
+    )
+
+
+def test_fetch_history_for_universe_does_not_write_history_failure_cache_files(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        side_effect=VendorRetryableError("boom"),
     ):
         histories, failures = fetch_history_for_universe(
             universe,
@@ -643,9 +674,23 @@ def test_fetch_history_for_universe_persists_empty_failures_and_skips_refetch_on
         {
             "symbol": "AAPL",
             "market": "us",
-            "drop_reason": "history_empty",
+            "drop_reason": "fetch_failed",
         }
     ]
+    assert not (cache_dir / "history_failures").exists()
+
+
+def test_save_checkpoint_persists_only_recovery_fields(tmp_path):
+    path = tmp_path / "history.json"
+
+    save_checkpoint(
+        path,
+        start_date="2025-02-17",
+        failed_symbols=[{"symbol": "AAPL", "market": "us", "drop_reason": "fetch_failed"}],
+    )
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    assert sorted(payload.keys()) == ["failed_symbols", "start_date", "updated_at"]
 
 
 def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoint(tmp_path):
@@ -654,15 +699,18 @@ def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoi
     )
     cache_dir = tmp_path / "cache"
     checkpoint_dir = tmp_path / "checkpoints"
-    path = checkpoint_path(checkpoint_dir, universe, "2026-03-24", "tushare")
+    path = checkpoint_path(
+        checkpoint_dir,
+        universe,
+        "2026-03-24",
+        "tushare",
+        us_data_source="yfinance",
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
             {
-                "as_of_date": "2026-03-24",
                 "start_date": "2025-02-17",
-                "processed_symbols": [],
-                "fetch_failed_symbols": ["AAPL"],
                 "failed_symbols": [
                     {
                         "symbol": "AAPL",
@@ -670,8 +718,6 @@ def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoi
                         "drop_reason": "fetch_failed",
                     }
                 ],
-                "universe_total": 1,
-                "last_symbol": "AAPL",
             }
         ),
         encoding="utf-8",
@@ -705,15 +751,19 @@ def test_fetch_history_for_universe_reports_checkpoint_source_in_progress_detail
     )
     cache_dir = tmp_path / "cache"
     checkpoint_dir = tmp_path / "checkpoints"
-    path = checkpoint_path(checkpoint_dir, universe, "2026-03-24", "tushare")
+    updated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    path = checkpoint_path(
+        checkpoint_dir,
+        universe,
+        "2026-03-24",
+        "tushare",
+        us_data_source="yfinance",
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         json.dumps(
             {
-                "as_of_date": "2026-03-24",
                 "start_date": "2025-02-17",
-                "processed_symbols": [],
-                "fetch_failed_symbols": [],
                 "failed_symbols": [
                     {
                         "symbol": "AAPL",
@@ -721,9 +771,7 @@ def test_fetch_history_for_universe_reports_checkpoint_source_in_progress_detail
                         "drop_reason": "history_empty",
                     }
                 ],
-                "universe_total": 1,
-                "last_symbol": "AAPL",
-                "updated_at": "2026-04-16T10:00:00+00:00",
+                "updated_at": updated_at,
             }
         ),
         encoding="utf-8",
@@ -777,9 +825,120 @@ def test_fetch_history_for_universe_reports_checkpoint_source_in_progress_detail
             "total": 1,
             "symbol": "AAPL",
             "status": "skip_checkpoint_failure",
-            "detail": "drop_reason=history_empty source=checkpoint updated_at=2026-04-16T10:00:00+00:00",
+            "detail": f"drop_reason=history_empty source=checkpoint updated_at={updated_at}",
         }
     ]
+
+
+def test_fetch_history_for_universe_ignores_expired_checkpoint_and_refetches(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+    path = checkpoint_path(
+        checkpoint_dir,
+        universe,
+        "2026-03-24",
+        "tushare",
+        us_data_source="yfinance",
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "start_date": "2025-02-17",
+                "failed_symbols": [
+                    {
+                        "symbol": "AAPL",
+                        "market": "us",
+                        "drop_reason": "fetch_failed",
+                    }
+                ],
+                "updated_at": "2026-03-20T10:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=_price_frame("2026-03-24"),
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert failures.empty
+    assert histories["AAPL"]["Date"].tolist() == ["2026-03-24"]
+    mock_fetch.assert_called_once_with(
+        "AAPL",
+        "us",
+        "2025-02-17",
+        "2026-03-24",
+        us_data_source="yfinance",
+    )
+    assert not path.exists()
+
+
+def test_fetch_history_for_universe_uses_us_data_source_in_checkpoint_key(tmp_path):
+    universe = pd.DataFrame(
+        [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+    yfinance_path = checkpoint_path(
+        checkpoint_dir,
+        universe,
+        "2026-03-24",
+        "tushare",
+        us_data_source="yfinance",
+    )
+    yfinance_path.parent.mkdir(parents=True, exist_ok=True)
+    yfinance_path.write_text(
+        json.dumps(
+            {
+                "start_date": "2025-02-17",
+                "failed_symbols": [
+                    {
+                        "symbol": "AAPL",
+                        "market": "us",
+                        "drop_reason": "fetch_failed",
+                    }
+                ],
+                "updated_at": "2026-03-24T10:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=_price_frame("2026-03-24"),
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            us_data_source="massive",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
+
+    assert failures.empty
+    assert histories["AAPL"]["Date"].tolist() == ["2026-03-24"]
+    mock_fetch.assert_called_once_with(
+        "AAPL",
+        "us",
+        "2025-02-17",
+        "2026-03-24",
+        us_data_source="massive",
+    )
+    assert yfinance_path.exists()
 
 
 def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_refetch(tmp_path):
@@ -1052,9 +1211,7 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
             raise AssertionError("expected runtime error")
 
     checkpoint_files = sorted(checkpoint_dir.glob("*/history.json"))
-    assert len(checkpoint_files) == 1
-    checkpoint_payload = json.loads(checkpoint_files[0].read_text(encoding="utf-8"))
-    assert checkpoint_payload["processed_symbols"] == ["600519.SH"]
+    assert checkpoint_files == []
     assert (cache_dir / "history" / "cn" / "600519.SH.csv").is_file()
 
     with patch(
@@ -1078,4 +1235,53 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
         cn_data_source="tushare",
     )
     assert set(histories) == {"600519.SH", "000001.SZ"}
-    assert not checkpoint_files[0].exists()
+
+
+def test_fetch_history_for_universe_persists_checkpoint_on_keyboard_interrupt(tmp_path):
+    universe = pd.DataFrame(
+        [
+            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
+            {"symbol": "000001.SZ", "market": "cn", "name": "Ping An Bank", "exchange": "SZSE", "sector": "Banking", "list_date": "19910403"},
+        ]
+    )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        side_effect=[_price_frame("2025-02-17", "2026-03-24"), KeyboardInterrupt()],
+    ):
+        with pytest.raises(KeyboardInterrupt):
+            fetch_history_for_universe(
+                universe,
+                "2026-03-24",
+                cache_dir=cache_dir,
+                checkpoint_dir=checkpoint_dir,
+                checkpoint_batch_size=100,
+            )
+
+    checkpoint_files = sorted(checkpoint_dir.glob("*/history.json"))
+    assert checkpoint_files == []
+    assert (cache_dir / "history" / "cn" / "600519.SH.csv").is_file()
+
+    with patch(
+        "tradingagents.screener.market_data.fetch_price_history",
+        return_value=_price_frame("2026-03-24"),
+    ) as mock_fetch:
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=100,
+        )
+
+    assert failures.empty
+    mock_fetch.assert_called_once_with(
+        "000001.SZ",
+        "cn",
+        "2025-02-17",
+        "2026-03-24",
+        cn_data_source="tushare",
+    )
+    assert set(histories) == {"600519.SH", "000001.SZ"}

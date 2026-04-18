@@ -22,15 +22,12 @@ from tradingagents.dataflows.vendor_errors import (
 from tradingagents.dataflows.y_finance import _fetch_yfinance_ohlcv_df
 from .history_cache import (
     checkpoint_path,
-    delete_history_failure_cache,
     delete_checkpoint,
     load_checkpoint,
-    load_history_failure_cache,
     load_history_cache,
     merge_history_frames,
     resolve_incremental_fetch_start,
     save_checkpoint,
-    save_history_failure_cache,
     save_history_cache,
     slice_history_window,
 )
@@ -42,7 +39,7 @@ CN_REQUEST_DELAY_SECONDS = 0.35
 US_REQUEST_DELAY_SECONDS = 2.0
 RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
 LOOKBACK_DAYS = 400
-FAILURE_CACHE_TTL = timedelta(hours=24)
+CHECKPOINT_TTL = timedelta(hours=24)
 CN_FALLBACK_ERRORS = (
     VendorRetryableError,
     VendorAuthError,
@@ -190,16 +187,11 @@ def fetch_history_for_universe(
         universe_df,
         as_of_date,
         cn_data_source,
+        cn_data_source_fallbacks=cn_data_source_fallbacks,
+        us_data_source=us_data_source,
     )
-    checkpoint_payload = load_checkpoint(history_checkpoint_path) or {}
-    processed_symbols: set[str] = set(checkpoint_payload.get("processed_symbols") or [])
-    checkpoint_failed_symbols = checkpoint_payload.get("failed_symbols") or [
-        {
-            "symbol": symbol,
-            "drop_reason": "fetch_failed",
-        }
-        for symbol in checkpoint_payload.get("fetch_failed_symbols") or []
-    ]
+    checkpoint_payload = load_checkpoint(history_checkpoint_path, max_age=CHECKPOINT_TTL) or {}
+    checkpoint_failed_symbols = checkpoint_payload.get("failed_symbols") or []
     checkpoint_failure_reasons = {
         str(item.get("symbol")): str(item.get("drop_reason") or "fetch_failed")
         for item in checkpoint_failed_symbols
@@ -213,7 +205,6 @@ def fetch_history_for_universe(
     processed_since_checkpoint = 0
     cn_network_fetch_count = 0
     us_network_fetch_count = 0
-    current_symbol: str | None = None
     cn_source_chain = build_cn_source_chain(
         cn_data_source,
         cn_data_source_fallbacks,
@@ -282,43 +273,28 @@ def fetch_history_for_universe(
         raise VendorRetryableError("CN history fetch failed without a fallback result")
 
     def persist_checkpoint() -> None:
+        if not failures:
+            delete_checkpoint(history_checkpoint_path)
+            return
         save_checkpoint(
             history_checkpoint_path,
-            as_of_date=as_of_date,
             start_date=start_date,
-            processed_symbols=sorted(processed_symbols),
-            fetch_failed_symbols=[
-                failure["symbol"]
-                for failure in failures
-                if failure["drop_reason"] == "fetch_failed"
-            ],
             failed_symbols=failures,
-            universe_total=total,
-            last_symbol=current_symbol,
         )
 
     try:
         for index, row in universe_df.reset_index(drop=True).iterrows():
             symbol = row["symbol"]
             market = row["market"]
-            current_symbol = str(symbol)
             last_fetch_source = None
 
             cached_frame = load_history_cache(history_cache_dir, market, symbol)
-            cached_failure = load_history_failure_cache(
-                history_cache_dir,
-                market,
-                symbol,
-                max_age=FAILURE_CACHE_TTL,
-            )
             cached_span = _history_span(cached_frame)
             fetch_start = resolve_incremental_fetch_start(cached_frame, start_date, as_of_date)
             if fetch_start is None:
-                delete_history_failure_cache(history_cache_dir, market, symbol)
                 cached_window = slice_history_window(cached_frame, start_date, as_of_date)
                 if not cached_window.empty:
                     histories[symbol] = cached_window
-                    processed_symbols.add(symbol)
                     processed_since_checkpoint += 1
                 if processed_since_checkpoint >= checkpoint_batch_size:
                     persist_checkpoint()
@@ -357,26 +333,6 @@ def fetch_history_for_universe(
                 )
                 continue
 
-            if cached_frame.empty and cached_failure is not None:
-                drop_reason = str(cached_failure.get("drop_reason") or "fetch_failed")
-                failures.append(
-                    {
-                        "symbol": symbol,
-                        "market": market,
-                        "drop_reason": drop_reason,
-                    }
-                )
-                _emit_progress(
-                    progress_callback,
-                    "history",
-                    index + 1,
-                    total,
-                    symbol,
-                    status="skip_failure_cache",
-                    detail=f"drop_reason={drop_reason}",
-                )
-                continue
-
             history_status: str | None = None
             history_detail: str | None = None
 
@@ -390,7 +346,6 @@ def fetch_history_for_universe(
                     cached_window = slice_history_window(cached_frame, start_date, as_of_date)
                     if not cached_window.empty:
                         histories[symbol] = cached_window
-                        processed_symbols.add(symbol)
                         processed_since_checkpoint += 1
                         history_status = "fetch_empty_reuse_cache"
                         history_detail = (
@@ -399,12 +354,6 @@ def fetch_history_for_universe(
                             else f"fetch={fetch_range}{source_detail}"
                         )
                     else:
-                        save_history_failure_cache(
-                            history_cache_dir,
-                            market,
-                            symbol,
-                            drop_reason="history_empty",
-                        )
                         failures.append(
                             {
                                 "symbol": symbol,
@@ -416,10 +365,8 @@ def fetch_history_for_universe(
                         history_detail = f"fetch={fetch_range}{source_detail}"
                 else:
                     merged_frame = merge_history_frames(cached_frame, frame)
-                    delete_history_failure_cache(history_cache_dir, market, symbol)
                     save_history_cache(history_cache_dir, market, symbol, merged_frame)
                     histories[symbol] = slice_history_window(merged_frame, start_date, as_of_date)
-                    processed_symbols.add(symbol)
                     processed_since_checkpoint += 1
                     if cached_frame.empty or fetch_start == start_date:
                         history_status = "fetch_full"
@@ -430,12 +377,6 @@ def fetch_history_for_universe(
                             f"cache={cached_span} fetch={fetch_range}{source_detail}"
                         )
             except VendorDataEmptyError:
-                save_history_failure_cache(
-                    history_cache_dir,
-                    market,
-                    symbol,
-                    drop_reason="history_empty",
-                )
                 failures.append(
                     {
                         "symbol": symbol,
@@ -448,12 +389,6 @@ def fetch_history_for_universe(
                 if last_fetch_source is not None:
                     history_detail += f" source={last_fetch_source}"
             except VendorRetryableError:
-                save_history_failure_cache(
-                    history_cache_dir,
-                    market,
-                    symbol,
-                    drop_reason="fetch_failed",
-                )
                 failures.append(
                     {
                         "symbol": symbol,
@@ -479,7 +414,7 @@ def fetch_history_for_universe(
                 status=history_status,
                 detail=history_detail,
             )
-    except Exception:
+    except BaseException:
         persist_checkpoint()
         raise
 

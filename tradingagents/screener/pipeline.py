@@ -6,14 +6,9 @@ from typing import Callable
 
 import pandas as pd
 
-from .filters import apply_hard_filters
-from .indicators import build_features_table
-from .market_data import fetch_history_for_universe
-from .ranker import score_candidates
 from .schema import ScreenRunConfig, ScreenRunResult
+from .stages import evaluate_screen_stage, prepare_universe_stage
 from .storage import prepare_run_dir, write_run_artifacts
-from .universe import load_universe
-from .universe_prefilter import apply_universe_prefilters
 
 
 def _select_candidates(ranked_df: pd.DataFrame, config: ScreenRunConfig) -> pd.DataFrame:
@@ -75,48 +70,36 @@ def run_screen(
 ) -> ScreenRunResult:
     started_at = time.perf_counter()
     cache_root = Path(config.output_dir) / ".cache"
-
-    _emit(progress_callback, "universe", 0, 1)
-    universe_df = load_universe(config, cache_dir=cache_root)
-    filtered_universe_df, prefiltered_out_df = apply_universe_prefilters(universe_df, config)
-    _emit(progress_callback, "universe", 1, 1)
-
-    histories, fetch_failures = fetch_history_for_universe(
-        filtered_universe_df,
-        config.as_of_date,
-        cn_data_source=config.cn_data_source,
-        cn_data_source_fallbacks=config.cn_data_source_fallbacks,
-        us_data_source=config.us_data_source,
+    universe_stage = prepare_universe_stage(
+        config,
+        cache_root,
         progress_callback=progress_callback,
-        cache_dir=cache_root,
-        checkpoint_dir=cache_root / "checkpoints",
     )
-
-    _emit(progress_callback, "features", 0, 1)
-    features_df = build_features_table(universe_df, histories, config.as_of_date)
-    _emit(progress_callback, "features", 1, 1)
-
-    _emit(progress_callback, "filters", 0, 1)
-    kept_df, dropped_df = apply_hard_filters(features_df, config)
+    evaluation_stage = evaluate_screen_stage(
+        config,
+        source_universe_df=universe_stage.universe_df,
+        fetch_universe_df=universe_stage.prefiltered_df,
+        cache_root=cache_root,
+        progress_callback=progress_callback,
+    )
     combined_filtered_out = pd.concat(
-        [prefiltered_out_df, fetch_failures, dropped_df],
+        [
+            universe_stage.prefiltered_out_df,
+            evaluation_stage.fetch_failures,
+            evaluation_stage.dropped_df,
+        ],
         ignore_index=True,
         sort=False,
     )
-    _emit(progress_callback, "filters", 1, 1)
-
-    _emit(progress_callback, "ranking", 0, 1)
-    ranked_df = score_candidates(kept_df) if not kept_df.empty else kept_df.copy()
-    candidates_df = _select_candidates(ranked_df, config)
-    _emit(progress_callback, "ranking", 1, 1)
+    candidates_df = _select_candidates(evaluation_stage.ranked_df, config)
 
     _emit(progress_callback, "export", 0, 1)
     run_dir = prepare_run_dir(config.output_dir, config.as_of_date)
     result = write_run_artifacts(
         run_dir=run_dir,
         config=config,
-        universe_df=universe_df,
-        features_df=features_df,
+        universe_df=universe_stage.universe_df,
+        features_df=evaluation_stage.features_df,
         filtered_out_df=combined_filtered_out,
         candidates_df=candidates_df,
         elapsed_seconds=round(time.perf_counter() - started_at, 4),
