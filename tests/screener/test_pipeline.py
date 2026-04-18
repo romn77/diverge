@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pandas as pd
@@ -15,6 +16,142 @@ class _FixedDateTime(datetime):
     @classmethod
     def now(cls, tz=None):
         return cls(2026, 3, 24, 21, 45, 30)
+
+
+def _universe_stage(
+    universe_df: pd.DataFrame,
+    *,
+    prefiltered_df: pd.DataFrame | None = None,
+    prefiltered_out_df: pd.DataFrame | None = None,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        universe_df=universe_df,
+        prefiltered_df=universe_df if prefiltered_df is None else prefiltered_df,
+        prefiltered_out_df=(
+            pd.DataFrame(columns=list(universe_df.columns) + ["drop_reason"])
+            if prefiltered_out_df is None
+            else prefiltered_out_df
+        ),
+    )
+
+
+def _evaluation_stage(
+    *,
+    histories: dict[str, pd.DataFrame] | None = None,
+    fetch_failures: pd.DataFrame | None = None,
+    features_df: pd.DataFrame | None = None,
+    kept_df: pd.DataFrame | None = None,
+    dropped_df: pd.DataFrame | None = None,
+    ranked_df: pd.DataFrame | None = None,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        histories={} if histories is None else histories,
+        fetch_failures=(
+            pd.DataFrame(columns=["symbol", "market", "drop_reason"])
+            if fetch_failures is None
+            else fetch_failures
+        ),
+        features_df=pd.DataFrame() if features_df is None else features_df,
+        kept_df=pd.DataFrame() if kept_df is None else kept_df,
+        dropped_df=pd.DataFrame(columns=["drop_reason"]) if dropped_df is None else dropped_df,
+        ranked_df=pd.DataFrame() if ranked_df is None else ranked_df,
+    )
+
+
+def test_run_screen_uses_shared_stage_helpers(tmp_path):
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=1,
+        output_dir=str(tmp_path),
+        us_manifest_path="/tmp/us.csv",
+    )
+    universe_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+            }
+        ]
+    )
+    features_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+                "as_of_date": "2026-03-24",
+                "close": 101.0,
+                "volume": 500.0,
+                "amount": 50_500.0,
+                "avg_amount_20d": 20_000_000.0,
+                "trading_days_20d": 20,
+                "ma20": 99.0,
+                "ma60": 95.0,
+                "ret_20": 0.1,
+                "ret_60": 0.2,
+                "rsi": 55.0,
+                "macd": 1.0,
+                "macds": 0.8,
+                "macdh": 0.2,
+                "atr": 2.0,
+                "atr_pct": 0.02,
+                "boll": 98.0,
+                "boll_ub": 104.0,
+                "boll_lb": 94.0,
+                "vwma": 100.0,
+                "mfi": 50.0,
+                "data_start_date": "2025-12-01",
+                "data_end_date": "2026-03-24",
+                "bar_count": 80,
+            }
+        ]
+    )
+    ranked_df = pd.DataFrame(
+        [
+            {
+                **features_df.iloc[0].to_dict(),
+                "trend_score": 1.0,
+                "momentum_score": 0.8,
+                "risk_score": 0.2,
+                "liquidity_score": 0.3,
+                "total_score": 0.71,
+                "strategy_tags": "trend_up,momentum_positive,above_vwma",
+                "risk_flags": "",
+                "global_rank": 1,
+                "market_rank": 1,
+            }
+        ]
+    )
+    universe_stage = SimpleNamespace(
+        universe_df=universe_df,
+        prefiltered_df=universe_df,
+        prefiltered_out_df=pd.DataFrame(columns=list(universe_df.columns) + ["drop_reason"]),
+    )
+    evaluation_stage = SimpleNamespace(
+        histories={"AAPL": pd.DataFrame([{"Date": "2026-03-24", "Open": 1, "High": 1, "Low": 1, "Close": 1, "Volume": 1, "Amount": 1}])},
+        fetch_failures=pd.DataFrame(columns=["symbol", "market", "drop_reason"]),
+        features_df=features_df,
+        kept_df=features_df,
+        dropped_df=pd.DataFrame(columns=list(features_df.columns) + ["drop_reason"]),
+        ranked_df=ranked_df,
+    )
+
+    with (
+        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=universe_stage),
+        patch("tradingagents.screener.pipeline.evaluate_screen_stage", return_value=evaluation_stage),
+        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+    ):
+        result = run_screen(config)
+
+    assert result.candidate_count == 1
 
 
 def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_path):
@@ -92,17 +229,18 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
     )
 
     with (
-        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.fetch_history_for_universe",
-            return_value=(histories, fetch_failures),
+            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            return_value=_evaluation_stage(
+                histories=histories,
+                fetch_failures=fetch_failures,
+                features_df=features_df,
+                kept_df=features_df,
+                dropped_df=pd.DataFrame(columns=list(features_df.columns) + ["drop_reason"]),
+                ranked_df=scored_df,
+            ),
         ),
-        patch("tradingagents.screener.pipeline.build_features_table", return_value=features_df),
-        patch(
-            "tradingagents.screener.pipeline.apply_hard_filters",
-            return_value=(features_df, pd.DataFrame(columns=list(features_df.columns) + ["drop_reason"])),
-        ),
-        patch("tradingagents.screener.pipeline.score_candidates", return_value=scored_df),
         patch("tradingagents.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
@@ -173,27 +311,26 @@ def test_run_screen_prefilters_too_new_symbols_before_history(tmp_path):
     }
 
     with (
-        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
         patch(
-            "tradingagents.screener.pipeline.apply_universe_prefilters",
-            return_value=(filtered_universe_df, prefiltered_out_df),
-        ) as mock_prefilter,
-        patch(
-            "tradingagents.screener.pipeline.fetch_history_for_universe",
-            return_value=(histories, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
-        ) as mock_fetch,
-        patch("tradingagents.screener.pipeline.build_features_table", return_value=features_df),
-        patch(
-            "tradingagents.screener.pipeline.apply_hard_filters",
-            return_value=(features_df, pd.DataFrame(columns=["drop_reason"])),
+            "tradingagents.screener.pipeline.prepare_universe_stage",
+            return_value=_universe_stage(
+                universe_df,
+                prefiltered_df=filtered_universe_df,
+                prefiltered_out_df=prefiltered_out_df,
+            ),
         ),
-        patch("tradingagents.screener.pipeline.score_candidates", return_value=pd.DataFrame()),
+        patch(
+            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            return_value=_evaluation_stage(
+                histories=histories,
+                features_df=features_df,
+            ),
+        ) as mock_evaluate,
         patch("tradingagents.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
-    mock_prefilter.assert_called_once()
-    fetch_universe = mock_fetch.call_args.args[0]
+    fetch_universe = mock_evaluate.call_args.kwargs["fetch_universe_df"]
     assert fetch_universe["symbol"].tolist() == ["600519.SH"]
 
     filtered_out = pd.read_csv(Path(result.run_dir) / "filtered_out.csv")
@@ -258,13 +395,17 @@ def test_run_screen_writes_stale_data_rows_with_as_of_and_data_end_dates(tmp_pat
     )
 
     with (
-        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.fetch_history_for_universe",
-            return_value=({"AAPL": pd.DataFrame()}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            return_value=_evaluation_stage(
+                histories={"AAPL": pd.DataFrame()},
+                features_df=stale_features_df,
+                kept_df=pd.DataFrame(columns=stale_features_df.columns),
+                dropped_df=pd.DataFrame([{**stale_features_df.iloc[0].to_dict(), "drop_reason": "stale_data"}]),
+                ranked_df=pd.DataFrame(),
+            ),
         ),
-        patch("tradingagents.screener.pipeline.build_features_table", return_value=stale_features_df),
-        patch("tradingagents.screener.pipeline.score_candidates", return_value=pd.DataFrame()),
         patch("tradingagents.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
@@ -301,17 +442,14 @@ def test_run_screen_allocates_dual_market_candidates_with_floor_and_global_backf
     )
 
     with (
-        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.fetch_history_for_universe",
-            return_value=({}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            return_value=_evaluation_stage(
+                kept_df=ranked_df,
+                ranked_df=ranked_df,
+            ),
         ),
-        patch("tradingagents.screener.pipeline.build_features_table", return_value=pd.DataFrame()),
-        patch(
-            "tradingagents.screener.pipeline.apply_hard_filters",
-            return_value=(ranked_df, pd.DataFrame(columns=["drop_reason"])),
-        ),
-        patch("tradingagents.screener.pipeline.score_candidates", return_value=ranked_df),
         patch("tradingagents.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
@@ -346,17 +484,14 @@ def test_run_screen_backfills_from_global_ranking_when_one_market_cannot_fill_fl
     )
 
     with (
-        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.fetch_history_for_universe",
-            return_value=({}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            return_value=_evaluation_stage(
+                kept_df=ranked_df,
+                ranked_df=ranked_df,
+            ),
         ),
-        patch("tradingagents.screener.pipeline.build_features_table", return_value=pd.DataFrame()),
-        patch(
-            "tradingagents.screener.pipeline.apply_hard_filters",
-            return_value=(ranked_df, pd.DataFrame(columns=["drop_reason"])),
-        ),
-        patch("tradingagents.screener.pipeline.score_candidates", return_value=ranked_df),
         patch("tradingagents.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
@@ -388,17 +523,14 @@ def test_run_screen_keeps_single_market_selection_as_plain_top_k(tmp_path):
     )
 
     with (
-        patch("tradingagents.screener.pipeline.load_universe", return_value=universe_df),
+        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.fetch_history_for_universe",
-            return_value=({}, pd.DataFrame(columns=["symbol", "market", "drop_reason"])),
+            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            return_value=_evaluation_stage(
+                kept_df=ranked_df,
+                ranked_df=ranked_df,
+            ),
         ),
-        patch("tradingagents.screener.pipeline.build_features_table", return_value=pd.DataFrame()),
-        patch(
-            "tradingagents.screener.pipeline.apply_hard_filters",
-            return_value=(ranked_df, pd.DataFrame(columns=["drop_reason"])),
-        ),
-        patch("tradingagents.screener.pipeline.score_candidates", return_value=ranked_df),
         patch("tradingagents.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)

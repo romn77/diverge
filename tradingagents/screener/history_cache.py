@@ -9,7 +9,6 @@ import pandas as pd
 
 
 HISTORY_CACHE_DIRNAME = "history"
-HISTORY_FAILURE_CACHE_DIRNAME = "history_failures"
 
 
 def _normalize_history_frame(df: pd.DataFrame) -> pd.DataFrame:
@@ -46,74 +45,6 @@ def save_history_cache(cache_dir: str | Path, market: str, symbol: str, frame: p
     path.parent.mkdir(parents=True, exist_ok=True)
     _normalize_history_frame(frame).to_csv(path, index=False)
     return path
-
-
-def history_failure_cache_path(cache_dir: str | Path, market: str, symbol: str) -> Path:
-    safe_symbol = symbol.replace("/", "_").replace("\\", "_")
-    return Path(cache_dir) / HISTORY_FAILURE_CACHE_DIRNAME / market / f"{safe_symbol}.json"
-
-
-def load_history_failure_cache(
-    cache_dir: str | Path,
-    market: str,
-    symbol: str,
-    *,
-    max_age: timedelta | None = None,
-) -> dict | None:
-    path = history_failure_cache_path(cache_dir, market, symbol)
-    if not path.is_file():
-        return None
-
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return None
-
-    updated_at_raw = payload.get("updated_at")
-    if max_age is not None and isinstance(updated_at_raw, str):
-        try:
-            updated_at = datetime.fromisoformat(updated_at_raw)
-        except ValueError:
-            updated_at = None
-        if updated_at is not None and datetime.now(timezone.utc) - updated_at > max_age:
-            try:
-                path.unlink()
-            except OSError:
-                pass
-            return None
-
-    return payload
-
-
-def save_history_failure_cache(
-    cache_dir: str | Path,
-    market: str,
-    symbol: str,
-    *,
-    drop_reason: str,
-) -> Path:
-    path = history_failure_cache_path(cache_dir, market, symbol)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    payload = {
-        "symbol": symbol,
-        "market": market,
-        "drop_reason": drop_reason,
-        "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-    }
-    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return path
-
-
-def delete_history_failure_cache(cache_dir: str | Path, market: str, symbol: str) -> None:
-    path = history_failure_cache_path(cache_dir, market, symbol)
-    if path.exists():
-        path.unlink()
-
-    for parent in (path.parent, path.parent.parent):
-        try:
-            parent.rmdir()
-        except OSError:
-            break
 
 
 def slice_history_window(frame: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
@@ -204,24 +135,14 @@ def load_checkpoint(path: str | Path, *, max_age: timedelta | None = None) -> di
 def save_checkpoint(
     path: str | Path,
     *,
-    as_of_date: str,
     start_date: str,
-    processed_symbols: list[str],
-    fetch_failed_symbols: list[str],
-    failed_symbols: list[dict] | None,
-    universe_total: int,
-    last_symbol: str | None,
+    failed_symbols: list[dict],
 ) -> None:
     checkpoint_file = Path(path)
     checkpoint_file.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "as_of_date": as_of_date,
         "start_date": start_date,
-        "processed_symbols": processed_symbols,
-        "fetch_failed_symbols": fetch_failed_symbols,
-        "failed_symbols": failed_symbols or [],
-        "universe_total": universe_total,
-        "last_symbol": last_symbol,
+        "failed_symbols": failed_symbols,
         "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     }
     checkpoint_file.write_text(

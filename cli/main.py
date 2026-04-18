@@ -120,6 +120,45 @@ def _resolve_screen_date(date: str | None, markets: list[str]) -> tuple[str, str
     return resolved, note
 
 
+def _build_screener_config(
+    *,
+    date: str | None,
+    markets: list[str],
+    top_k: int,
+    cn_data_source: str,
+    cn_data_source_fallbacks: str,
+    us_data_source: str,
+    cn_manifest: str | None,
+    us_manifest: str | None,
+    output_dir: str,
+) -> tuple[ScreenRunConfig, str | None]:
+    normalized_markets = [market.strip().lower() for market in markets if market.strip()]
+    resolved_date, date_resolution_note = _resolve_screen_date(date, normalized_markets)
+    parsed_cn_fallbacks = [
+        source.strip().lower()
+        for source in cn_data_source_fallbacks.split(",")
+        if source.strip()
+    ]
+    if "us" in normalized_markets and not us_manifest:
+        raise typer.BadParameter(
+            "Provide --us-manifest when requesting the us market.",
+            param_hint="--us-manifest",
+        )
+
+    config = ScreenRunConfig(
+        markets=normalized_markets,
+        as_of_date=resolved_date,
+        top_k=top_k,
+        output_dir=output_dir,
+        cn_data_source=cn_data_source,
+        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        us_data_source=us_data_source,
+        cn_manifest_path=cn_manifest,
+        us_manifest_path=us_manifest,
+    )
+    return config, date_resolution_note
+
+
 def run_screen(*args, **kwargs):
     from tradingagents.screener.pipeline import run_screen as _run_screen
 
@@ -1357,29 +1396,16 @@ def screen(
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
 ):
-    parsed_markets = [market.strip().lower() for market in markets.split(",") if market.strip()]
-    resolved_date, date_resolution_note = _resolve_screen_date(date, parsed_markets)
-    parsed_cn_fallbacks = [
-        source.strip().lower()
-        for source in cn_data_source_fallbacks.split(",")
-        if source.strip()
-    ]
-    if "us" in parsed_markets and not us_manifest:
-        raise typer.BadParameter(
-            "Provide --us-manifest when requesting the us market.",
-            param_hint="--us-manifest",
-        )
-
-    config = ScreenRunConfig(
-        markets=parsed_markets,
-        as_of_date=resolved_date,
+    config, date_resolution_note = _build_screener_config(
+        date=date,
+        markets=markets.split(","),
         top_k=top_k,
-        output_dir=output_dir,
         cn_data_source=cn_data_source,
-        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        cn_data_source_fallbacks=cn_data_source_fallbacks,
         us_data_source=us_data_source,
-        cn_manifest_path=cn_manifest,
-        us_manifest_path=us_manifest,
+        cn_manifest=cn_manifest,
+        us_manifest=us_manifest,
+        output_dir=output_dir,
     )
 
     progress_state = {"last": None}
@@ -1456,28 +1482,16 @@ def screen_debug(
     output_dir: str = typer.Option("./results/screener", "--output-dir"),
 ):
     normalized_market = market.strip().lower()
-    resolved_date, date_resolution_note = _resolve_screen_date(date, [normalized_market])
-    parsed_cn_fallbacks = [
-        source.strip().lower()
-        for source in cn_data_source_fallbacks.split(",")
-        if source.strip()
-    ]
-    if normalized_market == "us" and not us_manifest:
-        raise typer.BadParameter(
-            "Provide --us-manifest when requesting the us market.",
-            param_hint="--us-manifest",
-        )
-
-    config = ScreenRunConfig(
+    config, date_resolution_note = _build_screener_config(
+        date=date,
         markets=[normalized_market],
-        as_of_date=resolved_date,
         top_k=1,
-        output_dir=output_dir,
         cn_data_source=cn_data_source,
-        cn_data_source_fallbacks=parsed_cn_fallbacks,
+        cn_data_source_fallbacks=cn_data_source_fallbacks,
         us_data_source=us_data_source,
-        cn_manifest_path=cn_manifest,
-        us_manifest_path=us_manifest,
+        cn_manifest=cn_manifest,
+        us_manifest=us_manifest,
+        output_dir=output_dir,
     )
 
     result = debug_screen_symbol(

@@ -108,6 +108,32 @@ def _write_replay_run_artifacts(
     )
 
 
+def test_build_screener_config_normalizes_common_options():
+    from cli.main import _build_screener_config
+
+    with patch("cli.main._resolve_screen_date", return_value=("2026-03-24", "auto-note")):
+        config, note = _build_screener_config(
+            date=None,
+            markets=["us"],
+            top_k=7,
+            cn_data_source="tushare",
+            cn_data_source_fallbacks="akshare",
+            us_data_source="massive",
+            cn_manifest=None,
+            us_manifest="/tmp/us.csv",
+            output_dir="/tmp/out",
+        )
+
+    assert config.markets == ["us"]
+    assert config.as_of_date == "2026-03-24"
+    assert config.top_k == 7
+    assert config.cn_data_source == "tushare"
+    assert config.cn_data_source_fallbacks == ["akshare"]
+    assert config.us_data_source == "massive"
+    assert config.us_manifest_path == "/tmp/us.csv"
+    assert note == "auto-note"
+
+
 def test_screen_command_requires_us_manifest_for_us_market():
     result = runner.invoke(
         app,

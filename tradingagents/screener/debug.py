@@ -6,68 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from .schema import ScreenRunConfig
-
-
-def load_universe(config: ScreenRunConfig, cache_dir: str | Path | None = None) -> pd.DataFrame:
-    from .universe import load_universe as _load_universe
-
-    return _load_universe(config, cache_dir=cache_dir)
-
-
-def apply_universe_prefilters(
-    universe_df: pd.DataFrame,
-    config: ScreenRunConfig,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    from .universe_prefilter import apply_universe_prefilters as _apply_universe_prefilters
-
-    return _apply_universe_prefilters(universe_df, config)
-
-
-def fetch_history_for_universe(
-    universe_df: pd.DataFrame,
-    as_of_date: str,
-    cn_data_source: str = "tushare",
-    cn_data_source_fallbacks: list[str] | None = None,
-    us_data_source: str = "yfinance",
-    cache_dir: str | Path | None = None,
-    checkpoint_dir: str | Path | None = None,
-) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
-    from .market_data import fetch_history_for_universe as _fetch_history_for_universe
-
-    return _fetch_history_for_universe(
-        universe_df,
-        as_of_date,
-        cn_data_source=cn_data_source,
-        cn_data_source_fallbacks=cn_data_source_fallbacks,
-        us_data_source=us_data_source,
-        cache_dir=cache_dir,
-        checkpoint_dir=checkpoint_dir,
-    )
-
-
-def build_features_table(
-    universe_df: pd.DataFrame,
-    histories: dict[str, pd.DataFrame],
-    as_of_date: str,
-) -> pd.DataFrame:
-    from .indicators import build_features_table as _build_features_table
-
-    return _build_features_table(universe_df, histories, as_of_date)
-
-
-def apply_hard_filters(
-    features_df: pd.DataFrame,
-    config: ScreenRunConfig,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    from .filters import apply_hard_filters as _apply_hard_filters
-
-    return _apply_hard_filters(features_df, config)
-
-
-def score_candidates(filtered_df: pd.DataFrame) -> pd.DataFrame:
-    from .ranker import score_candidates as _score_candidates
-
-    return _score_candidates(filtered_df)
+from .stages import evaluate_screen_stage, prepare_universe_stage
 
 
 @dataclass(slots=True)
@@ -131,9 +70,9 @@ def debug_screen_symbol(
         as_of_date=config.as_of_date,
     )
 
-    universe_df = load_universe(config, cache_dir=cache_root)
+    universe_stage = prepare_universe_stage(config, cache_root)
     target_universe_df = _select_target_rows(
-        universe_df,
+        universe_stage.universe_df,
         symbol=normalized_symbol,
         market=normalized_market,
     )
@@ -141,9 +80,8 @@ def debug_screen_symbol(
     if result.universe_row is None:
         return result
 
-    prefiltered_df, prefilter_dropped_df = apply_universe_prefilters(universe_df, config)
     target_prefilter_drop_df = _select_target_rows(
-        prefilter_dropped_df,
+        universe_stage.prefiltered_out_df,
         symbol=normalized_symbol,
         market=normalized_market,
     )
@@ -153,21 +91,21 @@ def debug_screen_symbol(
         return result
 
     target_prefiltered_df = _select_target_rows(
-        prefiltered_df,
+        universe_stage.prefiltered_df,
         symbol=normalized_symbol,
         market=normalized_market,
     )
-    histories, fetch_failures = fetch_history_for_universe(
-        target_prefiltered_df,
-        config.as_of_date,
-        cn_data_source=config.cn_data_source,
-        cn_data_source_fallbacks=config.cn_data_source_fallbacks,
-        us_data_source=config.us_data_source,
-        cache_dir=cache_root,
-        checkpoint_dir=cache_root / "checkpoints",
+    if target_prefiltered_df.empty:
+        return result
+
+    evaluation_stage = evaluate_screen_stage(
+        config,
+        source_universe_df=target_prefiltered_df,
+        fetch_universe_df=target_prefiltered_df,
+        cache_root=cache_root,
     )
     target_fetch_failure_df = _select_target_rows(
-        fetch_failures,
+        evaluation_stage.fetch_failures,
         symbol=normalized_symbol,
         market=normalized_market,
     )
@@ -176,7 +114,7 @@ def debug_screen_symbol(
         result.fetch_drop_reason = str(target_fetch_failure.get("drop_reason") or "fetch_failed")
         return result
 
-    history_df = histories.get(str(target_prefiltered_df.iloc[0]["symbol"]))
+    history_df = evaluation_stage.histories.get(str(target_prefiltered_df.iloc[0]["symbol"]))
     if history_df is None or history_df.empty:
         result.fetch_drop_reason = "fetch_failed"
         return result
@@ -184,9 +122,8 @@ def debug_screen_symbol(
     result.history_rows = len(history_df.index)
     result.history_start_date, result.history_end_date = _history_bounds(history_df)
 
-    features_df = build_features_table(target_prefiltered_df, histories, config.as_of_date)
     target_feature_df = _select_target_rows(
-        features_df,
+        evaluation_stage.features_df,
         symbol=normalized_symbol,
         market=normalized_market,
     )
@@ -194,9 +131,8 @@ def debug_screen_symbol(
     if result.feature_row is None:
         return result
 
-    kept_df, dropped_df = apply_hard_filters(features_df, config)
     target_hard_drop_df = _select_target_rows(
-        dropped_df,
+        evaluation_stage.dropped_df,
         symbol=normalized_symbol,
         market=normalized_market,
     )
@@ -205,9 +141,8 @@ def debug_screen_symbol(
         result.hard_filter_drop_reason = str(target_hard_drop.get("drop_reason") or "")
         return result
 
-    ranked_df = score_candidates(kept_df)
     target_rank_df = _select_target_rows(
-        ranked_df,
+        evaluation_stage.ranked_df,
         symbol=normalized_symbol,
         market=normalized_market,
     )
