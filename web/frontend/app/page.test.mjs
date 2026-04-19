@@ -54,3 +54,14 @@ test("page uses a desktop row layout so sidebar and content stay aligned", () =>
 
   assert.match(source, /app-shell relative min-h-screen bg-\[var\(--bg\)\] md:flex md:items-stretch/);
 });
+
+test("page refreshes reports and screener runs on a shared low-frequency cadence and on focus", () => {
+  const source = readFileSync(pagePath, "utf8");
+
+  assert.match(source, /const LIST_REFRESH_INTERVAL_MS = 10000;/);
+  assert.match(source, /void loadReports\(\{ silent: true \}\)/);
+  assert.match(source, /void loadScreenerRuns\(\)/);
+  assert.match(source, /window\.setInterval\(\(\) => \{\s*void refreshDiscoveryLists\(\);\s*\}, LIST_REFRESH_INTERVAL_MS\)/);
+  assert.match(source, /window\.addEventListener\("focus", handleWindowFocus\)/);
+  assert.match(source, /document\.addEventListener\("visibilitychange", handleVisibilityChange\)/);
+});

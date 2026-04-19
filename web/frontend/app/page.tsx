@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useState } from "react";
+import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
 import {
   listReports,
   listScreenerRuns,
@@ -20,6 +20,8 @@ import { Sidebar } from "@/components/Sidebar";
 import { TradeJournal } from "@/components/TradeJournal";
 import { ReportViewer } from "@/components/ReportViewer";
 import { TaskProgress } from "@/components/TaskProgress";
+
+const LIST_REFRESH_INTERVAL_MS = 10000;
 
 export default function Home() {
   const { locale, t } = usePreferences();
@@ -43,23 +45,32 @@ export default function Home() {
     null
   );
 
-  const loadReports = async () => {
-    setLoadingReports(true);
-    setReportsError(null);
+  const loadReports = useCallback(
+    async ({ silent = false }: { silent?: boolean } = {}) => {
+      if (!silent) {
+        setLoadingReports(true);
+        setReportsError(null);
+      }
 
-    try {
-      const data = await listReports();
-      setReports(data);
-    } catch (error) {
-      setReportsError(
-        error instanceof Error
-          ? error.message
-          : t("page.error.loadReports", "Unable to load reports")
-      );
-    } finally {
-      setLoadingReports(false);
-    }
-  };
+      try {
+        const data = await listReports();
+        setReports(data);
+      } catch (error) {
+        if (!silent) {
+          setReportsError(
+            error instanceof Error
+              ? error.message
+              : t("page.error.loadReports", "Unable to load reports")
+          );
+        }
+      } finally {
+        if (!silent) {
+          setLoadingReports(false);
+        }
+      }
+    },
+    [t]
+  );
 
   const loadTasks = async () => {
     try {
@@ -70,14 +81,14 @@ export default function Home() {
     }
   };
 
-  const loadScreenerRuns = async () => {
+  const loadScreenerRuns = useCallback(async () => {
     try {
       const data = await listScreenerRuns();
       setScreenerRuns(data);
     } catch {
       // Keep the existing UI usable even if screener listing is unavailable.
     }
-  };
+  }, []);
 
   const loadScreenerTasks = async () => {
     try {
@@ -89,58 +100,42 @@ export default function Home() {
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const loadReportsSafely = async () => {
-      setLoadingReports(true);
-      setReportsError(null);
-
-      try {
-        const data = await listReports();
-        if (isMounted) {
-          setReports(data);
-        }
-      } catch (error) {
-        if (isMounted) {
-          setReportsError(
-            error instanceof Error
-              ? error.message
-              : t("page.error.loadReports", "Unable to load reports")
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setLoadingReports(false);
-        }
-      }
-    };
-
-    void loadReportsSafely();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [t]);
+    void loadReports();
+  }, [loadReports]);
 
   useEffect(() => {
-    let isMounted = true;
+    void loadScreenerRuns();
+  }, [loadScreenerRuns]);
 
-    const loadScreenerRunsSafely = async () => {
-      try {
-        const data = await listScreenerRuns();
-        if (isMounted) {
-          setScreenerRuns(data);
-        }
-      } catch {
-        // Ignore screener run loading issues in the main page.
+  useEffect(() => {
+    const refreshDiscoveryLists = async () => {
+      void loadReports({ silent: true });
+      void loadScreenerRuns();
+    };
+
+    const handleWindowFocus = () => {
+      void refreshDiscoveryLists();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void refreshDiscoveryLists();
       }
     };
 
-    void loadScreenerRunsSafely();
+    const intervalId = window.setInterval(() => {
+      void refreshDiscoveryLists();
+    }, LIST_REFRESH_INTERVAL_MS);
+
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     return () => {
-      isMounted = false;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleWindowFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, []);
+  }, [loadReports, loadScreenerRuns]);
 
   useEffect(() => {
     let isMounted = true;
