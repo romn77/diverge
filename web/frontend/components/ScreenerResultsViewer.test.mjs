@@ -18,4 +18,7 @@ test("ScreenerResultsViewer loads candidate rows and renders sortable score colu
   assert.match(source, /liquidity_score/);
   assert.match(source, /strategy_tags/);
   assert.match(source, /risk_flags/);
+  assert.match(source, /aria-pressed=\{sortKey === column\.key\}/);
+  assert.match(source, /sortKey === column\.key\s*\?/);
+  assert.match(source, /bg-\[var\(--primary\)\]/);
 });

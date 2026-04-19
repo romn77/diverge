@@ -100,7 +100,12 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
               <button
                 key={column.key}
                 type="button"
-                className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                aria-pressed={sortKey === column.key}
+                className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                  sortKey === column.key
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[0_10px_24px_rgba(181,89,38,0.22)]"
+                    : "border-[var(--border)] bg-white text-slate-700 hover:border-[rgba(181,89,38,0.22)] hover:bg-[rgba(181,89,38,0.06)] hover:text-[var(--primary)]"
+                }`}
                 onClick={() => setSortKey(column.key)}
               >
                 {column.label}
