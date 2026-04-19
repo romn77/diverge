@@ -263,6 +263,56 @@ def test_fetch_price_history_handles_empty_us_frame_without_columns():
     assert result.columns.tolist() == ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
 
 
+def test_fetch_price_history_enforces_canonical_history_contract():
+    frame = pd.DataFrame(
+        [
+            {
+                "Date": "2026-03-25",
+                "Open": "100.0",
+                "High": "102.0",
+                "Low": "99.5",
+                "Close": "101.0",
+                "Volume": "500",
+            },
+            {
+                "Date": "not-a-date",
+                "Open": "bad",
+                "High": "bad",
+                "Low": "bad",
+                "Close": "bad",
+                "Volume": "bad",
+            },
+            {
+                "Date": pd.Timestamp("2026-03-24 20:00:00+00:00"),
+                "Open": "99.0",
+                "High": "101.0",
+                "Low": "98.5",
+                "Close": "100.0",
+                "Volume": "400",
+            },
+            {
+                "Date": "2026-03-25",
+                "Open": "101.0",
+                "High": "103.0",
+                "Low": "100.5",
+                "Close": "102.0",
+                "Volume": "600",
+            },
+        ]
+    )
+
+    with patch(
+        "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
+        return_value=frame,
+    ):
+        result = fetch_price_history("AAPL", "us", "2025-01-01", "2026-03-25")
+
+    assert result.columns.tolist() == ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
+    assert result["Date"].tolist() == ["2026-03-24", "2026-03-25"]
+    assert result["Close"].tolist() == [100.0, 102.0]
+    assert result["Amount"].tolist() == [40_000.0, 61_200.0]
+
+
 def test_fetch_price_history_normalizes_us_share_class_symbol_for_yfinance():
     frame = pd.DataFrame(
         [

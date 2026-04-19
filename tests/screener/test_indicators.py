@@ -146,6 +146,56 @@ def test_build_feature_row_counts_available_bars_in_latest_20_trading_days():
     assert row["trading_days_20d"] == 17
 
 
+def test_build_feature_row_uses_canonical_history_contract_before_indicators():
+    base = _make_price_frame(periods=25)
+    messy = base.copy()
+    for column in ["Open", "High", "Low", "Close", "Volume", "Amount"]:
+        messy[column] = messy[column].astype(str)
+
+    messy.loc[2, "Volume"] = "bad"
+
+    replacement = messy.iloc[-1].copy()
+    replacement["Open"] = "300.0"
+    replacement["High"] = "301.0"
+    replacement["Low"] = "299.0"
+    replacement["Close"] = "300.5"
+    replacement["Volume"] = "2000"
+    replacement["Amount"] = pd.NA
+
+    invalid_date = replacement.copy()
+    invalid_date["Date"] = "bad-date"
+
+    price_df = pd.concat(
+        [
+            messy.iloc[10:],
+            pd.DataFrame([invalid_date]),
+            messy.iloc[:10],
+            pd.DataFrame([replacement]),
+        ],
+        ignore_index=True,
+    )
+
+    meta_row = pd.Series(
+        {
+            "symbol": "AAPL",
+            "market": "us",
+            "name": "Apple",
+            "exchange": "NASDAQ",
+            "sector": "Technology",
+            "list_date": "19801212",
+        }
+    )
+
+    row = build_feature_row(meta_row, price_df, base.iloc[-1]["Date"])
+
+    assert row["data_start_date"] == base.iloc[0]["Date"]
+    assert row["data_end_date"] == base.iloc[-1]["Date"]
+    assert row["bar_count"] == 24
+    assert row["trading_days_20d"] == 20
+    assert row["close"] == 300.5
+    assert row["amount"] == 601_000.0
+
+
 def test_build_features_table_builds_rows_for_each_symbol():
     price_df = _make_price_frame()
     universe_df = pd.DataFrame(

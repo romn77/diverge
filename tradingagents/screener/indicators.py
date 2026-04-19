@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from stockstats import wrap
 
+from .history_cache import empty_history_frame, prepare_history_frame_for_indicators
 from .market_calendar import last_n_trading_days
 
 
@@ -87,18 +88,8 @@ def _count_recent_trading_days(meta_row: pd.Series, eligible: pd.DataFrame) -> o
 
 def _prepare_price_df(price_df: pd.DataFrame) -> pd.DataFrame:
     if price_df is None or price_df.empty:
-        return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume", "Amount"])
-
-    working = price_df.copy()
-    working["Date"] = pd.to_datetime(working["Date"], errors="coerce")
-    working = working.dropna(subset=["Date"]).sort_values("Date").reset_index(drop=True)
-
-    numeric_columns = ["Open", "High", "Low", "Close", "Volume", "Amount"]
-    for column in numeric_columns:
-        working[column] = pd.to_numeric(working[column], errors="coerce")
-
-    working = working.dropna(subset=["Open", "High", "Low", "Close", "Volume", "Amount"])
-    return working
+        return empty_history_frame()
+    return prepare_history_frame_for_indicators(price_df)
 
 
 def _latest_row_on_or_before(working: pd.DataFrame, as_of_date: str) -> tuple[pd.DataFrame, pd.Series | None]:

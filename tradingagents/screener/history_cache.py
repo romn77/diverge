@@ -9,13 +9,23 @@ import pandas as pd
 
 
 HISTORY_CACHE_DIRNAME = "history"
+REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
+NUMERIC_PRICE_COLUMNS = REQUIRED_PRICE_COLUMNS[1:]
 
 
-def _normalize_history_frame(df: pd.DataFrame) -> pd.DataFrame:
+def empty_history_frame() -> pd.DataFrame:
+    return pd.DataFrame(columns=REQUIRED_PRICE_COLUMNS)
+
+
+def normalize_history_frame(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
-        return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume", "Amount"])
+        return empty_history_frame()
 
     normalized = df.copy()
+    for column in REQUIRED_PRICE_COLUMNS:
+        if column not in normalized.columns:
+            normalized[column] = pd.NA
+
     # Normalize mixed naive/tz-aware timestamps onto one UTC timeline before stringifying.
     normalized["Date"] = pd.to_datetime(
         normalized["Date"],
@@ -23,9 +33,29 @@ def _normalize_history_frame(df: pd.DataFrame) -> pd.DataFrame:
         utc=True,
     ).dt.strftime("%Y-%m-%d")
     normalized = normalized.dropna(subset=["Date"])
+
+    for column in NUMERIC_PRICE_COLUMNS:
+        normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
+
+    normalized["Amount"] = normalized["Amount"].where(
+        normalized["Amount"].notna(),
+        normalized["Close"] * normalized["Volume"],
+    )
     normalized = normalized.drop_duplicates(subset=["Date"], keep="last")
     normalized = normalized.sort_values("Date").reset_index(drop=True)
-    return normalized.loc[:, ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]]
+    return normalized.loc[:, REQUIRED_PRICE_COLUMNS]
+
+
+def prepare_history_frame_for_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    working = normalize_history_frame(df)
+    if working.empty:
+        return working
+
+    working = working.copy()
+    working["Date"] = pd.to_datetime(working["Date"], errors="coerce")
+    working = working.dropna(subset=["Date"])
+    working = working.dropna(subset=NUMERIC_PRICE_COLUMNS).reset_index(drop=True)
+    return working
 
 
 def history_cache_path(cache_dir: str | Path, market: str, symbol: str) -> Path:
@@ -36,19 +66,19 @@ def history_cache_path(cache_dir: str | Path, market: str, symbol: str) -> Path:
 def load_history_cache(cache_dir: str | Path, market: str, symbol: str) -> pd.DataFrame:
     path = history_cache_path(cache_dir, market, symbol)
     if not path.is_file():
-        return pd.DataFrame(columns=["Date", "Open", "High", "Low", "Close", "Volume", "Amount"])
-    return _normalize_history_frame(pd.read_csv(path))
+        return empty_history_frame()
+    return normalize_history_frame(pd.read_csv(path))
 
 
 def save_history_cache(cache_dir: str | Path, market: str, symbol: str, frame: pd.DataFrame) -> Path:
     path = history_cache_path(cache_dir, market, symbol)
     path.parent.mkdir(parents=True, exist_ok=True)
-    _normalize_history_frame(frame).to_csv(path, index=False)
+    normalize_history_frame(frame).to_csv(path, index=False)
     return path
 
 
 def slice_history_window(frame: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
-    normalized = _normalize_history_frame(frame)
+    normalized = normalize_history_frame(frame)
     if normalized.empty:
         return normalized
     window = normalized[(normalized["Date"] >= start_date) & (normalized["Date"] <= end_date)]
@@ -57,11 +87,11 @@ def slice_history_window(frame: pd.DataFrame, start_date: str, end_date: str) ->
 
 def merge_history_frames(existing_frame: pd.DataFrame, new_frame: pd.DataFrame) -> pd.DataFrame:
     if existing_frame.empty:
-        return _normalize_history_frame(new_frame)
+        return normalize_history_frame(new_frame)
     if new_frame.empty:
-        return _normalize_history_frame(existing_frame)
+        return normalize_history_frame(existing_frame)
     combined = pd.concat([existing_frame, new_frame], ignore_index=True)
-    return _normalize_history_frame(combined)
+    return normalize_history_frame(combined)
 
 
 def resolve_incremental_fetch_start(
@@ -69,7 +99,7 @@ def resolve_incremental_fetch_start(
     start_date: str,
     end_date: str,
 ) -> str | None:
-    normalized = _normalize_history_frame(cached_frame)
+    normalized = normalize_history_frame(cached_frame)
     if normalized.empty:
         return start_date
 

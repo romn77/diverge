@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -26,6 +27,8 @@ from .history_cache import (
     load_checkpoint,
     load_history_cache,
     merge_history_frames,
+    normalize_history_frame,
+    REQUIRED_PRICE_COLUMNS,
     resolve_incremental_fetch_start,
     save_checkpoint,
     save_history_cache,
@@ -33,8 +36,6 @@ from .history_cache import (
 )
 from .schema import build_cn_source_chain
 
-
-REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
 CN_REQUEST_DELAY_SECONDS = 0.35
 US_REQUEST_DELAY_SECONDS = 2.0
 RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
@@ -58,6 +59,198 @@ US_RETRYABLE_ERRORS = (
     AlphaVantageRateLimitError,
     YFRateLimitError,
 )
+
+
+@dataclass(slots=True)
+class _HistoryFetchContext:
+    symbol: str
+    market: str
+    progress_current: int
+    progress_total: int
+    start_date: str
+    as_of_date: str
+    cache_dir: Path
+    cached_frame: pd.DataFrame
+    cached_span: str | None
+    fetch_start: str | None
+
+
+@dataclass(slots=True)
+class _FetchedHistoryFrame:
+    frame: pd.DataFrame
+    source: str | None
+
+
+@dataclass(slots=True)
+class _HistoryStepResult:
+    history_frame: pd.DataFrame | None = None
+    should_store_history: bool = False
+    processed_increment: int = 0
+    failure: dict[str, str] | None = None
+    status: str | None = None
+    detail: str | None = None
+
+
+class _HistoryFetchExecutor:
+    def __init__(
+        self,
+        *,
+        as_of_date: str,
+        cn_source_chain: list[str],
+        us_data_source: str,
+    ) -> None:
+        self.as_of_date = as_of_date
+        self.cn_source_chain = list(cn_source_chain)
+        self.us_data_source = us_data_source
+        self.cn_network_fetch_count = 0
+        self.us_network_fetch_count = 0
+        self.last_source: str | None = None
+
+    def fetch(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
+        self.last_source = None
+        if market != "cn":
+            return self._fetch_us(symbol, market, fetch_start)
+        return self._fetch_cn(symbol, market, fetch_start)
+
+    def _fetch_us(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
+        attempt = 0
+        while True:
+            try:
+                if self.us_network_fetch_count > 0:
+                    time.sleep(US_REQUEST_DELAY_SECONDS)
+                self.us_network_fetch_count += 1
+                self.last_source = self.us_data_source
+                frame = fetch_price_history(
+                    symbol,
+                    market,
+                    fetch_start,
+                    self.as_of_date,
+                    us_data_source=self.us_data_source,
+                )
+                return _FetchedHistoryFrame(frame=frame, source=self.last_source)
+            except US_RETRYABLE_ERRORS as exc:
+                if attempt >= len(RETRY_BACKOFF_SECONDS):
+                    if isinstance(exc, VendorRetryableError):
+                        raise _unwrap_vendor_error(exc)
+                    raise
+                time.sleep(RETRY_BACKOFF_SECONDS[attempt])
+                attempt += 1
+
+    def _fetch_cn(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
+        last_error: Exception | None = None
+        for source in self.cn_source_chain:
+            attempt = 0
+            while True:
+                try:
+                    if self.cn_network_fetch_count > 0:
+                        time.sleep(CN_REQUEST_DELAY_SECONDS)
+                    self.cn_network_fetch_count += 1
+                    self.last_source = source
+                    frame = fetch_price_history(
+                        symbol,
+                        market,
+                        fetch_start,
+                        self.as_of_date,
+                        cn_data_source=source,
+                    )
+                    return _FetchedHistoryFrame(frame=frame, source=self.last_source)
+                except VendorDataEmptyError:
+                    raise
+                except CN_FALLBACK_ERRORS as exc:
+                    last_error = exc
+                    if attempt >= len(RETRY_BACKOFF_SECONDS):
+                        break
+                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
+                    attempt += 1
+
+        if last_error is not None:
+            raise _unwrap_vendor_error(last_error)
+
+        raise VendorRetryableError("CN history fetch failed without a fallback result")
+
+
+class _HistoryCheckpointState:
+    def __init__(
+        self,
+        *,
+        path: Path,
+        start_date: str,
+        batch_size: int,
+        failure_reasons: dict[str, str],
+        updated_at: str | None,
+    ) -> None:
+        self.path = path
+        self.start_date = start_date
+        self.batch_size = batch_size
+        self.failure_reasons = failure_reasons
+        self.updated_at = updated_at
+        self.failures: list[dict[str, str]] = []
+        self.processed_since_checkpoint = 0
+
+    @classmethod
+    def load(
+        cls,
+        *,
+        path: Path,
+        start_date: str,
+        batch_size: int,
+    ) -> _HistoryCheckpointState:
+        payload = load_checkpoint(path, max_age=CHECKPOINT_TTL) or {}
+        failed_symbols = payload.get("failed_symbols") or []
+        failure_reasons = {
+            str(item.get("symbol")): str(item.get("drop_reason") or "fetch_failed")
+            for item in failed_symbols
+            if item.get("symbol")
+        }
+        updated_at = payload.get("updated_at")
+        return cls(
+            path=path,
+            start_date=start_date,
+            batch_size=batch_size,
+            failure_reasons=failure_reasons,
+            updated_at=updated_at,
+        )
+
+    def checkpoint_skip_result(self, context: _HistoryFetchContext) -> _HistoryStepResult | None:
+        if not context.cached_frame.empty or context.symbol not in self.failure_reasons:
+            return None
+
+        drop_reason = self.failure_reasons[context.symbol]
+        detail = f"drop_reason={drop_reason} source=checkpoint"
+        if self.updated_at:
+            detail += f" updated_at={self.updated_at}"
+        return _HistoryStepResult(
+            failure=_history_failure_row(context, drop_reason),
+            status="skip_checkpoint_failure",
+            detail=detail,
+        )
+
+    def record(self, result: _HistoryStepResult) -> None:
+        self.processed_since_checkpoint += result.processed_increment
+        if result.failure is not None:
+            self.failures.append(result.failure)
+
+    def flush_if_needed(self) -> None:
+        if self.processed_since_checkpoint < self.batch_size:
+            return
+        self.persist()
+        self.processed_since_checkpoint = 0
+
+    def persist(self) -> None:
+        if not self.failures:
+            delete_checkpoint(self.path)
+            return
+        save_checkpoint(
+            self.path,
+            start_date=self.start_date,
+            failed_symbols=self.failures,
+        )
+
+    def finish(self) -> None:
+        delete_checkpoint(self.path)
+
+    def failure_frame(self) -> pd.DataFrame:
+        return pd.DataFrame(self.failures, columns=["symbol", "market", "drop_reason"])
 
 
 def _unwrap_vendor_error(exc: Exception) -> Exception:
@@ -103,17 +296,186 @@ def _normalize_price_frame(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty:
         return pd.DataFrame(columns=REQUIRED_PRICE_COLUMNS)
 
-    normalized = df.copy()
-    has_amount = "Amount" in normalized.columns
+    return normalize_history_frame(df)
 
-    for column in REQUIRED_PRICE_COLUMNS:
-        if column not in normalized.columns:
-            normalized[column] = pd.NA
 
-    if not has_amount:
-        normalized["Amount"] = normalized["Close"] * normalized["Volume"]
+def _history_failure_row(context: _HistoryFetchContext, drop_reason: str) -> dict[str, str]:
+    return {
+        "symbol": context.symbol,
+        "market": context.market,
+        "drop_reason": drop_reason,
+    }
 
-    return normalized.loc[:, REQUIRED_PRICE_COLUMNS]
+
+def _fetch_range(fetch_start: str, as_of_date: str) -> str:
+    return f"{fetch_start}..{as_of_date}"
+
+
+def _source_detail(source: str | None) -> str:
+    return f" source={source}" if source is not None else ""
+
+
+def _build_history_fetch_context(
+    row: pd.Series,
+    *,
+    index: int,
+    total: int,
+    start_date: str,
+    as_of_date: str,
+    cache_dir: Path,
+) -> _HistoryFetchContext:
+    symbol = row["symbol"]
+    market = row["market"]
+    cached_frame = load_history_cache(cache_dir, market, symbol)
+    return _HistoryFetchContext(
+        symbol=symbol,
+        market=market,
+        progress_current=index + 1,
+        progress_total=total,
+        start_date=start_date,
+        as_of_date=as_of_date,
+        cache_dir=cache_dir,
+        cached_frame=cached_frame,
+        cached_span=_history_span(cached_frame),
+        fetch_start=resolve_incremental_fetch_start(cached_frame, start_date, as_of_date),
+    )
+
+
+def _cache_hit_result(context: _HistoryFetchContext) -> _HistoryStepResult | None:
+    if context.fetch_start is not None:
+        return None
+
+    cached_window = slice_history_window(
+        context.cached_frame,
+        context.start_date,
+        context.as_of_date,
+    )
+    has_window = not cached_window.empty
+    return _HistoryStepResult(
+        history_frame=cached_window if has_window else None,
+        should_store_history=has_window,
+        processed_increment=1 if has_window else 0,
+        status="cache_hit",
+        detail=f"cache={context.cached_span}" if context.cached_span else None,
+    )
+
+
+def _reconcile_fetched_history(
+    context: _HistoryFetchContext,
+    fetched: _FetchedHistoryFrame,
+) -> _HistoryStepResult:
+    fetch_start = context.fetch_start
+    if fetch_start is None:
+        raise ValueError("fetch_start must be set before fetching history")
+
+    fetch_range = _fetch_range(fetch_start, context.as_of_date)
+    source_detail = _source_detail(fetched.source)
+
+    if fetched.frame.empty:
+        cached_window = slice_history_window(
+            context.cached_frame,
+            context.start_date,
+            context.as_of_date,
+        )
+        if not cached_window.empty:
+            detail = (
+                f"cache={context.cached_span} fetch={fetch_range}{source_detail}"
+                if context.cached_span
+                else f"fetch={fetch_range}{source_detail}"
+            )
+            return _HistoryStepResult(
+                history_frame=cached_window,
+                should_store_history=True,
+                processed_increment=1,
+                status="fetch_empty_reuse_cache",
+                detail=detail,
+            )
+
+        return _HistoryStepResult(
+            failure=_history_failure_row(context, "history_empty"),
+            status="history_empty",
+            detail=f"fetch={fetch_range}{source_detail}",
+        )
+
+    merged_frame = merge_history_frames(context.cached_frame, fetched.frame)
+    save_history_cache(context.cache_dir, context.market, context.symbol, merged_frame)
+    history_window = slice_history_window(merged_frame, context.start_date, context.as_of_date)
+    if context.cached_frame.empty or fetch_start == context.start_date:
+        status = "fetch_full"
+        detail = f"fetch={fetch_range}{source_detail}"
+    else:
+        status = "fetch_tail"
+        detail = f"cache={context.cached_span} fetch={fetch_range}{source_detail}"
+    return _HistoryStepResult(
+        history_frame=history_window,
+        should_store_history=True,
+        processed_increment=1,
+        status=status,
+        detail=detail,
+    )
+
+
+def _failure_result(
+    context: _HistoryFetchContext,
+    *,
+    drop_reason: str,
+    status: str,
+    source: str | None,
+) -> _HistoryStepResult:
+    fetch_start = context.fetch_start
+    if fetch_start is None:
+        raise ValueError("fetch_start must be set before classifying fetch failures")
+
+    return _HistoryStepResult(
+        failure=_history_failure_row(context, drop_reason),
+        status=status,
+        detail=f"fetch={_fetch_range(fetch_start, context.as_of_date)}{_source_detail(source)}",
+    )
+
+
+def _fetch_symbol_history(
+    context: _HistoryFetchContext,
+    *,
+    executor: _HistoryFetchExecutor,
+) -> _HistoryStepResult:
+    fetch_start = context.fetch_start
+    if fetch_start is None:
+        raise ValueError("fetch_start must be set before requesting history")
+
+    try:
+        fetched = executor.fetch(context.symbol, context.market, fetch_start)
+        return _reconcile_fetched_history(context, fetched)
+    except VendorDataEmptyError:
+        return _failure_result(
+            context,
+            drop_reason="history_empty",
+            status="history_empty",
+            source=executor.last_source,
+        )
+    except VendorRetryableError:
+        return _failure_result(
+            context,
+            drop_reason="fetch_failed",
+            status="fetch_failed",
+            source=executor.last_source,
+        )
+
+
+def _process_history_symbol(
+    context: _HistoryFetchContext,
+    *,
+    executor: _HistoryFetchExecutor,
+    checkpoint_state: _HistoryCheckpointState,
+) -> _HistoryStepResult:
+    cache_hit = _cache_hit_result(context)
+    if cache_hit is not None:
+        return cache_hit
+
+    checkpoint_skip = checkpoint_state.checkpoint_skip_result(context)
+    if checkpoint_skip is not None:
+        return checkpoint_skip
+
+    return _fetch_symbol_history(context, executor=executor)
 
 
 def fetch_price_history(
@@ -190,234 +552,56 @@ def fetch_history_for_universe(
         cn_data_source_fallbacks=cn_data_source_fallbacks,
         us_data_source=us_data_source,
     )
-    checkpoint_payload = load_checkpoint(history_checkpoint_path, max_age=CHECKPOINT_TTL) or {}
-    checkpoint_failed_symbols = checkpoint_payload.get("failed_symbols") or []
-    checkpoint_failure_reasons = {
-        str(item.get("symbol")): str(item.get("drop_reason") or "fetch_failed")
-        for item in checkpoint_failed_symbols
-        if item.get("symbol")
-    }
-    checkpoint_updated_at = checkpoint_payload.get("updated_at")
-
     histories: dict[str, pd.DataFrame] = {}
-    failures: list[dict[str, str]] = []
     total = len(universe_df.index)
-    processed_since_checkpoint = 0
-    cn_network_fetch_count = 0
-    us_network_fetch_count = 0
     cn_source_chain = build_cn_source_chain(
         cn_data_source,
         cn_data_source_fallbacks,
     )
-
-    last_fetch_source: str | None = None
-
-    def fetch_frame_with_retries(
-        symbol: str,
-        market: str,
-        fetch_start: str,
-    ) -> pd.DataFrame:
-        nonlocal cn_network_fetch_count, us_network_fetch_count, last_fetch_source
-
-        if market != "cn":
-            attempt = 0
-            while True:
-                try:
-                    if us_network_fetch_count > 0:
-                        time.sleep(US_REQUEST_DELAY_SECONDS)
-                    us_network_fetch_count += 1
-                    last_fetch_source = us_data_source
-                    return fetch_price_history(
-                        symbol,
-                        market,
-                        fetch_start,
-                        as_of_date,
-                        us_data_source=us_data_source,
-                    )
-                except US_RETRYABLE_ERRORS as exc:
-                    if attempt >= len(RETRY_BACKOFF_SECONDS):
-                        if isinstance(exc, VendorRetryableError):
-                            raise _unwrap_vendor_error(exc)
-                        raise
-                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                    attempt += 1
-
-        last_error: Exception | None = None
-        for source in cn_source_chain:
-            attempt = 0
-            while True:
-                try:
-                    if cn_network_fetch_count > 0:
-                        time.sleep(CN_REQUEST_DELAY_SECONDS)
-                    cn_network_fetch_count += 1
-                    last_fetch_source = source
-                    return fetch_price_history(
-                        symbol,
-                        market,
-                        fetch_start,
-                        as_of_date,
-                        cn_data_source=source,
-                    )
-                except VendorDataEmptyError:
-                    raise
-                except CN_FALLBACK_ERRORS as exc:
-                    last_error = exc
-                    if attempt >= len(RETRY_BACKOFF_SECONDS):
-                        break
-                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                    attempt += 1
-
-        if last_error is not None:
-            raise _unwrap_vendor_error(last_error)
-
-        raise VendorRetryableError("CN history fetch failed without a fallback result")
-
-    def persist_checkpoint() -> None:
-        if not failures:
-            delete_checkpoint(history_checkpoint_path)
-            return
-        save_checkpoint(
-            history_checkpoint_path,
-            start_date=start_date,
-            failed_symbols=failures,
-        )
+    executor = _HistoryFetchExecutor(
+        as_of_date=as_of_date,
+        cn_source_chain=cn_source_chain,
+        us_data_source=us_data_source,
+    )
+    checkpoint_state = _HistoryCheckpointState.load(
+        path=history_checkpoint_path,
+        start_date=start_date,
+        batch_size=checkpoint_batch_size,
+    )
 
     try:
         for index, row in universe_df.reset_index(drop=True).iterrows():
-            symbol = row["symbol"]
-            market = row["market"]
-            last_fetch_source = None
-
-            cached_frame = load_history_cache(history_cache_dir, market, symbol)
-            cached_span = _history_span(cached_frame)
-            fetch_start = resolve_incremental_fetch_start(cached_frame, start_date, as_of_date)
-            if fetch_start is None:
-                cached_window = slice_history_window(cached_frame, start_date, as_of_date)
-                if not cached_window.empty:
-                    histories[symbol] = cached_window
-                    processed_since_checkpoint += 1
-                if processed_since_checkpoint >= checkpoint_batch_size:
-                    persist_checkpoint()
-                    processed_since_checkpoint = 0
-                _emit_progress(
-                    progress_callback,
-                    "history",
-                    index + 1,
-                    total,
-                    symbol,
-                    status="cache_hit",
-                    detail=f"cache={cached_span}" if cached_span else None,
-                )
-                continue
-
-            if cached_frame.empty and symbol in checkpoint_failure_reasons:
-                drop_reason = checkpoint_failure_reasons[symbol]
-                checkpoint_detail = f"drop_reason={drop_reason} source=checkpoint"
-                if checkpoint_updated_at:
-                    checkpoint_detail += f" updated_at={checkpoint_updated_at}"
-                failures.append(
-                    {
-                        "symbol": symbol,
-                        "market": market,
-                        "drop_reason": drop_reason,
-                    }
-                )
-                _emit_progress(
-                    progress_callback,
-                    "history",
-                    index + 1,
-                    total,
-                    symbol,
-                    status="skip_checkpoint_failure",
-                    detail=checkpoint_detail,
-                )
-                continue
-
-            history_status: str | None = None
-            history_detail: str | None = None
-
-            try:
-                frame = fetch_frame_with_retries(symbol, market, fetch_start)
-                fetch_range = f"{fetch_start}..{as_of_date}"
-                source_detail = (
-                    f" source={last_fetch_source}" if last_fetch_source is not None else ""
-                )
-                if frame.empty:
-                    cached_window = slice_history_window(cached_frame, start_date, as_of_date)
-                    if not cached_window.empty:
-                        histories[symbol] = cached_window
-                        processed_since_checkpoint += 1
-                        history_status = "fetch_empty_reuse_cache"
-                        history_detail = (
-                            f"cache={cached_span} fetch={fetch_range}{source_detail}"
-                            if cached_span
-                            else f"fetch={fetch_range}{source_detail}"
-                        )
-                    else:
-                        failures.append(
-                            {
-                                "symbol": symbol,
-                                "market": market,
-                                "drop_reason": "history_empty",
-                            }
-                        )
-                        history_status = "history_empty"
-                        history_detail = f"fetch={fetch_range}{source_detail}"
-                else:
-                    merged_frame = merge_history_frames(cached_frame, frame)
-                    save_history_cache(history_cache_dir, market, symbol, merged_frame)
-                    histories[symbol] = slice_history_window(merged_frame, start_date, as_of_date)
-                    processed_since_checkpoint += 1
-                    if cached_frame.empty or fetch_start == start_date:
-                        history_status = "fetch_full"
-                        history_detail = f"fetch={fetch_range}{source_detail}"
-                    else:
-                        history_status = "fetch_tail"
-                        history_detail = (
-                            f"cache={cached_span} fetch={fetch_range}{source_detail}"
-                        )
-            except VendorDataEmptyError:
-                failures.append(
-                    {
-                        "symbol": symbol,
-                        "market": market,
-                        "drop_reason": "history_empty",
-                    }
-                )
-                history_status = "history_empty"
-                history_detail = f"fetch={fetch_start}..{as_of_date}"
-                if last_fetch_source is not None:
-                    history_detail += f" source={last_fetch_source}"
-            except VendorRetryableError:
-                failures.append(
-                    {
-                        "symbol": symbol,
-                        "market": market,
-                        "drop_reason": "fetch_failed",
-                    }
-                )
-                history_status = "fetch_failed"
-                history_detail = f"fetch={fetch_start}..{as_of_date}"
-                if last_fetch_source is not None:
-                    history_detail += f" source={last_fetch_source}"
-
-            if processed_since_checkpoint >= checkpoint_batch_size:
-                persist_checkpoint()
-                processed_since_checkpoint = 0
+            context = _build_history_fetch_context(
+                row,
+                index=index,
+                total=total,
+                start_date=start_date,
+                as_of_date=as_of_date,
+                cache_dir=history_cache_dir,
+            )
+            result = _process_history_symbol(
+                context,
+                executor=executor,
+                checkpoint_state=checkpoint_state,
+            )
+            if result.should_store_history and result.history_frame is not None:
+                histories[context.symbol] = result.history_frame
+            checkpoint_state.record(result)
+            checkpoint_state.flush_if_needed()
 
             _emit_progress(
                 progress_callback,
                 "history",
-                index + 1,
-                total,
-                symbol,
-                status=history_status,
-                detail=history_detail,
+                context.progress_current,
+                context.progress_total,
+                context.symbol,
+                status=result.status,
+                detail=result.detail,
             )
     except BaseException:
-        persist_checkpoint()
+        checkpoint_state.persist()
         raise
 
-    delete_checkpoint(history_checkpoint_path)
+    checkpoint_state.finish()
 
-    return histories, pd.DataFrame(failures, columns=["symbol", "market", "drop_reason"])
+    return histories, checkpoint_state.failure_frame()
