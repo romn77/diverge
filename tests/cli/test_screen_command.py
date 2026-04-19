@@ -134,6 +134,51 @@ def test_build_screener_config_normalizes_common_options():
     assert note == "auto-note"
 
 
+def test_build_screener_config_adjusts_explicit_weekend_date_to_latest_trading_day():
+    from cli.main import _build_screener_config
+
+    with patch("cli.main._current_utc_datetime", return_value=_utc_dt("2026-04-18T07:00:00+00:00")):
+        config, note = _build_screener_config(
+            date="2026-04-18",
+            markets=["cn", "us"],
+            top_k=7,
+            cn_data_source="tushare",
+            cn_data_source_fallbacks="",
+            us_data_source="massive",
+            cn_manifest=None,
+            us_manifest="/tmp/us.csv",
+            output_dir="/tmp/out",
+        )
+
+    assert config.as_of_date == "2026-04-17"
+    assert note is not None
+    assert "Adjusted as-of date from 2026-04-18 to 2026-04-17" in note
+    assert "cn=2026-04-17" in note
+    assert "us=2026-04-17" in note
+
+
+def test_build_screener_config_adjusts_explicit_same_day_before_close_for_us_market():
+    from cli.main import _build_screener_config
+
+    with patch("cli.main._current_utc_datetime", return_value=_utc_dt("2026-04-17T18:00:00+00:00")):
+        config, note = _build_screener_config(
+            date="2026-04-17",
+            markets=["us"],
+            top_k=7,
+            cn_data_source="tushare",
+            cn_data_source_fallbacks="",
+            us_data_source="massive",
+            cn_manifest=None,
+            us_manifest="/tmp/us.csv",
+            output_dir="/tmp/out",
+        )
+
+    assert config.as_of_date == "2026-04-16"
+    assert note is not None
+    assert "Adjusted as-of date from 2026-04-17 to 2026-04-16" in note
+    assert "before close on 2026-04-17" in note
+
+
 def test_screen_command_requires_us_manifest_for_us_market():
     result = runner.invoke(
         app,

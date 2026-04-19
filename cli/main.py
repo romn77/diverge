@@ -96,7 +96,71 @@ def _latest_completed_trading_day_for_market(
 
 def _resolve_screen_date(date: str | None, markets: list[str]) -> tuple[str, str | None]:
     if date is not None and str(date).strip():
-        return str(date).strip(), None
+        requested = str(date).strip()
+        try:
+            requested_date = datetime.datetime.strptime(requested, "%Y-%m-%d").date()
+        except ValueError:
+            return requested, None
+
+        normalized_markets = [
+            market.strip().lower() for market in markets if str(market).strip()
+        ]
+        normalized_markets = list(dict.fromkeys(normalized_markets))
+        if not normalized_markets:
+            return requested, None
+
+        current_utc = _current_utc_datetime()
+        market_local_days: list[datetime.date] = []
+        for market in normalized_markets:
+            config = MARKET_CLOSE_CONFIG.get(market)
+            if config is None:
+                market_local_days.append(current_utc.date())
+            else:
+                market_local_days.append(current_utc.astimezone(config["timezone"]).date())
+
+        # Keep truly future explicit dates unchanged so normal validation can reject them.
+        if market_local_days and all(requested_date > local_day for local_day in market_local_days):
+            return requested, None
+
+        per_market: list[tuple[str, str]] = []
+        for market in normalized_markets:
+            config = MARKET_CLOSE_CONFIG.get(market)
+            local_day = (
+                current_utc.astimezone(config["timezone"]).date()
+                if config is not None
+                else current_utc.date()
+            )
+            if requested_date == local_day:
+                per_market.append(
+                    _latest_completed_trading_day_for_market(market, now_utc=current_utc)
+                )
+                continue
+            if is_market_trading_day(market, requested_date):
+                per_market.append(
+                    (
+                        requested_date.strftime("%Y-%m-%d"),
+                        f"{market}={requested_date.strftime('%Y-%m-%d')} (requested trading day)",
+                    )
+                )
+                continue
+            fallback_days = last_n_trading_days(market, requested_date, 1)
+            fallback_day = fallback_days[-1] if fallback_days else requested_date
+            per_market.append(
+                (
+                    fallback_day.strftime("%Y-%m-%d"),
+                    (
+                        f"{market}={fallback_day.strftime('%Y-%m-%d')} "
+                        f"(adjusted from non-trading day {requested_date.isoformat()})"
+                    ),
+                )
+            )
+
+        resolved = min(day for day, _detail in per_market)
+        if resolved == requested:
+            return requested, None
+        details = "; ".join(detail for _day, detail in per_market)
+        note = f"Adjusted as-of date from {requested} to {resolved} ({details})"
+        return resolved, note
 
     normalized_markets = [
         market.strip().lower() for market in markets if str(market).strip()
