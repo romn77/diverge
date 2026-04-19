@@ -293,16 +293,23 @@ def test_fetch_price_history_normalizes_us_share_class_symbol_for_yfinance():
     assert result.loc[0, "Close"] == 503.0
 
 
-def test_fetch_history_for_universe_records_empty_results_as_history_empty():
+def test_fetch_history_for_universe_records_empty_results_as_history_empty(tmp_path):
     universe = pd.DataFrame(
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
+    cache_dir = tmp_path / "cache"
+    checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
         "tradingagents.screener.market_data.fetch_price_history",
         return_value=pd.DataFrame(),
     ):
-        histories, failures = fetch_history_for_universe(universe, "2026-03-24")
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+        )
 
     assert histories == {}
     assert failures.to_dict("records") == [
