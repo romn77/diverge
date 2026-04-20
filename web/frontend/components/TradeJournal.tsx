@@ -291,6 +291,38 @@ export function TradeJournal({
   const selectedReview =
     tradeDetail?.reviews.find((review) => review.review_type === reviewTab) ?? null;
   const openTrades = trades.filter((trade) => trade.status.toLowerCase() === "open");
+  const reviewCoverageLabel = tradeDetail
+    ? `${tradeDetail.reviews.length}/2 reviews`
+    : "0/2 reviews";
+  const selectionSummaryCards = useMemo(() => {
+    if (!tradeDetail) {
+      return [];
+    }
+
+    return [
+      {
+        label: "Trade Health",
+        value: localizeTradeValue(tradeDetail.record.status, t),
+        hint: `${localizeTradeValue(tradeDetail.record.side, t)} · ${tradeDetail.record.exchange_or_market}`,
+      },
+      {
+        label: "Review Coverage",
+        value: reviewCoverageLabel,
+        hint: `${tradeDetail.record.analysis_references.length} linked snapshots`,
+      },
+      {
+        label: "Feedback Loop",
+        value:
+          feedback && feedback.reviews.length > 0
+            ? t("journal.feedbackReady", "Ready")
+            : t("journal.feedbackBuilding", "Building"),
+        hint:
+          feedback && feedback.reviews.length > 0
+            ? `${feedback.reviews.length} saved examples will inform future analyses`
+            : "Save at least one review to seed future context",
+      },
+    ];
+  }, [feedback, reviewCoverageLabel, t, tradeDetail]);
 
   const handleTradeSaved = (record: TradeRecord) => {
     setShowCreateTrade(false);
@@ -592,6 +624,17 @@ export function TradeJournal({
                           {t("journal.editTrade", "Edit Trade")}
                         </button>
                       </div>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                      {selectionSummaryCards.map((card) => (
+                        <DetailMetric
+                          key={card.label}
+                          label={card.label}
+                          value={card.value}
+                          hint={card.hint}
+                        />
+                      ))}
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1010,6 +1053,26 @@ function MetaCard({
     <div className="viewer-meta-card">
       <p className="viewer-meta-label">{label}</p>
       <p className="mt-3 text-sm font-semibold text-slate-800">{value}</p>
+    </div>
+  );
+}
+
+function DetailMetric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-[26px] border border-[var(--border)] bg-white/90 px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p>
     </div>
   );
 }

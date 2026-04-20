@@ -11,6 +11,7 @@ interface WorkspaceAccountMenuProps {
   authUser: AuthUser | null;
   canManageUsers: boolean;
   onLogout: () => void;
+  onOpenSidebar?: () => void;
   loggingOut: boolean;
   selectedOutputLanguage: string | null;
   onOutputLanguageChange: (value: string) => void;
@@ -21,6 +22,7 @@ export function WorkspaceAccountMenu({
   authUser,
   canManageUsers,
   onLogout,
+  onOpenSidebar,
   loggingOut,
   selectedOutputLanguage,
   onOutputLanguageChange,
@@ -169,19 +171,38 @@ export function WorkspaceAccountMenu({
   const displayName = authUser?.display_name.trim() || authUser?.email || "TradingAgents";
 
   return (
-    <header className="sticky top-0 z-[45] border-b border-[rgba(150,118,99,0.18)] bg-[rgba(255,248,243,0.88)] px-4 py-2 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl md:px-7 lg:px-9">
-      <div className="flex w-full items-center justify-end gap-2">
-        <div className="relative flex items-center gap-2">
+    <>
+        {onOpenSidebar ? (
+          <button
+            type="button"
+            className="focus-ring fixed left-4 top-4 z-[56] inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] md:hidden"
+            aria-label={t("common.menu", "Menu")}
+            onClick={onOpenSidebar}
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+              <path
+                d="M4 6h12M4 10h12M4 14h12"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        ) : null}
+
+        <header className="fixed right-4 top-4 z-[55]">
+          <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[rgba(150,118,99,0.18)] bg-[rgba(255,248,243,0.88)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
           <button
             ref={accountTriggerRef}
             type="button"
             aria-haspopup="menu"
             aria-expanded={isAccountOpen}
             aria-controls={menuId}
-            className="focus-ring flex items-center gap-2 rounded-full border border-[var(--border)] bg-white/92 px-2.5 py-1.5 text-left shadow-[0_10px_22px_rgba(18,28,41,0.08)] backdrop-blur transition hover:border-[var(--primary)] hover:shadow-[0_14px_30px_rgba(18,28,41,0.12)]"
+            className="focus-ring rounded-full border border-[var(--border)] bg-white/92 p-1 text-left shadow-[0_10px_22px_rgba(18,28,41,0.08)] backdrop-blur transition hover:border-[var(--primary)] hover:shadow-[0_14px_30px_rgba(18,28,41,0.12)]"
             onClick={handleAccountToggle}
+            title={displayName}
           >
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-[var(--primary-soft)] text-xs font-semibold text-[var(--primary-strong)]">
+            <div className="grid h-8 w-8 place-items-center rounded-full bg-[var(--primary-soft)] text-[11px] font-semibold text-[var(--primary-strong)]">
               {authEnabled && authUser
                 ? getUserInitials(authUser.display_name, authUser.email)
                 : "TA"}
@@ -195,7 +216,7 @@ export function WorkspaceAccountMenu({
             aria-haspopup="dialog"
             aria-expanded={isSettingsOpen}
             aria-controls={settingsDialogId}
-            className={`focus-ring flex h-9 w-9 items-center justify-center rounded-xl border transition ${
+            className={`focus-ring flex h-8 w-8 items-center justify-center rounded-full border transition ${
               isSettingsOpen
                 ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
                 : "border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
@@ -219,7 +240,7 @@ export function WorkspaceAccountMenu({
               ref={settingsPanelRef}
               role="dialog"
               aria-labelledby="workspace-settings-title"
-              className="absolute right-0 top-full mt-3 w-[20rem] max-w-[calc(100vw-2rem)] rounded-[26px] border border-[var(--border)] bg-[rgba(255,253,248,0.98)] p-4 shadow-[0_22px_48px_rgba(18,28,41,0.18)] backdrop-blur-sm"
+              className="absolute right-0 top-full mt-2 w-[18rem] max-w-[calc(100vw-2rem)] rounded-[24px] border border-[var(--border)] bg-[rgba(255,253,248,0.98)] p-3 shadow-[0_22px_48px_rgba(18,28,41,0.18)] backdrop-blur-sm"
             >
               <div className="space-y-3">
                 <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3">
@@ -329,13 +350,13 @@ export function WorkspaceAccountMenu({
               id={menuId}
               ref={accountPanelRef}
               role="menu"
-              className="absolute right-[3.75rem] top-full mt-3 w-[19rem] rounded-[28px] border border-[var(--border)] bg-white/96 p-4 shadow-[0_24px_64px_rgba(18,28,41,0.16)] backdrop-blur"
+              className="absolute right-[2.75rem] top-full mt-2 w-[17rem] rounded-[24px] border border-[var(--border)] bg-white/96 p-3 shadow-[0_24px_64px_rgba(18,28,41,0.16)] backdrop-blur"
             >
               {authEnabled ? (
                 authUser ? (
                   <>
                     <div className="flex items-start gap-3">
-                      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[var(--primary-soft)] text-base font-semibold text-[var(--primary-strong)]">
+                      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--primary-soft)] text-sm font-semibold text-[var(--primary-strong)]">
                         {getUserInitials(authUser.display_name, authUser.email)}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -361,7 +382,7 @@ export function WorkspaceAccountMenu({
                       </p>
                     ) : null}
 
-                    <div className="mt-4 flex flex-wrap gap-2">
+                    <div className="mt-4 flex justify-end gap-2">
                       {canManageUsers ? (
                         <Link
                           href="/admin/users"
@@ -405,9 +426,9 @@ export function WorkspaceAccountMenu({
               )}
             </div>
           ) : null}
-        </div>
-      </div>
-    </header>
+          </div>
+        </header>
+    </>
   );
 }
 

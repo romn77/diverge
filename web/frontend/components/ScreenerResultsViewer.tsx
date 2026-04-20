@@ -25,21 +25,41 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
   const { locale, t } = usePreferences();
   const [run, setRun] = useState<ScreenerRunDetail | null>(null);
   const [rows, setRows] = useState<ScreenerCandidateRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("global_rank");
 
   useEffect(() => {
     let isActive = true;
 
     const load = async () => {
-      const [nextRun, nextRows] = await Promise.all([
-        getScreenerRun(runId),
-        listScreenerRunCandidates(runId),
-      ]);
-      if (!isActive) {
-        return;
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        const [nextRun, nextRows] = await Promise.all([
+          getScreenerRun(runId),
+          listScreenerRunCandidates(runId),
+        ]);
+        if (!isActive) {
+          return;
+        }
+        setRun(nextRun);
+        setRows(nextRows);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : t("screenerResults.error", "Unable to load screener results")
+        );
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
       }
-      setRun(nextRun);
-      setRows(nextRows);
     };
 
     void load();
@@ -71,12 +91,19 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
       label: t("screenerResults.column.liquidity", "Liquidity"),
     },
   ];
+  const highlightedRows = useMemo(() => sortedRows.slice(0, 3), [sortedRows]);
+  const marketCount = useMemo(() => new Set(rows.map((row) => row.market)).size, [rows]);
+  const strongestSignal = highlightedRows[0] ?? null;
+  const filteredReasons = useMemo(
+    () => Object.entries(run?.filtered_count_by_reason ?? {}).filter(([, count]) => count > 0),
+    [run?.filtered_count_by_reason]
+  );
 
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
       <div className="w-full space-y-6">
         <section className="fade-in rounded-[30px] border border-[var(--border)] bg-white/95 p-6 shadow-[0_24px_60px_rgba(18,28,41,0.08)] md:p-8">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
                 {t("screenerResults.kicker", "Screener Results")}
@@ -84,6 +111,10 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
               <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
                 {run?.id ?? runId}
               </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                Compare the ranked pool, inspect the strongest candidates first, and
+                use the score mix to decide which symbols deserve deeper research.
+              </p>
             </div>
             <div className="text-right text-sm text-slate-600">
               <p>{formatAsOfDate(run?.as_of_date ?? null, locale)}</p>
@@ -95,7 +126,58 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
             </div>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)]">
+            <div className="grid gap-4 md:grid-cols-3">
+              <SummaryCard
+                label={t("screenerResults.summary.topPick", "Top pick")}
+                value={strongestSignal?.symbol ?? "—"}
+                hint={
+                  strongestSignal
+                    ? `${strongestSignal.market} · total ${formatScore(strongestSignal.total_score, locale)}`
+                    : "Waiting for screener candidates"
+                }
+              />
+              <SummaryCard
+                label={t("screenerResults.summary.coverage", "Markets")}
+                value={String(marketCount || 0)}
+                hint="Distinct markets represented in this run"
+              />
+              <SummaryCard
+                label={t("screenerResults.summary.filtered", "Filtered Out")}
+                value={String(
+                  filteredReasons.reduce((sum, [, count]) => sum + count, 0)
+                )}
+                hint="Candidates removed before the final export"
+              />
+            </div>
+
+            <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                {t("screenerResults.summary.artifacts", "Artifacts")}
+              </p>
+              <div className="mt-3 space-y-2">
+                {Object.entries(run?.artifact_paths ?? {}).length === 0 ? (
+                  <p className="text-sm text-slate-500">No artifact paths exposed yet.</p>
+                ) : (
+                  Object.entries(run?.artifact_paths ?? {}).map(([label, artifactPath]) => (
+                    <div
+                      key={label}
+                      className="rounded-[18px] border border-[var(--border)] bg-white/88 px-3 py-3"
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-slate-700">
+                        {artifactPath}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-2">
             {columns.map((column) => (
               <button
                 key={column.key}
@@ -113,9 +195,80 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
             ))}
           </div>
 
+          {loadError ? (
+            <div className="mt-8 rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
+              {loadError}
+            </div>
+          ) : null}
+
+          {filteredReasons.length > 0 ? (
+            <div className="mt-6 flex flex-wrap gap-2">
+              {filteredReasons.map(([reason, count]) => (
+                <span
+                  key={reason}
+                  className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600"
+                >
+                  {reason}: {count}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          {highlightedRows.length > 0 ? (
+            <div className="mt-8 grid gap-4 lg:grid-cols-3">
+              {highlightedRows.map((row) => (
+                <article
+                  key={`${row.symbol}-${row.market}-hero`}
+                  className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]/92 p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+                        Rank #{row.global_rank}
+                      </p>
+                      <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                        {row.symbol}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-500">{row.market}</p>
+                    </div>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                      {formatScore(row.total_score, locale)}
+                    </span>
+                  </div>
+
+                  <dl className="mt-4 grid grid-cols-2 gap-3">
+                    <Metric label="Trend" value={formatScore(row.trend_score, locale)} />
+                    <Metric
+                      label="Momentum"
+                      value={formatScore(row.momentum_score, locale)}
+                    />
+                    <Metric label="Risk" value={formatScore(row.risk_score, locale)} />
+                    <Metric
+                      label="Liquidity"
+                      value={formatScore(row.liquidity_score, locale)}
+                    />
+                  </dl>
+
+                  <div className="mt-4 space-y-2">
+                    <TagStrip
+                      label="Strategy"
+                      value={row.strategy_tags}
+                      tone="bg-[rgba(28,56,83,0.08)] text-[var(--accent)]"
+                    />
+                    <TagStrip
+                      label="Risk"
+                      value={row.risk_flags}
+                      tone="bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
+                    />
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : null}
+
           <div className="mt-8 overflow-x-auto rounded-[24px] border border-[var(--border)]">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50">
+              <thead className="sticky top-0 bg-slate-50">
                 <tr>
                   <th className="px-4 py-3 text-left">
                     {t("screenerResults.header.symbol", "symbol")}
@@ -123,22 +276,22 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   <th className="px-4 py-3 text-left">
                     {t("screenerResults.header.market", "market")}
                   </th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-right tabular-nums">
                     {t("screenerResults.header.global_rank", "global_rank")}
                   </th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-right tabular-nums">
                     {t("screenerResults.header.total_score", "total_score")}
                   </th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-right tabular-nums">
                     {t("screenerResults.header.trend_score", "trend_score")}
                   </th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-right tabular-nums">
                     {t("screenerResults.header.momentum_score", "momentum_score")}
                   </th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-right tabular-nums">
                     {t("screenerResults.header.risk_score", "risk_score")}
                   </th>
-                  <th className="px-4 py-3 text-left">
+                  <th className="px-4 py-3 text-right tabular-nums">
                     {t(
                       "screenerResults.header.liquidity_score",
                       "liquidity_score"
@@ -153,7 +306,13 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {sortedRows.length === 0 ? (
+                {isLoading ? (
+                  <tr>
+                    <td className="px-4 py-6 text-slate-500" colSpan={10}>
+                      Loading screener candidates...
+                    </td>
+                  </tr>
+                ) : sortedRows.length === 0 ? (
                   <tr>
                     <td className="px-4 py-6 text-slate-500" colSpan={10}>
                       {t("screenerResults.empty", "No screener candidates available.")}
@@ -161,17 +320,44 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   </tr>
                 ) : (
                   sortedRows.map((row) => (
-                    <tr key={`${row.symbol}-${row.market}`}>
-                      <td className="px-4 py-3">{row.symbol}</td>
+                    <tr
+                      key={`${row.symbol}-${row.market}`}
+                      className={row.global_rank <= 3 ? "bg-[rgba(245,222,209,0.18)]" : ""}
+                    >
+                      <td className="px-4 py-3 font-semibold text-slate-900">{row.symbol}</td>
                       <td className="px-4 py-3">{row.market}</td>
-                      <td className="px-4 py-3">{row.global_rank}</td>
-                      <td className="px-4 py-3">{row.total_score}</td>
-                      <td className="px-4 py-3">{row.trend_score}</td>
-                      <td className="px-4 py-3">{row.momentum_score}</td>
-                      <td className="px-4 py-3">{row.risk_score}</td>
-                      <td className="px-4 py-3">{row.liquidity_score}</td>
-                      <td className="px-4 py-3">{row.strategy_tags}</td>
-                      <td className="px-4 py-3">{row.risk_flags}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{row.global_rank}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatScore(row.total_score, locale)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatScore(row.trend_score, locale)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatScore(row.momentum_score, locale)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatScore(row.risk_score, locale)}
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatScore(row.liquidity_score, locale)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TagStrip
+                          label="Strategy"
+                          value={row.strategy_tags}
+                          tone="bg-[rgba(28,56,83,0.08)] text-[var(--accent)]"
+                          compact
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <TagStrip
+                          label="Risk"
+                          value={row.risk_flags}
+                          tone="bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
+                          compact
+                        />
+                      </td>
                     </tr>
                   ))
                 )}
@@ -182,6 +368,82 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
       </div>
     </main>
   );
+}
+
+function SummaryCard({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{hint}</p>
+    </div>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] border border-[var(--border)] bg-white/88 px-3 py-3">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function TagStrip({
+  label,
+  value,
+  tone,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  tone: string;
+  compact?: boolean;
+}) {
+  const tokens = value
+    .split(/[;,]/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (tokens.length === 0) {
+    return (
+      <span className="text-xs text-slate-400">
+        {compact ? "—" : `${label}: none`}
+      </span>
+    );
+  }
+
+  return (
+    <div className={`flex flex-wrap gap-2 ${compact ? "" : "items-start"}`}>
+      {tokens.map((token) => (
+        <span
+          key={`${label}-${token}`}
+          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone}`}
+        >
+          {token}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function formatScore(value: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value);
 }
 
 function formatAsOfDate(value: string | null, locale: string) {

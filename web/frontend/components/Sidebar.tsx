@@ -1,19 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import {
+  type FormEvent,
+  type ReactNode,
+  startTransition,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { useWorkbench } from "@/components/WorkbenchProvider";
 import {
-  type Report,
-  type ScreenerRunSummary,
-  type ScreenerTask,
-  type Task,
-} from "@/lib/api";
+  buildHomeHref,
+  buildJournalHref,
+  buildReportHref,
+  buildScreenerRunHref,
+  buildScreenerTaskHref,
+  buildTaskHref,
+} from "@/lib/workbenchRoutes";
 
 type FocusTarget =
   | "taskQueue"
@@ -24,62 +30,34 @@ type FocusTarget =
   | "allTickers";
 
 interface SidebarProps {
-  selectedReportId: string | null;
-  selectedScreenerRunId: string | null;
-  selectedTradeJournal: boolean;
-  onSelectReport: (reportId: string) => void;
-  onSelectScreenerRun: (runId: string) => void;
-  onSelectTradeJournal: () => void;
-  reports: Report[];
-  screenerRuns: ScreenerRunSummary[];
-  loading: boolean;
-  error: string | null;
-  searchQuery: string;
-  onSearchQueryChange: (value: string) => void;
-  taskQueue: Task[];
-  screenerTaskQueue: ScreenerTask[];
-  activeTaskId: string | null;
-  activeScreenerTaskId: string | null;
-  onSelectTask: (taskId: string) => void;
-  onSelectScreenerTask: (taskId: string) => void;
-  onNewAnalysis: () => void;
-  onNewScreener: () => void;
-  newAnalysisDisabled: boolean;
-  newScreenerDisabled: boolean;
   isOpen: boolean;
   onClose: () => void;
+  onNewAnalysis: () => void;
+  onNewScreener: () => void;
 }
 
 export function Sidebar({
-  selectedReportId,
-  selectedScreenerRunId,
-  selectedTradeJournal,
-  onSelectReport,
-  onSelectScreenerRun,
-  onSelectTradeJournal,
-  reports,
-  screenerRuns,
-  loading,
-  error,
-  searchQuery,
-  onSearchQueryChange,
-  taskQueue,
-  screenerTaskQueue,
-  activeTaskId,
-  activeScreenerTaskId,
-  onSelectTask,
-  onSelectScreenerTask,
-  onNewAnalysis,
-  onNewScreener,
-  newAnalysisDisabled,
-  newScreenerDisabled,
   isOpen,
   onClose,
+  onNewAnalysis,
+  onNewScreener,
 }: SidebarProps) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { locale, t } = usePreferences();
-  const [tickerOverrides, setTickerOverrides] = useState<Record<string, boolean>>(
-    () => ({})
-  );
+  const {
+    activeScreenerTasks,
+    activeTasks,
+    loadingReports,
+    newAnalysisDisabled,
+    newScreenerDisabled,
+    recentReports,
+    reportsByTicker,
+    reportsError,
+    screenerRuns,
+  } = useWorkbench();
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
   const [isRecentReportsOpen, setIsRecentReportsOpen] = useState(true);
   const [isAllTickersOpen, setIsAllTickersOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
@@ -88,63 +66,17 @@ export function Sidebar({
     null
   );
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const taskQueueFirstButtonRef = useRef<HTMLButtonElement>(null);
-  const screenerTaskFirstButtonRef = useRef<HTMLButtonElement>(null);
-  const recentScreenersFirstButtonRef = useRef<HTMLButtonElement>(null);
+  const taskQueueFirstButtonRef = useRef<HTMLAnchorElement>(null);
+  const screenerTaskFirstButtonRef = useRef<HTMLAnchorElement>(null);
+  const recentScreenersFirstButtonRef = useRef<HTMLAnchorElement>(null);
   const recentReportsToggleRef = useRef<HTMLButtonElement>(null);
-  const firstRecentReportButtonRef = useRef<HTMLButtonElement>(null);
+  const firstRecentReportButtonRef = useRef<HTMLAnchorElement>(null);
   const allTickersToggleRef = useRef<HTMLButtonElement>(null);
-  const firstTickerButtonRef = useRef<HTMLButtonElement>(null);
+  const firstTickerButtonRef = useRef<HTMLAnchorElement>(null);
 
-  const sortedReports = useMemo(() => {
-    return [...reports].sort(
-      (a, b) => parseReportTimestamp(b) - parseReportTimestamp(a)
-    );
-  }, [reports]);
-
-  const filteredReports = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return sortedReports;
-    }
-    const normalized = searchQuery.toLowerCase();
-    return sortedReports.filter(
-      (report) =>
-        report.ticker.toLowerCase().includes(normalized) ||
-        report.id.toLowerCase().includes(normalized)
-    );
-  }, [searchQuery, sortedReports]);
-
-  const groupedByTicker = useMemo(() => {
-    return filteredReports.reduce<Record<string, Report[]>>((acc, report) => {
-      const ticker = report.ticker;
-      if (!acc[ticker]) {
-        acc[ticker] = [];
-      }
-      acc[ticker].push(report);
-      return acc;
-    }, {});
-  }, [filteredReports]);
-
-  const tickerOrder = useMemo(() => {
-    return Object.entries(groupedByTicker)
-      .sort(
-        ([, reportsA], [, reportsB]) =>
-          Math.max(...reportsB.map(parseReportTimestamp)) -
-          Math.max(...reportsA.map(parseReportTimestamp))
-      )
-      .map(([ticker]) => ticker);
-  }, [groupedByTicker]);
-
-  const recentReports = useMemo(() => sortedReports.slice(0, 3), [sortedReports]);
-  const isMobileDrawerOpen = isMobileViewport && isOpen;
-  const isDesktopRail = !isMobileViewport && isDesktopCollapsed;
-  const autoExpandedTicker = useMemo(() => {
-    if (loading || reports.length === 0) {
-      return null;
-    }
-
-    return findTickerForReport(reports, selectedReportId) ?? getMostRecentTicker(reports);
-  }, [loading, reports, selectedReportId]);
+  useEffect(() => {
+    setSearchQuery(searchParams.get("q") ?? "");
+  }, [searchParams]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
@@ -158,6 +90,9 @@ export function Sidebar({
       mediaQuery.removeEventListener("change", syncViewport);
     };
   }, []);
+
+  const isMobileDrawerOpen = isMobileViewport && isOpen;
+  const isDesktopRail = !isMobileViewport && isDesktopCollapsed;
 
   useEffect(() => {
     if (!isMobileDrawerOpen) {
@@ -233,27 +168,21 @@ export function Sidebar({
     isRecentReportsOpen,
     pendingFocusTarget,
     recentReports.length,
+    reportsByTicker.length,
     screenerRuns.length,
-    taskQueue.length,
-    screenerTaskQueue.length,
-    tickerOrder.length,
+    activeTasks.length,
+    activeScreenerTasks.length,
   ]);
 
-  const toggleTicker = (ticker: string) => {
-    setTickerOverrides((current) => {
-      const isExpanded = current[ticker] ?? (ticker === autoExpandedTicker);
-      return {
-        ...current,
-        [ticker]: !isExpanded,
-      };
-    });
-  };
-
   const drawerClasses = [
-    "sidebar-surface fixed inset-y-0 left-0 z-50 w-full max-w-xs flex-col overflow-y-auto border-r border-[var(--border)] py-5 shadow-lg transition-[transform,width,padding] duration-300",
-    isMobileDrawerOpen ? "flex translate-x-0 px-4" : "hidden -translate-x-full px-4 md:flex md:translate-x-0",
-    isDesktopCollapsed ? "md:w-[5.25rem] md:max-w-none md:px-3" : "md:w-[19.2rem] md:max-w-none md:px-4",
-    "md:relative md:shrink-0 md:shadow-none md:border-r-0",
+    "sidebar-surface fixed left-0 top-0 bottom-0 z-50 w-full max-w-xs flex-col overflow-y-auto border-r border-[var(--border)] py-5 shadow-lg transition-[transform,width,padding] duration-300",
+    isMobileDrawerOpen
+      ? "flex translate-x-0 px-4"
+      : "hidden -translate-x-full px-4 md:flex md:translate-x-0",
+    isDesktopCollapsed
+      ? "md:w-[5.25rem] md:max-w-none md:px-3"
+      : "md:w-[19.2rem] md:max-w-none md:px-4",
+    "md:relative md:top-auto md:bottom-auto md:shrink-0 md:shadow-none md:border-r-0",
   ].join(" ");
 
   const openBrowseTarget = (target: FocusTarget) => {
@@ -281,6 +210,22 @@ export function Sidebar({
     setIsDesktopCollapsed(true);
   };
 
+  const handleSearchSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    startTransition(() => {
+      router.replace(buildHomeHref(searchQuery));
+    });
+    if (isMobileDrawerOpen) {
+      onClose();
+    }
+  };
+
+  const isTradeJournalActive = pathname === buildJournalHref();
+  const isTaskQueueActive = pathname.startsWith("/tasks/");
+  const isScreenerTaskQueueActive = pathname.startsWith("/screener-tasks/");
+  const isScreenerRunActive = pathname.startsWith("/screeners/");
+  const isReportActive = pathname.startsWith("/reports/");
+
   return (
     <>
       {isMobileDrawerOpen && (
@@ -300,7 +245,7 @@ export function Sidebar({
       >
         <div className="flex min-h-full flex-col">
           <div className="flex items-center justify-between gap-2 border-b border-[var(--border)] pb-4">
-            <div className="flex items-center gap-2">
+            <Link href={buildHomeHref(searchQuery)} className="flex min-w-0 items-center gap-2">
               <div className="grid h-9 w-9 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-sm">
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
                   <path
@@ -312,15 +257,17 @@ export function Sidebar({
                   />
                 </svg>
               </div>
-              {!isDesktopRail && (
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">TradingAgents</p>
+              {!isDesktopRail ? (
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-900">
+                    TradingAgents
+                  </p>
                   <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
                     {t("sidebar.brandSubline", "Research")}
                   </p>
                 </div>
-              )}
-            </div>
+              ) : null}
+            </Link>
 
             {isMobileViewport ? (
               <button
@@ -419,11 +366,11 @@ export function Sidebar({
                   </svg>
                 </RailButton>
 
-                <RailButton
+                <RailLinkButton
+                  href={buildJournalHref()}
                   label="Trade Journal"
                   title="Trade Journal"
-                  active={selectedTradeJournal}
-                  onClick={onSelectTradeJournal}
+                  active={isTradeJournalActive}
                 >
                   <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
                     <path
@@ -439,16 +386,16 @@ export function Sidebar({
                       strokeLinecap="round"
                     />
                   </svg>
-                </RailButton>
+                </RailLinkButton>
               </div>
 
               <div className="mt-6 flex flex-col items-center gap-2 border-t border-[var(--border)] pt-4">
-                {taskQueue.length > 0 ? (
+                {activeTasks.length > 0 ? (
                   <RailButton
                     label="Task Queue"
                     title="Task Queue"
-                    active={activeTaskId !== null}
-                    count={taskQueue.length}
+                    active={isTaskQueueActive}
+                    count={activeTasks.length}
                     onClick={() => openBrowseTarget("taskQueue")}
                   >
                     <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
@@ -462,12 +409,12 @@ export function Sidebar({
                   </RailButton>
                 ) : null}
 
-                {screenerTaskQueue.length > 0 ? (
+                {activeScreenerTasks.length > 0 ? (
                   <RailButton
                     label="Screener Queue"
                     title="Screener Queue"
-                    active={activeScreenerTaskId !== null}
-                    count={screenerTaskQueue.length}
+                    active={isScreenerTaskQueueActive}
+                    count={activeScreenerTasks.length}
                     onClick={() => openBrowseTarget("screenerTaskQueue")}
                   >
                     <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
@@ -500,7 +447,7 @@ export function Sidebar({
                 <RailButton
                   label="Recent Screeners"
                   title="Recent Screeners"
-                  active={selectedScreenerRunId !== null}
+                  active={isScreenerRunActive}
                   onClick={() => openBrowseTarget("screeners")}
                 >
                   <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
@@ -525,7 +472,7 @@ export function Sidebar({
                 <RailButton
                   label="Recent Reports"
                   title="Recent Reports"
-                  active={selectedReportId !== null}
+                  active={isReportActive}
                   onClick={() => openBrowseTarget("recentReports")}
                 >
                   <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
@@ -546,7 +493,7 @@ export function Sidebar({
                 <RailButton
                   label="All tickers"
                   title="All tickers"
-                  active={selectedReportId !== null}
+                  active={isReportActive}
                   onClick={() => openBrowseTarget("allTickers")}
                 >
                   <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
@@ -623,15 +570,15 @@ export function Sidebar({
                 <span className="text-[20px] font-medium leading-none">+</span>
               </button>
 
-              <button
-                type="button"
-                data-active={selectedTradeJournal}
+              <Link
+                href={buildJournalHref()}
+                data-active={isTradeJournalActive}
                 className={`interactive-button focus-ring mt-3 flex w-full items-center justify-between rounded-[22px] border px-4 py-2.5 text-left ${
-                  selectedTradeJournal
+                  isTradeJournalActive
                     ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_14px_28px_rgba(182,90,43,0.16)]"
                     : "border-[var(--border)] bg-white text-slate-700 shadow-[0_14px_28px_rgba(18,28,41,0.05)]"
                 }`}
-                onClick={onSelectTradeJournal}
+                onClick={onClose}
               >
                 <span>
                   <span className="block text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
@@ -641,40 +588,40 @@ export function Sidebar({
                     Trade Journal
                   </span>
                 </span>
-              </button>
+              </Link>
 
-              {taskQueue.length > 0 ? (
+              {activeTasks.length > 0 ? (
                 <section className="mt-5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
                       Task Queue
                     </h3>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      {taskQueue.length} active
+                      {activeTasks.length} active
                     </span>
                   </div>
                   <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm shadow-sm">
-                    {taskQueue.map((task, index) => {
-                      const isActiveTask = activeTaskId === task.id;
-                      const currentAgent = task.latest_progress?.current_agent;
+                    {activeTasks.map((task, index) => {
+                      const href = buildTaskHref(task.id);
                       return (
-                        <button
+                        <Link
                           key={task.id}
                           ref={index === 0 ? taskQueueFirstButtonRef : undefined}
-                          type="button"
-                          data-active={isActiveTask}
-                          className={`sidebar-task-card flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left transition ${
-                            isActiveTask
+                          href={href}
+                          className={`sidebar-task-card group flex rounded-2xl px-3 py-2.5 text-left transition ${
+                            pathname === href
                               ? "border border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900 shadow-[0_10px_20px_rgba(28,56,83,0.10)]"
                               : "border border-transparent bg-white text-slate-700 hover:bg-white"
                           }`}
-                          onClick={() => onSelectTask(task.id)}
+                          onClick={onClose}
                         >
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold">{task.ticker}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold">{task.ticker}</p>
                             <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
                               {task.status}
-                              {currentAgent ? ` · ${currentAgent}` : ""}
+                              {task.latest_progress?.current_agent
+                                ? ` · ${task.latest_progress.current_agent}`
+                                : ""}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
@@ -687,56 +634,44 @@ export function Sidebar({
                             >
                               {task.status}
                             </span>
-                            <svg
-                              className="h-4 w-4 text-slate-400"
-                              viewBox="0 0 20 20"
-                              fill="none"
-                              stroke="currentColor"
-                              aria-hidden
-                            >
-                              <path
-                                d="M7 6l5 4-5 4"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
+                            <span className="group-focus-within:opacity-100 opacity-0 transition group-hover:opacity-100 text-slate-400">
+                              ›
+                            </span>
                           </div>
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>
                 </section>
               ) : null}
 
-              {screenerTaskQueue.length > 0 ? (
+              {activeScreenerTasks.length > 0 ? (
                 <section className="mt-5">
                   <div className="flex items-center justify-between">
                     <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
                       Screener Queue
                     </h3>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      {screenerTaskQueue.length} active
+                      {activeScreenerTasks.length} active
                     </span>
                   </div>
                   <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm shadow-sm">
-                    {screenerTaskQueue.map((task, index) => {
-                      const isActiveTask = activeScreenerTaskId === task.id;
+                    {activeScreenerTasks.map((task, index) => {
+                      const href = buildScreenerTaskHref(task.id);
                       return (
-                        <button
+                        <Link
                           key={task.id}
                           ref={index === 0 ? screenerTaskFirstButtonRef : undefined}
-                          type="button"
-                          data-active={isActiveTask}
-                          className={`sidebar-task-card flex w-full items-center justify-between rounded-2xl px-3 py-2.5 text-left transition ${
-                            isActiveTask
+                          href={href}
+                          className={`sidebar-task-card group flex rounded-2xl px-3 py-2.5 text-left transition ${
+                            pathname === href
                               ? "border border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900 shadow-[0_10px_20px_rgba(28,56,83,0.10)]"
                               : "border border-transparent bg-white text-slate-700 hover:bg-white"
                           }`}
-                          onClick={() => onSelectScreenerTask(task.id)}
+                          onClick={onClose}
                         >
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold">Screener Run</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[12px] font-semibold">Screener Run</p>
                             <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-slate-500">
                               {task.status}
                             </p>
@@ -744,7 +679,7 @@ export function Sidebar({
                           <span className="inline-flex rounded-full bg-[rgba(28,56,83,0.1)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
                             {task.status}
                           </span>
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>
@@ -756,306 +691,249 @@ export function Sidebar({
                   className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500"
                   htmlFor="sidebar-search"
                 >
-                  Filter reports
+                  Filter reports from home
                 </label>
-                <div className="relative mt-2">
-                  <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
-                    <svg
-                      className="h-4 w-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      aria-hidden
-                    >
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
-                      />
-                    </svg>
-                  </span>
-                  <input
-                    ref={searchInputRef}
-                    id="sidebar-search"
-                    type="text"
-                    value={searchQuery}
-                    onChange={(event) => onSearchQueryChange(event.target.value)}
-                    placeholder="Ticker or report id"
-                    className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-12 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
-                  />
-                  {searchQuery && (
+                <form className="mt-2" onSubmit={handleSearchSubmit}>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                      <svg
+                        className="h-4 w-4"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        aria-hidden
+                      >
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      ref={searchInputRef}
+                      id="sidebar-search"
+                      type="search"
+                      value={searchQuery}
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Ticker or report id"
+                      className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-4 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
+                    />
+                  </div>
+
+                  <div className="mt-2 flex items-center gap-2">
                     <button
-                      type="button"
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:text-[var(--primary)]"
-                      onClick={() => onSearchQueryChange("")}
+                      type="submit"
+                      className="focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white"
                     >
-                      Clear
+                      Open results
                     </button>
-                  )}
-                </div>
+                    <Link
+                      href={buildHomeHref(searchQuery)}
+                      className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--primary)]"
+                      onClick={onClose}
+                    >
+                      Open home results
+                    </Link>
+                    {searchQuery ? (
+                      <button
+                        type="button"
+                        className="rounded-full border border-[var(--border)] bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:text-[var(--primary)]"
+                        onClick={() => setSearchQuery("")}
+                      >
+                        Clear
+                      </button>
+                    ) : null}
+                  </div>
+                </form>
+
                 <p className="mt-1 text-xs text-slate-500">
-                  Filter by ticker or report ID.
+                  Search reports in a URL-driven view instead of filtering hidden panels.
                 </p>
               </div>
 
-              <div className="mt-6 space-y-4">
-                <section>
-                  <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-                    Recent Screeners
-                  </h3>
-                  <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm">
-                    {screenerRuns.length === 0 ? (
-                      <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                        No screener runs yet.
-                      </p>
-                    ) : (
-                      screenerRuns.map((run, index) => (
-                        <button
+              <section className="mt-6">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+                  Recent Screeners
+                </h3>
+                <div className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm">
+                  {screenerRuns.length === 0 ? (
+                    <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                      No screener runs yet.
+                    </p>
+                  ) : (
+                    screenerRuns.map((run, index) => {
+                      const href = buildScreenerRunHref(run.id);
+                      return (
+                        <Link
                           key={run.id}
                           ref={index === 0 ? recentScreenersFirstButtonRef : undefined}
-                          type="button"
-                          className={`flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)] ${
-                            selectedScreenerRunId === run.id ? "text-[var(--primary)]" : ""
+                          href={href}
+                          className={`flex items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)] ${
+                            pathname === href
+                              ? "text-[var(--primary)]"
+                              : ""
                           }`}
-                          onClick={() => onSelectScreenerRun(run.id)}
+                          onClick={onClose}
                         >
                           <div>
                             <p className="text-sm font-semibold text-slate-900">{run.id}</p>
                             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                              {formatReportDate(
-                                {
-                                  id: run.id,
-                                  ticker: "",
-                                  date: run.as_of_date,
-                                  time: "",
-                                },
-                                locale,
-                                t("common.unknownDate", "Unknown date")
-                              )}
+                              {run.candidate_count} candidates
                             </p>
                           </div>
                           <span className="text-xs font-semibold text-slate-500">
-                            {run.candidate_count}
+                            {formatRunDate(run.as_of_date, locale)}
                           </span>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </section>
+                        </Link>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
 
-                <section>
-                  <button
-                    ref={recentReportsToggleRef}
-                    type="button"
-                    className="flex w-full items-center justify-between text-left"
-                    onClick={() => setIsRecentReportsOpen((current) => !current)}
-                    aria-expanded={isRecentReportsOpen}
-                    aria-controls="recent-reports-panel"
+              <section className="mt-6">
+                <button
+                  ref={recentReportsToggleRef}
+                  type="button"
+                  className="flex w-full items-center justify-between text-left"
+                  onClick={() => setIsRecentReportsOpen((current) => !current)}
+                  aria-expanded={isRecentReportsOpen}
+                  aria-controls="recent-reports-panel"
+                >
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+                    Recent Reports
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      {recentReports.length} shown
+                    </span>
+                    <span className="text-slate-400">{isRecentReportsOpen ? "›" : "‹"}</span>
+                  </div>
+                </button>
+                {isRecentReportsOpen && (
+                  <div
+                    id="recent-reports-panel"
+                    className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm"
                   >
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
-                      Recent Reports
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
-                        {recentReports.length} shown
-                      </span>
-                      <svg
-                        className={`h-4 w-4 text-slate-400 transition-transform ${
-                          isRecentReportsOpen ? "rotate-90" : ""
-                        }`}
-                        viewBox="0 0 20 20"
-                        fill="none"
-                        stroke="currentColor"
-                        aria-hidden
-                      >
-                        <path
-                          d="M7 6l5 4-5 4"
-                          strokeWidth="1.8"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                  </button>
-                  {isRecentReportsOpen && (
-                    <div
-                      id="recent-reports-panel"
-                      className="mt-3 space-y-2 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm"
-                    >
-                      {loading ? (
-                        <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                          Loading reports...
-                        </p>
-                      ) : recentReports.length === 0 ? (
-                        <p className="px-3 py-4 text-xs font-semibold text-slate-500">
-                          No reports yet.
-                        </p>
-                      ) : (
-                        recentReports.map((report, index) => (
-                          <button
+                    {reportsError ? (
+                      <p className="px-3 py-4 text-xs font-semibold text-[var(--danger)]">
+                        {reportsError}
+                      </p>
+                    ) : loadingReports ? (
+                      <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                        Loading reports...
+                      </p>
+                    ) : recentReports.length === 0 ? (
+                      <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                        No reports yet.
+                      </p>
+                    ) : (
+                      recentReports.map((report, index) => {
+                        const href = buildReportHref(report.id);
+                        return (
+                          <Link
                             key={report.id}
                             ref={index === 0 ? firstRecentReportButtonRef : undefined}
-                            type="button"
-                            className="flex w-full items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)]"
-                            onClick={() => onSelectReport(report.id)}
+                            href={href}
+                            className="flex items-center justify-between rounded-2xl px-3 py-3 text-left transition hover:bg-white hover:text-[var(--primary)]"
+                            onClick={onClose}
                           >
                             <div>
                               <p className="text-sm font-semibold text-slate-900">
                                 {report.ticker}
                               </p>
                               <p className="text-xs uppercase tracking-[0.3em] text-slate-500">
-                                {formatReportDate(
-                                  report,
-                                  locale,
-                                  t("common.unknownDate", "Unknown date")
-                                )}
+                                {formatReportDate(report, locale)}
                               </p>
                             </div>
-                            <svg
-                              className="h-4 w-4 text-slate-400"
-                              viewBox="0 0 20 20"
-                              fill="none"
-                              stroke="currentColor"
-                              aria-hidden
-                            >
-                              <path
-                                d="M7 6l5 4-5 4"
-                                strokeWidth="1.8"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </section>
+                            <span className="text-xs font-semibold text-slate-500">
+                              Open
+                            </span>
+                          </Link>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </section>
 
-                <section>
-                  <button
-                    ref={allTickersToggleRef}
-                    type="button"
-                    className="flex w-full items-center justify-between text-left"
-                    onClick={() => setIsAllTickersOpen((current) => !current)}
-                    aria-expanded={isAllTickersOpen}
-                    aria-controls="all-tickers-panel"
+              <section className="mt-6">
+                <button
+                  ref={allTickersToggleRef}
+                  type="button"
+                  className="flex w-full items-center justify-between text-left"
+                  onClick={() => setIsAllTickersOpen((current) => !current)}
+                  aria-expanded={isAllTickersOpen}
+                  aria-controls="all-tickers-panel"
+                >
+                  <h3 className="text-xs font-semibold uppercase tracking-[0.4em] text-slate-500">
+                    All tickers
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.3em] text-slate-400">
+                      {reportsByTicker.length} tracked
+                    </span>
+                    <span className="text-slate-400">{isAllTickersOpen ? "›" : "‹"}</span>
+                  </div>
+                </button>
+                {isAllTickersOpen && (
+                  <div
+                    id="all-tickers-panel"
+                    className="mt-3 space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-2 text-sm"
                   >
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.35em] text-slate-500">
-                      All tickers
-                    </h3>
-                    <svg
-                      className={`h-4 w-4 text-slate-400 transition-transform ${
-                        isAllTickersOpen ? "rotate-90" : ""
-                      }`}
-                      viewBox="0 0 20 20"
-                      fill="none"
-                      stroke="currentColor"
-                      aria-hidden
-                    >
-                      <path
-                        d="M7 6l5 4-5 4"
-                        strokeWidth="1.8"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </button>
-                  {isAllTickersOpen && (
-                    <div id="all-tickers-panel" className="mt-3 space-y-3">
-                      {tickerOrder.length === 0 ? (
-                        <p className="text-xs font-semibold text-slate-500">
-                          No tickers match the current filter.
-                        </p>
-                      ) : (
-                        tickerOrder.map((ticker) => {
-                          const isExpanded =
-                            tickerOverrides[ticker] ?? (ticker === autoExpandedTicker);
-                          const panelId = `ticker-panel-${ticker}`;
-
-                          return (
-                            <div
-                              key={ticker}
-                              className="rounded-2xl border border-[var(--border)] bg-white/80"
-                            >
-                              <button
-                                ref={
-                                  ticker === tickerOrder[0] ? firstTickerButtonRef : undefined
-                                }
-                                type="button"
-                                onClick={() => toggleTicker(ticker)}
-                                className="flex h-[44px] w-full items-center justify-between px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
-                                aria-expanded={isExpanded}
-                                aria-controls={panelId}
-                              >
-                                <span>{ticker}</span>
-                                <svg
-                                  className={`h-4 w-4 text-slate-500 transition-transform ${
-                                    isExpanded ? "rotate-90" : ""
+                    {reportsByTicker.length === 0 ? (
+                      <p className="px-3 py-4 text-xs font-semibold text-slate-500">
+                        No tickers yet.
+                      </p>
+                    ) : (
+                      reportsByTicker.map((group, index) => (
+                        <div
+                          key={group.ticker}
+                          className="rounded-2xl border border-transparent bg-white/90 p-3"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {group.ticker}
+                            </p>
+                            <span className="rounded-full bg-[var(--surface-strong)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                              {group.reports.length}
+                            </span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {group.reports.slice(0, 3).map((report, reportIndex) => {
+                              const href = buildReportHref(report.id);
+                              const shouldFocus = index === 0 && reportIndex === 0;
+                              return (
+                                <Link
+                                  key={report.id}
+                                  ref={shouldFocus ? firstTickerButtonRef : undefined}
+                                  href={href}
+                                  className={`flex items-center justify-between rounded-2xl px-3 py-2.5 text-left transition ${
+                                    pathname === href
+                                      ? "border border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900 shadow-[0_10px_20px_rgba(28,56,83,0.10)]"
+                                      : "border border-transparent bg-white text-slate-700 hover:bg-white"
                                   }`}
-                                  viewBox="0 0 20 20"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  aria-hidden
+                                  onClick={onClose}
                                 >
-                                  <path
-                                    d="M7 6l5 4-5 4"
-                                    strokeWidth="1.8"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                  />
-                                </svg>
-                              </button>
-                              {isExpanded && (
-                                <div
-                                  id={panelId}
-                                  className="flex flex-col gap-1 border-t border-[var(--border)] px-1.5 py-2"
-                                >
-                                  {groupedByTicker[ticker].map((report) => (
-                                    <button
-                                      key={report.id}
-                                      type="button"
-                                      className={`flex min-h-[44px] w-full items-center justify-between rounded-xl px-3 text-sm transition hover:bg-slate-100 ${
-                                        selectedReportId === report.id
-                                          ? "text-[var(--primary)]"
-                                          : "text-slate-600"
-                                      }`}
-                                      onClick={() => onSelectReport(report.id)}
-                                      aria-current={
-                                        selectedReportId === report.id
-                                          ? "true"
-                                          : undefined
-                                      }
-                                    >
-                                      <div>
-                                        <p className="font-medium">
-                                          {report.date ??
-                                            t("common.unknownDate", "Unknown date")}
-                                        </p>
-                                        <p className="text-[11px] text-slate-500">
-                                          {report.time ?? "--:--:--"}
-                                        </p>
-                                      </div>
-                                      <span className="text-[10px] font-semibold uppercase tracking-[0.3em]">
-                                        {selectedReportId === report.id
-                                          ? t("common.active", "Active")
-                                          : t("sidebar.viewLabel", "View")}
-                                      </span>
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-                  )}
-                </section>
-
-                {error ? (
-                  <div className="text-xs font-semibold text-rose-600">{error}</div>
-                ) : null}
-              </div>
+                                  <div>
+                                    <p className="text-[13px] font-semibold">{report.id}</p>
+                                    <p className="text-[10px] uppercase tracking-[0.22em] text-slate-500">
+                                      {formatReportDate(report, locale)}
+                                    </p>
+                                  </div>
+                                  <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                                    Open
+                                  </span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </section>
             </div>
           )}
         </div>
@@ -1064,95 +942,79 @@ export function Sidebar({
   );
 }
 
-interface RailButtonProps {
-  label: string;
-  title: string;
-  active?: boolean;
-  disabled?: boolean;
-  count?: number;
-  buttonRef?: (element: HTMLButtonElement | null) => void;
-  onClick: () => void;
-  children: ReactNode;
-}
-
 function RailButton({
   label,
   title,
   active = false,
-  disabled = false,
   count,
-  buttonRef,
+  disabled = false,
   onClick,
   children,
-}: RailButtonProps) {
+}: {
+  label: string;
+  title: string;
+  active?: boolean;
+  count?: number;
+  disabled?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="group relative flex justify-center">
-      <button
-        ref={buttonRef}
-        type="button"
-        data-active={active}
-        className={`interactive-button focus-ring relative flex h-12 w-12 items-center justify-center rounded-2xl border transition ${
-          active
-            ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
-            : disabled
-              ? "cursor-not-allowed border-slate-200 bg-slate-200 text-slate-500"
-              : "border-[var(--border)] bg-white text-slate-700 shadow-[0_10px_24px_rgba(18,28,41,0.08)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
-        }`}
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={label}
-        title={title}
-      >
-        {children}
-        {typeof count === "number" && count > 0 ? (
-          <span className="absolute -right-1 -top-1 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
-            {count}
-          </span>
-        ) : null}
-      </button>
-      <span className="pointer-events-none absolute left-full top-1/2 ml-3 -translate-y-1/2 rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100">
-        {label}
-      </span>
-    </div>
+    <button
+      type="button"
+      title={title}
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`group relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
+        active
+          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+          : "border-[var(--border)] bg-white text-slate-600 hover:border-[var(--primary)] hover:text-[var(--primary)]"
+      } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+    >
+      {children}
+      {typeof count === "number" ? (
+        <span className="absolute -right-1 -top-1 rounded-full bg-[var(--primary)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+          {count}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
-function parseReportTimestamp(report: Report): number {
-  if (report.date) {
-    const isoLike = `${report.date}T${report.time ?? "00:00:00"}`;
-    const parsed = Date.parse(isoLike);
-    if (!Number.isNaN(parsed)) {
-      return parsed;
-    }
-  }
-
-  const fallback = Date.parse(report.id);
-  if (!Number.isNaN(fallback)) {
-    return fallback;
-  }
-
-  return Number.NEGATIVE_INFINITY;
-}
-
-function getMostRecentTicker(reports: Report[]): string | null {
-  if (reports.length === 0) {
-    return null;
-  }
-
-  const recent = reports.reduce((best, current) =>
-    parseReportTimestamp(current) > parseReportTimestamp(best) ? current : best
+function RailLinkButton({
+  href,
+  label,
+  title,
+  active = false,
+  children,
+}: {
+  href: string;
+  label: string;
+  title: string;
+  active?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      title={title}
+      aria-label={label}
+      className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
+        active
+          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+          : "border-[var(--border)] bg-white text-slate-600 hover:border-[var(--primary)] hover:text-[var(--primary)]"
+      }`}
+    >
+      {children}
+    </Link>
   );
-  return recent.ticker;
 }
 
-function findTickerForReport(reports: Report[], reportId: string | null): string | null {
-  if (!reportId) {
-    return null;
-  }
-  return reports.find((report) => report.id === reportId)?.ticker ?? null;
-}
-
-function formatReportDate(report: Report, locale: string, unknownDateLabel: string) {
+function formatReportDate(
+  report: { date: string; time: string },
+  locale: string
+): string {
   if (report.date && report.time) {
     const parsed = new Date(`${report.date}T${report.time}`);
     if (!Number.isNaN(parsed.getTime())) {
@@ -1165,8 +1027,9 @@ function formatReportDate(report: Report, locale: string, unknownDateLabel: stri
       }).format(parsed);
     }
 
-    return `${report.date} · ${report.time}`;
+    return `${report.date} ${report.time}`;
   }
+
   if (report.date) {
     const parsed = new Date(`${report.date}T00:00:00`);
     if (!Number.isNaN(parsed.getTime())) {
@@ -1176,8 +1039,19 @@ function formatReportDate(report: Report, locale: string, unknownDateLabel: stri
         day: "numeric",
       }).format(parsed);
     }
-
-    return report.date;
   }
-  return unknownDateLabel;
+
+  return "Unknown date";
+}
+
+function formatRunDate(value: string, locale: string): string {
+  const parsed = new Date(`${value}T00:00:00`);
+  if (!Number.isNaN(parsed.getTime())) {
+    return new Intl.DateTimeFormat(locale, {
+      month: "short",
+      day: "numeric",
+    }).format(parsed);
+  }
+
+  return value;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { AccessibleDialog } from "@/components/AccessibleDialog";
 import { usePreferences } from "@/components/PreferencesProvider";
 import {
   createTask,
@@ -104,23 +105,6 @@ export function NewAnalysisForm({
     }
   }, [configOptions, formState, isOpen]);
 
-  useEffect(() => {
-    if (!isOpen || !configOptions) {
-      return;
-    }
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [configOptions, isOpen, onClose]);
-
   const providerOptions = configOptions?.providers ?? [];
   const selectedProviderOption =
     providerOptions.find((provider) => provider.value === formState?.llm_provider) ??
@@ -215,17 +199,15 @@ export function NewAnalysisForm({
   };
 
   return (
-    <div
-      className="modal-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(17,24,39,0.42)] px-4 py-6"
-      onClick={onClose}
+    <AccessibleDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel={t("analysis.dialog", "New analysis")}
+      panelClassName="modal-panel scrollbar-hidden fade-in max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
+      panelProps={{
+        onMouseDown: (event) => event.stopPropagation(),
+      }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("analysis.dialog", "New analysis")}
-        className="modal-panel scrollbar-hidden fade-in max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
-        onClick={(event) => event.stopPropagation()}
-      >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
@@ -561,8 +543,7 @@ export function NewAnalysisForm({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </AccessibleDialog>
   );
 }
 

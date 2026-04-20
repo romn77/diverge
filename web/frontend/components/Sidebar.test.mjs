@@ -5,45 +5,32 @@ import test from "node:test";
 
 const sidebarPath = path.join(import.meta.dirname, "Sidebar.tsx");
 
-test("Sidebar is prop-driven and exposes the redesigned navigation affordances", () => {
+test("Sidebar is route-aware and exposes link-based workbench navigation", () => {
   const source = readFileSync(sidebarPath, "utf8");
 
-  assert.equal(source.includes("listReports"), false);
-  assert.match(source, /reports:\s*Report\[]/);
-  assert.match(source, /loading:\s*boolean/);
-  assert.match(source, /error:\s*string \| null/);
-  assert.match(source, /selectedTradeJournal:\s*boolean/);
-  assert.match(source, /searchQuery:\s*string/);
-  assert.match(source, /onSearchQueryChange:\s*\(value:\s*string\)/);
-  assert.match(source, /onNewAnalysis:\s*\(\)\s*=>\s*void/);
-  assert.match(source, /onNewScreener:\s*\(\)\s*=>\s*void/);
-  assert.match(source, /onSelectTradeJournal:\s*\(\)\s*=>\s*void/);
-  assert.match(source, /taskQueue:\s*Task\[]/);
-  assert.match(source, /screenerRuns:\s*ScreenerRunSummary\[]/);
-  assert.match(source, /screenerTaskQueue:\s*ScreenerTask\[]/);
-  assert.match(source, /activeTaskId:\s*string \| null/);
-  assert.match(source, /activeScreenerTaskId:\s*string \| null/);
-  assert.match(source, /onSelectTask:\s*\(taskId:\s*string\)/);
-  assert.match(source, /onSelectScreenerTask:\s*\(taskId:\s*string\)/);
-  assert.match(source, /onSelectScreenerRun:\s*\(runId:\s*string\)/);
-  assert.match(source, /newAnalysisDisabled:\s*boolean/);
-  assert.match(source, /newScreenerDisabled:\s*boolean/);
+  assert.match(source, /import Link from "next\/link"/);
+  assert.match(source, /usePathname/);
+  assert.match(source, /useSearchParams/);
+  assert.match(source, /useWorkbench/);
+  assert.match(source, /buildHomeHref/);
+  assert.match(source, /buildReportHref/);
+  assert.match(source, /buildTaskHref/);
+  assert.match(source, /buildScreenerTaskHref/);
+  assert.match(source, /buildScreenerRunHref/);
+  assert.match(source, /buildJournalHref/);
+  assert.match(source, /searchQuery/);
+  assert.match(source, /router\.(push|replace)/);
   assert.match(source, /isOpen:\s*boolean/);
   assert.match(source, /onClose:\s*\(\)\s*=>\s*void/);
-  assert.match(source, /usePreferences/);
   assert.match(source, /Recent Reports/);
   assert.match(source, /New Analysis/);
   assert.match(source, /New Screener/);
   assert.match(source, /Trade Journal/);
   assert.match(source, /Task Queue/);
   assert.match(source, /Recent Screeners/);
-  assert.doesNotMatch(source, /Return to Queue/);
-  assert.doesNotMatch(source, /canReturnToQueue/);
-  assert.doesNotMatch(source, /onReturnToQueue/);
-  assert.match(source, /disabled=\{newAnalysisDisabled\}/);
-  assert.match(source, /disabled=\{newScreenerDisabled\}/);
-  assert.match(source, /data-active=\{selectedTradeJournal\}/);
-  assert.match(source, /Filter by ticker or report ID/);
+  assert.match(source, /Filter reports from home/);
+  assert.match(source, /type="search"/);
+  assert.match(source, /type="submit"/);
   assert.match(source, /document\.body\.style\.overflow/);
   assert.match(source, /event\.key === "Escape"/);
   assert.match(source, /searchInputRef\.current\?\.focus/);
@@ -55,8 +42,6 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /const \[isAllTickersOpen,\s*setIsAllTickersOpen\] = useState\(false\)/);
   assert.match(source, /Collapse sidebar/);
   assert.match(source, /Expand sidebar/);
-  assert.match(source, /count=\{taskQueue\.length\}/);
-  assert.match(source, /count=\{screenerTaskQueue\.length\}/);
   assert.match(source, /group-focus-within:opacity-100/);
   assert.match(source, /aria-controls="recent-reports-panel"/);
   assert.match(source, /aria-controls="all-tickers-panel"/);
@@ -64,22 +49,11 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /\{isAllTickersOpen && \(/);
   assert.match(source, /role=\{isMobileDrawerOpen \? "dialog" : undefined\}/);
   assert.match(source, /\{isMobileDrawerOpen && \(/);
+  assert.match(source, /fixed left-0 top-0 bottom-0/);
   assert.match(source, /"hidden -translate-x-full px-4 md:flex md:translate-x-0"/);
   assert.equal(source.includes("&gt;"), false);
-  assert.doesNotMatch(source, /authEnabled:\s*boolean/);
-  assert.doesNotMatch(source, /authUser:\s*AuthUser \| null/);
-  assert.doesNotMatch(source, /canManageUsers:\s*boolean/);
-  assert.doesNotMatch(source, /onLogout:\s*\(\)\s*=>\s*void/);
-  assert.doesNotMatch(source, /loggingOut:\s*boolean/);
-  assert.doesNotMatch(source, /Workspace Access/);
-  assert.doesNotMatch(source, /Admin Management/);
-  assert.doesNotMatch(source, /Sign Out/);
-  assert.doesNotMatch(source, /Open Workspace Mode/);
-  assert.doesNotMatch(source, /Settings/);
-  assert.doesNotMatch(source, /getConfigOptions/);
-  assert.doesNotMatch(source, /sidebar-settings-dialog/);
-  assert.doesNotMatch(source, /selectedOutputLanguage:\s*string \| null/);
-  assert.doesNotMatch(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
+  assert.match(source, /href=\{buildJournalHref\(\)\}/);
+  assert.match(source, /href=\{buildHomeHref\(searchQuery\)\}/);
 });
 
 test("Sidebar keeps the launch CTA and task cards visually compact", () => {

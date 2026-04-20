@@ -1,0 +1,339 @@
+"use client";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { useAuth } from "@/components/AuthProvider";
+import {
+  ApiError,
+  listReports,
+  listScreenerRuns,
+  listScreenerTasks,
+  listTasks,
+  type Report,
+  type ScreenerRunSummary,
+  type ScreenerTask,
+  type Task,
+} from "@/lib/api";
+
+interface WorkbenchContextValue {
+  authEnabled: boolean;
+  authError: string | null;
+  authState: ReturnType<typeof useAuth>["authState"];
+  authStatus: ReturnType<typeof useAuth>["authStatus"];
+  canAccessWorkbench: boolean;
+  canManageUsers: boolean;
+  loadingReports: boolean;
+  reports: Report[];
+  reportsError: string | null;
+  recentReports: Report[];
+  recentTickers: string[];
+  refreshReports: () => Promise<void>;
+  refreshScreenerRuns: () => Promise<void>;
+  refreshScreenerTasks: () => Promise<void>;
+  refreshSession: ReturnType<typeof useAuth>["refreshSession"];
+  refreshTasks: () => Promise<void>;
+  reportsByTicker: Array<{ ticker: string; reports: Report[] }>;
+  screenerRuns: ScreenerRunSummary[];
+  screenerTasks: ScreenerTask[];
+  tasks: Task[];
+  activeTasks: Task[];
+  activeScreenerTasks: ScreenerTask[];
+  newAnalysisDisabled: boolean;
+  newScreenerDisabled: boolean;
+  logout: ReturnType<typeof useAuth>["logout"];
+}
+
+const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
+
+const POLL_INTERVAL_MS = 3000;
+
+export function WorkbenchProvider({ children }: { children: ReactNode }) {
+  const {
+    authError,
+    authState,
+    authStatus,
+    logout,
+    refreshSession,
+  } = useAuth();
+  const [reports, setReports] = useState<Report[]>([]);
+  const [screenerRuns, setScreenerRuns] = useState<ScreenerRunSummary[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [screenerTasks, setScreenerTasks] = useState<ScreenerTask[]>([]);
+  const [loadingReports, setLoadingReports] = useState(true);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+
+  const authEnabled = authState?.enabled ?? false;
+  const canAccessWorkbench =
+    authStatus === "ready" && (!authEnabled || Boolean(authState?.authenticated));
+  const canManageUsers = authState?.user?.role === "admin";
+
+  const handleProtectedError = useCallback(
+    (error: unknown): boolean => {
+      if (error instanceof ApiError && error.status === 401) {
+        void refreshSession({ silent: true });
+        return true;
+      }
+      return false;
+    },
+    [refreshSession]
+  );
+
+  const refreshReports = useCallback(async () => {
+    if (!canAccessWorkbench) {
+      setLoadingReports(false);
+      return;
+    }
+
+    setLoadingReports(true);
+    setReportsError(null);
+
+    try {
+      setReports(await listReports());
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+      setReportsError(error instanceof Error ? error.message : "Unable to load reports");
+    } finally {
+      setLoadingReports(false);
+    }
+  }, [canAccessWorkbench, handleProtectedError]);
+
+  const refreshTasks = useCallback(async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
+    try {
+      setTasks(await listTasks());
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+    }
+  }, [canAccessWorkbench, handleProtectedError]);
+
+  const refreshScreenerRuns = useCallback(async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
+    try {
+      setScreenerRuns(await listScreenerRuns());
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+    }
+  }, [canAccessWorkbench, handleProtectedError]);
+
+  const refreshScreenerTasks = useCallback(async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
+    try {
+      setScreenerTasks(await listScreenerTasks());
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+    }
+  }, [canAccessWorkbench, handleProtectedError]);
+
+  useEffect(() => {
+    if (canAccessWorkbench) {
+      void refreshReports();
+      return;
+    }
+
+    setReports([]);
+    setLoadingReports(authStatus === "loading");
+    setReportsError(null);
+  }, [authStatus, canAccessWorkbench, refreshReports]);
+
+  useEffect(() => {
+    if (canAccessWorkbench) {
+      void refreshScreenerRuns();
+      return;
+    }
+
+    setScreenerRuns([]);
+  }, [canAccessWorkbench, refreshScreenerRuns]);
+
+  useEffect(() => {
+    if (!canAccessWorkbench) {
+      setTasks([]);
+      return;
+    }
+
+    void refreshTasks();
+    const intervalId = window.setInterval(() => {
+      void refreshTasks();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [canAccessWorkbench, refreshTasks]);
+
+  useEffect(() => {
+    if (!canAccessWorkbench) {
+      setScreenerTasks([]);
+      return;
+    }
+
+    void refreshScreenerTasks();
+    const intervalId = window.setInterval(() => {
+      void refreshScreenerTasks();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [canAccessWorkbench, refreshScreenerTasks]);
+
+  const sortedReports = useMemo(() => {
+    return [...reports].sort(
+      (left, right) => parseReportTimestamp(right) - parseReportTimestamp(left)
+    );
+  }, [reports]);
+
+  const reportsByTicker = useMemo(() => {
+    const grouped = sortedReports.reduce<Map<string, Report[]>>((acc, report) => {
+      const existing = acc.get(report.ticker) ?? [];
+      existing.push(report);
+      acc.set(report.ticker, existing);
+      return acc;
+    }, new Map());
+
+    return Array.from(grouped.entries()).map(([ticker, tickerReports]) => ({
+      ticker,
+      reports: tickerReports,
+    }));
+  }, [sortedReports]);
+
+  const recentReports = useMemo(() => sortedReports.slice(0, 5), [sortedReports]);
+  const recentTickers = useMemo(() => {
+    const seen = new Set<string>();
+    const tickers: string[] = [];
+
+    for (const report of sortedReports) {
+      if (seen.has(report.ticker)) {
+        continue;
+      }
+
+      seen.add(report.ticker);
+      tickers.push(report.ticker);
+
+      if (tickers.length === 6) {
+        break;
+      }
+    }
+
+    return tickers;
+  }, [sortedReports]);
+
+  const activeTasks = useMemo(
+    () => tasks.filter((task) => task.status === "pending" || task.status === "running"),
+    [tasks]
+  );
+  const activeScreenerTasks = useMemo(
+    () =>
+      screenerTasks.filter(
+        (task) => task.status === "pending" || task.status === "running"
+      ),
+    [screenerTasks]
+  );
+  const combinedActiveCount = activeTasks.length + activeScreenerTasks.length;
+
+  const value = useMemo<WorkbenchContextValue>(
+    () => ({
+      activeScreenerTasks,
+      activeTasks,
+      authEnabled,
+      authError,
+      authState,
+      authStatus,
+      canAccessWorkbench,
+      canManageUsers,
+      loadingReports,
+      logout,
+      newAnalysisDisabled: combinedActiveCount >= 2,
+      newScreenerDisabled: combinedActiveCount >= 2,
+      recentReports,
+      recentTickers,
+      refreshReports,
+      refreshScreenerRuns,
+      refreshScreenerTasks,
+      refreshSession,
+      refreshTasks,
+      reports,
+      reportsByTicker,
+      reportsError,
+      screenerRuns,
+      screenerTasks,
+      tasks,
+    }),
+    [
+      activeScreenerTasks,
+      activeTasks,
+      authEnabled,
+      authError,
+      authState,
+      authStatus,
+      canAccessWorkbench,
+      canManageUsers,
+      combinedActiveCount,
+      loadingReports,
+      logout,
+      recentReports,
+      recentTickers,
+      refreshReports,
+      refreshScreenerRuns,
+      refreshScreenerTasks,
+      refreshSession,
+      refreshTasks,
+      reports,
+      reportsByTicker,
+      reportsError,
+      screenerRuns,
+      screenerTasks,
+      tasks,
+    ]
+  );
+
+  return <WorkbenchContext.Provider value={value}>{children}</WorkbenchContext.Provider>;
+}
+
+export function useWorkbench() {
+  const context = useContext(WorkbenchContext);
+  if (!context) {
+    throw new Error("useWorkbench must be used within a WorkbenchProvider.");
+  }
+  return context;
+}
+
+function parseReportTimestamp(report: Report): number {
+  if (report.date) {
+    const isoLike = `${report.date}T${report.time ?? "00:00:00"}`;
+    const parsed = Date.parse(isoLike);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  const fallback = Date.parse(report.id);
+  if (!Number.isNaN(fallback)) {
+    return fallback;
+  }
+
+  return Number.NEGATIVE_INFINITY;
+}

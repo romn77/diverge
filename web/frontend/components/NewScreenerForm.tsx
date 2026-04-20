@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AccessibleDialog } from "@/components/AccessibleDialog";
 import { usePreferences } from "@/components/PreferencesProvider";
 import {
   createScreenerTask,
@@ -141,17 +142,15 @@ export function NewScreenerForm({
   };
 
   return (
-    <div
-      className="modal-backdrop fixed inset-0 z-[60] flex items-center justify-center bg-[rgba(17,24,39,0.42)] px-4 py-6"
-      onClick={onClose}
+    <AccessibleDialog
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel={t("screener.dialog", "New screener")}
+      panelClassName="modal-panel fade-in w-full max-w-2xl rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
+      panelProps={{
+        onMouseDown: (event) => event.stopPropagation(),
+      }}
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("screener.dialog", "New screener")}
-        className="modal-panel fade-in w-full max-w-2xl rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
-        onClick={(event) => event.stopPropagation()}
-      >
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
@@ -300,7 +299,6 @@ export function NewScreenerForm({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </AccessibleDialog>
   );
 }

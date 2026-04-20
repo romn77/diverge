@@ -15,8 +15,8 @@ test("admin users page wires the backend admin APIs and explicit forbidden handl
   assert.match(source, /deleteAdminUser/);
   assert.match(source, /error instanceof ApiError && error\.status === 403/);
   assert.match(source, /router\.replace\("\/login\?next=\/admin\/users"\)/);
-  assert.match(source, /Admin user management/);
-  assert.match(source, /Add New User/);
+  assert.match(source, /Manage workspace access/);
+  assert.match(source, /Create Account/);
   assert.match(source, /Delete User/);
   assert.match(source, /Reset Password/);
 });

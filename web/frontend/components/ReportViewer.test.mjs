@@ -41,3 +41,16 @@ test("ReportViewer decorates reports with valuation-aware highlights without inj
   assert.doesNotMatch(source, /selectedFile === "fundamentals"/);
   assert.doesNotMatch(source, /selectedFile === "manager"/);
 });
+
+test("ReportViewer surfaces route-level overview cards and artifact context for faster scanning", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /Reading Overview/);
+  assert.match(source, /Available tracks/);
+  assert.match(source, /Source files/);
+  assert.match(source, /Reference artifacts/);
+  assert.match(source, /Available Tracks/);
+  assert.match(source, /Artifact Summary/);
+  assert.match(source, /SummaryMetric/);
+  assert.match(source, /ArtifactPill/);
+});

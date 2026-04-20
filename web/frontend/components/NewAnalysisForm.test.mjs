@@ -12,11 +12,12 @@ test("NewAnalysisForm is driven by backend config options and task creation call
   assert.match(source, /createTask/);
   assert.match(source, /onTaskCreated:\s*\(taskId:\s*string\)/);
   assert.match(source, /defaultOutputLanguage:\s*string \| null/);
+  assert.match(source, /AccessibleDialog/);
   assert.match(source, /Ticker/);
   assert.match(source, /Research Depth/i);
   assert.match(source, /LLM Provider/i);
   assert.match(source, /Output Language/i);
-  assert.match(source, /role="dialog"/);
+  assert.match(source, /ariaLabel=\{t\("analysis\.dialog", "New analysis"\)\}/);
 });
 
 test("NewAnalysisForm disables providers without configured credentials", () => {
@@ -57,4 +58,5 @@ test("NewAnalysisForm keeps tall dialog content inside an internal scroll contai
   assert.match(source, /max-h-\[92vh\]/);
   assert.match(source, /overflow-y-auto/);
   assert.match(source, /scrollbar-hidden/);
+  assert.match(source, /panelClassName="modal-panel/);
 });
