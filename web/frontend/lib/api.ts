@@ -3,6 +3,77 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://localhost:8000";
 
+export const AUTH_REQUIRED_EVENT = "tradingagents:auth-required";
+
+export type AuthMode = "disabled" | "optional" | "required";
+export type UserRole = "admin" | "operator" | "viewer";
+export type UserStatus = "active" | "disabled";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  display_name: string;
+  role: UserRole;
+  status: UserStatus;
+  must_change_password: boolean;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AuthState {
+  enabled: boolean;
+  mode: AuthMode;
+  authenticated: boolean;
+  user: AuthUser | null;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
+}
+
+export interface AdminUserCreateRequest {
+  email: string;
+  display_name: string;
+  password: string;
+  role: UserRole;
+  status: UserStatus;
+  must_change_password: boolean;
+}
+
+export interface AdminUserUpdateRequest {
+  display_name?: string;
+  role?: UserRole;
+  status?: UserStatus;
+  must_change_password?: boolean;
+}
+
+export interface AdminUserResetPasswordRequest {
+  new_password: string;
+  must_change_password: boolean;
+}
+
+export interface DeleteAdminUserResponse {
+  deleted: boolean;
+  user_id: string;
+}
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, detail: string) {
+    super(detail);
+    this.name = "ApiError";
+    this.status = status;
+  }
+}
+
 export interface Report {
   id: string;
   ticker: string;
@@ -305,9 +376,40 @@ export interface ScreenerCandidateRow {
   risk_flags: string;
 }
 
+function buildApiUrl(path: string): string {
+  return `${API_BASE}${path}`;
+}
+
+function createJsonRequestInit(method: string, payload?: unknown): RequestInit {
+  const headers = new Headers();
+  if (payload !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  return {
+    method,
+    headers,
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+  };
+}
+
+function emitAuthRequired(detail: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(
+    new CustomEvent(AUTH_REQUIRED_EVENT, {
+      detail: {
+        detail,
+      },
+    })
+  );
+}
+
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let detail = `${response.status}`;
+    let detail = response.statusText || `${response.status}`;
 
     try {
       const payload = (await response.json()) as { detail?: string };
@@ -318,73 +420,154 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
       // Ignore JSON parse errors and fall back to status text.
     }
 
-    throw new Error(detail);
+    if (response.status === 401) {
+      emitAuthRequired(detail);
+    }
+
+    throw new ApiError(response.status, detail);
   }
 
   return (await response.json()) as T;
 }
 
+async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const response = await fetch(buildApiUrl(path), {
+    credentials: "include",
+    ...init,
+  });
+  return parseJsonResponse<T>(response);
+}
+
+export async function getAuthState(): Promise<AuthState> {
+  return requestJson<AuthState>("/api/auth/me", {
+    cache: "no-store",
+  });
+}
+
+export async function login(payload: LoginRequest): Promise<AuthState> {
+  return requestJson<AuthState>("/api/auth/login", createJsonRequestInit("POST", payload));
+}
+
+export async function logout(): Promise<AuthState> {
+  return requestJson<AuthState>("/api/auth/logout", createJsonRequestInit("POST"));
+}
+
+export async function changePassword(
+  payload: ChangePasswordRequest
+): Promise<AuthState> {
+  return requestJson<AuthState>(
+    "/api/auth/change-password",
+    createJsonRequestInit("POST", payload)
+  );
+}
+
+export async function listAdminUsers(): Promise<AuthUser[]> {
+  return requestJson<AuthUser[]>("/api/admin/users", {
+    cache: "no-store",
+  });
+}
+
+export async function getAdminUser(userId: string): Promise<AuthUser> {
+  return requestJson<AuthUser>(`/api/admin/users/${userId}`, {
+    cache: "no-store",
+  });
+}
+
+export async function createAdminUser(
+  payload: AdminUserCreateRequest
+): Promise<AuthUser> {
+  return requestJson<AuthUser>(
+    "/api/admin/users",
+    createJsonRequestInit("POST", payload)
+  );
+}
+
+export async function updateAdminUser(
+  userId: string,
+  payload: AdminUserUpdateRequest
+): Promise<AuthUser> {
+  return requestJson<AuthUser>(
+    `/api/admin/users/${userId}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function deleteAdminUser(
+  userId: string
+): Promise<DeleteAdminUserResponse> {
+  return requestJson<DeleteAdminUserResponse>(
+    `/api/admin/users/${userId}`,
+    createJsonRequestInit("DELETE")
+  );
+}
+
+export async function resetAdminUserPassword(
+  userId: string,
+  payload: AdminUserResetPasswordRequest
+): Promise<AuthUser> {
+  return requestJson<AuthUser>(
+    `/api/admin/users/${userId}/reset-password`,
+    createJsonRequestInit("POST", payload)
+  );
+}
+
 export async function listReports(): Promise<Report[]> {
-  const response = await fetch(`${API_BASE}/api/reports`);
-  return parseJsonResponse<Report[]>(response);
+  return requestJson<Report[]>("/api/reports", {
+    cache: "no-store",
+  });
 }
 
 export async function getStructure(reportId: string): Promise<ReportStructure> {
-  const response = await fetch(`${API_BASE}/api/reports/${reportId}/structure`);
-  return parseJsonResponse<ReportStructure>(response);
+  return requestJson<ReportStructure>(`/api/reports/${reportId}/structure`, {
+    cache: "no-store",
+  });
 }
 
 export async function getContent(reportId: string, path: string): Promise<string> {
-  const url = new URL(`${API_BASE}/api/reports/${reportId}/content`);
+  const url = new URL(buildApiUrl(`/api/reports/${reportId}/content`));
   url.searchParams.set("path", path);
 
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    cache: "no-store",
+  });
   const data = await parseJsonResponse<{ content: string }>(response);
   return data.content;
 }
 
 export async function listTrades(ticker?: string): Promise<TradeRecord[]> {
-  const url = new URL(`${API_BASE}/api/trades`);
+  const url = new URL(buildApiUrl("/api/trades"));
   if (ticker) {
     url.searchParams.set("ticker", ticker);
   }
 
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    cache: "no-store",
+  });
   return parseJsonResponse<TradeRecord[]>(response);
 }
 
 export async function createTrade(
   payload: TradeRecordCreateRequest
 ): Promise<TradeRecord> {
-  const response = await fetch(`${API_BASE}/api/trades`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return parseJsonResponse<TradeRecord>(response);
+  return requestJson<TradeRecord>("/api/trades", createJsonRequestInit("POST", payload));
 }
 
 export async function getTrade(tradeId: string): Promise<TradeDetail> {
-  const response = await fetch(`${API_BASE}/api/trades/${tradeId}`);
-  return parseJsonResponse<TradeDetail>(response);
+  return requestJson<TradeDetail>(`/api/trades/${tradeId}`, {
+    cache: "no-store",
+  });
 }
 
 export async function updateTrade(
   tradeId: string,
   payload: TradeRecordUpdateRequest
 ): Promise<TradeRecord> {
-  const response = await fetch(`${API_BASE}/api/trades/${tradeId}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return parseJsonResponse<TradeRecord>(response);
+  return requestJson<TradeRecord>(
+    `/api/trades/${tradeId}`,
+    createJsonRequestInit("PUT", payload)
+  );
 }
 
 export async function saveTradeReview(
@@ -392,22 +575,17 @@ export async function saveTradeReview(
   reviewType: TradeReviewType,
   payload: TradeReviewSaveRequest
 ): Promise<TradeReview> {
-  const response = await fetch(`${API_BASE}/api/trades/${tradeId}/reviews/${reviewType}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return parseJsonResponse<TradeReview>(response);
+  return requestJson<TradeReview>(
+    `/api/trades/${tradeId}/reviews/${reviewType}`,
+    createJsonRequestInit("PUT", payload)
+  );
 }
 
 export async function getTickerTradeFeedback(
   ticker: string,
   options: { limit?: number; analysisDate?: string } = {}
 ): Promise<TradeFeedbackPayload> {
-  const url = new URL(`${API_BASE}/api/trade-feedback/${ticker}`);
+  const url = new URL(buildApiUrl(`/api/trade-feedback/${ticker}`));
   if (typeof options.limit === "number") {
     url.searchParams.set("limit", String(options.limit));
   }
@@ -415,83 +593,85 @@ export async function getTickerTradeFeedback(
     url.searchParams.set("analysis_date", options.analysisDate);
   }
 
-  const response = await fetch(url.toString());
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    cache: "no-store",
+  });
   return parseJsonResponse<TradeFeedbackPayload>(response);
 }
 
 export async function createTask(
   payload: TaskCreateRequest
 ): Promise<TaskCreateResponse> {
-  const response = await fetch(`${API_BASE}/api/tasks`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return parseJsonResponse<TaskCreateResponse>(response);
+  return requestJson<TaskCreateResponse>("/api/tasks", createJsonRequestInit("POST", payload));
 }
 
 export async function listTasks(): Promise<Task[]> {
-  const response = await fetch(`${API_BASE}/api/tasks`);
-  return parseJsonResponse<Task[]>(response);
+  return requestJson<Task[]>("/api/tasks", {
+    cache: "no-store",
+  });
 }
 
 export async function getTask(taskId: string): Promise<Task> {
-  const response = await fetch(`${API_BASE}/api/tasks/${taskId}`);
-  return parseJsonResponse<Task>(response);
+  return requestJson<Task>(`/api/tasks/${taskId}`, {
+    cache: "no-store",
+  });
 }
 
 export async function getConfigOptions(): Promise<ConfigOptions> {
-  const response = await fetch(`${API_BASE}/api/config/options`);
-  return parseJsonResponse<ConfigOptions>(response);
+  return requestJson<ConfigOptions>("/api/config/options", {
+    cache: "no-store",
+  });
 }
 
 export async function getScreenerConfigOptions(): Promise<ScreenerConfigOptions> {
-  const response = await fetch(`${API_BASE}/api/screener/config/options`);
-  return parseJsonResponse<ScreenerConfigOptions>(response);
+  return requestJson<ScreenerConfigOptions>("/api/screener/config/options", {
+    cache: "no-store",
+  });
 }
 
 export async function createScreenerTask(
   payload: ScreenTaskCreateRequest
 ): Promise<ScreenerTaskCreateResponse> {
-  const response = await fetch(`${API_BASE}/api/screener/tasks`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  return parseJsonResponse<ScreenerTaskCreateResponse>(response);
+  return requestJson<ScreenerTaskCreateResponse>(
+    "/api/screener/tasks",
+    createJsonRequestInit("POST", payload)
+  );
 }
 
 export async function listScreenerTasks(): Promise<ScreenerTask[]> {
-  const response = await fetch(`${API_BASE}/api/screener/tasks`);
-  return parseJsonResponse<ScreenerTask[]>(response);
+  return requestJson<ScreenerTask[]>("/api/screener/tasks", {
+    cache: "no-store",
+  });
 }
 
 export async function getScreenerTask(taskId: string): Promise<ScreenerTask> {
-  const response = await fetch(`${API_BASE}/api/screener/tasks/${taskId}`);
-  return parseJsonResponse<ScreenerTask>(response);
+  return requestJson<ScreenerTask>(`/api/screener/tasks/${taskId}`, {
+    cache: "no-store",
+  });
 }
 
 export async function listScreenerRuns(): Promise<ScreenerRunSummary[]> {
-  const response = await fetch(`${API_BASE}/api/screener/runs`);
-  return parseJsonResponse<ScreenerRunSummary[]>(response);
+  return requestJson<ScreenerRunSummary[]>("/api/screener/runs", {
+    cache: "no-store",
+  });
 }
 
 export async function getScreenerRun(runId: string): Promise<ScreenerRunDetail> {
-  const response = await fetch(`${API_BASE}/api/screener/runs/${runId}`);
-  return parseJsonResponse<ScreenerRunDetail>(response);
+  return requestJson<ScreenerRunDetail>(`/api/screener/runs/${runId}`, {
+    cache: "no-store",
+  });
 }
 
 export async function listScreenerRunCandidates(
   runId: string
 ): Promise<ScreenerCandidateRow[]> {
-  const response = await fetch(`${API_BASE}/api/screener/runs/${runId}/candidates`);
-  return parseJsonResponse<ScreenerCandidateRow[]>(response);
+  return requestJson<ScreenerCandidateRow[]>(
+    `/api/screener/runs/${runId}/candidates`,
+    {
+      cache: "no-store",
+    }
+  );
 }
 
 export function subscribeToTask(
@@ -499,7 +679,9 @@ export function subscribeToTask(
   onEvent: (event: ProgressEvent) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const eventSource = new EventSource(`${API_BASE}/api/tasks/${taskId}/stream`);
+  const eventSource = new EventSource(buildApiUrl(`/api/tasks/${taskId}/stream`), {
+    withCredentials: true,
+  });
 
   eventSource.onmessage = (event) => {
     try {
@@ -529,7 +711,12 @@ export function subscribeToScreenerTask(
   onEvent: (event: ProgressEvent) => void,
   onError?: (error: Error) => void
 ): () => void {
-  const eventSource = new EventSource(`${API_BASE}/api/screener/tasks/${taskId}/stream`);
+  const eventSource = new EventSource(
+    buildApiUrl(`/api/screener/tasks/${taskId}/stream`),
+    {
+      withCredentials: true,
+    }
+  );
 
   eventSource.onmessage = (event) => {
     try {

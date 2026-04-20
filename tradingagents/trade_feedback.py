@@ -210,11 +210,13 @@ def get_trade_feedback_payload(
     reports_dir: Path | None = None,
     limit: int = 3,
     analysis_date: str | None = None,
+    visible_trade_ids: set[str] | list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, Any]:
     normalized_ticker = _normalize_ticker(ticker)
     entries = list_trade_feedback_entries(
         normalized_ticker,
         reports_dir=reports_dir,
+        visible_trade_ids=visible_trade_ids,
     )
     if analysis_date is not None:
         normalized_analysis_date = _normalize_analysis_date(analysis_date)
@@ -235,9 +237,17 @@ def list_trade_feedback_entries(
     ticker: str,
     *,
     reports_dir: Path | None = None,
+    visible_trade_ids: set[str] | list[str] | tuple[str, ...] | None = None,
 ) -> list[dict[str, Any]]:
+    allowed_trade_ids = (
+        {str(trade_id) for trade_id in visible_trade_ids}
+        if visible_trade_ids is not None
+        else None
+    )
     results: list[dict[str, Any]] = []
     for record in list_trade_records(ticker=ticker, reports_dir=reports_dir):
+        if allowed_trade_ids is not None and record["trade_id"] not in allowed_trade_ids:
+            continue
         for review in list_trade_reviews(record["trade_id"], reports_dir=reports_dir):
             results.append(
                 {

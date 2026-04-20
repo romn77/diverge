@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   useEffect,
   useMemo,
@@ -11,6 +12,7 @@ import {
 import { usePreferences } from "@/components/PreferencesProvider";
 import {
   getConfigOptions,
+  type AuthUser,
   type ConfigOptions,
   type Report,
   type ScreenerRunSummary,
@@ -27,6 +29,11 @@ type FocusTarget =
   | "allTickers";
 
 interface SidebarProps {
+  authEnabled: boolean;
+  authUser: AuthUser | null;
+  canManageUsers: boolean;
+  onLogout: () => void;
+  loggingOut: boolean;
   selectedReportId: string | null;
   selectedScreenerRunId: string | null;
   selectedTradeJournal: boolean;
@@ -56,6 +63,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({
+  authEnabled,
+  authUser,
+  canManageUsers,
+  onLogout,
+  loggingOut,
   selectedReportId,
   selectedScreenerRunId,
   selectedTradeJournal,
@@ -849,6 +861,71 @@ export function Sidebar({
                 </span>
               </button>
 
+              {authEnabled ? (
+                <section className="mt-5 rounded-[24px] border border-[var(--border)] bg-white/85 p-4 shadow-[0_16px_34px_rgba(18,28,41,0.06)]">
+                  {authUser ? (
+                    <>
+                      <div className="flex items-start gap-3">
+                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--primary-soft)] text-sm font-semibold text-[var(--primary-strong)]">
+                          {getUserInitials(authUser.display_name, authUser.email)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                            Workspace Access
+                          </p>
+                          <p className="mt-1 truncate text-sm font-semibold text-slate-900">
+                            {authUser.display_name}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {authUser.email}
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+                          {authUser.role}
+                        </span>
+                      </div>
+                      {authUser.must_change_password ? (
+                        <p className="mt-3 rounded-2xl border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
+                          Password reset required on the next credentials update.
+                        </p>
+                      ) : null}
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {canManageUsers ? (
+                          <Link
+                            href="/admin/users"
+                            className="interactive-button focus-ring inline-flex items-center rounded-full border border-[var(--primary)] bg-[var(--primary)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white"
+                          >
+                            Admin Management
+                          </Link>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="interactive-button focus-ring inline-flex items-center rounded-full border border-[var(--border-strong)] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700"
+                          onClick={onLogout}
+                          disabled={loggingOut}
+                        >
+                          {loggingOut ? "Signing Out" : "Sign Out"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
+                      Session details are still syncing from `/api/auth/me`.
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <section className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] p-4 text-sm text-slate-600">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                    Open Workspace Mode
+                  </p>
+                  <p className="mt-2 leading-6">
+                    Auth is disabled in this environment, so the workbench is operating
+                    without a login wall.
+                  </p>
+                </section>
+              )}
+
               {taskQueue.length > 0 ? (
                 <section className="mt-5">
                   <div className="flex items-center justify-between">
@@ -1473,6 +1550,20 @@ function RailButton({
       </span>
     </div>
   );
+}
+
+function getUserInitials(displayName: string, email: string): string {
+  const source = displayName.trim() || email.trim();
+  if (!source) {
+    return "TA";
+  }
+
+  const words = source.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0]}${words[1][0]}`.toUpperCase();
+  }
+
+  return source.slice(0, 2).toUpperCase();
 }
 
 function parseReportTimestamp(report: Report): number {

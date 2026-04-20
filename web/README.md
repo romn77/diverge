@@ -77,6 +77,49 @@ Then open http://localhost:3000 in your browser.
 - LLM analysis happens after screener output, not during screener execution
 - Shared screener cache and recovery checkpoints live under `../results/screener/.cache/`
 
+## Auth Rollout
+
+The auth/session layer is controlled by `AUTH_ENABLED` and `AUTH_MODE`:
+
+- `AUTH_ENABLED=false`: disable auth entirely and fall back to the legacy filesystem-only workbench
+- `AUTH_ENABLED=true` with `AUTH_MODE=optional`: enable PostgreSQL-backed auth and metadata while keeping the existing workbench readable during rollout
+- `AUTH_ENABLED=true` with `AUTH_MODE=required`: require login for protected routes
+
+Recommended rollout sequence:
+
+```bash
+cp .env.example .env
+# set DATABASE_URL, AUTH_BOOTSTRAP_ADMIN_EMAIL, AUTH_BOOTSTRAP_ADMIN_PASSWORD, and FRONTEND_ORIGIN
+
+cd web/backend
+alembic -c alembic.ini upgrade head
+
+# bootstrap the first admin if the user table is empty
+python -m web.backend.bootstrap_admin
+
+# one-time metadata backfill before switching auth to required
+AUTH_ENABLED=true AUTH_MODE=optional python -m web.backend.backfill_metadata
+```
+
+Backfill defaults:
+
+- historical reports are indexed into PostgreSQL as `workspace` visibility and assigned to the bootstrap admin as owner
+- historical trades are assigned to the bootstrap admin through `trade_entries`
+- historical screener runs are assigned to the bootstrap admin through `screener_runs`
+
+Operational notes:
+
+- startup logs now include login success/failure, permission-denied events, admin user mutations, and metadata backfill counts
+- report markdown and artifacts stay on disk; PostgreSQL stores ownership, visibility, and file index metadata
+- new reports created by authenticated tasks default to `private`
+
+Rollback:
+
+- soft rollback: keep `AUTH_ENABLED=true` and change `AUTH_MODE=required` back to `AUTH_MODE=optional`
+- full rollback: set `AUTH_ENABLED=false`
+
+The backfilled PostgreSQL metadata can remain in place for either rollback path.
+
 ## Development
 
 ### Frontend

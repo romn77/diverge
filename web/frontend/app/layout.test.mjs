@@ -17,6 +17,7 @@ test("layout seeds server preferences and bootstraps the client before hydration
   assert.match(source, /data-ui-language=\{initialLanguage\}/);
   assert.match(source, /dangerouslySetInnerHTML=\{\{ __html: preferencesBootstrapScript \}\}/);
   assert.match(source, /PreferencesProvider/);
+  assert.match(source, /AuthProvider/);
   assert.match(source, /suppressHydrationWarning/);
   assert.match(source, /initialLanguage=\{initialLanguage\}/);
   assert.match(source, /initialTheme=\{initialTheme\}/);

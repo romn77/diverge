@@ -33,6 +33,7 @@ Endpoints:
 
 import asyncio
 import json
+import logging
 import os
 import re
 import shutil
@@ -77,7 +78,9 @@ from tradingagents.trade_feedback import (
     save_trade_review as save_trade_review_file,
     update_trade_record as update_trade_record_file,
 )
-from web.backend import auth
+from web.backend import auth, report_metadata, screener_runs, trade_entries
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -131,6 +134,14 @@ GOOGLE_THINKING_OPTIONS = [
     {"label": "Minimal Thinking", "value": "minimal"},
 ]
 TERMINAL_TASK_STATUSES = {"completed", "failed"}
+SCREENER_ARTIFACT_FILENAMES = {
+    "run_meta": "run_meta.json",
+    "universe": "universe.csv",
+    "features": "features.csv",
+    "filtered_out": "filtered_out.csv",
+    "candidates": "candidates.csv",
+    "llm_pool": "llm_pool.json",
+}
 PROVIDER_API_KEY_ENV_VARS: dict[str, str | None] = {
     "openai": "OPENAI_API_KEY",
     "google": "GOOGLE_API_KEY",
@@ -268,6 +279,7 @@ class AdminUserResetPasswordPayload(BaseModel):
 class Task:
     id: str
     request: AnalysisRequest
+    owner_user_id: Optional[str] = None
     status: str = "pending"
     latest_progress: Optional[dict] = None
     progress_events: list[dict] = field(default_factory=list)
@@ -281,6 +293,7 @@ class Task:
             "analysis_date": self.request.analysis_date,
             "analysts": list(self.request.analysts),
             "request_payload": asdict(self.request),
+            "owner_user_id": self.owner_user_id,
             "status": self.status,
             "latest_progress": self.latest_progress,
             "report_id": self.report_id,
@@ -293,6 +306,7 @@ class ScreenerTask:
     id: str
     request_payload: dict
     config_payload: dict
+    owner_user_id: Optional[str] = None
     status: str = "pending"
     latest_progress: Optional[dict] = None
     progress_events: list[dict] = field(default_factory=list)
@@ -304,6 +318,7 @@ class ScreenerTask:
             "id": self.id,
             "request_payload": self.request_payload,
             "config_payload": self.config_payload,
+            "owner_user_id": self.owner_user_id,
             "status": self.status,
             "latest_progress": self.latest_progress,
             "progress_events": self.progress_events,
@@ -330,6 +345,9 @@ def _get_frontend_origins() -> list[str]:
 @asynccontextmanager
 async def _app_lifespan(_: FastAPI):
     auth.initialize_auth_runtime()
+    report_metadata.initialize_report_metadata_runtime()
+    screener_runs.initialize_screener_runtime()
+    trade_entries.initialize_trade_entries_runtime()
     _restore_persisted_active_tasks()
     _restore_persisted_screener_tasks()
     yield
@@ -351,6 +369,7 @@ app.add_middleware(
 
 AUTH_API_DEPENDENCIES = [Depends(auth.enforce_authenticated_api_access)]
 ADMIN_API_DEPENDENCIES = [Depends(auth.enforce_admin_api_access)]
+SCREENER_API_DEPENDENCIES = [Depends(auth.enforce_operator_api_access)]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -463,6 +482,54 @@ def _resolve_report_dir(report_id: str) -> Path:
     return report_dir
 
 
+def _resolve_report_dir_from_storage_path(storage_path: str) -> Path:
+    report_dir = (REPORTS_DIR / storage_path).resolve()
+    try:
+        report_dir.relative_to(REPORTS_DIR.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Report not found") from exc
+    if not report_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report_dir
+
+
+def _build_report_structure_from_index(
+    report_dir: Path,
+    file_entries: list[report_metadata.ReportFile],
+) -> dict:
+    categories: dict[str, list[str]] = {}
+    artifacts: list[dict] = []
+    has_complete = False
+    disk_artifacts = {
+        artifact["path"]: artifact for artifact in _scan_artifacts(report_dir)
+    }
+
+    for entry in file_entries:
+        if entry.entry_type == "complete":
+            has_complete = True
+            continue
+        if entry.entry_type == "category" and entry.category_key:
+            categories.setdefault(entry.category_key, []).append(
+                Path(entry.relative_path).stem
+            )
+            continue
+        if entry.entry_type == "artifact":
+            artifact_payload = {
+                "type": entry.artifact_type or Path(entry.relative_path).stem,
+                "path": entry.relative_path,
+            }
+            disk_summary = disk_artifacts.get(entry.relative_path, {}).get("summary")
+            if disk_summary is not None:
+                artifact_payload["summary"] = disk_summary
+            artifacts.append(artifact_payload)
+
+    return {
+        "has_complete": has_complete,
+        "categories": categories,
+        "artifacts": artifacts,
+    }
+
+
 def _translate_trade_feedback_error(exc: Exception) -> HTTPException:
     detail = str(exc)
     status_code = 404 if "not found" in detail.lower() else 400
@@ -481,6 +548,162 @@ def _translate_auth_error(exc: Exception) -> HTTPException:
     if isinstance(exc, auth.AuthValidationError):
         return HTTPException(status_code=400, detail=str(exc))
     return HTTPException(status_code=500, detail=str(exc))
+
+
+def _require_trade_request_user(db, request: Request | None) -> auth.User | None:
+    settings = auth.get_auth_settings()
+    if not settings.enabled:
+        return None
+    if request is None:
+        raise HTTPException(status_code=500, detail="Trade request context is missing")
+
+    user = auth.get_request_user(db, request, settings=settings)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    return user
+
+
+def _sync_trade_entry_metadata(db, record: dict, owner_user_id: str) -> None:
+    reviews = list_trade_reviews_file(record["trade_id"], reports_dir=REPORTS_DIR)
+    trade_entries.upsert_trade_entry(
+        db,
+        record,
+        owner_user_id=owner_user_id,
+        reports_dir=REPORTS_DIR,
+        reviews=reviews,
+    )
+
+
+def _load_owner_scoped_trade_records(
+    db,
+    owner_user_id: str,
+    *,
+    ticker: str | None = None,
+) -> list[dict]:
+    records: list[dict] = []
+    for entry in trade_entries.list_trade_entries_for_owner(
+        db,
+        owner_user_id,
+        ticker=ticker,
+    ):
+        try:
+            records.append(get_trade_record_file(entry.trade_id, reports_dir=REPORTS_DIR))
+        except ValueError:
+            continue
+    return records
+
+
+def _resolve_task_owner_user_id(request: Request | None) -> str | None:
+    settings = auth.get_auth_settings()
+    if not settings.enabled or request is None:
+        return None
+
+    with auth.db_session() as db:
+        user = auth.get_request_user(db, request, settings=settings)
+        return user.id if user is not None else None
+
+
+def _visible_trade_ids_for_task(task: Task) -> set[str] | None:
+    settings = auth.get_auth_settings()
+    if not settings.enabled:
+        return None
+    if not task.owner_user_id:
+        return set()
+
+    with auth.db_session() as db:
+        return trade_entries.list_visible_trade_ids(
+            db,
+            task.owner_user_id,
+            ticker=task.request.ticker,
+        )
+
+
+def _require_screener_user(request: Request | None) -> auth.User | None:
+    settings = auth.get_auth_settings()
+    if not settings.enabled:
+        return None
+    if request is None:
+        raise HTTPException(status_code=500, detail="Request context is required")
+    with auth.db_session() as db:
+        return auth.require_request_user_role(
+            db,
+            request,
+            (auth.UserRole.ADMIN.value, auth.UserRole.OPERATOR.value),
+        )
+
+
+def _is_admin_user(user: auth.User | None) -> bool:
+    return user is not None and user.role == auth.UserRole.ADMIN.value
+
+
+def _owner_scope_for_user(user: auth.User | None) -> str | None:
+    if user is None or _is_admin_user(user):
+        return None
+    return user.id
+
+
+def _can_access_screener_owner(user: auth.User | None, owner_user_id: str | None) -> bool:
+    if user is None:
+        return True
+    if _is_admin_user(user):
+        return True
+    return owner_user_id is not None and owner_user_id == user.id
+
+
+def _relative_screener_storage_path(path: Path) -> str:
+    resolved_root = SCREENER_RESULTS_DIR.resolve()
+    resolved_path = path.resolve()
+    try:
+        relative_path = resolved_path.relative_to(resolved_root)
+    except ValueError as exc:
+        raise RuntimeError("Screener artifacts must stay under SCREENER_RESULTS_DIR") from exc
+    return relative_path.as_posix()
+
+
+def _build_screener_artifact_manifest(run_dir: Path) -> dict[str, str]:
+    manifest: dict[str, str] = {}
+    for artifact_key, filename in SCREENER_ARTIFACT_FILENAMES.items():
+        artifact_path = run_dir / filename
+        if artifact_path.is_file():
+            manifest[artifact_key] = _relative_screener_storage_path(artifact_path)
+    return manifest
+
+
+def _resolve_screener_run_dir_from_record(record: screener_runs.ScreenerRun) -> Path:
+    run_dir = (SCREENER_RESULTS_DIR / record.storage_path).resolve()
+    try:
+        run_dir.relative_to(SCREENER_RESULTS_DIR.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Screener run not found") from exc
+    if not run_dir.is_dir():
+        raise HTTPException(status_code=404, detail=f"Screener run '{record.id}' not found")
+    return run_dir
+
+
+def _resolve_screener_artifact_path(
+    record: screener_runs.ScreenerRun,
+    artifact_key: str,
+    default_filename: str,
+) -> Path:
+    relative_path = (record.artifact_manifest or {}).get(artifact_key)
+    if not relative_path:
+        relative_path = f"{record.storage_path}/{default_filename}"
+    artifact_path = (SCREENER_RESULTS_DIR / relative_path).resolve()
+    try:
+        artifact_path.relative_to(SCREENER_RESULTS_DIR.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Screener artifact not found") from exc
+    return artifact_path
+
+
+def _get_authorized_screener_task(
+    task_id: str,
+    current_user: auth.User | None = None,
+) -> ScreenerTask:
+    task = _get_screener_task(task_id)
+    if not _can_access_screener_owner(current_user, task.owner_user_id):
+        raise HTTPException(status_code=404, detail=f"Screener task '{task_id}' not found")
+    return task
 
 
 def _active_tasks_dir() -> Path:
@@ -559,6 +782,7 @@ def _task_from_snapshot(payload: dict) -> Task:
     return Task(
         id=str(payload["id"]),
         request=AnalysisRequest(**request_payload),
+        owner_user_id=payload.get("owner_user_id"),
         status=str(payload.get("status") or "pending"),
         latest_progress=payload.get("latest_progress"),
         report_id=payload.get("report_id"),
@@ -760,6 +984,11 @@ def _restore_persisted_screener_tasks() -> None:
                 id=str(payload["id"]),
                 request_payload=dict(payload.get("request_payload") or {}),
                 config_payload=dict(payload.get("config_payload") or {}),
+                owner_user_id=(
+                    str(payload["owner_user_id"]).strip()
+                    if payload.get("owner_user_id")
+                    else None
+                ),
                 status=str(payload.get("status") or "pending"),
                 latest_progress=payload.get("latest_progress"),
                 progress_events=list(payload.get("progress_events") or []),
@@ -815,10 +1044,12 @@ def _run_task(task_id: str) -> None:
             shutil.rmtree(temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)
 
+        visible_trade_ids = _visible_trade_ids_for_task(task)
         progress_stream = run_analysis_streaming(
             task.request,
             temp_dir,
             reports_dir=REPORTS_DIR,
+            visible_trade_ids=visible_trade_ids,
         )
         final_state = None
         while True:
@@ -839,6 +1070,23 @@ def _run_task(task_id: str) -> None:
         REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         final_report_dir = REPORTS_DIR / report_id
         temp_dir.replace(final_report_dir)
+        if auth.auth_enabled() and task.owner_user_id:
+            metadata_payload = report_metadata.build_report_metadata(
+                final_report_dir,
+                report_id=report_id,
+            )
+            file_entries = report_metadata.build_report_file_index(final_report_dir)
+            with auth.db_session() as db:
+                report_metadata.upsert_report_run(
+                    db,
+                    report_id=report_id,
+                    owner_user_id=task.owner_user_id,
+                    visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
+                    ticker=str(metadata_payload["ticker"] or task.request.ticker),
+                    generated_at=metadata_payload["generated_at"],
+                    storage_path=str(metadata_payload["storage_path"] or report_id),
+                    file_entries=file_entries,
+                )
 
         with tasks_lock:
             current_task = tasks[task_id]
@@ -895,6 +1143,9 @@ def _run_screener_task(task_id: str) -> None:
 
         result = run_screen(ScreenRunConfig(**task.config_payload), progress_callback=progress_callback)
 
+        current_task = _get_screener_task(task_id)
+        _record_screener_run_metadata(current_task, result)
+
         with tasks_lock:
             current_task = screener_tasks[task_id]
             current_task.status = "completed"
@@ -917,6 +1168,28 @@ def _run_screener_task(task_id: str) -> None:
             current_task.latest_progress = failure_progress
             current_task.progress_events.append(failure_progress)
         _persist_screener_task_snapshot(task_id)
+
+
+def _record_screener_run_metadata(task: ScreenerTask, result) -> None:
+    if not auth.get_auth_settings().enabled:
+        return
+    if not task.owner_user_id:
+        raise RuntimeError("Screener task owner is required when auth is enabled")
+
+    run_dir = Path(result.run_dir).resolve()
+    run_id = run_dir.name
+    with auth.db_session() as db:
+        screener_runs.upsert_screener_run(
+            db,
+            run_id=run_id,
+            owner_user_id=task.owner_user_id,
+            as_of_date=str(task.request_payload.get("as_of_date") or "").strip() or None,
+            markets=list(task.request_payload.get("markets") or []),
+            candidate_count=int(getattr(result, "candidate_count", 0) or 0),
+            generated_at=run_id,
+            storage_path=_relative_screener_storage_path(run_dir),
+            artifact_manifest=_build_screener_artifact_manifest(run_dir),
+        )
 
 
 def _serialize_sse_event(data: dict) -> str:
@@ -1034,7 +1307,7 @@ def _resolve_screener_run_dir(run_id: str) -> Path:
     return run_dir
 
 
-def list_screener_runs() -> list[dict]:
+def _list_screener_runs_from_disk() -> list[dict]:
     if not SCREENER_RESULTS_DIR.is_dir():
         return []
 
@@ -1064,7 +1337,48 @@ def list_screener_runs() -> list[dict]:
     return runs
 
 
-def get_screener_run(run_id: str) -> dict:
+def list_screener_runs(current_user: auth.User | None = None) -> list[dict]:
+    if not auth.get_auth_settings().enabled:
+        return _list_screener_runs_from_disk()
+    if current_user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    with auth.db_session() as db:
+        owner_scope = _owner_scope_for_user(current_user)
+        return [
+            screener_runs.serialize_screener_run_summary(record)
+            for record in screener_runs.list_screener_run_records(db, owner_user_id=owner_scope)
+        ]
+
+
+def get_screener_run(run_id: str, current_user: auth.User | None = None) -> dict:
+    if auth.get_auth_settings().enabled:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        try:
+            with auth.db_session() as db:
+                owner_scope = _owner_scope_for_user(current_user)
+                record = screener_runs.get_screener_run_record(
+                    db,
+                    run_id,
+                    owner_user_id=owner_scope,
+                )
+                payload = screener_runs.serialize_screener_run_detail(record)
+        except Exception as exc:
+            raise _translate_auth_error(exc) from exc
+
+        _resolve_screener_run_dir_from_record(record)
+        meta_path = _resolve_screener_artifact_path(record, "run_meta", "run_meta.json")
+        if not meta_path.is_file():
+            raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
+        try:
+            file_payload = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to read screener run: {exc}") from exc
+
+        payload["filtered_count_by_reason"] = file_payload.get("filtered_count_by_reason", {})
+        return payload
+
     run_dir = _resolve_screener_run_dir(run_id)
     meta_path = run_dir / "run_meta.json"
     if not meta_path.is_file():
@@ -1085,9 +1399,29 @@ def get_screener_run(run_id: str) -> dict:
     }
 
 
-def get_screener_run_candidates(run_id: str) -> list[dict]:
-    run_dir = _resolve_screener_run_dir(run_id)
-    candidates_path = run_dir / "candidates.csv"
+def get_screener_run_candidates(
+    run_id: str,
+    current_user: auth.User | None = None,
+) -> list[dict]:
+    if auth.get_auth_settings().enabled:
+        if current_user is None:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        try:
+            with auth.db_session() as db:
+                owner_scope = _owner_scope_for_user(current_user)
+                record = screener_runs.get_screener_run_record(
+                    db,
+                    run_id,
+                    owner_user_id=owner_scope,
+                )
+        except Exception as exc:
+            raise _translate_auth_error(exc) from exc
+
+        candidates_path = _resolve_screener_artifact_path(record, "candidates", "candidates.csv")
+    else:
+        run_dir = _resolve_screener_run_dir(run_id)
+        candidates_path = run_dir / "candidates.csv"
+
     if not candidates_path.is_file():
         raise HTTPException(status_code=404, detail=f"Candidates for run '{run_id}' not found")
     try:
@@ -1126,6 +1460,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
     settings = auth.get_auth_settings()
     if not settings.enabled:
         raise HTTPException(status_code=409, detail="Auth is disabled")
+    client_ip = request.client.host if request.client else None
 
     try:
         with auth.db_session() as db:
@@ -1143,11 +1478,32 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
             )
             result = auth.build_auth_state_payload(user)
     except auth.AuthValidationError as exc:
+        logger.warning(
+            "login failed email=%s ip=%s reason=%s",
+            payload.email.strip().lower(),
+            client_ip,
+            exc,
+        )
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except auth.AuthPermissionError as exc:
+        logger.warning(
+            "login denied email=%s ip=%s reason=%s",
+            payload.email.strip().lower(),
+            client_ip,
+            exc,
+        )
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except Exception as exc:
         raise _translate_auth_error(exc) from exc
 
     auth.set_session_cookie(response, session_token)
+    logger.info(
+        "login success user_id=%s email=%s role=%s ip=%s",
+        user.id,
+        user.email,
+        user.role,
+        client_ip,
+    )
     return result
 
 
@@ -1219,9 +1575,10 @@ def get_admin_user(user_id: str) -> dict:
 
 
 @app.post("/api/admin/users", dependencies=ADMIN_API_DEPENDENCIES)
-def create_admin_user(payload: AdminUserCreatePayload) -> dict:
+def create_admin_user(payload: AdminUserCreatePayload, request: Request) -> dict:
     try:
         with auth.db_session() as db:
+            actor = auth.require_request_user(db, request)
             user = auth.create_user(
                 db,
                 email=payload.email,
@@ -1231,15 +1588,28 @@ def create_admin_user(payload: AdminUserCreatePayload) -> dict:
                 status=payload.status,
                 must_change_password=payload.must_change_password,
             )
-            return auth.serialize_user(user)
+            result = auth.serialize_user(user)
     except Exception as exc:
         raise _translate_auth_error(exc) from exc
+    logger.info(
+        "admin user created actor_user_id=%s target_user_id=%s role=%s status=%s",
+        actor.id,
+        user.id,
+        user.role,
+        user.status,
+    )
+    return result
 
 
 @app.put("/api/admin/users/{user_id}", dependencies=ADMIN_API_DEPENDENCIES)
-def update_admin_user(user_id: str, payload: AdminUserUpdatePayload) -> dict:
+def update_admin_user(
+    user_id: str,
+    payload: AdminUserUpdatePayload,
+    request: Request,
+) -> dict:
     try:
         with auth.db_session() as db:
+            actor = auth.require_request_user(db, request)
             user = auth.update_user(
                 db,
                 user_id,
@@ -1248,37 +1618,60 @@ def update_admin_user(user_id: str, payload: AdminUserUpdatePayload) -> dict:
                 status=payload.status,
                 must_change_password=payload.must_change_password,
             )
-            return auth.serialize_user(user)
+            result = auth.serialize_user(user)
     except Exception as exc:
         raise _translate_auth_error(exc) from exc
+    logger.info(
+        "admin user updated actor_user_id=%s target_user_id=%s role=%s status=%s",
+        actor.id,
+        user.id,
+        user.role,
+        user.status,
+    )
+    return result
 
 
 @app.delete("/api/admin/users/{user_id}", dependencies=ADMIN_API_DEPENDENCIES)
-def delete_admin_user(user_id: str) -> dict:
+def delete_admin_user(user_id: str, request: Request) -> dict:
     try:
         with auth.db_session() as db:
+            actor = auth.require_request_user(db, request)
             auth.delete_user(db, user_id)
-            return {"deleted": True, "user_id": user_id}
+            result = {"deleted": True, "user_id": user_id}
     except Exception as exc:
         raise _translate_auth_error(exc) from exc
+    logger.info(
+        "admin user deleted actor_user_id=%s target_user_id=%s",
+        actor.id,
+        user_id,
+    )
+    return result
 
 
 @app.post("/api/admin/users/{user_id}/reset-password", dependencies=ADMIN_API_DEPENDENCIES)
 def reset_admin_user_password(
     user_id: str,
     payload: AdminUserResetPasswordPayload,
+    request: Request,
 ) -> dict:
     try:
         with auth.db_session() as db:
+            actor = auth.require_request_user(db, request)
             user = auth.reset_user_password(
                 db,
                 user_id,
                 new_password=payload.new_password,
                 must_change_password=payload.must_change_password,
             )
-            return auth.serialize_user(user)
+            result = auth.serialize_user(user)
     except Exception as exc:
         raise _translate_auth_error(exc) from exc
+    logger.info(
+        "admin user password reset actor_user_id=%s target_user_id=%s",
+        actor.id,
+        user.id,
+    )
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1287,7 +1680,25 @@ def reset_admin_user_password(
 
 
 @app.get("/api/reports", dependencies=AUTH_API_DEPENDENCIES)
-def list_reports() -> list[dict]:
+def list_reports(request: Request = None) -> list[dict]:
+    if auth.auth_enabled() and request is not None:
+        try:
+            with auth.db_session() as db:
+                current_user = auth.get_request_user(db, request)
+                if current_user is not None:
+                    owner_scope = _owner_scope_for_user(current_user)
+                    records = report_metadata.list_report_runs(
+                        db,
+                        owner_user_id=owner_scope,
+                        include_workspace=owner_scope is not None,
+                    )
+                    return [
+                        report_metadata.serialize_report_summary(record)
+                        for record in records
+                    ]
+        except Exception as exc:
+            raise _translate_auth_error(exc) from exc
+
     if not REPORTS_DIR.is_dir():
         return []
 
@@ -1315,7 +1726,32 @@ def list_reports() -> list[dict]:
 
 
 @app.get("/api/reports/{report_id}/structure", dependencies=AUTH_API_DEPENDENCIES)
-def get_structure(report_id: str) -> dict:
+def get_structure(report_id: str, request: Request = None) -> dict:
+    if auth.auth_enabled() and request is not None:
+        try:
+            with auth.db_session() as db:
+                current_user = auth.get_request_user(db, request)
+                if current_user is not None:
+                    owner_scope = _owner_scope_for_user(current_user)
+                    record = report_metadata.get_report_run(
+                        db,
+                        report_id,
+                        owner_user_id=owner_scope,
+                        include_workspace=owner_scope is not None,
+                    )
+                    report_dir = _resolve_report_dir_from_storage_path(record.storage_path)
+                    structure = _build_report_structure_from_index(
+                        report_dir,
+                        report_metadata.list_report_files(db, report_id),
+                    )
+                    return {
+                        "id": record.id,
+                        "ticker": record.ticker,
+                        **structure,
+                    }
+        except Exception as exc:
+            raise _translate_auth_error(exc) from exc
+
     report_dir = _resolve_report_dir(report_id)
 
     ticker, _date, _time = _parse_complete_report_header(report_dir)
@@ -1332,8 +1768,32 @@ def get_structure(report_id: str) -> dict:
 
 
 @app.get("/api/reports/{report_id}/content", dependencies=AUTH_API_DEPENDENCIES)
-def get_content(report_id: str, path: str) -> dict:
-    report_dir = _resolve_report_dir(report_id)
+def get_content(report_id: str, path: str, request: Request = None) -> dict:
+    if auth.auth_enabled() and request is not None:
+        try:
+            with auth.db_session() as db:
+                current_user = auth.get_request_user(db, request)
+                if current_user is not None:
+                    owner_scope = _owner_scope_for_user(current_user)
+                    record = report_metadata.get_report_run(
+                        db,
+                        report_id,
+                        owner_user_id=owner_scope,
+                        include_workspace=owner_scope is not None,
+                    )
+                    report_metadata.get_report_file(
+                        db,
+                        report_id=record.id,
+                        relative_path=path,
+                    )
+                    report_dir = _resolve_report_dir_from_storage_path(record.storage_path)
+                else:
+                    report_dir = _resolve_report_dir(report_id)
+        except Exception as exc:
+            raise _translate_auth_error(exc) from exc
+    else:
+        report_dir = _resolve_report_dir(report_id)
+
     report_dir_resolved = report_dir.resolve()
     target = (report_dir_resolved / path).resolve()
 
@@ -1361,54 +1821,114 @@ def get_content(report_id: str, path: str) -> dict:
 
 
 @app.get("/api/trades", dependencies=AUTH_API_DEPENDENCIES)
-def list_trades(ticker: Optional[str] = None) -> list[dict]:
+def list_trades(ticker: Optional[str] = None, request: Request = None) -> list[dict]:
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                return _load_owner_scoped_trade_records(db, user.id, ticker=ticker)
         return list_trade_records_file(ticker=ticker, reports_dir=REPORTS_DIR)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
 
 @app.post("/api/trades", dependencies=AUTH_API_DEPENDENCIES)
-def create_trade(payload: TradeRecordCreatePayload) -> dict:
+def create_trade(payload: TradeRecordCreatePayload, request: Request = None) -> dict:
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                record = create_trade_record_file(
+                    payload.model_dump(),
+                    reports_dir=REPORTS_DIR,
+                )
+                _sync_trade_entry_metadata(db, record, user.id)
+                return record
         return create_trade_record_file(payload.model_dump(), reports_dir=REPORTS_DIR)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
 
 @app.get("/api/trades/{trade_id}", dependencies=AUTH_API_DEPENDENCIES)
-def get_trade(trade_id: str) -> dict:
+def get_trade(trade_id: str, request: Request = None) -> dict:
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                return {
+                    "record": get_trade_record_file(trade_id, reports_dir=REPORTS_DIR),
+                    "reviews": list_trade_reviews_file(trade_id, reports_dir=REPORTS_DIR),
+                }
         return {
             "record": get_trade_record_file(trade_id, reports_dir=REPORTS_DIR),
             "reviews": list_trade_reviews_file(trade_id, reports_dir=REPORTS_DIR),
         }
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
 
 @app.put("/api/trades/{trade_id}", dependencies=AUTH_API_DEPENDENCIES)
-def update_trade(trade_id: str, payload: TradeRecordUpdatePayload) -> dict:
+def update_trade(
+    trade_id: str,
+    payload: TradeRecordUpdatePayload,
+    request: Request = None,
+) -> dict:
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                record = update_trade_record_file(
+                    trade_id,
+                    payload.model_dump(exclude_unset=True),
+                    reports_dir=REPORTS_DIR,
+                )
+                _sync_trade_entry_metadata(db, record, user.id)
+                return record
         return update_trade_record_file(
             trade_id,
             payload.model_dump(exclude_unset=True),
             reports_dir=REPORTS_DIR,
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
 
 @app.get("/api/trades/{trade_id}/reviews", dependencies=AUTH_API_DEPENDENCIES)
-def get_trade_reviews(trade_id: str) -> list[dict]:
+def get_trade_reviews(trade_id: str, request: Request = None) -> list[dict]:
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                return list_trade_reviews_file(trade_id, reports_dir=REPORTS_DIR)
         return list_trade_reviews_file(trade_id, reports_dir=REPORTS_DIR)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
 
 @app.post("/api/trades/{trade_id}/reviews", dependencies=AUTH_API_DEPENDENCIES)
-def create_trade_review(trade_id: str, payload: TradeReviewCreatePayload) -> dict:
+def create_trade_review(
+    trade_id: str,
+    payload: TradeReviewCreatePayload,
+    request: Request = None,
+) -> dict:
     _hydrate_provider_credentials(payload.llm_provider)
     provider_availability = _get_provider_availability(payload.llm_provider)
     if not provider_availability["enabled"]:
@@ -1418,6 +1938,30 @@ def create_trade_review(trade_id: str, payload: TradeReviewCreatePayload) -> dic
         )
 
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                review = generate_trade_review_file(
+                    trade_id,
+                    review_type=payload.review_type,
+                    llm_provider=payload.llm_provider,
+                    model=payload.model,
+                    output_language=payload.output_language,
+                    google_thinking_level=payload.google_thinking_level,
+                    openai_reasoning_effort=payload.openai_reasoning_effort,
+                    analysis_date=payload.analysis_date,
+                    analysis_references=(
+                        payload.model_dump()["analysis_references"]
+                        if payload.analysis_references is not None
+                        else None
+                    ),
+                    reports_dir=REPORTS_DIR,
+                )
+                record = get_trade_record_file(trade_id, reports_dir=REPORTS_DIR)
+                _sync_trade_entry_metadata(db, record, user.id)
+                return review
         return generate_trade_review_file(
             trade_id,
             review_type=payload.review_type,
@@ -1434,6 +1978,8 @@ def create_trade_review(trade_id: str, payload: TradeReviewCreatePayload) -> dic
             ),
             reports_dir=REPORTS_DIR,
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
@@ -1443,8 +1989,31 @@ def save_trade_review(
     trade_id: str,
     review_type: str,
     payload: TradeReviewSavePayload,
+    request: Request = None,
 ) -> dict:
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                review = save_trade_review_file(
+                    trade_id,
+                    review_type=review_type,
+                    payload=payload.model_dump(
+                        exclude={"analysis_date", "analysis_references"}
+                    ),
+                    analysis_date=payload.analysis_date,
+                    analysis_references=(
+                        payload.model_dump()["analysis_references"]
+                        if payload.analysis_references is not None
+                        else None
+                    ),
+                    reports_dir=REPORTS_DIR,
+                )
+                record = get_trade_record_file(trade_id, reports_dir=REPORTS_DIR)
+                _sync_trade_entry_metadata(db, record, user.id)
+                return review
         return save_trade_review_file(
             trade_id,
             review_type=review_type,
@@ -1459,6 +2028,8 @@ def save_trade_review(
             ),
             reports_dir=REPORTS_DIR,
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
@@ -1468,14 +2039,33 @@ def get_ticker_trade_feedback(
     ticker: str,
     limit: int = 3,
     analysis_date: Optional[str] = None,
+    request: Request = None,
 ) -> dict:
     try:
+        if auth.auth_enabled():
+            with auth.db_session() as db:
+                user = _require_trade_request_user(db, request)
+                assert user is not None
+                visible_trade_ids = trade_entries.list_visible_trade_ids(
+                    db,
+                    user.id,
+                    ticker=ticker,
+                )
+                return get_trade_feedback_payload_file(
+                    ticker,
+                    reports_dir=REPORTS_DIR,
+                    limit=limit,
+                    analysis_date=analysis_date,
+                    visible_trade_ids=visible_trade_ids,
+                )
         return get_trade_feedback_payload_file(
             ticker,
             reports_dir=REPORTS_DIR,
             limit=limit,
             analysis_date=analysis_date,
         )
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise _translate_trade_feedback_error(exc) from exc
 
@@ -1486,10 +2076,10 @@ def get_ticker_trade_feedback(
 
 
 @app.post("/api/tasks", dependencies=AUTH_API_DEPENDENCIES)
-def create_task(payload: TaskCreatePayload) -> dict:
-    request = AnalysisRequest(**payload.model_dump())
-    _hydrate_provider_credentials(request.llm_provider)
-    provider_availability = _get_provider_availability(request.llm_provider)
+def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
+    analysis_request = AnalysisRequest(**payload.model_dump())
+    _hydrate_provider_credentials(analysis_request.llm_provider)
+    provider_availability = _get_provider_availability(analysis_request.llm_provider)
     if not provider_availability["enabled"]:
         raise HTTPException(
             status_code=400,
@@ -1503,7 +2093,11 @@ def create_task(payload: TaskCreatePayload) -> dict:
         )
 
     task_id = uuid.uuid4().hex
-    task = Task(id=task_id, request=request)
+    task = Task(
+        id=task_id,
+        request=analysis_request,
+        owner_user_id=_resolve_task_owner_user_id(request),
+    )
 
     with tasks_lock:
         tasks[task_id] = task
@@ -1513,8 +2107,12 @@ def create_task(payload: TaskCreatePayload) -> dict:
     return {"task_id": task_id, "status": "pending"}
 
 
-@app.post("/api/screener/tasks", dependencies=AUTH_API_DEPENDENCIES)
-def create_screener_task(payload: ScreenTaskCreatePayload) -> dict:
+@app.post("/api/screener/tasks", dependencies=SCREENER_API_DEPENDENCIES)
+def create_screener_task(
+    payload: ScreenTaskCreatePayload,
+    request: Request = None,
+) -> dict:
+    current_user = _require_screener_user(request)
     if _combined_active_task_count() >= 2:
         raise HTTPException(
             status_code=409,
@@ -1547,6 +2145,7 @@ def create_screener_task(payload: ScreenTaskCreatePayload) -> dict:
         id=task_id,
         request_payload=request_payload,
         config_payload=config_payload,
+        owner_user_id=current_user.id if current_user is not None else None,
     )
 
     with tasks_lock:
@@ -1563,10 +2162,15 @@ def list_tasks() -> list[dict]:
         return [task.to_dict() for task in tasks.values()]
 
 
-@app.get("/api/screener/tasks", dependencies=AUTH_API_DEPENDENCIES)
-def list_screener_tasks() -> list[dict]:
+@app.get("/api/screener/tasks", dependencies=SCREENER_API_DEPENDENCIES)
+def list_screener_tasks(request: Request = None) -> list[dict]:
+    current_user = _require_screener_user(request)
     with tasks_lock:
-        return [task.to_dict() for task in screener_tasks.values()]
+        return [
+            task.to_dict()
+            for task in screener_tasks.values()
+            if _can_access_screener_owner(current_user, task.owner_user_id)
+        ]
 
 
 @app.get("/api/tasks/{task_id}", dependencies=AUTH_API_DEPENDENCIES)
@@ -1574,9 +2178,10 @@ def get_task_status(task_id: str) -> dict:
     return _get_task(task_id).to_dict()
 
 
-@app.get("/api/screener/tasks/{task_id}", dependencies=AUTH_API_DEPENDENCIES)
-def get_screener_task_status(task_id: str) -> dict:
-    return _get_screener_task(task_id).to_dict()
+@app.get("/api/screener/tasks/{task_id}", dependencies=SCREENER_API_DEPENDENCIES)
+def get_screener_task_status(task_id: str, request: Request = None) -> dict:
+    current_user = _require_screener_user(request)
+    return _get_authorized_screener_task(task_id, current_user).to_dict()
 
 
 @app.get("/api/tasks/{task_id}/stream", dependencies=AUTH_API_DEPENDENCIES)
@@ -1616,9 +2221,10 @@ async def stream_task(task_id: str, request: Request) -> StreamingResponse:
     )
 
 
-@app.get("/api/screener/tasks/{task_id}/stream", dependencies=AUTH_API_DEPENDENCIES)
+@app.get("/api/screener/tasks/{task_id}/stream", dependencies=SCREENER_API_DEPENDENCIES)
 async def stream_screener_task(task_id: str, request: Request) -> StreamingResponse:
-    _get_screener_task(task_id)
+    current_user = _require_screener_user(request)
+    _get_authorized_screener_task(task_id, current_user)
 
     async def event_generator():
         cursor = 0
@@ -1653,19 +2259,22 @@ async def stream_screener_task(task_id: str, request: Request) -> StreamingRespo
     )
 
 
-@app.get("/api/screener/runs", dependencies=AUTH_API_DEPENDENCIES)
-def list_screener_runs_endpoint() -> list[dict]:
-    return list_screener_runs()
+@app.get("/api/screener/runs", dependencies=SCREENER_API_DEPENDENCIES)
+def list_screener_runs_endpoint(request: Request) -> list[dict]:
+    current_user = _require_screener_user(request)
+    return list_screener_runs(current_user)
 
 
-@app.get("/api/screener/runs/{run_id}", dependencies=AUTH_API_DEPENDENCIES)
-def get_screener_run_endpoint(run_id: str) -> dict:
-    return get_screener_run(run_id)
+@app.get("/api/screener/runs/{run_id}", dependencies=SCREENER_API_DEPENDENCIES)
+def get_screener_run_endpoint(run_id: str, request: Request) -> dict:
+    current_user = _require_screener_user(request)
+    return get_screener_run(run_id, current_user)
 
 
-@app.get("/api/screener/runs/{run_id}/candidates", dependencies=AUTH_API_DEPENDENCIES)
-def get_screener_run_candidates_endpoint(run_id: str) -> list[dict]:
-    return get_screener_run_candidates(run_id)
+@app.get("/api/screener/runs/{run_id}/candidates", dependencies=SCREENER_API_DEPENDENCIES)
+def get_screener_run_candidates_endpoint(run_id: str, request: Request) -> list[dict]:
+    current_user = _require_screener_user(request)
+    return get_screener_run_candidates(run_id, current_user)
 
 
 # ---------------------------------------------------------------------------

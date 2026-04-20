@@ -1,5 +1,6 @@
 import datetime
 import json
+from collections.abc import Collection
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Generator, Optional
@@ -477,6 +478,7 @@ def run_analysis_streaming(
     temp_dir: Path,
     *,
     reports_dir: Path | None = None,
+    visible_trade_ids: Collection[str] | None = None,
 ) -> Generator[AnalysisProgress, None, dict]:
     config = build_analysis_config(request)
     selected_analysts = [key for key in ANALYST_ORDER if key in request.analysts]
@@ -486,6 +488,7 @@ def run_analysis_streaming(
         request.ticker,
         reports_dir=reports_dir,
         analysis_date=request.analysis_date,
+        visible_trade_ids=set(visible_trade_ids) if visible_trade_ids is not None else None,
     )
 
     graph = TradingAgentsGraph(

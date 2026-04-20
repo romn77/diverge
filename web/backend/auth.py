@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import secrets
 import threading
@@ -40,6 +41,7 @@ _ENGINE_LOCK = threading.Lock()
 _ENGINE: Engine | None = None
 _ENGINE_URL: str | None = None
 _SESSION_FACTORY: sessionmaker[Session] | None = None
+logger = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
@@ -335,6 +337,8 @@ def reset_runtime_state() -> None:
 
 
 def create_all_for_testing() -> None:
+    from web.backend import report_metadata, screener_runs, trade_entries  # noqa: F401
+
     settings = get_auth_settings()
     engine = get_engine(settings)
     Base.metadata.create_all(engine)
@@ -668,6 +672,13 @@ def require_request_user_role(
 ) -> User:
     user = require_request_user(db, request)
     if user.role not in allowed_roles:
+        logger.warning(
+            "permission denied user_id=%s role=%s path=%s allowed_roles=%s",
+            user.id,
+            user.role,
+            request.url.path,
+            ",".join(allowed_roles),
+        )
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     return user
 
@@ -742,7 +753,7 @@ def ensure_bootstrap_admin(db: Session, settings: AuthSettings | None = None) ->
             "AUTH_BOOTSTRAP_ADMIN_PASSWORD, or run `python -m web.backend.bootstrap_admin`."
         )
 
-    return create_user(
+    user = create_user(
         db,
         email=resolved_settings.bootstrap_admin_email,
         display_name=resolved_settings.bootstrap_admin_display_name,
@@ -751,6 +762,8 @@ def ensure_bootstrap_admin(db: Session, settings: AuthSettings | None = None) ->
         status=UserStatus.ACTIVE.value,
         must_change_password=True,
     )
+    logger.info("bootstrap admin created user_id=%s email=%s", user.id, user.email)
+    return user
 
 
 def bootstrap_admin_from_env() -> bool:
@@ -787,3 +800,14 @@ def enforce_admin_api_access(request: Request) -> None:
     with db_session() as db:
         require_request_user_role(db, request, (UserRole.ADMIN.value,))
 
+
+def enforce_operator_api_access(request: Request) -> None:
+    settings = get_auth_settings()
+    if not settings.enabled:
+        return
+    with db_session() as db:
+        require_request_user_role(
+            db,
+            request,
+            (UserRole.ADMIN.value, UserRole.OPERATOR.value),
+        )
