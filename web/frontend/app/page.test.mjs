@@ -10,6 +10,10 @@ test("page lifts report state and renders a content-first start panel", () => {
 
   assert.match(source, /listReports/);
   assert.match(source, /listTasks/);
+  assert.match(source, /useAuth/);
+  assert.match(source, /authStatus === "loading"/);
+  assert.match(source, /authStatus === "error"/);
+  assert.match(source, /router\.replace\("\/login\?next=\/"\)/);
   assert.match(source, /\[reports,\s*setReports\]/);
   assert.match(source, /\[tasks,\s*setTasks\]/);
   assert.match(source, /\[queueLocked,\s*setQueueLocked\]/);
@@ -28,6 +32,9 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /reports=\{reports\}/);
   assert.match(source, /isOpen=\{isSidebarOpen\}/);
   assert.match(source, /onClose=\{\(\) => setIsSidebarOpen\(false\)\}/);
+  assert.match(source, /authEnabled=\{authEnabled\}/);
+  assert.match(source, /canManageUsers=\{canManageUsers\}/);
+  assert.match(source, /onLogout=\{handleLogout\}/);
   assert.match(source, /taskQueue=\{visibleTaskQueue\}/);
   assert.match(source, /newAnalysisDisabled=\{newAnalysisDisabled\}/);
   assert.match(source, /screenerRuns=\{screenerRuns\}/);
@@ -53,15 +60,4 @@ test("page uses a desktop row layout so sidebar and content stay aligned", () =>
   const source = readFileSync(pagePath, "utf8");
 
   assert.match(source, /app-shell relative min-h-screen bg-\[var\(--bg\)\] md:flex md:items-stretch/);
-});
-
-test("page refreshes reports and screener runs on a shared low-frequency cadence and on focus", () => {
-  const source = readFileSync(pagePath, "utf8");
-
-  assert.match(source, /const LIST_REFRESH_INTERVAL_MS = 10000;/);
-  assert.match(source, /void loadReports\(\{ silent: true \}\)/);
-  assert.match(source, /void loadScreenerRuns\(\)/);
-  assert.match(source, /window\.setInterval\(\(\) => \{\s*void refreshDiscoveryLists\(\);\s*\}, LIST_REFRESH_INTERVAL_MS\)/);
-  assert.match(source, /window\.addEventListener\("focus", handleWindowFocus\)/);
-  assert.match(source, /document\.addEventListener\("visibilitychange", handleVisibilityChange\)/);
 });

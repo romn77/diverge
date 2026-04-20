@@ -16,12 +16,16 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('FRONTEND_PORT="${FRONTEND_PORT:-3000}"', source)
         self.assertIn('FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"', source)
         self.assertIn('NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${BACKEND_PORT}}"', source)
+        self.assertIn('AUTH_ENABLED="${AUTH_ENABLED:-false}"', source)
+        self.assertIn('AUTH_MODE="${AUTH_MODE:-required}"', source)
         self.assertIn('lsof -ti :"$port"', source)
         self.assertIn('kill_port "$BACKEND_PORT"', source)
         self.assertIn('kill_port "$FRONTEND_PORT"', source)
+        self.assertIn('alembic -c alembic.ini upgrade head', source)
+        self.assertIn('python -m web.backend.bootstrap_admin', source)
         self.assertIn('uvicorn main:app --port "$BACKEND_PORT"', source)
         self.assertIn('npm run dev -- --port "$FRONTEND_PORT"', source)
-        self.assertIn('wait_for_http "http://localhost:${BACKEND_PORT}/api/reports"', source)
+        self.assertIn('wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"', source)
         self.assertIn('wait_for_http "http://localhost:${FRONTEND_PORT}"', source)
 
 

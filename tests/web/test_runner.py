@@ -151,6 +151,7 @@ class AnalysisTrackerTests(unittest.TestCase):
             "MSFT",
             reports_dir=None,
             analysis_date="2026-04-03",
+            visible_trade_ids=None,
         )
 
 

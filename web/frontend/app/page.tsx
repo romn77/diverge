@@ -1,7 +1,9 @@
 "use client";
 
 import { startTransition, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
+  ApiError,
   listReports,
   listScreenerRuns,
   listScreenerTasks,
@@ -11,6 +13,7 @@ import {
   type ScreenerTask,
   type Task,
 } from "@/lib/api";
+import { useAuth } from "@/components/AuthProvider";
 import { NewAnalysisForm } from "@/components/NewAnalysisForm";
 import { NewScreenerForm } from "@/components/NewScreenerForm";
 import { usePreferences } from "@/components/PreferencesProvider";
@@ -21,10 +24,10 @@ import { TradeJournal } from "@/components/TradeJournal";
 import { ReportViewer } from "@/components/ReportViewer";
 import { TaskProgress } from "@/components/TaskProgress";
 
-const LIST_REFRESH_INTERVAL_MS = 10000;
-
 export default function Home() {
+  const router = useRouter();
   const { locale, t } = usePreferences();
+  const { authError, authState, authStatus, refreshSession, logout } = useAuth();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedScreenerRunId, setSelectedScreenerRunId] = useState<string | null>(null);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -41,103 +44,197 @@ export default function Home() {
   const [reportsError, setReportsError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [defaultOutputLanguage, setDefaultOutputLanguage] = useState<string | null>(
     null
   );
+  const authEnabled = authState?.enabled ?? false;
+  const canAccessWorkbench =
+    authStatus === "ready" && (!authEnabled || Boolean(authState?.authenticated));
+  const shouldRedirectToLogin =
+    authStatus === "ready" && authEnabled && !authState?.authenticated;
+  const canManageUsers = authState?.user?.role === "admin";
 
-  const loadReports = useCallback(
-    async ({ silent = false }: { silent?: boolean } = {}) => {
-      if (!silent) {
-        setLoadingReports(true);
-        setReportsError(null);
+  const handleProtectedError = useCallback(
+    (error: unknown): boolean => {
+      if (error instanceof ApiError && error.status === 401) {
+        void refreshSession({ silent: true });
+        return true;
       }
-
-      try {
-        const data = await listReports();
-        setReports(data);
-      } catch (error) {
-        if (!silent) {
-          setReportsError(
-            error instanceof Error
-              ? error.message
-              : t("page.error.loadReports", "Unable to load reports")
-          );
-        }
-      } finally {
-        if (!silent) {
-          setLoadingReports(false);
-        }
-      }
+      return false;
     },
-    [t]
+    [refreshSession]
   );
 
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+
+    try {
+      await logout();
+      startTransition(() => {
+        router.replace("/login?next=/");
+      });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  const loadReports = async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
+    setLoadingReports(true);
+    setReportsError(null);
+
+    try {
+      const data = await listReports();
+      setReports(data);
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+      setReportsError(
+        error instanceof Error
+          ? error.message
+          : t("page.error.loadReports", "Unable to load reports")
+      );
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
   const loadTasks = async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
     try {
       const data = await listTasks();
       setTasks(data);
-    } catch {
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
       // Keep the report experience usable even if the queue endpoint is temporarily unavailable.
     }
   };
 
-  const loadScreenerRuns = useCallback(async () => {
+  const loadScreenerRuns = async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
     try {
       const data = await listScreenerRuns();
       setScreenerRuns(data);
-    } catch {
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
       // Keep the existing UI usable even if screener listing is unavailable.
     }
-  }, []);
+  };
 
   const loadScreenerTasks = async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
     try {
       const data = await listScreenerTasks();
       setScreenerTasks(data);
-    } catch {
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
       // Ignore transient screener queue polling issues in the UI.
     }
   };
 
   useEffect(() => {
-    void loadReports();
-  }, [loadReports]);
+    if (!shouldRedirectToLogin) {
+      return;
+    }
+
+    startTransition(() => {
+      router.replace("/login?next=/");
+    });
+  }, [router, shouldRedirectToLogin]);
 
   useEffect(() => {
-    void loadScreenerRuns();
-  }, [loadScreenerRuns]);
+    if (!canAccessWorkbench) {
+      return;
+    }
 
-  useEffect(() => {
-    const refreshDiscoveryLists = async () => {
-      void loadReports({ silent: true });
-      void loadScreenerRuns();
-    };
+    let isMounted = true;
 
-    const handleWindowFocus = () => {
-      void refreshDiscoveryLists();
-    };
+    const loadReportsSafely = async () => {
+      setLoadingReports(true);
+      setReportsError(null);
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void refreshDiscoveryLists();
+        try {
+          const data = await listReports();
+          if (isMounted) {
+            setReports(data);
+          }
+        } catch (error) {
+          if (handleProtectedError(error)) {
+            return;
+          }
+          if (isMounted) {
+            setReportsError(
+              error instanceof Error
+              ? error.message
+              : t("page.error.loadReports", "Unable to load reports")
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingReports(false);
+        }
       }
     };
 
-    const intervalId = window.setInterval(() => {
-      void refreshDiscoveryLists();
-    }, LIST_REFRESH_INTERVAL_MS);
-
-    window.addEventListener("focus", handleWindowFocus);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    void loadReportsSafely();
 
     return () => {
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleWindowFocus);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      isMounted = false;
     };
-  }, [loadReports, loadScreenerRuns]);
+  }, [canAccessWorkbench, handleProtectedError, t]);
 
   useEffect(() => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadScreenerRunsSafely = async () => {
+      try {
+        const data = await listScreenerRuns();
+        if (isMounted) {
+          setScreenerRuns(data);
+        }
+      } catch (error) {
+        if (handleProtectedError(error)) {
+          return;
+        }
+        // Ignore screener run loading issues in the main page.
+      }
+    };
+
+    void loadScreenerRunsSafely();
+    return () => {
+      isMounted = false;
+    };
+  }, [canAccessWorkbench, handleProtectedError]);
+
+  useEffect(() => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
     let isMounted = true;
 
     const loadTasksSafely = async () => {
@@ -146,7 +243,10 @@ export default function Home() {
         if (isMounted) {
           setTasks(data);
         }
-      } catch {
+      } catch (error) {
+        if (handleProtectedError(error)) {
+          return;
+        }
         // Ignore transient queue polling issues in the UI.
       }
     };
@@ -160,9 +260,13 @@ export default function Home() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [canAccessWorkbench, handleProtectedError]);
 
   useEffect(() => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
     let isMounted = true;
 
     const loadScreenerTasksSafely = async () => {
@@ -171,7 +275,10 @@ export default function Home() {
         if (isMounted) {
           setScreenerTasks(data);
         }
-      } catch {
+      } catch (error) {
+        if (handleProtectedError(error)) {
+          return;
+        }
         // Ignore transient screener queue polling issues in the UI.
       }
     };
@@ -185,7 +292,7 @@ export default function Home() {
       isMounted = false;
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [canAccessWorkbench, handleProtectedError]);
 
   const sortedReports = useMemo(() => {
     const reportsWithTimestamp = reports.map((report) => ({
@@ -255,9 +362,78 @@ export default function Home() {
     }
   }, [combinedActiveCount]);
 
+  if (authStatus === "loading") {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6 py-10">
+        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
+            Session Bootstrap
+          </p>
+          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+            Verifying workspace access
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            TradingAgents is checking the current session before it touches any
+            protected workbench data.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  if (authStatus === "error") {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6 py-10">
+        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
+            Auth Unavailable
+          </p>
+          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+            Unable to load session state
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            {authError ??
+              "The frontend could not reach /api/auth/me, so protected navigation is paused."}
+          </p>
+          <button
+            type="button"
+            className="interactive-button focus-ring mt-6 rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
+            onClick={() => void refreshSession()}
+          >
+            Retry Session Bootstrap
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  if (shouldRedirectToLogin) {
+    return (
+      <main className="flex min-h-screen items-center justify-center px-6 py-10">
+        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
+            Login Required
+          </p>
+          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+            Redirecting to the sign-in screen
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            This workbench is protected when auth is enabled, so TradingAgents is
+            routing the session back through `/login`.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div className="app-shell relative min-h-screen bg-[var(--bg)] md:flex md:items-stretch">
       <Sidebar
+        authEnabled={authEnabled}
+        authUser={authState?.user ?? null}
+        canManageUsers={canManageUsers}
+        onLogout={handleLogout}
+        loggingOut={isLoggingOut}
         selectedReportId={selectedReportId}
         selectedScreenerRunId={selectedScreenerRunId}
         onSelectReport={(reportId) => {

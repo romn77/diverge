@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import Script from "next/script";
+import { AuthProvider } from "@/components/AuthProvider";
 import { PreferencesProvider } from "@/components/PreferencesProvider";
 import {
   buildPreferencesBootstrapScript,
@@ -61,7 +62,7 @@ export default async function RootLayout({
           initialLanguage={initialLanguage}
           initialTheme={initialTheme}
         >
-          {children}
+          <AuthProvider>{children}</AuthProvider>
         </PreferencesProvider>
       </body>
     </html>

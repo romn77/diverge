@@ -2,6 +2,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/../.env"
+if [ -f "$ENV_FILE" ]; then
+    set -a
+    . "$ENV_FILE"
+    set +a
+fi
 REPORTS_DIR="$SCRIPT_DIR/../reports"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
@@ -9,6 +15,8 @@ FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"
 NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${BACKEND_PORT}}"
 BACKEND_LOG="${BACKEND_LOG:-/tmp/tradingagents-backend.log}"
 FRONTEND_LOG="${FRONTEND_LOG:-/tmp/tradingagents-frontend.log}"
+AUTH_ENABLED="${AUTH_ENABLED:-false}"
+AUTH_MODE="${AUTH_MODE:-required}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -73,11 +81,17 @@ cd "$SCRIPT_DIR/backend"
 pip install -r requirements.txt -q 2>/dev/null || pip install -r requirements.txt > /dev/null 2>&1
 export REPORTS_DIR="$REPORTS_DIR"
 export FRONTEND_ORIGIN="$FRONTEND_ORIGIN"
+export AUTH_ENABLED="$AUTH_ENABLED"
+export AUTH_MODE="$AUTH_MODE"
+if [ "$AUTH_ENABLED" = "true" ]; then
+    alembic -c alembic.ini upgrade head > /dev/null
+    python -m web.backend.bootstrap_admin > /dev/null
+fi
 uvicorn main:app --port "$BACKEND_PORT" --log-level critical > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
 # Check backend health
-if ! wait_for_http "http://localhost:${BACKEND_PORT}/api/reports"; then
+if ! wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"; then
     echo -e "${RED}Backend failed to start. Log:${NC}"
     cat "$BACKEND_LOG"
     exit 1

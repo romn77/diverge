@@ -9,6 +9,11 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   const source = readFileSync(sidebarPath, "utf8");
 
   assert.equal(source.includes("listReports"), false);
+  assert.match(source, /authEnabled:\s*boolean/);
+  assert.match(source, /authUser:\s*AuthUser \| null/);
+  assert.match(source, /canManageUsers:\s*boolean/);
+  assert.match(source, /onLogout:\s*\(\)\s*=>\s*void/);
+  assert.match(source, /loggingOut:\s*boolean/);
   assert.match(source, /reports:\s*Report\[]/);
   assert.match(source, /loading:\s*boolean/);
   assert.match(source, /error:\s*string \| null/);
@@ -40,6 +45,10 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /New Analysis/);
   assert.match(source, /New Screener/);
   assert.match(source, /Trade Journal/);
+  assert.match(source, /Workspace Access/);
+  assert.match(source, /Admin Management/);
+  assert.match(source, /Sign Out/);
+  assert.match(source, /Open Workspace Mode/);
   assert.match(source, /Task Queue/);
   assert.match(source, /Recent Screeners/);
   assert.match(source, /Settings/);

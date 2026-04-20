@@ -36,13 +36,24 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-web = ["fastapi>=0.115.0", "uvicorn[standard]>=0.34.0"]
+web = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+    "sqlalchemy>=2.0.41",
+    "alembic>=1.15.2",
+    "psycopg[binary]>=3.2.6",
+    "argon2-cffi>=23.1.0",
+]
 
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
+    "sqlalchemy>=2.0.41",
+    "alembic>=1.15.2",
+    "psycopg[binary]>=3.2.6",
+    "argon2-cffi>=23.1.0",
 ]
 
 [project.scripts]
