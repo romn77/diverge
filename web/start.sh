@@ -2,13 +2,14 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/../.env"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+ENV_FILE="$ROOT_DIR/.env"
 if [ -f "$ENV_FILE" ]; then
     set -a
     . "$ENV_FILE"
     set +a
 fi
-REPORTS_DIR="$SCRIPT_DIR/../reports"
+REPORTS_DIR="$ROOT_DIR/reports"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"
@@ -85,9 +86,18 @@ export AUTH_ENABLED="$AUTH_ENABLED"
 export AUTH_MODE="$AUTH_MODE"
 if [ "$AUTH_ENABLED" = "true" ]; then
     alembic -c alembic.ini upgrade head > /dev/null
-    python -m web.backend.bootstrap_admin > /dev/null
+    (
+        cd "$ROOT_DIR"
+        python -m web.backend.bootstrap_admin > /dev/null
+        if [ "$AUTH_MODE" = "optional" ]; then
+            python -m web.backend.backfill_metadata > /dev/null
+        fi
+    )
 fi
-uvicorn main:app --port "$BACKEND_PORT" --log-level critical > "$BACKEND_LOG" 2>&1 &
+(
+    cd "$ROOT_DIR"
+    uvicorn web.backend.main:app --port "$BACKEND_PORT" --log-level critical
+) > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
 # Check backend health

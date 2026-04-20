@@ -12,6 +12,7 @@ class WebStartScriptTests(unittest.TestCase):
 
         source = script.read_text(encoding="utf-8")
 
+        self.assertIn('ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"', source)
         self.assertIn('BACKEND_PORT="${BACKEND_PORT:-8000}"', source)
         self.assertIn('FRONTEND_PORT="${FRONTEND_PORT:-3000}"', source)
         self.assertIn('FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"', source)
@@ -23,7 +24,10 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('kill_port "$FRONTEND_PORT"', source)
         self.assertIn('alembic -c alembic.ini upgrade head', source)
         self.assertIn('python -m web.backend.bootstrap_admin', source)
-        self.assertIn('uvicorn main:app --port "$BACKEND_PORT"', source)
+        self.assertIn('python -m web.backend.backfill_metadata', source)
+        self.assertIn('if [ "$AUTH_MODE" = "optional" ]; then', source)
+        self.assertIn('cd "$ROOT_DIR"', source)
+        self.assertIn('uvicorn web.backend.main:app --port "$BACKEND_PORT"', source)
         self.assertIn('npm run dev -- --port "$FRONTEND_PORT"', source)
         self.assertIn('wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"', source)
         self.assertIn('wait_for_http "http://localhost:${FRONTEND_PORT}"', source)
