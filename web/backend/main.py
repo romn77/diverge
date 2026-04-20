@@ -2,6 +2,17 @@
 TradingAgents Report Viewer backend.
 
 Endpoints:
+  GET  /api/healthz
+  GET  /api/auth/me
+  POST /api/auth/login
+  POST /api/auth/logout
+  POST /api/auth/change-password
+  GET  /api/admin/users
+  GET  /api/admin/users/{user_id}
+  POST /api/admin/users
+  PUT  /api/admin/users/{user_id}
+  DELETE /api/admin/users/{user_id}
+  POST /api/admin/users/{user_id}/reset-password
   GET  /api/reports
   GET  /api/reports/{report_id}/structure
   GET  /api/reports/{report_id}/content?path=...
@@ -42,10 +53,10 @@ load_dotenv(PROJECT_ENV_FILE)  # Load project .env if present
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from cli.utils import ANALYST_ORDER
 from tradingagents.llm_clients.model_config import (
@@ -66,6 +77,7 @@ from tradingagents.trade_feedback import (
     save_trade_review as save_trade_review_file,
     update_trade_record as update_trade_record_file,
 )
+from web.backend import auth
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -169,7 +181,7 @@ class TradeRecordCreatePayload(BaseModel):
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
     notes: str = ""
-    analysis_references: list[AnalysisReferencePayload] = []
+    analysis_references: list[AnalysisReferencePayload] = Field(default_factory=list)
 
 
 class TradeRecordUpdatePayload(BaseModel):
@@ -219,6 +231,37 @@ class ScreenTaskCreatePayload(BaseModel):
     as_of_date: str
     top_k: int
     cn_data_source: str = "tushare"
+
+
+class LoginPayload(BaseModel):
+    email: str
+    password: str
+
+
+class ChangePasswordPayload(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class AdminUserCreatePayload(BaseModel):
+    email: str
+    display_name: str
+    password: str
+    role: auth.UserRole = auth.UserRole.VIEWER
+    status: auth.UserStatus = auth.UserStatus.ACTIVE
+    must_change_password: bool = True
+
+
+class AdminUserUpdatePayload(BaseModel):
+    display_name: Optional[str] = None
+    role: Optional[auth.UserRole] = None
+    status: Optional[auth.UserStatus] = None
+    must_change_password: Optional[bool] = None
+
+
+class AdminUserResetPasswordPayload(BaseModel):
+    new_password: str
+    must_change_password: bool = True
 
 
 @dataclass
@@ -286,6 +329,7 @@ def _get_frontend_origins() -> list[str]:
 
 @asynccontextmanager
 async def _app_lifespan(_: FastAPI):
+    auth.initialize_auth_runtime()
     _restore_persisted_active_tasks()
     _restore_persisted_screener_tasks()
     yield
@@ -300,10 +344,13 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_get_frontend_origins(),
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT"],
+    allow_credentials=True,
+    allow_methods=["*"],
     allow_headers=["*"],
 )
+
+AUTH_API_DEPENDENCIES = [Depends(auth.enforce_authenticated_api_access)]
+ADMIN_API_DEPENDENCIES = [Depends(auth.enforce_admin_api_access)]
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -420,6 +467,20 @@ def _translate_trade_feedback_error(exc: Exception) -> HTTPException:
     detail = str(exc)
     status_code = 404 if "not found" in detail.lower() else 400
     return HTTPException(status_code=status_code, detail=detail)
+
+
+def _translate_auth_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, auth.AuthNotFoundError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, auth.AuthConflictError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, auth.AuthPermissionError):
+        return HTTPException(status_code=403, detail=str(exc))
+    if isinstance(exc, auth.AuthDisabledError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, auth.AuthValidationError):
+        return HTTPException(status_code=400, detail=str(exc))
+    return HTTPException(status_code=500, detail=str(exc))
 
 
 def _active_tasks_dir() -> Path:
@@ -1039,11 +1100,193 @@ def get_screener_run_candidates(run_id: str) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------
+# Health and auth endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/healthz")
+def healthz() -> dict:
+    settings = auth.get_auth_settings()
+    return {"status": "ok", "auth": {"enabled": settings.enabled, "mode": settings.mode}}
+
+
+@app.get("/api/auth/me")
+def get_current_auth_state(request: Request) -> dict:
+    settings = auth.get_auth_settings()
+    if not settings.enabled:
+        return auth.build_auth_state_payload(None)
+
+    with auth.db_session() as db:
+        user = auth.get_request_user(db, request, settings=settings)
+        return auth.build_auth_state_payload(user)
+
+
+@app.post("/api/auth/login")
+def login(payload: LoginPayload, request: Request, response: Response) -> dict:
+    settings = auth.get_auth_settings()
+    if not settings.enabled:
+        raise HTTPException(status_code=409, detail="Auth is disabled")
+
+    try:
+        with auth.db_session() as db:
+            user = auth.authenticate_user(
+                db,
+                email=payload.email,
+                password=payload.password,
+            )
+            session_token = auth.create_user_session(
+                db,
+                user,
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+                settings=settings,
+            )
+            result = auth.build_auth_state_payload(user)
+    except auth.AuthValidationError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+    auth.set_session_cookie(response, session_token)
+    return result
+
+
+@app.post("/api/auth/logout")
+def logout(request: Request, response: Response) -> dict:
+    settings = auth.get_auth_settings()
+    if settings.enabled:
+        with auth.db_session() as db:
+            auth.revoke_session_token(db, auth.current_session_token(request))
+    auth.clear_session_cookie(response)
+    return auth.build_auth_state_payload(None)
+
+
+@app.post("/api/auth/change-password")
+def change_password(
+    payload: ChangePasswordPayload,
+    request: Request,
+    response: Response,
+) -> dict:
+    settings = auth.get_auth_settings()
+    if not settings.enabled:
+        raise HTTPException(status_code=409, detail="Auth is disabled")
+
+    try:
+        with auth.db_session() as db:
+            user = auth.require_request_user(db, request)
+            auth.change_user_password(
+                db,
+                user,
+                current_password=payload.current_password,
+                new_password=payload.new_password,
+            )
+            session_token = auth.create_user_session(
+                db,
+                user,
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+                settings=settings,
+            )
+            result = auth.build_auth_state_payload(user)
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+    auth.set_session_cookie(response, session_token)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Admin user endpoints
+# ---------------------------------------------------------------------------
+
+
+@app.get("/api/admin/users", dependencies=ADMIN_API_DEPENDENCIES)
+def list_admin_users() -> list[dict]:
+    try:
+        with auth.db_session() as db:
+            return [auth.serialize_user(user) for user in auth.list_users(db)]
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+
+@app.get("/api/admin/users/{user_id}", dependencies=ADMIN_API_DEPENDENCIES)
+def get_admin_user(user_id: str) -> dict:
+    try:
+        with auth.db_session() as db:
+            return auth.serialize_user(auth.get_user_by_id(db, user_id))
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+
+@app.post("/api/admin/users", dependencies=ADMIN_API_DEPENDENCIES)
+def create_admin_user(payload: AdminUserCreatePayload) -> dict:
+    try:
+        with auth.db_session() as db:
+            user = auth.create_user(
+                db,
+                email=payload.email,
+                display_name=payload.display_name,
+                password=payload.password,
+                role=payload.role,
+                status=payload.status,
+                must_change_password=payload.must_change_password,
+            )
+            return auth.serialize_user(user)
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+
+@app.put("/api/admin/users/{user_id}", dependencies=ADMIN_API_DEPENDENCIES)
+def update_admin_user(user_id: str, payload: AdminUserUpdatePayload) -> dict:
+    try:
+        with auth.db_session() as db:
+            user = auth.update_user(
+                db,
+                user_id,
+                display_name=payload.display_name,
+                role=payload.role,
+                status=payload.status,
+                must_change_password=payload.must_change_password,
+            )
+            return auth.serialize_user(user)
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+
+@app.delete("/api/admin/users/{user_id}", dependencies=ADMIN_API_DEPENDENCIES)
+def delete_admin_user(user_id: str) -> dict:
+    try:
+        with auth.db_session() as db:
+            auth.delete_user(db, user_id)
+            return {"deleted": True, "user_id": user_id}
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+
+@app.post("/api/admin/users/{user_id}/reset-password", dependencies=ADMIN_API_DEPENDENCIES)
+def reset_admin_user_password(
+    user_id: str,
+    payload: AdminUserResetPasswordPayload,
+) -> dict:
+    try:
+        with auth.db_session() as db:
+            user = auth.reset_user_password(
+                db,
+                user_id,
+                new_password=payload.new_password,
+                must_change_password=payload.must_change_password,
+            )
+            return auth.serialize_user(user)
+    except Exception as exc:
+        raise _translate_auth_error(exc) from exc
+
+
+# ---------------------------------------------------------------------------
 # Report endpoints
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/reports")
+@app.get("/api/reports", dependencies=AUTH_API_DEPENDENCIES)
 def list_reports() -> list[dict]:
     if not REPORTS_DIR.is_dir():
         return []
@@ -1071,7 +1314,7 @@ def list_reports() -> list[dict]:
     return results
 
 
-@app.get("/api/reports/{report_id}/structure")
+@app.get("/api/reports/{report_id}/structure", dependencies=AUTH_API_DEPENDENCIES)
 def get_structure(report_id: str) -> dict:
     report_dir = _resolve_report_dir(report_id)
 
@@ -1088,7 +1331,7 @@ def get_structure(report_id: str) -> dict:
     }
 
 
-@app.get("/api/reports/{report_id}/content")
+@app.get("/api/reports/{report_id}/content", dependencies=AUTH_API_DEPENDENCIES)
 def get_content(report_id: str, path: str) -> dict:
     report_dir = _resolve_report_dir(report_id)
     report_dir_resolved = report_dir.resolve()
@@ -1117,7 +1360,7 @@ def get_content(report_id: str, path: str) -> dict:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/trades")
+@app.get("/api/trades", dependencies=AUTH_API_DEPENDENCIES)
 def list_trades(ticker: Optional[str] = None) -> list[dict]:
     try:
         return list_trade_records_file(ticker=ticker, reports_dir=REPORTS_DIR)
@@ -1125,7 +1368,7 @@ def list_trades(ticker: Optional[str] = None) -> list[dict]:
         raise _translate_trade_feedback_error(exc) from exc
 
 
-@app.post("/api/trades")
+@app.post("/api/trades", dependencies=AUTH_API_DEPENDENCIES)
 def create_trade(payload: TradeRecordCreatePayload) -> dict:
     try:
         return create_trade_record_file(payload.model_dump(), reports_dir=REPORTS_DIR)
@@ -1133,7 +1376,7 @@ def create_trade(payload: TradeRecordCreatePayload) -> dict:
         raise _translate_trade_feedback_error(exc) from exc
 
 
-@app.get("/api/trades/{trade_id}")
+@app.get("/api/trades/{trade_id}", dependencies=AUTH_API_DEPENDENCIES)
 def get_trade(trade_id: str) -> dict:
     try:
         return {
@@ -1144,7 +1387,7 @@ def get_trade(trade_id: str) -> dict:
         raise _translate_trade_feedback_error(exc) from exc
 
 
-@app.put("/api/trades/{trade_id}")
+@app.put("/api/trades/{trade_id}", dependencies=AUTH_API_DEPENDENCIES)
 def update_trade(trade_id: str, payload: TradeRecordUpdatePayload) -> dict:
     try:
         return update_trade_record_file(
@@ -1156,7 +1399,7 @@ def update_trade(trade_id: str, payload: TradeRecordUpdatePayload) -> dict:
         raise _translate_trade_feedback_error(exc) from exc
 
 
-@app.get("/api/trades/{trade_id}/reviews")
+@app.get("/api/trades/{trade_id}/reviews", dependencies=AUTH_API_DEPENDENCIES)
 def get_trade_reviews(trade_id: str) -> list[dict]:
     try:
         return list_trade_reviews_file(trade_id, reports_dir=REPORTS_DIR)
@@ -1164,7 +1407,7 @@ def get_trade_reviews(trade_id: str) -> list[dict]:
         raise _translate_trade_feedback_error(exc) from exc
 
 
-@app.post("/api/trades/{trade_id}/reviews")
+@app.post("/api/trades/{trade_id}/reviews", dependencies=AUTH_API_DEPENDENCIES)
 def create_trade_review(trade_id: str, payload: TradeReviewCreatePayload) -> dict:
     _hydrate_provider_credentials(payload.llm_provider)
     provider_availability = _get_provider_availability(payload.llm_provider)
@@ -1195,7 +1438,7 @@ def create_trade_review(trade_id: str, payload: TradeReviewCreatePayload) -> dic
         raise _translate_trade_feedback_error(exc) from exc
 
 
-@app.put("/api/trades/{trade_id}/reviews/{review_type}")
+@app.put("/api/trades/{trade_id}/reviews/{review_type}", dependencies=AUTH_API_DEPENDENCIES)
 def save_trade_review(
     trade_id: str,
     review_type: str,
@@ -1220,7 +1463,7 @@ def save_trade_review(
         raise _translate_trade_feedback_error(exc) from exc
 
 
-@app.get("/api/trade-feedback/{ticker}")
+@app.get("/api/trade-feedback/{ticker}", dependencies=AUTH_API_DEPENDENCIES)
 def get_ticker_trade_feedback(
     ticker: str,
     limit: int = 3,
@@ -1242,7 +1485,7 @@ def get_ticker_trade_feedback(
 # ---------------------------------------------------------------------------
 
 
-@app.post("/api/tasks")
+@app.post("/api/tasks", dependencies=AUTH_API_DEPENDENCIES)
 def create_task(payload: TaskCreatePayload) -> dict:
     request = AnalysisRequest(**payload.model_dump())
     _hydrate_provider_credentials(request.llm_provider)
@@ -1270,7 +1513,7 @@ def create_task(payload: TaskCreatePayload) -> dict:
     return {"task_id": task_id, "status": "pending"}
 
 
-@app.post("/api/screener/tasks")
+@app.post("/api/screener/tasks", dependencies=AUTH_API_DEPENDENCIES)
 def create_screener_task(payload: ScreenTaskCreatePayload) -> dict:
     if _combined_active_task_count() >= 2:
         raise HTTPException(
@@ -1314,29 +1557,29 @@ def create_screener_task(payload: ScreenTaskCreatePayload) -> dict:
     return {"task_id": task_id, "status": "pending"}
 
 
-@app.get("/api/tasks")
+@app.get("/api/tasks", dependencies=AUTH_API_DEPENDENCIES)
 def list_tasks() -> list[dict]:
     with tasks_lock:
         return [task.to_dict() for task in tasks.values()]
 
 
-@app.get("/api/screener/tasks")
+@app.get("/api/screener/tasks", dependencies=AUTH_API_DEPENDENCIES)
 def list_screener_tasks() -> list[dict]:
     with tasks_lock:
         return [task.to_dict() for task in screener_tasks.values()]
 
 
-@app.get("/api/tasks/{task_id}")
+@app.get("/api/tasks/{task_id}", dependencies=AUTH_API_DEPENDENCIES)
 def get_task_status(task_id: str) -> dict:
     return _get_task(task_id).to_dict()
 
 
-@app.get("/api/screener/tasks/{task_id}")
+@app.get("/api/screener/tasks/{task_id}", dependencies=AUTH_API_DEPENDENCIES)
 def get_screener_task_status(task_id: str) -> dict:
     return _get_screener_task(task_id).to_dict()
 
 
-@app.get("/api/tasks/{task_id}/stream")
+@app.get("/api/tasks/{task_id}/stream", dependencies=AUTH_API_DEPENDENCIES)
 async def stream_task(task_id: str, request: Request) -> StreamingResponse:
     _get_task(task_id)
 
@@ -1373,7 +1616,7 @@ async def stream_task(task_id: str, request: Request) -> StreamingResponse:
     )
 
 
-@app.get("/api/screener/tasks/{task_id}/stream")
+@app.get("/api/screener/tasks/{task_id}/stream", dependencies=AUTH_API_DEPENDENCIES)
 async def stream_screener_task(task_id: str, request: Request) -> StreamingResponse:
     _get_screener_task(task_id)
 
@@ -1410,17 +1653,17 @@ async def stream_screener_task(task_id: str, request: Request) -> StreamingRespo
     )
 
 
-@app.get("/api/screener/runs")
+@app.get("/api/screener/runs", dependencies=AUTH_API_DEPENDENCIES)
 def list_screener_runs_endpoint() -> list[dict]:
     return list_screener_runs()
 
 
-@app.get("/api/screener/runs/{run_id}")
+@app.get("/api/screener/runs/{run_id}", dependencies=AUTH_API_DEPENDENCIES)
 def get_screener_run_endpoint(run_id: str) -> dict:
     return get_screener_run(run_id)
 
 
-@app.get("/api/screener/runs/{run_id}/candidates")
+@app.get("/api/screener/runs/{run_id}/candidates", dependencies=AUTH_API_DEPENDENCIES)
 def get_screener_run_candidates_endpoint(run_id: str) -> list[dict]:
     return get_screener_run_candidates(run_id)
 
@@ -1430,11 +1673,11 @@ def get_screener_run_candidates_endpoint(run_id: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-@app.get("/api/config/options")
+@app.get("/api/config/options", dependencies=AUTH_API_DEPENDENCIES)
 def get_config_options() -> dict:
     return _get_config_options_payload()
 
 
-@app.get("/api/screener/config/options")
+@app.get("/api/screener/config/options", dependencies=AUTH_API_DEPENDENCIES)
 def get_screener_config_options() -> dict:
     return _get_screener_config_options_payload()

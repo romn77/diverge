@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-tradingagents}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tradingagents}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
   backend:
     build:
       context: .
@@ -11,6 +28,24 @@ services:
     environment:
       REPORTS_DIR: /app/reports
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AUTH_MODE: ${AUTH_MODE:-required}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/tradingagents}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-tradingagents_session}
+      SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
+      SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-lax}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      AUTH_BOOTSTRAP_ADMIN_EMAIL: ${AUTH_BOOTSTRAP_ADMIN_EMAIL:-}
+      AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:-}
+      AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME:-Administrator}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "cd /app/web/backend
+      && alembic -c alembic.ini upgrade head
+      && python -m web.backend.bootstrap_admin
+      && uvicorn web.backend.main:app --host 0.0.0.0 --port 8000"
     restart: unless-stopped
 
   frontend:
@@ -24,3 +59,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+
+volumes:
+  postgres-data:

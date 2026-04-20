@@ -33,10 +33,18 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertTrue(compose_file.is_file())
 
         source = compose_file.read_text(encoding="utf-8")
+        self.assertIn("postgres:16-alpine", source)
+        self.assertIn("${POSTGRES_PORT:-5432}:5432", source)
+        self.assertIn("postgres-data:/var/lib/postgresql/data", source)
         self.assertIn('${FRONTEND_PORT:-3000}:3000', source)
         self.assertIn("./reports:/app/reports", source)
         self.assertIn("./.env:/app/.env:ro", source)
         self.assertIn("FRONTEND_ORIGIN", source)
+        self.assertIn("AUTH_ENABLED", source)
+        self.assertIn("AUTH_MODE", source)
+        self.assertIn("DATABASE_URL", source)
+        self.assertIn("alembic -c alembic.ini upgrade head", source)
+        self.assertIn("python -m web.backend.bootstrap_admin", source)
 
     def test_env_example_documents_frontend_port_and_origin(self):
         env_example = PROJECT_ROOT / ".env.example"
@@ -45,6 +53,10 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("FRONTEND_PORT=3000", source)
         self.assertIn("FRONTEND_ORIGIN=http://localhost:3000", source)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL=http://localhost:8000", source)
+        self.assertIn("AUTH_ENABLED=false", source)
+        self.assertIn("AUTH_MODE=required", source)
+        self.assertIn("DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/tradingagents", source)
+        self.assertIn("AUTH_BOOTSTRAP_ADMIN_EMAIL=", source)
 
     def test_deploy_script_exists_with_docker_compose_commands(self):
         deploy_script = PROJECT_ROOT / "scripts" / "deploy-single-host.sh"
