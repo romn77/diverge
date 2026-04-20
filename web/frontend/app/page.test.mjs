@@ -3,69 +3,21 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 
-const pagePath = path.join(import.meta.dirname, "page.tsx");
+const pagePath = path.join(import.meta.dirname, "(workbench)", "page.tsx");
+const layoutPath = path.join(import.meta.dirname, "(workbench)", "layout.tsx");
 
-test("page lifts report state and renders a content-first start panel", () => {
+test("home page delegates chrome and data loading to the shared workbench shell", () => {
   const source = readFileSync(pagePath, "utf8");
+  const layoutSource = readFileSync(layoutPath, "utf8");
 
-  assert.match(source, /listReports/);
-  assert.match(source, /listTasks/);
-  assert.match(source, /useAuth/);
-  assert.match(source, /WorkspaceAccountMenu/);
-  assert.match(source, /authStatus === "loading"/);
-  assert.match(source, /authStatus === "error"/);
-  assert.match(source, /router\.replace\("\/login\?next=\/"\)/);
-  assert.match(source, /\[reports,\s*setReports\]/);
-  assert.match(source, /\[tasks,\s*setTasks\]/);
-  assert.match(source, /\[queueLocked,\s*setQueueLocked\]/);
-  assert.match(source, /\[searchQuery,\s*setSearchQuery\]/);
-  assert.match(source, /\[isSidebarOpen,\s*setIsSidebarOpen\]/);
-  assert.match(source, /\[defaultOutputLanguage,\s*setDefaultOutputLanguage\]/);
-  assert.match(source, /\[activeTaskId,\s*setActiveTaskId\]/);
-  assert.match(source, /\[showNewAnalysis,\s*setShowNewAnalysis\]/);
-  assert.match(source, /\[showNewScreener,\s*setShowNewScreener\]/);
-  assert.match(source, /\[showTradeJournal,\s*setShowTradeJournal\]/);
-  assert.match(source, /\[activeScreenerTaskId,\s*setActiveScreenerTaskId\]/);
-  assert.match(source, /\[selectedScreenerRunId,\s*setSelectedScreenerRunId\]/);
-  assert.match(source, /\[screenerRuns,\s*setScreenerRuns\]/);
-  assert.match(source, /\[screenerTasks,\s*setScreenerTasks\]/);
-  assert.match(source, /Recent reports/i);
-  assert.match(source, /reports=\{reports\}/);
-  assert.match(source, /isOpen=\{isSidebarOpen\}/);
-  assert.match(source, /onClose=\{\(\) => setIsSidebarOpen\(false\)\}/);
-  assert.match(source, /taskQueue=\{visibleTaskQueue\}/);
-  assert.match(source, /newAnalysisDisabled=\{newAnalysisDisabled\}/);
-  assert.match(source, /screenerRuns=\{screenerRuns\}/);
-  assert.match(source, /screenerTaskQueue=\{visibleScreenerTaskQueue\}/);
-  assert.match(source, /selectedOutputLanguage=\{defaultOutputLanguage\}/);
-  assert.match(source, /onOutputLanguageChange=\{\(value\) => setDefaultOutputLanguage\(value\)\}/);
-  assert.match(source, /selectedTradeJournal=\{showTradeJournal\}/);
-  assert.match(source, /onSelectTradeJournal=\{\(\) => \{/);
-  assert.match(source, /<WorkspaceAccountMenu/);
-  assert.match(source, /authEnabled=\{authEnabled\}/);
-  assert.match(source, /authUser=\{authState\?\.user \?\? null\}/);
-  assert.match(source, /canManageUsers=\{canManageUsers\}/);
-  assert.match(source, /onLogout=\{handleLogout\}/);
-  assert.match(source, /loggingOut=\{isLoggingOut\}/);
-  assert.match(source, /selectedOutputLanguage=\{defaultOutputLanguage\}/);
-  assert.match(source, /onOutputLanguageChange=\{\(value\) => setDefaultOutputLanguage\(value\)\}/);
-  assert.match(source, /<NewScreenerForm/);
-  assert.match(source, /<ScreenerTaskProgress/);
-  assert.match(source, /<ScreenerResultsViewer/);
-  assert.match(source, /<TradeJournal/);
-  assert.doesNotMatch(source, /canReturnToQueue=\{/);
-  assert.doesNotMatch(source, /onReturnToQueue=\{\(\) => \{/);
-  assert.match(source, /<NewAnalysisForm/);
-  assert.match(source, /defaultOutputLanguage=\{defaultOutputLanguage\}/);
-  assert.match(source, /<TaskProgress/);
-  assert.match(source, /Launch Screener/);
-  assert.match(source, /Open Manual Journal/);
-  assert.doesNotMatch(source, /authEnabled=\{authEnabled\}[\s\S]*<Sidebar/);
-  assert.doesNotMatch(source, /selectedOutputLanguage=\{defaultOutputLanguage\}[\s\S]*<Sidebar/);
-});
-
-test("page uses a desktop row layout so sidebar and content stay aligned", () => {
-  const source = readFileSync(pagePath, "utf8");
-
-  assert.match(source, /app-shell relative min-h-screen bg-\[var\(--bg\)\] md:flex md:items-stretch/);
+  assert.match(layoutSource, /WorkbenchShell/);
+  assert.match(layoutSource, /WorkbenchProvider/);
+  assert.match(source, /HomeDashboard/);
+  assert.match(source, /searchParams/);
+  assert.match(source, /initialSearchQuery/);
+  assert.doesNotMatch(source, /\[selectedReportId,\s*setSelectedReportId\]/);
+  assert.doesNotMatch(source, /\[activeTaskId,\s*setActiveTaskId\]/);
+  assert.doesNotMatch(source, /\[showNewAnalysis,\s*setShowNewAnalysis\]/);
+  assert.doesNotMatch(source, /listReports/);
+  assert.doesNotMatch(source, /listTasks/);
 });

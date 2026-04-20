@@ -15,11 +15,10 @@ test("WorkspaceAccountMenu exposes a compact top-right account menu for authenti
   assert.match(source, /loggingOut:\s*boolean/);
   assert.match(source, /selectedOutputLanguage:\s*string \| null/);
   assert.match(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
-  assert.match(source, /sticky top-0 z-\[45\] border-b .* px-4 py-2/);
-  assert.match(source, /border-b border-\[rgba\(150,118,99,0\.18\)\]/);
-  assert.match(source, /flex w-full items-center justify-end gap-2/);
-  assert.doesNotMatch(source, /max-w-6xl/);
-  assert.match(source, /items-center justify-end gap-2/);
+  assert.match(source, /fixed right-4 top-4 z-\[55\]/);
+  assert.match(source, /inline-flex items-center gap-1\.5 rounded-full/);
+  assert.match(source, /h-8 w-8/);
+  assert.doesNotMatch(source, /max-w-\[1600px\]/);
   assert.match(source, /Interface Preferences/);
   assert.match(source, /Output Language/);
   assert.match(source, /settingsLanguageSelectRef/);
@@ -35,6 +34,8 @@ test("WorkspaceAccountMenu exposes a compact top-right account menu for authenti
   assert.match(source, /role="dialog"/);
   assert.match(source, /event\.key === "Escape"/);
   assert.match(source, /pointerdown/);
+  assert.match(source, /onOpenSidebar\?: \(\) => void/);
+  assert.match(source, /aria-label=\{t\("common\.menu", "Menu"\)\}/);
 
   const accountIndex = source.indexOf("aria-haspopup=\"menu\"");
   const settingsIndex = source.indexOf("aria-haspopup=\"dialog\"");
@@ -43,7 +44,7 @@ test("WorkspaceAccountMenu exposes a compact top-right account menu for authenti
   assert.ok(accountIndex < settingsIndex, "account trigger should render before settings");
   assert.doesNotMatch(source, /Research Suite/);
   assert.doesNotMatch(source, /Workspace controls and session access/);
-  assert.match(source, /rounded-full border border-\[var\(--border\)\] bg-white\/92 px-2\.5 py-1\.5/);
-  assert.match(source, /grid h-9 w-9 place-items-center/);
-  assert.match(source, /flex h-9 w-9 items-center justify-center/);
+  assert.match(source, /rounded-full border border-\[var\(--border\)\] bg-white\/92 p-1/);
+  assert.match(source, /grid h-8 w-8 place-items-center/);
+  assert.match(source, /flex h-8 w-8 items-center justify-center/);
 });

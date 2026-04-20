@@ -233,6 +233,7 @@ results/
 # Vscode
 .vscode/
 .sisyphus/
+.playwright-cli/
 
 # Frontend artifacts
 web/frontend/node_modules/

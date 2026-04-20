@@ -11,12 +11,13 @@ test("NewScreenerForm is driven by backend screener config options and task crea
   assert.match(source, /getScreenerConfigOptions/);
   assert.match(source, /createScreenerTask/);
   assert.match(source, /onTaskCreated:\s*\(taskId:\s*string\)/);
+  assert.match(source, /AccessibleDialog/);
   assert.match(source, /Markets/i);
   assert.match(source, /CN Data Source/i);
   assert.match(source, /Top K/i);
   assert.doesNotMatch(source, /Limit Per Market/i);
   assert.doesNotMatch(source, /limit_per_market/);
-  assert.match(source, /role="dialog"/);
+  assert.match(source, /ariaLabel=\{t\("screener\.dialog", "New screener"\)\}/);
 });
 
 test("NewScreenerForm disables backend-unavailable markets with an explanation", () => {

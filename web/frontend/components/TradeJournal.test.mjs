@@ -36,3 +36,14 @@ test("TradeJournal exposes history filters and manual-only language rather than 
   assert.match(source, /Record Trade/);
   assert.doesNotMatch(source, /This surface is intentionally manual\./);
 });
+
+test("TradeJournal adds health and review overview blocks so a selected trade is easier to assess", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /Trade Health/);
+  assert.match(source, /Review Coverage/);
+  assert.match(source, /Feedback Loop/);
+  assert.match(source, /DetailMetric/);
+  assert.match(source, /selectionSummaryCards/);
+  assert.match(source, /reviewCoverageLabel/);
+});

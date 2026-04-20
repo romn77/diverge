@@ -137,31 +137,31 @@ export default function LoginPage() {
               TradingAgents
             </p>
             <h1 className="font-heading mt-4 max-w-xl text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
-              Sign in to the protected research workbench
+              Return to the research workbench
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600">
-              Session cookies now gate reports, queues, screening runs, trade
-              journals, and the admin user console. Use the account issued by your
-              workspace admin to continue.
+              Use your workspace account to reopen saved reports, watch active
+              research tasks, review screener pools, and continue the trade journal
+              without losing context.
             </p>
 
             <div className="mt-8 grid gap-4 sm:grid-cols-2">
               <div className="rounded-[24px] border border-[var(--border)] bg-white/82 p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  Protected Data
+                  After Sign In
                 </p>
                 <p className="mt-3 text-sm font-semibold text-slate-900">
-                  Reports, task queues, and screener runs bootstrap only after session
-                  validation.
+                  Jump straight back into reports, live queues, screener results, and
+                  the trade journal.
                 </p>
               </div>
               <div className="rounded-[24px] border border-[var(--border)] bg-white/82 p-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                  Admin Access
+                  Workspace Support
                 </p>
                 <p className="mt-3 text-sm font-semibold text-slate-900">
-                  The `/admin/users` console is only exposed after backend RBAC grants
-                  access.
+                  If you need a new account or a reset, your workspace admin can help
+                  from the access console.
                 </p>
               </div>
             </div>
@@ -188,8 +188,8 @@ export default function LoginPage() {
               Workspace credentials
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Use the email and password configured in the backend auth bootstrap or
-              issued by an administrator.
+              Sign in with the email and password assigned to you so TradingAgents can
+              reopen the destination you were trying to reach.
             </p>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
@@ -239,8 +239,8 @@ export default function LoginPage() {
             </form>
 
             <div className="mt-6 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
-              Need a reset or a new account? Contact your workspace admin. Admins can
-              manage users after signing in through{" "}
+              Need a reset or a new account? Contact your workspace admin. They can
+              manage access after signing in through{" "}
               <code className="rounded bg-white px-1.5 py-0.5 text-[12px] font-semibold text-slate-800">
                 /admin/users
               </code>

@@ -16,4 +16,5 @@ test("login page bootstraps from auth state and preserves the requested destinat
   assert.match(source, /await login\(\{/);
   assert.match(source, /Protected by backend session cookies/);
   assert.match(source, /Sign In/);
+  assert.match(source, /Return to the research workbench/);
 });

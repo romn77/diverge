@@ -394,6 +394,22 @@ export function ReportViewer({
     () => (selectedTab !== "complete" && structure ? structure.categories[selectedTab] || [] : []),
     [selectedTab, structure]
   );
+  const availableTrackCount = availableCategories.length;
+  const sourceFileCount = useMemo(
+    () =>
+      structure
+        ? Object.values(structure.categories).reduce((total, files) => total + files.length, 0)
+        : 0,
+    [structure]
+  );
+  const artifactCount = structure?.artifacts.length ?? 0;
+  const availableTrackLabels = useMemo(
+    () =>
+      availableCategories.map(([key, meta]) =>
+        t(`report.category.${key}`, meta.label)
+      ),
+    [availableCategories, t]
+  );
 
   const selectedCategoryMeta = selectedTab !== "complete" ? CATEGORY_MAP[selectedTab] : null;
   const selectedCategoryLabel = selectedCategoryMeta
@@ -520,6 +536,32 @@ export function ReportViewer({
                             </span>
                           )}
                         </div>
+
+                        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                          <SummaryMetric
+                            label={t("report.readingOverview", "Reading Overview")}
+                            value={selectedCategoryLabel ?? t("report.completeReport", "Complete Report")}
+                            hint={selectedFileLabel ?? t("report.houseView", "House View")}
+                          />
+                          <SummaryMetric
+                            label={t("report.availableTracks", "Available tracks")}
+                            value={String(availableTrackCount)}
+                            hint={t(
+                              "report.trackCountHint",
+                              ({ count }) => `${count} agent tracks available`,
+                              { count: availableTrackCount }
+                            )}
+                          />
+                          <SummaryMetric
+                            label={t("report.sourceFiles", "Source files")}
+                            value={String(sourceFileCount)}
+                            hint={t(
+                              "report.referenceArtifactsHint",
+                              ({ count }) => `${count} Reference artifacts attached`,
+                              { count: artifactCount }
+                            )}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -597,6 +639,50 @@ export function ReportViewer({
                             "Use the category rail to move between the full report and individual agent views."
                           )}
                     </p>
+
+                    <div className="mt-5 border-t border-[color:rgba(22,34,51,0.08)] pt-4">
+                      <p className="viewer-meta-label">
+                        {t("report.availableTracksTitle", "Available Tracks")}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {availableTrackLabels.length === 0 ? (
+                          <span className="text-xs text-slate-500">
+                            {t("report.noTrackData", "No track data available yet.")}
+                          </span>
+                        ) : (
+                          availableTrackLabels.map((label) => (
+                            <ArtifactPill key={label} label={label} />
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 border-t border-[color:rgba(22,34,51,0.08)] pt-4">
+                      <p className="viewer-meta-label">
+                        {t("report.artifactSummary", "Artifact Summary")}
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {structure.artifacts.length === 0 ? (
+                          <span className="text-xs text-slate-500">
+                            {t("report.noArtifactData", "No artifact metadata available yet.")}
+                          </span>
+                        ) : (
+                          structure.artifacts.slice(0, 4).map((artifact) => (
+                            <div
+                              key={`${artifact.type}-${artifact.path}`}
+                              className="rounded-[18px] border border-[color:rgba(22,34,51,0.08)] bg-white/78 px-3 py-3"
+                            >
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                {artifact.type}
+                              </p>
+                              <p className="mt-1 break-all text-xs font-medium text-slate-700">
+                                {artifact.summary ?? artifact.path}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
                   </aside>
                 </div>
               </div>
@@ -680,5 +766,33 @@ export function ReportViewer({
         </div>
       </section>
     </div>
+  );
+}
+
+function SummaryMetric({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div className="rounded-[22px] border border-[color:rgba(22,34,51,0.08)] bg-white/74 px-4 py-4">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
+    </div>
+  );
+}
+
+function ArtifactPill({ label }: { label: string }) {
+  return (
+    <span className="rounded-full border border-[color:rgba(22,34,51,0.08)] bg-white/78 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+      {label}
+    </span>
   );
 }

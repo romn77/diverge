@@ -446,11 +446,11 @@ export default function AdminUsersPage() {
                 Back to Workbench
               </Link>
               <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                Admin user management
+                Manage workspace access
               </h1>
               <p className="mt-3 text-sm leading-7 text-slate-600">
-                Create users, assign fixed backend roles, disable accounts, and reset
-                credentials without duplicating the server’s auth logic.
+                Add accounts, change who can operate the workspace, and handle resets
+                without leaving the admin console.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -463,7 +463,7 @@ export default function AdminUsersPage() {
                   setNotice(null);
                 }}
               >
-                Add New User
+                Create Account
               </button>
               <button
                 type="button"
@@ -499,13 +499,13 @@ export default function AdminUsersPage() {
           <section className="card-surface rounded-[30px] px-6 py-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                  Directory
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                  User roster
-                </h2>
-              </div>
+                  <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
+                    Directory
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                    Current access roster
+                  </h2>
+                </div>
               <label className="block w-full md:max-w-xs">
                 <span className="sr-only">Search users</span>
                 <input
@@ -729,8 +729,8 @@ export default function AdminUsersPage() {
                   Provision a new account
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-slate-600">
-                  New users are created directly through the backend admin API, with the
-                  fixed `admin / operator / viewer` role set owned by the server.
+                  Create the workspace account first, then decide whether this person
+                  should administer, operate, or only view TradingAgents.
                 </p>
 
                 <form className="mt-6 space-y-4" onSubmit={handleCreateUser}>
