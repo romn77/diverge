@@ -1,19 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import {
   useEffect,
   useMemo,
   useRef,
   useState,
-  type CSSProperties,
   type ReactNode,
 } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import {
-  getConfigOptions,
-  type AuthUser,
-  type ConfigOptions,
   type Report,
   type ScreenerRunSummary,
   type ScreenerTask,
@@ -29,11 +24,6 @@ type FocusTarget =
   | "allTickers";
 
 interface SidebarProps {
-  authEnabled: boolean;
-  authUser: AuthUser | null;
-  canManageUsers: boolean;
-  onLogout: () => void;
-  loggingOut: boolean;
   selectedReportId: string | null;
   selectedScreenerRunId: string | null;
   selectedTradeJournal: boolean;
@@ -58,16 +48,9 @@ interface SidebarProps {
   newScreenerDisabled: boolean;
   isOpen: boolean;
   onClose: () => void;
-  selectedOutputLanguage: string | null;
-  onOutputLanguageChange: (value: string) => void;
 }
 
 export function Sidebar({
-  authEnabled,
-  authUser,
-  canManageUsers,
-  onLogout,
-  loggingOut,
   selectedReportId,
   selectedScreenerRunId,
   selectedTradeJournal,
@@ -92,10 +75,8 @@ export function Sidebar({
   newScreenerDisabled,
   isOpen,
   onClose,
-  selectedOutputLanguage,
-  onOutputLanguageChange,
 }: SidebarProps) {
-  const { language, locale, setLanguage, setTheme, t, theme } = usePreferences();
+  const { locale, t } = usePreferences();
   const [tickerOverrides, setTickerOverrides] = useState<Record<string, boolean>>(
     () => ({})
   );
@@ -103,10 +84,6 @@ export function Sidebar({
   const [isAllTickersOpen, setIsAllTickersOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [settingsConfig, setSettingsConfig] = useState<ConfigOptions | null>(null);
-  const [settingsLoading, setSettingsLoading] = useState(false);
-  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [pendingFocusTarget, setPendingFocusTarget] = useState<FocusTarget | null>(
     null
   );
@@ -118,11 +95,6 @@ export function Sidebar({
   const firstRecentReportButtonRef = useRef<HTMLButtonElement>(null);
   const allTickersToggleRef = useRef<HTMLButtonElement>(null);
   const firstTickerButtonRef = useRef<HTMLButtonElement>(null);
-  const settingsTriggerRef = useRef<HTMLButtonElement>(null);
-  const settingsPopoverRef = useRef<HTMLDivElement>(null);
-  const settingsLanguageSelectRef = useRef<HTMLSelectElement>(null);
-  const [settingsPopoverStyle, setSettingsPopoverStyle] =
-    useState<CSSProperties | null>(null);
 
   const sortedReports = useMemo(() => {
     return [...reports].sort(
@@ -174,13 +146,6 @@ export function Sidebar({
     return findTickerForReport(reports, selectedReportId) ?? getMostRecentTicker(reports);
   }, [loading, reports, selectedReportId]);
 
-  const outputLanguageOptions = settingsConfig?.output_languages ?? [];
-  const selectedOutputLanguageValue =
-    outputLanguageOptions.find((option) => option.value === selectedOutputLanguage)
-      ?.value ??
-    outputLanguageOptions[0]?.value ??
-    "";
-
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
     const syncViewport = (event?: MediaQueryListEvent) => {
@@ -207,7 +172,7 @@ export function Sidebar({
   }, [isMobileDrawerOpen]);
 
   useEffect(() => {
-    if (!isMobileDrawerOpen || isSettingsOpen) {
+    if (!isMobileDrawerOpen) {
       return;
     }
 
@@ -221,93 +186,13 @@ export function Sidebar({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isMobileDrawerOpen, isSettingsOpen, onClose]);
-
-  useEffect(() => {
-    if (!isSettingsOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-      if (settingsPopoverRef.current?.contains(target)) {
-        return;
-      }
-      if (settingsTriggerRef.current?.contains(target)) {
-        return;
-      }
-      setIsSettingsOpen(false);
-    };
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeSettingsPopover();
-      }
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isSettingsOpen]);
+  }, [isMobileDrawerOpen, onClose]);
 
   useEffect(() => {
     if (isMobileDrawerOpen) {
       searchInputRef.current?.focus();
     }
   }, [isMobileDrawerOpen]);
-
-  useEffect(() => {
-    if (!isDesktopCollapsed) {
-      return;
-    }
-
-    setIsSettingsOpen(false);
-  }, [isDesktopCollapsed]);
-
-  useEffect(() => {
-    if (!isSettingsOpen || settingsConfig || settingsLoading) {
-      return;
-    }
-
-    let isActive = true;
-
-    const loadSettingsOptions = async () => {
-      setSettingsLoading(true);
-      setSettingsError(null);
-
-      try {
-        const nextConfig = await getConfigOptions();
-        if (!isActive) {
-          return;
-        }
-        setSettingsConfig(nextConfig);
-      } catch (nextError) {
-        if (isActive) {
-          setSettingsError(
-            nextError instanceof Error
-              ? nextError.message
-              : t("sidebar.settingsLoadError", "Unable to load sidebar settings")
-          );
-        }
-      } finally {
-        if (isActive) {
-          setSettingsLoading(false);
-        }
-      }
-    };
-
-    void loadSettingsOptions();
-
-    return () => {
-      isActive = false;
-    };
-  }, [isSettingsOpen, settingsConfig, settingsLoading, t]);
 
   useEffect(() => {
     if (isDesktopRail || pendingFocusTarget === null) {
@@ -354,58 +239,6 @@ export function Sidebar({
     tickerOrder.length,
   ]);
 
-  useEffect(() => {
-    if (!isSettingsOpen) {
-      setSettingsPopoverStyle(null);
-      return;
-    }
-
-    const updateSettingsPopoverPosition = () => {
-      const trigger = settingsTriggerRef.current;
-      if (!trigger) {
-        return;
-      }
-      const panelWidth = settingsPopoverRef.current?.offsetWidth ?? 320;
-      const triggerRect = trigger.getBoundingClientRect();
-      const viewportPadding = 16;
-      const gap = 12;
-      const left = isDesktopRail
-        ? Math.min(
-            window.innerWidth - panelWidth - viewportPadding,
-            triggerRect.right + gap
-          )
-        : Math.min(
-            window.innerWidth - panelWidth - viewportPadding,
-            Math.max(viewportPadding, triggerRect.right - panelWidth)
-          );
-
-      setSettingsPopoverStyle({
-        left,
-        bottom: Math.max(viewportPadding, window.innerHeight - triggerRect.top + gap),
-      });
-    };
-
-    const rafId = window.requestAnimationFrame(() => {
-      updateSettingsPopoverPosition();
-      settingsLanguageSelectRef.current?.focus();
-    });
-
-    window.addEventListener("resize", updateSettingsPopoverPosition);
-    window.addEventListener("scroll", updateSettingsPopoverPosition, true);
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-      window.removeEventListener("resize", updateSettingsPopoverPosition);
-      window.removeEventListener("scroll", updateSettingsPopoverPosition, true);
-    };
-  }, [
-    isDesktopRail,
-    isSettingsOpen,
-    outputLanguageOptions.length,
-    settingsError,
-    settingsLoading,
-  ]);
-
   const toggleTicker = (ticker: string) => {
     setTickerOverrides((current) => {
       const isExpanded = current[ticker] ?? (ticker === autoExpandedTicker);
@@ -422,36 +255,6 @@ export function Sidebar({
     isDesktopCollapsed ? "md:w-[5.25rem] md:max-w-none md:px-3" : "md:w-[19.2rem] md:max-w-none md:px-4",
     "md:relative md:shrink-0 md:shadow-none md:border-r-0",
   ].join(" ");
-
-  const retrySettingsLoad = async () => {
-    setSettingsLoading(true);
-    setSettingsError(null);
-
-    try {
-      const nextConfig = await getConfigOptions();
-      setSettingsConfig(nextConfig);
-    } catch (nextError) {
-      setSettingsError(
-        nextError instanceof Error
-          ? nextError.message
-          : t("sidebar.settingsLoadError", "Unable to load sidebar settings")
-      );
-    } finally {
-      setSettingsLoading(false);
-    }
-  };
-
-  const closeSettingsPopover = () => {
-    setIsSettingsOpen(false);
-    window.requestAnimationFrame(() => {
-      settingsTriggerRef.current?.focus();
-    });
-  };
-
-  const toggleSettingsPopover = () => {
-    setPendingFocusTarget(null);
-    setIsSettingsOpen((current) => !current);
-  };
 
   const openBrowseTarget = (target: FocusTarget) => {
     if (target === "recentReports") {
@@ -762,27 +565,6 @@ export function Sidebar({
                   </svg>
                 </RailButton>
               </div>
-
-              <div className="mt-auto flex flex-col items-center gap-2 border-t border-[var(--border)] pt-4">
-                <RailButton
-                  label="Settings"
-                  title="Settings"
-                  active={isSettingsOpen}
-                  buttonRef={(element) => {
-                    settingsTriggerRef.current = element;
-                  }}
-                  onClick={toggleSettingsPopover}
-                >
-                  <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-                    <path
-                      d="M8.2 4.75h3.6l.55 1.63 1.66.69 1.53-.64 1.8 3.11-1.2 1.14.12.9 1.08 1.36-1.8 3.11-1.67-.7-1.52.63-.55 1.68H8.2l-.55-1.68-1.52-.63-1.67.7-1.8-3.11 1.08-1.36.12-.9-1.2-1.14 1.8-3.11 1.53.64 1.66-.69.55-1.63Z"
-                      stroke="currentColor"
-                      strokeWidth="1.2"
-                    />
-                    <circle cx="10" cy="10" r="2.1" stroke="currentColor" strokeWidth="1.4" />
-                  </svg>
-                </RailButton>
-              </div>
             </>
           ) : (
             <div className="mt-3 flex flex-1 flex-col">
@@ -860,71 +642,6 @@ export function Sidebar({
                   </span>
                 </span>
               </button>
-
-              {authEnabled ? (
-                <section className="mt-5 rounded-[24px] border border-[var(--border)] bg-white/85 p-4 shadow-[0_16px_34px_rgba(18,28,41,0.06)]">
-                  {authUser ? (
-                    <>
-                      <div className="flex items-start gap-3">
-                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--primary-soft)] text-sm font-semibold text-[var(--primary-strong)]">
-                          {getUserInitials(authUser.display_name, authUser.email)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                            Workspace Access
-                          </p>
-                          <p className="mt-1 truncate text-sm font-semibold text-slate-900">
-                            {authUser.display_name}
-                          </p>
-                          <p className="truncate text-xs text-slate-500">
-                            {authUser.email}
-                          </p>
-                        </div>
-                        <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                          {authUser.role}
-                        </span>
-                      </div>
-                      {authUser.must_change_password ? (
-                        <p className="mt-3 rounded-2xl border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] px-3 py-2 text-xs font-medium text-[var(--danger)]">
-                          Password reset required on the next credentials update.
-                        </p>
-                      ) : null}
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {canManageUsers ? (
-                          <Link
-                            href="/admin/users"
-                            className="interactive-button focus-ring inline-flex items-center rounded-full border border-[var(--primary)] bg-[var(--primary)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white"
-                          >
-                            Admin Management
-                          </Link>
-                        ) : null}
-                        <button
-                          type="button"
-                          className="interactive-button focus-ring inline-flex items-center rounded-full border border-[var(--border-strong)] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700"
-                          onClick={onLogout}
-                          disabled={loggingOut}
-                        >
-                          {loggingOut ? "Signing Out" : "Sign Out"}
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
-                      Session details are still syncing from `/api/auth/me`.
-                    </div>
-                  )}
-                </section>
-              ) : (
-                <section className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] p-4 text-sm text-slate-600">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                    Open Workspace Mode
-                  </p>
-                  <p className="mt-2 leading-6">
-                    Auth is disabled in this environment, so the workbench is operating
-                    without a login wall.
-                  </p>
-                </section>
-              )}
 
               {taskQueue.length > 0 ? (
                 <section className="mt-5">
@@ -1339,160 +1056,10 @@ export function Sidebar({
                   <div className="text-xs font-semibold text-rose-600">{error}</div>
                 ) : null}
               </div>
-
-              <div className="mt-auto border-t border-[var(--border)] pt-4">
-                <div className="flex justify-end">
-                  <button
-                    ref={settingsTriggerRef}
-                    type="button"
-                    className={`interactive-button focus-ring flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
-                      isSettingsOpen
-                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
-                        : "border-[var(--border)] bg-white text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                    }`}
-                    onClick={toggleSettingsPopover}
-                    aria-label={t("sidebar.openSettings", "Open settings")}
-                    aria-haspopup="dialog"
-                    aria-expanded={isSettingsOpen}
-                    title={t("common.settings", "Settings")}
-                  >
-                    <svg
-                      viewBox="0 0 20 20"
-                      className="h-4 w-4"
-                      fill="none"
-                      aria-hidden
-                    >
-                      <path
-                        d="M8.2 4.75h3.6l.55 1.63 1.66.69 1.53-.64 1.8 3.11-1.2 1.14.12.9 1.08 1.36-1.8 3.11-1.67-.7-1.52.63-.55 1.68H8.2l-.55-1.68-1.52-.63-1.67.7-1.8-3.11 1.08-1.36.12-.9-1.2-1.14 1.8-3.11 1.53.64 1.66-.69.55-1.63Z"
-                        stroke="currentColor"
-                        strokeWidth="1.2"
-                      />
-                      <circle
-                        cx="10"
-                        cy="10"
-                        r="2.1"
-                        stroke="currentColor"
-                        strokeWidth="1.4"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
             </div>
           )}
         </div>
       </aside>
-
-      {isSettingsOpen ? (
-        <div
-          ref={settingsPopoverRef}
-          id="sidebar-settings-dialog"
-          role="dialog"
-          aria-labelledby="sidebar-settings-title"
-          className="fade-in fixed z-[90] w-[20rem] max-w-[calc(100vw-2rem)] rounded-[26px] border border-[var(--border)] bg-[rgba(255,253,248,0.98)] p-4 shadow-[0_22px_48px_rgba(18,28,41,0.18)] backdrop-blur-sm"
-          style={settingsPopoverStyle ?? { visibility: "hidden" }}
-        >
-          <div className="space-y-3">
-            <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                {t("common.interfacePreferences", "Interface Preferences")}
-              </p>
-              <div className="mt-3 space-y-3">
-                <div className="rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {t("preferences.themeLabel", "Theme")}
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    {(["light", "dark"] as const).map((themeValue) => (
-                      <button
-                        key={themeValue}
-                        type="button"
-                        data-active={theme === themeValue}
-                        className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
-                        onClick={() => setTheme(themeValue)}
-                      >
-                        {themeValue === "light"
-                          ? t("common.light", "Light")
-                          : t("common.dark", "Dark")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {t("preferences.languageLabel", "UI Language")}
-                  </p>
-                  <div className="mt-2 flex gap-2">
-                    {(["en", "zh"] as const).map((languageValue) => (
-                      <button
-                        key={languageValue}
-                        type="button"
-                        data-active={language === languageValue}
-                        className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
-                        onClick={() => setLanguage(languageValue)}
-                      >
-                        {languageValue === "en"
-                          ? t("common.english", "English")
-                          : t("common.chinese", "中文")}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {settingsError ? (
-                  <div className="rounded-[20px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
-                    <p>{settingsError}</p>
-                    <button
-                      type="button"
-                      className="focus-ring mt-3 rounded-full border border-current px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
-                      onClick={() => void retrySettingsLoad()}
-                    >
-                      {t("sidebar.retry", "Retry")}
-                    </button>
-                  </div>
-                ) : !settingsLoading && outputLanguageOptions.length === 0 ? (
-                  <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-white/80 px-4 py-4 text-sm text-slate-600">
-                    {t(
-                      "sidebar.noOutputLanguages",
-                      "No output languages available."
-                    )}
-                  </div>
-                ) : !settingsLoading ? (
-                  <label className="block rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                      {t("analysis.outputLanguage", "Output Language")}
-                    </span>
-                    <select
-                      ref={settingsLanguageSelectRef}
-                      value={selectedOutputLanguageValue}
-                      onChange={(event) =>
-                        onOutputLanguageChange(event.target.value)
-                      }
-                      className="focus-ring mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
-                    >
-                      {outputLanguageOptions.map((languageOption) => (
-                        <option
-                          key={languageOption.value}
-                          value={languageOption.value}
-                        >
-                          {languageOption.label}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="mt-2 text-xs leading-5 text-slate-500">
-                      {t(
-                        "sidebar.outputLanguageHint",
-                        "New analysis forms start with this output language by default."
-                      )}
-                    </p>
-                  </label>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </>
   );
 }
@@ -1534,8 +1101,6 @@ function RailButton({
         onClick={onClick}
         disabled={disabled}
         aria-label={label}
-        aria-haspopup={label === "Settings" ? "dialog" : undefined}
-        aria-expanded={label === "Settings" ? active : undefined}
         title={title}
       >
         {children}
@@ -1550,20 +1115,6 @@ function RailButton({
       </span>
     </div>
   );
-}
-
-function getUserInitials(displayName: string, email: string): string {
-  const source = displayName.trim() || email.trim();
-  if (!source) {
-    return "TA";
-  }
-
-  const words = source.split(/\s+/).filter(Boolean);
-  if (words.length >= 2) {
-    return `${words[0][0]}${words[1][0]}`.toUpperCase();
-  }
-
-  return source.slice(0, 2).toUpperCase();
 }
 
 function parseReportTimestamp(report: Report): number {

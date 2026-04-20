@@ -9,11 +9,6 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   const source = readFileSync(sidebarPath, "utf8");
 
   assert.equal(source.includes("listReports"), false);
-  assert.match(source, /authEnabled:\s*boolean/);
-  assert.match(source, /authUser:\s*AuthUser \| null/);
-  assert.match(source, /canManageUsers:\s*boolean/);
-  assert.match(source, /onLogout:\s*\(\)\s*=>\s*void/);
-  assert.match(source, /loggingOut:\s*boolean/);
   assert.match(source, /reports:\s*Report\[]/);
   assert.match(source, /loading:\s*boolean/);
   assert.match(source, /error:\s*string \| null/);
@@ -35,23 +30,13 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /newScreenerDisabled:\s*boolean/);
   assert.match(source, /isOpen:\s*boolean/);
   assert.match(source, /onClose:\s*\(\)\s*=>\s*void/);
-  assert.match(source, /selectedOutputLanguage:\s*string \| null/);
-  assert.match(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
   assert.match(source, /usePreferences/);
-  assert.match(source, /setTheme/);
-  assert.match(source, /setLanguage/);
-  assert.match(source, /Interface Preferences/);
   assert.match(source, /Recent Reports/);
   assert.match(source, /New Analysis/);
   assert.match(source, /New Screener/);
   assert.match(source, /Trade Journal/);
-  assert.match(source, /Workspace Access/);
-  assert.match(source, /Admin Management/);
-  assert.match(source, /Sign Out/);
-  assert.match(source, /Open Workspace Mode/);
   assert.match(source, /Task Queue/);
   assert.match(source, /Recent Screeners/);
-  assert.match(source, /Settings/);
   assert.doesNotMatch(source, /Return to Queue/);
   assert.doesNotMatch(source, /canReturnToQueue/);
   assert.doesNotMatch(source, /onReturnToQueue/);
@@ -66,11 +51,8 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /const isMobileDrawerOpen = isMobileViewport && isOpen/);
   assert.match(source, /const isDesktopRail = !isMobileViewport && isDesktopCollapsed/);
   assert.match(source, /const \[isDesktopCollapsed,\s*setIsDesktopCollapsed\] = useState\(false\)/);
-  assert.match(source, /const \[isSettingsOpen,\s*setIsSettingsOpen\] = useState\(false\)/);
   assert.match(source, /const \[isRecentReportsOpen,\s*setIsRecentReportsOpen\] = useState\(true\)/);
   assert.match(source, /const \[isAllTickersOpen,\s*setIsAllTickersOpen\] = useState\(false\)/);
-  assert.match(source, /getConfigOptions/);
-  assert.match(source, /sidebar-settings-dialog/);
   assert.match(source, /Collapse sidebar/);
   assert.match(source, /Expand sidebar/);
   assert.match(source, /count=\{taskQueue\.length\}/);
@@ -84,6 +66,20 @@ test("Sidebar is prop-driven and exposes the redesigned navigation affordances",
   assert.match(source, /\{isMobileDrawerOpen && \(/);
   assert.match(source, /"hidden -translate-x-full px-4 md:flex md:translate-x-0"/);
   assert.equal(source.includes("&gt;"), false);
+  assert.doesNotMatch(source, /authEnabled:\s*boolean/);
+  assert.doesNotMatch(source, /authUser:\s*AuthUser \| null/);
+  assert.doesNotMatch(source, /canManageUsers:\s*boolean/);
+  assert.doesNotMatch(source, /onLogout:\s*\(\)\s*=>\s*void/);
+  assert.doesNotMatch(source, /loggingOut:\s*boolean/);
+  assert.doesNotMatch(source, /Workspace Access/);
+  assert.doesNotMatch(source, /Admin Management/);
+  assert.doesNotMatch(source, /Sign Out/);
+  assert.doesNotMatch(source, /Open Workspace Mode/);
+  assert.doesNotMatch(source, /Settings/);
+  assert.doesNotMatch(source, /getConfigOptions/);
+  assert.doesNotMatch(source, /sidebar-settings-dialog/);
+  assert.doesNotMatch(source, /selectedOutputLanguage:\s*string \| null/);
+  assert.doesNotMatch(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
 });
 
 test("Sidebar keeps the launch CTA and task cards visually compact", () => {
@@ -113,16 +109,9 @@ test("Sidebar uses a compact chevron-only toggle for desktop collapse instead of
 test("Sidebar opens settings in a lightweight anchored popover from a compact gear trigger", () => {
   const source = readFileSync(sidebarPath, "utf8");
 
-  assert.match(source, /aria-haspopup="dialog"/);
-  assert.match(source, /h-11 w-11 items-center justify-center rounded-2xl/);
-  assert.match(source, /id="sidebar-settings-dialog"/);
-  assert.match(source, /fixed z-\[90\] w-\[20rem\]/);
-  assert.match(source, /role="dialog"/);
-  assert.match(source, /pointerdown/);
-  assert.doesNotMatch(source, /modal-backdrop fixed inset-0 z-\[80\]/);
-  assert.doesNotMatch(source, /aria-modal="true"/);
-  assert.doesNotMatch(source, /aria-controls="sidebar-settings-panel"/);
-  assert.doesNotMatch(source, /id="sidebar-settings-panel"/);
+  assert.doesNotMatch(source, /aria-haspopup="dialog"/);
+  assert.doesNotMatch(source, /sidebar-settings-dialog/);
+  assert.doesNotMatch(source, /fixed z-\[90\] w-\[20rem\]/);
   assert.doesNotMatch(source, /Loading settings\.\.\./);
 });
 

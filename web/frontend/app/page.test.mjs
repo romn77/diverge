@@ -11,6 +11,7 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /listReports/);
   assert.match(source, /listTasks/);
   assert.match(source, /useAuth/);
+  assert.match(source, /WorkspaceAccountMenu/);
   assert.match(source, /authStatus === "loading"/);
   assert.match(source, /authStatus === "error"/);
   assert.match(source, /router\.replace\("\/login\?next=\/"\)/);
@@ -32,9 +33,6 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /reports=\{reports\}/);
   assert.match(source, /isOpen=\{isSidebarOpen\}/);
   assert.match(source, /onClose=\{\(\) => setIsSidebarOpen\(false\)\}/);
-  assert.match(source, /authEnabled=\{authEnabled\}/);
-  assert.match(source, /canManageUsers=\{canManageUsers\}/);
-  assert.match(source, /onLogout=\{handleLogout\}/);
   assert.match(source, /taskQueue=\{visibleTaskQueue\}/);
   assert.match(source, /newAnalysisDisabled=\{newAnalysisDisabled\}/);
   assert.match(source, /screenerRuns=\{screenerRuns\}/);
@@ -43,6 +41,14 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /onOutputLanguageChange=\{\(value\) => setDefaultOutputLanguage\(value\)\}/);
   assert.match(source, /selectedTradeJournal=\{showTradeJournal\}/);
   assert.match(source, /onSelectTradeJournal=\{\(\) => \{/);
+  assert.match(source, /<WorkspaceAccountMenu/);
+  assert.match(source, /authEnabled=\{authEnabled\}/);
+  assert.match(source, /authUser=\{authState\?\.user \?\? null\}/);
+  assert.match(source, /canManageUsers=\{canManageUsers\}/);
+  assert.match(source, /onLogout=\{handleLogout\}/);
+  assert.match(source, /loggingOut=\{isLoggingOut\}/);
+  assert.match(source, /selectedOutputLanguage=\{defaultOutputLanguage\}/);
+  assert.match(source, /onOutputLanguageChange=\{\(value\) => setDefaultOutputLanguage\(value\)\}/);
   assert.match(source, /<NewScreenerForm/);
   assert.match(source, /<ScreenerTaskProgress/);
   assert.match(source, /<ScreenerResultsViewer/);
@@ -54,6 +60,8 @@ test("page lifts report state and renders a content-first start panel", () => {
   assert.match(source, /<TaskProgress/);
   assert.match(source, /Launch Screener/);
   assert.match(source, /Open Manual Journal/);
+  assert.doesNotMatch(source, /authEnabled=\{authEnabled\}[\s\S]*<Sidebar/);
+  assert.doesNotMatch(source, /selectedOutputLanguage=\{defaultOutputLanguage\}[\s\S]*<Sidebar/);
 });
 
 test("page uses a desktop row layout so sidebar and content stay aligned", () => {

@@ -23,6 +23,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { TradeJournal } from "@/components/TradeJournal";
 import { ReportViewer } from "@/components/ReportViewer";
 import { TaskProgress } from "@/components/TaskProgress";
+import { WorkspaceAccountMenu } from "@/components/WorkspaceAccountMenu";
 
 export default function Home() {
   const router = useRouter();
@@ -429,11 +430,6 @@ export default function Home() {
   return (
     <div className="app-shell relative min-h-screen bg-[var(--bg)] md:flex md:items-stretch">
       <Sidebar
-        authEnabled={authEnabled}
-        authUser={authState?.user ?? null}
-        canManageUsers={canManageUsers}
-        onLogout={handleLogout}
-        loggingOut={isLoggingOut}
         selectedReportId={selectedReportId}
         selectedScreenerRunId={selectedScreenerRunId}
         onSelectReport={(reportId) => {
@@ -515,273 +511,282 @@ export default function Home() {
         newScreenerDisabled={newScreenerDisabled}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        selectedOutputLanguage={defaultOutputLanguage}
-        onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
       />
-
-      <NewAnalysisForm
-        isOpen={showNewAnalysis}
-        onClose={() => setShowNewAnalysis(false)}
-        defaultOutputLanguage={defaultOutputLanguage}
-        onTaskCreated={(taskId) => {
-          setShowNewAnalysis(false);
-          setShowTradeJournal(false);
-          void loadTasks();
-          startTransition(() => {
-            setSelectedReportId(null);
-            setActiveTaskId(taskId);
-          });
-        }}
-      />
-
-      <NewScreenerForm
-        isOpen={showNewScreener}
-        onClose={() => setShowNewScreener(false)}
-        onTaskCreated={(taskId) => {
-          setShowNewScreener(false);
-          setShowTradeJournal(false);
-          void loadScreenerTasks();
-          startTransition(() => {
-            setSelectedReportId(null);
-            setSelectedScreenerRunId(null);
-            setActiveTaskId(null);
-            setActiveScreenerTaskId(taskId);
-          });
-        }}
-      />
-
-      {selectedReportId ? (
-        <ReportViewer reportId={selectedReportId} />
-      ) : selectedScreenerRunId ? (
-        <ScreenerResultsViewer runId={selectedScreenerRunId} />
-      ) : showTradeJournal ? (
-        <TradeJournal
-          reports={sortedReports}
-          onOpenSidebar={() => setIsSidebarOpen(true)}
-          sidebarOpen={isSidebarOpen}
+      <div className="flex min-h-screen flex-1 flex-col">
+        <WorkspaceAccountMenu
+          authEnabled={authEnabled}
+          authUser={authState?.user ?? null}
+          canManageUsers={canManageUsers}
+          onLogout={handleLogout}
+          loggingOut={isLoggingOut}
+          selectedOutputLanguage={defaultOutputLanguage}
+          onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
         />
-      ) : currentTaskId ? (
-        <TaskProgress
-          key={currentTaskId}
-          taskId={currentTaskId}
-          onTaskComplete={() => {
-            void loadReports();
+
+        <NewAnalysisForm
+          isOpen={showNewAnalysis}
+          onClose={() => setShowNewAnalysis(false)}
+          defaultOutputLanguage={defaultOutputLanguage}
+          onTaskCreated={(taskId) => {
+            setShowNewAnalysis(false);
+            setShowTradeJournal(false);
             void loadTasks();
-          }}
-          onViewReport={(reportId) => {
-            setSelectedReportId(reportId);
+            startTransition(() => {
+              setSelectedReportId(null);
+              setActiveTaskId(taskId);
+            });
           }}
         />
-      ) : currentScreenerTaskId ? (
-        <ScreenerTaskProgress
-          key={currentScreenerTaskId}
-          taskId={currentScreenerTaskId}
-          onTaskComplete={(runId) => {
-            void loadScreenerRuns();
+
+        <NewScreenerForm
+          isOpen={showNewScreener}
+          onClose={() => setShowNewScreener(false)}
+          onTaskCreated={(taskId) => {
+            setShowNewScreener(false);
+            setShowTradeJournal(false);
             void loadScreenerTasks();
-            if (runId) {
+            startTransition(() => {
+              setSelectedReportId(null);
+              setSelectedScreenerRunId(null);
+              setActiveTaskId(null);
+              setActiveScreenerTaskId(taskId);
+            });
+          }}
+        />
+
+        {selectedReportId ? (
+          <ReportViewer reportId={selectedReportId} />
+        ) : selectedScreenerRunId ? (
+          <ScreenerResultsViewer runId={selectedScreenerRunId} />
+        ) : showTradeJournal ? (
+          <TradeJournal
+            reports={sortedReports}
+            onOpenSidebar={() => setIsSidebarOpen(true)}
+            sidebarOpen={isSidebarOpen}
+          />
+        ) : currentTaskId ? (
+          <TaskProgress
+            key={currentTaskId}
+            taskId={currentTaskId}
+            onTaskComplete={() => {
+              void loadReports();
+              void loadTasks();
+            }}
+            onViewReport={(reportId) => {
+              setSelectedReportId(reportId);
+            }}
+          />
+        ) : currentScreenerTaskId ? (
+          <ScreenerTaskProgress
+            key={currentScreenerTaskId}
+            taskId={currentScreenerTaskId}
+            onTaskComplete={(runId) => {
+              void loadScreenerRuns();
+              void loadScreenerTasks();
+              if (runId) {
+                setSelectedScreenerRunId(runId);
+                setActiveScreenerTaskId(null);
+              }
+            }}
+            onViewRun={(runId) => {
               setSelectedScreenerRunId(runId);
               setActiveScreenerTaskId(null);
-            }
-          }}
-          onViewRun={(runId) => {
-            setSelectedScreenerRunId(runId);
-            setActiveScreenerTaskId(null);
-          }}
-        />
-      ) : (
-        <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
-          <div className="mx-auto w-full max-w-5xl">
-            <div className="glass-panel fade-in rounded-3xl border border-[var(--border)] bg-white/95 px-6 py-8 shadow-sm md:px-8 md:py-10">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.4em] text-[var(--primary)]">
-                    {t("home.heroKicker", "TradingAgents Report Center")}
-                  </p>
-                  <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                    {t("home.heroTitle", "Content-first research workbench")}
-                  </h1>
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                    {t(
-                      "home.heroDescription",
-                      "Jump straight into the freshest report, search across tickers, launch a brand-new background analysis, or build a ranked screener pool."
-                    )}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="group md:hidden"
-                  onClick={() => setIsSidebarOpen(true)}
-                  aria-label={t("home.openSidebar", "Open sidebar")}
-                >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border)] text-slate-700 transition hover:border-[var(--primary)]">
-                    <svg
-                      className="h-5 w-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                      aria-hidden
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M4 6h16M4 12h16M4 18h16"
-                      />
-                    </svg>
-                  </span>
-                </button>
-              </div>
-
-              <div className="mt-8 space-y-4">
-                <div>
-                  <label
-                    className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500"
-                    htmlFor="page-search"
+            }}
+          />
+        ) : (
+          <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+            <div className="mx-auto w-full max-w-5xl">
+              <div className="glass-panel fade-in rounded-3xl border border-[var(--border)] bg-white/95 px-6 py-8 shadow-sm md:px-8 md:py-10">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.4em] text-[var(--primary)]">
+                      {t("home.heroKicker", "TradingAgents Report Center")}
+                    </p>
+                    <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                      {t("home.heroTitle", "Content-first research workbench")}
+                    </h1>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                      {t(
+                        "home.heroDescription",
+                        "Jump straight into the freshest report, search across tickers, launch a brand-new background analysis, or build a ranked screener pool."
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="group md:hidden"
+                    onClick={() => setIsSidebarOpen(true)}
+                    aria-label={t("home.openSidebar", "Open sidebar")}
                   >
-                    {t("home.searchLabel", "Search reports")}
-                  </label>
-                  <div className="relative mt-2">
-                    <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border)] text-slate-700 transition hover:border-[var(--primary)]">
                       <svg
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                         aria-hidden
                       >
                         <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M4 6h16M4 12h16M4 18h16"
                         />
                       </svg>
                     </span>
-                    <input
-                      id="page-search"
-                      type="text"
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder={t(
-                        "home.searchPlaceholder",
-                        "Search by ticker or report id"
-                      )}
-                      className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-4 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {t(
-                      "home.searchHint",
-                      "Filter by ticker, report id, or use the quick chips below."
-                    )}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-                    disabled={newAnalysisDisabled}
-                    onClick={() => {
-                      setShowTradeJournal(false);
-                      setShowNewAnalysis(true);
-                    }}
-                  >
-                    {t("home.launchAnalysis", "Launch Analysis")}
-                  </button>
-                  <button
-                    type="button"
-                    className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-                    disabled={newScreenerDisabled}
-                    onClick={() => {
-                      setShowTradeJournal(false);
-                      setShowNewScreener(true);
-                    }}
-                  >
-                    {t("home.launchScreener", "Launch Screener")}
-                  </button>
-                  <button
-                    type="button"
-                    className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700"
-                    onClick={() => setShowTradeJournal(true)}
-                  >
-                    {t("home.openManualJournal", "Open Manual Journal")}
                   </button>
                 </div>
-              </div>
 
-              <div className="mt-10 grid gap-6 md:grid-cols-2">
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
-                      {t("home.recentReports", "Recent reports")}
-                    </h2>
-                    <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
-                      {t("home.reportsLatest", "Latest")}
-                    </span>
-                  </div>
-                  <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50 text-sm shadow-sm">
-                    {recentReports.length === 0 ? (
-                      <li className="px-4 py-4 text-xs font-medium text-slate-500">
-                        {t(
-                          "home.reportsEmpty",
-                          "Reports will appear here as soon as they are generated."
-                        )}
-                      </li>
-                    ) : (
-                      recentReports.map((report) => (
-                        <li
-                          key={report.id}
-                          className="group flex cursor-pointer items-center justify-between gap-4 px-4 py-3 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
-                          onClick={() => setSelectedReportId(report.id)}
+                <div className="mt-8 space-y-4">
+                  <div>
+                    <label
+                      className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500"
+                      htmlFor="page-search"
+                    >
+                      {t("home.searchLabel", "Search reports")}
+                    </label>
+                    <div className="relative mt-2">
+                      <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          aria-hidden
                         >
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">
-                              {report.ticker}
-                            </p>
-                            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                              {formatReportDate(
-                                report,
-                                locale,
-                                t("common.unknownDate", "Unknown date")
-                              )}
-                            </p>
-                          </div>
-                          <span className="text-xs font-semibold text-[var(--primary)]">
-                            {t("common.open", "Open")}
-                          </span>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </section>
-
-                <section className="space-y-3">
-                  <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    {t("home.recentTickers", "Recent tickers")}
-                  </h2>
-                  <div className="flex flex-wrap gap-2">
-                    {recentTickers.length === 0 ? (
-                      <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-slate-500">
-                        {t("home.waitingForReports", "Waiting for reports")}
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M8 3a5 5 0 013.872 8.064l3.283 3.283a1 1 0 01-1.415 1.415l-3.283-3.283A5 5 0 118 3zm0 2a3 3 0 100 6 3 3 0 000-6z"
+                          />
+                        </svg>
                       </span>
-                    ) : (
-                      recentTickers.map((ticker) => (
-                        <button
-                          key={ticker}
-                          type="button"
-                          className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                          onClick={() => setSearchQuery(ticker)}
-                        >
-                          {ticker}
-                        </button>
-                      ))
-                    )}
+                      <input
+                        id="page-search"
+                        type="text"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        placeholder={t(
+                          "home.searchPlaceholder",
+                          "Search by ticker or report id"
+                        )}
+                        className="focus-ring w-full rounded-2xl border border-[var(--border-strong)] bg-slate-50 py-3 pl-10 pr-4 text-sm font-medium text-slate-800 transition focus:border-[var(--primary)]"
+                      />
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {t(
+                        "home.searchHint",
+                        "Filter by ticker, report id, or use the quick chips below."
+                      )}
+                    </p>
                   </div>
-                </section>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+                      disabled={newAnalysisDisabled}
+                      onClick={() => {
+                        setShowTradeJournal(false);
+                        setShowNewAnalysis(true);
+                      }}
+                    >
+                      {t("home.launchAnalysis", "Launch Analysis")}
+                    </button>
+                    <button
+                      type="button"
+                      className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
+                      disabled={newScreenerDisabled}
+                      onClick={() => {
+                        setShowTradeJournal(false);
+                        setShowNewScreener(true);
+                      }}
+                    >
+                      {t("home.launchScreener", "Launch Screener")}
+                    </button>
+                    <button
+                      type="button"
+                      className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700"
+                      onClick={() => setShowTradeJournal(true)}
+                    >
+                      {t("home.openManualJournal", "Open Manual Journal")}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-10 grid gap-6 md:grid-cols-2">
+                  <section className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+                        {t("home.recentReports", "Recent reports")}
+                      </h2>
+                      <span className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+                        {t("home.reportsLatest", "Latest")}
+                      </span>
+                    </div>
+                    <ul className="divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50 text-sm shadow-sm">
+                      {recentReports.length === 0 ? (
+                        <li className="px-4 py-4 text-xs font-medium text-slate-500">
+                          {t(
+                            "home.reportsEmpty",
+                            "Reports will appear here as soon as they are generated."
+                          )}
+                        </li>
+                      ) : (
+                        recentReports.map((report) => (
+                          <li
+                            key={report.id}
+                            className="group flex cursor-pointer items-center justify-between gap-4 px-4 py-3 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                            onClick={() => setSelectedReportId(report.id)}
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {report.ticker}
+                              </p>
+                              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                                {formatReportDate(
+                                  report,
+                                  locale,
+                                  t("common.unknownDate", "Unknown date")
+                                )}
+                              </p>
+                            </div>
+                            <span className="text-xs font-semibold text-[var(--primary)]">
+                              {t("common.open", "Open")}
+                            </span>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </section>
+
+                  <section className="space-y-3">
+                    <h2 className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+                      {t("home.recentTickers", "Recent tickers")}
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {recentTickers.length === 0 ? (
+                        <span className="rounded-full border border-[var(--border)] px-3 py-1 text-xs font-semibold text-slate-500">
+                          {t("home.waitingForReports", "Waiting for reports")}
+                        </span>
+                      ) : (
+                        recentTickers.map((ticker) => (
+                          <button
+                            key={ticker}
+                            type="button"
+                            className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                            onClick={() => setSearchQuery(ticker)}
+                          >
+                            {ticker}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </div>
               </div>
             </div>
-          </div>
-        </main>
-      )}
+          </main>
+        )}
+      </div>
     </div>
   );
 }
