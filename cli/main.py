@@ -24,8 +24,7 @@ from rich import box
 from rich.align import Align
 from rich.rule import Rule
 
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
+from cli.assets import asset_app
 from cli.models import AnalystType
 from cli.utils import *
 from cli.announcements import fetch_announcements, display_announcements
@@ -38,6 +37,7 @@ app = typer.Typer(
     help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
     add_completion=True,  # Enable shell completion
 )
+app.add_typer(asset_app, name="asset")
 
 
 # Create a deque to store recent messages with a maximum length
@@ -927,6 +927,9 @@ def format_tool_args(args, max_length=80) -> str:
     return result
 
 def run_analysis():
+    from tradingagents.default_config import DEFAULT_CONFIG
+    from tradingagents.graph.trading_graph import TradingAgentsGraph
+
     # First get all user selections
     selections = get_user_selections()
 

@@ -1,4 +1,6 @@
 from datetime import datetime
+import csv
+from io import StringIO
 from .alpha_vantage_common import _make_api_request, _filter_csv_by_date_range
 
 def get_stock(
@@ -36,3 +38,21 @@ def get_stock(
     response = _make_api_request("TIME_SERIES_DAILY_ADJUSTED", params)
 
     return _filter_csv_by_date_range(response, start_date, end_date)
+
+
+def get_latest_price(symbol: str):
+    today = datetime.now()
+    start_date = today.replace(day=max(today.day - 7, 1)).strftime("%Y-%m-%d")
+    csv_payload = get_stock(symbol, start_date, today.strftime("%Y-%m-%d"))
+    rows = list(csv.DictReader(StringIO(csv_payload)))
+    if not rows:
+        raise RuntimeError(f"No latest price found for symbol '{symbol}'")
+
+    latest_row = rows[0]
+    return {
+        "ticker": symbol.upper(),
+        "price": float(latest_row["close"]),
+        "currency": "USD",
+        "as_of": latest_row["timestamp"],
+        "source": "alpha_vantage",
+    }
