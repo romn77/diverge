@@ -85,9 +85,19 @@ def write_run_artifacts(
         encoding="utf-8",
     )
 
-    preview_columns = ["symbol", "market", "global_rank", "total_score"]
+    preview_columns = [
+        "symbol",
+        "market",
+        "global_rank",
+        "total_score",
+        "breakout_type",
+        "breakout_with_volume",
+    ]
+    available_preview_columns = [
+        column for column in preview_columns if column in candidates_df.columns
+    ]
     candidate_preview = (
-        _json_ready_records(candidates_df.loc[:, preview_columns].head(10))
+        _json_ready_records(candidates_df.loc[:, available_preview_columns].head(10))
         if not candidates_df.empty
         else []
     )

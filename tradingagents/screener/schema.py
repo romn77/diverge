@@ -8,6 +8,11 @@ from pathlib import Path
 VALID_MARKETS = {"cn", "us"}
 VALID_CN_DATA_SOURCES = {"akshare", "tushare"}
 VALID_US_DATA_SOURCES = {"akshare", "alpha_vantage", "massive", "tushare", "yfinance"}
+VALID_BREAKOUT_TYPES = {
+    "platform_breakout",
+    "box_breakout",
+    "wedge_breakout",
+}
 
 
 def build_cn_source_chain(
@@ -27,6 +32,7 @@ class ScreenRunConfig:
     markets: list[str]
     as_of_date: str
     top_k: int
+    breakout_types: list[str] = field(default_factory=list)
     min_listing_days: int = 180
     cn_min_listing_trading_days: int = 120
     cn_min_avg_amount_20d: float = 50_000_000
@@ -53,6 +59,9 @@ class ScreenRunConfig:
             raise ValueError("markets must be a subset of {'cn', 'us'}")
 
         self.markets = normalized_markets
+        self.breakout_types = [
+            breakout_type.strip().lower() for breakout_type in self.breakout_types
+        ]
         self.cn_data_source = self.cn_data_source.strip().lower()
         self.cn_data_source_fallbacks = [
             source.strip().lower() for source in self.cn_data_source_fallbacks
@@ -75,6 +84,8 @@ class ScreenRunConfig:
 
         if self.top_k <= 0:
             raise ValueError("top_k must be positive")
+        if len(set(self.breakout_types)) != len(self.breakout_types):
+            raise ValueError("breakout_types must not contain duplicates")
         if self.min_listing_days <= 0:
             raise ValueError("min_listing_days must be positive")
         if self.cn_min_listing_trading_days <= 0:
@@ -94,6 +105,13 @@ class ScreenRunConfig:
             raise ValueError("cn_data_source must be one of {'akshare', 'tushare'}")
         if self.us_data_source not in VALID_US_DATA_SOURCES:
             raise ValueError("us_data_source must be one of {'akshare', 'alpha_vantage', 'massive', 'tushare', 'yfinance'}")
+        if any(
+            breakout_type not in VALID_BREAKOUT_TYPES
+            for breakout_type in self.breakout_types
+        ):
+            raise ValueError(
+                "breakout_types must only include values from {'box_breakout', 'platform_breakout', 'wedge_breakout'}"
+            )
 
         if any(
             source not in VALID_CN_DATA_SOURCES

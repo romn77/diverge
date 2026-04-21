@@ -122,6 +122,7 @@ def test_build_screener_config_normalizes_common_options():
             cn_manifest=None,
             us_manifest="/tmp/us.csv",
             output_dir="/tmp/out",
+            breakout_types="platform_breakout,wedge_breakout",
         )
 
     assert config.markets == ["us"]
@@ -131,6 +132,7 @@ def test_build_screener_config_normalizes_common_options():
     assert config.cn_data_source_fallbacks == ["akshare"]
     assert config.us_data_source == "massive"
     assert config.us_manifest_path == "/tmp/us.csv"
+    assert config.breakout_types == ["platform_breakout", "wedge_breakout"]
     assert note == "auto-note"
 
 
@@ -148,6 +150,7 @@ def test_build_screener_config_adjusts_explicit_weekend_date_to_latest_trading_d
             cn_manifest=None,
             us_manifest="/tmp/us.csv",
             output_dir="/tmp/out",
+            breakout_types="",
         )
 
     assert config.as_of_date == "2026-04-17"
@@ -171,6 +174,7 @@ def test_build_screener_config_adjusts_explicit_same_day_before_close_for_us_mar
             cn_manifest=None,
             us_manifest="/tmp/us.csv",
             output_dir="/tmp/out",
+            breakout_types="",
         )
 
     assert config.as_of_date == "2026-04-16"
@@ -202,6 +206,7 @@ def test_screen_command_help_does_not_expose_limit_per_market_option():
 
     assert result.exit_code == 0
     assert "--limit-per-market" not in result.output
+    assert "--breakout-types" in result.output
 
 
 def test_screen_command_prints_progress_and_result_summary():
@@ -545,6 +550,10 @@ def test_screen_debug_command_prints_stage_summary_for_ranked_symbol():
             "market": "us",
             "close": 101.0,
             "avg_amount_20d": 20_000_000.0,
+            "breakout_hit": True,
+            "breakout_type": "platform_breakout",
+            "breakout_with_volume": True,
+            "breakout_reason": "platform_breakout close=103.2 resistance=100.6",
         },
         score_row={
             "symbol": "AAPL",
@@ -552,6 +561,9 @@ def test_screen_debug_command_prints_stage_summary_for_ranked_symbol():
             "global_rank": 1,
             "market_rank": 1,
             "total_score": 0.71,
+            "breakout_bonus": 0.15,
+            "breakout_base_bonus": 0.11,
+            "breakout_volume_bonus": 0.04,
             "strategy_tags": "trend_up,momentum_positive,above_vwma",
             "risk_flags": "",
         },
@@ -582,6 +594,9 @@ def test_screen_debug_command_prints_stage_summary_for_ranked_symbol():
     assert "kept" in result.output
     assert "Rank result" in result.output
     assert "total_score" in result.output
+    assert "breakout_type" in result.output
+    assert "breakout_with_volume" in result.output
+    assert "breakout_bonus" in result.output
 
 
 def test_screen_debug_command_defaults_date_to_latest_completed_trading_day_when_omitted():

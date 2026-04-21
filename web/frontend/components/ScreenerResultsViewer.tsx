@@ -16,10 +16,18 @@ interface ScreenerResultsViewerProps {
 type SortKey =
   | "global_rank"
   | "total_score"
+  | "breakout_bonus"
   | "trend_score"
   | "momentum_score"
   | "risk_score"
   | "liquidity_score";
+
+const BREAKOUT_FILTER_OPTIONS = [
+  { value: "all", label: "All Results" },
+  { value: "platform_breakout", label: "Platform Breakout" },
+  { value: "box_breakout", label: "Box Breakout" },
+  { value: "wedge_breakout", label: "Wedge Breakout" },
+] as const;
 
 export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
   const { locale, t } = usePreferences();
@@ -28,6 +36,8 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("global_rank");
+  const [breakoutFilter, setBreakoutFilter] = useState<string>("all");
+  const [volumeConfirmedOnly, setVolumeConfirmedOnly] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -68,18 +78,31 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
     };
   }, [runId]);
 
+  const filteredRows = useMemo(() => {
+    return rows.filter((row) => {
+      if (!matchesBreakoutFilter(row, breakoutFilter)) {
+        return false;
+      }
+      if (volumeConfirmedOnly && row.breakout_with_volume !== true) {
+        return false;
+      }
+      return true;
+    });
+  }, [rows, breakoutFilter, volumeConfirmedOnly]);
+
   const sortedRows = useMemo(() => {
-    return [...rows].sort((a, b) => {
+    return [...filteredRows].sort((a, b) => {
       if (sortKey === "global_rank") {
         return a.global_rank - b.global_rank;
       }
       return (b[sortKey] ?? 0) - (a[sortKey] ?? 0);
     });
-  }, [rows, sortKey]);
+  }, [filteredRows, sortKey]);
 
   const columns: Array<{ key: SortKey; label: string }> = [
     { key: "global_rank", label: t("screenerResults.column.rank", "Rank") },
     { key: "total_score", label: t("screenerResults.column.total", "Total") },
+    { key: "breakout_bonus", label: t("screenerResults.column.breakout", "Breakout") },
     { key: "trend_score", label: t("screenerResults.column.trend", "Trend") },
     {
       key: "momentum_score",
@@ -92,7 +115,10 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
     },
   ];
   const highlightedRows = useMemo(() => sortedRows.slice(0, 3), [sortedRows]);
-  const marketCount = useMemo(() => new Set(rows.map((row) => row.market)).size, [rows]);
+  const marketCount = useMemo(
+    () => new Set(filteredRows.map((row) => row.market)).size,
+    [filteredRows]
+  );
   const strongestSignal = highlightedRows[0] ?? null;
   const filteredReasons = useMemo(
     () => Object.entries(run?.filtered_count_by_reason ?? {}).filter(([, count]) => count > 0),
@@ -178,6 +204,36 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
           </div>
 
           <div className="mt-8 flex flex-wrap gap-2">
+            {BREAKOUT_FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={breakoutFilter === option.value}
+                className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                  breakoutFilter === option.value
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[0_10px_24px_rgba(181,89,38,0.22)]"
+                    : "border-[var(--border)] bg-white text-slate-700 hover:border-[rgba(181,89,38,0.22)] hover:bg-[rgba(181,89,38,0.06)] hover:text-[var(--primary)]"
+                }`}
+                onClick={() => setBreakoutFilter(option.value)}
+              >
+                {option.label}
+              </button>
+            ))}
+            <button
+              type="button"
+              aria-pressed={volumeConfirmedOnly}
+              className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
+                volumeConfirmedOnly
+                  ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[0_10px_24px_rgba(181,89,38,0.22)]"
+                  : "border-[var(--border)] bg-white text-slate-700 hover:border-[rgba(181,89,38,0.22)] hover:bg-[rgba(181,89,38,0.06)] hover:text-[var(--primary)]"
+              }`}
+              onClick={() => setVolumeConfirmedOnly((value) => !value)}
+            >
+              {t("screenerResults.filter.volume", "Volume Confirmed")}
+            </button>
+          </div>
+
+          <div className="mt-4 flex flex-wrap gap-2">
             {columns.map((column) => (
               <button
                 key={column.key}
@@ -239,6 +295,10 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   <dl className="mt-4 grid grid-cols-2 gap-3">
                     <Metric label="Trend" value={formatScore(row.trend_score, locale)} />
                     <Metric
+                      label="Breakout"
+                      value={formatScore(row.breakout_bonus ?? 0, locale)}
+                    />
+                    <Metric
                       label="Momentum"
                       value={formatScore(row.momentum_score, locale)}
                     />
@@ -250,6 +310,16 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   </dl>
 
                   <div className="mt-4 space-y-2">
+                    <TagStrip
+                      label="Pattern"
+                      value={formatBreakoutType(row.breakout_type)}
+                      tone="bg-[rgba(181,89,38,0.08)] text-[var(--primary)]"
+                    />
+                    <TagStrip
+                      label="Volume"
+                      value={formatVolumeFlag(row.breakout_with_volume)}
+                      tone="bg-[rgba(22,101,52,0.08)] text-emerald-700"
+                    />
                     <TagStrip
                       label="Strategy"
                       value={row.strategy_tags}
@@ -282,6 +352,18 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   <th className="px-4 py-3 text-right tabular-nums">
                     {t("screenerResults.header.total_score", "total_score")}
                   </th>
+                  <th className="px-4 py-3 text-left">
+                    {t("screenerResults.header.breakout_type", "breakout_type")}
+                  </th>
+                  <th className="px-4 py-3 text-left">
+                    {t(
+                      "screenerResults.header.breakout_with_volume",
+                      "breakout_with_volume"
+                    )}
+                  </th>
+                  <th className="px-4 py-3 text-right tabular-nums">
+                    {t("screenerResults.header.breakout_bonus", "breakout_bonus")}
+                  </th>
                   <th className="px-4 py-3 text-right tabular-nums">
                     {t("screenerResults.header.trend_score", "trend_score")}
                   </th>
@@ -308,13 +390,13 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-6 text-slate-500" colSpan={10}>
+                    <td className="px-4 py-6 text-slate-500" colSpan={13}>
                       Loading screener candidates...
                     </td>
                   </tr>
                 ) : sortedRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-6 text-slate-500" colSpan={10}>
+                    <td className="px-4 py-6 text-slate-500" colSpan={13}>
                       {t("screenerResults.empty", "No screener candidates available.")}
                     </td>
                   </tr>
@@ -329,6 +411,25 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                       <td className="px-4 py-3 text-right tabular-nums">{row.global_rank}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {formatScore(row.total_score, locale)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <TagStrip
+                          label="Pattern"
+                          value={formatBreakoutType(row.breakout_type)}
+                          tone="bg-[rgba(181,89,38,0.08)] text-[var(--primary)]"
+                          compact
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <TagStrip
+                          label="Volume"
+                          value={formatVolumeFlag(row.breakout_with_volume)}
+                          tone="bg-[rgba(22,101,52,0.08)] text-emerald-700"
+                          compact
+                        />
+                      </td>
+                      <td className="px-4 py-3 text-right tabular-nums">
+                        {formatScore(row.breakout_bonus ?? 0, locale)}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {formatScore(row.trend_score, locale)}
@@ -368,6 +469,33 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
       </div>
     </main>
   );
+}
+
+function matchesBreakoutFilter(row: ScreenerCandidateRow, breakoutFilter: string): boolean {
+  if (breakoutFilter === "all") {
+    return true;
+  }
+  return row.breakout_type === breakoutFilter;
+}
+
+function formatBreakoutType(breakoutType: string | null | undefined): string {
+  if (!breakoutType) {
+    return "none";
+  }
+  switch (breakoutType) {
+    case "platform_breakout":
+      return "Platform Breakout";
+    case "box_breakout":
+      return "Box Breakout";
+    case "wedge_breakout":
+      return "Wedge Breakout";
+    default:
+      return breakoutType;
+  }
+}
+
+function formatVolumeFlag(value: boolean | undefined): string {
+  return value ? "confirmed" : "standard";
 }
 
 function SummaryCard({

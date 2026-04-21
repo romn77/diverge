@@ -18,6 +18,12 @@ interface NewScreenerFormProps {
   onTaskCreated: (taskId: string) => void;
 }
 
+const BREAKOUT_LABELS: Record<string, string> = {
+  platform_breakout: "Platform Breakout",
+  box_breakout: "Box Breakout",
+  wedge_breakout: "Wedge Breakout",
+};
+
 function validateScreenerRequest(
   formState: ScreenTaskCreateRequest,
   t: ReturnType<typeof usePreferences>["t"]
@@ -81,6 +87,7 @@ export function NewScreenerForm({
           as_of_date: getLocalDateInputValue(),
           cn_data_source: nextOptions.defaults.cn_data_source,
           top_k: nextOptions.defaults.top_k,
+          breakout_types: nextOptions.defaults.breakout_types,
         });
       } catch (nextError) {
         if (isActive) {
@@ -114,6 +121,17 @@ export function NewScreenerForm({
       ? formState.markets.filter((market) => market !== value)
       : [...formState.markets, value];
     setFormState({ ...formState, markets });
+  };
+
+  const toggleBreakoutType = (value: string) => {
+    if (!formState) {
+      return;
+    }
+    const exists = formState.breakout_types.includes(value);
+    const breakout_types = exists
+      ? formState.breakout_types.filter((breakoutType) => breakoutType !== value)
+      : [...formState.breakout_types, value];
+    setFormState({ ...formState, breakout_types });
   };
 
   const submitTask = async () => {
@@ -242,6 +260,40 @@ export function NewScreenerForm({
                   </div>
                 </label>
               ) : null}
+
+              <section className="field-shell rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
+                <p className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {t("screener.breakouts", "Breakout Signals")}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  {configOptions.breakout_types.map((breakoutOption) => {
+                    const active = formState.breakout_types.includes(breakoutOption.value);
+                    return (
+                      <button
+                        key={breakoutOption.value}
+                        type="button"
+                        className={`interactive-button focus-ring rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
+                          active
+                            ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+                            : "border-[var(--border)] bg-[var(--surface-strong)] text-slate-600"
+                        }`}
+                        onClick={() => toggleBreakoutType(breakoutOption.value)}
+                      >
+                        {t(
+                          `screener.breakout.${optionKey(breakoutOption.value)}`,
+                          BREAKOUT_LABELS[breakoutOption.value] ?? breakoutOption.label
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs leading-5 text-slate-500">
+                  {t(
+                    "screener.breakoutHelp",
+                    "Selected breakout signals add ranking bonus and appear in results, but they do not hard-filter the pool."
+                  )}
+                </p>
+              </section>
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
