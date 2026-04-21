@@ -22,6 +22,8 @@ web/frontend/lib/*
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
 !web/frontend/lib/highlightTerminalSkillAdoption.test.mjs
+!web/frontend/lib/workbenchRoutes.ts
+!web/frontend/lib/workbenchRoutes.test.mjs
 !web/frontend/lib/uiPreferences.ts
 lib64/
 parts/
@@ -229,6 +231,9 @@ __marimo__/
 # Cache
 **/data_cache/
 reports/
+!web/frontend/app/(workbench)/reports/
+!web/frontend/app/(workbench)/reports/\[reportId\]/
+!web/frontend/app/(workbench)/reports/\[reportId\]/page.tsx
 results/
 # Vscode
 .vscode/
