@@ -1,11 +1,8 @@
-<<<<<<< HEAD
 from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
 )
-=======
->>>>>>> agent/implement-dev/9e0b812f
 
 from tradingagents.agents.utils.agent_utils import build_instrument_context
 

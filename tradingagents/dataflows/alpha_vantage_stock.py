@@ -1,13 +1,8 @@
 from datetime import datetime
-<<<<<<< HEAD
 from io import StringIO
 
 import pandas as pd
 
-=======
-import csv
-from io import StringIO
->>>>>>> agent/implement-dev/9e0b812f
 from .alpha_vantage_common import _make_api_request, _filter_csv_by_date_range
 from .cn_market_utils import rename_columns
 from .vendor_errors import VendorDataEmptyError, VendorRetryableError
@@ -59,7 +54,6 @@ def get_stock(
     return _filter_csv_by_date_range(response, start_date, end_date)
 
 
-<<<<<<< HEAD
 def _fetch_alpha_vantage_stock_df(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
     csv_text = get_stock(symbol, start_date, end_date)
     if not csv_text or not str(csv_text).strip():
@@ -74,21 +68,26 @@ def _fetch_alpha_vantage_stock_df(symbol: str, start_date: str, end_date: str) -
         raise VendorDataEmptyError(f"No Alpha Vantage stock data found for {symbol}")
 
     return rename_columns(df, AV_RENAME_MAP)
-=======
+
+
 def get_latest_price(symbol: str):
     today = datetime.now()
     start_date = today.replace(day=max(today.day - 7, 1)).strftime("%Y-%m-%d")
-    csv_payload = get_stock(symbol, start_date, today.strftime("%Y-%m-%d"))
-    rows = list(csv.DictReader(StringIO(csv_payload)))
-    if not rows:
-        raise RuntimeError(f"No latest price found for symbol '{symbol}'")
+    df = _fetch_alpha_vantage_stock_df(symbol, start_date, today.strftime("%Y-%m-%d"))
+    if df.empty:
+        raise VendorDataEmptyError(f"No latest price found for {symbol}")
 
-    latest_row = rows[0]
+    if "Date" in df.columns:
+        latest_row = df.sort_values("Date").iloc[-1]
+        as_of = str(latest_row["Date"])
+    else:
+        latest_row = df.iloc[-1]
+        as_of = today.strftime("%Y-%m-%d")
+
     return {
         "ticker": symbol.upper(),
-        "price": float(latest_row["close"]),
+        "price": float(latest_row["Close"]),
         "currency": "USD",
-        "as_of": latest_row["timestamp"],
+        "as_of": as_of,
         "source": "alpha_vantage",
     }
->>>>>>> agent/implement-dev/9e0b812f

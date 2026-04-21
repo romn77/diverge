@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from tradingagents.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
@@ -8,8 +7,6 @@ from tradingagents.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
     get_risk_debate_mode,
 )
-=======
->>>>>>> agent/implement-dev/9e0b812f
 
 
 def create_aggressive_debator(llm):

@@ -1,20 +1,19 @@
 import os
 
-<<<<<<< HEAD
 from tradingagents.llm_clients.model_config import (
     DEFAULT_DEEP_MODEL,
     DEFAULT_LLM_PROVIDER,
     DEFAULT_QUICK_MODEL,
     get_provider_base_url,
 )
-=======
-_TRADINGAGENTS_HOME = os.path.join(os.path.expanduser("~"), ".tradingagents")
->>>>>>> agent/implement-dev/9e0b812f
 
 DEFAULT_CONFIG = {
     "project_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
-    "results_dir": os.getenv("TRADINGAGENTS_RESULTS_DIR", os.path.join(_TRADINGAGENTS_HOME, "logs")),
-    "data_cache_dir": os.getenv("TRADINGAGENTS_CACHE_DIR", os.path.join(_TRADINGAGENTS_HOME, "cache")),
+    "results_dir": os.getenv("TRADINGAGENTS_RESULTS_DIR", "./results"),
+    "data_cache_dir": os.path.join(
+        os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
+        "dataflows/data_cache",
+    ),
     # LLM settings
     "llm_provider": DEFAULT_LLM_PROVIDER,
     "deep_think_llm": DEFAULT_DEEP_MODEL,

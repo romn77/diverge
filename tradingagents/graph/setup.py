@@ -1,13 +1,8 @@
 # TradingAgents/graph/setup.py
 
-<<<<<<< HEAD
 from typing import Dict
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph, START
-=======
-from typing import Any, Dict
-from langgraph.graph import END, START, StateGraph
->>>>>>> agent/implement-dev/9e0b812f
 from langgraph.prebuilt import ToolNode
 
 from tradingagents.agents import *
@@ -21,8 +16,8 @@ class GraphSetup:
 
     def __init__(
         self,
-        quick_thinking_llm: Any,
-        deep_thinking_llm: Any,
+        quick_thinking_llm: ChatOpenAI,
+        deep_thinking_llm: ChatOpenAI,
         tool_nodes: Dict[str, ToolNode],
         bull_memory,
         bear_memory,

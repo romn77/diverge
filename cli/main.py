@@ -8,7 +8,7 @@ from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables from .env file
 load_dotenv()
 load_dotenv(".env.enterprise", override=False)
 from rich.panel import Panel
@@ -24,15 +24,10 @@ from rich import box
 from rich.align import Align
 from rich.rule import Rule
 
-<<<<<<< HEAD
 from tradingagents.screener.debug import debug_screen_symbol
 from tradingagents.screener.market_calendar import is_market_trading_day, last_n_trading_days
 from tradingagents.screener.schema import ScreenRunConfig
-=======
 from cli.assets import asset_app
-from cli.models import AnalystType
-from cli.utils import *
->>>>>>> agent/implement-dev/9e0b812f
 from cli.announcements import fetch_announcements, display_announcements
 
 console = Console()
@@ -296,7 +291,7 @@ class MessageBuffer:
         self.current_agent = None
         self.report_sections = {}
         self.selected_analysts = []
-        self._processed_message_ids = set()
+        self._last_message_id = None
 
     def init_for_analysis(self, selected_analysts):
         """Initialize agent status and report sections based on selected analysts.
@@ -331,7 +326,7 @@ class MessageBuffer:
         self.current_agent = None
         self.messages.clear()
         self.tool_calls.clear()
-        self._processed_message_ids.clear()
+        self._last_message_id = None
 
     def get_completed_reports_count(self):
         """Count reports that are finalized (their finalizing agent is completed).
@@ -1124,11 +1119,8 @@ def format_tool_args(args, max_length=80) -> str:
 def run_analysis():
     from tradingagents.default_config import DEFAULT_CONFIG
     from tradingagents.graph.trading_graph import TradingAgentsGraph
-<<<<<<< HEAD
     from tradingagents.runner import save_report_to_disk
     from cli.stats_handler import StatsCallbackHandler
-=======
->>>>>>> agent/implement-dev/9e0b812f
 
     # First get all user selections
     selections = get_user_selections()
@@ -1275,19 +1267,14 @@ def run_analysis():
         # Stream the analysis
         trace = []
         for chunk in graph.graph.stream(init_agent_state, **args):
-            # Process all messages in chunk, deduplicating by message ID
-            for message in chunk.get("messages", []):
-                msg_id = getattr(message, "id", None)
-                if msg_id is not None:
-                    if msg_id in message_buffer._processed_message_ids:
-                        continue
-                    message_buffer._processed_message_ids.add(msg_id)
+            # Process messages if present (skip duplicates via message ID)
+            if len(chunk["messages"]) > 0:
+                last_message = chunk["messages"][-1]
+                msg_id = getattr(last_message, "id", None)
 
-                msg_type, content = classify_message_type(message)
-                if content and content.strip():
-                    message_buffer.add_message(msg_type, content)
+                if msg_id != message_buffer._last_message_id:
+                    message_buffer._last_message_id = msg_id
 
-<<<<<<< HEAD
                     # Add message to buffer
                     msg_type, content = classify_message_type(last_message)
                     if content and content.strip():
@@ -1304,14 +1291,6 @@ def run_analysis():
                                 message_buffer.add_tool_call(
                                     tool_call.name, tool_call.args
                                 )
-=======
-                if hasattr(message, "tool_calls") and message.tool_calls:
-                    for tool_call in message.tool_calls:
-                        if isinstance(tool_call, dict):
-                            message_buffer.add_tool_call(tool_call["name"], tool_call["args"])
-                        else:
-                            message_buffer.add_tool_call(tool_call.name, tool_call.args)
->>>>>>> agent/implement-dev/9e0b812f
 
             # Update analyst statuses based on report state (runs on every chunk)
             update_analyst_statuses(message_buffer, chunk)

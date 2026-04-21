@@ -1,8 +1,5 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-<<<<<<< HEAD
 
-=======
->>>>>>> agent/implement-dev/9e0b812f
 from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
     get_global_news,

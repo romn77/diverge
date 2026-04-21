@@ -1,7 +1,6 @@
 from typing import Annotated
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
-import pandas as pd
 import yfinance as yf
 import os
 import pandas as pd
@@ -100,8 +99,6 @@ def get_YFin_data_online(
     return header + csv_string
 
 
-<<<<<<< HEAD
-=======
 def get_latest_price(
     symbol: Annotated[str, "ticker symbol of the company"],
 ):
@@ -140,7 +137,7 @@ def get_latest_price(
         "source": "yfinance",
     }
 
->>>>>>> agent/implement-dev/9e0b812f
+
 def get_stock_stats_indicators_window(
     symbol: Annotated[str, "ticker symbol of the company"],
     indicator: Annotated[str, "technical indicator to get the analysis and report of"],

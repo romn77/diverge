@@ -1,10 +1,6 @@
 from typing import Annotated
-<<<<<<< HEAD
 from typing_extensions import NotRequired, TypedDict
 from tradingagents.agents import *
-=======
-from typing_extensions import TypedDict
->>>>>>> agent/implement-dev/9e0b812f
 from langgraph.graph import MessagesState
 
 

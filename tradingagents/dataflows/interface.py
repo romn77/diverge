@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from .akshare import (
     get_stock as get_akshare_stock,
     get_indicator as get_akshare_indicator,
@@ -9,20 +8,6 @@ from .akshare import (
     get_insider_transactions as get_akshare_insider_transactions,
     get_news as get_akshare_news,
     get_global_news as get_akshare_global_news,
-=======
-from typing import Annotated
-
-# Import from vendor-specific modules
-from .y_finance import (
-    get_YFin_data_online,
-    get_latest_price as get_yfinance_latest_price,
-    get_stock_stats_indicators_window,
-    get_fundamentals as get_yfinance_fundamentals,
-    get_balance_sheet as get_yfinance_balance_sheet,
-    get_cashflow as get_yfinance_cashflow,
-    get_income_statement as get_yfinance_income_statement,
-    get_insider_transactions as get_yfinance_insider_transactions,
->>>>>>> agent/implement-dev/9e0b812f
 )
 from .alpha_vantage import (
     get_stock as get_alpha_vantage_stock,
@@ -54,6 +39,7 @@ from .tushare import (
 )
 from .y_finance import (
     get_YFin_data_online,
+    get_latest_price as get_yfinance_latest_price,
     get_stock_stats_indicators_window,
     get_fundamentals as get_yfinance_fundamentals,
     get_balance_sheet as get_yfinance_balance_sheet,
@@ -73,14 +59,7 @@ from .vendor_errors import (
 TOOLS_CATEGORIES = {
     "core_stock_apis": {
         "description": "OHLCV stock price data",
-<<<<<<< HEAD
-        "tools": ["get_stock_data"],
-=======
-        "tools": [
-            "get_stock_data",
-            "get_latest_price",
-        ]
->>>>>>> agent/implement-dev/9e0b812f
+        "tools": ["get_stock_data", "get_latest_price"],
     },
     "technical_indicators": {
         "description": "Technical analysis indicators",
@@ -121,6 +100,7 @@ MARKET_VENDOR_ALLOWLIST = {
 
 METHOD_ARG_SCHEMA = {
     "get_stock_data": {"symbol_arg": "symbol", "pos": 0},
+    "get_latest_price": {"symbol_arg": "symbol", "pos": 0},
     "get_indicators": {"symbol_arg": "symbol", "pos": 0},
     "get_fundamentals": {"symbol_arg": "ticker", "pos": 0},
     "get_balance_sheet": {"symbol_arg": "ticker", "pos": 0},
@@ -393,7 +373,6 @@ def execute_vendor_chain(
             last_error = exc
             continue
 
-<<<<<<< HEAD
     if last_error is not None:
         raise RuntimeError(
             f"No available vendor for '{method}' in market '{market}'. "
@@ -451,6 +430,3 @@ def route_to_normalized_fundamentals(
         ticker=ticker,
         frequency=freq,
     )
-=======
-    raise RuntimeError(f"No available vendor for '{method}'")
->>>>>>> agent/implement-dev/9e0b812f
