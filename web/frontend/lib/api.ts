@@ -390,6 +390,40 @@ export interface ScreenerCandidateRow {
   risk_flags: string;
 }
 
+export interface TickerHistoryPoint {
+  date: string;
+  close: number | null;
+  open?: number | null;
+  high?: number | null;
+  low?: number | null;
+  volume?: number | null;
+}
+
+export interface TickerHistorySeries {
+  symbol: string;
+  market: string;
+  as_of_date: string;
+  lookback_days: number;
+  start_date: string | null;
+  end_date: string | null;
+  points: TickerHistoryPoint[];
+}
+
+export interface TickerHistoryBatchPayload {
+  tickers: Array<{
+    symbol: string;
+    market?: string | null;
+  }>;
+  as_of_date?: string | null;
+  days?: number;
+}
+
+export interface TickerHistoryBatchResponse {
+  as_of_date: string;
+  lookback_days: number;
+  items: TickerHistorySeries[];
+}
+
 function buildApiUrl(path: string): string {
   return `${API_BASE}${path}`;
 }
@@ -685,6 +719,40 @@ export async function listScreenerRunCandidates(
     {
       cache: "no-store",
     }
+  );
+}
+
+export async function getTickerHistory(options: {
+  symbol: string;
+  market?: string | null;
+  asOfDate?: string | null;
+  days?: number;
+}): Promise<TickerHistorySeries> {
+  const url = new URL(buildApiUrl("/api/ticker-history"));
+  url.searchParams.set("symbol", options.symbol);
+  if (options.market) {
+    url.searchParams.set("market", options.market);
+  }
+  if (options.asOfDate) {
+    url.searchParams.set("as_of_date", options.asOfDate);
+  }
+  if (typeof options.days === "number") {
+    url.searchParams.set("days", String(options.days));
+  }
+
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    cache: "no-store",
+  });
+  return parseJsonResponse<TickerHistorySeries>(response);
+}
+
+export async function getTickerHistoryBatch(
+  payload: TickerHistoryBatchPayload
+): Promise<TickerHistoryBatchResponse> {
+  return requestJson<TickerHistoryBatchResponse>(
+    "/api/ticker-history/batch",
+    createJsonRequestInit("POST", payload)
   );
 }
 

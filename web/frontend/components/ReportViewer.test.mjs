@@ -53,4 +53,6 @@ test("ReportViewer surfaces route-level overview cards and artifact context for 
   assert.match(source, /Artifact Summary/);
   assert.match(source, /SummaryMetric/);
   assert.match(source, /ArtifactPill/);
+  assert.match(source, /TickerPricePanel/);
+  assert.match(source, /Price Trend/);
 });

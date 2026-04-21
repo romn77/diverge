@@ -1,11 +1,13 @@
+import asyncio
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
-from web.backend import auth, main as backend_main, report_metadata
+from web.backend import app_config, auth, report_metadata
+from web.backend.main import app
+from web.backend.runtime import analysis_tasks, screener_tasks
+from tests.web.http_harness import app_client
 
 
 class ReportMetadataAuthTests(unittest.TestCase):
@@ -19,16 +21,16 @@ class ReportMetadataAuthTests(unittest.TestCase):
         self.project_env = self.project_root / ".env"
         self.project_env.write_text("OPENAI_API_KEY=test-openai-key\n", encoding="utf-8")
 
-        self.original_reports_dir = backend_main.REPORTS_DIR
-        self.original_tmp_reports_dir = backend_main.TMP_REPORTS_DIR
-        self.original_project_root = backend_main.PROJECT_ROOT
-        self.original_project_env_file = backend_main.PROJECT_ENV_FILE
-        backend_main.REPORTS_DIR = self.reports_dir
-        backend_main.TMP_REPORTS_DIR = self.reports_dir / ".tmp"
-        backend_main.PROJECT_ROOT = self.project_root
-        backend_main.PROJECT_ENV_FILE = self.project_env
-        backend_main.tasks.clear()
-        backend_main.screener_tasks.clear()
+        self.original_reports_dir = app_config.REPORTS_DIR
+        self.original_tmp_reports_dir = app_config.TMP_REPORTS_DIR
+        self.original_project_root = app_config.PROJECT_ROOT
+        self.original_project_env_file = app_config.PROJECT_ENV_FILE
+        app_config.REPORTS_DIR = self.reports_dir
+        app_config.TMP_REPORTS_DIR = self.reports_dir / ".tmp"
+        app_config.PROJECT_ROOT = self.project_root
+        app_config.PROJECT_ENV_FILE = self.project_env
+        analysis_tasks.tasks.clear()
+        screener_tasks.screener_tasks.clear()
 
         self.env_patcher = patch.dict(
             "os.environ",
@@ -77,12 +79,12 @@ class ReportMetadataAuthTests(unittest.TestCase):
             self.operator_id = self.operator.id
 
     def tearDown(self):
-        backend_main.REPORTS_DIR = self.original_reports_dir
-        backend_main.TMP_REPORTS_DIR = self.original_tmp_reports_dir
-        backend_main.PROJECT_ROOT = self.original_project_root
-        backend_main.PROJECT_ENV_FILE = self.original_project_env_file
-        backend_main.tasks.clear()
-        backend_main.screener_tasks.clear()
+        app_config.REPORTS_DIR = self.original_reports_dir
+        app_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
+        app_config.PROJECT_ROOT = self.original_project_root
+        app_config.PROJECT_ENV_FILE = self.original_project_env_file
+        analysis_tasks.tasks.clear()
+        screener_tasks.screener_tasks.clear()
         self.env_patcher.stop()
         auth.reset_runtime_state()
         self.temp_dir.cleanup()
@@ -125,74 +127,80 @@ class ReportMetadataAuthTests(unittest.TestCase):
         return report_dir
 
     def test_authenticated_reports_list_only_includes_visible_runs(self):
-        self._write_report(
-            "MSFT_20260420_093000",
-            owner_user_id=self.owner_id,
-            visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
-        )
-        self._write_report(
-            "QQQ_20260420_101500",
-            owner_user_id=self.collaborator_id,
-            visibility=report_metadata.REPORT_VISIBILITY_WORKSPACE,
-        )
-        self._write_report(
-            "IWM_20260420_110500",
-            owner_user_id=self.collaborator_id,
-            visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
-        )
-
-        with TestClient(backend_main.app) as client:
-            login_response = client.post(
-                "/api/auth/login",
-                json={"email": "owner@example.com", "password": "owner-password"},
+        async def scenario():
+            self._write_report(
+                "MSFT_20260420_093000",
+                owner_user_id=self.owner_id,
+                visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
             )
-            self.assertEqual(login_response.status_code, 200)
+            self._write_report(
+                "QQQ_20260420_101500",
+                owner_user_id=self.collaborator_id,
+                visibility=report_metadata.REPORT_VISIBILITY_WORKSPACE,
+            )
+            self._write_report(
+                "IWM_20260420_110500",
+                owner_user_id=self.collaborator_id,
+                visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
+            )
 
-            reports_response = client.get("/api/reports")
-            self.assertEqual(reports_response.status_code, 200)
-            report_ids = {row["id"] for row in reports_response.json()}
+            async with app_client(app) as client:
+                login_response = await client.post(
+                    "/api/auth/login",
+                    json={"email": "owner@example.com", "password": "owner-password"},
+                )
+                self.assertEqual(login_response.status_code, 200)
 
-        self.assertIn("MSFT_20260420_093000", report_ids)
-        self.assertIn("QQQ_20260420_101500", report_ids)
-        self.assertNotIn("IWM_20260420_110500", report_ids)
+                reports_response = await client.get("/api/reports")
+                self.assertEqual(reports_response.status_code, 200)
+                report_ids = {row["id"] for row in reports_response.json()}
+
+            self.assertIn("MSFT_20260420_093000", report_ids)
+            self.assertIn("QQQ_20260420_101500", report_ids)
+            self.assertNotIn("IWM_20260420_110500", report_ids)
+
+        asyncio.run(scenario())
 
     def test_report_structure_and_content_use_db_index_as_authority(self):
-        report_dir = self._write_report(
-            "MSFT_20260420_093000",
-            owner_user_id=self.owner_id,
-            visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
-        )
-        (report_dir / "artifacts" / "manual.json").write_text(
-            '{"note":"not indexed"}',
-            encoding="utf-8",
-        )
-
-        with TestClient(backend_main.app) as client:
-            login_response = client.post(
-                "/api/auth/login",
-                json={"email": "owner@example.com", "password": "owner-password"},
+        async def scenario():
+            report_dir = self._write_report(
+                "MSFT_20260420_093000",
+                owner_user_id=self.owner_id,
+                visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
             )
-            self.assertEqual(login_response.status_code, 200)
-
-            structure_response = client.get("/api/reports/MSFT_20260420_093000/structure")
-            self.assertEqual(structure_response.status_code, 200)
-            structure_payload = structure_response.json()
-
-            self.assertEqual(structure_payload["categories"]["analysts"], ["market"])
-            self.assertEqual(structure_payload["artifacts"][0]["path"], "artifacts/thesis.json")
-
-            content_response = client.get(
-                "/api/reports/MSFT_20260420_093000/content",
-                params={"path": "1_analysts/market.md"},
+            (report_dir / "artifacts" / "manual.json").write_text(
+                '{"note":"not indexed"}',
+                encoding="utf-8",
             )
-            self.assertEqual(content_response.status_code, 200)
-            self.assertIn("Momentum remains constructive", content_response.json()["content"])
 
-            unindexed_response = client.get(
-                "/api/reports/MSFT_20260420_093000/content",
-                params={"path": "artifacts/manual.json"},
-            )
-            self.assertEqual(unindexed_response.status_code, 404)
+            async with app_client(app) as client:
+                login_response = await client.post(
+                    "/api/auth/login",
+                    json={"email": "owner@example.com", "password": "owner-password"},
+                )
+                self.assertEqual(login_response.status_code, 200)
+
+                structure_response = await client.get("/api/reports/MSFT_20260420_093000/structure")
+                self.assertEqual(structure_response.status_code, 200)
+                structure_payload = structure_response.json()
+
+                self.assertEqual(structure_payload["categories"]["analysts"], ["market"])
+                self.assertEqual(structure_payload["artifacts"][0]["path"], "artifacts/thesis.json")
+
+                content_response = await client.get(
+                    "/api/reports/MSFT_20260420_093000/content",
+                    params={"path": "1_analysts/market.md"},
+                )
+                self.assertEqual(content_response.status_code, 200)
+                self.assertIn("Momentum remains constructive", content_response.json()["content"])
+
+                unindexed_response = await client.get(
+                    "/api/reports/MSFT_20260420_093000/content",
+                    params={"path": "artifacts/manual.json"},
+                )
+                self.assertEqual(unindexed_response.status_code, 404)
+
+        asyncio.run(scenario())
 
     def test_analysis_completion_indexes_report_with_owner_and_private_visibility(self):
         payload = {
@@ -234,25 +242,28 @@ class ReportMetadataAuthTests(unittest.TestCase):
             )
             return temp_dir / "complete_report.md"
 
-        with TestClient(backend_main.app) as client:
-            login_response = client.post(
-                "/api/auth/login",
-                json={"email": "operator@example.com", "password": "operator-password"},
-            )
-            self.assertEqual(login_response.status_code, 200)
+        async def create_task():
+            async with app_client(app) as client:
+                login_response = await client.post(
+                    "/api/auth/login",
+                    json={"email": "operator@example.com", "password": "operator-password"},
+                )
+                self.assertEqual(login_response.status_code, 200)
 
-            with patch("web.backend.main._start_task_thread") as start_task_thread:
-                task_body = client.post("/api/tasks", json=payload).json()
-            start_task_thread.assert_called_once()
+                with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+                    response = await client.post("/api/tasks", json=payload)
+                start_task_thread.assert_called_once()
+                return response.json()
 
+        task_body = asyncio.run(create_task())
         task_id = task_body["task_id"]
         with (
-            patch("web.backend.main.run_analysis_streaming", side_effect=fake_run_analysis_streaming),
-            patch("web.backend.main.save_report_to_disk", side_effect=fake_save_report_to_disk),
+            patch("web.backend.runtime.analysis_tasks.run_analysis_streaming", side_effect=fake_run_analysis_streaming),
+            patch("web.backend.runtime.analysis_tasks.save_report_to_disk", side_effect=fake_save_report_to_disk),
         ):
-            backend_main._run_task(task_id)
+            analysis_tasks.run_task(task_id)
 
-        indexed_report_id = backend_main.tasks[task_id].report_id
+        indexed_report_id = analysis_tasks.tasks[task_id].report_id
         self.assertIsNotNone(indexed_report_id)
 
         with auth.db_session() as db:

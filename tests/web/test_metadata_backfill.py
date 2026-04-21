@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import tempfile
@@ -5,10 +6,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
 from tradingagents.trade_feedback import create_trade_record as create_trade_record_file
-from web.backend import auth, backfill_metadata, main as backend_main, report_metadata
+from web.backend import app_config, auth, backfill_metadata, report_metadata
+from web.backend.main import app
+from tests.web.http_harness import app_client
 
 
 class MetadataBackfillTests(unittest.TestCase):
@@ -21,13 +22,15 @@ class MetadataBackfillTests(unittest.TestCase):
         self.screener_runs_dir.mkdir(parents=True)
         self.database_path = self.root / "auth.db"
 
-        self.original_backend_reports_dir = backend_main.REPORTS_DIR
-        self.original_backend_screener_runs_dir = backend_main.SCREENER_RUNS_DIR
+        self.original_backend_reports_dir = app_config.REPORTS_DIR
+        self.original_backend_screener_dir = app_config.SCREENER_RESULTS_DIR
+        self.original_backend_tmp_reports_dir = app_config.TMP_REPORTS_DIR
         self.original_backfill_reports_dir = backfill_metadata.REPORTS_DIR
         self.original_backfill_screener_runs_dir = backfill_metadata.SCREENER_RUNS_DIR
 
-        backend_main.REPORTS_DIR = self.reports_dir
-        backend_main.SCREENER_RUNS_DIR = self.screener_runs_dir
+        app_config.REPORTS_DIR = self.reports_dir
+        app_config.SCREENER_RESULTS_DIR = self.screener_runs_dir
+        app_config.TMP_REPORTS_DIR = app_config.REPORTS_DIR / ".tmp"
         backfill_metadata.REPORTS_DIR = self.reports_dir
         backfill_metadata.SCREENER_RUNS_DIR = self.screener_runs_dir
 
@@ -42,8 +45,9 @@ class MetadataBackfillTests(unittest.TestCase):
 
     def tearDown(self):
         auth.reset_runtime_state()
-        backend_main.REPORTS_DIR = self.original_backend_reports_dir
-        backend_main.SCREENER_RUNS_DIR = self.original_backend_screener_runs_dir
+        app_config.REPORTS_DIR = self.original_backend_reports_dir
+        app_config.SCREENER_RESULTS_DIR = self.original_backend_screener_dir
+        app_config.TMP_REPORTS_DIR = self.original_backend_tmp_reports_dir
         backfill_metadata.REPORTS_DIR = self.original_backfill_reports_dir
         backfill_metadata.SCREENER_RUNS_DIR = self.original_backfill_screener_runs_dir
         self.temp_dir.cleanup()
@@ -106,13 +110,6 @@ class MetadataBackfillTests(unittest.TestCase):
         )
         return record["trade_id"]
 
-    def _login(self, client: TestClient, email: str, password: str) -> None:
-        response = client.post(
-            "/api/auth/login",
-            json={"email": email, "password": password},
-        )
-        self.assertEqual(response.status_code, 200, response.text)
-
     def test_backfill_indexes_reports_trades_and_screener_runs_under_bootstrap_admin(self):
         self._write_report()
         self._write_trade()
@@ -144,48 +141,54 @@ class MetadataBackfillTests(unittest.TestCase):
                 )
 
     def test_authenticated_report_content_requires_metadata_indexed_path(self):
-        report_dir = self._write_report()
-        secret_path = report_dir / "secret.md"
-        secret_path.write_text("hidden", encoding="utf-8")
+        async def scenario():
+            report_dir = self._write_report()
+            secret_path = report_dir / "secret.md"
+            secret_path.write_text("hidden", encoding="utf-8")
 
-        required_env = dict(self.env)
-        required_env["AUTH_MODE"] = "required"
+            required_env = dict(self.env)
+            required_env["AUTH_MODE"] = "required"
 
-        with patch.dict(os.environ, required_env, clear=True):
-            auth.reset_runtime_state()
-            auth.create_all_for_testing()
-            with auth.db_session() as db:
-                auth.ensure_bootstrap_admin(db)
-                admin_user = auth.get_user_by_email(db, "admin@example.com")
-                report_metadata.upsert_report_run(
-                    db,
-                    report_id=report_dir.name,
-                    owner_user_id=admin_user.id,
-                    visibility=report_metadata.REPORT_VISIBILITY_WORKSPACE,
-                    ticker="MSFT",
-                    generated_at="2026-03-20 10:00:00",
-                    storage_path=report_dir.name,
-                    file_entries=report_metadata.build_report_file_index(report_dir),
-                )
+            with patch.dict(os.environ, required_env, clear=True):
+                auth.reset_runtime_state()
+                auth.create_all_for_testing()
+                with auth.db_session() as db:
+                    auth.ensure_bootstrap_admin(db)
+                    admin_user = auth.get_user_by_email(db, "admin@example.com")
+                    report_metadata.upsert_report_run(
+                        db,
+                        report_id=report_dir.name,
+                        owner_user_id=admin_user.id,
+                        visibility=report_metadata.REPORT_VISIBILITY_WORKSPACE,
+                        ticker="MSFT",
+                        generated_at="2026-03-20 10:00:00",
+                        storage_path=report_dir.name,
+                        file_entries=report_metadata.build_report_file_index(report_dir),
+                    )
 
-            with TestClient(backend_main.app) as client:
-                self._login(client, "admin@example.com", "AdminPass123")
+                async with app_client(app) as client:
+                    await client.post(
+                        "/api/auth/login",
+                        json={"email": "admin@example.com", "password": "AdminPass123"},
+                    )
 
-                list_response = client.get("/api/reports")
-                self.assertEqual(list_response.status_code, 200, list_response.text)
-                self.assertEqual([row["id"] for row in list_response.json()], [report_dir.name])
+                    list_response = await client.get("/api/reports")
+                    self.assertEqual(list_response.status_code, 200, list_response.text)
+                    self.assertEqual([row["id"] for row in list_response.json()], [report_dir.name])
 
-                content_response = client.get(
-                    f"/api/reports/{report_dir.name}/content",
-                    params={"path": "complete_report.md"},
-                )
-                self.assertEqual(content_response.status_code, 200, content_response.text)
+                    content_response = await client.get(
+                        f"/api/reports/{report_dir.name}/content",
+                        params={"path": "complete_report.md"},
+                    )
+                    self.assertEqual(content_response.status_code, 200, content_response.text)
 
-                missing_index_response = client.get(
-                    f"/api/reports/{report_dir.name}/content",
-                    params={"path": "secret.md"},
-                )
-                self.assertEqual(missing_index_response.status_code, 404)
+                    missing_index_response = await client.get(
+                        f"/api/reports/{report_dir.name}/content",
+                        params={"path": "secret.md"},
+                    )
+                    self.assertEqual(missing_index_response.status_code, 404)
+
+        asyncio.run(scenario())
 
 
 if __name__ == "__main__":

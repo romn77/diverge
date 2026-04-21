@@ -43,6 +43,8 @@ test("TradeJournal adds health and review overview blocks so a selected trade is
   assert.match(source, /Trade Health/);
   assert.match(source, /Review Coverage/);
   assert.match(source, /Feedback Loop/);
+  assert.match(source, /TickerPricePanel/);
+  assert.match(source, /Price Trend/);
   assert.match(source, /DetailMetric/);
   assert.match(source, /selectionSummaryCards/);
   assert.match(source, /reviewCoverageLabel/);

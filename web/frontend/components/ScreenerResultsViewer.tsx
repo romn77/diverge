@@ -4,10 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import {
   getScreenerRun,
+  getTickerHistoryBatch,
   listScreenerRunCandidates,
   type ScreenerCandidateRow,
   type ScreenerRunDetail,
+  type TickerHistoryPoint,
 } from "@/lib/api";
+import { TickerSparkline } from "./TickerPricePanel";
 
 interface ScreenerResultsViewerProps {
   runId: string;
@@ -35,6 +38,10 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
   const [rows, setRows] = useState<ScreenerCandidateRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadingTrendSeries, setLoadingTrendSeries] = useState(false);
+  const [trendSeriesByTicker, setTrendSeriesByTicker] = useState<
+    Record<string, TickerHistoryPoint[]>
+  >({});
   const [sortKey, setSortKey] = useState<SortKey>("global_rank");
   const [breakoutFilter, setBreakoutFilter] = useState<string>("all");
   const [volumeConfirmedOnly, setVolumeConfirmedOnly] = useState(false);
@@ -89,6 +96,55 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
       return true;
     });
   }, [rows, breakoutFilter, volumeConfirmedOnly]);
+
+  useEffect(() => {
+    if (filteredRows.length === 0) {
+      setTrendSeriesByTicker({});
+      setLoadingTrendSeries(false);
+      return;
+    }
+
+    let isActive = true;
+
+    const loadTrendSeries = async () => {
+      setLoadingTrendSeries(true);
+
+      try {
+        const uniqueTickers = Array.from(
+          new Map(filteredRows.map((row) => [seriesKey(row.symbol, row.market), row])).values()
+        );
+        const payload = await getTickerHistoryBatch({
+          tickers: uniqueTickers.map((row) => ({
+            symbol: row.symbol,
+            market: row.market,
+          })),
+          as_of_date: run?.as_of_date ?? null,
+        });
+        if (!isActive) {
+          return;
+        }
+
+        setTrendSeriesByTicker(
+          Object.fromEntries(
+            payload.items.map((item) => [seriesKey(item.symbol, item.market), item.points])
+          )
+        );
+      } catch {
+        if (isActive) {
+          setTrendSeriesByTicker({});
+        }
+      } finally {
+        if (isActive) {
+          setLoadingTrendSeries(false);
+        }
+      }
+    };
+
+    void loadTrendSeries();
+    return () => {
+      isActive = false;
+    };
+  }, [filteredRows, run?.as_of_date]);
 
   const sortedRows = useMemo(() => {
     return [...filteredRows].sort((a, b) => {
@@ -344,6 +400,9 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                     {t("screenerResults.header.symbol", "symbol")}
                   </th>
                   <th className="px-4 py-3 text-left">
+                    {t("screenerResults.header.trendSparkline", "trend")}
+                  </th>
+                  <th className="px-4 py-3 text-left">
                     {t("screenerResults.header.market", "market")}
                   </th>
                   <th className="px-4 py-3 text-right tabular-nums">
@@ -390,13 +449,13 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
               <tbody className="divide-y divide-slate-100 bg-white">
                 {isLoading ? (
                   <tr>
-                    <td className="px-4 py-6 text-slate-500" colSpan={13}>
+                    <td className="px-4 py-6 text-slate-500" colSpan={14}>
                       Loading screener candidates...
                     </td>
                   </tr>
                 ) : sortedRows.length === 0 ? (
                   <tr>
-                    <td className="px-4 py-6 text-slate-500" colSpan={13}>
+                    <td className="px-4 py-6 text-slate-500" colSpan={14}>
                       {t("screenerResults.empty", "No screener candidates available.")}
                     </td>
                   </tr>
@@ -407,6 +466,15 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                       className={row.global_rank <= 3 ? "bg-[rgba(245,222,209,0.18)]" : ""}
                     >
                       <td className="px-4 py-3 font-semibold text-slate-900">{row.symbol}</td>
+                      <td className="px-4 py-3">
+                        <TickerSparkline
+                          points={trendSeriesByTicker[seriesKey(row.symbol, row.market)] ?? []}
+                          loading={
+                            loadingTrendSeries &&
+                            !trendSeriesByTicker[seriesKey(row.symbol, row.market)]
+                          }
+                        />
+                      </td>
                       <td className="px-4 py-3">{row.market}</td>
                       <td className="px-4 py-3 text-right tabular-nums">{row.global_rank}</td>
                       <td className="px-4 py-3 text-right tabular-nums">
@@ -589,4 +657,8 @@ function formatAsOfDate(value: string | null, locale: string) {
     month: "short",
     day: "numeric",
   }).format(parsed);
+}
+
+function seriesKey(symbol: string, market: string) {
+  return `${market}:${symbol}`;
 }

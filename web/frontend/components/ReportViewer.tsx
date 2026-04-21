@@ -5,6 +5,7 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
 import { parseHighlights, type SignalConfidence, type TradeSignal } from "@/lib/highlights";
 import { MarkdownContent } from "./MarkdownContent";
+import { TickerPricePanel } from "./TickerPricePanel";
 
 interface ReportViewerProps {
   reportId: string;
@@ -716,6 +717,18 @@ export function ReportViewer({
 
           <div className="px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
             <div className="w-full">
+              <div className="mb-8">
+                <TickerPricePanel
+                  symbol={structure.ticker}
+                  asOfDate={reportMeta?.date ?? null}
+                  title={t("report.priceTrend", "Price Trend")}
+                  subtitle={t(
+                    "report.priceTrendHint",
+                    "400-day vendor-backed history aligned to this report date."
+                  )}
+                />
+              </div>
+
               {selectedTab !== "complete" && selectedCategoryMeta && (
                 <div className="mb-8 flex w-full flex-col gap-3 border-b border-[color:rgba(22,34,51,0.08)] pb-5 md:flex-row md:items-end md:justify-between">
                   <div className="space-y-1">

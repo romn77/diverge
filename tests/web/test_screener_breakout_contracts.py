@@ -1,15 +1,18 @@
 import unittest
 from unittest.mock import patch
 
-from web.backend import main as backend_main
+from web.backend.routers import screeners as screeners_router
+from web.backend.runtime import screener_tasks
+from web.backend.schemas.screeners import ScreenTaskCreatePayload
+from web.backend.services import config as config_service
 
 
 class ScreenerBreakoutContractTests(unittest.TestCase):
     def tearDown(self):
-        backend_main.screener_tasks.clear()
+        screener_tasks.screener_tasks.clear()
 
     def test_screener_config_options_expose_breakout_choices_and_default_selection(self):
-        payload = backend_main._get_screener_config_options_payload()
+        payload = config_service.get_screener_config_options_payload()
 
         self.assertEqual(
             [option["value"] for option in payload["breakout_types"]],
@@ -27,14 +30,14 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         }
 
         with (
-            patch("web.backend.main._require_screener_user", return_value=None),
-            patch("web.backend.main._start_screener_task_thread"),
+            patch("web.backend.access.require_screener_user", return_value=None),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread"),
         ):
-            body = backend_main.create_screener_task(
-                backend_main.ScreenTaskCreatePayload(**payload)
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
             )
 
-        task = backend_main.screener_tasks[body["task_id"]]
+        task = screener_tasks.screener_tasks[body["task_id"]]
         self.assertEqual(
             task.request_payload["breakout_types"],
             ["platform_breakout", "wedge_breakout"],
@@ -43,3 +46,7 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
             task.config_payload["breakout_types"],
             ["platform_breakout", "wedge_breakout"],
         )
+
+
+if __name__ == "__main__":
+    unittest.main()

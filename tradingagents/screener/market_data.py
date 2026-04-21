@@ -15,7 +15,7 @@ from tradingagents.data_layout import (
 from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df, _fetch_akshare_us_stock_df
 from tradingagents.dataflows.alpha_vantage_common import AlphaVantageRateLimitError
 from tradingagents.dataflows.alpha_vantage_stock import _fetch_alpha_vantage_stock_df
-from tradingagents.dataflows.cn_market_utils import normalize_symbol_for_vendor
+from tradingagents.dataflows.cn_market_utils import detect_market, normalize_symbol_for_vendor
 from tradingagents.dataflows.massive_stock import _fetch_massive_stock_df
 from tradingagents.dataflows.tushare_stock import _fetch_tushare_stock_df, _fetch_tushare_us_stock_df
 from tradingagents.dataflows.vendor_errors import (
@@ -527,6 +527,85 @@ def fetch_price_history(
         return _normalize_price_frame(frame)
 
     raise ValueError(f"Unsupported market '{market}'")
+
+
+def resolve_history_market(symbol: str, market: str | None = None) -> str:
+    normalized_market = str(market or "").strip().lower()
+    if normalized_market in {"cn", "china", "sh", "sz", "sse", "szse"}:
+        return "cn"
+    if normalized_market in {"us", "usa", "nasdaq", "nyse", "amex"}:
+        return "us"
+
+    detected_market = detect_market(str(symbol).strip())
+    return detected_market if detected_market in {"cn", "us"} else "us"
+
+
+def fetch_ticker_history(
+    symbol: str,
+    *,
+    market: str | None = None,
+    as_of_date: str,
+    lookback_days: int = LOOKBACK_DAYS,
+    cn_data_source: str = "tushare",
+    cn_data_source_fallbacks: list[str] | None = None,
+    us_data_source: str = "yfinance",
+    cache_dir: str | Path | None = None,
+) -> tuple[str, pd.DataFrame]:
+    normalized_symbol = str(symbol).strip()
+    if not normalized_symbol:
+        raise ValueError("symbol is required")
+    if lookback_days <= 0:
+        raise ValueError("lookback_days must be positive")
+
+    as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
+    start_date = (as_of_dt - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+    history_cache_dir = (
+        Path(cache_dir) if cache_dir is not None else resolve_history_dir()
+    )
+    resolved_market = resolve_history_market(normalized_symbol, market)
+    cached_frame = load_history_cache(history_cache_dir, resolved_market, normalized_symbol)
+    context = _HistoryFetchContext(
+        symbol=normalized_symbol,
+        market=resolved_market,
+        progress_current=1,
+        progress_total=1,
+        start_date=start_date,
+        as_of_date=as_of_date,
+        history_dir=history_cache_dir,
+        cached_frame=cached_frame,
+        cached_span=_history_span(cached_frame),
+        fetch_start=resolve_incremental_fetch_start(cached_frame, start_date, as_of_date),
+    )
+
+    cache_hit = _cache_hit_result(context)
+    if cache_hit is not None:
+        return resolved_market, (
+            cache_hit.history_frame
+            if cache_hit.history_frame is not None
+            else normalize_history_frame(pd.DataFrame())
+        )
+
+    executor = _HistoryFetchExecutor(
+        as_of_date=as_of_date,
+        cn_source_chain=build_cn_source_chain(
+            cn_data_source,
+            cn_data_source_fallbacks,
+        ),
+        us_data_source=us_data_source,
+    )
+    result = _fetch_symbol_history(context, executor=executor)
+    if result.failure is not None:
+        if result.failure.get("drop_reason") == "history_empty":
+            return resolved_market, normalize_history_frame(pd.DataFrame())
+        raise VendorRetryableError(
+            f"Failed to fetch history for {normalized_symbol} in market '{resolved_market}'"
+        )
+
+    return resolved_market, (
+        result.history_frame
+        if result.history_frame is not None
+        else normalize_history_frame(pd.DataFrame())
+    )
 
 
 def fetch_history_for_universe(

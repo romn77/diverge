@@ -13,6 +13,7 @@ import {
   type TradeReview,
   type TradeReviewType,
 } from "@/lib/api";
+import { TickerPricePanel } from "./TickerPricePanel";
 import { TradeRecordForm } from "./TradeRecordForm";
 import { TradeReviewForm } from "./TradeReviewForm";
 
@@ -636,6 +637,16 @@ export function TradeJournal({
                         />
                       ))}
                     </div>
+
+                    <TickerPricePanel
+                      symbol={tradeDetail.record.ticker}
+                      market={tradeDetail.record.exchange_or_market}
+                      title={t("journal.priceTrend", "Price Trend")}
+                      subtitle={t(
+                        "journal.priceTrendHint",
+                        "400-day vendor-backed history for the selected trade ticker."
+                      )}
+                    />
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <MetaCard

@@ -9,93 +9,83 @@ from fastapi import HTTPException
 
 from tradingagents.runner import AnalysisRequest
 from tradingagents.screener.schema import ScreenRunResult
-from web.backend import auth, main as backend_main
+from web.backend import app_config as backend_config
+from web.backend.routers import config as config_router
+from web.backend.routers import screeners as screeners_router
+from web.backend.routers import tasks as tasks_router
+from web.backend.runtime import analysis_tasks, screener_tasks
+from web.backend.schemas.screeners import ScreenTaskCreatePayload
+from web.backend.schemas.tasks import TaskCreatePayload
+from web.backend.schemas.ticker_history import (
+    TickerHistoryBatchItemPayload,
+    TickerHistoryBatchPayload,
+)
+from web.backend.services import config as config_service
+from web.backend.services import reports as report_service
+from web.backend.services import screeners as screener_service
+from web.backend.services import ticker_history as ticker_history_service
 
 
 class BackendMainTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.empty_project_dir = tempfile.TemporaryDirectory()
-        self.auth_env_patch = patch.dict(
-            os.environ,
-            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
-            clear=False,
-        )
-        self.auth_env_patch.start()
-        auth.reset_runtime_state()
-        self.original_reports_dir = backend_main.REPORTS_DIR
-        self.original_screener_runs_dir = getattr(
-            backend_main,
-            "SCREENER_RUNS_DIR",
-            Path(self.temp_dir.name) / "screener" / "runs",
-        )
-        self.original_screener_tasks_dir = getattr(
-            backend_main,
-            "SCREENER_TASKS_DIR",
-            Path(self.temp_dir.name) / "screener" / "tasks",
-        )
-        self.original_screener_cache_dir = getattr(
-            backend_main,
-            "SCREENER_CACHE_DIR",
-            Path(self.temp_dir.name) / "cache" / "screener",
-        )
-        self.original_stock_history_dir = getattr(
-            backend_main,
-            "STOCK_HISTORY_DIR",
-            Path(self.temp_dir.name) / "history",
-        )
-        backend_main.REPORTS_DIR = Path(self.temp_dir.name)
-        backend_main.SCREENER_RUNS_DIR = Path(self.temp_dir.name) / "screener" / "runs"
-        backend_main.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "screener" / "tasks"
-        backend_main.SCREENER_CACHE_DIR = Path(self.temp_dir.name) / "cache" / "screener"
-        backend_main.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "history"
+        self.original_reports_dir = backend_config.REPORTS_DIR
+        self.original_screener_results_dir = backend_config.SCREENER_RESULTS_DIR
+        self.original_screener_tasks_dir = backend_config.SCREENER_TASKS_DIR
+        self.original_screener_cache_dir = backend_config.SCREENER_CACHE_DIR
+        self.original_stock_history_dir = backend_config.STOCK_HISTORY_DIR
+        self.original_tmp_reports_dir = backend_config.TMP_REPORTS_DIR
+        backend_config.REPORTS_DIR = Path(self.temp_dir.name) / "data" / "reports"
+        backend_config.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "runs"
+        backend_config.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "tasks"
+        backend_config.SCREENER_CACHE_DIR = Path(self.temp_dir.name) / "data" / "cache" / "screener"
+        backend_config.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "data" / "history"
+        backend_config.TMP_REPORTS_DIR = backend_config.REPORTS_DIR / ".tmp"
         self.empty_project_root = Path(self.empty_project_dir.name)
         self.empty_project_env = self.empty_project_root / ".env"
-        backend_main.tasks.clear()
-        if hasattr(backend_main, "screener_tasks"):
-            backend_main.screener_tasks.clear()
+        analysis_tasks.tasks.clear()
+        screener_tasks.screener_tasks.clear()
 
     def tearDown(self):
-        self.auth_env_patch.stop()
-        auth.reset_runtime_state()
-        backend_main.REPORTS_DIR = self.original_reports_dir
-        backend_main.SCREENER_RUNS_DIR = self.original_screener_runs_dir
-        backend_main.SCREENER_TASKS_DIR = self.original_screener_tasks_dir
-        backend_main.SCREENER_CACHE_DIR = self.original_screener_cache_dir
-        backend_main.STOCK_HISTORY_DIR = self.original_stock_history_dir
-        backend_main.tasks.clear()
-        if hasattr(backend_main, "screener_tasks"):
-            backend_main.screener_tasks.clear()
+        backend_config.REPORTS_DIR = self.original_reports_dir
+        backend_config.SCREENER_RESULTS_DIR = self.original_screener_results_dir
+        backend_config.SCREENER_TASKS_DIR = self.original_screener_tasks_dir
+        backend_config.SCREENER_CACHE_DIR = self.original_screener_cache_dir
+        backend_config.STOCK_HISTORY_DIR = self.original_stock_history_dir
+        backend_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
+        analysis_tasks.tasks.clear()
+        screener_tasks.screener_tasks.clear()
         self.empty_project_dir.cleanup()
         self.temp_dir.cleanup()
 
     def test_list_reports_ignores_tmp_directory(self):
-        temp_report_dir = backend_main.REPORTS_DIR / ".tmp" / "task-123"
+        temp_report_dir = backend_config.REPORTS_DIR / ".tmp" / "task-123"
         temp_report_dir.mkdir(parents=True)
-        (backend_main.REPORTS_DIR / ".tasks").mkdir(parents=True)
-        (backend_main.REPORTS_DIR / ".trade_feedback").mkdir(parents=True)
+        (backend_config.REPORTS_DIR / ".tasks").mkdir(parents=True)
+        (backend_config.REPORTS_DIR / ".trade_feedback").mkdir(parents=True)
 
-        report_dir = backend_main.REPORTS_DIR / "SPY_20260305_155836"
+        report_dir = backend_config.REPORTS_DIR / "SPY_20260305_155836"
         report_dir.mkdir(parents=True)
         (report_dir / "complete_report.md").write_text(
             "# Trading Analysis Report: SPY\n\nGenerated: 2026-03-05 15:58:40\n\n",
             encoding="utf-8",
         )
 
-        reports = backend_main.list_reports()
+        reports = report_service.list_reports()
 
         self.assertEqual(len(reports), 1)
         self.assertEqual(reports[0]["id"], "SPY_20260305_155836")
 
     def test_resolve_report_dir_rejects_tmp_report_id(self):
         with self.assertRaises(HTTPException) as context:
-            backend_main._resolve_report_dir(".tmp")
+            report_service.resolve_report_dir(".tmp")
 
         self.assertEqual(context.exception.status_code, 404)
 
     def test_resolve_report_dir_rejects_hidden_trade_feedback_directory(self):
         with self.assertRaises(HTTPException) as context:
-            backend_main._resolve_report_dir(".trade_feedback")
+            report_service.resolve_report_dir(".trade_feedback")
 
         self.assertEqual(context.exception.status_code, 404)
 
@@ -119,23 +109,23 @@ class BackendMainTests(unittest.TestCase):
         )
 
         with (
-            patch("web.backend.main._start_task_thread") as start_task_thread,
+            patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
             patch.dict(os.environ, {}, clear=True),
-            patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
-            patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
-            body = backend_main.create_task(backend_main.TaskCreatePayload(**payload))
+            body = tasks_router.create_task(TaskCreatePayload(**payload))
 
         self.assertEqual(body["status"], "pending")
         start_task_thread.assert_called_once()
 
-        task_status = backend_main.get_task_status(body["task_id"])
+        task_status = tasks_router.get_task_status(body["task_id"])
         self.assertEqual(task_status["status"], "pending")
         self.assertEqual(task_status["request_payload"]["ticker"], "SPY")
         self.assertEqual(task_status["request_payload"]["analysts"], ["market", "news"])
         self.assertEqual(task_status["request_payload"]["llm_provider"], "openai")
 
-        snapshot_path = backend_main._task_snapshot_path(body["task_id"])
+        snapshot_path = analysis_tasks.task_snapshot_path(body["task_id"])
         self.assertTrue(snapshot_path.is_file())
         snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
         self.assertEqual(snapshot["status"], "pending")
@@ -154,24 +144,24 @@ class BackendMainTests(unittest.TestCase):
             "openai_reasoning_effort": "medium",
             "google_thinking_level": None,
         }
-        task = backend_main.Task(
+        task = analysis_tasks.Task(
             id="task-terminal",
             request=AnalysisRequest(**payload),
             status="running",
         )
-        backend_main.tasks[task.id] = task
+        analysis_tasks.tasks[task.id] = task
 
-        backend_main._persist_task_snapshot(task.id)
-        self.assertTrue(backend_main._task_snapshot_path(task.id).is_file())
+        analysis_tasks.persist_task_snapshot(task.id)
+        self.assertTrue(analysis_tasks.task_snapshot_path(task.id).is_file())
 
-        backend_main._set_task_status(task.id, "completed")
+        analysis_tasks.set_task_status(task.id, "completed")
 
-        self.assertFalse(backend_main._task_snapshot_path(task.id).exists())
+        self.assertFalse(analysis_tasks.task_snapshot_path(task.id).exists())
 
     def test_restore_persisted_active_tasks_marks_running_tasks_failed(self):
-        task_dir = backend_main._task_snapshot_path("task-recover").parent
+        task_dir = analysis_tasks.task_snapshot_path("task-recover").parent
         task_dir.mkdir(parents=True, exist_ok=True)
-        backend_main._task_snapshot_path("task-recover").write_text(
+        analysis_tasks.task_snapshot_path("task-recover").write_text(
             json.dumps(
                 {
                     "id": "task-recover",
@@ -199,25 +189,12 @@ class BackendMainTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        backend_main._restore_persisted_active_tasks()
+        analysis_tasks.restore_persisted_active_tasks()
 
-        restored = backend_main.get_task_status("task-recover")
+        restored = tasks_router.get_task_status("task-recover")
         self.assertEqual(restored["status"], "failed")
         self.assertIn("restarted", restored["error"].lower())
-        self.assertFalse(backend_main._task_snapshot_path("task-recover").exists())
-
-    def test_screener_task_snapshot_path_uses_dedicated_tasks_root(self):
-        screener_tasks_dir = getattr(
-            backend_main,
-            "SCREENER_TASKS_DIR",
-            Path(self.temp_dir.name) / "screener" / "tasks",
-        )
-        if hasattr(backend_main, "SCREENER_TASKS_DIR"):
-            backend_main.SCREENER_TASKS_DIR = screener_tasks_dir
-
-        expected = screener_tasks_dir / "active" / "task-123" / "task.json"
-
-        self.assertEqual(backend_main._screener_task_snapshot_path("task-123"), expected)
+        self.assertFalse(analysis_tasks.task_snapshot_path("task-recover").exists())
 
     def test_post_tasks_rejects_when_two_active_tasks_already_exist(self):
         payload = {
@@ -233,12 +210,12 @@ class BackendMainTests(unittest.TestCase):
             "google_thinking_level": None,
         }
         request = AnalysisRequest(**payload)
-        backend_main.tasks["task-one"] = backend_main.Task(
+        analysis_tasks.tasks["task-one"] = analysis_tasks.Task(
             id="task-one",
             request=request,
             status="running",
         )
-        backend_main.tasks["task-two"] = backend_main.Task(
+        analysis_tasks.tasks["task-two"] = analysis_tasks.Task(
             id="task-two",
             request=request,
             status="pending",
@@ -251,11 +228,11 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
-            patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
             with self.assertRaises(HTTPException) as context:
-                backend_main.create_task(backend_main.TaskCreatePayload(**payload))
+                tasks_router.create_task(TaskCreatePayload(**payload))
 
         self.assertEqual(context.exception.status_code, 409)
         self.assertIn("queue", context.exception.detail.lower())
@@ -268,15 +245,15 @@ class BackendMainTests(unittest.TestCase):
             "cn_data_source": "akshare",
         }
 
-        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
-            body = backend_main.create_screener_task(
-                backend_main.ScreenTaskCreatePayload(**payload)
+        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
             )
 
         self.assertEqual(body["status"], "pending")
         start_task_thread.assert_called_once()
 
-        task_status = backend_main.get_screener_task_status(body["task_id"])
+        task_status = screeners_router.get_screener_task_status(body["task_id"])
         self.assertEqual(task_status["status"], "pending")
         self.assertEqual(task_status["request_payload"]["markets"], ["cn"])
         self.assertEqual(task_status["request_payload"]["cn_data_source"], "akshare")
@@ -285,7 +262,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertNotIn("limit_per_market", task_status["config_payload"])
 
     def test_get_screener_config_options_exposes_cn_data_source_choices(self):
-        payload = backend_main._get_screener_config_options_payload()
+        payload = config_service.get_screener_config_options_payload()
 
         self.assertEqual(payload["defaults"]["cn_data_source"], "tushare")
         self.assertNotIn("limit_per_market", payload["defaults"])
@@ -306,15 +283,15 @@ class BackendMainTests(unittest.TestCase):
             {"SCREEN_CN_MANIFEST_PATH": "/tmp/cn_manifest.csv"},
             clear=True,
         ):
-            with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
-                body = backend_main.create_screener_task(
-                    backend_main.ScreenTaskCreatePayload(**payload)
+            with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+                body = screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
                 )
 
         self.assertEqual(body["status"], "pending")
         start_task_thread.assert_called_once()
 
-        task_status = backend_main.get_screener_task_status(body["task_id"])
+        task_status = screeners_router.get_screener_task_status(body["task_id"])
         self.assertEqual(task_status["request_payload"]["markets"], ["cn"])
         self.assertNotIn("cn_manifest_path", task_status["request_payload"])
         self.assertEqual(
@@ -331,8 +308,8 @@ class BackendMainTests(unittest.TestCase):
 
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(HTTPException) as context:
-                backend_main.create_screener_task(
-                    backend_main.ScreenTaskCreatePayload(**payload)
+                screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
                 )
 
         self.assertEqual(context.exception.status_code, 400)
@@ -351,12 +328,12 @@ class BackendMainTests(unittest.TestCase):
             openai_reasoning_effort="medium",
             google_thinking_level=None,
         )
-        backend_main.tasks["task-one"] = backend_main.Task(
+        analysis_tasks.tasks["task-one"] = analysis_tasks.Task(
             id="task-one",
             request=analysis_request,
             status="running",
         )
-        backend_main.tasks["task-two"] = backend_main.Task(
+        analysis_tasks.tasks["task-two"] = analysis_tasks.Task(
             id="task-two",
             request=analysis_request,
             status="pending",
@@ -368,15 +345,15 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 20,
         }
         with self.assertRaises(HTTPException) as context:
-            backend_main.create_screener_task(
-                backend_main.ScreenTaskCreatePayload(**payload)
+            screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
             )
 
         self.assertEqual(context.exception.status_code, 409)
         self.assertIn("queue", context.exception.detail.lower())
 
     def test_list_screener_runs_reads_run_meta_files(self):
-        run_dir = backend_main.SCREENER_RUNS_DIR / "20260324_214530"
+        run_dir = backend_config.SCREENER_RESULTS_DIR / "20260324_214530"
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "run_meta.json").write_text(
             json.dumps(
@@ -390,27 +367,94 @@ class BackendMainTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        runs = backend_main.list_screener_runs()
+        runs = screener_service.list_screener_runs()
 
         self.assertEqual(runs[0]["id"], "20260324_214530")
         self.assertEqual(runs[0]["markets"], ["cn", "us"])
         self.assertEqual(runs[0]["candidate_count"], 12)
 
     def test_get_screener_run_candidates_reads_candidates_csv(self):
-        run_dir = backend_main.SCREENER_RUNS_DIR / "20260324_214530"
+        run_dir = backend_config.SCREENER_RESULTS_DIR / "20260324_214530"
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "candidates.csv").write_text(
             "symbol,market,global_rank,total_score\n600519.SH,cn,1,1.23\nAAPL,us,2,0.91\n",
             encoding="utf-8",
         )
 
-        rows = backend_main.get_screener_run_candidates("20260324_214530")
+        rows = screener_service.get_screener_run_candidates("20260324_214530")
 
         self.assertEqual(rows[0]["symbol"], "600519.SH")
         self.assertEqual(rows[1]["market"], "us")
 
+    def test_get_ticker_history_payload_reads_cached_series_and_infers_market(self):
+        cache_path = (
+            backend_config.STOCK_HISTORY_DIR
+            / "us"
+            / "AAPL.csv"
+        )
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            (
+                "Date,Open,High,Low,Close,Volume,Amount\n"
+                "2025-02-17,180,184,179,182,900,163800\n"
+                "2026-03-21,210,214,209,213,1000,213000\n"
+                "2026-03-24,214,216,213,215,1200,258000\n"
+            ),
+            encoding="utf-8",
+        )
+
+        payload = ticker_history_service.get_ticker_history_payload("AAPL", as_of_date="2026-03-24")
+
+        self.assertEqual(payload["symbol"], "AAPL")
+        self.assertEqual(payload["market"], "us")
+        self.assertEqual(payload["as_of_date"], "2026-03-24")
+        self.assertEqual(payload["start_date"], "2025-02-17")
+        self.assertEqual(payload["end_date"], "2026-03-24")
+        self.assertEqual(len(payload["points"]), 3)
+        self.assertEqual(payload["points"][1]["close"], 213.0)
+        self.assertEqual(payload["points"][2]["open"], 214.0)
+
+    def test_get_batch_ticker_history_payload_returns_compact_points(self):
+        cache_path = (
+            backend_config.STOCK_HISTORY_DIR
+            / "cn"
+            / "600519.SH.csv"
+        )
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            (
+                "Date,Open,High,Low,Close,Volume,Amount\n"
+                "2025-02-17,1290,1302,1285,1298,880,1142240\n"
+                "2026-03-21,1500,1510,1492,1508,1000,1508000\n"
+                "2026-03-24,1512,1520,1501,1519,1200,1822800\n"
+            ),
+            encoding="utf-8",
+        )
+
+        payload = ticker_history_service.get_batch_ticker_history_payload(
+            TickerHistoryBatchPayload(
+                tickers=[TickerHistoryBatchItemPayload(symbol="600519.SH", market="cn")],
+                as_of_date="2026-03-24",
+            )
+        )
+
+        self.assertEqual(payload["as_of_date"], "2026-03-24")
+        self.assertEqual(payload["items"][0]["symbol"], "600519.SH")
+        self.assertEqual(payload["items"][0]["market"], "cn")
+        self.assertEqual(payload["items"][0]["points"][1]["close"], 1508.0)
+        self.assertNotIn("open", payload["items"][0]["points"][0])
+
+    def test_get_batch_ticker_history_payload_rejects_empty_items(self):
+        with self.assertRaises(HTTPException) as context:
+            ticker_history_service.get_batch_ticker_history_payload(
+                TickerHistoryBatchPayload(tickers=[], as_of_date="2026-03-24")
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("tickers", context.exception.detail.lower())
+
     def test_run_screener_task_marks_failed_stage_as_not_processing(self):
-        task = backend_main.ScreenerTask(
+        task = screener_tasks.ScreenerTask(
             id="task-failed-screener",
             request_payload={
                 "markets": ["cn"],
@@ -425,12 +469,12 @@ class BackendMainTests(unittest.TestCase):
                 "cn_data_source": "akshare",
             },
         )
-        backend_main.screener_tasks[task.id] = task
+        screener_tasks.screener_tasks[task.id] = task
 
-        with patch("web.backend.main.run_screen", side_effect=ValueError("boom")):
-            backend_main._run_screener_task(task.id)
+        with patch("web.backend.runtime.screener_tasks.run_screen", side_effect=ValueError("boom")):
+            screener_tasks.run_screener_task(task.id)
 
-        task_status = backend_main.get_screener_task_status(task.id)
+        task_status = screeners_router.get_screener_task_status(task.id)
         self.assertEqual(task_status["status"], "failed")
         self.assertEqual(
             task_status["latest_progress"]["stage_status"],
@@ -446,7 +490,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("boom", task_status["error"])
 
     def test_run_screener_task_accepts_extended_progress_callback_signature(self):
-        task = backend_main.ScreenerTask(
+        task = screener_tasks.ScreenerTask(
             id="task-progress-screener",
             request_payload={
                 "markets": ["cn"],
@@ -461,7 +505,7 @@ class BackendMainTests(unittest.TestCase):
                 "cn_data_source": "akshare",
             },
         )
-        backend_main.screener_tasks[task.id] = task
+        screener_tasks.screener_tasks[task.id] = task
 
         def fake_run_screen(config, progress_callback=None):
             assert progress_callback is not None
@@ -474,7 +518,7 @@ class BackendMainTests(unittest.TestCase):
                 detail="cache=2025-02-17..2026-03-24",
             )
             return ScreenRunResult(
-                run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
+                run_dir=Path("/tmp/results/screener/20260324_214530"),
                 universe_count_by_market={"cn": 1},
                 fetch_failed_count=0,
                 filtered_count_by_reason={},
@@ -482,10 +526,10 @@ class BackendMainTests(unittest.TestCase):
                 candidate_preview=[],
             )
 
-        with patch("web.backend.main.run_screen", side_effect=fake_run_screen):
-            backend_main._run_screener_task(task.id)
+        with patch("web.backend.runtime.screener_tasks.run_screen", side_effect=fake_run_screen):
+            screener_tasks.run_screener_task(task.id)
 
-        task_status = backend_main.get_screener_task_status(task.id)
+        task_status = screeners_router.get_screener_task_status(task.id)
         self.assertEqual(task_status["status"], "completed")
         self.assertIn("cache_hit", task_status["progress_events"][0]["message"])
         self.assertIn("600519.SH", task_status["progress_events"][0]["message"])
@@ -497,10 +541,10 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 20,
         }
 
-        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
             with self.assertRaises(HTTPException) as context:
-                backend_main.create_screener_task(
-                    backend_main.ScreenTaskCreatePayload(**payload)
+                screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
                 )
 
         self.assertEqual(context.exception.status_code, 400)
@@ -514,10 +558,10 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 0,
         }
 
-        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
             with self.assertRaises(HTTPException) as context:
-                backend_main.create_screener_task(
-                    backend_main.ScreenTaskCreatePayload(**payload)
+                screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
                 )
 
         self.assertEqual(context.exception.status_code, 400)
@@ -531,10 +575,10 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 20,
         }
 
-        with patch("web.backend.main._start_screener_task_thread") as start_task_thread:
+        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
             with self.assertRaises(HTTPException) as context:
-                backend_main.create_screener_task(
-                    backend_main.ScreenTaskCreatePayload(**payload)
+                screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
                 )
 
         self.assertEqual(context.exception.status_code, 400)
@@ -557,17 +601,17 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
-            patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
             with self.assertRaises(HTTPException) as context:
-                backend_main.create_task(backend_main.TaskCreatePayload(**payload))
+                tasks_router.create_task(TaskCreatePayload(**payload))
 
         self.assertEqual(context.exception.status_code, 400)
         self.assertIn("API key", context.exception.detail)
 
     def test_config_options_expose_shared_provider_and_model_choices(self):
-        payload = backend_main.get_config_options()
+        payload = config_router.get_config_options()
         provider_values = {provider["value"] for provider in payload["providers"]}
 
         self.assertIn("openai", provider_values)
@@ -583,10 +627,10 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
-            patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
-            payload = backend_main._get_config_options_payload()
+            payload = config_service.get_config_options_payload()
 
         providers = {provider["value"]: provider for provider in payload["providers"]}
 
@@ -605,10 +649,10 @@ class BackendMainTests(unittest.TestCase):
         try:
             with (
                 patch.dict(os.environ, {}, clear=True),
-                patch.object(backend_main, "PROJECT_ROOT", temp_project_path),
-                patch.object(backend_main, "PROJECT_ENV_FILE", temp_project_path / ".env"),
+                patch.object(backend_config, "PROJECT_ROOT", temp_project_path),
+                patch.object(backend_config, "PROJECT_ENV_FILE", temp_project_path / ".env"),
             ):
-                payload = backend_main._get_config_options_payload()
+                payload = config_service.get_config_options_payload()
         finally:
             temp_project.cleanup()
 
@@ -618,10 +662,10 @@ class BackendMainTests(unittest.TestCase):
     def test_config_options_ignore_process_env_without_project_env_value(self):
         with (
             patch.dict(os.environ, {"OPENAI_API_KEY": "test-openai-key"}, clear=True),
-            patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
-            patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
-            payload = backend_main._get_config_options_payload()
+            payload = config_service.get_config_options_payload()
 
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertFalse(providers["openai"]["enabled"])
@@ -634,10 +678,10 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch.object(backend_main, "PROJECT_ROOT", self.empty_project_root),
-            patch.object(backend_main, "PROJECT_ENV_FILE", self.empty_project_env),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
         ):
-            payload = backend_main._get_config_options_payload()
+            payload = config_service.get_config_options_payload()
 
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertFalse(providers["xiaohumini"]["enabled"])
@@ -645,7 +689,7 @@ class BackendMainTests(unittest.TestCase):
     def test_frontend_origins_default_to_localhost_3000(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
-                backend_main._get_frontend_origins(),
+                backend_config.get_frontend_origins(),
                 ["http://localhost:3000"],
             )
 
@@ -656,7 +700,7 @@ class BackendMainTests(unittest.TestCase):
             clear=True,
         ):
             self.assertEqual(
-                backend_main._get_frontend_origins(),
+                backend_config.get_frontend_origins(),
                 ["https://reports.example.com", "https://alt.example.com"],
             )
 

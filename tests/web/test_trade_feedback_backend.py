@@ -1,12 +1,26 @@
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from tradingagents import trade_feedback
-from web.backend import auth, main as backend_main
+from web.backend import app_config
+from web.backend.schemas.trades import (
+    AnalysisReferencePayload,
+    TradeRecordCreatePayload,
+    TradeRecordUpdatePayload,
+    TradeReviewCreatePayload,
+    TradeReviewSavePayload,
+)
+from web.backend.services.trades import (
+    create_trade,
+    create_trade_review,
+    get_ticker_trade_feedback,
+    get_trade,
+    save_trade_review,
+    update_trade,
+)
 
 
 class _FakeClient:
@@ -28,20 +42,15 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.temp_dir.name) / "project"
         self.project_root.mkdir(parents=True)
-        self.auth_env_patch = patch.dict(
-            os.environ,
-            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
-            clear=False,
-        )
-        self.auth_env_patch.start()
-        auth.reset_runtime_state()
-        self.original_reports_dir = backend_main.REPORTS_DIR
-        backend_main.REPORTS_DIR = self.project_root / "data" / "reports"
+        self.original_reports_dir = app_config.REPORTS_DIR
+        self.original_tmp_reports_dir = app_config.TMP_REPORTS_DIR
+        app_config.REPORTS_DIR = self.project_root / "data" / "reports"
+        app_config.TMP_REPORTS_DIR = app_config.REPORTS_DIR / ".tmp"
 
         self.project_patch = patch.object(trade_feedback, "PROJECT_ROOT", self.project_root)
         self.project_patch.start()
 
-        report_dir = backend_main.REPORTS_DIR / "MSFT_20260401_120000"
+        report_dir = app_config.REPORTS_DIR / "MSFT_20260401_120000"
         eval_dir = (
             self.project_root
             / "data"
@@ -75,15 +84,14 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         )
 
     def tearDown(self):
-        self.auth_env_patch.stop()
-        auth.reset_runtime_state()
-        backend_main.REPORTS_DIR = self.original_reports_dir
+        app_config.REPORTS_DIR = self.original_reports_dir
+        app_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
         self.project_patch.stop()
         self.temp_dir.cleanup()
 
     def test_trade_routes_create_update_and_generate_review(self):
-        record = backend_main.create_trade(
-            backend_main.TradeRecordCreatePayload(
+        record = create_trade(
+            TradeRecordCreatePayload(
                 ticker="MSFT",
                 exchange_or_market="NASDAQ",
                 side="long",
@@ -97,7 +105,7 @@ class TradeFeedbackBackendTests(unittest.TestCase):
                 take_profit=448.0,
                 notes="Manual entry.",
                 analysis_references=[
-                    backend_main.AnalysisReferencePayload(
+                    AnalysisReferencePayload(
                         analysis_date="2026-04-01",
                         report_path="data/reports/MSFT_20260401_120000/complete_report.md",
                         full_state_log_path="data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
@@ -107,9 +115,9 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         )
 
         trade_id = record["trade_id"]
-        updated = backend_main.update_trade(
+        updated = update_trade(
             trade_id,
-            backend_main.TradeRecordUpdatePayload(
+            TradeRecordUpdatePayload(
                 status="closed",
                 exit_timestamp="2026-04-03T15:55:00",
                 exit_price=436.5,
@@ -137,9 +145,9 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             "tradingagents.trade_feedback._now_iso",
             return_value="2026-04-03T16:00:00",
         ):
-            review = backend_main.create_trade_review(
+            review = create_trade_review(
                 trade_id,
-                backend_main.TradeReviewCreatePayload(
+                TradeReviewCreatePayload(
                     review_type="exit_review",
                     llm_provider="ollama",
                     model="local-test",
@@ -151,23 +159,23 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         self.assertEqual(review["review_type"], "exit_review")
         self.assertEqual(review["analysis_date"], "2026-04-03")
 
-        trade_payload = backend_main.get_trade(trade_id)
+        trade_payload = get_trade(trade_id)
         self.assertEqual(trade_payload["record"]["trade_id"], trade_id)
         self.assertEqual(len(trade_payload["reviews"]), 1)
 
-        earlier_feedback = backend_main.get_ticker_trade_feedback(
+        earlier_feedback = get_ticker_trade_feedback(
             "MSFT",
             analysis_date="2026-04-02",
         )
         self.assertEqual(earlier_feedback["reviews"], [])
 
-        feedback_payload = backend_main.get_ticker_trade_feedback("MSFT")
+        feedback_payload = get_ticker_trade_feedback("MSFT")
         self.assertEqual(feedback_payload["ticker"], "MSFT")
         self.assertIn("Historical trade feedback for ticker MSFT", feedback_payload["prompt"])
 
     def test_manual_review_save_accepts_list_fields(self):
-        record = backend_main.create_trade(
-            backend_main.TradeRecordCreatePayload(
+        record = create_trade(
+            TradeRecordCreatePayload(
                 ticker="MSFT",
                 exchange_or_market="NASDAQ",
                 side="long",
@@ -181,7 +189,7 @@ class TradeFeedbackBackendTests(unittest.TestCase):
                 take_profit=448.0,
                 notes="Manual entry.",
                 analysis_references=[
-                    backend_main.AnalysisReferencePayload(
+                    AnalysisReferencePayload(
                         analysis_date="2026-04-01",
                         report_path="data/reports/MSFT_20260401_120000/complete_report.md",
                         full_state_log_path="data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
@@ -194,10 +202,10 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             "tradingagents.trade_feedback._now_iso",
             return_value="2026-04-13T09:15:00",
         ):
-            review = backend_main.save_trade_review(
+            review = save_trade_review(
                 record["trade_id"],
                 "entry_review",
-                backend_main.TradeReviewSavePayload(
+                TradeReviewSavePayload(
                     thesis_assessment="The thesis was explicit and tied to cloud demand durability.",
                     timing_assessment="The entry waited for the planned pullback instead of chasing.",
                     sizing_assessment="Size respected the planned stop distance.",
@@ -227,11 +235,11 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             ["MSFT entries improve when cloud commentary confirms demand durability."],
         )
 
-        earlier_feedback = backend_main.get_ticker_trade_feedback(
+        earlier_feedback = get_ticker_trade_feedback(
             "MSFT",
             analysis_date="2026-04-02",
         )
-        visible_feedback = backend_main.get_ticker_trade_feedback(
+        visible_feedback = get_ticker_trade_feedback(
             "MSFT",
             analysis_date="2026-04-13",
         )

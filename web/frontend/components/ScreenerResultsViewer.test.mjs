@@ -10,6 +10,8 @@ test("ScreenerResultsViewer loads candidate rows and renders sortable score colu
 
   assert.match(source, /getScreenerRun/);
   assert.match(source, /listScreenerRunCandidates/);
+  assert.match(source, /getTickerHistoryBatch/);
+  assert.match(source, /TickerSparkline/);
   assert.match(source, /global_rank/);
   assert.match(source, /total_score/);
   assert.match(source, /trend_score/);
@@ -19,6 +21,7 @@ test("ScreenerResultsViewer loads candidate rows and renders sortable score colu
   assert.match(source, /breakout_type/);
   assert.match(source, /breakout_with_volume/);
   assert.match(source, /breakout_bonus/);
+  assert.match(source, /trendSparkline/);
   assert.match(source, /strategy_tags/);
   assert.match(source, /risk_flags/);
   assert.match(source, /aria-pressed=\{sortKey === column\.key\}/);
