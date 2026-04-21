@@ -1,6 +1,7 @@
 from typing import Annotated
-from datetime import datetime
+from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
+import pandas as pd
 import yfinance as yf
 import os
 import pandas as pd
@@ -99,6 +100,47 @@ def get_YFin_data_online(
     return header + csv_string
 
 
+<<<<<<< HEAD
+=======
+def get_latest_price(
+    symbol: Annotated[str, "ticker symbol of the company"],
+):
+    ticker = yf.Ticker(symbol.upper())
+    data = yf_retry(lambda: ticker.history(period="5d", interval="1d"))
+    if data.empty:
+        raise RuntimeError(f"No latest price found for symbol '{symbol}'")
+
+    if data.index.tz is not None:
+        timestamp = data.index[-1].to_pydatetime()
+    else:
+        timestamp = data.index[-1].to_pydatetime().replace(tzinfo=timezone.utc)
+
+    close_price = float(data["Close"].iloc[-1])
+
+    currency = None
+    try:
+        fast_info = yf_retry(lambda: ticker.fast_info)
+        if fast_info:
+            currency = fast_info.get("currency")
+    except Exception:
+        currency = None
+
+    if not currency:
+        try:
+            info = yf_retry(lambda: ticker.info)
+            currency = info.get("currency") if isinstance(info, dict) else None
+        except Exception:
+            currency = None
+
+    return {
+        "ticker": symbol.upper(),
+        "price": close_price,
+        "currency": currency or "USD",
+        "as_of": timestamp.isoformat(),
+        "source": "yfinance",
+    }
+
+>>>>>>> agent/implement-dev/9e0b812f
 def get_stock_stats_indicators_window(
     symbol: Annotated[str, "ticker symbol of the company"],
     indicator: Annotated[str, "technical indicator to get the analysis and report of"],

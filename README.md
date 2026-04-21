@@ -118,6 +118,19 @@ Install the package and its dependencies:
 pip install .
 ```
 
+### Docker
+
+Alternatively, run with Docker:
+```bash
+cp .env.example .env  # add your API keys
+docker compose run --rm tradingagents
+```
+
+For local models with Ollama:
+```bash
+docker compose --profile ollama run --rm tradingagents-ollama
+```
+
 ### Required APIs
 
 TradingAgents supports multiple LLM providers. Set the API key for your chosen provider:
@@ -127,12 +140,16 @@ export OPENAI_API_KEY=...          # OpenAI (GPT)
 export GOOGLE_API_KEY=...          # Google (Gemini)
 export ANTHROPIC_API_KEY=...       # Anthropic (Claude)
 export XAI_API_KEY=...             # xAI (Grok)
+export DEEPSEEK_API_KEY=...        # DeepSeek
+export DASHSCOPE_API_KEY=...       # Qwen (Alibaba DashScope)
+export ZHIPU_API_KEY=...           # GLM (Zhipu)
 export OPENROUTER_API_KEY=...      # OpenRouter
 export DEEPSEEK_API_KEY=...        # DeepSeek
 export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage
 export TUSHARE_TOKEN=...           # Tushare (required for CN market data)
 ```
 
+<<<<<<< HEAD
 ### CN Data Source Setup (akshare + tushare)
 
 TradingAgents supports CN-market routing through `akshare` and `tushare` under the same tool interfaces.
@@ -145,6 +162,9 @@ TradingAgents supports CN-market routing through `akshare` and `tushare` under t
   - `data_vendors[category]`
 
 If a configured vendor is unavailable or unsupported for a method, the router applies semantic fallback to the next available vendor. For example, CN news can fallback from `akshare`/`tushare` to `yfinance` for global coverage when capability-gated errors occur.
+=======
+For enterprise providers (e.g. Azure OpenAI, AWS Bedrock), copy `.env.enterprise.example` to `.env.enterprise` and fill in your credentials.
+>>>>>>> agent/implement-dev/9e0b812f
 
 For local models, configure Ollama with `llm_provider: "ollama"` in your config.
 

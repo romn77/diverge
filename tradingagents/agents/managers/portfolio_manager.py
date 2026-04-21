@@ -16,11 +16,16 @@ def create_portfolio_manager(llm, memory):
         news_report = state["news_report"]
         fundamentals_report = state["fundamentals_report"]
         sentiment_report = state["sentiment_report"]
+<<<<<<< HEAD
         trader_plan = state["investment_plan"]
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+=======
+        research_plan = state["investment_plan"]
+        trader_plan = state["trader_investment_plan"]
+>>>>>>> agent/implement-dev/9e0b812f
 
         curr_situation = (
             f"{market_research_report}\n\n{sentiment_report}\n\n"
@@ -55,7 +60,8 @@ Guidelines for Decision-Making:
 - **Sell**: Exit position or avoid entry
 
 **Context:**
-- Trader's proposed plan: **{trader_plan}**
+- Research Manager's investment plan: **{research_plan}**
+- Trader's transaction proposal: **{trader_plan}**
 - Lessons from past decisions: **{past_memory_str}**
 {trade_feedback_message}
 

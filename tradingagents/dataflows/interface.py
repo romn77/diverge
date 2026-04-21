@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from .akshare import (
     get_stock as get_akshare_stock,
     get_indicator as get_akshare_indicator,
@@ -8,9 +9,24 @@ from .akshare import (
     get_insider_transactions as get_akshare_insider_transactions,
     get_news as get_akshare_news,
     get_global_news as get_akshare_global_news,
+=======
+from typing import Annotated
+
+# Import from vendor-specific modules
+from .y_finance import (
+    get_YFin_data_online,
+    get_latest_price as get_yfinance_latest_price,
+    get_stock_stats_indicators_window,
+    get_fundamentals as get_yfinance_fundamentals,
+    get_balance_sheet as get_yfinance_balance_sheet,
+    get_cashflow as get_yfinance_cashflow,
+    get_income_statement as get_yfinance_income_statement,
+    get_insider_transactions as get_yfinance_insider_transactions,
+>>>>>>> agent/implement-dev/9e0b812f
 )
 from .alpha_vantage import (
     get_stock as get_alpha_vantage_stock,
+    get_latest_price as get_alpha_vantage_latest_price,
     get_indicator as get_alpha_vantage_indicator,
     get_fundamentals as get_alpha_vantage_fundamentals,
     get_balance_sheet as get_alpha_vantage_balance_sheet,
@@ -57,7 +73,14 @@ from .vendor_errors import (
 TOOLS_CATEGORIES = {
     "core_stock_apis": {
         "description": "OHLCV stock price data",
+<<<<<<< HEAD
         "tools": ["get_stock_data"],
+=======
+        "tools": [
+            "get_stock_data",
+            "get_latest_price",
+        ]
+>>>>>>> agent/implement-dev/9e0b812f
     },
     "technical_indicators": {
         "description": "Technical analysis indicators",
@@ -117,6 +140,10 @@ VENDOR_METHODS = {
         "alpha_vantage": get_alpha_vantage_stock,
         "yfinance": get_YFin_data_online,
         "massive": get_massive_stock,
+    },
+    "get_latest_price": {
+        "alpha_vantage": get_alpha_vantage_latest_price,
+        "yfinance": get_yfinance_latest_price,
     },
     # technical_indicators
     "get_indicators": {
@@ -366,6 +393,7 @@ def execute_vendor_chain(
             last_error = exc
             continue
 
+<<<<<<< HEAD
     if last_error is not None:
         raise RuntimeError(
             f"No available vendor for '{method}' in market '{market}'. "
@@ -423,3 +451,6 @@ def route_to_normalized_fundamentals(
         ticker=ticker,
         frequency=freq,
     )
+=======
+    raise RuntimeError(f"No available vendor for '{method}'")
+>>>>>>> agent/implement-dev/9e0b812f

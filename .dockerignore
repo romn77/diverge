@@ -1,5 +1,6 @@
 .git
 .venv
+<<<<<<< HEAD
 .cache
 .ruff_cache
 .sisyphus
@@ -10,3 +11,18 @@ reports
 web/frontend/.next
 web/frontend/node_modules
 node_modules
+=======
+.env
+.claude
+.idea
+.vscode
+.DS_Store
+__pycache__
+*.egg-info
+build
+dist
+results
+eval_results
+Dockerfile
+docker-compose.yml
+>>>>>>> agent/implement-dev/9e0b812f
