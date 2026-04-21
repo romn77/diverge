@@ -98,7 +98,7 @@ def evaluate_screen_stage(
     _emit(progress_callback, "filters", 1, 1)
 
     _emit(progress_callback, "ranking", 0, 1)
-    ranked_df = score_candidates(kept_df) if not kept_df.empty else kept_df.copy()
+    ranked_df = score_candidates(kept_df, config) if not kept_df.empty else kept_df.copy()
     _emit(progress_callback, "ranking", 1, 1)
 
     return EvaluationStageBundle(

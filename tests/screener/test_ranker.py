@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 
 from tradingagents.screener.ranker import score_candidates
+from tradingagents.screener.schema import ScreenRunConfig
 
 
 def test_score_candidates_assigns_market_and_global_ranks_with_market_level_standardization():
@@ -123,3 +124,104 @@ def test_score_candidates_adds_strategy_tags_and_risk_flags_from_thresholds():
     assert "high_atr" in first["risk_flags"]
     assert "rsi_hot" in first["risk_flags"]
     assert "rsi_cold" in second["risk_flags"]
+
+
+def test_score_candidates_applies_selected_breakout_bonus_with_cap_and_tags():
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=10,
+        breakout_types=["platform_breakout", "wedge_breakout"],
+    )
+    features = pd.DataFrame(
+        [
+            {
+                "symbol": "AAA",
+                "market": "cn",
+                "close": 100.0,
+                "ma20": 100.0,
+                "ma60": 100.0,
+                "ret_20": 0.0,
+                "ret_60": 0.0,
+                "macdh": 0.0,
+                "rsi": 55.0,
+                "atr_pct": 0.02,
+                "avg_amount_20d": 80_000_000.0,
+                "vwma": 100.0,
+                "breakout_hit": True,
+                "breakout_type": "platform_breakout",
+                "breakout_with_volume": True,
+                "breakout_reason": "platform_breakout close=103.2 resistance=100.6",
+            },
+            {
+                "symbol": "BBB",
+                "market": "cn",
+                "close": 100.0,
+                "ma20": 100.0,
+                "ma60": 100.0,
+                "ret_20": 0.0,
+                "ret_60": 0.0,
+                "macdh": 0.0,
+                "rsi": 55.0,
+                "atr_pct": 0.02,
+                "avg_amount_20d": 80_000_000.0,
+                "vwma": 100.0,
+                "breakout_hit": True,
+                "breakout_type": "wedge_breakout",
+                "breakout_with_volume": False,
+                "breakout_reason": "wedge_breakout close=101.1 resistance=99.8",
+            },
+            {
+                "symbol": "CCC",
+                "market": "cn",
+                "close": 100.0,
+                "ma20": 100.0,
+                "ma60": 100.0,
+                "ret_20": 0.0,
+                "ret_60": 0.0,
+                "macdh": 0.0,
+                "rsi": 55.0,
+                "atr_pct": 0.02,
+                "avg_amount_20d": 80_000_000.0,
+                "vwma": 100.0,
+                "breakout_hit": True,
+                "breakout_type": "box_breakout",
+                "breakout_with_volume": True,
+                "breakout_reason": "box_breakout close=101.8 resistance=100.4",
+            },
+            {
+                "symbol": "DDD",
+                "market": "cn",
+                "close": 100.0,
+                "ma20": 100.0,
+                "ma60": 100.0,
+                "ret_20": 0.0,
+                "ret_60": 0.0,
+                "macdh": 0.0,
+                "rsi": 55.0,
+                "atr_pct": 0.02,
+                "avg_amount_20d": 80_000_000.0,
+                "vwma": 100.0,
+                "breakout_hit": False,
+                "breakout_type": None,
+                "breakout_with_volume": False,
+                "breakout_reason": "close_not_above_resistance",
+            },
+        ]
+    )
+
+    ranked = score_candidates(features, config)
+
+    assert ranked["symbol"].tolist()[:2] == ["AAA", "BBB"]
+
+    top = ranked.loc[ranked["symbol"] == "AAA"].iloc[0]
+    wedge = ranked.loc[ranked["symbol"] == "BBB"].iloc[0]
+    ignored = ranked.loc[ranked["symbol"] == "CCC"].iloc[0]
+
+    assert top["breakout_base_bonus"] > wedge["breakout_base_bonus"]
+    assert top["breakout_volume_bonus"] > 0
+    assert top["breakout_bonus"] == 0.15
+    assert wedge["breakout_bonus"] > 0
+    assert ignored["breakout_bonus"] == 0
+    assert "platform_breakout" in top["strategy_tags"]
+    assert "breakout_with_volume" in top["strategy_tags"]

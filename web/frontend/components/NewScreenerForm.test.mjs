@@ -38,6 +38,17 @@ test("NewScreenerForm includes a CN data-source selector wired to form state", (
   assert.match(source, /sourceOption\.value/);
 });
 
+test("NewScreenerForm exposes breakout selection without describing it as a hard filter", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /breakout_types/);
+  assert.match(source, /configOptions\.breakout_types/);
+  assert.match(source, /Platform Breakout/i);
+  assert.match(source, /Box Breakout/i);
+  assert.match(source, /Wedge Breakout/i);
+  assert.match(source, /do not hard-filter the pool/i);
+});
+
 test("NewScreenerForm performs submit-time validation before posting", () => {
   const source = readFileSync(formPath, "utf8");
 

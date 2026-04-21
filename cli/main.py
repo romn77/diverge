@@ -195,6 +195,7 @@ def _build_screener_config(
     cn_manifest: str | None,
     us_manifest: str | None,
     output_dir: str,
+    breakout_types: str = "",
 ) -> tuple[ScreenRunConfig, str | None]:
     normalized_markets = [market.strip().lower() for market in markets if market.strip()]
     resolved_date, date_resolution_note = _resolve_screen_date(date, normalized_markets)
@@ -202,6 +203,11 @@ def _build_screener_config(
         source.strip().lower()
         for source in cn_data_source_fallbacks.split(",")
         if source.strip()
+    ]
+    parsed_breakout_types = [
+        breakout_type.strip().lower()
+        for breakout_type in breakout_types.split(",")
+        if breakout_type.strip()
     ]
     if "us" in normalized_markets and not us_manifest:
         raise typer.BadParameter(
@@ -219,6 +225,7 @@ def _build_screener_config(
         us_data_source=us_data_source,
         cn_manifest_path=cn_manifest,
         us_manifest_path=us_manifest,
+        breakout_types=parsed_breakout_types,
     )
     return config, date_resolution_note
 
@@ -1453,6 +1460,7 @@ def screen(
     date: str | None = typer.Option(None, "--date"),
     markets: str = typer.Option(..., "--markets"),
     top_k: int = typer.Option(100, "--top-k"),
+    breakout_types: str = typer.Option("", "--breakout-types"),
     cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
     cn_data_source_fallbacks: str = typer.Option("", "--cn-data-source-fallbacks"),
     us_data_source: str = typer.Option("yfinance", "--us-data-source"),
@@ -1470,6 +1478,7 @@ def screen(
         cn_manifest=cn_manifest,
         us_manifest=us_manifest,
         output_dir=output_dir,
+        breakout_types=breakout_types,
     )
 
     progress_state = {"last": None}
@@ -1515,8 +1524,13 @@ def screen(
 
     console.print("\n[bold]Top candidates[/bold]")
     for row in result.candidate_preview:
+        breakout_suffix = ""
+        breakout_type = row.get("breakout_type")
+        if breakout_type:
+            volume_suffix = " volume" if row.get("breakout_with_volume") else ""
+            breakout_suffix = f" breakout={breakout_type}{volume_suffix}"
         console.print(
-            f"- {row['symbol']} ({row['market']}) rank={row['global_rank']} score={row['total_score']}"
+            f"- {row['symbol']} ({row['market']}) rank={row['global_rank']} score={row['total_score']}{breakout_suffix}"
         )
 
     console.print(f"\n[bold]Run directory[/bold] {result.run_dir}")
@@ -1538,6 +1552,7 @@ def screen_debug(
     symbol: str = typer.Option(..., "--symbol"),
     market: str = typer.Option(..., "--market"),
     date: str | None = typer.Option(None, "--date"),
+    breakout_types: str = typer.Option("", "--breakout-types"),
     cn_data_source: str = typer.Option("tushare", "--cn-data-source"),
     cn_data_source_fallbacks: str = typer.Option("", "--cn-data-source-fallbacks"),
     us_data_source: str = typer.Option("yfinance", "--us-data-source"),
@@ -1556,6 +1571,7 @@ def screen_debug(
         cn_manifest=cn_manifest,
         us_manifest=us_manifest,
         output_dir=output_dir,
+        breakout_types=breakout_types,
     )
 
     result = debug_screen_symbol(

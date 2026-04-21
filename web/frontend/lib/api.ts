@@ -322,9 +322,14 @@ export interface ScreenerConfigOptions {
     label: string;
     value: string;
   }>;
+  breakout_types: Array<{
+    label: string;
+    value: string;
+  }>;
   defaults: {
     cn_data_source: string;
     top_k: number;
+    breakout_types: string[];
   };
 }
 
@@ -333,6 +338,7 @@ export interface ScreenTaskCreateRequest {
   as_of_date: string;
   top_k: number;
   cn_data_source: string;
+  breakout_types: string[];
 }
 
 export interface ScreenerTaskCreateResponse {
@@ -368,10 +374,18 @@ export interface ScreenerCandidateRow {
   global_rank: number;
   market_rank?: number;
   total_score: number;
+  base_total_score?: number;
   trend_score: number;
   momentum_score: number;
   risk_score: number;
   liquidity_score: number;
+  breakout_hit?: boolean;
+  breakout_type?: string | null;
+  breakout_with_volume?: boolean;
+  breakout_reason?: string | null;
+  breakout_base_bonus?: number;
+  breakout_volume_bonus?: number;
+  breakout_bonus?: number;
   strategy_tags: string;
   risk_flags: string;
 }

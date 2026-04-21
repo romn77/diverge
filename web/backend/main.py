@@ -242,6 +242,7 @@ class ScreenTaskCreatePayload(BaseModel):
     as_of_date: str
     top_k: int
     cn_data_source: str = "tushare"
+    breakout_types: list[str] = Field(default_factory=list)
 
 
 class LoginPayload(BaseModel):
@@ -1291,9 +1292,15 @@ def _get_screener_config_options_payload() -> dict:
             {"label": "Tushare", "value": "tushare"},
             {"label": "AkShare", "value": "akshare"},
         ],
+        "breakout_types": [
+            {"label": "Platform Breakout", "value": "platform_breakout"},
+            {"label": "Box Breakout", "value": "box_breakout"},
+            {"label": "Wedge Breakout", "value": "wedge_breakout"},
+        ],
         "defaults": {
             "cn_data_source": "tushare",
             "top_k": 500,
+            "breakout_types": [],
         },
     }
 

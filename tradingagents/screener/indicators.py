@@ -3,6 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from stockstats import wrap
 
+from .breakouts import detect_breakout_signal
 from .history_cache import empty_history_frame, prepare_history_frame_for_indicators
 from .market_calendar import last_n_trading_days
 
@@ -60,6 +61,11 @@ def _blank_feature_row(meta_row: pd.Series, as_of_date: str, working: pd.DataFra
         "boll_lb": pd.NA,
         "vwma": pd.NA,
         "mfi": pd.NA,
+        "breakout_hit": False,
+        "breakout_type": None,
+        "breakout_with_volume": False,
+        "breakout_reason": "insufficient_breakout_history",
+        "breakout_volume_ratio": pd.NA,
         "data_start_date": data_start_date,
         "data_end_date": data_end_date,
         "bar_count": len(working),
@@ -119,9 +125,12 @@ def _compute_indicator_values(eligible: pd.DataFrame) -> dict[str, object]:
 def build_feature_row(meta_row: pd.Series, price_df: pd.DataFrame, as_of_date: str) -> dict:
     working = _prepare_price_df(price_df)
     eligible, latest_row = _latest_row_on_or_before(working, as_of_date)
+    breakout_signal = detect_breakout_signal(eligible)
 
     if latest_row is None:
-        return _blank_feature_row(meta_row, as_of_date, working)
+        row = _blank_feature_row(meta_row, as_of_date, working)
+        row.update(breakout_signal.to_feature_payload())
+        return row
 
     if len(eligible) < 20:
         row = _blank_feature_row(meta_row, as_of_date, eligible)
@@ -129,6 +138,7 @@ def build_feature_row(meta_row: pd.Series, price_df: pd.DataFrame, as_of_date: s
         row["volume"] = float(latest_row["Volume"])
         row["amount"] = float(latest_row["Amount"])
         row["trading_days_20d"] = _count_recent_trading_days(meta_row, eligible)
+        row.update(breakout_signal.to_feature_payload())
         return row
 
     trailing_20 = eligible.tail(20)
@@ -156,6 +166,7 @@ def build_feature_row(meta_row: pd.Series, price_df: pd.DataFrame, as_of_date: s
 
     indicator_values = _compute_indicator_values(eligible)
     row.update(indicator_values)
+    row.update(breakout_signal.to_feature_payload())
     atr_value = row.get("atr")
     row["atr_pct"] = (
         float(atr_value / row["close"])
