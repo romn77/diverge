@@ -8,6 +8,10 @@ from typing import Callable
 
 import pandas as pd
 
+from tradingagents.data_layout import (
+    resolve_history_dir,
+    resolve_screener_cache_dir,
+)
 from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df, _fetch_akshare_us_stock_df
 from tradingagents.dataflows.alpha_vantage_common import AlphaVantageRateLimitError
 from tradingagents.dataflows.alpha_vantage_stock import _fetch_alpha_vantage_stock_df
@@ -69,7 +73,7 @@ class _HistoryFetchContext:
     progress_total: int
     start_date: str
     as_of_date: str
-    cache_dir: Path
+    history_dir: Path
     cached_frame: pd.DataFrame
     cached_span: str | None
     fetch_start: str | None
@@ -322,11 +326,11 @@ def _build_history_fetch_context(
     total: int,
     start_date: str,
     as_of_date: str,
-    cache_dir: Path,
+    history_dir: Path,
 ) -> _HistoryFetchContext:
     symbol = row["symbol"]
     market = row["market"]
-    cached_frame = load_history_cache(cache_dir, market, symbol)
+    cached_frame = load_history_cache(history_dir, market, symbol)
     return _HistoryFetchContext(
         symbol=symbol,
         market=market,
@@ -334,7 +338,7 @@ def _build_history_fetch_context(
         progress_total=total,
         start_date=start_date,
         as_of_date=as_of_date,
-        cache_dir=cache_dir,
+        history_dir=history_dir,
         cached_frame=cached_frame,
         cached_span=_history_span(cached_frame),
         fetch_start=resolve_incremental_fetch_start(cached_frame, start_date, as_of_date),
@@ -398,7 +402,7 @@ def _reconcile_fetched_history(
         )
 
     merged_frame = merge_history_frames(context.cached_frame, fetched.frame)
-    save_history_cache(context.cache_dir, context.market, context.symbol, merged_frame)
+    save_history_cache(context.history_dir, context.market, context.symbol, merged_frame)
     history_window = slice_history_window(merged_frame, context.start_date, context.as_of_date)
     if context.cached_frame.empty or fetch_start == context.start_date:
         status = "fetch_full"
@@ -532,17 +536,27 @@ def fetch_history_for_universe(
     cn_data_source_fallbacks: list[str] | None = None,
     us_data_source: str = "yfinance",
     progress_callback: Callable[..., None] | None = None,
+    history_dir: str | Path | None = None,
     cache_dir: str | Path | None = None,
     checkpoint_dir: str | Path | None = None,
     checkpoint_batch_size: int = 100,
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
     as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
     start_date = (as_of_dt - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
-    history_cache_dir = Path(cache_dir) if cache_dir is not None else Path("./results/screener/.cache")
+    resolved_history_dir = (
+        Path(history_dir)
+        if history_dir is not None
+        else resolve_history_dir()
+    )
+    screener_cache_dir = (
+        Path(cache_dir)
+        if cache_dir is not None
+        else resolve_screener_cache_dir()
+    )
     history_checkpoint_dir = (
         Path(checkpoint_dir)
         if checkpoint_dir is not None
-        else history_cache_dir / "checkpoints"
+        else screener_cache_dir / "checkpoints"
     )
     history_checkpoint_path = checkpoint_path(
         history_checkpoint_dir,
@@ -577,7 +591,7 @@ def fetch_history_for_universe(
                 total=total,
                 start_date=start_date,
                 as_of_date=as_of_date,
-                cache_dir=history_cache_dir,
+                history_dir=resolved_history_dir,
             )
             result = _process_history_symbol(
                 context,

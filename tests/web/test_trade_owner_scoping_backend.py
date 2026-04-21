@@ -19,11 +19,13 @@ class TradeOwnerScopingBackendTests(unittest.TestCase):
         self.project_root = Path(self.temp_dir.name) / "project"
         self.project_root.mkdir(parents=True)
         self.original_reports_dir = backend_main.REPORTS_DIR
-        self.original_screener_results_dir = backend_main.SCREENER_RESULTS_DIR
-        backend_main.REPORTS_DIR = self.project_root / "reports"
-        backend_main.SCREENER_RESULTS_DIR = self.project_root / "screener"
+        self.original_screener_runs_dir = backend_main.SCREENER_RUNS_DIR
+        self.original_screener_tasks_dir = backend_main.SCREENER_TASKS_DIR
+        backend_main.REPORTS_DIR = self.project_root / "data" / "reports"
+        backend_main.SCREENER_RUNS_DIR = self.project_root / "screener" / "runs"
+        backend_main.SCREENER_TASKS_DIR = self.project_root / "screener" / "tasks"
         backend_main.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        backend_main.SCREENER_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        backend_main.SCREENER_RUNS_DIR.mkdir(parents=True, exist_ok=True)
         backend_main.tasks.clear()
         backend_main.screener_tasks.clear()
         self.database_url = f"sqlite+pysqlite:///{self.project_root / 'auth.db'}"
@@ -35,7 +37,8 @@ class TradeOwnerScopingBackendTests(unittest.TestCase):
 
     def tearDown(self):
         backend_main.REPORTS_DIR = self.original_reports_dir
-        backend_main.SCREENER_RESULTS_DIR = self.original_screener_results_dir
+        backend_main.SCREENER_RUNS_DIR = self.original_screener_runs_dir
+        backend_main.SCREENER_TASKS_DIR = self.original_screener_tasks_dir
         backend_main.tasks.clear()
         backend_main.screener_tasks.clear()
         auth.reset_runtime_state()
@@ -46,6 +49,7 @@ class TradeOwnerScopingBackendTests(unittest.TestCase):
         report_dir = backend_main.REPORTS_DIR / "MSFT_20260401_120000"
         eval_dir = (
             self.project_root
+            / "data"
             / "eval_results"
             / "MSFT"
             / "TradingAgentsStrategy_logs"
@@ -138,8 +142,8 @@ class TradeOwnerScopingBackendTests(unittest.TestCase):
             "analysis_references": [
                 {
                     "analysis_date": "2026-04-01",
-                    "report_path": "reports/MSFT_20260401_120000/complete_report.md",
-                    "full_state_log_path": "eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                    "report_path": "data/reports/MSFT_20260401_120000/complete_report.md",
+                    "full_state_log_path": "data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
                 }
             ],
         }

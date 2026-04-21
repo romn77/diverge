@@ -63,7 +63,8 @@ def debug_screen_symbol(
 ) -> ScreenDebugResult:
     normalized_symbol = _normalize_symbol(symbol)
     normalized_market = _normalize_market(market)
-    cache_root = Path(config.output_dir) / ".cache"
+    cache_root = Path(config.cache_dir)
+    history_root = Path(config.history_dir)
     result = ScreenDebugResult(
         symbol=normalized_symbol,
         market=normalized_market,
@@ -103,6 +104,7 @@ def debug_screen_symbol(
         source_universe_df=target_prefiltered_df,
         fetch_universe_df=target_prefiltered_df,
         cache_root=cache_root,
+        history_root=history_root,
     )
     target_fetch_failure_df = _select_target_rows(
         evaluation_stage.fetch_failures,

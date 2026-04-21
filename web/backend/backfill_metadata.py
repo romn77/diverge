@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
@@ -12,15 +11,12 @@ from tradingagents.trade_feedback import (
     list_trade_records as list_trade_records_file,
     list_trade_reviews as list_trade_reviews_file,
 )
+from tradingagents.data_layout import resolve_reports_dir, resolve_screener_runs_dir
 from web.backend import auth, report_metadata, screener_runs, trade_entries
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-REPORTS_DIR = Path(
-    os.environ.get("REPORTS_DIR", PROJECT_ROOT / "reports")
-).resolve()
-SCREENER_RESULTS_DIR = Path(
-    os.environ.get("SCREENER_RESULTS_DIR", PROJECT_ROOT / "results" / "screener")
-).resolve()
+REPORTS_DIR = resolve_reports_dir(PROJECT_ROOT)
+SCREENER_RUNS_DIR = resolve_screener_runs_dir(PROJECT_ROOT)
 SCREENER_ARTIFACT_FILENAMES = {
     "run_meta": "run_meta.json",
     "universe": "universe.csv",
@@ -70,7 +66,7 @@ def _resolve_historical_owner(db) -> auth.User:
 
 
 def _relative_screener_storage_path(path: Path) -> str:
-    resolved_root = SCREENER_RESULTS_DIR.resolve()
+    resolved_root = SCREENER_RUNS_DIR.resolve()
     resolved_path = path.resolve()
     return resolved_path.relative_to(resolved_root).as_posix()
 
@@ -130,11 +126,11 @@ def _backfill_trades(db, owner_user_id: str) -> int:
 
 
 def _backfill_screener_runs(db, owner_user_id: str) -> int:
-    if not SCREENER_RESULTS_DIR.is_dir():
+    if not SCREENER_RUNS_DIR.is_dir():
         return 0
 
     run_count = 0
-    for run_dir in sorted(SCREENER_RESULTS_DIR.iterdir()):
+    for run_dir in sorted(SCREENER_RUNS_DIR.iterdir()):
         if not run_dir.is_dir() or run_dir.name.startswith("."):
             continue
 

@@ -9,21 +9,46 @@ from fastapi import HTTPException
 
 from tradingagents.runner import AnalysisRequest
 from tradingagents.screener.schema import ScreenRunResult
-from web.backend import main as backend_main
+from web.backend import auth, main as backend_main
 
 
 class BackendMainTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.empty_project_dir = tempfile.TemporaryDirectory()
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
         self.original_reports_dir = backend_main.REPORTS_DIR
-        self.original_screener_results_dir = getattr(
+        self.original_screener_runs_dir = getattr(
             backend_main,
-            "SCREENER_RESULTS_DIR",
-            Path(self.temp_dir.name) / "screener",
+            "SCREENER_RUNS_DIR",
+            Path(self.temp_dir.name) / "screener" / "runs",
+        )
+        self.original_screener_tasks_dir = getattr(
+            backend_main,
+            "SCREENER_TASKS_DIR",
+            Path(self.temp_dir.name) / "screener" / "tasks",
+        )
+        self.original_screener_cache_dir = getattr(
+            backend_main,
+            "SCREENER_CACHE_DIR",
+            Path(self.temp_dir.name) / "cache" / "screener",
+        )
+        self.original_stock_history_dir = getattr(
+            backend_main,
+            "STOCK_HISTORY_DIR",
+            Path(self.temp_dir.name) / "history",
         )
         backend_main.REPORTS_DIR = Path(self.temp_dir.name)
-        backend_main.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "screener"
+        backend_main.SCREENER_RUNS_DIR = Path(self.temp_dir.name) / "screener" / "runs"
+        backend_main.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "screener" / "tasks"
+        backend_main.SCREENER_CACHE_DIR = Path(self.temp_dir.name) / "cache" / "screener"
+        backend_main.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "history"
         self.empty_project_root = Path(self.empty_project_dir.name)
         self.empty_project_env = self.empty_project_root / ".env"
         backend_main.tasks.clear()
@@ -31,8 +56,13 @@ class BackendMainTests(unittest.TestCase):
             backend_main.screener_tasks.clear()
 
     def tearDown(self):
+        self.auth_env_patch.stop()
+        auth.reset_runtime_state()
         backend_main.REPORTS_DIR = self.original_reports_dir
-        backend_main.SCREENER_RESULTS_DIR = self.original_screener_results_dir
+        backend_main.SCREENER_RUNS_DIR = self.original_screener_runs_dir
+        backend_main.SCREENER_TASKS_DIR = self.original_screener_tasks_dir
+        backend_main.SCREENER_CACHE_DIR = self.original_screener_cache_dir
+        backend_main.STOCK_HISTORY_DIR = self.original_stock_history_dir
         backend_main.tasks.clear()
         if hasattr(backend_main, "screener_tasks"):
             backend_main.screener_tasks.clear()
@@ -175,6 +205,19 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(restored["status"], "failed")
         self.assertIn("restarted", restored["error"].lower())
         self.assertFalse(backend_main._task_snapshot_path("task-recover").exists())
+
+    def test_screener_task_snapshot_path_uses_dedicated_tasks_root(self):
+        screener_tasks_dir = getattr(
+            backend_main,
+            "SCREENER_TASKS_DIR",
+            Path(self.temp_dir.name) / "screener" / "tasks",
+        )
+        if hasattr(backend_main, "SCREENER_TASKS_DIR"):
+            backend_main.SCREENER_TASKS_DIR = screener_tasks_dir
+
+        expected = screener_tasks_dir / "active" / "task-123" / "task.json"
+
+        self.assertEqual(backend_main._screener_task_snapshot_path("task-123"), expected)
 
     def test_post_tasks_rejects_when_two_active_tasks_already_exist(self):
         payload = {
@@ -333,7 +376,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("queue", context.exception.detail.lower())
 
     def test_list_screener_runs_reads_run_meta_files(self):
-        run_dir = backend_main.SCREENER_RESULTS_DIR / "20260324_214530"
+        run_dir = backend_main.SCREENER_RUNS_DIR / "20260324_214530"
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "run_meta.json").write_text(
             json.dumps(
@@ -354,7 +397,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(runs[0]["candidate_count"], 12)
 
     def test_get_screener_run_candidates_reads_candidates_csv(self):
-        run_dir = backend_main.SCREENER_RESULTS_DIR / "20260324_214530"
+        run_dir = backend_main.SCREENER_RUNS_DIR / "20260324_214530"
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "candidates.csv").write_text(
             "symbol,market,global_rank,total_score\n600519.SH,cn,1,1.23\nAAPL,us,2,0.91\n",
@@ -431,7 +474,7 @@ class BackendMainTests(unittest.TestCase):
                 detail="cache=2025-02-17..2026-03-24",
             )
             return ScreenRunResult(
-                run_dir=Path("/tmp/results/screener/20260324_214530"),
+                run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
                 universe_count_by_market={"cn": 1},
                 fetch_failed_count=0,
                 filtered_count_by_reason={},

@@ -76,6 +76,7 @@ def evaluate_screen_stage(
     source_universe_df: pd.DataFrame,
     fetch_universe_df: pd.DataFrame,
     cache_root: Path,
+    history_root: Path,
     progress_callback: Callable[..., None] | None = None,
 ) -> EvaluationStageBundle:
     histories, fetch_failures = fetch_history_for_universe(
@@ -85,6 +86,7 @@ def evaluate_screen_stage(
         cn_data_source_fallbacks=config.cn_data_source_fallbacks,
         us_data_source=config.us_data_source,
         progress_callback=progress_callback,
+        history_dir=history_root,
         cache_dir=cache_root,
         checkpoint_dir=cache_root / "checkpoints",
     )

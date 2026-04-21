@@ -69,7 +69,8 @@ def run_screen(
     progress_callback: Callable[..., None] | None = None,
 ) -> ScreenRunResult:
     started_at = time.perf_counter()
-    cache_root = Path(config.output_dir) / ".cache"
+    cache_root = Path(config.cache_dir)
+    history_root = Path(config.history_dir)
     universe_stage = prepare_universe_stage(
         config,
         cache_root,
@@ -80,6 +81,7 @@ def run_screen(
         source_universe_df=universe_stage.universe_df,
         fetch_universe_df=universe_stage.prefiltered_df,
         cache_root=cache_root,
+        history_root=history_root,
         progress_callback=progress_callback,
     )
     combined_filtered_out = pd.concat(

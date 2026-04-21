@@ -9,7 +9,12 @@ if [ -f "$ENV_FILE" ]; then
     . "$ENV_FILE"
     set +a
 fi
-REPORTS_DIR="$ROOT_DIR/reports"
+DATA_DIR="${DATA_DIR:-$ROOT_DIR/data}"
+REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"
+SCREENER_RUNS_DIR="${SCREENER_RUNS_DIR:-$DATA_DIR/screener/runs}"
+SCREENER_TASKS_DIR="${SCREENER_TASKS_DIR:-$DATA_DIR/screener/tasks}"
+SCREENER_CACHE_DIR="${SCREENER_CACHE_DIR:-$DATA_DIR/cache/screener}"
+STOCK_HISTORY_DIR="${STOCK_HISTORY_DIR:-$DATA_DIR/history}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"
@@ -48,11 +53,8 @@ wait_for_http() {
 echo -e "${BLUE}Starting TradingAgents Report Viewer...${NC}"
 echo
 
-# Check if reports directory exists
-if [ ! -d "$REPORTS_DIR" ]; then
-    echo -e "${RED}Error: reports directory not found at $REPORTS_DIR${NC}"
-    exit 1
-fi
+# Ensure runtime data directories exist
+mkdir -p "$REPORTS_DIR" "$SCREENER_RUNS_DIR" "$SCREENER_TASKS_DIR" "$SCREENER_CACHE_DIR" "$STOCK_HISTORY_DIR"
 
 # Kill any lingering processes on ports 8000, 3000
 cleanup() {
@@ -81,6 +83,10 @@ echo -e "${BLUE}Starting backend...${NC}"
 cd "$SCRIPT_DIR/backend"
 pip install -r requirements.txt -q 2>/dev/null || pip install -r requirements.txt > /dev/null 2>&1
 export REPORTS_DIR="$REPORTS_DIR"
+export SCREENER_RUNS_DIR="$SCREENER_RUNS_DIR"
+export SCREENER_TASKS_DIR="$SCREENER_TASKS_DIR"
+export SCREENER_CACHE_DIR="$SCREENER_CACHE_DIR"
+export STOCK_HISTORY_DIR="$STOCK_HISTORY_DIR"
 export FRONTEND_ORIGIN="$FRONTEND_ORIGIN"
 export AUTH_ENABLED="$AUTH_ENABLED"
 export AUTH_MODE="$AUTH_MODE"

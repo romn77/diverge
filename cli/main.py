@@ -24,6 +24,7 @@ from rich import box
 from rich.align import Align
 from rich.rule import Rule
 
+from tradingagents.data_layout import DEFAULT_SCREENER_RUNS_DIR
 from tradingagents.screener.debug import debug_screen_symbol
 from tradingagents.screener.market_calendar import is_market_trading_day, last_n_trading_days
 from tradingagents.screener.schema import ScreenRunConfig
@@ -1162,13 +1163,13 @@ def run_analysis():
     start_time = time.time()
 
     # Create result directory
-    results_dir = (
-        Path(config["results_dir"]) / selections["ticker"] / selections["analysis_date"]
+    eval_results_dir = (
+        Path(config["eval_results_dir"]) / selections["ticker"] / selections["analysis_date"]
     )
-    results_dir.mkdir(parents=True, exist_ok=True)
-    report_dir = results_dir / "reports"
+    eval_results_dir.mkdir(parents=True, exist_ok=True)
+    report_dir = eval_results_dir / "reports"
     report_dir.mkdir(parents=True, exist_ok=True)
-    log_file = results_dir / "message_tool.log"
+    log_file = eval_results_dir / "message_tool.log"
     log_file.touch(exist_ok=True)
 
     def save_message_decorator(obj, func_name):
@@ -1431,7 +1432,7 @@ def run_analysis():
     save_choice = typer.prompt("Save report?", default="Y").strip().upper()
     if save_choice in ("Y", "YES", ""):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_path = Path.cwd() / "reports" / f"{selections['ticker']}_{timestamp}"
+        default_path = Path.cwd() / "data" / "reports" / f"{selections['ticker']}_{timestamp}"
         save_path_str = typer.prompt(
             "Save path (press Enter for default)", default=str(default_path)
         ).strip()
@@ -1469,7 +1470,7 @@ def screen(
     us_data_source: str = typer.Option("yfinance", "--us-data-source"),
     cn_manifest: str | None = typer.Option(None, "--cn-manifest"),
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
-    output_dir: str = typer.Option("./results/screener", "--output-dir"),
+    output_dir: str = typer.Option(DEFAULT_SCREENER_RUNS_DIR, "--output-dir"),
 ):
     config, date_resolution_note = _build_screener_config(
         date=date,
@@ -1561,7 +1562,7 @@ def screen_debug(
     us_data_source: str = typer.Option("yfinance", "--us-data-source"),
     cn_manifest: str | None = typer.Option(None, "--cn-manifest"),
     us_manifest: str | None = typer.Option(None, "--us-manifest"),
-    output_dir: str = typer.Option("./results/screener", "--output-dir"),
+    output_dir: str = typer.Option(DEFAULT_SCREENER_RUNS_DIR, "--output-dir"),
 ):
     normalized_market = market.strip().lower()
     config, date_resolution_note = _build_screener_config(

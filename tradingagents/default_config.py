@@ -1,5 +1,6 @@
 import os
 
+from tradingagents.data_layout import DEFAULT_EVAL_RESULTS_DIR
 from tradingagents.llm_clients.model_config import (
     DEFAULT_DEEP_MODEL,
     DEFAULT_LLM_PROVIDER,
@@ -9,7 +10,7 @@ from tradingagents.llm_clients.model_config import (
 
 DEFAULT_CONFIG = {
     "project_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
-    "results_dir": os.getenv("TRADINGAGENTS_RESULTS_DIR", "./results"),
+    "eval_results_dir": os.getenv("TRADINGAGENTS_EVAL_RESULTS_DIR", DEFAULT_EVAL_RESULTS_DIR),
     "data_cache_dir": os.path.join(
         os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
         "dataflows/data_cache",

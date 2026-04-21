@@ -17,19 +17,19 @@ class MetadataBackfillTests(unittest.TestCase):
         self.root = Path(self.temp_dir.name)
         self.reports_dir = self.root / "reports"
         self.reports_dir.mkdir(parents=True)
-        self.screener_results_dir = self.root / "results" / "screener"
-        self.screener_results_dir.mkdir(parents=True)
+        self.screener_runs_dir = self.root / "data" / "screener" / "runs"
+        self.screener_runs_dir.mkdir(parents=True)
         self.database_path = self.root / "auth.db"
 
         self.original_backend_reports_dir = backend_main.REPORTS_DIR
-        self.original_backend_screener_dir = backend_main.SCREENER_RESULTS_DIR
+        self.original_backend_screener_runs_dir = backend_main.SCREENER_RUNS_DIR
         self.original_backfill_reports_dir = backfill_metadata.REPORTS_DIR
-        self.original_backfill_screener_dir = backfill_metadata.SCREENER_RESULTS_DIR
+        self.original_backfill_screener_runs_dir = backfill_metadata.SCREENER_RUNS_DIR
 
         backend_main.REPORTS_DIR = self.reports_dir
-        backend_main.SCREENER_RESULTS_DIR = self.screener_results_dir
+        backend_main.SCREENER_RUNS_DIR = self.screener_runs_dir
         backfill_metadata.REPORTS_DIR = self.reports_dir
-        backfill_metadata.SCREENER_RESULTS_DIR = self.screener_results_dir
+        backfill_metadata.SCREENER_RUNS_DIR = self.screener_runs_dir
 
         self.env = {
             "AUTH_ENABLED": "true",
@@ -43,9 +43,9 @@ class MetadataBackfillTests(unittest.TestCase):
     def tearDown(self):
         auth.reset_runtime_state()
         backend_main.REPORTS_DIR = self.original_backend_reports_dir
-        backend_main.SCREENER_RESULTS_DIR = self.original_backend_screener_dir
+        backend_main.SCREENER_RUNS_DIR = self.original_backend_screener_runs_dir
         backfill_metadata.REPORTS_DIR = self.original_backfill_reports_dir
-        backfill_metadata.SCREENER_RESULTS_DIR = self.original_backfill_screener_dir
+        backfill_metadata.SCREENER_RUNS_DIR = self.original_backfill_screener_runs_dir
         self.temp_dir.cleanup()
 
     def _write_report(self, report_id: str = "MSFT_20260320_100000") -> Path:
@@ -66,7 +66,7 @@ class MetadataBackfillTests(unittest.TestCase):
         return report_dir
 
     def _write_screener_run(self, run_id: str = "20260324_214530") -> None:
-        run_dir = self.screener_results_dir / run_id
+        run_dir = self.screener_runs_dir / run_id
         run_dir.mkdir(parents=True)
         (run_dir / "run_meta.json").write_text(
             json.dumps(

@@ -27,8 +27,8 @@ test("TradeRecordForm derives report and full-state-log paths from the MAY-8 con
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /buildReferenceFromReport/);
-  assert.match(source, /reports\/\$?\{?report\.id\}?\/complete_report\.md/);
-  assert.match(source, /eval_results\/\$?\{?report\.ticker\}?\/TradingAgentsStrategy_logs\/full_states_log_/);
+  assert.match(source, /data\/reports\/\$?\{?report\.id\}?\/complete_report\.md/);
+  assert.match(source, /data\/eval_results\/\$?\{?report\.ticker\}?\/TradingAgentsStrategy_logs\/full_states_log_/);
   assert.match(source, /normalizeAnalysisReferences/);
   assert.match(source, /Snapshot reference \${index \+ 1} is incomplete\./);
 });

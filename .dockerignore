@@ -5,6 +5,7 @@
 .sisyphus
 __pycache__
 *.pyc
+data
 reports
 .env
 web/frontend/.next

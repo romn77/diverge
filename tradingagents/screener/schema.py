@@ -4,6 +4,12 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
+from tradingagents.data_layout import (
+    DEFAULT_HISTORY_DIR,
+    DEFAULT_SCREENER_CACHE_DIR,
+    DEFAULT_SCREENER_RUNS_DIR,
+)
+
 
 VALID_MARKETS = {"cn", "us"}
 VALID_CN_DATA_SOURCES = {"akshare", "tushare"}
@@ -42,7 +48,9 @@ class ScreenRunConfig:
     min_trading_days_20d: int = 18
     cn_universe_cap: int | None = None
     us_universe_cap: int | None = 3000
-    output_dir: str = "./results/screener"
+    output_dir: str = DEFAULT_SCREENER_RUNS_DIR
+    cache_dir: str = DEFAULT_SCREENER_CACHE_DIR
+    history_dir: str = DEFAULT_HISTORY_DIR
     cn_data_source: str = "tushare"
     cn_data_source_fallbacks: list[str] = field(default_factory=list)
     us_data_source: str = "yfinance"
@@ -73,6 +81,9 @@ class ScreenRunConfig:
         if self.us_manifest_path is not None:
             normalized_us_manifest_path = self.us_manifest_path.strip()
             self.us_manifest_path = normalized_us_manifest_path or None
+        self.output_dir = self.output_dir.strip()
+        self.cache_dir = self.cache_dir.strip()
+        self.history_dir = self.history_dir.strip()
 
         try:
             parsed_date = datetime.strptime(self.as_of_date, "%Y-%m-%d").date()
@@ -100,6 +111,12 @@ class ScreenRunConfig:
             raise ValueError("cn_universe_cap must be positive when provided")
         if self.us_universe_cap is not None and self.us_universe_cap <= 0:
             raise ValueError("us_universe_cap must be positive when provided")
+        if not self.output_dir:
+            raise ValueError("output_dir is required")
+        if not self.cache_dir:
+            raise ValueError("cache_dir is required")
+        if not self.history_dir:
+            raise ValueError("history_dir is required")
 
         if self.cn_data_source not in VALID_CN_DATA_SOURCES:
             raise ValueError("cn_data_source must be one of {'akshare', 'tushare'}")

@@ -184,7 +184,7 @@ TradingAgents also ships with a daily screener that builds a ranked candidate po
 - US screening requires a manifest path via `--us-manifest`
 - US screening uses `yfinance` by default and can switch to `alpha_vantage`, `tushare`, `akshare`, or `massive` with `--us-data-source`
 - LLM analysis happens after screener output, not during screener execution
-- History cache and recovery checkpoints live under `results/screener/.cache/`; reruns reuse cached OHLCV and can resume after mid-history failures
+- Screener runs live under `data/screener/runs/`, reusable checkpoints and universe cache live under `data/cache/screener/`, and persisted OHLCV CSVs live under `data/history/<market>/`
 
 Example:
 
@@ -196,7 +196,7 @@ tradingagents screen \
   --cn-manifest /absolute/path/to/cn_manifest.csv \
   --us-manifest /absolute/path/to/us_manifest.csv \
   --us-data-source alpha_vantage \
-  --output-dir ./results/screener
+  --output-dir ./data/screener/runs
 ```
 
 Manifest generation lives alongside the screener input data:
@@ -212,7 +212,7 @@ When `--cn-manifest` is supplied, the screener loads the CN universe from that C
 
 The CN manifest leaves `mktcap` blank for now because the current CN universe sources do not provide a stable market-cap field in the same path.
 
-Artifacts are written to `results/screener/<YYYYMMDD_HHMMSS>/` and include:
+Artifacts are written to `data/screener/runs/<YYYYMMDD_HHMMSS>/` and include:
 
 - `run_meta.json`
 - `universe.csv`
@@ -220,6 +220,8 @@ Artifacts are written to `results/screener/<YYYYMMDD_HHMMSS>/` and include:
 - `filtered_out.csv`
 - `candidates.csv`
 - `llm_pool.json`
+
+Legacy interactive `analyze` CLI runtime traces now live under `data/eval_results/`. That root stores per-ticker/per-date runtime folders such as `data/eval_results/<ticker>/<analysis_date>/reports/` plus `message_tool.log`, and full state logs under `data/eval_results/<ticker>/TradingAgentsStrategy_logs/`.
 
 ## Single-Host Docker Deployment
 

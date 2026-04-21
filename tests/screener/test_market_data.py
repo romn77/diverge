@@ -348,6 +348,7 @@ def test_fetch_history_for_universe_records_empty_results_as_history_empty(tmp_p
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -357,6 +358,7 @@ def test_fetch_history_for_universe_records_empty_results_as_history_empty(tmp_p
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
         )
@@ -371,10 +373,13 @@ def test_fetch_history_for_universe_records_empty_results_as_history_empty(tmp_p
     ]
 
 
-def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding():
+def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding(tmp_path):
     universe = pd.DataFrame(
         [{"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"}]
     )
+    cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
+    checkpoint_dir = tmp_path / "checkpoints"
     success_frame = pd.DataFrame(
         [
             {
@@ -400,7 +405,14 @@ def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding()
         ) as mock_fetch,
         patch("tradingagents.screener.market_data.time.sleep") as mock_sleep,
     ):
-        histories, failures = fetch_history_for_universe(universe, "2026-03-24")
+        histories, failures = fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            history_dir=history_dir,
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
 
     assert "600519.SH" in histories
     assert failures.empty
@@ -416,6 +428,7 @@ def test_fetch_history_for_universe_uses_configured_us_data_source(tmp_path):
     )
     success_frame = _price_frame("2026-03-24")
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -426,6 +439,7 @@ def test_fetch_history_for_universe_uses_configured_us_data_source(tmp_path):
             universe,
             "2026-03-24",
             us_data_source="alpha_vantage",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -448,6 +462,7 @@ def test_fetch_history_for_universe_uses_configured_tushare_us_data_source(tmp_p
     )
     success_frame = _price_frame("2026-03-24")
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -458,6 +473,7 @@ def test_fetch_history_for_universe_uses_configured_tushare_us_data_source(tmp_p
             universe,
             "2026-03-24",
             us_data_source="tushare",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -480,6 +496,7 @@ def test_fetch_history_for_universe_uses_configured_akshare_us_data_source(tmp_p
     )
     success_frame = _price_frame("2026-03-24")
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -490,6 +507,7 @@ def test_fetch_history_for_universe_uses_configured_akshare_us_data_source(tmp_p
             universe,
             "2026-03-24",
             us_data_source="akshare",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -512,6 +530,7 @@ def test_fetch_history_for_universe_uses_configured_massive_us_data_source(tmp_p
     )
     success_frame = _price_frame("2026-03-24")
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -522,6 +541,7 @@ def test_fetch_history_for_universe_uses_configured_massive_us_data_source(tmp_p
             universe,
             "2026-03-24",
             us_data_source="massive",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -538,10 +558,13 @@ def test_fetch_history_for_universe_uses_configured_massive_us_data_source(tmp_p
     )
 
 
-def test_fetch_history_for_universe_reraises_raw_cn_error_after_retries_exhausted():
+def test_fetch_history_for_universe_reraises_raw_cn_error_after_retries_exhausted(tmp_path):
     universe = pd.DataFrame(
         [{"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"}]
     )
+    cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
+    checkpoint_dir = tmp_path / "checkpoints"
 
     def raise_wrapped(*args, **kwargs):
         raise _wrapped_retry_error(
@@ -554,13 +577,23 @@ def test_fetch_history_for_universe_reraises_raw_cn_error_after_retries_exhauste
         patch("tradingagents.screener.market_data.time.sleep"),
     ):
         with pytest.raises(RuntimeError, match="boom"):
-            fetch_history_for_universe(universe, "2026-03-24")
+            fetch_history_for_universe(
+                universe,
+                "2026-03-24",
+                history_dir=history_dir,
+                cache_dir=cache_dir,
+                checkpoint_dir=checkpoint_dir,
+                checkpoint_batch_size=1,
+            )
 
 
-def test_fetch_history_for_universe_falls_back_cn_source_after_primary_retryable_error():
+def test_fetch_history_for_universe_falls_back_cn_source_after_primary_retryable_error(tmp_path):
     universe = pd.DataFrame(
         [{"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"}]
     )
+    cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
+    checkpoint_dir = tmp_path / "checkpoints"
     success_frame = _price_frame("2026-03-24")
 
     with patch(
@@ -578,6 +611,10 @@ def test_fetch_history_for_universe_falls_back_cn_source_after_primary_retryable
             "2026-03-24",
             cn_data_source="akshare",
             cn_data_source_fallbacks=["tushare"],
+            history_dir=history_dir,
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
         )
 
     assert failures.empty
@@ -591,13 +628,16 @@ def test_fetch_history_for_universe_falls_back_cn_source_after_primary_retryable
     assert "tushare" in attempted_sources
 
 
-def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols():
+def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols(tmp_path):
     universe = pd.DataFrame(
         [
             {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
             {"symbol": "000001.SZ", "market": "cn", "name": "Ping An Bank", "exchange": "SZSE", "sector": "Banking", "list_date": "19910403"},
         ]
     )
+    cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
+    checkpoint_dir = tmp_path / "checkpoints"
     frame = pd.DataFrame(
         [
             {
@@ -619,7 +659,14 @@ def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols():
         ),
         patch("tradingagents.screener.market_data.time.sleep") as mock_sleep,
     ):
-        fetch_history_for_universe(universe, "2026-03-24")
+        fetch_history_for_universe(
+            universe,
+            "2026-03-24",
+            history_dir=history_dir,
+            cache_dir=cache_dir,
+            checkpoint_dir=checkpoint_dir,
+            checkpoint_batch_size=1,
+        )
 
     sleep_values = [call.args[0] for call in mock_sleep.call_args_list]
     assert 0.35 in sleep_values
@@ -634,6 +681,7 @@ def test_fetch_history_for_universe_rate_limits_us_requests_between_symbols(tmp_
     )
     frame = _price_frame("2026-03-24")
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with (
@@ -646,6 +694,7 @@ def test_fetch_history_for_universe_rate_limits_us_requests_between_symbols(tmp_
         fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -660,6 +709,7 @@ def test_fetch_history_for_universe_persists_empty_failures_and_retries_refetch_
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -669,6 +719,7 @@ def test_fetch_history_for_universe_persists_empty_failures_and_retries_refetch_
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -691,6 +742,7 @@ def test_fetch_history_for_universe_persists_empty_failures_and_retries_refetch_
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -712,6 +764,7 @@ def test_fetch_history_for_universe_does_not_write_history_failure_cache_files(t
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -721,6 +774,7 @@ def test_fetch_history_for_universe_does_not_write_history_failure_cache_files(t
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -755,6 +809,7 @@ def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoi
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
     path = checkpoint_path(
         checkpoint_dir,
@@ -787,6 +842,7 @@ def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoi
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -807,6 +863,7 @@ def test_fetch_history_for_universe_reports_checkpoint_source_in_progress_detail
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
     updated_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
     path = checkpoint_path(
@@ -861,6 +918,7 @@ def test_fetch_history_for_universe_reports_checkpoint_source_in_progress_detail
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -892,6 +950,7 @@ def test_fetch_history_for_universe_ignores_expired_checkpoint_and_refetches(tmp
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
     path = checkpoint_path(
         checkpoint_dir,
@@ -925,6 +984,7 @@ def test_fetch_history_for_universe_ignores_expired_checkpoint_and_refetches(tmp
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -947,6 +1007,7 @@ def test_fetch_history_for_universe_uses_us_data_source_in_checkpoint_key(tmp_pa
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
     yfinance_path = checkpoint_path(
         checkpoint_dir,
@@ -981,6 +1042,7 @@ def test_fetch_history_for_universe_uses_us_data_source_in_checkpoint_key(tmp_pa
             universe,
             "2026-03-24",
             us_data_source="massive",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -1003,6 +1065,7 @@ def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_re
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
     cached_frame = _price_frame("2025-02-17", "2026-03-21", "2026-03-24")
 
@@ -1013,6 +1076,7 @@ def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_re
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -1021,7 +1085,7 @@ def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_re
     assert failures.empty
     assert mock_fetch.call_count == 1
     assert histories["AAPL"]["Date"].tolist() == ["2025-02-17", "2026-03-21", "2026-03-24"]
-    assert (cache_dir / "history" / "us" / "AAPL.csv").is_file()
+    assert (history_dir / "us" / "AAPL.csv").is_file()
 
     with patch(
         "tradingagents.screener.market_data.fetch_price_history",
@@ -1030,6 +1094,7 @@ def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_re
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -1044,8 +1109,9 @@ def test_fetch_history_for_universe_reports_cache_hit_progress(tmp_path):
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
-    symbol_cache_path = cache_dir / "history" / "us" / "AAPL.csv"
+    symbol_cache_path = history_dir / "us" / "AAPL.csv"
     symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
     _price_frame("2025-02-17", "2026-03-21", "2026-03-24").to_csv(symbol_cache_path, index=False)
     progress_events: list[dict[str, str | int | None]] = []
@@ -1072,7 +1138,8 @@ def test_fetch_history_for_universe_reports_cache_hit_progress(tmp_path):
     fetch_history_for_universe(
         universe,
         "2026-03-24",
-        cache_dir=cache_dir,
+         history_dir=history_dir,
+            cache_dir=cache_dir,
         checkpoint_dir=checkpoint_dir,
         checkpoint_batch_size=1,
         progress_callback=progress_callback,
@@ -1095,8 +1162,9 @@ def test_fetch_history_for_universe_fetches_only_missing_tail_when_cache_is_stal
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
-    symbol_cache_path = cache_dir / "history" / "us" / "AAPL.csv"
+    symbol_cache_path = history_dir / "us" / "AAPL.csv"
     symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
     _price_frame("2025-02-17", "2026-03-20", "2026-03-21").to_csv(symbol_cache_path, index=False)
 
@@ -1107,6 +1175,7 @@ def test_fetch_history_for_universe_fetches_only_missing_tail_when_cache_is_stal
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -1134,8 +1203,9 @@ def test_fetch_history_for_universe_reports_tail_fetch_progress(tmp_path):
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
-    symbol_cache_path = cache_dir / "history" / "us" / "AAPL.csv"
+    symbol_cache_path = history_dir / "us" / "AAPL.csv"
     symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
     _price_frame("2025-02-17", "2026-03-20", "2026-03-21").to_csv(symbol_cache_path, index=False)
     progress_events: list[dict[str, str | int | None]] = []
@@ -1166,6 +1236,7 @@ def test_fetch_history_for_universe_reports_tail_fetch_progress(tmp_path):
         fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -1189,8 +1260,9 @@ def test_fetch_history_for_universe_reports_tail_fetch_progress_for_akshare_us(t
         [{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
-    symbol_cache_path = cache_dir / "history" / "us" / "AAPL.csv"
+    symbol_cache_path = history_dir / "us" / "AAPL.csv"
     symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
     _price_frame("2025-02-17", "2026-03-20", "2026-03-21").to_csv(symbol_cache_path, index=False)
     progress_events: list[dict[str, str | int | None]] = []
@@ -1222,6 +1294,7 @@ def test_fetch_history_for_universe_reports_tail_fetch_progress_for_akshare_us(t
             universe,
             "2026-03-24",
             us_data_source="akshare",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -1248,6 +1321,7 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
         ]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -1258,7 +1332,8 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
             fetch_history_for_universe(
                 universe,
                 "2026-03-24",
-                cache_dir=cache_dir,
+                 history_dir=history_dir,
+            cache_dir=cache_dir,
                 checkpoint_dir=checkpoint_dir,
                 checkpoint_batch_size=1,
             )
@@ -1269,7 +1344,7 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
 
     checkpoint_files = sorted(checkpoint_dir.glob("*/history.json"))
     assert checkpoint_files == []
-    assert (cache_dir / "history" / "cn" / "600519.SH.csv").is_file()
+    assert (history_dir / "cn" / "600519.SH.csv").is_file()
 
     with patch(
         "tradingagents.screener.market_data.fetch_price_history",
@@ -1278,6 +1353,7 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=1,
@@ -1302,6 +1378,7 @@ def test_fetch_history_for_universe_persists_checkpoint_on_keyboard_interrupt(tm
         ]
     )
     cache_dir = tmp_path / "cache"
+    history_dir = tmp_path / "history"
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
@@ -1312,14 +1389,15 @@ def test_fetch_history_for_universe_persists_checkpoint_on_keyboard_interrupt(tm
             fetch_history_for_universe(
                 universe,
                 "2026-03-24",
-                cache_dir=cache_dir,
+                 history_dir=history_dir,
+            cache_dir=cache_dir,
                 checkpoint_dir=checkpoint_dir,
                 checkpoint_batch_size=100,
             )
 
     checkpoint_files = sorted(checkpoint_dir.glob("*/history.json"))
     assert checkpoint_files == []
-    assert (cache_dir / "history" / "cn" / "600519.SH.csv").is_file()
+    assert (history_dir / "cn" / "600519.SH.csv").is_file()
 
     with patch(
         "tradingagents.screener.market_data.fetch_price_history",
@@ -1328,6 +1406,7 @@ def test_fetch_history_for_universe_persists_checkpoint_on_keyboard_interrupt(tm
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-03-24",
+             history_dir=history_dir,
             cache_dir=cache_dir,
             checkpoint_dir=checkpoint_dir,
             checkpoint_batch_size=100,

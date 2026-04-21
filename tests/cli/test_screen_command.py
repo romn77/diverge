@@ -230,7 +230,7 @@ def test_screen_command_prints_progress_and_result_summary():
             )
 
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
             universe_count_by_market={"cn": 1, "us": 1},
             fetch_failed_count=1,
             filtered_count_by_reason={"fetch_failed": 1, "illiquid_us": 2},
@@ -273,7 +273,7 @@ def test_screen_command_prints_progress_and_result_summary():
     assert "Universe counts" in result.output
     assert "fetch_failed: 1" in result.output
     assert "600519.SH" in result.output
-    assert "/tmp/results/screener/20260324_214530" in result.output
+    assert "/tmp/data/screener/runs/20260324_214530" in result.output
 
 
 def test_screen_command_accepts_cn_data_source_override():
@@ -283,7 +283,7 @@ def test_screen_command_accepts_cn_data_source_override():
         captured["cn_data_source"] = config.cn_data_source
         captured["cn_data_source_fallbacks"] = config.cn_data_source_fallbacks
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
             universe_count_by_market={"cn": 1},
             fetch_failed_count=0,
             filtered_count_by_reason={},
@@ -320,7 +320,7 @@ def test_screen_command_accepts_us_data_source_override():
     def fake_run_screen(config, progress_callback=None):
         captured["us_data_source"] = config.us_data_source
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
             universe_count_by_market={"us": 1},
             fetch_failed_count=0,
             filtered_count_by_reason={},
@@ -356,7 +356,7 @@ def test_screen_command_accepts_tushare_us_data_source_override():
     def fake_run_screen(config, progress_callback=None):
         captured["us_data_source"] = config.us_data_source
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
             universe_count_by_market={"us": 1},
             fetch_failed_count=0,
             filtered_count_by_reason={},
@@ -392,7 +392,7 @@ def test_screen_command_accepts_akshare_us_data_source_override():
     def fake_run_screen(config, progress_callback=None):
         captured["us_data_source"] = config.us_data_source
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
             universe_count_by_market={"us": 1},
             fetch_failed_count=0,
             filtered_count_by_reason={},
@@ -428,7 +428,7 @@ def test_screen_command_accepts_massive_us_data_source_override():
     def fake_run_screen(config, progress_callback=None):
         captured["us_data_source"] = config.us_data_source
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
             universe_count_by_market={"us": 1},
             fetch_failed_count=0,
             filtered_count_by_reason={},
@@ -464,7 +464,7 @@ def test_screen_command_accepts_cn_manifest_override():
     def fake_run_screen(config, progress_callback=None):
         captured["cn_manifest_path"] = config.cn_manifest_path
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260324_214530"),
+            run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
             universe_count_by_market={"cn": 1},
             fetch_failed_count=0,
             filtered_count_by_reason={},
@@ -498,7 +498,7 @@ def test_screen_command_defaults_date_to_latest_completed_trading_day_when_omitt
     def fake_run_screen(config, progress_callback=None):
         captured["as_of_date"] = config.as_of_date
         return ScreenRunResult(
-            run_dir=Path("/tmp/results/screener/20260414_120000"),
+            run_dir=Path("/tmp/data/screener/runs/20260414_120000"),
             universe_count_by_market={"cn": 1},
             fetch_failed_count=0,
             filtered_count_by_reason={},
@@ -639,7 +639,7 @@ def test_screen_debug_command_defaults_date_to_latest_completed_trading_day_when
 
 def test_screen_replay_command_prints_summary_for_matching_run():
     replay_result = HardFilterReplayResult(
-        run_dir=Path("/tmp/results/screener/20260324_214530"),
+        run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
         features_count=12,
         kept_count=10,
         replay_filtered_count_by_reason={"illiquid_cn": 2},
@@ -653,7 +653,7 @@ def test_screen_replay_command_prints_summary_for_matching_run():
             app,
             [
                 "screen-replay",
-                "/tmp/results/screener/20260324_214530",
+                "/tmp/data/screener/runs/20260324_214530",
                 "--export-filtered-out",
                 "/tmp/replayed_filtered_out.csv",
             ],
@@ -668,7 +668,7 @@ def test_screen_replay_command_prints_summary_for_matching_run():
 
 def test_screen_replay_command_fails_when_saved_rows_do_not_match():
     replay_result = HardFilterReplayResult(
-        run_dir=Path("/tmp/results/screener/20260324_214530"),
+        run_dir=Path("/tmp/data/screener/runs/20260324_214530"),
         features_count=2,
         kept_count=1,
         replay_filtered_count_by_reason={"low_price_cn": 1},
@@ -683,7 +683,7 @@ def test_screen_replay_command_fails_when_saved_rows_do_not_match():
             app,
             [
                 "screen-replay",
-                "/tmp/results/screener/20260324_214530",
+                "/tmp/data/screener/runs/20260324_214530",
             ],
         )
 

@@ -23,10 +23,14 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./reports:/app/reports
+      - ./data:/app/data
       - ./.env:/app/.env:ro
     environment:
-      REPORTS_DIR: /app/reports
+      REPORTS_DIR: /app/data/reports
+      SCREENER_RUNS_DIR: /app/data/screener/runs
+      SCREENER_TASKS_DIR: /app/data/screener/tasks
+      SCREENER_CACHE_DIR: /app/data/cache/screener
+      STOCK_HISTORY_DIR: /app/data/history
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_MODE: ${AUTH_MODE:-required}

@@ -21,10 +21,11 @@ class TradeFeedbackServiceTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.temp_dir.name)
-        self.reports_dir = self.project_root / "reports"
-        self.report_dir = self.project_root / "reports" / "MSFT_20260401_120000"
+        self.reports_dir = self.project_root / "data" / "reports"
+        self.report_dir = self.project_root / "data" / "reports" / "MSFT_20260401_120000"
         self.eval_dir = (
             self.project_root
+            / "data"
             / "eval_results"
             / "MSFT"
             / "TradingAgentsStrategy_logs"
@@ -83,8 +84,8 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                 "analysis_references": [
                     {
                         "analysis_date": "2026-04-01",
-                        "report_path": "reports/MSFT_20260401_120000/complete_report.md",
-                        "full_state_log_path": "eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        "report_path": "data/reports/MSFT_20260401_120000/complete_report.md",
+                        "full_state_log_path": "data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
                     }
                 ],
             },
@@ -176,8 +177,8 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                 "analysis_references": [
                     {
                         "analysis_date": "2026-04-01",
-                        "report_path": "reports/MSFT_20260401_120000/complete_report.md",
-                        "full_state_log_path": "eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        "report_path": "data/reports/MSFT_20260401_120000/complete_report.md",
+                        "full_state_log_path": "data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
                     }
                 ],
             },

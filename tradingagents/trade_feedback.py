@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import uuid
@@ -9,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from tradingagents.data_layout import resolve_reports_dir
 from tradingagents.llm_clients import create_llm_client
 from tradingagents.llm_clients.model_config import get_provider_base_url
 
@@ -23,7 +23,7 @@ def get_trade_feedback_root(reports_dir: Path | None = None) -> Path:
     base_dir = (
         Path(reports_dir).resolve()
         if reports_dir is not None
-        else Path(os.environ.get("REPORTS_DIR", PROJECT_ROOT / "reports")).resolve()
+        else resolve_reports_dir(PROJECT_ROOT)
     )
     return base_dir / TRADE_FEEDBACK_DIRNAME
 

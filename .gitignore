@@ -214,6 +214,11 @@ cython_debug/
 # Ruff stuff:
 .ruff_cache/
 
+# Local runtime data
+data/
+reports/
+results/
+
 # PyPI configuration file
 .pypirc
 
@@ -235,6 +240,7 @@ reports/
 !web/frontend/app/(workbench)/reports/\[reportId\]/
 !web/frontend/app/(workbench)/reports/\[reportId\]/page.tsx
 results/
+data/
 # Vscode
 .vscode/
 .sisyphus/

@@ -7,8 +7,11 @@ A web UI for browsing trading analysis reports, launching background analysis ta
 - **Backend**: FastAPI for report browsing, analysis task orchestration, screener task orchestration, and screener run discovery
 - **Frontend**: Next.js with TypeScript, Tailwind CSS, and markdown/table rendering
 - **Data**:
-  - reports live in `../reports/`
-  - screener artifacts live in `../results/screener/`
+  - reports live in `../data/reports/`
+  - screener runs live in `../data/screener/runs/`
+  - screener runtime state lives in `../data/screener/tasks/`
+  - screener cache and checkpoints live in `../data/cache/screener/`
+  - stock history CSVs live in `../data/history/`
 
 ## Quick Start
 
@@ -75,7 +78,7 @@ Then open http://localhost:3000 in your browser.
 - CLI US screening requires `--us-manifest /absolute/path/to/us_manifest.csv`
 - Web US screening requires backend env `SCREEN_US_MANIFEST_PATH`
 - LLM analysis happens after screener output, not during screener execution
-- Shared screener cache and recovery checkpoints live under `../results/screener/.cache/`
+- Shared screener cache and recovery checkpoints live under `../data/cache/screener/`
 
 ## Auth Rollout
 

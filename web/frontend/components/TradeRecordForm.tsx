@@ -458,10 +458,10 @@ export function TradeRecordForm({
                     "The defaults follow the MAY-8 file contract:"
                   )}
                   <code className="ml-1 rounded bg-slate-100 px-2 py-1 text-[12px]">
-                    reports/&lt;report_id&gt;/complete_report.md
+                    data/reports/&lt;report_id&gt;/complete_report.md
                   </code>
                   <code className="ml-1 rounded bg-slate-100 px-2 py-1 text-[12px]">
-                    eval_results/&lt;ticker&gt;/TradingAgentsStrategy_logs/full_states_log_&lt;date&gt;.json
+                    data/eval_results/&lt;ticker&gt;/TradingAgentsStrategy_logs/full_states_log_&lt;date&gt;.json
                   </code>
                 </p>
               </div>
@@ -831,8 +831,8 @@ function buildReferenceFromReport(report: Report): AnalysisReference | null {
 
   return {
     analysis_date: analysisDate,
-    report_path: `reports/${report.id}/complete_report.md`,
-    full_state_log_path: `eval_results/${report.ticker}/TradingAgentsStrategy_logs/full_states_log_${analysisDate}.json`,
+    report_path: `data/reports/${report.id}/complete_report.md`,
+    full_state_log_path: `data/eval_results/${report.ticker}/TradingAgentsStrategy_logs/full_states_log_${analysisDate}.json`,
   };
 }
 

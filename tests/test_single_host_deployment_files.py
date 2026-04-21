@@ -28,7 +28,7 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("ARG NEXT_PUBLIC_API_BASE_URL", source)
         self.assertIn('CMD ["npm", "start"]', source)
 
-    def test_compose_file_uses_frontend_port_variable_and_mounts_reports(self):
+    def test_compose_file_uses_frontend_port_variable_and_mounts_data_root(self):
         compose_file = PROJECT_ROOT / "docker-compose.yml"
         self.assertTrue(compose_file.is_file())
 
@@ -37,8 +37,10 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("${POSTGRES_PORT:-5432}:5432", source)
         self.assertIn("postgres-data:/var/lib/postgresql/data", source)
         self.assertIn('${FRONTEND_PORT:-3000}:3000', source)
-        self.assertIn("./reports:/app/reports", source)
+        self.assertIn("./data:/app/data", source)
         self.assertIn("./.env:/app/.env:ro", source)
+        self.assertIn("REPORTS_DIR: /app/data/reports", source)
+        self.assertIn("SCREENER_RUNS_DIR: /app/data/screener/runs", source)
         self.assertIn("FRONTEND_ORIGIN", source)
         self.assertIn("AUTH_ENABLED", source)
         self.assertIn("AUTH_MODE", source)
@@ -53,6 +55,7 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("FRONTEND_PORT=3000", source)
         self.assertIn("FRONTEND_ORIGIN=http://localhost:3000", source)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL=http://localhost:8000", source)
+        self.assertIn("TRADINGAGENTS_EVAL_RESULTS_DIR=./data/eval_results", source)
         self.assertIn("AUTH_ENABLED=false", source)
         self.assertIn("AUTH_MODE=required", source)
         self.assertIn("DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/tradingagents", source)
@@ -67,13 +70,13 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("docker compose up -d", source)
         self.assertIn("mkdir -p", source)
 
-    def test_dockerignore_excludes_env_and_reports(self):
+    def test_dockerignore_excludes_env_and_data_artifacts(self):
         dockerignore = PROJECT_ROOT / ".dockerignore"
         self.assertTrue(dockerignore.is_file())
 
         source = dockerignore.read_text(encoding="utf-8")
         self.assertIn(".env", source)
-        self.assertIn("reports", source)
+        self.assertIn("data", source)
         self.assertIn(".venv", source)
 
 

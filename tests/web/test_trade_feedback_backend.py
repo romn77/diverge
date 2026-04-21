@@ -1,11 +1,12 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from tradingagents import trade_feedback
-from web.backend import main as backend_main
+from web.backend import auth, main as backend_main
 
 
 class _FakeClient:
@@ -27,8 +28,15 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.temp_dir.name) / "project"
         self.project_root.mkdir(parents=True)
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
         self.original_reports_dir = backend_main.REPORTS_DIR
-        backend_main.REPORTS_DIR = self.project_root / "reports"
+        backend_main.REPORTS_DIR = self.project_root / "data" / "reports"
 
         self.project_patch = patch.object(trade_feedback, "PROJECT_ROOT", self.project_root)
         self.project_patch.start()
@@ -36,6 +44,7 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         report_dir = backend_main.REPORTS_DIR / "MSFT_20260401_120000"
         eval_dir = (
             self.project_root
+            / "data"
             / "eval_results"
             / "MSFT"
             / "TradingAgentsStrategy_logs"
@@ -66,6 +75,8 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         )
 
     def tearDown(self):
+        self.auth_env_patch.stop()
+        auth.reset_runtime_state()
         backend_main.REPORTS_DIR = self.original_reports_dir
         self.project_patch.stop()
         self.temp_dir.cleanup()
@@ -88,8 +99,8 @@ class TradeFeedbackBackendTests(unittest.TestCase):
                 analysis_references=[
                     backend_main.AnalysisReferencePayload(
                         analysis_date="2026-04-01",
-                        report_path="reports/MSFT_20260401_120000/complete_report.md",
-                        full_state_log_path="eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        report_path="data/reports/MSFT_20260401_120000/complete_report.md",
+                        full_state_log_path="data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
                     )
                 ],
             )
@@ -172,8 +183,8 @@ class TradeFeedbackBackendTests(unittest.TestCase):
                 analysis_references=[
                     backend_main.AnalysisReferencePayload(
                         analysis_date="2026-04-01",
-                        report_path="reports/MSFT_20260401_120000/complete_report.md",
-                        full_state_log_path="eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        report_path="data/reports/MSFT_20260401_120000/complete_report.md",
+                        full_state_log_path="data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
                     )
                 ],
             )

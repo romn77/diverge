@@ -8,7 +8,6 @@ from pathlib import Path
 import pandas as pd
 
 
-HISTORY_CACHE_DIRNAME = "history"
 REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
 NUMERIC_PRICE_COLUMNS = REQUIRED_PRICE_COLUMNS[1:]
 
@@ -58,20 +57,20 @@ def prepare_history_frame_for_indicators(df: pd.DataFrame) -> pd.DataFrame:
     return working
 
 
-def history_cache_path(cache_dir: str | Path, market: str, symbol: str) -> Path:
+def history_cache_path(history_dir: str | Path, market: str, symbol: str) -> Path:
     safe_symbol = symbol.replace("/", "_").replace("\\", "_")
-    return Path(cache_dir) / HISTORY_CACHE_DIRNAME / market / f"{safe_symbol}.csv"
+    return Path(history_dir) / market / f"{safe_symbol}.csv"
 
 
-def load_history_cache(cache_dir: str | Path, market: str, symbol: str) -> pd.DataFrame:
-    path = history_cache_path(cache_dir, market, symbol)
+def load_history_cache(history_dir: str | Path, market: str, symbol: str) -> pd.DataFrame:
+    path = history_cache_path(history_dir, market, symbol)
     if not path.is_file():
         return empty_history_frame()
     return normalize_history_frame(pd.read_csv(path))
 
 
-def save_history_cache(cache_dir: str | Path, market: str, symbol: str, frame: pd.DataFrame) -> Path:
-    path = history_cache_path(cache_dir, market, symbol)
+def save_history_cache(history_dir: str | Path, market: str, symbol: str, frame: pd.DataFrame) -> Path:
+    path = history_cache_path(history_dir, market, symbol)
     path.parent.mkdir(parents=True, exist_ok=True)
     normalize_history_frame(frame).to_csv(path, index=False)
     return path

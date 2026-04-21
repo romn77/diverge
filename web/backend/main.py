@@ -60,6 +60,13 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from cli.utils import ANALYST_ORDER
+from tradingagents.data_layout import (
+    resolve_history_dir,
+    resolve_reports_dir,
+    resolve_screener_cache_dir,
+    resolve_screener_runs_dir,
+    resolve_screener_tasks_dir,
+)
 from tradingagents.llm_clients.model_config import (
     DEEP_MODEL_OPTIONS,
     PROVIDER_OPTIONS,
@@ -86,13 +93,13 @@ logger = logging.getLogger(__name__)
 # Configuration
 # ---------------------------------------------------------------------------
 
-REPORTS_DIR = Path(os.environ.get("REPORTS_DIR", PROJECT_ROOT / "reports")).resolve()
+REPORTS_DIR = resolve_reports_dir(PROJECT_ROOT)
 TMP_REPORTS_DIR = REPORTS_DIR / ".tmp"
-SCREENER_RESULTS_DIR = Path(
-    os.environ.get("SCREENER_RESULTS_DIR", PROJECT_ROOT / "results" / "screener")
-).resolve()
+SCREENER_RUNS_DIR = resolve_screener_runs_dir(PROJECT_ROOT)
+SCREENER_TASKS_DIR = resolve_screener_tasks_dir(PROJECT_ROOT)
+SCREENER_CACHE_DIR = resolve_screener_cache_dir(PROJECT_ROOT)
+STOCK_HISTORY_DIR = resolve_history_dir(PROJECT_ROOT)
 TASKS_STATE_DIRNAME = ".tasks"
-SCREENER_TASKS_STATE_DIRNAME = ".screener_tasks"
 ACTIVE_TASKS_DIRNAME = "active"
 RECOVERED_TASK_ERROR = "Service restarted before task completion."
 
@@ -652,12 +659,12 @@ def _can_access_screener_owner(user: auth.User | None, owner_user_id: str | None
 
 
 def _relative_screener_storage_path(path: Path) -> str:
-    resolved_root = SCREENER_RESULTS_DIR.resolve()
+    resolved_root = SCREENER_RUNS_DIR.resolve()
     resolved_path = path.resolve()
     try:
         relative_path = resolved_path.relative_to(resolved_root)
     except ValueError as exc:
-        raise RuntimeError("Screener artifacts must stay under SCREENER_RESULTS_DIR") from exc
+        raise RuntimeError("Screener artifacts must stay under SCREENER_RUNS_DIR") from exc
     return relative_path.as_posix()
 
 
@@ -671,9 +678,9 @@ def _build_screener_artifact_manifest(run_dir: Path) -> dict[str, str]:
 
 
 def _resolve_screener_run_dir_from_record(record: screener_runs.ScreenerRun) -> Path:
-    run_dir = (SCREENER_RESULTS_DIR / record.storage_path).resolve()
+    run_dir = (SCREENER_RUNS_DIR / record.storage_path).resolve()
     try:
-        run_dir.relative_to(SCREENER_RESULTS_DIR.resolve())
+        run_dir.relative_to(SCREENER_RUNS_DIR.resolve())
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Screener run not found") from exc
     if not run_dir.is_dir():
@@ -689,9 +696,9 @@ def _resolve_screener_artifact_path(
     relative_path = (record.artifact_manifest or {}).get(artifact_key)
     if not relative_path:
         relative_path = f"{record.storage_path}/{default_filename}"
-    artifact_path = (SCREENER_RESULTS_DIR / relative_path).resolve()
+    artifact_path = (SCREENER_RUNS_DIR / relative_path).resolve()
     try:
-        artifact_path.relative_to(SCREENER_RESULTS_DIR.resolve())
+        artifact_path.relative_to(SCREENER_RUNS_DIR.resolve())
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Screener artifact not found") from exc
     return artifact_path
@@ -716,7 +723,7 @@ def _task_snapshot_path(task_id: str) -> Path:
 
 
 def _active_screener_tasks_dir() -> Path:
-    return SCREENER_RESULTS_DIR / SCREENER_TASKS_STATE_DIRNAME / ACTIVE_TASKS_DIRNAME
+    return SCREENER_TASKS_DIR / ACTIVE_TASKS_DIRNAME
 
 
 def _screener_task_snapshot_path(task_id: str) -> Path:
@@ -1308,18 +1315,18 @@ def _get_screener_config_options_payload() -> dict:
 def _resolve_screener_run_dir(run_id: str) -> Path:
     if "/" in run_id or "\\" in run_id or ".." in run_id:
         raise HTTPException(status_code=404, detail="Screener run not found")
-    run_dir = SCREENER_RESULTS_DIR / run_id
+    run_dir = SCREENER_RUNS_DIR / run_id
     if not run_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
     return run_dir
 
 
 def _list_screener_runs_from_disk() -> list[dict]:
-    if not SCREENER_RESULTS_DIR.is_dir():
+    if not SCREENER_RUNS_DIR.is_dir():
         return []
 
     runs: list[dict] = []
-    for entry in SCREENER_RESULTS_DIR.iterdir():
+    for entry in SCREENER_RUNS_DIR.iterdir():
         if not entry.is_dir() or entry.name.startswith("."):
             continue
         meta_path = entry / "run_meta.json"
@@ -2128,7 +2135,9 @@ def create_screener_task(
 
     request_payload = payload.model_dump()
     config_payload = dict(request_payload)
-    config_payload["output_dir"] = str(SCREENER_RESULTS_DIR)
+    config_payload["output_dir"] = str(SCREENER_RUNS_DIR)
+    config_payload["cache_dir"] = str(SCREENER_CACHE_DIR)
+    config_payload["history_dir"] = str(STOCK_HISTORY_DIR)
     if "cn" in request_payload["markets"]:
         manifest_path = os.environ.get("SCREEN_CN_MANIFEST_PATH")
         if manifest_path:

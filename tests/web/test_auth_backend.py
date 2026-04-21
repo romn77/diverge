@@ -17,11 +17,13 @@ class AuthBackendTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.original_reports_dir = backend_main.REPORTS_DIR
-        self.original_screener_results_dir = backend_main.SCREENER_RESULTS_DIR
+        self.original_screener_runs_dir = backend_main.SCREENER_RUNS_DIR
+        self.original_screener_tasks_dir = backend_main.SCREENER_TASKS_DIR
         backend_main.REPORTS_DIR = Path(self.temp_dir.name) / "reports"
-        backend_main.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "screener"
+        backend_main.SCREENER_RUNS_DIR = Path(self.temp_dir.name) / "screener" / "runs"
+        backend_main.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "screener" / "tasks"
         backend_main.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        backend_main.SCREENER_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        backend_main.SCREENER_RUNS_DIR.mkdir(parents=True, exist_ok=True)
         backend_main.tasks.clear()
         backend_main.screener_tasks.clear()
         self.database_url = f"sqlite+pysqlite:///{Path(self.temp_dir.name) / 'auth.db'}"
@@ -29,7 +31,8 @@ class AuthBackendTests(unittest.TestCase):
 
     def tearDown(self):
         backend_main.REPORTS_DIR = self.original_reports_dir
-        backend_main.SCREENER_RESULTS_DIR = self.original_screener_results_dir
+        backend_main.SCREENER_RUNS_DIR = self.original_screener_runs_dir
+        backend_main.SCREENER_TASKS_DIR = self.original_screener_tasks_dir
         backend_main.tasks.clear()
         backend_main.screener_tasks.clear()
         auth.reset_runtime_state()
@@ -109,7 +112,7 @@ class AuthBackendTests(unittest.TestCase):
         markets: list[str] | None = None,
     ) -> None:
         resolved_markets = markets or ["cn"]
-        run_dir = backend_main.SCREENER_RESULTS_DIR / run_id
+        run_dir = backend_main.SCREENER_RUNS_DIR / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "run_meta.json").write_text(
             json.dumps(
@@ -309,8 +312,7 @@ class AuthBackendTests(unittest.TestCase):
             self.assertEqual([row["id"] for row in list_response.json()], [task_id])
 
             snapshot_path = (
-                backend_main.SCREENER_RESULTS_DIR
-                / backend_main.SCREENER_TASKS_STATE_DIRNAME
+                backend_main.SCREENER_TASKS_DIR
                 / backend_main.ACTIVE_TASKS_DIRNAME
                 / task_id
                 / "task.json"
