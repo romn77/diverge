@@ -481,8 +481,8 @@ export function ReportViewer({
 
   if (!structure) {
     return (
-      <div className="flex min-w-0 flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
-        <div className="viewer-frame mx-auto flex min-h-0 w-full flex-1 items-center justify-center p-8 text-sm text-slate-600">
+      <div className="flex min-w-0 flex-1 flex-col p-2 md:p-3 lg:p-4">
+        <div className="viewer-frame mx-auto flex w-full items-center justify-center p-8 text-sm text-slate-600">
           {isLoading
             ? t("report.loadingReport", "Loading report...")
             : error
@@ -494,123 +494,156 @@ export function ReportViewer({
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
+    <div className="flex min-w-0 flex-1 flex-col p-2 md:p-3 lg:p-4">
       <section
         id="report-content-panel"
-        className="viewer-frame mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+        className="viewer-frame mx-auto w-full"
         aria-live="polite"
       >
-        <div className="h-full overflow-y-auto">
-          <div className="sticky top-0 z-20 bg-transparent">
-            <header className="border-b border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(252,245,235,0.92))] px-4 py-5 md:px-8 md:py-8">
-              <div className="w-full space-y-5">
-                <div className="space-y-5">
-                  <div className="flex min-w-0 items-start gap-4">
-                    {onOpenSidebar && (
-                      <button
-                        type="button"
-                        onClick={onOpenSidebar}
-                        aria-controls="report-navigation"
-                        aria-expanded={sidebarOpen}
-                        aria-haspopup="dialog"
-                        className="interactive-button focus-ring grid min-h-11 min-w-11 place-items-center rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 text-slate-500 md:hidden"
-                        aria-label={t(
-                          "report.openNavigation",
-                          "Open report navigation"
-                        )}
-                      >
-                        <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-                          <path
-                            d="M4 7h16M4 12h16M4 17h16"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                          />
-                        </svg>
-                      </button>
-                    )}
-
-                    <div className="min-w-0">
-                      <p className="viewer-meta-label">
-                        {selectedCategoryLabel ??
-                          t("report.researchWorkbench", "Research workbench")}
-                      </p>
-                      <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
-                        {structure.ticker}
-                      </h2>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
-                        <span>
-                          {formatGeneratedLabel(
-                            reportMeta,
-                            locale,
-                            t("report.generatedUnavailable", "Generated time unavailable")
-                          )}
-                        </span>
-                        <span className="hidden text-[var(--border-strong)] sm:inline">
-                          /
-                        </span>
-                        <span className="font-mono text-[12px] text-slate-500">
-                          {reportId}
-                        </span>
-                      </div>
-                      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-[var(--primary)]" aria-hidden />
-                          {selectedFileLabel ??
-                            (selectedTab === SUMMARY_TAB_KEY
-                              ? t("report.summary", "Summary")
-                              : selectedCategoryMeta
-                                ? t(
-                                    "report.categoryView",
-                                    ({ label }) => `${label} view`,
-                                    { label: selectedCategoryLabel ?? selectedCategoryMeta.label }
-                                  )
-                                : t("report.completeReport", "Complete Report"))}
-                        </span>
-                        {selectedTab !== SUMMARY_TAB_KEY &&
-                          selectedTab !== "complete" &&
-                          categoryFiles.length > 0 && (
-                            <span>
-                              {t(
-                                "report.fileCount",
-                                ({ count }) => `${count} files in this track`,
-                                { count: categoryFiles.length }
+        <div>
+          <div className="px-4 pt-6 md:px-8 md:pt-8">
+            <div className="w-full">
+              <section className="rounded-[30px] border border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(252,245,235,0.92))] px-4 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)] md:px-6 md:py-6">
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start">
+                  <div className="min-w-0 space-y-5">
+                    <header>
+                      <div className="space-y-5">
+                        <div className="flex min-w-0 items-start gap-4">
+                          {onOpenSidebar && (
+                            <button
+                              type="button"
+                              onClick={onOpenSidebar}
+                              aria-controls="report-navigation"
+                              aria-expanded={sidebarOpen}
+                              aria-haspopup="dialog"
+                              className="interactive-button focus-ring grid min-h-11 min-w-11 place-items-center rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 text-slate-500 md:hidden"
+                              aria-label={t(
+                                "report.openNavigation",
+                                "Open report navigation"
                               )}
-                            </span>
+                            >
+                              <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+                                <path
+                                  d="M4 7h16M4 12h16M4 17h16"
+                                  stroke="currentColor"
+                                  strokeWidth="1.8"
+                                  strokeLinecap="round"
+                                />
+                              </svg>
+                            </button>
                           )}
-                      </div>
 
-                      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                        <SummaryMetric
-                          label={t("report.readingOverview", "Reading Overview")}
-                          value={
-                            selectedCategoryLabel ??
-                            t("report.completeReport", "Complete Report")
-                          }
-                          hint={selectedFileLabel ?? t("report.houseView", "House View")}
-                        />
-                        <SummaryMetric
-                          label={t("report.availableTracks", "Available tracks")}
-                          value={String(availableTrackCount)}
-                          hint={t(
-                            "report.trackCountHint",
-                            ({ count }) => `${count} agent tracks available`,
-                            { count: availableTrackCount }
-                          )}
-                        />
-                        <SummaryMetric
-                          label={t("report.sourceFiles", "Source files")}
-                          value={String(sourceFileCount)}
-                          hint={t(
-                            "report.referenceArtifactsHint",
-                            ({ count }) => `${count} Reference artifacts attached`,
-                            { count: artifactCount }
-                          )}
-                        />
+                          <div className="min-w-0">
+                            <p className="viewer-meta-label">
+                              {selectedCategoryLabel ??
+                                t("report.researchWorkbench", "Research workbench")}
+                            </p>
+                            <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
+                              {structure.ticker}
+                            </h2>
+                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
+                              <span>
+                                {formatGeneratedLabel(
+                                  reportMeta,
+                                  locale,
+                                  t("report.generatedUnavailable", "Generated time unavailable")
+                                )}
+                              </span>
+                              <span className="hidden text-[var(--border-strong)] sm:inline">
+                                /
+                              </span>
+                              <span className="font-mono text-[12px] text-slate-500">
+                                {reportId}
+                              </span>
+                            </div>
+                            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
+                              <span className="inline-flex items-center gap-2">
+                                <span
+                                  className="size-2 rounded-full bg-[var(--primary)]"
+                                  aria-hidden
+                                />
+                                {selectedFileLabel ??
+                                  (selectedTab === SUMMARY_TAB_KEY
+                                    ? t("report.summary", "Summary")
+                                    : selectedCategoryMeta
+                                      ? t(
+                                          "report.categoryView",
+                                          ({ label }) => `${label} view`,
+                                          {
+                                            label:
+                                              selectedCategoryLabel ??
+                                              selectedCategoryMeta.label,
+                                          }
+                                        )
+                                      : t("report.completeReport", "Complete Report"))}
+                              </span>
+                              {selectedTab !== SUMMARY_TAB_KEY &&
+                                selectedTab !== "complete" &&
+                                categoryFiles.length > 0 && (
+                                  <span>
+                                    {t(
+                                      "report.fileCount",
+                                      ({ count }) => `${count} files in this track`,
+                                      { count: categoryFiles.length }
+                                    )}
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3">
+                          <SummaryMetric
+                            label={t("report.readingOverview", "Reading Overview")}
+                            value={
+                              selectedCategoryLabel ??
+                              t("report.completeReport", "Complete Report")
+                            }
+                            hint={selectedFileLabel ?? t("report.houseView", "House View")}
+                          />
+                          <SummaryMetric
+                            label={t("report.availableTracks", "Available tracks")}
+                            value={String(availableTrackCount)}
+                            hint={t(
+                              "report.trackCountHint",
+                              ({ count }) => `${count} agent tracks available`,
+                              { count: availableTrackCount }
+                            )}
+                          />
+                          <SummaryMetric
+                            label={t("report.sourceFiles", "Source files")}
+                            value={String(sourceFileCount)}
+                            hint={t(
+                              "report.referenceArtifactsHint",
+                              ({ count }) => `${count} Reference artifacts attached`,
+                              { count: artifactCount }
+                            )}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    </header>
                   </div>
 
+                  <div className="min-w-0">
+                    <TickerPricePanel
+                      symbol={structure.ticker}
+                      asOfDate={reportMeta?.date ?? null}
+                      title={t("report.priceTrend", "Price Trend")}
+                      subtitle={t(
+                        "report.priceTrendHint",
+                        "400-day vendor-backed history aligned to this report date."
+                      )}
+                      embedded
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <div className="sticky top-0 z-20 bg-transparent">
+            <div className="border-b border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(252,245,235,0.92))] px-4 py-3 md:px-8 md:py-4">
+              <div className="w-full">
                   <div className="scrollbar-none flex gap-5 overflow-x-auto border-b border-[color:rgba(22,34,51,0.08)] pb-1">
                     <button
                       type="button"
@@ -657,9 +690,8 @@ export function ReportViewer({
                       </button>
                     ))}
                   </div>
-                </div>
               </div>
-            </header>
+            </div>
 
             {selectedTab !== SUMMARY_TAB_KEY &&
               selectedTab !== "complete" &&
@@ -691,18 +723,6 @@ export function ReportViewer({
 
           <div className="px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
             <div className="w-full">
-              <div className="mb-8">
-                <TickerPricePanel
-                  symbol={structure.ticker}
-                  asOfDate={reportMeta?.date ?? null}
-                  title={t("report.priceTrend", "Price Trend")}
-                  subtitle={t(
-                    "report.priceTrendHint",
-                    "400-day vendor-backed history aligned to this report date."
-                  )}
-                />
-              </div>
-
               {selectedTab !== "complete" && selectedCategoryMeta && (
                 <div className="mb-8 flex w-full flex-col gap-3 border-b border-[color:rgba(22,34,51,0.08)] pb-5 md:flex-row md:items-end md:justify-between">
                   <div className="space-y-1">
@@ -775,7 +795,7 @@ function SummaryMetric({
   hint: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-[color:rgba(22,34,51,0.08)] bg-white/74 px-4 py-4">
+    <div className="border-b border-[color:rgba(22,34,51,0.08)] py-3 last:border-b-0">
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
         {label}
       </p>

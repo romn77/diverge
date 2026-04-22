@@ -24,7 +24,9 @@ test("ReportViewer lets the reading surface use the full content column", () => 
   assert.equal(source.includes("max-w-[76rem]"), false);
   assert.equal(source.includes("max-w-[1260px]"), false);
   assert.equal(source.includes("reader-frame"), false);
-  assert.equal(source.includes("p-3 md:h-screen md:overflow-hidden md:p-4 lg:p-5"), false);
+  assert.equal(source.includes("md:h-screen"), false);
+  assert.equal(source.includes("overflow-y-auto"), false);
+  assert.equal(source.includes('className="h-full overflow-y-auto"'), false);
 });
 
 test("ReportViewer decorates reports with valuation-aware highlights without injecting thesis tracker", () => {
@@ -42,19 +44,34 @@ test("ReportViewer decorates reports with valuation-aware highlights without inj
   assert.doesNotMatch(source, /selectedFile === "manager"/);
 });
 
-test("ReportViewer surfaces route-level overview cards and artifact context for faster scanning", () => {
+test("ReportViewer pairs the ticker price panel with the header summary before the sticky tab rail", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
   assert.match(source, /Reading Overview/);
   assert.match(source, /Available tracks/);
   assert.match(source, /Source files/);
-  assert.match(source, /Reference artifacts/);
-  assert.match(source, /Available Tracks/);
-  assert.match(source, /Artifact Summary/);
   assert.match(source, /SummaryMetric/);
-  assert.match(source, /ArtifactPill/);
   assert.match(source, /TickerPricePanel/);
   assert.match(source, /Price Trend/);
+  assert.match(source, /embedded/);
+  assert.match(source, /xl:grid-cols-\[minmax\(0,3fr\)_minmax\(0,7fr\)\]/);
+  assert.doesNotMatch(source, /xl:grid-cols-2/);
+  assert.doesNotMatch(source, /sm:grid-cols-3/);
+
+  const headerIndex = source.indexOf("<header>");
+  const panelIndex = source.indexOf("<TickerPricePanel");
+  const stickyIndex = source.indexOf('className="sticky top-0');
+  assert.notEqual(headerIndex, -1);
+  assert.notEqual(panelIndex, -1);
+  assert.notEqual(stickyIndex, -1);
+  assert.ok(
+    headerIndex < panelIndex,
+    "header summary should render before the price panel in the hero row"
+  );
+  assert.ok(
+    panelIndex < stickyIndex,
+    "price panel should render beside the header before the sticky tab rail"
+  );
 });
 
 test("ReportViewer promotes a dedicated summary tab instead of a right-side summary rail", () => {
