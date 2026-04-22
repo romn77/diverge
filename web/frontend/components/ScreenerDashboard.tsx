@@ -10,6 +10,9 @@ import {
   buildScreenerTaskHref,
 } from "@/lib/workbenchRoutes";
 
+const heroActionBaseClassName =
+  "interactive-button focus-ring inline-flex items-center justify-center rounded-full px-5 py-3 text-xs font-semibold tracking-[0.04em] leading-none no-underline appearance-none";
+
 export function ScreenerDashboard() {
   const { openScreenerDialog } = useWorkbenchChrome();
   const { activeScreenerTasks, screenerRuns } = useWorkbench();
@@ -51,14 +54,14 @@ export function ScreenerDashboard() {
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold tracking-[0.04em] text-white"
+                className={`${heroActionBaseClassName} border border-[var(--accent)] bg-[var(--accent)] text-white`}
                 onClick={openScreenerDialog}
               >
                 New Screener
               </button>
               <Link
                 href={buildActivityHref()}
-                className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold tracking-[0.04em] text-slate-700"
+                className={`${heroActionBaseClassName} border border-[var(--border-strong)] bg-white text-slate-700`}
               >
                 View Activity
               </Link>

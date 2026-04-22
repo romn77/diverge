@@ -14,6 +14,8 @@ interface ReportViewerProps {
   sidebarOpen?: boolean;
 }
 
+const SUMMARY_TAB_KEY = "summary";
+
 const CATEGORY_MAP: Record<string, { dir: string; label: string }> = {
   analysts: { dir: "1_analysts", label: "Analysts" },
   research: { dir: "2_research", label: "Research" },
@@ -243,7 +245,7 @@ export function ReportViewer({
 }: ReportViewerProps) {
   const { locale, t } = usePreferences();
   const [structure, setStructure] = useState<ReportStructure | null>(null);
-  const [selectedTab, setSelectedTab] = useState("complete");
+  const [selectedTab, setSelectedTab] = useState(SUMMARY_TAB_KEY);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -268,7 +270,7 @@ export function ReportViewer({
         }
 
         setStructure(data);
-        setSelectedTab("complete");
+        setSelectedTab(SUMMARY_TAB_KEY);
         setSelectedFile(null);
         setContent("");
       } catch (err) {
@@ -336,6 +338,14 @@ export function ReportViewer({
         return;
       }
 
+      if (selectedTab === SUMMARY_TAB_KEY) {
+        requestIdRef.current += 1;
+        setContent("");
+        setError(null);
+        setIsLoading(false);
+        return;
+      }
+
       let path: string;
 
       if (selectedTab === "complete") {
@@ -392,7 +402,10 @@ export function ReportViewer({
   );
 
   const categoryFiles = useMemo(
-    () => (selectedTab !== "complete" && structure ? structure.categories[selectedTab] || [] : []),
+    () =>
+      selectedTab !== SUMMARY_TAB_KEY && selectedTab !== "complete" && structure
+        ? structure.categories[selectedTab] || []
+        : [],
     [selectedTab, structure]
   );
   const availableTrackCount = availableCategories.length;
@@ -413,20 +426,46 @@ export function ReportViewer({
   );
 
   const selectedCategoryMeta = selectedTab !== "complete" ? CATEGORY_MAP[selectedTab] : null;
-  const selectedCategoryLabel = selectedCategoryMeta
-    ? t(`report.category.${selectedTab}`, selectedCategoryMeta.label)
-    : null;
+  const selectedCategoryLabel =
+    selectedTab === SUMMARY_TAB_KEY
+      ? t("report.summary", "Summary")
+      : selectedCategoryMeta
+        ? t(`report.category.${selectedTab}`, selectedCategoryMeta.label)
+        : null;
   const selectedFileLabel = selectedFile
     ? t(`report.file.${selectedFile}`, FILE_LABELS[selectedFile] || selectedFile)
     : null;
+  const summaryArtifact = useMemo(
+    () =>
+      structure?.artifacts.find(
+        (artifact) => artifact.type.toLowerCase() === "thesis"
+      ) ??
+      structure?.artifacts[0] ??
+      null,
+    [structure]
+  );
+  const summaryText =
+    summaryArtifact?.summary ??
+    t(
+      "report.summaryFallback",
+      "A concise summary is not available yet. Use the report tracks to inspect each desk's view."
+    );
 
   const handleTabChange = useCallback(
     (tabKey: string) => {
       setSelectedTab(tabKey);
 
-      const crossMode = (selectedTab === "complete") !== (tabKey === "complete");
+      const crossMode =
+        (selectedTab === "complete") !== (tabKey === "complete") ||
+        selectedTab === SUMMARY_TAB_KEY ||
+        tabKey === SUMMARY_TAB_KEY;
       if (crossMode) {
         setContent("");
+      }
+
+      if (tabKey === SUMMARY_TAB_KEY) {
+        setSelectedFile(null);
+        return;
       }
 
       if (tabKey !== "complete" && structure) {
@@ -465,69 +504,72 @@ export function ReportViewer({
           <div className="sticky top-0 z-20 bg-transparent">
             <header className="border-b border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(252,245,235,0.92))] px-4 py-5 md:px-8 md:py-8">
               <div className="w-full space-y-5">
-                <div className="viewer-header-grid">
-                  <div className="space-y-5">
-                    <div className="flex min-w-0 items-start gap-4">
-                      {onOpenSidebar && (
-                        <button
-                          type="button"
-                          onClick={onOpenSidebar}
-                          aria-controls="report-navigation"
-                          aria-expanded={sidebarOpen}
-                          aria-haspopup="dialog"
-                          className="interactive-button focus-ring grid min-h-11 min-w-11 place-items-center rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 text-slate-500 md:hidden"
-                          aria-label={t(
-                            "report.openNavigation",
-                            "Open report navigation"
-                          )}
-                        >
-                          <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-                            <path
-                              d="M4 7h16M4 12h16M4 17h16"
-                              stroke="currentColor"
-                              strokeWidth="1.8"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </button>
-                      )}
+                <div className="space-y-5">
+                  <div className="flex min-w-0 items-start gap-4">
+                    {onOpenSidebar && (
+                      <button
+                        type="button"
+                        onClick={onOpenSidebar}
+                        aria-controls="report-navigation"
+                        aria-expanded={sidebarOpen}
+                        aria-haspopup="dialog"
+                        className="interactive-button focus-ring grid min-h-11 min-w-11 place-items-center rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 text-slate-500 md:hidden"
+                        aria-label={t(
+                          "report.openNavigation",
+                          "Open report navigation"
+                        )}
+                      >
+                        <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
+                          <path
+                            d="M4 7h16M4 12h16M4 17h16"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    )}
 
-                      <div className="min-w-0">
-                        <p className="viewer-meta-label">
-                          {selectedCategoryLabel ??
-                            t("report.researchWorkbench", "Research workbench")}
-                        </p>
-                        <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
-                          {structure.ticker}
-                        </h2>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
-                          <span>
-                            {formatGeneratedLabel(
-                              reportMeta,
-                              locale,
-                              t("report.generatedUnavailable", "Generated time unavailable")
-                            )}
-                          </span>
-                          <span className="hidden text-[var(--border-strong)] sm:inline">
-                            /
-                          </span>
-                          <span className="font-mono text-[12px] text-slate-500">
-                            {reportId}
-                          </span>
-                        </div>
-                        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
-                          <span className="inline-flex items-center gap-2">
-                            <span className="size-2 rounded-full bg-[var(--primary)]" aria-hidden />
-                            {selectedFileLabel ??
-                              (selectedCategoryMeta
+                    <div className="min-w-0">
+                      <p className="viewer-meta-label">
+                        {selectedCategoryLabel ??
+                          t("report.researchWorkbench", "Research workbench")}
+                      </p>
+                      <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
+                        {structure.ticker}
+                      </h2>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
+                        <span>
+                          {formatGeneratedLabel(
+                            reportMeta,
+                            locale,
+                            t("report.generatedUnavailable", "Generated time unavailable")
+                          )}
+                        </span>
+                        <span className="hidden text-[var(--border-strong)] sm:inline">
+                          /
+                        </span>
+                        <span className="font-mono text-[12px] text-slate-500">
+                          {reportId}
+                        </span>
+                      </div>
+                      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="size-2 rounded-full bg-[var(--primary)]" aria-hidden />
+                          {selectedFileLabel ??
+                            (selectedTab === SUMMARY_TAB_KEY
+                              ? t("report.summary", "Summary")
+                              : selectedCategoryMeta
                                 ? t(
                                     "report.categoryView",
                                     ({ label }) => `${label} view`,
                                     { label: selectedCategoryLabel ?? selectedCategoryMeta.label }
                                   )
                                 : t("report.completeReport", "Complete Report"))}
-                          </span>
-                          {selectedTab !== "complete" && categoryFiles.length > 0 && (
+                        </span>
+                        {selectedTab !== SUMMARY_TAB_KEY &&
+                          selectedTab !== "complete" &&
+                          categoryFiles.length > 0 && (
                             <span>
                               {t(
                                 "report.fileCount",
@@ -536,160 +578,92 @@ export function ReportViewer({
                               )}
                             </span>
                           )}
-                        </div>
-
-                        <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                          <SummaryMetric
-                            label={t("report.readingOverview", "Reading Overview")}
-                            value={selectedCategoryLabel ?? t("report.completeReport", "Complete Report")}
-                            hint={selectedFileLabel ?? t("report.houseView", "House View")}
-                          />
-                          <SummaryMetric
-                            label={t("report.availableTracks", "Available tracks")}
-                            value={String(availableTrackCount)}
-                            hint={t(
-                              "report.trackCountHint",
-                              ({ count }) => `${count} agent tracks available`,
-                              { count: availableTrackCount }
-                            )}
-                          />
-                          <SummaryMetric
-                            label={t("report.sourceFiles", "Source files")}
-                            value={String(sourceFileCount)}
-                            hint={t(
-                              "report.referenceArtifactsHint",
-                              ({ count }) => `${count} Reference artifacts attached`,
-                              { count: artifactCount }
-                            )}
-                          />
-                        </div>
                       </div>
-                    </div>
 
-                    <div className="scrollbar-none flex gap-5 overflow-x-auto border-b border-[color:rgba(22,34,51,0.08)] pb-1">
-                      <button
-                        type="button"
-                        onClick={() => handleTabChange("complete")}
-                        className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
-                          selectedTab === "complete"
-                            ? "border-[var(--primary)] text-[var(--accent)]"
-                            : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
-                        }`}
-                        aria-pressed={selectedTab === "complete"}
-                        aria-controls="report-content-panel"
-                      >
-                        {t("report.completeReport", "Complete Report")}
-                      </button>
-
-                      {availableCategories.map(([key, meta]) => (
-                        <button
-                          type="button"
-                          key={key}
-                          onClick={() => handleTabChange(key)}
-                          className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
-                            selectedTab === key
-                              ? "border-[var(--primary)] text-[var(--accent)]"
-                              : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
-                          }`}
-                          aria-pressed={selectedTab === key}
-                          aria-controls="report-content-panel"
-                        >
-                          {t(`report.category.${key}`, meta.label)}
-                        </button>
-                      ))}
+                      <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                        <SummaryMetric
+                          label={t("report.readingOverview", "Reading Overview")}
+                          value={
+                            selectedCategoryLabel ??
+                            t("report.completeReport", "Complete Report")
+                          }
+                          hint={selectedFileLabel ?? t("report.houseView", "House View")}
+                        />
+                        <SummaryMetric
+                          label={t("report.availableTracks", "Available tracks")}
+                          value={String(availableTrackCount)}
+                          hint={t(
+                            "report.trackCountHint",
+                            ({ count }) => `${count} agent tracks available`,
+                            { count: availableTrackCount }
+                          )}
+                        />
+                        <SummaryMetric
+                          label={t("report.sourceFiles", "Source files")}
+                          value={String(sourceFileCount)}
+                          hint={t(
+                            "report.referenceArtifactsHint",
+                            ({ count }) => `${count} Reference artifacts attached`,
+                            { count: artifactCount }
+                          )}
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <aside className="viewer-meta-card">
-                    <p className="viewer-meta-label">
-                      {t("report.houseView", "House View")}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`signal-badge viewer-signal-badge min-h-11 ${
-                          finalSignal ? signalClass(finalSignal) : "border-[color:rgba(22,34,51,0.1)] bg-white/70 text-slate-600"
+                  <div className="scrollbar-none flex gap-5 overflow-x-auto border-b border-[color:rgba(22,34,51,0.08)] pb-1">
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange(SUMMARY_TAB_KEY)}
+                      className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
+                        selectedTab === SUMMARY_TAB_KEY
+                          ? "border-[var(--primary)] text-[var(--accent)]"
+                          : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
+                      }`}
+                      aria-pressed={selectedTab === SUMMARY_TAB_KEY}
+                      aria-controls="report-content-panel"
+                    >
+                      {t("report.summary", "Summary")}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange("complete")}
+                      className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
+                        selectedTab === "complete"
+                          ? "border-[var(--primary)] text-[var(--accent)]"
+                          : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
+                      }`}
+                      aria-pressed={selectedTab === "complete"}
+                      aria-controls="report-content-panel"
+                    >
+                      {t("report.completeReport", "Complete Report")}
+                    </button>
+
+                    {availableCategories.map(([key, meta]) => (
+                      <button
+                        type="button"
+                        key={key}
+                        onClick={() => handleTabChange(key)}
+                        className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
+                          selectedTab === key
+                            ? "border-[var(--primary)] text-[var(--accent)]"
+                            : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
                         }`}
+                        aria-pressed={selectedTab === key}
+                        aria-controls="report-content-panel"
                       >
-                        {finalSignal ?? t("report.pending", "Pending")}
-                      </span>
-                      {finalConfidence && (
-                        <span className="rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 px-3 py-2 text-xs font-semibold text-slate-600">
-                          {t(
-                            "report.confidence",
-                            ({ value }) => `Confidence ${value}`,
-                            { value: finalConfidence }
-                          )}
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-4 text-sm leading-6 text-slate-600">
-                      {selectedCategoryMeta
-                        ? t(
-                            "report.readingFile",
-                            ({ label }) => `Reading ${label}.`,
-                            {
-                              label:
-                                selectedFileLabel ??
-                                selectedCategoryLabel ??
-                                selectedCategoryMeta.label,
-                            }
-                          )
-                        : t(
-                            "report.defaultRailHint",
-                            "Use the category rail to move between the full report and individual agent views."
-                          )}
-                    </p>
-
-                    <div className="mt-5 border-t border-[color:rgba(22,34,51,0.08)] pt-4">
-                      <p className="viewer-meta-label">
-                        {t("report.availableTracksTitle", "Available Tracks")}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {availableTrackLabels.length === 0 ? (
-                          <span className="text-xs text-slate-500">
-                            {t("report.noTrackData", "No track data available yet.")}
-                          </span>
-                        ) : (
-                          availableTrackLabels.map((label) => (
-                            <ArtifactPill key={label} label={label} />
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="mt-5 border-t border-[color:rgba(22,34,51,0.08)] pt-4">
-                      <p className="viewer-meta-label">
-                        {t("report.artifactSummary", "Artifact Summary")}
-                      </p>
-                      <div className="mt-3 space-y-2">
-                        {structure.artifacts.length === 0 ? (
-                          <span className="text-xs text-slate-500">
-                            {t("report.noArtifactData", "No artifact metadata available yet.")}
-                          </span>
-                        ) : (
-                          structure.artifacts.slice(0, 4).map((artifact) => (
-                            <div
-                              key={`${artifact.type}-${artifact.path}`}
-                              className="rounded-[18px] border border-[color:rgba(22,34,51,0.08)] bg-white/78 px-3 py-3"
-                            >
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
-                                {artifact.type}
-                              </p>
-                              <p className="mt-1 break-all text-xs font-medium text-slate-700">
-                                {artifact.summary ?? artifact.path}
-                              </p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  </aside>
+                        {t(`report.category.${key}`, meta.label)}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </header>
 
-            {selectedTab !== "complete" && categoryFiles.length > 0 && (
+            {selectedTab !== SUMMARY_TAB_KEY &&
+              selectedTab !== "complete" &&
+              categoryFiles.length > 0 && (
               <div className="border-b border-[color:rgba(22,34,51,0.08)] bg-[color:rgba(255,253,248,0.8)] px-4 py-3 md:px-8">
                 <div className="w-full">
                   <div className="scrollbar-none flex overflow-x-auto gap-2 rounded-[20px] border border-[color:rgba(22,34,51,0.08)] bg-white/42 p-2">
@@ -757,6 +731,15 @@ export function ReportViewer({
                 <div className="rounded-[18px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                   {error}
                 </div>
+              ) : selectedTab === SUMMARY_TAB_KEY ? (
+                <SummaryPanel
+                  finalSignal={finalSignal}
+                  finalConfidence={finalConfidence}
+                  summaryText={summaryText}
+                  availableTrackLabels={availableTrackLabels}
+                  artifacts={structure.artifacts}
+                  t={t}
+                />
               ) : selectedTab === "complete" ? (
                 <MarkdownContent
                   content={content}
@@ -807,5 +790,50 @@ function ArtifactPill({ label }: { label: string }) {
     <span className="rounded-full border border-[color:rgba(22,34,51,0.08)] bg-white/78 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
       {label}
     </span>
+  );
+}
+
+function SummaryPanel({
+  finalSignal,
+  finalConfidence,
+  summaryText,
+  availableTrackLabels,
+  artifacts,
+  t,
+}: {
+  finalSignal: TradeSignal | null;
+  finalConfidence: SignalConfidence | null;
+  summaryText: string;
+  availableTrackLabels: string[];
+  artifacts: Array<{ type: string; path: string; summary?: string | null }>;
+  t: ReturnType<typeof usePreferences>["t"];
+}) {
+  return (
+    <div className="space-y-6">
+      <section className="rounded-[28px] border border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.86),rgba(248,240,229,0.82))] px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)] md:px-6">
+        <p className="viewer-meta-label">{t("report.summary", "Summary")}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <span
+            className={`signal-badge viewer-signal-badge min-h-11 ${
+              finalSignal
+                ? signalClass(finalSignal)
+                : "border-[color:rgba(22,34,51,0.1)] bg-white/70 text-slate-600"
+            }`}
+          >
+            {finalSignal ?? t("report.pending", "Pending")}
+          </span>
+          {finalConfidence ? (
+            <span className="rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 px-3 py-2 text-xs font-semibold text-slate-600">
+              {t("report.confidence", ({ value }) => `Confidence ${value}`, {
+                value: finalConfidence,
+              })}
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-4 text-sm leading-7 text-slate-700 md:text-[15px]">
+          {summaryText}
+        </p>
+      </section>
+    </div>
   );
 }

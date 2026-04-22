@@ -5,7 +5,7 @@ import test from "node:test";
 
 const shellPath = path.join(import.meta.dirname, "WorkbenchShell.tsx");
 
-test("WorkbenchShell renders a global top utility bar before the sidebar/content split", () => {
+test("WorkbenchShell renders the utility bar inside the main content column next to the sidebar layout", () => {
   const source = readFileSync(shellPath, "utf8");
 
   assert.match(source, /<WorkspaceAccountMenu/);
@@ -16,7 +16,10 @@ test("WorkbenchShell renders a global top utility bar before the sidebar/content
 
   const headerIndex = source.indexOf("<WorkspaceAccountMenu");
   const sidebarIndex = source.indexOf("<Sidebar");
+  const contentColumnIndex = source.indexOf('<div className="flex min-w-0 flex-1 flex-col">');
   assert.notEqual(headerIndex, -1);
   assert.notEqual(sidebarIndex, -1);
-  assert.ok(headerIndex < sidebarIndex, "top utility bar should render before sidebar");
+  assert.notEqual(contentColumnIndex, -1);
+  assert.ok(sidebarIndex < contentColumnIndex, "sidebar should render before the main content column");
+  assert.ok(contentColumnIndex < headerIndex, "utility bar should render inside the main content column");
 });

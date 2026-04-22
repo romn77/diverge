@@ -15,6 +15,9 @@ interface HomeDashboardProps {
   initialSearchQuery: string;
 }
 
+const heroActionBaseClassName =
+  "interactive-button focus-ring inline-flex items-center justify-center rounded-full px-5 py-3 text-xs font-semibold tracking-[0.04em] leading-none no-underline appearance-none";
+
 export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   const router = useRouter();
   const { openAnalysisDialog } = useWorkbenchChrome();
@@ -92,7 +95,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold tracking-[0.04em] text-white disabled:cursor-not-allowed disabled:opacity-70"
+                className={`${heroActionBaseClassName} border border-[var(--primary)] bg-[var(--primary)] text-white disabled:cursor-not-allowed disabled:opacity-70`}
                 disabled={newAnalysisDisabled}
                 onClick={openAnalysisDialog}
               >
@@ -100,7 +103,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               </button>
               <Link
                 href={buildActivityHref()}
-                className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold tracking-[0.04em] text-slate-700"
+                className={`${heroActionBaseClassName} border border-[var(--border-strong)] bg-white text-slate-700`}
               >
                 View Activity
               </Link>

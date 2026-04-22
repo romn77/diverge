@@ -59,10 +59,16 @@ test("Sidebar no longer renders browse-heavy report and screener modules inline"
 test("Sidebar keeps the compact chevron-only collapse toggle for desktop rail mode", () => {
   const source = readFileSync(sidebarPath, "utf8");
 
+  assert.match(source, /DesktopUtilityControl/);
+  assert.match(source, /rounded-full border border-\[rgba\(28,56,83,0\.12\)\] bg-white\/72/);
+  assert.match(source, /h-5 w-px rounded-full bg-gradient-to-b from-\[rgba\(28,56,83,0\.16\)\] to-transparent/);
+  assert.match(source, /mt-auto w-full border-t border-\[var\(--border\)\] pt-4/);
+  assert.match(source, /<DesktopUtilityControl/);
   assert.match(source, /rounded-xl p-2 text-slate-500/);
   assert.match(source, /viewBox="0 0 16 16"/);
   assert.match(source, /d="M9\.5 3\.5 5 8l4\.5 4\.5"/);
   assert.match(source, /d="M13 3\.5 8\.5 8 13 12\.5"/);
+  assert.doesNotMatch(source, />\s*Rail\s*</);
   assert.doesNotMatch(source, /sidebar\.collapseShort/);
   assert.doesNotMatch(source, /sidebar\.expandShort/);
 });

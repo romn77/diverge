@@ -18,3 +18,14 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
   assert.doesNotMatch(source, /buildScreenerRunHref/);
   assert.doesNotMatch(source, /QueueCard/);
 });
+
+test("HomeDashboard hero actions share a unified CTA base style across button and link elements", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /heroActionBaseClassName/);
+  assert.match(source, /inline-flex items-center justify-center/);
+  assert.match(source, /leading-none/);
+  assert.match(source, /no-underline/);
+  assert.match(source, /appearance-none/);
+  assert.match(source, /className=\{`\$\{heroActionBaseClassName\}/);
+});

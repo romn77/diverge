@@ -5,7 +5,7 @@ import test from "node:test";
 
 const componentPath = path.join(import.meta.dirname, "WorkspaceAccountMenu.tsx");
 
-test("WorkspaceAccountMenu exposes a compact top-right account menu for authenticated sessions", () => {
+test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top-right overlay", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /authEnabled:\s*boolean/);
@@ -15,10 +15,11 @@ test("WorkspaceAccountMenu exposes a compact top-right account menu for authenti
   assert.match(source, /loggingOut:\s*boolean/);
   assert.match(source, /selectedOutputLanguage:\s*string \| null/);
   assert.match(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
-  assert.match(source, /fixed right-4 top-4 z-\[55\]/);
+  assert.match(source, /className="flex items-start justify-between gap-3 px-4 pt-4 md:px-6"/);
   assert.match(source, /inline-flex items-center gap-1\.5 rounded-full/);
   assert.match(source, /h-8 w-8/);
   assert.doesNotMatch(source, /max-w-\[1600px\]/);
+  assert.doesNotMatch(source, /fixed right-4 top-4 z-\[55\]/);
   assert.match(source, /Interface Preferences/);
   assert.match(source, /Output Language/);
   assert.match(source, /settingsLanguageSelectRef/);
@@ -36,6 +37,7 @@ test("WorkspaceAccountMenu exposes a compact top-right account menu for authenti
   assert.match(source, /pointerdown/);
   assert.match(source, /onOpenSidebar\?: \(\) => void/);
   assert.match(source, /aria-label=\{t\("common\.menu", "Menu"\)\}/);
+  assert.match(source, /md:hidden/);
 
   const accountIndex = source.indexOf("aria-haspopup=\"menu\"");
   const settingsIndex = source.indexOf("aria-haspopup=\"dialog\"");

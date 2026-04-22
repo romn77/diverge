@@ -145,17 +145,6 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
           inert={activeDialog !== null ? true : undefined}
           aria-hidden={activeDialog !== null}
         >
-          <WorkspaceAccountMenu
-            authEnabled={authEnabled}
-            authUser={authState?.user ?? null}
-            canManageUsers={canManageUsers}
-            loggingOut={isLoggingOut}
-            onLogout={handleLogout}
-            onOpenSidebar={() => setIsSidebarOpen(true)}
-            selectedOutputLanguage={defaultOutputLanguage}
-            onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
-          />
-
           <div className="flex min-h-screen md:items-stretch">
             <Sidebar
               isOpen={isSidebarOpen}
@@ -171,6 +160,16 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
             />
 
             <div className="flex min-w-0 flex-1 flex-col">
+              <WorkspaceAccountMenu
+                authEnabled={authEnabled}
+                authUser={authState?.user ?? null}
+                canManageUsers={canManageUsers}
+                loggingOut={isLoggingOut}
+                onLogout={handleLogout}
+                onOpenSidebar={() => setIsSidebarOpen(true)}
+                selectedOutputLanguage={defaultOutputLanguage}
+                onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
+              />
               {children}
             </div>
           </div>

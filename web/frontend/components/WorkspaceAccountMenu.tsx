@@ -171,11 +171,12 @@ export function WorkspaceAccountMenu({
   const displayName = authUser?.display_name.trim() || authUser?.email || "TradingAgents";
 
   return (
-    <>
+    <div className="flex items-start justify-between gap-3 px-4 pt-4 md:px-6">
+      <div className="min-w-0">
         {onOpenSidebar ? (
           <button
             type="button"
-            className="focus-ring fixed left-4 top-4 z-[56] inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] md:hidden"
+            className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] md:hidden"
             aria-label={t("common.menu", "Menu")}
             onClick={onOpenSidebar}
           >
@@ -189,9 +190,10 @@ export function WorkspaceAccountMenu({
             </svg>
           </button>
         ) : null}
+      </div>
 
-        <header className="fixed right-4 top-4 z-[55]">
-          <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[rgba(150,118,99,0.18)] bg-[rgba(255,248,243,0.88)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
+      <header className="relative z-[40] ml-auto shrink-0">
+        <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[rgba(150,118,99,0.18)] bg-[rgba(255,248,243,0.88)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
           <button
             ref={accountTriggerRef}
             type="button"
@@ -427,8 +429,8 @@ export function WorkspaceAccountMenu({
             </div>
           ) : null}
           </div>
-        </header>
-    </>
+      </header>
+    </div>
   );
 }
 

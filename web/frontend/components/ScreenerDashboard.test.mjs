@@ -14,4 +14,9 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /Recent Runs/);
   assert.match(source, /Market Coverage/);
   assert.match(source, /Queue Snapshot/);
+  assert.match(source, /heroActionBaseClassName/);
+  assert.match(source, /inline-flex items-center justify-center/);
+  assert.match(source, /leading-none/);
+  assert.match(source, /no-underline/);
+  assert.match(source, /appearance-none/);
 });

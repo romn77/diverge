@@ -56,3 +56,14 @@ test("ReportViewer surfaces route-level overview cards and artifact context for 
   assert.match(source, /TickerPricePanel/);
   assert.match(source, /Price Trend/);
 });
+
+test("ReportViewer promotes a dedicated summary tab instead of a right-side summary rail", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /const SUMMARY_TAB_KEY = "summary"/);
+  assert.match(source, /setSelectedTab\(SUMMARY_TAB_KEY\)/);
+  assert.match(source, /selectedTab === SUMMARY_TAB_KEY/);
+  assert.match(source, /SummaryPanel/);
+  assert.match(source, /report\.summary/);
+  assert.doesNotMatch(source, /<aside className="viewer-meta-card"/);
+});
