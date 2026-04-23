@@ -190,7 +190,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                   <Link
                     key={report.id}
                     href={buildReportHref(report.id)}
-                    className="group flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 transition hover:border-[var(--primary)] hover:shadow-[0_18px_38px_rgba(18,28,41,0.08)]"
+                    className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
                   >
                     <div className="min-w-0">
                       <p className="text-lg font-semibold text-slate-900">{report.ticker}</p>

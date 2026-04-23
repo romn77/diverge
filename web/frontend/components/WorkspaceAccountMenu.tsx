@@ -176,7 +176,7 @@ export function WorkspaceAccountMenu({
         {onOpenSidebar ? (
           <button
             type="button"
-            className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] md:hidden"
+            className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] transition hover:border-[var(--primary)] hover:bg-[var(--surface-quiet)] hover:text-[var(--primary)] md:hidden"
             aria-label={t("common.menu", "Menu")}
             onClick={onOpenSidebar}
           >
@@ -200,7 +200,7 @@ export function WorkspaceAccountMenu({
             aria-haspopup="menu"
             aria-expanded={isAccountOpen}
             aria-controls={menuId}
-            className="focus-ring rounded-full border border-[var(--border)] bg-white/92 p-1 text-left shadow-[0_10px_22px_rgba(18,28,41,0.08)] backdrop-blur transition hover:border-[var(--primary)] hover:shadow-[0_14px_30px_rgba(18,28,41,0.12)]"
+            className="focus-ring rounded-full border border-[var(--border)] bg-white/92 p-1 text-left shadow-[0_10px_22px_rgba(18,28,41,0.08)] backdrop-blur transition hover:border-[var(--primary)] hover:bg-[var(--surface-quiet)]"
             onClick={handleAccountToggle}
             title={displayName}
           >
@@ -218,10 +218,10 @@ export function WorkspaceAccountMenu({
             aria-haspopup="dialog"
             aria-expanded={isSettingsOpen}
             aria-controls={settingsDialogId}
-            className={`focus-ring flex h-8 w-8 items-center justify-center rounded-full border transition ${
+            className={`focus-ring flex h-10 w-10 items-center justify-center rounded-full border transition ${
               isSettingsOpen
                 ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
-                : "border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] hover:border-[var(--primary)] hover:text-[var(--primary)]"
+                : "border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] hover:border-[var(--primary)] hover:bg-[var(--surface-quiet)] hover:text-[var(--primary)]"
             }`}
             onClick={handleSettingsToggle}
             title={t("common.settings", "Settings")}

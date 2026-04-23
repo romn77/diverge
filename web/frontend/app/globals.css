@@ -32,6 +32,9 @@
   --success: #2e7653;
   --danger: #a33535;
   --ring-strong: rgba(182, 90, 43, 0.24);
+  --interactive-hover-filter: brightness(0.985);
+  --interactive-active-filter: brightness(0.96);
+  --surface-hover: color-mix(in srgb, var(--surface) 92%, var(--text) 8%);
   --shadow-soft:
     0 24px 54px rgba(18, 28, 41, 0.08),
     0 2px 0 rgba(255, 255, 255, 0.78) inset;
@@ -64,6 +67,9 @@ html[data-theme="dark"] {
   --success: #6dc79a;
   --danger: #f18b8b;
   --ring-strong: rgba(224, 138, 87, 0.34);
+  --interactive-hover-filter: brightness(1.06);
+  --interactive-active-filter: brightness(1.12);
+  --surface-hover: color-mix(in srgb, var(--surface) 90%, var(--text) 10%);
   --shadow-soft:
     0 24px 54px rgba(0, 0, 0, 0.28),
     0 1px 0 rgba(255, 255, 255, 0.04) inset;
@@ -131,16 +137,22 @@ input {
     linear-gradient(180deg, rgba(255, 253, 248, 0.96) 0%, rgba(255, 248, 238, 0.86) 100%),
     var(--surface-elevated);
   box-shadow: var(--shadow-soft);
-  transition:
-    transform 180ms ease,
-    border-color 180ms ease,
-    box-shadow 180ms ease;
+  transition: border-color 180ms ease;
 }
 
 .card-surface:hover {
-  transform: translateY(-1px);
   border-color: rgba(182, 90, 43, 0.2);
-  box-shadow: var(--shadow-hover);
+}
+
+.list-item-surface {
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.list-item-surface:hover {
+  background: var(--surface-hover);
 }
 
 .sidebar-surface {
@@ -253,24 +265,19 @@ input {
 
 .interactive-button {
   transition:
-    transform 150ms ease,
-    box-shadow 150ms ease,
     border-color 150ms ease,
     color 150ms ease,
     background-color 150ms ease,
+    filter 150ms ease,
     opacity 150ms ease;
 }
 
-.interactive-button:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.56) inset,
-    0 10px 20px rgba(18, 28, 41, 0.08);
+.interactive-button:not(:disabled):hover {
+  filter: var(--interactive-hover-filter);
 }
 
-.interactive-button:active {
-  transform: translateY(0);
-  box-shadow: 0 0 0 1px rgba(22, 34, 51, 0.08) inset, 0 4px 10px rgba(18, 28, 41, 0.08);
+.interactive-button:not(:disabled):active {
+  filter: var(--interactive-active-filter);
 }
 
 .modal-backdrop {

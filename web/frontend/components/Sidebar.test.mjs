@@ -56,18 +56,21 @@ test("Sidebar no longer renders browse-heavy report and screener modules inline"
   assert.doesNotMatch(source, /searchQuery/);
 });
 
-test("Sidebar keeps the compact chevron-only collapse toggle for desktop rail mode", () => {
+test("Sidebar renders a floating desktop collapse toggle outside the rail", () => {
   const source = readFileSync(sidebarPath, "utf8");
 
-  assert.match(source, /DesktopUtilityControl/);
-  assert.match(source, /rounded-full border border-\[rgba\(28,56,83,0\.12\)\] bg-white\/72/);
-  assert.match(source, /h-5 w-px rounded-full bg-gradient-to-b from-\[rgba\(28,56,83,0\.16\)\] to-transparent/);
-  assert.match(source, /mt-auto w-full border-t border-\[var\(--border\)\] pt-4/);
+  assert.match(source, /const desktopShellClasses = \[/);
+  assert.match(source, /md:sticky md:top-0 md:flex md:h-\[100svh\] md:self-start md:shrink-0 md:overflow-visible/);
+  assert.match(source, /pointer-events-none absolute left-full top-1\/2 z-\[60\] hidden -translate-y-1\/2 md:flex/);
+  assert.match(source, /pointer-events-auto -translate-x-1\/2/);
   assert.match(source, /<DesktopUtilityControl/);
-  assert.match(source, /rounded-xl p-2 text-slate-500/);
+  assert.match(source, /h-12 w-12 items-center justify-center rounded-\[18px\]/);
+  assert.match(source, /shadow-\[0_12px_24px_rgba\(18,28,41,0\.08\)\]/);
+  assert.match(source, /transition-colors hover:border-\[var\(--border-strong\)\] hover:bg-\[var\(--surface-hover\)\]/);
   assert.match(source, /viewBox="0 0 16 16"/);
   assert.match(source, /d="M9\.5 3\.5 5 8l4\.5 4\.5"/);
   assert.match(source, /d="M13 3\.5 8\.5 8 13 12\.5"/);
+  assert.doesNotMatch(source, /rounded-full border border-\[rgba\(28,56,83,0\.12\)\] bg-white\/72/);
   assert.doesNotMatch(source, />\s*Rail\s*</);
   assert.doesNotMatch(source, /sidebar\.collapseShort/);
   assert.doesNotMatch(source, /sidebar\.expandShort/);

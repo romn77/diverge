@@ -48,5 +48,5 @@ test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top
   assert.doesNotMatch(source, /Workspace controls and session access/);
   assert.match(source, /rounded-full border border-\[var\(--border\)\] bg-white\/92 p-1/);
   assert.match(source, /grid h-8 w-8 place-items-center/);
-  assert.match(source, /flex h-8 w-8 items-center justify-center/);
+  assert.match(source, /flex h-10 w-10 items-center justify-center/);
 });

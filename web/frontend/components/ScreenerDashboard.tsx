@@ -122,7 +122,7 @@ export function ScreenerDashboard() {
                   <Link
                     key={run.id}
                     href={buildScreenerRunHref(run.id)}
-                    className="group flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 transition hover:border-[var(--accent)] hover:shadow-[0_18px_38px_rgba(18,28,41,0.08)]"
+                    className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--accent)]"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-base font-semibold text-slate-900">{run.id}</p>

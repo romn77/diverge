@@ -158,7 +158,11 @@ export function Sidebar({
     isDesktopCollapsed
       ? "md:w-[5.5rem] md:max-w-none md:px-3"
       : "md:w-[18rem] md:max-w-none md:px-4",
-    "md:relative md:top-auto md:bottom-auto md:shrink-0 md:shadow-none md:border-r-0",
+    "md:relative md:top-auto md:bottom-auto md:h-full md:shadow-none md:border-r-0",
+  ].join(" ");
+  const desktopShellClasses = [
+    "md:sticky md:top-0 md:flex md:h-[100svh] md:self-start md:shrink-0 md:overflow-visible",
+    isDesktopCollapsed ? "md:w-[5.5rem]" : "md:w-[18rem]",
   ].join(" ");
   const headerClasses = [
     "border-b border-[var(--border)] pb-4",
@@ -203,14 +207,15 @@ export function Sidebar({
         />
       ) : null}
 
-      <aside
-        id="report-navigation"
-        className={drawerClasses}
-        role={isMobileDrawerOpen ? "dialog" : undefined}
-        aria-modal={isMobileDrawerOpen ? true : undefined}
-        aria-label="Workbench navigation"
-      >
-        <div className="flex min-h-full flex-col">
+      <div className={desktopShellClasses}>
+        <aside
+          id="report-navigation"
+          className={drawerClasses}
+          role={isMobileDrawerOpen ? "dialog" : undefined}
+          aria-modal={isMobileDrawerOpen ? true : undefined}
+          aria-label="Workbench navigation"
+        >
+          <div className="flex min-h-full flex-col">
           <div className={headerClasses}>
             <Link href={buildHomeHref()} className="flex min-w-0 items-center gap-3">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-[0_10px_20px_rgba(182,90,43,0.2)]">
@@ -316,14 +321,6 @@ export function Sidebar({
               </div>
 
               <div className="mt-auto w-full border-t border-[var(--border)] pt-4">
-                <div className="mb-3 flex justify-center">
-                  <DesktopUtilityControl
-                    isDesktopRail={isDesktopRail}
-                    onToggle={toggleDesktopCollapse}
-                    expandLabel={t("sidebar.expand", "Expand sidebar")}
-                    collapseLabel={t("sidebar.collapse", "Collapse sidebar")}
-                  />
-                </div>
                 <div className="mb-3 flex justify-center" aria-hidden="true">
                   <span className="h-5 w-px rounded-full bg-gradient-to-b from-[rgba(28,56,83,0.16)] to-transparent" />
                 </div>
@@ -413,14 +410,6 @@ export function Sidebar({
               </nav>
 
               <div className="mt-auto border-t border-[var(--border)] pt-4">
-                <div className="mb-3 flex justify-end">
-                  <DesktopUtilityControl
-                    isDesktopRail={isDesktopRail}
-                    onToggle={toggleDesktopCollapse}
-                    expandLabel={t("sidebar.expand", "Expand sidebar")}
-                    collapseLabel={t("sidebar.collapse", "Collapse sidebar")}
-                  />
-                </div>
                 <div className="mb-3 flex justify-end pr-4" aria-hidden="true">
                   <span className="h-5 w-px rounded-full bg-gradient-to-b from-[rgba(28,56,83,0.16)] to-transparent" />
                 </div>
@@ -441,8 +430,20 @@ export function Sidebar({
               </div>
             </div>
           )}
+          </div>
+        </aside>
+
+        <div className="pointer-events-none absolute left-full top-1/2 z-[60] hidden -translate-y-1/2 md:flex">
+          <div className="pointer-events-auto -translate-x-1/2">
+            <DesktopUtilityControl
+              isDesktopRail={isDesktopRail}
+              onToggle={toggleDesktopCollapse}
+              expandLabel={t("sidebar.expand", "Expand sidebar")}
+              collapseLabel={t("sidebar.collapse", "Collapse sidebar")}
+            />
+          </div>
         </div>
-      </aside>
+      </div>
     </>
   );
 }
@@ -461,38 +462,36 @@ function DesktopUtilityControl({
   const label = isDesktopRail ? expandLabel : collapseLabel;
 
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(28,56,83,0.12)] bg-white/72 px-2 py-1.5 shadow-[0_10px_18px_rgba(18,28,41,0.06)]">
-      <button
-        type="button"
-        className="interactive-button focus-ring rounded-xl p-2 text-slate-500 transition hover:bg-white/80 hover:text-[var(--primary)]"
-        onClick={onToggle}
-        aria-label={label}
-        aria-expanded={!isDesktopRail}
-        title={label}
+    <button
+      type="button"
+      className="focus-ring inline-flex h-12 w-12 items-center justify-center rounded-[18px] border border-[rgba(28,56,83,0.12)] bg-white/95 text-slate-500 shadow-[0_12px_24px_rgba(18,28,41,0.08)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)]"
+      onClick={onToggle}
+      aria-label={label}
+      aria-expanded={!isDesktopRail}
+      title={label}
+    >
+      <svg
+        viewBox="0 0 16 16"
+        className={`h-4 w-4 transition-transform ${isDesktopRail ? "rotate-180" : ""}`}
+        fill="none"
+        aria-hidden
       >
-        <svg
-          viewBox="0 0 16 16"
-          className={`h-4 w-4 transition-transform ${isDesktopRail ? "rotate-180" : ""}`}
-          fill="none"
-          aria-hidden
-        >
-          <path
-            d="M9.5 3.5 5 8l4.5 4.5"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M13 3.5 8.5 8 13 12.5"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </button>
-    </div>
+        <path
+          d="M9.5 3.5 5 8l4.5 4.5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M13 3.5 8.5 8 13 12.5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </button>
   );
 }
 
