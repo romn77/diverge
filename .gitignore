@@ -19,6 +19,8 @@ lib/
 web/frontend/lib/*
 !web/frontend/lib/api.ts
 !web/frontend/lib/devServer.test.mjs
+!web/frontend/lib/highlights.ts
+!web/frontend/lib/highlights.test.mjs
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
 !web/frontend/lib/highlightTerminalSkillAdoption.test.mjs

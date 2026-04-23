@@ -391,18 +391,6 @@ function validateReportHighlights(value: unknown): value is ReportHighlights {
   }
 }
 
-function removeFirstHighlightsBlock(markdown: string, blockMatch: RegExpMatchArray): string {
-  const fullMatch = blockMatch[0];
-  const start = blockMatch.index ?? -1;
-
-  if (start < 0) {
-    return markdown;
-  }
-
-  const end = start + fullMatch.length;
-  return `${markdown.slice(0, start)}${markdown.slice(end)}`;
-}
-
 export function parseHighlights(markdown: string): {
   highlights: ReportHighlights | null;
   cleanMarkdown: string;
@@ -456,7 +444,7 @@ export function parseHighlights(markdown: string): {
 
   return {
     highlights: parsed,
-    cleanMarkdown: removeFirstHighlightsBlock(markdown, firstBlock),
+    cleanMarkdown: stripHighlightsBlocks(markdown),
   };
 }
 
