@@ -1,11 +1,12 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from tradingagents import trade_feedback
-from web.backend import app_config
+from web.backend import app_config, auth
 from web.backend.schemas.trades import (
     AnalysisReferencePayload,
     TradeRecordCreatePayload,
@@ -39,6 +40,13 @@ class _FakeClient:
 
 class TradeFeedbackBackendTests(unittest.TestCase):
     def setUp(self):
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.temp_dir.name) / "project"
         self.project_root.mkdir(parents=True)
@@ -87,6 +95,8 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         app_config.REPORTS_DIR = self.original_reports_dir
         app_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
         self.project_patch.stop()
+        auth.reset_runtime_state()
+        self.auth_env_patch.stop()
         self.temp_dir.cleanup()
 
     def test_trade_routes_create_update_and_generate_review(self):

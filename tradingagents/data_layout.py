@@ -10,6 +10,7 @@ DEFAULT_DATA_DIR = "./data"
 DEFAULT_EVAL_RESULTS_DIR = f"{DEFAULT_DATA_DIR}/eval_results"
 DEFAULT_REPORTS_DIR = f"{DEFAULT_DATA_DIR}/reports"
 DEFAULT_SCREENER_RUNS_DIR = f"{DEFAULT_DATA_DIR}/screener/runs"
+DEFAULT_SCREENER_STATE_DIR = f"{DEFAULT_DATA_DIR}/screener/state"
 DEFAULT_SCREENER_TASKS_DIR = f"{DEFAULT_DATA_DIR}/screener/tasks"
 DEFAULT_SCREENER_CACHE_DIR = f"{DEFAULT_DATA_DIR}/cache/screener"
 DEFAULT_HISTORY_DIR = f"{DEFAULT_DATA_DIR}/history"
@@ -49,6 +50,13 @@ def resolve_screener_runs_dir(project_root: Path | None = None) -> Path:
     return (resolve_data_dir(project_root) / "screener" / "runs").resolve()
 
 
+def resolve_screener_state_dir(project_root: Path | None = None) -> Path:
+    configured = os.environ.get("SCREENER_STATE_DIR")
+    if configured:
+        return Path(configured).resolve()
+    return (resolve_data_dir(project_root) / "screener" / "state").resolve()
+
+
 def resolve_screener_tasks_dir(project_root: Path | None = None) -> Path:
     configured = os.environ.get("SCREENER_TASKS_DIR")
     if configured:
@@ -77,6 +85,7 @@ __all__ = [
     "DEFAULT_REPORTS_DIR",
     "DEFAULT_SCREENER_CACHE_DIR",
     "DEFAULT_SCREENER_RUNS_DIR",
+    "DEFAULT_SCREENER_STATE_DIR",
     "DEFAULT_SCREENER_TASKS_DIR",
     "resolve_data_dir",
     "resolve_eval_results_dir",
@@ -84,5 +93,6 @@ __all__ = [
     "resolve_reports_dir",
     "resolve_screener_cache_dir",
     "resolve_screener_runs_dir",
+    "resolve_screener_state_dir",
     "resolve_screener_tasks_dir",
 ]

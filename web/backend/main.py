@@ -13,6 +13,7 @@ from web.backend import (
     app_config,
     asset_entries,
     auth,
+    screener_results,
     report_metadata,
     screener_runs,
     trade_entries,
@@ -38,6 +39,7 @@ async def _app_lifespan(_: FastAPI):
     auth.initialize_auth_runtime()
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
+    screener_results.initialize_screener_result_runtime()
     trade_entries.initialize_trade_entries_runtime()
     asset_entries.initialize_asset_runtime()
     restore_persisted_active_tasks()

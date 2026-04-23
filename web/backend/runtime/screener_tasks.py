@@ -280,7 +280,8 @@ def run_screener_task(task_id: str) -> None:
         )
 
         current_task = get_screener_task(task_id)
-        screener_service.record_screener_run_metadata(current_task, result)
+        candidate = screener_service.run_screener(current_task, result)
+        screener_service.persist_screener_run(current_task, candidate)
 
         with screener_tasks_lock:
             current_task = screener_tasks[task_id]
@@ -303,6 +304,12 @@ def run_screener_task(task_id: str) -> None:
             failure_progress = build_screener_failure_progress(current_task, str(exc))
             current_task.latest_progress = failure_progress
             current_task.progress_events.append(failure_progress)
+        current_task = get_screener_task(task_id)
+        screener_service.persist_screener_run(
+            current_task,
+            error_summary=str(exc),
+            source_run_id=current_task.id,
+        )
         persist_screener_task_snapshot(task_id)
 
 

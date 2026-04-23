@@ -11,6 +11,7 @@ from tradingagents.data_layout import (
     resolve_reports_dir,
     resolve_screener_cache_dir,
     resolve_screener_runs_dir,
+    resolve_screener_state_dir,
     resolve_screener_tasks_dir,
 )
 
@@ -23,6 +24,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 REPORTS_DIR = resolve_reports_dir(PROJECT_ROOT)
 SCREENER_RESULTS_DIR = resolve_screener_runs_dir(PROJECT_ROOT)
+SCREENER_STATE_DIR = resolve_screener_state_dir(PROJECT_ROOT)
 SCREENER_TASKS_DIR = resolve_screener_tasks_dir(PROJECT_ROOT)
 SCREENER_CACHE_DIR = resolve_screener_cache_dir(PROJECT_ROOT)
 STOCK_HISTORY_DIR = resolve_history_dir(PROJECT_ROOT)
