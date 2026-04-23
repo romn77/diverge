@@ -1,6 +1,7 @@
 from typing import Annotated
-from typing_extensions import NotRequired, TypedDict
+
 from langgraph.graph import MessagesState
+from typing_extensions import NotRequired, TypedDict
 
 
 # Researcher team state
@@ -64,6 +65,9 @@ class AgentState(MessagesState):
     ]
     historical_trade_reviews: NotRequired[
         Annotated[list[dict[str, object]], "Structured historical trade review payloads"]
+    ]
+    portfolio_context: NotRequired[
+        Annotated[str | None, "Current owner-scoped holdings and exposure summary"]
     ]
 
     sender: Annotated[str, "Agent that sent this message"]

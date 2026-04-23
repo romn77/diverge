@@ -138,6 +138,7 @@ class AnalysisRequest:
     output_language: str
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
+    portfolio_context: Optional[str] = None
 
     def __post_init__(self) -> None:
         self.ticker = self.ticker.strip().upper()
@@ -186,6 +187,10 @@ class AnalysisRequest:
                 raise ValueError("google_thinking_level is required for google")
         elif self.google_thinking_level is not None:
             raise ValueError("google_thinking_level is only valid for google")
+
+        if self.portfolio_context is not None:
+            normalized_portfolio_context = self.portfolio_context.strip()
+            self.portfolio_context = normalized_portfolio_context or None
 
 
 @dataclass
@@ -502,6 +507,7 @@ def run_analysis_streaming(
         request.output_language,
         historical_trade_feedback=trade_feedback_payload["prompt"],
         historical_trade_reviews=trade_feedback_payload["reviews"],
+        portfolio_context=request.portfolio_context or "",
     )
     args = graph.propagator.get_graph_args()
 

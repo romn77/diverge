@@ -386,8 +386,8 @@ export interface ScreenerCandidateRow {
   breakout_base_bonus?: number;
   breakout_volume_bonus?: number;
   breakout_bonus?: number;
-  strategy_tags: string;
-  risk_flags: string;
+  strategy_tags?: string | null;
+  risk_flags?: string | null;
 }
 
 export interface TickerHistoryPoint {

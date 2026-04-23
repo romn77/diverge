@@ -21,6 +21,12 @@ def create_portfolio_manager(llm, memory):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        portfolio_context = (state.get("portfolio_context") or "").strip()
+        portfolio_context_block = (
+            portfolio_context
+            if portfolio_context
+            else "Current Portfolio Ledger Context:\n- No tracked positions were provided for this user."
+        )
 
         curr_situation = (
             f"{market_research_report}\n\n{sentiment_report}\n\n"
@@ -39,11 +45,14 @@ def create_portfolio_manager(llm, memory):
 
 {instrument_context}
 
+{portfolio_context_block}
+
 Guidelines for Decision-Making:
 1. **Summarize Key Arguments**: Extract the strongest points from each analyst, focusing on relevance to the context.
 2. **Provide Rationale**: Support your recommendation with direct evidence and counterarguments from the debate.
 3. **Refine the Trader's Plan**: Start with the trader's original plan, **{trader_plan}**, and adjust it based on the analysts' insights.
 4. **Learn from Past Mistakes**: Use lessons from **{past_memory_str}** to address prior misjudgments and improve the decision you are making now.
+5. **Size Relative to Current Exposure**: Interpret Buy / Overweight / Hold / Underweight / Sell relative to the current portfolio. If the user already owns the name or related exposure, say whether to add, trim, or maintain rather than reasoning as if the book were empty.
 
 ---
 

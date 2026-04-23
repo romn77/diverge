@@ -10,6 +10,7 @@ from tradingagents.runner import AnalysisRequest
 from web.backend import app_config, auth
 from web.backend.runtime import analysis_tasks, screener_tasks
 from web.backend.schemas.tasks import TaskCreatePayload
+from web.backend.services import assets as asset_service
 from web.backend.services.config import (
     get_provider_availability,
     hydrate_provider_credentials,
@@ -39,9 +40,16 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             detail="Task queue is full. Wait for the active tasks to finish.",
         )
 
+    owner_user_id = analysis_tasks.resolve_owner_user_id(request)
+    if owner_user_id:
+        analysis_request.portfolio_context = asset_service.build_portfolio_context_for_owner(
+            owner_user_id,
+            ticker=analysis_request.ticker,
+        )
+
     return analysis_tasks.create_task(
         analysis_request,
-        owner_user_id=analysis_tasks.resolve_owner_user_id(request),
+        owner_user_id=owner_user_id,
     )
 
 

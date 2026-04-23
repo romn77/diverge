@@ -14,6 +14,7 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import {
   buildActivityHref,
+  buildAssetsHref,
   buildHomeHref,
   buildJournalHref,
   buildScreenerHref,
@@ -65,6 +66,8 @@ export function Sidebar({
   const isAnalysisActive = pathname === "/" || pathname.startsWith("/reports/");
   const isScreenerActive =
     pathname === buildScreenerHref() || pathname.startsWith("/screeners/");
+  const isAssetsActive =
+    pathname === buildAssetsHref() || pathname.startsWith("/assets/");
   const isJournalActive = pathname === buildJournalHref();
   const isActivityActive =
     pathname === buildActivityHref() ||
@@ -291,33 +294,51 @@ export function Sidebar({
               </div>
 
               <div className="mt-6 flex flex-col items-center gap-2">
-                <RailLinkButton
-                  href={buildHomeHref()}
-                  label="Analysis"
-                  title="Analysis"
-                  active={isAnalysisActive}
-                  onClick={handleNavSelection}
-                >
-                  <AnalysisIcon />
-                </RailLinkButton>
-                <RailLinkButton
-                  href={buildScreenerHref()}
-                  label="Screener"
-                  title="Screener"
-                  active={isScreenerActive}
-                  onClick={handleNavSelection}
-                >
-                  <ScreenerIcon />
-                </RailLinkButton>
-                <RailLinkButton
-                  href={buildJournalHref()}
-                  label="Journal"
-                  title="Journal"
-                  active={isJournalActive}
-                  onClick={handleNavSelection}
-                >
-                  <JournalIcon />
-                </RailLinkButton>
+                <div className="flex flex-col items-center gap-2">
+                  <RailLinkButton
+                    href={buildHomeHref()}
+                    label="Analysis"
+                    title="Analysis"
+                    active={isAnalysisActive}
+                    onClick={handleNavSelection}
+                  >
+                    <AnalysisIcon />
+                  </RailLinkButton>
+                  <RailLinkButton
+                    href={buildScreenerHref()}
+                    label="Screener"
+                    title="Screener"
+                    active={isScreenerActive}
+                    onClick={handleNavSelection}
+                  >
+                    <ScreenerIcon />
+                  </RailLinkButton>
+                </div>
+
+                <div className="my-2 flex justify-center" aria-hidden="true">
+                  <span className="h-px w-7 rounded-full bg-[rgba(28,56,83,0.12)]" />
+                </div>
+
+                <div className="flex flex-col items-center gap-2">
+                  <RailLinkButton
+                    href={buildAssetsHref()}
+                    label="Assets"
+                    title="Assets"
+                    active={isAssetsActive}
+                    onClick={handleNavSelection}
+                  >
+                    <AssetsIcon />
+                  </RailLinkButton>
+                  <RailLinkButton
+                    href={buildJournalHref()}
+                    label="Journal"
+                    title="Journal"
+                    active={isJournalActive}
+                    onClick={handleNavSelection}
+                  >
+                    <JournalIcon />
+                  </RailLinkButton>
+                </div>
               </div>
 
               <div className="mt-auto w-full border-t border-[var(--border)] pt-4">
@@ -379,40 +400,52 @@ export function Sidebar({
                 ) : null}
               </div>
 
-              <nav className="mt-6 space-y-1.5" aria-label="Primary">
-                <SidebarNavLink
-                  href={buildHomeHref()}
-                  label="Analysis"
-                  meta="Reports and search"
-                  active={isAnalysisActive}
-                  onClick={handleNavSelection}
-                >
-                  <AnalysisIcon />
-                </SidebarNavLink>
-                <SidebarNavLink
-                  href={buildScreenerHref()}
-                  label="Screener"
-                  meta="Runs and candidates"
-                  active={isScreenerActive}
-                  onClick={handleNavSelection}
-                >
-                  <ScreenerIcon />
-                </SidebarNavLink>
-                <SidebarNavLink
-                  href={buildJournalHref()}
-                  label="Journal"
-                  meta="Trade review"
-                  active={isJournalActive}
-                  onClick={handleNavSelection}
-                >
-                  <JournalIcon />
-                </SidebarNavLink>
+              <nav className="mt-6 space-y-4" aria-label="Primary">
+                <SidebarSection title="Research">
+                  <SidebarNavLink
+                    href={buildHomeHref()}
+                    label="Analysis"
+                    meta="Reports and search"
+                    active={isAnalysisActive}
+                    onClick={handleNavSelection}
+                  >
+                    <AnalysisIcon />
+                  </SidebarNavLink>
+                  <SidebarNavLink
+                    href={buildScreenerHref()}
+                    label="Screener"
+                    meta="Runs and candidates"
+                    active={isScreenerActive}
+                    onClick={handleNavSelection}
+                  >
+                    <ScreenerIcon />
+                  </SidebarNavLink>
+                </SidebarSection>
+
+                <SidebarSection title="Portfolio">
+                  <SidebarNavLink
+                    href={buildAssetsHref()}
+                    label="Assets"
+                    meta="Ledger and exposure"
+                    active={isAssetsActive}
+                    onClick={handleNavSelection}
+                  >
+                    <AssetsIcon />
+                  </SidebarNavLink>
+                  <SidebarNavLink
+                    href={buildJournalHref()}
+                    label="Journal"
+                    meta="Trade review"
+                    active={isJournalActive}
+                    onClick={handleNavSelection}
+                  >
+                    <JournalIcon />
+                  </SidebarNavLink>
+                </SidebarSection>
               </nav>
 
               <div className="mt-auto border-t border-[var(--border)] pt-4">
-                <div className="mb-3 flex justify-end pr-4" aria-hidden="true">
-                  <span className="h-5 w-px rounded-full bg-gradient-to-b from-[rgba(28,56,83,0.16)] to-transparent" />
-                </div>
+                <SidebarSectionHeading title="Operations" muted />
                 <SidebarUtilityLink
                   href={buildActivityHref()}
                   label="Activity"
@@ -434,7 +467,7 @@ export function Sidebar({
         </aside>
 
         <div className="pointer-events-none absolute left-full top-1/2 z-[60] hidden -translate-y-1/2 md:flex">
-          <div className="pointer-events-auto -translate-x-1/2">
+          <div className="pointer-events-auto -translate-x-[64%]">
             <DesktopUtilityControl
               isDesktopRail={isDesktopRail}
               onToggle={toggleDesktopCollapse}
@@ -464,7 +497,7 @@ function DesktopUtilityControl({
   return (
     <button
       type="button"
-      className="focus-ring inline-flex h-12 w-12 items-center justify-center rounded-[18px] border border-[rgba(28,56,83,0.12)] bg-white/95 text-slate-500 shadow-[0_12px_24px_rgba(18,28,41,0.08)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)]"
+      className="focus-ring inline-flex h-14 w-6 items-center justify-center rounded-full border border-[rgba(28,56,83,0.12)] bg-white/95 text-slate-500 shadow-[0_12px_24px_rgba(18,28,41,0.08)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)]"
       onClick={onToggle}
       aria-label={label}
       aria-expanded={!isDesktopRail}
@@ -492,6 +525,39 @@ function DesktopUtilityControl({
         />
       </svg>
     </button>
+  );
+}
+
+function SidebarSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <SidebarSectionHeading title={title} />
+      <div className="mt-2 space-y-1.5">{children}</div>
+    </section>
+  );
+}
+
+function SidebarSectionHeading({
+  title,
+  muted = false,
+}: {
+  title: string;
+  muted?: boolean;
+}) {
+  return (
+    <div
+      className={`px-2 text-[11px] font-semibold uppercase tracking-[0.24em] ${
+        muted ? "text-slate-400" : "text-slate-500"
+      }`}
+    >
+      {title}
+    </div>
   );
 }
 
@@ -737,6 +803,28 @@ function ScreenerIcon() {
         stroke="currentColor"
         strokeWidth="1.6"
         strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function AssetsIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden>
+      <path
+        d="M4.5 6.5h11M4.5 10h11M4.5 13.5h11"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+      <rect
+        x="3.75"
+        y="4.75"
+        width="12.5"
+        height="10.5"
+        rx="2.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
       />
     </svg>
   );

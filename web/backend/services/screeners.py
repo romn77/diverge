@@ -186,7 +186,24 @@ def get_screener_run_candidates(
         df = pd.read_csv(candidates_path)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to read candidates: {exc}") from exc
-    return df.where(pd.notna(df), None).to_dict(orient="records")
+
+    rows = df.where(pd.notna(df), None).to_dict(orient="records")
+    return [
+        {
+            "breakout_type": None,
+            "breakout_reason": None,
+            "breakout_with_volume": None,
+            "breakout_base_bonus": None,
+            "breakout_volume_bonus": None,
+            "breakout_bonus": None,
+            "strategy_tags": "",
+            "risk_flags": "",
+            **row,
+            "strategy_tags": row.get("strategy_tags") or "",
+            "risk_flags": row.get("risk_flags") or "",
+        }
+        for row in rows
+    ]
 
 
 def record_screener_run_metadata(task, result) -> None:

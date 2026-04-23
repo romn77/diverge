@@ -604,11 +604,11 @@ function TagStrip({
   compact = false,
 }: {
   label: string;
-  value: string;
+  value: string | null | undefined;
   tone: string;
   compact?: boolean;
 }) {
-  const tokens = value
+  const tokens = String(value ?? "")
     .split(/[;,]/)
     .map((token) => token.trim())
     .filter(Boolean);
@@ -635,7 +635,11 @@ function TagStrip({
   );
 }
 
-function formatScore(value: number, locale: string): string {
+function formatScore(value: number | null | undefined, locale: string): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "—";
+  }
+
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,

@@ -9,9 +9,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from web.backend import app_config, auth, report_metadata, screener_runs, trade_entries
+from web.backend import (
+    app_config,
+    asset_entries,
+    auth,
+    report_metadata,
+    screener_runs,
+    trade_entries,
+)
 from web.backend.routers import (
     admin as admin_router,
+    assets as assets_router,
     auth as auth_router,
     config as config_router,
     health as health_router,
@@ -31,6 +39,7 @@ async def _app_lifespan(_: FastAPI):
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
     trade_entries.initialize_trade_entries_runtime()
+    asset_entries.initialize_asset_runtime()
     restore_persisted_active_tasks()
     restore_persisted_screener_tasks()
     yield
@@ -56,6 +65,7 @@ for router in (
     admin_router.router,
     reports_router.router,
     trades_router.router,
+    assets_router.router,
     tasks_router.router,
     screeners_router.router,
     ticker_history_router.router,

@@ -1,6 +1,7 @@
 # TradingAgents/graph/propagation.py
 
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 from tradingagents.agents.utils.agent_states import (
     InvestDebateState,
     RiskDebateState,
@@ -21,6 +22,7 @@ class Propagator:
         output_language: str = "en",
         historical_trade_feedback: str = "",
         historical_trade_reviews: Optional[List[dict]] = None,
+        portfolio_context: str = "",
     ) -> Dict[str, Any]:
         """Create the initial state for the agent graph."""
         messages = [("human", company_name)]
@@ -37,6 +39,7 @@ class Propagator:
             "valuation_applicability_reason": None,
             "historical_trade_feedback": historical_trade_feedback,
             "historical_trade_reviews": historical_trade_reviews or [],
+            "portfolio_context": portfolio_context or "",
             "investment_debate_state": InvestDebateState(
                 {
                     "bull_history": "",

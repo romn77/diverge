@@ -5,26 +5,30 @@ import test from "node:test";
 
 const sidebarPath = path.join(import.meta.dirname, "Sidebar.tsx");
 
-test("Sidebar implements the research rail with one create surface, three primary destinations, and activity utility", () => {
+test("Sidebar implements grouped workbench navigation for research, portfolio, and operations", () => {
   const source = readFileSync(sidebarPath, "utf8");
 
   assert.match(source, /import Link from "next\/link"/);
   assert.match(source, /usePathname/);
   assert.match(source, /useWorkbench/);
   assert.match(source, /buildHomeHref/);
+  assert.match(source, /buildAssetsHref/);
   assert.match(source, /buildScreenerHref/);
   assert.match(source, /buildJournalHref/);
   assert.match(source, /buildActivityHref/);
   assert.match(source, /Research Workbench/);
   assert.match(source, /\+ New/);
-  assert.match(source, /New Analysis/);
-  assert.match(source, /New Screener/);
+  assert.match(source, /SidebarSection title="Research"/);
+  assert.match(source, /SidebarSection title="Portfolio"/);
+  assert.match(source, /SidebarSectionHeading title="Operations" muted/);
   assert.match(source, /Analysis/);
   assert.match(source, /Screener/);
+  assert.match(source, /Assets/);
   assert.match(source, /Journal/);
   assert.match(source, /Activity/);
   assert.match(source, /Reports and search/);
   assert.match(source, /Runs and candidates/);
+  assert.match(source, /Ledger and exposure/);
   assert.match(source, /Trade review/);
   assert.match(source, /No active background work/);
   assert.match(source, /role="menu"/);
@@ -39,6 +43,7 @@ test("Sidebar implements the research rail with one create surface, three primar
   assert.match(source, /Collapse sidebar/);
   assert.match(source, /Expand sidebar/);
   assert.match(source, /pathname === "\/" \|\| pathname\.startsWith\("\/reports\/"\)/);
+  assert.match(source, /pathname === buildAssetsHref\(\) \|\| pathname\.startsWith\("\/assets\/"\)/);
   assert.match(source, /pathname === buildActivityHref\(\)/);
 });
 
@@ -56,20 +61,22 @@ test("Sidebar no longer renders browse-heavy report and screener modules inline"
   assert.doesNotMatch(source, /searchQuery/);
 });
 
-test("Sidebar renders a floating desktop collapse toggle outside the rail", () => {
+test("Sidebar preserves grouped structure in collapsed rail and keeps the floating desktop toggle", () => {
   const source = readFileSync(sidebarPath, "utf8");
 
   assert.match(source, /const desktopShellClasses = \[/);
   assert.match(source, /md:sticky md:top-0 md:flex md:h-\[100svh\] md:self-start md:shrink-0 md:overflow-visible/);
   assert.match(source, /pointer-events-none absolute left-full top-1\/2 z-\[60\] hidden -translate-y-1\/2 md:flex/);
-  assert.match(source, /pointer-events-auto -translate-x-1\/2/);
+  assert.match(source, /pointer-events-auto -translate-x-\[64%\]/);
   assert.match(source, /<DesktopUtilityControl/);
-  assert.match(source, /h-12 w-12 items-center justify-center rounded-\[18px\]/);
+  assert.match(source, /h-14 w-6 items-center justify-center rounded-full/);
   assert.match(source, /shadow-\[0_12px_24px_rgba\(18,28,41,0\.08\)\]/);
   assert.match(source, /transition-colors hover:border-\[var\(--border-strong\)\] hover:bg-\[var\(--surface-hover\)\]/);
   assert.match(source, /viewBox="0 0 16 16"/);
   assert.match(source, /d="M9\.5 3\.5 5 8l4\.5 4\.5"/);
   assert.match(source, /d="M13 3\.5 8\.5 8 13 12\.5"/);
+  assert.match(source, /my-2 flex justify-center/);
+  assert.match(source, /h-px w-7 rounded-full bg-\[rgba\(28,56,83,0\.12\)\]/);
   assert.doesNotMatch(source, /rounded-full border border-\[rgba\(28,56,83,0\.12\)\] bg-white\/72/);
   assert.doesNotMatch(source, />\s*Rail\s*</);
   assert.doesNotMatch(source, /sidebar\.collapseShort/);

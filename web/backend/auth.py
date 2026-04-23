@@ -337,7 +337,7 @@ def reset_runtime_state() -> None:
 
 
 def create_all_for_testing() -> None:
-    from web.backend import report_metadata, screener_runs, trade_entries  # noqa: F401
+    from web.backend import asset_entries, report_metadata, screener_runs, trade_entries  # noqa: F401
 
     settings = get_auth_settings()
     engine = get_engine(settings)

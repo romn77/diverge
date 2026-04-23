@@ -23,6 +23,10 @@ export function buildJournalHref(): string {
   return "/journal";
 }
 
+export function buildAssetsHref(): string {
+  return "/assets";
+}
+
 export function buildActivityHref(): string {
   return "/activity";
 }

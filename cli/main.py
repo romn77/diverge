@@ -28,7 +28,6 @@ from tradingagents.data_layout import DEFAULT_SCREENER_RUNS_DIR
 from tradingagents.screener.debug import debug_screen_symbol
 from tradingagents.screener.market_calendar import is_market_trading_day, last_n_trading_days
 from tradingagents.screener.schema import ScreenRunConfig
-from cli.assets import asset_app
 from cli.announcements import fetch_announcements, display_announcements
 
 console = Console()
@@ -49,7 +48,6 @@ app = typer.Typer(
     help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
     add_completion=True,  # Enable shell completion
 )
-app.add_typer(asset_app, name="asset")
 
 
 def _current_utc_datetime() -> datetime.datetime:

@@ -12,6 +12,8 @@ test("workbench route helpers cover the route-driven destinations", () => {
   assert.match(source, /new URLSearchParams\(\{ q: normalizedQuery \}\)/);
   assert.match(source, /export function buildJournalHref/);
   assert.match(source, /return "\/journal";/);
+  assert.match(source, /export function buildAssetsHref/);
+  assert.match(source, /return "\/assets";/);
   assert.match(source, /export function buildActivityHref/);
   assert.match(source, /return "\/activity";/);
   assert.match(source, /export function buildLoginHref/);
