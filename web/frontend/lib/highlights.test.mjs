@@ -10,7 +10,7 @@ const highlightsSource = readFileSync(
 );
 
 function loadHighlightsModule() {
-  const module = { exports: {} };
+  const compiledModule = { exports: {} };
   const output = ts.transpileModule(highlightsSource, {
     compilerOptions: {
       module: ts.ModuleKind.CommonJS,
@@ -19,11 +19,11 @@ function loadHighlightsModule() {
   });
 
   vm.runInNewContext(output.outputText, {
-    exports: module.exports,
-    module,
+    exports: compiledModule.exports,
+    module: compiledModule,
   });
 
-  return module.exports;
+  return compiledModule.exports;
 }
 
 test("parseHighlights removes every json-highlights block after parsing the first valid block", () => {

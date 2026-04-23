@@ -10,8 +10,10 @@ test("PreferencesProvider syncs theme and language state to document attributes 
   const source = readFileSync(providerPath, "utf8");
 
   assert.match(source, /document\.documentElement/);
-  assert.match(source, /useState<Theme>\(initialTheme\)/);
-  assert.match(source, /useState<Language>\(initialLanguage\)/);
+  assert.match(source, /useState<Theme>\(\(\) => \{/);
+  assert.match(source, /useState<Language>\(\(\) => \{/);
+  assert.match(source, /return initialTheme/);
+  assert.match(source, /return initialLanguage/);
   assert.match(source, /root\.dataset\.theme = theme/);
   assert.match(source, /root\.lang = toHtmlLang\(language\)/);
   assert.match(source, /window\.localStorage\.setItem\(THEME_STORAGE_KEY, theme\)/);

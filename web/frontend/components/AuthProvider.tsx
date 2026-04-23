@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  startTransition,
   createContext,
   useCallback,
   useContext,
@@ -70,7 +71,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    void refreshSession();
+    const timeoutId = window.setTimeout(() => {
+      startTransition(() => {
+        void refreshSession();
+      });
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
   }, [refreshSession]);
 
   useEffect(() => {

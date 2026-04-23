@@ -8,13 +8,20 @@ const reportViewerPath = path.join(import.meta.dirname, "ReportViewer.tsx");
 test("ReportViewer uses sticky headers with pressed-state navigation buttons", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/badge"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/tabs"/);
+  assert.match(source, /<Tabs/);
+  assert.match(source, /<Card/);
+  assert.match(source, /<Badge/);
   assert.match(source, /sticky top-0/);
   assert.match(source, /overflow-x-auto/);
-  assert.match(source, /aria-pressed=\{selectedTab === "complete"\}/);
+  assert.match(source, /onValueChange=\{handleTabChange\}/);
+  assert.match(source, /<TabsTrigger value="complete"/);
   assert.equal(source.includes("top-[5.75rem]"), false);
   assert.equal(source.includes("top-[6.5rem]"), false);
   assert.equal(source.includes('role="tablist"'), false);
-  assert.equal(source.includes('role="tab"'), false);
 });
 
 test("ReportViewer lets the reading surface use the full content column", () => {
@@ -82,5 +89,6 @@ test("ReportViewer promotes a dedicated summary tab instead of a right-side summ
   assert.match(source, /selectedTab === SUMMARY_TAB_KEY/);
   assert.match(source, /SummaryPanel/);
   assert.match(source, /report\.summary/);
+  assert.match(source, /TabsTrigger/);
   assert.doesNotMatch(source, /<aside className="viewer-meta-card"/);
 });

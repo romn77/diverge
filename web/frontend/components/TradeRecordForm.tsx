@@ -2,6 +2,23 @@
 
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import {
   createTrade,
   updateTrade,
@@ -137,37 +154,21 @@ export function TradeRecordForm({
   };
 
   return (
-    <div
-      className="modal-backdrop fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(17,24,39,0.42)] px-4 py-6"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
         aria-label={localizedTitle}
-        className="modal-panel scrollbar-hidden fade-in max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
-        onClick={(event) => event.stopPropagation()}
+        className="modal-panel scrollbar-hidden max-h-[92vh] max-w-5xl overflow-y-auto"
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              {t("tradeRecord.manualJournal", "Manual Journal")}
-            </p>
-            <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-              {localizedTitle}
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              {description}
-            </p>
-          </div>
-          <button
-            type="button"
-            className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
-            onClick={onClose}
-          >
-            {t("common.close", "Close")}
-          </button>
-        </div>
+        <DialogHeader className="pr-12">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
+            {t("tradeRecord.manualJournal", "Manual Journal")}
+          </p>
+          <DialogTitle>{localizedTitle}</DialogTitle>
+          <DialogDescription className="max-w-3xl">
+            {description}
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="mt-8 grid gap-6">
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -175,7 +176,7 @@ export function TradeRecordForm({
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                 {t("analysis.ticker", "Ticker")}
               </span>
-              <input
+              <Input
                 type="text"
                 value={formState.ticker}
                 onChange={(event) =>
@@ -185,7 +186,7 @@ export function TradeRecordForm({
                   }))
                 }
                 placeholder="MSFT"
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-800"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-800"
               />
             </label>
 
@@ -211,19 +212,23 @@ export function TradeRecordForm({
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                 {t("tradeRecord.side", "Side")}
               </span>
-              <select
+              <Select
                 value={formState.side}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setFormState((current) => ({
                     ...current,
-                    side: event.target.value,
+                    side: value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
               >
-                <option value="long">{t("trade.side.long", "long")}</option>
-                <option value="short">{t("trade.side.short", "short")}</option>
-              </select>
+                <SelectTrigger className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-medium text-slate-800">
+                  <SelectValue placeholder={t("tradeRecord.side", "Side")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="long">{t("trade.side.long", "long")}</SelectItem>
+                  <SelectItem value="short">{t("trade.side.short", "short")}</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
 
             <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
@@ -401,7 +406,7 @@ export function TradeRecordForm({
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                 {t("tradeRecord.initialThesis", "Initial Thesis")}
               </span>
-              <textarea
+              <Textarea
                 value={formState.initial_thesis}
                 onChange={(event) =>
                   setFormState((current) => ({
@@ -414,7 +419,7 @@ export function TradeRecordForm({
                   "tradeRecord.initialThesisPlaceholder",
                   "Document the setup, catalyst, and why this trade exists."
                 )}
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm leading-6 text-slate-800"
+                className="mt-3 min-h-[170px] border-[var(--border)] bg-[var(--surface-strong)] text-slate-800"
               />
             </label>
 
@@ -465,9 +470,9 @@ export function TradeRecordForm({
                   </code>
                 </p>
               </div>
-              <button
+              <Button
                 type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
+                variant="secondary"
                 onClick={() =>
                   setFormState((current) => ({
                     ...current,
@@ -479,7 +484,7 @@ export function TradeRecordForm({
                 }
               >
                 {t("tradeRecord.addBlankReference", "Add Blank Reference")}
-              </button>
+              </Button>
             </div>
 
             <div className="mt-5">
@@ -641,30 +646,20 @@ export function TradeRecordForm({
           ) : null}
 
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
-              onClick={onClose}
-              disabled={saving}
-            >
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
               {t("common.cancel", "Cancel")}
-            </button>
-            <button
-              type="button"
-              className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-              onClick={() => void submitTrade()}
-              disabled={saving}
-            >
+            </Button>
+            <Button type="button" onClick={() => void submitTrade()} disabled={saving}>
               {saving
                 ? t("tradeRecord.saving", "Saving...")
                 : mode === "create"
                   ? t("tradeRecord.create", "Create Trade")
                   : t("tradeRecord.saveChanges", "Save Changes")}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

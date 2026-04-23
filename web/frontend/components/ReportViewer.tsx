@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
 import { parseHighlights, type SignalConfidence, type TradeSignal } from "@/lib/highlights";
 import { MarkdownContent } from "./MarkdownContent";
@@ -417,13 +421,6 @@ export function ReportViewer({
     [structure]
   );
   const artifactCount = structure?.artifacts.length ?? 0;
-  const availableTrackLabels = useMemo(
-    () =>
-      availableCategories.map(([key, meta]) =>
-        t(`report.category.${key}`, meta.label)
-      ),
-    [availableCategories, t]
-  );
 
   const selectedCategoryMeta = selectedTab !== "complete" ? CATEGORY_MAP[selectedTab] : null;
   const selectedCategoryLabel =
@@ -510,13 +507,15 @@ export function ReportViewer({
                       <div className="space-y-5">
                         <div className="flex min-w-0 items-start gap-4">
                           {onOpenSidebar && (
-                            <button
+                            <Button
                               type="button"
                               onClick={onOpenSidebar}
                               aria-controls="report-navigation"
                               aria-expanded={sidebarOpen}
                               aria-haspopup="dialog"
-                              className="interactive-button focus-ring grid min-h-11 min-w-11 place-items-center rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 text-slate-500 md:hidden"
+                              variant="secondary"
+                              size="icon"
+                              className="min-h-11 min-w-11 rounded-full text-slate-500 md:hidden"
                               aria-label={t(
                                 "report.openNavigation",
                                 "Open report navigation"
@@ -530,7 +529,7 @@ export function ReportViewer({
                                   strokeLinecap="round"
                                 />
                               </svg>
-                            </button>
+                            </Button>
                           )}
 
                           <div className="min-w-0">
@@ -644,52 +643,21 @@ export function ReportViewer({
           <div className="sticky top-0 z-20 bg-transparent">
             <div className="border-b border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(252,245,235,0.92))] px-4 py-3 md:px-8 md:py-4">
               <div className="w-full">
-                  <div className="scrollbar-none flex gap-5 overflow-x-auto border-b border-[color:rgba(22,34,51,0.08)] pb-1">
-                    <button
-                      type="button"
-                      onClick={() => handleTabChange(SUMMARY_TAB_KEY)}
-                      className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
-                        selectedTab === SUMMARY_TAB_KEY
-                          ? "border-[var(--primary)] text-[var(--accent)]"
-                          : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
-                      }`}
-                      aria-pressed={selectedTab === SUMMARY_TAB_KEY}
-                      aria-controls="report-content-panel"
-                    >
+                <Tabs value={selectedTab} onValueChange={handleTabChange}>
+                  <TabsList className="scrollbar-none flex w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none">
+                    <TabsTrigger value={SUMMARY_TAB_KEY}>
                       {t("report.summary", "Summary")}
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleTabChange("complete")}
-                      className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
-                        selectedTab === "complete"
-                          ? "border-[var(--primary)] text-[var(--accent)]"
-                          : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
-                      }`}
-                      aria-pressed={selectedTab === "complete"}
-                      aria-controls="report-content-panel"
-                    >
+                    </TabsTrigger>
+                    <TabsTrigger value="complete">
                       {t("report.completeReport", "Complete Report")}
-                    </button>
-
+                    </TabsTrigger>
                     {availableCategories.map(([key, meta]) => (
-                      <button
-                        type="button"
-                        key={key}
-                        onClick={() => handleTabChange(key)}
-                        className={`focus-ring whitespace-nowrap border-b-2 px-1 pb-3 pt-1 text-sm font-semibold tracking-[0.01em] transition-colors ${
-                          selectedTab === key
-                            ? "border-[var(--primary)] text-[var(--accent)]"
-                            : "border-transparent text-[var(--muted)] hover:text-[var(--text)]"
-                        }`}
-                        aria-pressed={selectedTab === key}
-                        aria-controls="report-content-panel"
-                      >
+                      <TabsTrigger key={key} value={key}>
                         {t(`report.category.${key}`, meta.label)}
-                      </button>
+                      </TabsTrigger>
                     ))}
-                  </div>
+                  </TabsList>
+                </Tabs>
               </div>
             </div>
 
@@ -700,20 +668,19 @@ export function ReportViewer({
                 <div className="w-full">
                   <div className="scrollbar-none flex overflow-x-auto gap-2 rounded-[20px] border border-[color:rgba(22,34,51,0.08)] bg-white/42 p-2">
                     {categoryFiles.map((file) => (
-                      <button
-                        type="button"
+                      <Button
                         key={file}
                         onClick={() => {
                           setContent("");
                           setSelectedFile(file);
                         }}
-                        className="pill-tab whitespace-nowrap"
-                        data-active={selectedFile === file}
-                        aria-pressed={selectedFile === file}
+                        variant={selectedFile === file ? "default" : "secondary"}
+                        size="sm"
+                        className="whitespace-nowrap"
                         aria-controls="report-content-panel"
                       >
                         {FILE_LABELS[file] || file}
-                      </button>
+                      </Button>
                     ))}
                   </div>
                 </div>
@@ -756,8 +723,6 @@ export function ReportViewer({
                   finalSignal={finalSignal}
                   finalConfidence={finalConfidence}
                   summaryText={summaryText}
-                  availableTrackLabels={availableTrackLabels}
-                  artifacts={structure.artifacts}
                   t={t}
                 />
               ) : selectedTab === "complete" ? (
@@ -795,21 +760,15 @@ function SummaryMetric({
   hint: string;
 }) {
   return (
-    <div className="border-b border-[color:rgba(22,34,51,0.08)] py-3 last:border-b-0">
+    <Card className="border-b-0 bg-white/80 shadow-none">
+      <CardContent className="py-3">
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
         {label}
       </p>
       <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
       <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
-    </div>
-  );
-}
-
-function ArtifactPill({ label }: { label: string }) {
-  return (
-    <span className="rounded-full border border-[color:rgba(22,34,51,0.08)] bg-white/78 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-      {label}
-    </span>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -817,23 +776,20 @@ function SummaryPanel({
   finalSignal,
   finalConfidence,
   summaryText,
-  availableTrackLabels,
-  artifacts,
   t,
 }: {
   finalSignal: TradeSignal | null;
   finalConfidence: SignalConfidence | null;
   summaryText: string;
-  availableTrackLabels: string[];
-  artifacts: Array<{ type: string; path: string; summary?: string | null }>;
   t: ReturnType<typeof usePreferences>["t"];
 }) {
   return (
     <div className="space-y-6">
-      <section className="rounded-[28px] border border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.86),rgba(248,240,229,0.82))] px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)] md:px-6">
+      <Card className="rounded-[28px] border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.86),rgba(248,240,229,0.82))] shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
+        <CardContent className="px-5 py-5 md:px-6">
         <p className="viewer-meta-label">{t("report.summary", "Summary")}</p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span
+          <Badge
             className={`signal-badge viewer-signal-badge min-h-11 ${
               finalSignal
                 ? signalClass(finalSignal)
@@ -841,19 +797,20 @@ function SummaryPanel({
             }`}
           >
             {finalSignal ?? t("report.pending", "Pending")}
-          </span>
+          </Badge>
           {finalConfidence ? (
-            <span className="rounded-full border border-[color:rgba(22,34,51,0.1)] bg-white/78 px-3 py-2 text-xs font-semibold text-slate-600">
+            <Badge variant="secondary" className="px-3 py-2 text-slate-600">
               {t("report.confidence", ({ value }) => `Confidence ${value}`, {
                 value: finalConfidence,
               })}
-            </span>
+            </Badge>
           ) : null}
         </div>
         <p className="mt-4 text-sm leading-7 text-slate-700 md:text-[15px]">
           {summaryText}
         </p>
-      </section>
+        </CardContent>
+      </Card>
     </div>
   );
 }

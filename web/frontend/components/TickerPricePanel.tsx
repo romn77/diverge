@@ -724,19 +724,6 @@ function formatPercent(value: number | null, locale: string): string {
   }).format(value)}%`;
 }
 
-function formatLongDate(value: string, locale: string): string {
-  const parsed = new Date(`${value}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(parsed);
-}
-
 function formatMetricDateCompact(value: string, locale: string): string {
   const parsed = new Date(`${value}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) {

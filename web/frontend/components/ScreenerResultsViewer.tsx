@@ -2,6 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   getScreenerRun,
   getTickerHistoryBatch,
@@ -83,7 +94,7 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
     return () => {
       isActive = false;
     };
-  }, [runId]);
+  }, [runId, t]);
 
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
@@ -184,7 +195,8 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
       <div className="w-full space-y-6">
-        <section className="fade-in rounded-[30px] border border-[var(--border)] bg-white/95 p-6 shadow-[0_24px_60px_rgba(18,28,41,0.08)] md:p-8">
+        <Card className="fade-in rounded-[30px] bg-white/95">
+          <CardContent className="p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
@@ -233,7 +245,8 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
               />
             </div>
 
-            <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+            <Card className="rounded-[24px] bg-[var(--surface-strong)] shadow-none">
+              <CardContent className="p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                 {t("screenerResults.summary.artifacts", "Artifacts")}
               </p>
@@ -256,54 +269,46 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   ))
                 )}
               </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="mt-8 flex flex-wrap gap-2">
             {BREAKOUT_FILTER_OPTIONS.map((option) => (
-              <button
+              <Button
                 key={option.value}
                 type="button"
                 aria-pressed={breakoutFilter === option.value}
-                className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
-                  breakoutFilter === option.value
-                    ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[0_10px_24px_rgba(181,89,38,0.22)]"
-                    : "border-[var(--border)] bg-white text-slate-700 hover:border-[rgba(181,89,38,0.22)] hover:bg-[rgba(181,89,38,0.06)] hover:text-[var(--primary)]"
-                }`}
+                variant={breakoutFilter === option.value ? "default" : "secondary"}
+                size="sm"
                 onClick={() => setBreakoutFilter(option.value)}
               >
                 {option.label}
-              </button>
+              </Button>
             ))}
-            <button
+            <Button
               type="button"
               aria-pressed={volumeConfirmedOnly}
-              className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
-                volumeConfirmedOnly
-                  ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[0_10px_24px_rgba(181,89,38,0.22)]"
-                  : "border-[var(--border)] bg-white text-slate-700 hover:border-[rgba(181,89,38,0.22)] hover:bg-[rgba(181,89,38,0.06)] hover:text-[var(--primary)]"
-              }`}
+              variant={volumeConfirmedOnly ? "default" : "secondary"}
+              size="sm"
               onClick={() => setVolumeConfirmedOnly((value) => !value)}
             >
               {t("screenerResults.filter.volume", "Volume Confirmed")}
-            </button>
+            </Button>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
             {columns.map((column) => (
-              <button
+              <Button
                 key={column.key}
                 type="button"
                 aria-pressed={sortKey === column.key}
-                className={`rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition ${
-                  sortKey === column.key
-                    ? "border-[var(--primary)] bg-[var(--primary)] text-white shadow-[0_10px_24px_rgba(181,89,38,0.22)]"
-                    : "border-[var(--border)] bg-white text-slate-700 hover:border-[rgba(181,89,38,0.22)] hover:bg-[rgba(181,89,38,0.06)] hover:text-[var(--primary)]"
-                }`}
+                variant={sortKey === column.key ? "default" : "secondary"}
+                size="sm"
                 onClick={() => setSortKey(column.key)}
               >
                 {column.label}
-              </button>
+              </Button>
             ))}
           </div>
 
@@ -316,12 +321,13 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
           {filteredReasons.length > 0 ? (
             <div className="mt-6 flex flex-wrap gap-2">
               {filteredReasons.map(([reason, count]) => (
-                <span
+                <Badge
                   key={reason}
-                  className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600"
+                  variant="secondary"
+                  className="text-slate-600"
                 >
                   {reason}: {count}
-                </span>
+                </Badge>
               ))}
             </div>
           ) : null}
@@ -343,9 +349,9 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                       </h2>
                       <p className="mt-1 text-sm text-slate-500">{row.market}</p>
                     </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+                    <Badge variant="secondary" className="text-slate-700">
                       {formatScore(row.total_score, locale)}
-                    </span>
+                    </Badge>
                   </div>
 
                   <dl className="mt-4 grid grid-cols-2 gap-3">
@@ -392,81 +398,81 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
             </div>
           ) : null}
 
-          <div className="mt-8 overflow-x-auto rounded-[24px] border border-[var(--border)]">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="sticky top-0 bg-slate-50">
-                <tr>
-                  <th className="px-4 py-3 text-left">
+          <div className="mt-8">
+            <Table className="min-w-full text-sm">
+              <TableHeader className="sticky top-0 bg-slate-50">
+                <TableRow>
+                  <TableHead className="text-left">
                     {t("screenerResults.header.symbol", "symbol")}
-                  </th>
-                  <th className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead className="text-left">
                     {t("screenerResults.header.trendSparkline", "trend")}
-                  </th>
-                  <th className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead className="text-left">
                     {t("screenerResults.header.market", "market")}
-                  </th>
-                  <th className="px-4 py-3 text-right tabular-nums">
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
                     {t("screenerResults.header.global_rank", "global_rank")}
-                  </th>
-                  <th className="px-4 py-3 text-right tabular-nums">
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
                     {t("screenerResults.header.total_score", "total_score")}
-                  </th>
-                  <th className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead className="text-left">
                     {t("screenerResults.header.breakout_type", "breakout_type")}
-                  </th>
-                  <th className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead className="text-left">
                     {t(
                       "screenerResults.header.breakout_with_volume",
                       "breakout_with_volume"
                     )}
-                  </th>
-                  <th className="px-4 py-3 text-right tabular-nums">
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
                     {t("screenerResults.header.breakout_bonus", "breakout_bonus")}
-                  </th>
-                  <th className="px-4 py-3 text-right tabular-nums">
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
                     {t("screenerResults.header.trend_score", "trend_score")}
-                  </th>
-                  <th className="px-4 py-3 text-right tabular-nums">
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
                     {t("screenerResults.header.momentum_score", "momentum_score")}
-                  </th>
-                  <th className="px-4 py-3 text-right tabular-nums">
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
                     {t("screenerResults.header.risk_score", "risk_score")}
-                  </th>
-                  <th className="px-4 py-3 text-right tabular-nums">
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
                     {t(
                       "screenerResults.header.liquidity_score",
                       "liquidity_score"
                     )}
-                  </th>
-                  <th className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead className="text-left">
                     {t("screenerResults.header.strategy_tags", "strategy_tags")}
-                  </th>
-                  <th className="px-4 py-3 text-left">
+                  </TableHead>
+                  <TableHead className="text-left">
                     {t("screenerResults.header.risk_flags", "risk_flags")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="bg-white">
                 {isLoading ? (
-                  <tr>
-                    <td className="px-4 py-6 text-slate-500" colSpan={14}>
+                  <TableRow>
+                    <TableCell className="py-6 text-slate-500" colSpan={14}>
                       Loading screener candidates...
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : sortedRows.length === 0 ? (
-                  <tr>
-                    <td className="px-4 py-6 text-slate-500" colSpan={14}>
+                  <TableRow>
+                    <TableCell className="py-6 text-slate-500" colSpan={14}>
                       {t("screenerResults.empty", "No screener candidates available.")}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   sortedRows.map((row) => (
-                    <tr
+                    <TableRow
                       key={`${row.symbol}-${row.market}`}
                       className={row.global_rank <= 3 ? "bg-[rgba(245,222,209,0.18)]" : ""}
                     >
-                      <td className="px-4 py-3 font-semibold text-slate-900">{row.symbol}</td>
-                      <td className="px-4 py-3">
+                      <TableCell className="font-semibold text-slate-900">{row.symbol}</TableCell>
+                      <TableCell>
                         <TickerSparkline
                           points={trendSeriesByTicker[seriesKey(row.symbol, row.market)] ?? []}
                           loading={
@@ -474,66 +480,67 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                             !trendSeriesByTicker[seriesKey(row.symbol, row.market)]
                           }
                         />
-                      </td>
-                      <td className="px-4 py-3">{row.market}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">{row.global_rank}</td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell>{row.market}</TableCell>
+                      <TableCell className="text-right tabular-nums">{row.global_rank}</TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatScore(row.total_score, locale)}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell>
                         <TagStrip
                           label="Pattern"
                           value={formatBreakoutType(row.breakout_type)}
                           tone="bg-[rgba(181,89,38,0.08)] text-[var(--primary)]"
                           compact
                         />
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell>
                         <TagStrip
                           label="Volume"
                           value={formatVolumeFlag(row.breakout_with_volume)}
                           tone="bg-[rgba(22,101,52,0.08)] text-emerald-700"
                           compact
                         />
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatScore(row.breakout_bonus ?? 0, locale)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatScore(row.trend_score, locale)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatScore(row.momentum_score, locale)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatScore(row.risk_score, locale)}
-                      </td>
-                      <td className="px-4 py-3 text-right tabular-nums">
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
                         {formatScore(row.liquidity_score, locale)}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell>
                         <TagStrip
                           label="Strategy"
                           value={row.strategy_tags}
                           tone="bg-[rgba(28,56,83,0.08)] text-[var(--accent)]"
                           compact
                         />
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell>
                         <TagStrip
                           label="Risk"
                           value={row.risk_flags}
                           tone="bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
                           compact
                         />
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
-        </section>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
@@ -576,13 +583,15 @@ function SummaryCard({
   hint: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-5">
+    <Card className="rounded-[24px] bg-[var(--surface-strong)] shadow-none">
+      <CardContent className="p-5">
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
         {label}
       </p>
       <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
       <p className="mt-2 text-sm leading-6 text-slate-600">{hint}</p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

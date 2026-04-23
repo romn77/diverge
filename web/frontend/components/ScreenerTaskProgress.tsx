@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getScreenerTask,
   subscribeToScreenerTask,
@@ -77,67 +81,74 @@ export function ScreenerTaskProgress({
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
       <div className="w-full space-y-6">
-        <section className="fade-in rounded-[30px] border border-[var(--border)] bg-white/95 p-6 shadow-[0_24px_60px_rgba(18,28,41,0.08)] md:p-8">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-                {t("screenerTask.kicker", "Background Screener")}
-              </p>
-              <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-                {t("screenerTask.title", "Candidate Pool Build")}
-              </h1>
-            </div>
-            {task?.run_id ? (
-              <button
-                type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-                onClick={() => onViewRun(task.run_id!)}
-              >
-                {t("screenerTask.viewResults", "View Results")}
-              </button>
-            ) : null}
-          </div>
-
-          <div className="mt-8 grid gap-3 md:grid-cols-6">
-            {STAGES.map((stage) => {
-              const state = task?.latest_progress?.stage_status?.[stage] ?? "not_started";
-              return (
-                <div
-                  key={stage}
-                  className={`rounded-[24px] border p-4 ${
-                    state === "completed"
-                      ? "border-[rgba(46,118,83,0.2)] bg-[rgba(46,118,83,0.08)]"
-                      : state === "processing"
-                        ? "border-[rgba(28,56,83,0.18)] bg-[rgba(28,56,83,0.08)]"
-                        : "border-[var(--border)] bg-[var(--surface-strong)]"
-                  }`}
+        <Card className="fade-in rounded-[30px] bg-white/95">
+          <CardContent className="p-6 md:p-8">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
+                  {t("screenerTask.kicker", "Background Screener")}
+                </p>
+                <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
+                  {t("screenerTask.title", "Candidate Pool Build")}
+                </h1>
+              </div>
+              {task?.run_id ? (
+                <Button
+                  type="button"
+                  className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105"
+                  onClick={() => onViewRun(task.run_id!)}
                 >
-                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {t(`screenerTask.stage.${stage}`, stage)}
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-slate-800">
-                    {t(`task.stage.${state}`, state)}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="mt-8 rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-              {t("screenerTask.progressLog", "Progress Log")}
-            </h2>
-            <div className="mt-3 space-y-2 text-sm text-slate-600">
-              {eventLog.length === 0 ? (
-                <p>{t("screenerTask.noUpdates", "No progress updates yet.")}</p>
-              ) : (
-                eventLog.map((event, index) => (
-                  <p key={`${event.timestamp}-${index}`}>{event.message}</p>
-                ))
-              )}
+                  {t("screenerTask.viewResults", "View Results")}
+                </Button>
+              ) : null}
             </div>
-          </div>
-        </section>
+
+            <div className="mt-8 grid gap-3 md:grid-cols-6">
+              {STAGES.map((stage) => {
+                const state = task?.latest_progress?.stage_status?.[stage] ?? "not_started";
+                return (
+                  <div
+                    key={stage}
+                    className={`rounded-[24px] border p-4 ${
+                      state === "completed"
+                        ? "border-[rgba(46,118,83,0.2)] bg-[rgba(46,118,83,0.08)]"
+                        : state === "processing"
+                          ? "border-[rgba(28,56,83,0.18)] bg-[rgba(28,56,83,0.08)]"
+                          : "border-[var(--border)] bg-[var(--surface-strong)]"
+                    }`}
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      {t(`screenerTask.stage.${stage}`, stage)}
+                    </p>
+                    <div className="mt-3">
+                      <Badge variant="secondary">{t(`task.stage.${state}`, state)}</Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-8 rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
+                  {t("screenerTask.progressLog", "Progress Log")}
+                </h2>
+                <Badge variant="secondary">{eventLog.length}</Badge>
+              </div>
+              <ScrollArea className="mt-3 max-h-[20rem] pr-3">
+                <div className="space-y-2 text-sm text-slate-600">
+                  {eventLog.length === 0 ? (
+                    <p>{t("screenerTask.noUpdates", "No progress updates yet.")}</p>
+                  ) : (
+                    eventLog.map((event, index) => (
+                      <p key={`${event.timestamp}-${index}`}>{event.message}</p>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

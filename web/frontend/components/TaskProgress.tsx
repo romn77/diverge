@@ -2,13 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   getTask,
   subscribeToTask,
   type ProgressEvent,
   type StageStatus,
   type Task,
-  type TaskCreateRequest,
 } from "@/lib/api";
 
 interface TaskProgressProps {
@@ -122,9 +133,11 @@ export function TaskProgress({
     return (
       <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
         <div className="w-full">
-          <div className="fade-in rounded-[30px] border border-[var(--border)] bg-white/92 p-8 shadow-[0_24px_60px_rgba(18,28,41,0.08)]">
+          <Card className="fade-in rounded-[30px] bg-white/92">
+            <CardContent className="p-8">
             {t("task.loading", "Loading task progress...")}
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </main>
     );
@@ -133,7 +146,8 @@ export function TaskProgress({
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
       <div className="w-full space-y-6">
-        <section className="fade-in rounded-[30px] border border-[var(--border)] bg-white/95 p-6 shadow-[0_24px_60px_rgba(18,28,41,0.08)] md:p-8">
+        <Card className="fade-in rounded-[30px] bg-white/95">
+          <CardContent className="p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
@@ -144,7 +158,7 @@ export function TaskProgress({
                   {task?.ticker ?? t("task.fallbackTitle", "New Analysis")}
                 </h1>
                 {task ? (
-                  <button
+                  <Button
                     type="button"
                     aria-label={t(
                       "task.requestDetails",
@@ -152,7 +166,9 @@ export function TaskProgress({
                       { ticker: task.ticker }
                     )}
                     aria-expanded={showRequestDetails}
-                    className="focus-ring inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-300 transition hover:bg-[rgba(28,56,83,0.05)] hover:text-slate-500"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 rounded-full text-slate-300 hover:text-slate-500"
                     onClick={() =>
                       setShowRequestDetails((current) => !current)
                     }
@@ -166,7 +182,7 @@ export function TaskProgress({
                     >
                       <path d="M8 11.25 2.75 5h10.5L8 11.25Z" />
                     </svg>
-                  </button>
+                  </Button>
                 ) : null}
               </div>
               <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -184,13 +200,9 @@ export function TaskProgress({
             <div className="flex flex-wrap items-center gap-3">
               <TaskStatusBadge status={task?.status ?? "pending"} labelForStatus={t} />
               {task?.report_id ? (
-                <button
-                  type="button"
-                  className="interactive-button focus-ring rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-                  onClick={() => onViewReport(task.report_id!)}
-                >
+                <Button type="button" className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105" onClick={() => onViewReport(task.report_id!)}>
                   {t("task.viewReport", "View Report")}
-                </button>
+                </Button>
               ) : null}
             </div>
           </div>
@@ -258,9 +270,11 @@ export function TaskProgress({
               {streamError}
             </div>
           ) : null}
-        </section>
+          </CardContent>
+        </Card>
 
-        <section className="rounded-[30px] border border-[var(--border)] bg-white/95 p-6 shadow-[0_24px_60px_rgba(18,28,41,0.08)] md:p-8">
+        <Card className="rounded-[30px] bg-white/95">
+          <CardContent className="p-6 md:p-8">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
@@ -270,14 +284,15 @@ export function TaskProgress({
                 {t("task.liveFeed", "Live progress feed")}
               </h2>
             </div>
-            <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <Badge variant="secondary" className="tracking-[0.24em] text-slate-500">
               {t("common.updates", ({ count }) => `${count} updates`, {
                 count: eventLog.length,
               })}
-            </span>
+            </Badge>
           </div>
 
-          <div className="mt-6 space-y-3">
+          <ScrollArea className="mt-6 max-h-[24rem] pr-3">
+          <div className="space-y-3">
             {eventLog.length === 0 ? (
               <div className="rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-slate-600">
                 {t("task.waitingUpdate", "Waiting for the first streamed update...")}
@@ -299,7 +314,9 @@ export function TaskProgress({
               ))
             )}
           </div>
-        </section>
+          </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
     </main>
   );
@@ -337,11 +354,9 @@ function TaskStatusBadge({
         : "border-[rgba(28,56,83,0.16)] bg-[rgba(28,56,83,0.08)] text-[var(--accent)]";
 
   return (
-    <span
-      className={`inline-flex items-center rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] ${classes}`}
-    >
+    <Badge className={classes}>
       {labelForStatus(`task.status.${status}`, status)}
-    </span>
+    </Badge>
   );
 }
 
@@ -427,12 +442,12 @@ function TaskRequestField({
       <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </span>
-      <input
+      <Input
         name={name}
         type="text"
         value={value}
         readOnly={readOnly}
-        className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-white/72 px-3 py-2 text-sm font-medium text-slate-800"
+        className="mt-2 bg-white/72 text-slate-800"
       />
     </label>
   );
@@ -452,13 +467,14 @@ function TaskRequestSelect({
       <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </span>
-      <select
-        value={value}
-        disabled={disabled}
-        className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-white/72 px-3 py-2 text-sm font-medium text-slate-800"
-      >
-        <option value={value}>{value}</option>
-      </select>
+      <Select value={value} disabled={disabled}>
+        <SelectTrigger className="mt-2 bg-white/72 text-slate-800">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={value}>{value}</SelectItem>
+        </SelectContent>
+      </Select>
     </label>
   );
 }

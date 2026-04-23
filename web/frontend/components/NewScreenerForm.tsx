@@ -1,8 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AccessibleDialog } from "@/components/AccessibleDialog";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   createScreenerTask,
   getScreenerConfigOptions,
@@ -160,32 +168,24 @@ export function NewScreenerForm({
   };
 
   return (
-    <AccessibleDialog
-      isOpen={isOpen}
-      onClose={onClose}
-      ariaLabel={t("screener.dialog", "New screener")}
-      panelClassName="modal-panel fade-in w-full max-w-2xl rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
-      panelProps={{
-        onMouseDown: (event) => event.stopPropagation(),
-      }}
-    >
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              {t("screener.kicker", "Launch Screener")}
-            </p>
-            <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-              {t("screener.title", "New Screener")}
-            </h2>
-          </div>
-          <button
-            type="button"
-            className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
-            onClick={onClose}
-          >
-            {t("common.close", "Close")}
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        aria-label={t("screener.dialog", "New screener")}
+        className="modal-panel max-w-2xl"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <DialogHeader className="pr-12">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
+            {t("screener.kicker", "Launch Screener")}
+          </p>
+          <DialogTitle>{t("screener.title", "New Screener")}</DialogTitle>
+          <DialogDescription>
+            {t(
+              "screener.description",
+              "Pick the markets, optional CN source, candidate count, and breakout signals for this ranking run."
+            )}
+          </DialogDescription>
+        </DialogHeader>
 
         {loadingOptions || !configOptions || !formState ? (
           <div className="mt-8 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-600">
@@ -201,19 +201,16 @@ export function NewScreenerForm({
                 {configOptions.markets.map((market) => {
                   const active = formState.markets.includes(market.value);
                   return (
-                    <button
+                    <Button
                       key={market.value}
                       type="button"
                       disabled={!market.enabled}
-                      className={`interactive-button focus-ring rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
-                        active
-                          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                          : "border-[var(--border)] bg-[var(--surface-strong)] text-slate-600"
-                      }`}
+                      variant={active ? "default" : "secondary"}
+                      size="sm"
                       onClick={() => toggleMarket(market.value)}
                     >
                       {t(`screener.market.${optionKey(market.value)}`, market.label)}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -235,14 +232,11 @@ export function NewScreenerForm({
                     {configOptions.cn_data_sources.map((sourceOption) => {
                       const active = formState.cn_data_source === sourceOption.value;
                       return (
-                        <button
+                        <Button
                           key={sourceOption.value}
                           type="button"
-                          className={`interactive-button focus-ring rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
-                            active
-                              ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                              : "border-[var(--border)] bg-[var(--surface-strong)] text-slate-600"
-                          }`}
+                          variant={active ? "default" : "secondary"}
+                          size="sm"
                           onClick={() =>
                             setFormState({
                               ...formState,
@@ -254,7 +248,7 @@ export function NewScreenerForm({
                             `screener.cnSource.${optionKey(sourceOption.value)}`,
                             sourceOption.label
                           )}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
@@ -269,21 +263,18 @@ export function NewScreenerForm({
                   {configOptions.breakout_types.map((breakoutOption) => {
                     const active = formState.breakout_types.includes(breakoutOption.value);
                     return (
-                      <button
+                      <Button
                         key={breakoutOption.value}
                         type="button"
-                        className={`interactive-button focus-ring rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
-                          active
-                            ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                            : "border-[var(--border)] bg-[var(--surface-strong)] text-slate-600"
-                        }`}
+                        variant={active ? "default" : "secondary"}
+                        size="sm"
                         onClick={() => toggleBreakoutType(breakoutOption.value)}
                       >
                         {t(
                           `screener.breakout.${optionKey(breakoutOption.value)}`,
                           BREAKOUT_LABELS[breakoutOption.value] ?? breakoutOption.label
                         )}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
@@ -299,13 +290,13 @@ export function NewScreenerForm({
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("screener.asOfDate", "As Of Date")}
                 </span>
-                <input
+                <Input
                   type="date"
                   value={formState.as_of_date}
                   onChange={(event) =>
                     setFormState({ ...formState, as_of_date: event.target.value })
                   }
-                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                  className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 />
               </label>
 
@@ -313,13 +304,13 @@ export function NewScreenerForm({
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("screener.topK", "Top K")}
                 </span>
-                <input
+                <Input
                   type="number"
                   value={formState.top_k}
                   onChange={(event) =>
                     setFormState({ ...formState, top_k: Number(event.target.value) })
                   }
-                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                  className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 />
               </label>
             </section>
@@ -331,26 +322,18 @@ export function NewScreenerForm({
             ) : null}
 
             <div className="flex flex-wrap items-center justify-end gap-3">
-              <button
-                type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
-                onClick={onClose}
-              >
+              <Button type="button" variant="secondary" onClick={onClose}>
                 {t("common.cancel", "Cancel")}
-              </button>
-              <button
-                type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-                disabled={loading}
-                onClick={() => void submitTask()}
-              >
+              </Button>
+              <Button type="button" disabled={loading} onClick={() => void submitTask()}>
                 {loading
                   ? t("screener.starting", "Launching...")
                   : t("screener.start", "Start Screener")}
-              </button>
+              </Button>
             </div>
           </div>
         )}
-    </AccessibleDialog>
+      </DialogContent>
+    </Dialog>
   );
 }

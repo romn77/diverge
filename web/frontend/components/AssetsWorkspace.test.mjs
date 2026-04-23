@@ -1,0 +1,30 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
+
+const componentPath = path.join(import.meta.dirname, "AssetsWorkspace.tsx");
+
+test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog and controls", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /from "@\/components\/ui\/badge"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/dialog"/);
+  assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /from "@\/components\/ui\/table"/);
+  assert.match(source, /from "@\/components\/ui\/textarea"/);
+  assert.match(source, /<Input/);
+  assert.match(source, /<Button/);
+  assert.match(source, /<Card/);
+  assert.match(source, /<Table/);
+  assert.match(source, /<Badge/);
+  assert.match(source, /DialogContent/);
+  assert.doesNotMatch(source, /AccessibleDialog/);
+  assert.doesNotMatch(source, /<button/);
+  assert.doesNotMatch(source, /<input/);
+  assert.match(source, /baseCurrency/);
+  assert.match(source, /createAssetPosition/);
+  assert.match(source, /updateAssetPosition/);
+});

@@ -4,14 +4,14 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { useWorkbench } from "@/components/WorkbenchProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   buildActivityHref,
   buildScreenerRunHref,
   buildScreenerTaskHref,
 } from "@/lib/workbenchRoutes";
-
-const heroActionBaseClassName =
-  "interactive-button focus-ring inline-flex items-center justify-center rounded-full px-5 py-3 text-xs font-semibold tracking-[0.04em] leading-none no-underline appearance-none";
 
 export function ScreenerDashboard() {
   const { openScreenerDialog } = useWorkbenchChrome();
@@ -36,7 +36,8 @@ export function ScreenerDashboard() {
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
       <div className="mx-auto w-full max-w-6xl space-y-6">
-        <section className="card-surface rounded-[30px] px-6 py-8 md:px-8">
+        <Card className="card-surface rounded-[30px]">
+          <CardContent className="px-6 py-8 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
@@ -52,19 +53,12 @@ export function ScreenerDashboard() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                className={`${heroActionBaseClassName} border border-[var(--accent)] bg-[var(--accent)] text-white`}
-                onClick={openScreenerDialog}
-              >
+              <Button type="button" onClick={openScreenerDialog} className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105">
                 New Screener
-              </button>
-              <Link
-                href={buildActivityHref()}
-                className={`${heroActionBaseClassName} border border-[var(--border-strong)] bg-white text-slate-700`}
-              >
-                View Activity
-              </Link>
+              </Button>
+              <Button asChild variant="secondary">
+                <Link href={buildActivityHref()}>View Activity</Link>
+              </Button>
             </div>
           </div>
 
@@ -85,7 +79,8 @@ export function ScreenerDashboard() {
               meta="Recent market coverage"
             />
           </div>
-        </section>
+          </CardContent>
+        </Card>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <section className="viewer-frame px-6 py-6 md:px-8">
@@ -140,29 +135,33 @@ export function ScreenerDashboard() {
           </section>
 
           <div className="space-y-6">
-            <section className="card-surface rounded-[28px] px-6 py-6">
+            <Card className="card-surface rounded-[28px]">
+              <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                 Market Coverage
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {recentMarkets.length === 0 ? (
-                  <span className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+                  <Badge variant="secondary" className="px-3 py-2 normal-case tracking-normal text-slate-500">
                     Waiting for screener history
-                  </span>
+                  </Badge>
                 ) : (
                   recentMarkets.map((market) => (
-                    <span
+                    <Badge
                       key={market}
-                      className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                      variant="secondary"
+                      className="px-3 py-2 normal-case tracking-normal text-slate-700"
                     >
                       {market}
-                    </span>
+                    </Badge>
                   ))
                 )}
               </div>
-            </section>
+              </CardContent>
+            </Card>
 
-            <section className="card-surface rounded-[28px] px-6 py-6">
+            <Card className="card-surface rounded-[28px]">
+              <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                 Queue Snapshot
               </p>
@@ -173,14 +172,14 @@ export function ScreenerDashboard() {
                 <p className="mt-2 text-sm leading-6 text-slate-600">
                   Screener builds currently in motion. Use Activity for task-by-task monitoring.
                 </p>
-                <Link
-                  href={buildActivityHref()}
-                  className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]"
-                >
-                  Open Activity
-                </Link>
+                <div className="mt-4">
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href={buildActivityHref()}>Open Activity</Link>
+                  </Button>
+                </div>
               </div>
-            </section>
+              </CardContent>
+            </Card>
           </div>
         </section>
       </div>
@@ -198,13 +197,15 @@ function ScreenerMetric({
   meta: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
+    <Card className="rounded-[24px] bg-white/88">
+      <CardContent className="px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
       <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
       <p className="mt-2 text-sm text-slate-500">{meta}</p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

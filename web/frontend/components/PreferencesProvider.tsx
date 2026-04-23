@@ -50,21 +50,24 @@ export function PreferencesProvider({
   initialLanguage: Language;
   initialTheme: Theme;
 }) {
-  const [theme, setTheme] = useState<Theme>(initialTheme);
-  const [language, setLanguage] = useState<Language>(initialLanguage);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const nextTheme = root.dataset.theme;
-    if (isTheme(nextTheme)) {
-      setTheme((current) => (current === nextTheme ? current : nextTheme));
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof document !== "undefined") {
+      const nextTheme = document.documentElement.dataset.theme;
+      if (isTheme(nextTheme)) {
+        return nextTheme;
+      }
     }
-
-    const nextLanguage = root.dataset.uiLanguage;
-    if (isLanguage(nextLanguage)) {
-      setLanguage((current) => (current === nextLanguage ? current : nextLanguage));
+    return initialTheme;
+  });
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof document !== "undefined") {
+      const nextLanguage = document.documentElement.dataset.uiLanguage;
+      if (isLanguage(nextLanguage)) {
+        return nextLanguage;
+      }
     }
-  }, []);
+    return initialLanguage;
+  });
 
   useEffect(() => {
     const root = document.documentElement;

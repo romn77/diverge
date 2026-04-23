@@ -8,6 +8,13 @@ const componentPath = path.join(import.meta.dirname, "ScreenerResultsViewer.tsx"
 test("ScreenerResultsViewer loads candidate rows and renders sortable score columns", () => {
   const source = readFileSync(componentPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/badge"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/table"/);
+  assert.match(source, /<Card/);
+  assert.match(source, /<Table/);
+  assert.match(source, /<Badge/);
   assert.match(source, /getScreenerRun/);
   assert.match(source, /listScreenerRunCandidates/);
   assert.match(source, /getTickerHistoryBatch/);
@@ -26,7 +33,6 @@ test("ScreenerResultsViewer loads candidate rows and renders sortable score colu
   assert.match(source, /risk_flags/);
   assert.match(source, /aria-pressed=\{sortKey === column\.key\}/);
   assert.match(source, /sortKey === column\.key\s*\?/);
-  assert.match(source, /bg-\[var\(--primary\)\]/);
 });
 
 test("ScreenerResultsViewer includes breakout filter controls for results exploration", () => {

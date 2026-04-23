@@ -8,6 +8,13 @@ const componentPath = path.join(import.meta.dirname, "TradeRecordForm.tsx");
 test("TradeRecordForm keeps the manual trade payload aligned with backend schema fields", () => {
   const source = readFileSync(componentPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/dialog"/);
+  assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /from "@\/components\/ui\/select"/);
+  assert.match(source, /from "@\/components\/ui\/textarea"/);
+  assert.match(source, /DialogContent/);
+  assert.doesNotMatch(source, /role="dialog"/);
   assert.match(source, /createTrade/);
   assert.match(source, /updateTrade/);
   assert.match(source, /ticker:\s*string/);

@@ -4,6 +4,19 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { getConfigOptions, type AuthUser, type ConfigOptions } from "@/lib/api";
 
 interface WorkspaceAccountMenuProps {
@@ -33,12 +46,8 @@ export function WorkspaceAccountMenu({
   const [settingsConfig, setSettingsConfig] = useState<ConfigOptions | null>(null);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
-  const accountTriggerRef = useRef<HTMLButtonElement>(null);
-  const accountPanelRef = useRef<HTMLDivElement>(null);
   const settingsTriggerRef = useRef<HTMLButtonElement>(null);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
-  const settingsLanguageSelectRef = useRef<HTMLSelectElement>(null);
-  const menuId = useId();
   const settingsDialogId = useId();
 
   const outputLanguageOptions = settingsConfig?.output_languages ?? [];
@@ -49,7 +58,7 @@ export function WorkspaceAccountMenu({
     "";
 
   useEffect(() => {
-    if (!isAccountOpen && !isSettingsOpen) {
+    if (!isSettingsOpen) {
       return;
     }
 
@@ -59,22 +68,15 @@ export function WorkspaceAccountMenu({
         return;
       }
 
-      if (
-        accountPanelRef.current?.contains(target) ||
-        accountTriggerRef.current?.contains(target) ||
-        settingsPanelRef.current?.contains(target) ||
-        settingsTriggerRef.current?.contains(target)
-      ) {
+      if (settingsPanelRef.current?.contains(target) || settingsTriggerRef.current?.contains(target)) {
         return;
       }
 
-      setIsAccountOpen(false);
       setIsSettingsOpen(false);
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsAccountOpen(false);
         setIsSettingsOpen(false);
       }
     };
@@ -85,7 +87,7 @@ export function WorkspaceAccountMenu({
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isAccountOpen, isSettingsOpen]);
+  }, [isSettingsOpen]);
 
   useEffect(() => {
     if (!isSettingsOpen || settingsConfig || settingsLoading) {
@@ -126,20 +128,6 @@ export function WorkspaceAccountMenu({
     };
   }, [isSettingsOpen, settingsConfig, settingsLoading, t]);
 
-  useEffect(() => {
-    if (!isSettingsOpen) {
-      return;
-    }
-
-    const rafId = window.requestAnimationFrame(() => {
-      settingsLanguageSelectRef.current?.focus();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-    };
-  }, [isSettingsOpen, settingsError, settingsLoading]);
-
   const retrySettingsLoad = async () => {
     setSettingsLoading(true);
     setSettingsError(null);
@@ -163,20 +151,17 @@ export function WorkspaceAccountMenu({
     setIsSettingsOpen((current) => !current);
   };
 
-  const handleAccountToggle = () => {
-    setIsSettingsOpen(false);
-    setIsAccountOpen((current) => !current);
-  };
-
   const displayName = authUser?.display_name.trim() || authUser?.email || "TradingAgents";
 
   return (
     <div className="flex items-start justify-between gap-3 px-4 pt-4 md:px-6">
       <div className="min-w-0">
         {onOpenSidebar ? (
-          <button
+          <Button
             type="button"
-            className="focus-ring inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] transition hover:border-[var(--primary)] hover:bg-[var(--surface-quiet)] hover:text-[var(--primary)] md:hidden"
+            variant="secondary"
+            size="icon"
+            className="rounded-xl md:hidden"
             aria-label={t("common.menu", "Menu")}
             onClick={onOpenSidebar}
           >
@@ -188,40 +173,119 @@ export function WorkspaceAccountMenu({
                 strokeLinecap="round"
               />
             </svg>
-          </button>
+          </Button>
         ) : null}
       </div>
 
       <header className="relative z-[40] ml-auto shrink-0">
         <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[rgba(150,118,99,0.18)] bg-[rgba(255,248,243,0.88)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
-          <button
-            ref={accountTriggerRef}
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={isAccountOpen}
-            aria-controls={menuId}
-            className="focus-ring rounded-full border border-[var(--border)] bg-white/92 p-1 text-left shadow-[0_10px_22px_rgba(18,28,41,0.08)] backdrop-blur transition hover:border-[var(--primary)] hover:bg-[var(--surface-quiet)]"
-            onClick={handleAccountToggle}
-            title={displayName}
+          <DropdownMenu
+            open={isAccountOpen}
+            onOpenChange={(open) => {
+              setIsSettingsOpen(false);
+              setIsAccountOpen(open);
+            }}
           >
-            <div className="grid h-8 w-8 place-items-center rounded-full bg-[var(--primary-soft)] text-[11px] font-semibold text-[var(--primary-strong)]">
-              {authEnabled && authUser
-                ? getUserInitials(authUser.display_name, authUser.email)
-                : "TA"}
-            </div>
-          </button>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon"
+                className="size-10 rounded-full border-[var(--border)] p-1"
+                title={displayName}
+              >
+                <div className="grid h-8 w-8 place-items-center rounded-full bg-[var(--primary-soft)] text-[11px] font-semibold text-[var(--primary-strong)]">
+                  {authEnabled && authUser
+                    ? getUserInitials(authUser.display_name, authUser.email)
+                    : "TA"}
+                </div>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="mr-12 w-[17rem]">
+              {authEnabled ? (
+                authUser ? (
+                  <>
+                    <div className="flex items-start gap-3 rounded-[20px] bg-[var(--surface-strong)]/70 px-3 py-3">
+                      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--primary-soft)] text-sm font-semibold text-[var(--primary-strong)]">
+                        {getUserInitials(authUser.display_name, authUser.email)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                          {t("workspace.access", "Workspace Access")}
+                        </p>
+                        <p className="mt-1 truncate text-sm font-semibold text-slate-900">
+                          {displayName}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">{authUser.email}</p>
+                      </div>
+                    </div>
 
-          <button
+                    <div className="mt-3 flex items-center justify-between gap-3 px-1">
+                      <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                        {authUser.role}
+                      </span>
+                      {authUser.must_change_password ? (
+                        <span className="rounded-full border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--danger)]">
+                          Reset required
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-4 flex justify-end gap-2">
+                      {canManageUsers ? (
+                        <Button asChild size="sm" onClick={() => setIsAccountOpen(false)}>
+                          <Link href="/admin/users">
+                            {t("workspace.adminConsole", "Admin Console")}
+                          </Link>
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={onLogout}
+                        disabled={loggingOut}
+                      >
+                        {loggingOut
+                          ? t("workspace.signingOut", "Signing Out")
+                          : t("workspace.signOut", "Sign Out")}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
+                    {t("workspace.syncing", "Session details are still syncing.")}
+                  </div>
+                )
+              ) : (
+                <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                    {t("workspace.openMode", "Open Workspace")}
+                  </p>
+                  <p className="mt-2 leading-6">
+                    {t(
+                      "workspace.openModeHint",
+                      "Auth is disabled for this environment."
+                    )}
+                  </p>
+                </div>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
             ref={settingsTriggerRef}
             type="button"
             aria-label={t("common.settings", "Settings")}
             aria-haspopup="dialog"
             aria-expanded={isSettingsOpen}
             aria-controls={settingsDialogId}
-            className={`focus-ring flex h-10 w-10 items-center justify-center rounded-full border transition ${
+            variant="secondary"
+            size="icon"
+            className={`rounded-full ${
               isSettingsOpen
                 ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
-                : "border-[var(--border)] bg-white/92 text-slate-600 shadow-[0_10px_24px_rgba(18,28,41,0.08)] hover:border-[var(--primary)] hover:bg-[var(--surface-quiet)] hover:text-[var(--primary)]"
+                : "text-slate-600"
             }`}
             onClick={handleSettingsToggle}
             title={t("common.settings", "Settings")}
@@ -234,7 +298,7 @@ export function WorkspaceAccountMenu({
               />
               <circle cx="10" cy="10" r="2.1" stroke="currentColor" strokeWidth="1.4" />
             </svg>
-          </button>
+          </Button>
 
           {isSettingsOpen ? (
             <div
@@ -259,17 +323,18 @@ export function WorkspaceAccountMenu({
                       </p>
                       <div className="mt-2 flex gap-2">
                         {(["light", "dark"] as const).map((themeValue) => (
-                          <button
+                          <Button
                             key={themeValue}
                             type="button"
-                            data-active={theme === themeValue}
-                            className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
+                            variant={theme === themeValue ? "default" : "secondary"}
+                            size="sm"
+                            className="pill-tab flex-1 justify-center px-3 py-2 text-center"
                             onClick={() => setTheme(themeValue)}
                           >
                             {themeValue === "light"
                               ? t("common.light", "Light")
                               : t("common.dark", "Dark")}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -280,17 +345,18 @@ export function WorkspaceAccountMenu({
                       </p>
                       <div className="mt-2 flex gap-2">
                         {(["en", "zh"] as const).map((languageValue) => (
-                          <button
+                          <Button
                             key={languageValue}
                             type="button"
-                            data-active={language === languageValue}
-                            className="pill-tab inline-flex flex-1 items-center justify-center px-3 py-2 text-center"
+                            variant={language === languageValue ? "default" : "secondary"}
+                            size="sm"
+                            className="pill-tab flex-1 justify-center px-3 py-2 text-center"
                             onClick={() => setLanguage(languageValue)}
                           >
                             {languageValue === "en"
                               ? t("common.english", "English")
                               : t("common.chinese", "中文")}
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -298,13 +364,15 @@ export function WorkspaceAccountMenu({
                     {settingsError ? (
                       <div className="rounded-[20px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
                         <p>{settingsError}</p>
-                        <button
+                        <Button
                           type="button"
-                          className="focus-ring mt-3 rounded-full border border-current px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+                          variant="outline"
+                          size="sm"
+                          className="mt-3 border-current text-current hover:bg-transparent hover:text-current"
                           onClick={() => void retrySettingsLoad()}
                         >
                           {t("sidebar.retry", "Retry")}
-                        </button>
+                        </Button>
                       </div>
                     ) : !settingsLoading && outputLanguageOptions.length === 0 ? (
                       <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-white/80 px-4 py-4 text-sm text-slate-600">
@@ -318,21 +386,24 @@ export function WorkspaceAccountMenu({
                         <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                           {t("analysis.outputLanguage", "Output Language")}
                         </span>
-                        <select
-                          ref={settingsLanguageSelectRef}
+                        <Select
                           value={selectedOutputLanguageValue}
-                          onChange={(event) => onOutputLanguageChange(event.target.value)}
-                          className="focus-ring mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                          onValueChange={onOutputLanguageChange}
                         >
+                          <SelectTrigger className="mt-2 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900">
+                            <SelectValue placeholder={t("analysis.outputLanguage", "Output Language")} />
+                          </SelectTrigger>
+                          <SelectContent>
                           {outputLanguageOptions.map((languageOption) => (
-                            <option
+                            <SelectItem
                               key={languageOption.value}
                               value={languageOption.value}
                             >
                               {languageOption.label}
-                            </option>
+                            </SelectItem>
                           ))}
-                        </select>
+                          </SelectContent>
+                        </Select>
                         <p className="mt-2 text-xs leading-5 text-slate-500">
                           {t(
                             "sidebar.outputLanguageHint",
@@ -346,89 +417,7 @@ export function WorkspaceAccountMenu({
               </div>
             </div>
           ) : null}
-
-          {isAccountOpen ? (
-            <div
-              id={menuId}
-              ref={accountPanelRef}
-              role="menu"
-              className="absolute right-[2.75rem] top-full mt-2 w-[17rem] rounded-[24px] border border-[var(--border)] bg-white/96 p-3 shadow-[0_24px_64px_rgba(18,28,41,0.16)] backdrop-blur"
-            >
-              {authEnabled ? (
-                authUser ? (
-                  <>
-                    <div className="flex items-start gap-3">
-                      <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[var(--primary-soft)] text-sm font-semibold text-[var(--primary-strong)]">
-                        {getUserInitials(authUser.display_name, authUser.email)}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                          {t("workspace.access", "Workspace Access")}
-                        </p>
-                        <p className="mt-1 truncate text-sm font-semibold text-slate-900">
-                          {displayName}
-                        </p>
-                        <p className="truncate text-xs text-slate-500">{authUser.email}</p>
-                      </div>
-                      <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                        {authUser.role}
-                      </span>
-                    </div>
-
-                    {authUser.must_change_password ? (
-                      <p className="mt-4 rounded-2xl border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] px-3 py-2 text-xs font-medium leading-5 text-[var(--danger)]">
-                        {t(
-                          "workspace.passwordResetRequired",
-                          "Password reset required on the next credentials update."
-                        )}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-4 flex justify-end gap-2">
-                      {canManageUsers ? (
-                        <Link
-                          href="/admin/users"
-                          role="menuitem"
-                          className="focus-ring inline-flex items-center rounded-full border border-[var(--primary)] bg-[var(--primary)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white"
-                          onClick={() => setIsAccountOpen(false)}
-                        >
-                          {t("workspace.adminConsole", "Admin Console")}
-                        </Link>
-                      ) : null}
-                      <button
-                        type="button"
-                        role="menuitem"
-                        className="focus-ring inline-flex items-center rounded-full border border-[var(--border-strong)] bg-white px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-700"
-                        onClick={onLogout}
-                        disabled={loggingOut}
-                      >
-                        {loggingOut
-                          ? t("workspace.signingOut", "Signing Out")
-                          : t("workspace.signOut", "Sign Out")}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
-                    {t("workspace.syncing", "Session details are still syncing.")}
-                  </div>
-                )
-              ) : (
-                <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                    {t("workspace.openMode", "Open Workspace")}
-                  </p>
-                  <p className="mt-2 leading-6">
-                    {t(
-                      "workspace.openModeHint",
-                      "Auth is disabled for this environment."
-                    )}
-                  </p>
-                </div>
-              )}
-            </div>
-          ) : null}
-          </div>
+        </div>
       </header>
     </div>
   );

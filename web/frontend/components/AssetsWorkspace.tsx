@@ -1,7 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AccessibleDialog } from "@/components/AccessibleDialog";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import {
   type AssetPositionCreateRequest,
   type AssetPositionRecord,
@@ -135,7 +154,7 @@ export function AssetsWorkspace() {
   const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AssetDraft>(buildEmptyDraft());
 
-  const loadSummary = async (refreshIfStale = true) => {
+  const loadSummary = useCallback(async (refreshIfStale = true) => {
     setLoading(true);
     setError(null);
     try {
@@ -154,11 +173,11 @@ export function AssetsWorkspace() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [baseCurrency]);
 
   useEffect(() => {
     void loadSummary(true);
-  }, [baseCurrency]);
+  }, [loadSummary]);
 
   const flatPositions = useMemo(() => flattenPositions(summary), [summary]);
 
@@ -283,7 +302,8 @@ export function AssetsWorkspace() {
             {error}
           </section>
         ) : null}
-        <section className="card-surface rounded-[30px] px-6 py-8 md:px-8">
+        <Card className="card-surface rounded-[30px]">
+          <CardContent className="px-6 py-8 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
@@ -302,29 +322,28 @@ export function AssetsWorkspace() {
             <div className="flex flex-wrap gap-3">
               <label className="rounded-full border border-[var(--border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
                 Base
-                <input
+                <Input
                   type="text"
                   value={baseCurrency}
                   onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
-                  className="ml-2 w-14 border-none bg-transparent text-right text-sm font-semibold text-slate-900 outline-none"
+                  className="ml-2 h-auto w-14 border-none bg-transparent px-0 py-0 text-right text-sm font-semibold text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </label>
-              <button
+              <Button
                 type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold tracking-[0.04em] text-slate-700"
+                variant="secondary"
                 disabled={submitting}
                 onClick={() => void handleRefreshAll(false)}
               >
                 Refresh Due
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold tracking-[0.04em] text-white"
                 disabled={submitting}
                 onClick={openCreateDialog}
               >
                 Add Asset
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -350,7 +369,8 @@ export function AssetsWorkspace() {
               meta="Portfolio buckets"
             />
           </div>
-        </section>
+          </CardContent>
+        </Card>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
           <section className="viewer-frame px-6 py-6 md:px-8">
@@ -364,9 +384,9 @@ export function AssetsWorkspace() {
                 </h2>
               </div>
               {summary ? (
-                <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+                <Badge variant="secondary" className="text-slate-500">
                   {summary.groups.length} platform(s)
-                </span>
+                </Badge>
               ) : null}
             </div>
 
@@ -473,7 +493,8 @@ export function AssetsWorkspace() {
           </section>
 
           <div className="space-y-6">
-            <section className="card-surface rounded-[28px] px-6 py-6">
+            <Card className="card-surface rounded-[28px]">
+              <CardContent className="px-6 py-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -484,9 +505,9 @@ export function AssetsWorkspace() {
                   </h2>
                 </div>
                 {summary ? (
-                  <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+                  <Badge variant="secondary" className="text-slate-500">
                     {summary.base_currency}
-                  </span>
+                  </Badge>
                 ) : null}
               </div>
 
@@ -501,17 +522,20 @@ export function AssetsWorkspace() {
                 />
               </div>
 
-              <button
+              <Button
                 type="button"
-                className="interactive-button focus-ring mt-5 w-full rounded-[20px] border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+                variant="secondary"
+                className="mt-5 w-full"
                 disabled={submitting}
                 onClick={() => void handleRefreshAll(true)}
               >
                 Force Revalue All Positions
-              </button>
-            </section>
+              </Button>
+              </CardContent>
+            </Card>
 
-            <section className="card-surface rounded-[28px] px-6 py-6">
+            <Card className="card-surface rounded-[28px]">
+              <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                 Unpriced Queue
               </p>
@@ -535,9 +559,9 @@ export function AssetsWorkspace() {
                             {position.account.platform_name} / {position.account.account_name}
                           </p>
                         </div>
-                        <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                        <Badge variant="secondary">
                           {position.state}
-                        </span>
+                        </Badge>
                       </div>
                       {position.error_message ? (
                         <p className="mt-3 text-sm leading-6 text-[var(--danger)]">
@@ -548,11 +572,13 @@ export function AssetsWorkspace() {
                   ))
                 )}
               </div>
-            </section>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
-        <section className="card-surface rounded-[28px] px-6 py-6">
+        <Card className="card-surface rounded-[28px]">
+          <CardContent className="px-6 py-6">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -562,9 +588,9 @@ export function AssetsWorkspace() {
                 All positions
               </h2>
             </div>
-            <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+            <Badge variant="secondary" className="text-slate-500">
               {flatPositions.length}
-            </span>
+            </Badge>
           </div>
 
           {loading ? (
@@ -576,118 +602,111 @@ export function AssetsWorkspace() {
               No tracked positions yet.
             </div>
           ) : (
-            <div className="mt-5 overflow-x-auto">
-              <table className="min-w-full border-separate border-spacing-y-3">
-                <thead>
-                  <tr className="text-left text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    <th className="px-3 py-2">Asset</th>
-                    <th className="px-3 py-2">Account</th>
-                    <th className="px-3 py-2">Qty</th>
-                    <th className="px-3 py-2">State</th>
-                    <th className="px-3 py-2">Value</th>
-                    <th className="px-3 py-2">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+            <div className="mt-5">
+              <Table className="min-w-full border-separate border-spacing-y-3">
+                <TableHeader>
+                  <TableRow className="text-left text-[11px] uppercase tracking-[0.18em] text-slate-500">
+                    <TableHead>Asset</TableHead>
+                    <TableHead>Account</TableHead>
+                    <TableHead>Qty</TableHead>
+                    <TableHead>State</TableHead>
+                    <TableHead>Value</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {flatPositions.map((position) => (
-                    <tr
+                    <TableRow
                       key={position.id}
                       className="rounded-[22px] border border-[var(--border)] bg-white/90 shadow-[0_8px_20px_rgba(18,28,41,0.04)]"
                     >
-                      <td className="rounded-l-[22px] px-3 py-4">
+                      <TableCell className="rounded-l-[22px]">
                         <p className="font-semibold text-slate-900">
                           {position.asset_name}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
                           {position.ticker || position.asset_category}
                         </p>
-                      </td>
-                      <td className="px-3 py-4 text-sm text-slate-700">
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-700">
                         {position.account.platform_name}
                         <div className="mt-1 text-xs text-slate-500">
                           {position.account.account_name}
                         </div>
-                      </td>
-                      <td className="px-3 py-4 text-sm text-slate-700">
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-700">
                         {position.quantity}
-                      </td>
-                      <td className="px-3 py-4">
-                        <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
                           {position.state}
-                        </span>
-                      </td>
-                      <td className="px-3 py-4 text-sm text-slate-700">
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-700">
                         {formatMoney(position.latest_snapshot?.market_value, baseCurrency)}
-                      </td>
-                      <td className="rounded-r-[22px] px-3 py-4">
+                      </TableCell>
+                      <TableCell className="rounded-r-[22px]">
                         <div className="flex flex-wrap gap-2">
-                          <button
+                          <Button
                             type="button"
-                            className="focus-ring rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                            variant="secondary"
+                            size="sm"
                             disabled={submitting}
                             onClick={() => void handleRefreshOne(position)}
                           >
                             Refresh
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            className="focus-ring rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+                            variant="secondary"
+                            size="sm"
                             disabled={submitting}
                             onClick={() => void openEditDialog(position.id)}
                           >
                             Edit
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
-                            className="focus-ring rounded-full border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-3 py-2 text-xs font-semibold text-[var(--danger)]"
+                            variant="outline"
+                            size="sm"
+                            className="border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] text-[var(--danger)] hover:bg-[rgba(163,53,53,0.12)] hover:text-[var(--danger)]"
                             disabled={submitting}
                             onClick={() => void handleDelete(position)}
                           >
                             Delete
-                          </button>
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   ))}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           )}
-        </section>
+          </CardContent>
+        </Card>
       </div>
 
-      <AccessibleDialog
-        isOpen={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        ariaLabel={editingPositionId ? "Edit asset" : "Add asset"}
-        panelClassName="modal-panel scrollbar-hidden fade-in max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
-      >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              Assets
-            </p>
-            <h2 className="mt-3 text-3xl font-bold tracking-tight text-slate-900">
-              {editingPositionId ? "Edit Asset" : "Add Asset"}
-            </h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Store the account bucket, the held quantity, and either a market ticker
-              or a manual valuation so the ledger and portfolio manager stay aligned.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
-            onClick={() => setDialogOpen(false)}
-          >
-            Close
-          </button>
-        </div>
+      <Dialog open={dialogOpen} onOpenChange={(open) => !open && setDialogOpen(false)}>
+        <DialogContent
+          aria-label={editingPositionId ? "Edit asset" : "Add asset"}
+          className="modal-panel max-w-3xl"
+        >
+        <DialogHeader className="pr-12">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
+            Assets
+          </p>
+          <DialogTitle>{editingPositionId ? "Edit Asset" : "Add Asset"}</DialogTitle>
+          <DialogDescription className="max-w-2xl">
+            Store the account bucket, the held quantity, and either a market ticker
+            or a manual valuation so the ledger and portfolio manager stay aligned.
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="mt-8 grid gap-6">
           <section className="grid gap-4 md:grid-cols-2">
             <Field label="Platform">
-              <input
+              <Input
                 type="text"
                 value={draft.platform_name}
                 onChange={(event) =>
@@ -696,12 +715,12 @@ export function AssetsWorkspace() {
                     platform_name: event.target.value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 placeholder="Broker"
               />
             </Field>
             <Field label="Account">
-              <input
+              <Input
                 type="text"
                 value={draft.account_name}
                 onChange={(event) =>
@@ -710,7 +729,7 @@ export function AssetsWorkspace() {
                     account_name: event.target.value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 placeholder="Taxable"
               />
             </Field>
@@ -718,7 +737,7 @@ export function AssetsWorkspace() {
 
           <section className="grid gap-4 md:grid-cols-2">
             <Field label="Asset Name">
-              <input
+              <Input
                 type="text"
                 value={draft.asset_name}
                 onChange={(event) =>
@@ -727,12 +746,12 @@ export function AssetsWorkspace() {
                     asset_name: event.target.value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 placeholder="Apple Inc."
               />
             </Field>
             <Field label="Category">
-              <input
+              <Input
                 type="text"
                 value={draft.asset_category}
                 onChange={(event) =>
@@ -741,7 +760,7 @@ export function AssetsWorkspace() {
                     asset_category: event.target.value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 placeholder="stock, crypto, cash"
               />
             </Field>
@@ -749,7 +768,7 @@ export function AssetsWorkspace() {
 
           <section className="grid gap-4 md:grid-cols-3">
             <Field label="Quantity">
-              <input
+              <Input
                 type="number"
                 step="any"
                 value={draft.quantity}
@@ -759,11 +778,11 @@ export function AssetsWorkspace() {
                     quantity: event.target.value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
               />
             </Field>
             <Field label="Cost Basis">
-              <input
+              <Input
                 type="number"
                 step="any"
                 value={draft.cost_basis}
@@ -773,11 +792,11 @@ export function AssetsWorkspace() {
                     cost_basis: event.target.value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
               />
             </Field>
             <Field label="Currency">
-              <input
+              <Input
                 type="text"
                 value={draft.currency}
                 onChange={(event) =>
@@ -786,7 +805,7 @@ export function AssetsWorkspace() {
                     currency: event.target.value.toUpperCase(),
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 placeholder="USD"
               />
             </Field>
@@ -800,14 +819,11 @@ export function AssetsWorkspace() {
               {(["market", "manual"] as const).map((mode) => {
                 const active = draft.valuation_mode === mode;
                 return (
-                  <button
+                  <Button
                     key={mode}
                     type="button"
-                    className={`interactive-button focus-ring rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] ${
-                      active
-                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                        : "border-[var(--border)] bg-[var(--surface-strong)] text-slate-600"
-                    }`}
+                    variant={active ? "default" : "secondary"}
+                    size="sm"
                     onClick={() =>
                       setDraft((current) => ({
                         ...current,
@@ -819,7 +835,7 @@ export function AssetsWorkspace() {
                     }
                   >
                     {mode}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -827,7 +843,7 @@ export function AssetsWorkspace() {
 
           {draft.valuation_mode === "market" ? (
             <Field label="Ticker">
-              <input
+              <Input
                 type="text"
                 value={draft.ticker}
                 onChange={(event) =>
@@ -836,13 +852,13 @@ export function AssetsWorkspace() {
                     ticker: event.target.value.toUpperCase(),
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 placeholder="AAPL"
               />
             </Field>
           ) : (
             <Field label="Manual Price">
-              <input
+              <Input
                 type="number"
                 step="any"
                 value={draft.manual_price}
@@ -852,14 +868,14 @@ export function AssetsWorkspace() {
                     manual_price: event.target.value,
                   }))
                 }
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900"
+                className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 placeholder="10000"
               />
             </Field>
           )}
 
           <Field label="Notes">
-            <textarea
+            <Textarea
               value={draft.notes}
               onChange={(event) =>
                 setDraft((current) => ({
@@ -868,30 +884,26 @@ export function AssetsWorkspace() {
                 }))
               }
               rows={4}
-              className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-slate-900"
+              className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-900"
               placeholder="Optional internal notes about this position."
             />
           </Field>
 
           <div className="flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold tracking-[0.04em] text-slate-700"
-              onClick={() => setDialogOpen(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold tracking-[0.04em] text-white"
               disabled={submitting}
               onClick={() => void submitDraft()}
             >
               {editingPositionId ? "Save Asset" : "Create Asset"}
-            </button>
+            </Button>
           </div>
         </div>
-      </AccessibleDialog>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
@@ -923,7 +935,8 @@ function AssetMetric({
   meta: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
+    <Card className="rounded-[24px] bg-white/88">
+      <CardContent className="px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
@@ -931,7 +944,8 @@ function AssetMetric({
         {value}
       </p>
       <p className="mt-2 text-sm text-slate-500">{meta}</p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -943,13 +957,15 @@ function AssetHealthTile({
   value: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-[var(--border)] bg-white/88 px-4 py-4">
+    <Card className="rounded-[22px] bg-white/88">
+      <CardContent className="px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
       <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
         {value}
       </p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

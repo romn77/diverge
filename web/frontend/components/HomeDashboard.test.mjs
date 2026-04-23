@@ -8,6 +8,13 @@ const componentPath = path.join(import.meta.dirname, "HomeDashboard.tsx");
 test("HomeDashboard is analysis-focused and keeps browse modules in page content", () => {
   const source = readFileSync(componentPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/badge"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /<Card/);
+  assert.match(source, /<Input/);
+  assert.match(source, /<Badge/);
   assert.match(source, /buildActivityHref/);
   assert.match(source, /Search reports/);
   assert.match(source, /Tracked Tickers/);
@@ -22,10 +29,8 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
 test("HomeDashboard hero actions share a unified CTA base style across button and link elements", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /heroActionBaseClassName/);
-  assert.match(source, /inline-flex items-center justify-center/);
-  assert.match(source, /leading-none/);
-  assert.match(source, /no-underline/);
-  assert.match(source, /appearance-none/);
-  assert.match(source, /className=\{`\$\{heroActionBaseClassName\}/);
+  assert.match(source, /<Button/);
+  assert.match(source, /asChild/);
+  assert.match(source, /variant="secondary"/);
+  assert.match(source, /Search reports/);
 });

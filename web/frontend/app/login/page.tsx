@@ -5,6 +5,9 @@ import { startTransition, useEffect, useMemo, useState, type FormEvent } from "r
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 function resolveNextPath(value: string | null): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
@@ -67,17 +70,17 @@ export default function LoginPage() {
   if (authStatus === "loading") {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-lg rounded-[32px] px-8 py-10 text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
-            Session Bootstrap
-          </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
-            Preparing secure sign-in
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            TradingAgents is checking whether a valid session cookie already exists.
-          </p>
-        </div>
+        <Card className="w-full max-w-lg text-center">
+          <CardHeader>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
+              Session Bootstrap
+            </p>
+            <CardTitle>Preparing secure sign-in</CardTitle>
+            <CardDescription>
+              TradingAgents is checking whether a valid session cookie already exists.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </main>
     );
   }
@@ -85,25 +88,23 @@ export default function LoginPage() {
   if (authStatus === "error") {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-lg rounded-[32px] px-8 py-10 text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
-            Auth Unavailable
-          </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
-            Unable to reach the auth service
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            {authError ??
-              "The login page could not read /api/auth/me, so sign-in is temporarily paused."}
-          </p>
-          <button
-            type="button"
-            className="interactive-button focus-ring mt-6 rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
-            onClick={() => void refreshSession()}
-          >
-            Retry Auth Bootstrap
-          </button>
-        </div>
+        <Card className="w-full max-w-lg text-center">
+          <CardHeader>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
+              Auth Unavailable
+            </p>
+            <CardTitle>Unable to reach the auth service</CardTitle>
+            <CardDescription>
+              {authError ??
+                "The login page could not read /api/auth/me, so sign-in is temporarily paused."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center pt-0">
+            <Button type="button" onClick={() => void refreshSession()}>
+              Retry Auth Bootstrap
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }
@@ -111,18 +112,18 @@ export default function LoginPage() {
   if (shouldSkipLogin) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-lg rounded-[32px] px-8 py-10 text-center">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
-            Session Ready
-          </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
-            Redirecting back to the workbench
-          </h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            A valid session is already present, so TradingAgents is returning to the
-            requested destination.
-          </p>
-        </div>
+        <Card className="w-full max-w-lg text-center">
+          <CardHeader>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
+              Session Ready
+            </p>
+            <CardTitle>Redirecting back to the workbench</CardTitle>
+            <CardDescription>
+              A valid session is already present, so TradingAgents is returning to the
+              requested destination.
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </main>
     );
   }
@@ -197,13 +198,13 @@ export default function LoginPage() {
                 <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-500">
                   Email
                 </span>
-                <input
+                <Input
                   type="email"
                   autoComplete="email"
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="focus-ring mt-2 w-full rounded-[22px] border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-slate-900"
+                  className="mt-2 bg-white"
                   placeholder="analyst@tradingagents.local"
                 />
               </label>
@@ -212,13 +213,13 @@ export default function LoginPage() {
                 <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-500">
                   Password
                 </span>
-                <input
+                <Input
                   type="password"
                   autoComplete="current-password"
                   required
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="focus-ring mt-2 w-full rounded-[22px] border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-slate-900"
+                  className="mt-2 bg-white"
                   placeholder="Enter your password"
                 />
               </label>
@@ -229,13 +230,9 @@ export default function LoginPage() {
                 </div>
               ) : null}
 
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="interactive-button focus-ring w-full rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.24em] text-white disabled:cursor-not-allowed disabled:opacity-70"
-              >
+              <Button type="submit" disabled={isSubmitting} className="w-full">
                 {isSubmitting ? "Signing In" : "Sign In"}
-              </button>
+              </Button>
             </form>
 
             <div className="mt-6 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
@@ -249,9 +246,9 @@ export default function LoginPage() {
 
             <div className="mt-4 flex items-center justify-between text-sm text-slate-500">
               <span>Protected by backend session cookies.</span>
-              <Link href="/" className="font-semibold text-[var(--primary)]">
-                Back to workbench
-              </Link>
+              <Button asChild variant="ghost" size="sm" className="h-auto px-0 py-0 text-[var(--primary)]">
+                <Link href="/">Back to workbench</Link>
+              </Button>
             </div>
           </div>
         </section>

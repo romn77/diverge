@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useWorkbench } from "@/components/WorkbenchProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   buildHomeHref,
   buildScreenerHref,
@@ -16,7 +19,8 @@ export function ActivityDashboard() {
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
       <div className="mx-auto w-full max-w-6xl space-y-6">
-        <section className="card-surface rounded-[30px] px-6 py-8 md:px-8">
+        <Card className="card-surface rounded-[30px]">
+          <CardContent className="px-6 py-8 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
@@ -32,18 +36,12 @@ export function ActivityDashboard() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Link
-                href={buildHomeHref()}
-                className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold tracking-[0.04em] text-slate-700"
-              >
-                Analysis
-              </Link>
-              <Link
-                href={buildScreenerHref()}
-                className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold tracking-[0.04em] text-slate-700"
-              >
-                Screener
-              </Link>
+              <Button asChild variant="secondary">
+                <Link href={buildHomeHref()}>Analysis</Link>
+              </Button>
+              <Button asChild variant="secondary">
+                <Link href={buildScreenerHref()}>Screener</Link>
+              </Button>
             </div>
           </div>
 
@@ -64,7 +62,8 @@ export function ActivityDashboard() {
               meta="Candidate builds in flight"
             />
           </div>
-        </section>
+          </CardContent>
+        </Card>
 
         <section className="grid gap-6 xl:grid-cols-2">
           <ActivityQueueSection
@@ -105,13 +104,15 @@ function ActivityMetric({
   meta: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
+    <Card className="rounded-[24px] bg-white/88">
+      <CardContent className="px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
       <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
       <p className="mt-2 text-sm text-slate-500">{meta}</p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -127,7 +128,8 @@ function ActivityQueueSection({
   items: Array<{ href: string; label: string; meta: string; status: string }>;
 }) {
   return (
-    <section className="card-surface rounded-[28px] px-6 py-6">
+    <Card className="card-surface rounded-[28px]">
+      <CardContent className="px-6 py-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -135,9 +137,9 @@ function ActivityQueueSection({
           </p>
           <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">{description}</p>
         </div>
-        <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+        <Badge variant="secondary" className="text-slate-500">
           {items.length}
-        </span>
+        </Badge>
       </div>
 
       {items.length === 0 ? (
@@ -158,13 +160,14 @@ function ActivityQueueSection({
                   {item.meta}
                 </p>
               </div>
-              <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
+              <Badge variant="secondary">
                 {item.status}
-              </span>
+              </Badge>
             </Link>
           ))}
         </div>
       )}
-    </section>
+      </CardContent>
+    </Card>
   );
 }

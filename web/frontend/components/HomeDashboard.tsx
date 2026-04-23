@@ -5,6 +5,10 @@ import { startTransition, useDeferredValue, useEffect, useMemo, useState } from 
 import { useRouter } from "next/navigation";
 import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { useWorkbench } from "@/components/WorkbenchProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   buildActivityHref,
   buildHomeHref,
@@ -14,9 +18,6 @@ import {
 interface HomeDashboardProps {
   initialSearchQuery: string;
 }
-
-const heroActionBaseClassName =
-  "interactive-button focus-ring inline-flex items-center justify-center rounded-full px-5 py-3 text-xs font-semibold tracking-[0.04em] leading-none no-underline appearance-none";
 
 export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   const router = useRouter();
@@ -77,7 +78,8 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
       <div className="mx-auto w-full max-w-6xl space-y-6">
-        <section className="card-surface rounded-[30px] px-6 py-8 md:px-8">
+        <Card className="card-surface rounded-[30px]">
+          <CardContent className="px-6 py-8 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
@@ -93,20 +95,12 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                className={`${heroActionBaseClassName} border border-[var(--primary)] bg-[var(--primary)] text-white disabled:cursor-not-allowed disabled:opacity-70`}
-                disabled={newAnalysisDisabled}
-                onClick={openAnalysisDialog}
-              >
+              <Button type="button" disabled={newAnalysisDisabled} onClick={openAnalysisDialog}>
                 New Analysis
-              </button>
-              <Link
-                href={buildActivityHref()}
-                className={`${heroActionBaseClassName} border border-[var(--border-strong)] bg-white text-slate-700`}
-              >
-                View Activity
-              </Link>
+              </Button>
+              <Button asChild variant="secondary">
+                <Link href={buildActivityHref()}>View Activity</Link>
+              </Button>
             </div>
           </div>
 
@@ -135,19 +129,20 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             >
               Search reports
             </label>
-            <input
+            <Input
               id="home-report-search"
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Ticker or report id"
-              className="focus-ring mt-3 w-full rounded-[20px] border border-[var(--border-strong)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-900"
+              className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
             />
             <p className="mt-2 text-sm text-slate-500">
               Results update in place and keep the query in the URL for deep-linking.
             </p>
           </div>
-        </section>
+          </CardContent>
+        </Card>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <section className="viewer-frame px-6 py-6 md:px-8">
@@ -208,7 +203,8 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
           </section>
 
           <div className="space-y-6">
-            <section className="card-surface rounded-[28px] px-6 py-6">
+            <Card className="card-surface rounded-[28px]">
+              <CardContent className="px-6 py-6">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -218,35 +214,41 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                     Coverage map
                   </h2>
                 </div>
-                <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+                <Badge variant="secondary" className="text-slate-500">
                   {trackedTickers.length}
-                </span>
+                </Badge>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {trackedTickers.length === 0 ? (
-                  <span className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+                  <Badge variant="secondary" className="px-3 py-2 normal-case tracking-normal text-slate-500">
                     Waiting for reports
-                  </span>
+                  </Badge>
                 ) : (
                   trackedTickers.slice(0, 18).map((ticker) => (
-                    <Link
+                    <Button
                       key={ticker}
-                      href={buildHomeHref(ticker)}
-                      className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                      asChild
+                      variant={
+                        deferredSearchQuery === ticker.toLowerCase() ? "default" : "secondary"
+                      }
+                      size="sm"
+                      className={
                         deferredSearchQuery === ticker.toLowerCase()
-                          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                          : "border-[var(--border)] bg-white text-slate-700 hover:border-[var(--primary)] hover:text-[var(--primary)]"
-                      }`}
+                          ? "shadow-none"
+                          : "text-slate-700 hover:text-[var(--primary)]"
+                      }
                     >
-                      {ticker}
-                    </Link>
+                      <Link href={buildHomeHref(ticker)}>{ticker}</Link>
+                    </Button>
                   ))
                 )}
               </div>
-            </section>
+              </CardContent>
+            </Card>
 
-            <section className="card-surface rounded-[28px] px-6 py-6">
+            <Card className="card-surface rounded-[28px]">
+              <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                 Coverage Snapshot
               </p>
@@ -262,12 +264,15 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                     : `The library currently tracks ${reports.length} reports across ${trackedTickers.length} tickers, with new research work routed through the unified sidebar action.`}
                 </p>
                 {recentReports[0] ? (
-                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                    Latest indexed report · {recentReports[0].ticker}
-                  </p>
+                  <div className="mt-4">
+                    <Badge variant="secondary">
+                      Latest indexed report · {recentReports[0].ticker}
+                    </Badge>
+                  </div>
                 ) : null}
               </div>
-            </section>
+              </CardContent>
+            </Card>
           </div>
         </section>
       </div>
@@ -285,12 +290,14 @@ function AnalysisMetric({
   meta: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
+    <Card className="rounded-[24px] bg-white/88">
+      <CardContent className="px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
       <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
       <p className="mt-2 text-sm text-slate-500">{meta}</p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

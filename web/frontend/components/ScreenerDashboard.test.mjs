@@ -8,15 +8,16 @@ const componentPath = path.join(import.meta.dirname, "ScreenerDashboard.tsx");
 test("ScreenerDashboard provides a stable screener workspace destination", () => {
   const source = readFileSync(componentPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/badge"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /<Card/);
+  assert.match(source, /<Button/);
+  assert.match(source, /<Badge/);
   assert.match(source, /openScreenerDialog/);
   assert.match(source, /buildActivityHref/);
   assert.match(source, /buildScreenerRunHref/);
   assert.match(source, /Recent Runs/);
   assert.match(source, /Market Coverage/);
   assert.match(source, /Queue Snapshot/);
-  assert.match(source, /heroActionBaseClassName/);
-  assert.match(source, /inline-flex items-center justify-center/);
-  assert.match(source, /leading-none/);
-  assert.match(source, /no-underline/);
-  assert.match(source, /appearance-none/);
 });

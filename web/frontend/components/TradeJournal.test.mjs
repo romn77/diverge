@@ -8,6 +8,20 @@ const componentPath = path.join(import.meta.dirname, "TradeJournal.tsx");
 test("TradeJournal wires the manual trade history and review workflow to backend endpoints", () => {
   const source = readFileSync(componentPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/badge"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /from "@\/components\/ui\/select"/);
+  assert.match(source, /from "@\/components\/ui\/tabs"/);
+  assert.match(source, /<Button/);
+  assert.match(source, /<Select/);
+  assert.match(source, /<Card/);
+  assert.match(source, /<Input/);
+  assert.match(source, /<Tabs/);
+  assert.doesNotMatch(source, /<button/);
+  assert.doesNotMatch(source, /<input/);
+  assert.doesNotMatch(source, /<select/);
   assert.match(source, /listTrades/);
   assert.match(source, /getTrade/);
   assert.match(source, /getTickerTradeFeedback/);
@@ -34,6 +48,7 @@ test("TradeJournal exposes history filters and manual-only language rather than 
   assert.match(source, /Time Window/);
   assert.match(source, /Status/);
   assert.match(source, /Record Trade/);
+  assert.match(source, /<Select/);
   assert.doesNotMatch(source, /This surface is intentionally manual\./);
 });
 

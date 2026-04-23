@@ -8,6 +8,20 @@ const taskProgressPath = path.join(import.meta.dirname, "TaskProgress.tsx");
 test("TaskProgress subscribes to backend task snapshots and renders the five-stage pipeline", () => {
   const source = readFileSync(taskProgressPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/badge"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /from "@\/components\/ui\/scroll-area"/);
+  assert.match(source, /from "@\/components\/ui\/select"/);
+  assert.match(source, /<Card/);
+  assert.match(source, /<Button/);
+  assert.match(source, /<Badge/);
+  assert.match(source, /<Input/);
+  assert.match(source, /<Select/);
+  assert.match(source, /<ScrollArea/);
+  assert.doesNotMatch(source, /<input/);
+  assert.doesNotMatch(source, /<select/);
   assert.match(source, /subscribeToTask/);
   assert.match(source, /getTask/);
   assert.match(source, /not_started/);

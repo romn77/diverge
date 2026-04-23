@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   startTransition,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -11,6 +12,17 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ApiError,
   createAdminUser,
@@ -115,7 +127,7 @@ export default function AdminUsersPage() {
   const disabledCount = users.filter((user) => user.status === "disabled").length;
   const activeCount = users.filter((user) => user.status === "active").length;
 
-  const handleAuthBoundary = (error: unknown): boolean => {
+  const handleAuthBoundary = useCallback((error: unknown): boolean => {
     if (error instanceof ApiError && error.status === 401) {
       void refreshSession({ silent: true });
       return true;
@@ -126,9 +138,9 @@ export default function AdminUsersPage() {
       return true;
     }
     return false;
-  };
+  }, [refreshSession]);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     if (!canLoadUsers) {
       return;
     }
@@ -158,7 +170,7 @@ export default function AdminUsersPage() {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [canLoadUsers, handleAuthBoundary]);
 
   useEffect(() => {
     if (!shouldRedirectToLogin) {
@@ -177,7 +189,7 @@ export default function AdminUsersPage() {
     }
 
     void loadUsers();
-  }, [canLoadUsers]);
+  }, [canLoadUsers, loadUsers]);
 
   useEffect(() => {
     if (!selectedUser) {
@@ -323,17 +335,19 @@ export default function AdminUsersPage() {
   if (authStatus === "loading") {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+        <Card className="w-full max-w-xl text-center">
+          <CardHeader>
           <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
             Session Bootstrap
           </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+          <CardTitle>
             Verifying admin access
-          </h1>
+          </CardTitle>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             TradingAgents is checking the current session before loading admin APIs.
           </p>
-        </div>
+          </CardHeader>
+        </Card>
       </main>
     );
   }
@@ -341,25 +355,25 @@ export default function AdminUsersPage() {
   if (authStatus === "error") {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+        <Card className="w-full max-w-xl text-center">
+          <CardHeader>
           <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
             Auth Unavailable
           </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+          <CardTitle>
             Unable to verify admin session
-          </h1>
+          </CardTitle>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             {authError ??
               "The admin console could not load /api/auth/me, so user management is paused."}
           </p>
-          <button
-            type="button"
-            className="interactive-button focus-ring mt-6 rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
-            onClick={() => void refreshSession()}
-          >
-            Retry Session Bootstrap
-          </button>
-        </div>
+          </CardHeader>
+          <CardContent className="flex justify-center pt-0">
+            <Button type="button" onClick={() => void refreshSession()}>
+              Retry Session Bootstrap
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }
@@ -367,18 +381,20 @@ export default function AdminUsersPage() {
   if (shouldRedirectToLogin) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+        <Card className="w-full max-w-xl text-center">
+          <CardHeader>
           <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
             Login Required
           </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+          <CardTitle>
             Redirecting to `/login`
-          </h1>
+          </CardTitle>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             The admin console is protected, so unauthenticated sessions are routed
             back through the sign-in page.
           </p>
-        </div>
+          </CardHeader>
+        </Card>
       </main>
     );
   }
@@ -386,24 +402,25 @@ export default function AdminUsersPage() {
   if (!authEnabled) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+        <Card className="w-full max-w-xl text-center">
+          <CardHeader>
           <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-slate-500">
             Auth Disabled
           </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+          <CardTitle>
             Admin user management is unavailable
-          </h1>
+          </CardTitle>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             The backend has auth turned off in this environment, so `/api/admin/users`
             cannot be used until auth is enabled.
           </p>
-          <Link
-            href="/"
-            className="interactive-button focus-ring mt-6 inline-flex rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
-          >
-            Back to Workbench
-          </Link>
-        </div>
+          </CardHeader>
+          <CardContent className="flex justify-center pt-0">
+            <Button asChild>
+              <Link href="/">Back to Workbench</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }
@@ -411,24 +428,25 @@ export default function AdminUsersPage() {
   if (isForbidden) {
     return (
       <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
+        <Card className="w-full max-w-xl text-center">
+          <CardHeader>
           <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
             Forbidden
           </p>
-          <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
+          <CardTitle>
             This session cannot manage users
-          </h1>
+          </CardTitle>
           <p className="mt-3 text-sm leading-6 text-slate-600">
             The backend returned `403 Insufficient permissions`, so this screen stays
             read-only and does not guess around RBAC.
           </p>
-          <Link
-            href="/"
-            className="interactive-button focus-ring mt-6 inline-flex rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
-          >
-            Back to Workbench
-          </Link>
-        </div>
+          </CardHeader>
+          <CardContent className="flex justify-center pt-0">
+            <Button asChild>
+              <Link href="/">Back to Workbench</Link>
+            </Button>
+          </CardContent>
+        </Card>
       </main>
     );
   }
@@ -436,7 +454,8 @@ export default function AdminUsersPage() {
   return (
     <main className="px-4 py-6 md:px-7 lg:px-9">
       <div className="mx-auto max-w-7xl space-y-6">
-        <section className="card-surface rounded-[30px] px-6 py-7 md:px-8">
+        <Card className="rounded-[30px]">
+          <CardContent className="px-6 py-7 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <Link
@@ -454,9 +473,8 @@ export default function AdminUsersPage() {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button
+              <Button
                 type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
                 onClick={() => {
                   setSelectedUserId(null);
                   setCreateForm(createEmptyUserForm());
@@ -464,15 +482,15 @@ export default function AdminUsersPage() {
                 }}
               >
                 Create Account
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="interactive-button focus-ring rounded-full border border-[var(--border-strong)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-700"
+                variant="secondary"
                 onClick={() => void loadUsers()}
                 disabled={loadingUsers}
               >
                 Refresh
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -481,7 +499,8 @@ export default function AdminUsersPage() {
             <SummaryCard label="Active Admins" value={adminCount} accent />
             <SummaryCard label="Disabled Accounts" value={disabledCount} muted />
           </div>
-        </section>
+          </CardContent>
+        </Card>
 
         {notice ? (
           <div
@@ -496,7 +515,8 @@ export default function AdminUsersPage() {
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
-          <section className="card-surface rounded-[30px] px-6 py-6">
+          <Card className="rounded-[30px]">
+            <CardContent className="px-6 py-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                   <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
@@ -508,12 +528,12 @@ export default function AdminUsersPage() {
                 </div>
               <label className="block w-full md:max-w-xs">
                 <span className="sr-only">Search users</span>
-                <input
+                <Input
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by name, email, or role"
-                  className="focus-ring w-full rounded-[22px] border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-slate-900"
+                  className="w-full bg-white"
                 />
               </label>
             </div>
@@ -569,18 +589,15 @@ export default function AdminUsersPage() {
                             </div>
                           </div>
                         </div>
-                        <span className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">
+                        <Badge variant="secondary" className="w-fit">
                           {user.role}
-                        </span>
-                        <span
-                          className={`inline-flex w-fit rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] ${
-                            user.status === "active"
-                              ? "bg-[rgba(46,118,83,0.12)] text-[var(--success)]"
-                              : "bg-[rgba(163,53,53,0.12)] text-[var(--danger)]"
-                          }`}
+                        </Badge>
+                        <Badge
+                          variant={user.status === "active" ? "success" : "destructive"}
+                          className="w-fit"
                         >
                           {user.status}
-                        </span>
+                        </Badge>
                         <span className="text-xs font-medium text-slate-500">
                           {formatDateTime(user.last_login_at, locale)}
                         </span>
@@ -590,9 +607,11 @@ export default function AdminUsersPage() {
                 </div>
               </div>
             )}
-          </section>
+            </CardContent>
+          </Card>
 
-          <section className="card-surface rounded-[30px] px-6 py-6">
+          <Card className="rounded-[30px]">
+            <CardContent className="px-6 py-6">
             {selectedUser ? (
               <>
                 <div className="flex items-start justify-between gap-4">
@@ -605,9 +624,9 @@ export default function AdminUsersPage() {
                     </h2>
                     <p className="mt-2 text-sm text-slate-500">{selectedUser.email}</p>
                   </div>
-                  <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-600">
+                  <Badge variant="secondary">
                     {selectedUser.role}
-                  </span>
+                  </Badge>
                 </div>
 
                 {editForm ? (
@@ -660,13 +679,9 @@ export default function AdminUsersPage() {
                       />
                       Force password rotation on next reset
                     </label>
-                    <button
-                      type="submit"
-                      disabled={isMutating}
-                      className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white disabled:cursor-not-allowed disabled:opacity-70"
-                    >
+                    <Button type="submit" disabled={isMutating}>
                       {isMutating ? "Saving" : "Save User"}
-                    </button>
+                    </Button>
                   </form>
                 ) : null}
 
@@ -693,13 +708,14 @@ export default function AdminUsersPage() {
                     />
                     Require password change after reset
                   </label>
-                  <button
+                  <Button
                     type="submit"
+                    variant="secondary"
                     disabled={isMutating || !resetPassword.trim()}
-                    className="interactive-button focus-ring mt-4 rounded-full border border-[var(--accent)] bg-[var(--accent)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white disabled:cursor-not-allowed disabled:opacity-70"
+                    className="mt-4 bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
                   >
                     {isMutating ? "Resetting" : "Reset Password"}
-                  </button>
+                  </Button>
                 </form>
 
                 <div className="mt-6 rounded-[28px] border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] p-4">
@@ -710,14 +726,15 @@ export default function AdminUsersPage() {
                     Deleting a user also revokes their active sessions. The backend
                     protects the last active admin account.
                   </p>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     disabled={isMutating}
                     onClick={() => void handleDeleteUser()}
-                    className="interactive-button focus-ring mt-4 rounded-full border border-[var(--danger)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-70"
+                    className="mt-4 border-[var(--danger)] text-[var(--danger)] hover:bg-[rgba(163,53,53,0.06)] hover:text-[var(--danger)]"
                   >
                     {isMutating ? "Deleting" : "Delete User"}
-                  </button>
+                  </Button>
                 </div>
               </>
             ) : (
@@ -794,17 +811,14 @@ export default function AdminUsersPage() {
                     />
                     Require password change after first login
                   </label>
-                  <button
-                    type="submit"
-                    disabled={isMutating}
-                    className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white disabled:cursor-not-allowed disabled:opacity-70"
-                  >
+                  <Button type="submit" disabled={isMutating}>
                     {isMutating ? "Creating" : "Create User"}
-                  </button>
+                  </Button>
                 </form>
               </>
             )}
-          </section>
+            </CardContent>
+          </Card>
         </div>
 
         <section className="rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-4 text-sm text-slate-600">
@@ -838,12 +852,14 @@ function SummaryCard({
       : "text-slate-900";
 
   return (
-    <div className="rounded-[24px] border border-[var(--border)] bg-white/82 p-5">
+    <Card className="rounded-[24px] bg-white/82">
+      <CardContent className="p-5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
         {label}
       </p>
       <p className={`mt-3 text-3xl font-semibold tracking-tight ${textClass}`}>{value}</p>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -863,11 +879,11 @@ function TextField({
       <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-500">
         {label}
       </span>
-      <input
+      <Input
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="focus-ring mt-2 w-full rounded-[22px] border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-slate-900"
+        className="mt-2 bg-white"
       />
     </label>
   );
@@ -889,17 +905,18 @@ function SelectField({
       <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-slate-500">
         {label}
       </span>
-      <select
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        className="focus-ring mt-2 w-full rounded-[22px] border border-[var(--border-strong)] bg-white px-4 py-3 text-sm font-medium text-slate-900"
-      >
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="mt-2 bg-white">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent>
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <SelectItem key={option.value} value={option.value}>
             {option.label}
-          </option>
+          </SelectItem>
         ))}
-      </select>
+        </SelectContent>
+      </Select>
     </label>
   );
 }

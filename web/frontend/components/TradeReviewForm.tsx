@@ -2,6 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   saveTradeReview,
   type TradeRecord,
@@ -160,41 +170,25 @@ export function TradeReviewForm({
   };
 
   return (
-    <div
-      className="modal-backdrop fixed inset-0 z-[80] flex items-center justify-center bg-[rgba(17,24,39,0.42)] px-4 py-6"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
         aria-label={reviewTitle}
-        className="modal-panel fade-in max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[30px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] md:p-8"
-        onClick={(event) => event.stopPropagation()}
+        className="modal-panel max-w-4xl"
+        onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-              {t("tradeReview.manualReview", "Manual Review")}
-            </p>
-            <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
-              {reviewTitle}
-            </h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              {reviewFocus} This editor stores a structured manual review for trade
-              <span className="mx-1 rounded bg-slate-100 px-2 py-1 font-mono text-[12px] text-slate-700">
-                {tradeRecord.trade_id}
-              </span>
-              and keeps it attached to the same stable trade record.
-            </p>
-          </div>
-          <button
-            type="button"
-            className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
-            onClick={onClose}
-          >
-            {t("common.close", "Close")}
-          </button>
-        </div>
+        <DialogHeader className="pr-12">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
+            {t("tradeReview.manualReview", "Manual Review")}
+          </p>
+          <DialogTitle>{reviewTitle}</DialogTitle>
+          <DialogDescription className="max-w-3xl">
+            {reviewFocus} This editor stores a structured manual review for trade
+            <span className="mx-1 rounded bg-slate-100 px-2 py-1 font-mono text-[12px] text-slate-700">
+              {tradeRecord.trade_id}
+            </span>
+            and keeps it attached to the same stable trade record.
+          </DialogDescription>
+        </DialogHeader>
 
         <div className="mt-6 rounded-[26px] border border-[rgba(28,56,83,0.12)] bg-[var(--accent-soft)]/70 px-5 py-4 text-sm text-slate-700">
           {t(
@@ -222,7 +216,7 @@ export function TradeReviewForm({
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                   {t("tradeReview.analysisDate", "Analysis Date")}
                 </span>
-                <input
+                <Input
                   type="date"
                   value={formState.analysis_date}
                   onChange={(event) =>
@@ -231,7 +225,7 @@ export function TradeReviewForm({
                       analysis_date: event.target.value,
                     }))
                   }
-                  className="focus-ring mt-2 w-full min-w-[180px] rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm text-slate-800"
+                  className="mt-2 min-w-[180px] bg-white text-slate-800"
                 />
               </label>
             </div>
@@ -406,23 +400,14 @@ export function TradeReviewForm({
           ) : null}
 
           <div className="flex flex-wrap items-center justify-end gap-3">
-            <button
-              type="button"
-              className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-600"
-              onClick={onClose}
-              disabled={saving}
-            >
+            <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
               {t("common.cancel", "Cancel")}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className={`interactive-button focus-ring rounded-full border px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] ${
-                referenceSummary.length === 0
-                  ? "cursor-not-allowed border-slate-200 bg-slate-200 text-slate-500"
-                  : "border-[var(--primary)] bg-[var(--primary)] text-white"
-              }`}
               onClick={() => void submitReview()}
               disabled={saving || referenceSummary.length === 0}
+              className={referenceSummary.length === 0 ? "border-slate-200 bg-slate-200 text-slate-500 shadow-none hover:brightness-100" : undefined}
             >
               {saving
                 ? t("tradeRecord.saving", "Saving...")
@@ -431,11 +416,11 @@ export function TradeReviewForm({
                     ({ title }) => `Save ${title}`,
                     { title: reviewTitle }
                   )}
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -520,12 +505,12 @@ function ReviewField({
       <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
         {label}
       </span>
-      <textarea
+      <Textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm leading-6 text-slate-800"
+        className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800"
       />
     </label>
   );
@@ -550,12 +535,12 @@ function ListField({
         {label}
       </span>
       <span className="mt-2 block text-xs text-slate-500">{helper}</span>
-      <textarea
+      <Textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
         rows={6}
         placeholder={placeholder}
-        className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm leading-6 text-slate-800"
+        className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800"
       />
     </label>
   );

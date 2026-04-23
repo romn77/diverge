@@ -12,6 +12,8 @@ import {
 import { usePathname } from "next/navigation";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   buildActivityHref,
   buildAssetsHref,
@@ -101,10 +103,6 @@ export function Sidebar({
   }, [isMobileDrawerOpen]);
 
   useEffect(() => {
-    setIsCreateMenuOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     if (!isCreateMenuOpen) {
       return;
     }
@@ -153,15 +151,12 @@ export function Sidebar({
     };
   }, [isCreateMenuOpen, isMobileDrawerOpen, onClose]);
 
-  const drawerClasses = [
-    "sidebar-surface fixed left-0 top-0 bottom-0 z-50 w-full max-w-xs flex-col overflow-y-auto border-r border-[var(--border)] py-5 shadow-lg transition-[transform,width,padding] duration-300",
-    isMobileDrawerOpen
-      ? "flex translate-x-0 px-4"
-      : "hidden -translate-x-full px-4 md:flex md:translate-x-0",
+  const desktopDrawerClasses = [
+    "sidebar-surface hidden flex-col overflow-y-auto border-r border-[var(--border)] py-5 transition-[width,padding] duration-300 md:flex",
     isDesktopCollapsed
       ? "md:w-[5.5rem] md:max-w-none md:px-3"
       : "md:w-[18rem] md:max-w-none md:px-4",
-    "md:relative md:top-auto md:bottom-auto md:h-full md:shadow-none md:border-r-0",
+    "md:relative md:h-full md:border-r-0",
   ].join(" ");
   const desktopShellClasses = [
     "md:sticky md:top-0 md:flex md:h-[100svh] md:self-start md:shrink-0 md:overflow-visible",
@@ -200,270 +195,275 @@ export function Sidebar({
     setIsDesktopCollapsed((current) => !current);
   };
 
+  const sidebarBody = (
+    <div className="flex min-h-full flex-col">
+      <div className={headerClasses}>
+        <Link href={buildHomeHref()} className="flex min-w-0 items-center gap-3">
+          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-[0_10px_20px_rgba(182,90,43,0.2)]">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
+              <path
+                d="M4 16l4.2-4.2L11 14.6l8-8"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+          {!isDesktopRail ? (
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-900">TradingAgents</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {t("sidebar.brandSubline", "Research Workbench")}
+              </p>
+            </div>
+          ) : null}
+        </Link>
+
+        {isMobileViewport ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="rounded-xl md:hidden"
+            onClick={onClose}
+            aria-label={t("sidebar.closeSidebar", "Close sidebar")}
+          >
+            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+              <path
+                d="M6 6l8 8M14 6l-8 8"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+          </Button>
+        ) : null}
+      </div>
+
+      {isDesktopRail ? (
+        <div className="mt-5 flex flex-1 flex-col items-center">
+          <div className="relative flex flex-col items-center gap-2">
+            <RailButton
+              ref={createButtonRef}
+              label="New"
+              title="New"
+              active={isCreateMenuOpen}
+              onClick={() => setIsCreateMenuOpen((current) => !current)}
+            >
+              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+                <path
+                  d="M10 4v12M4 10h12"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </RailButton>
+
+            {isCreateMenuOpen ? (
+              <CreateMenu
+                ref={createMenuRef}
+                compact
+                onNewAnalysis={handleNewAnalysis}
+                onNewScreener={handleNewScreener}
+                newAnalysisDisabled={newAnalysisDisabled}
+                newScreenerDisabled={newScreenerDisabled}
+              />
+            ) : null}
+          </div>
+
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-2">
+              <RailLinkButton
+                href={buildHomeHref()}
+                label="Analysis"
+                title="Analysis"
+                active={isAnalysisActive}
+                onClick={handleNavSelection}
+              >
+                <AnalysisIcon />
+              </RailLinkButton>
+              <RailLinkButton
+                href={buildScreenerHref()}
+                label="Screener"
+                title="Screener"
+                active={isScreenerActive}
+                onClick={handleNavSelection}
+              >
+                <ScreenerIcon />
+              </RailLinkButton>
+            </div>
+
+            <div className="my-2 flex justify-center" aria-hidden="true">
+              <span className="h-px w-7 rounded-full bg-[rgba(28,56,83,0.12)]" />
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
+              <RailLinkButton
+                href={buildAssetsHref()}
+                label="Assets"
+                title="Assets"
+                active={isAssetsActive}
+                onClick={handleNavSelection}
+              >
+                <AssetsIcon />
+              </RailLinkButton>
+              <RailLinkButton
+                href={buildJournalHref()}
+                label="Journal"
+                title="Journal"
+                active={isJournalActive}
+                onClick={handleNavSelection}
+              >
+                <JournalIcon />
+              </RailLinkButton>
+            </div>
+          </div>
+
+          <div className="mt-auto w-full border-t border-[var(--border)] pt-4">
+            <div className="mb-3 flex justify-center" aria-hidden="true">
+              <span className="h-5 w-px rounded-full bg-gradient-to-b from-[rgba(28,56,83,0.16)] to-transparent" />
+            </div>
+            <div className="flex justify-center">
+              <RailLinkButton
+                href={buildActivityHref()}
+                label="Activity"
+                title="Activity"
+                active={isActivityActive}
+                count={totalActive}
+                onClick={handleNavSelection}
+              >
+                <ActivityIcon />
+              </RailLinkButton>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-5 flex flex-1 flex-col">
+          <div className="relative">
+            <Button
+              ref={createButtonRef}
+              type="button"
+              className="flex w-full items-center justify-between rounded-[20px] px-4 py-3 text-left text-white shadow-[0_14px_28px_rgba(182,90,43,0.18)]"
+              onClick={() => setIsCreateMenuOpen((current) => !current)}
+              aria-expanded={isCreateMenuOpen}
+              aria-haspopup="menu"
+            >
+              <span className="text-sm font-semibold">+ New</span>
+              <svg
+                viewBox="0 0 20 20"
+                className={`h-4 w-4 transition-transform ${
+                  isCreateMenuOpen ? "rotate-180" : ""
+                }`}
+                fill="none"
+                aria-hidden
+              >
+                <path
+                  d="M5 7.5 10 12l5-4.5"
+                  stroke="currentColor"
+                  strokeWidth="1.7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </Button>
+
+            {isCreateMenuOpen ? (
+              <CreateMenu
+                ref={createMenuRef}
+                onNewAnalysis={handleNewAnalysis}
+                onNewScreener={handleNewScreener}
+                newAnalysisDisabled={newAnalysisDisabled}
+                newScreenerDisabled={newScreenerDisabled}
+              />
+            ) : null}
+          </div>
+
+          <nav className="mt-6 space-y-4" aria-label="Primary">
+            <SidebarSection title="Research">
+              <SidebarNavLink
+                href={buildHomeHref()}
+                label="Analysis"
+                meta="Reports and search"
+                active={isAnalysisActive}
+                onClick={handleNavSelection}
+              >
+                <AnalysisIcon />
+              </SidebarNavLink>
+              <SidebarNavLink
+                href={buildScreenerHref()}
+                label="Screener"
+                meta="Runs and candidates"
+                active={isScreenerActive}
+                onClick={handleNavSelection}
+              >
+                <ScreenerIcon />
+              </SidebarNavLink>
+            </SidebarSection>
+
+            <SidebarSection title="Portfolio">
+              <SidebarNavLink
+                href={buildAssetsHref()}
+                label="Assets"
+                meta="Ledger and exposure"
+                active={isAssetsActive}
+                onClick={handleNavSelection}
+              >
+                <AssetsIcon />
+              </SidebarNavLink>
+              <SidebarNavLink
+                href={buildJournalHref()}
+                label="Journal"
+                meta="Trade review"
+                active={isJournalActive}
+                onClick={handleNavSelection}
+              >
+                <JournalIcon />
+              </SidebarNavLink>
+            </SidebarSection>
+          </nav>
+
+          <div className="mt-auto border-t border-[var(--border)] pt-4">
+            <SidebarSectionHeading title="Operations" muted />
+            <SidebarUtilityLink
+              href={buildActivityHref()}
+              label="Activity"
+              meta={
+                totalActive > 0 ? `${totalActive} active` : "No active background work"
+              }
+              active={isActivityActive}
+              badge={totalActive > 0 ? `${totalActive}` : null}
+              onClick={handleNavSelection}
+            >
+              <ActivityIcon />
+            </SidebarUtilityLink>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
-      {isMobileDrawerOpen ? (
-        <div
-          className="fixed inset-0 z-40 bg-black/30 md:hidden"
-          onClick={onClose}
-          aria-hidden="true"
-        />
+      {isMobileViewport ? (
+        <Sheet open={isMobileDrawerOpen} onOpenChange={(open) => !open && onClose()}>
+          <SheetContent side="left" className="sidebar-surface w-full max-w-xs border-r px-4 py-5 md:hidden [&>button]:hidden">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Workbench navigation</SheetTitle>
+            </SheetHeader>
+            {sidebarBody}
+          </SheetContent>
+        </Sheet>
       ) : null}
 
       <div className={desktopShellClasses}>
         <aside
           id="report-navigation"
-          className={drawerClasses}
-          role={isMobileDrawerOpen ? "dialog" : undefined}
-          aria-modal={isMobileDrawerOpen ? true : undefined}
+          className={desktopDrawerClasses}
           aria-label="Workbench navigation"
         >
-          <div className="flex min-h-full flex-col">
-          <div className={headerClasses}>
-            <Link href={buildHomeHref()} className="flex min-w-0 items-center gap-3">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-[0_10px_20px_rgba(182,90,43,0.2)]">
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
-                  <path
-                    d="M4 16l4.2-4.2L11 14.6l8-8"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              {!isDesktopRail ? (
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-900">TradingAgents</p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {t("sidebar.brandSubline", "Research Workbench")}
-                  </p>
-                </div>
-              ) : null}
-            </Link>
-
-            {isMobileViewport ? (
-              <button
-                type="button"
-                className="focus-ring inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--border)] bg-white/90 text-slate-600 transition hover:border-[var(--primary)] hover:text-[var(--primary)] md:hidden"
-                onClick={onClose}
-                aria-label={t("sidebar.closeSidebar", "Close sidebar")}
-              >
-                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-                  <path
-                    d="M6 6l8 8M14 6l-8 8"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-            ) : null}
-          </div>
-
-          {isDesktopRail ? (
-            <div className="mt-5 flex flex-1 flex-col items-center">
-              <div className="relative flex flex-col items-center gap-2">
-                <RailButton
-                  ref={createButtonRef}
-                  label="New"
-                  title="New"
-                  active={isCreateMenuOpen}
-                  onClick={() => setIsCreateMenuOpen((current) => !current)}
-                >
-                  <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-                    <path
-                      d="M10 4v12M4 10h12"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </RailButton>
-
-                {isCreateMenuOpen ? (
-                  <CreateMenu
-                    ref={createMenuRef}
-                    compact
-                    onNewAnalysis={handleNewAnalysis}
-                    onNewScreener={handleNewScreener}
-                    newAnalysisDisabled={newAnalysisDisabled}
-                    newScreenerDisabled={newScreenerDisabled}
-                  />
-                ) : null}
-              </div>
-
-              <div className="mt-6 flex flex-col items-center gap-2">
-                <div className="flex flex-col items-center gap-2">
-                  <RailLinkButton
-                    href={buildHomeHref()}
-                    label="Analysis"
-                    title="Analysis"
-                    active={isAnalysisActive}
-                    onClick={handleNavSelection}
-                  >
-                    <AnalysisIcon />
-                  </RailLinkButton>
-                  <RailLinkButton
-                    href={buildScreenerHref()}
-                    label="Screener"
-                    title="Screener"
-                    active={isScreenerActive}
-                    onClick={handleNavSelection}
-                  >
-                    <ScreenerIcon />
-                  </RailLinkButton>
-                </div>
-
-                <div className="my-2 flex justify-center" aria-hidden="true">
-                  <span className="h-px w-7 rounded-full bg-[rgba(28,56,83,0.12)]" />
-                </div>
-
-                <div className="flex flex-col items-center gap-2">
-                  <RailLinkButton
-                    href={buildAssetsHref()}
-                    label="Assets"
-                    title="Assets"
-                    active={isAssetsActive}
-                    onClick={handleNavSelection}
-                  >
-                    <AssetsIcon />
-                  </RailLinkButton>
-                  <RailLinkButton
-                    href={buildJournalHref()}
-                    label="Journal"
-                    title="Journal"
-                    active={isJournalActive}
-                    onClick={handleNavSelection}
-                  >
-                    <JournalIcon />
-                  </RailLinkButton>
-                </div>
-              </div>
-
-              <div className="mt-auto w-full border-t border-[var(--border)] pt-4">
-                <div className="mb-3 flex justify-center" aria-hidden="true">
-                  <span className="h-5 w-px rounded-full bg-gradient-to-b from-[rgba(28,56,83,0.16)] to-transparent" />
-                </div>
-                <div className="flex justify-center">
-                  <RailLinkButton
-                    href={buildActivityHref()}
-                    label="Activity"
-                    title="Activity"
-                    active={isActivityActive}
-                    count={totalActive}
-                    onClick={handleNavSelection}
-                  >
-                    <ActivityIcon />
-                  </RailLinkButton>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-5 flex flex-1 flex-col">
-              <div className="relative">
-                <button
-                  ref={createButtonRef}
-                  type="button"
-                  className="interactive-button focus-ring flex w-full items-center justify-between rounded-[20px] border border-[var(--primary)] bg-[var(--primary)] px-4 py-3 text-left text-white shadow-[0_14px_28px_rgba(182,90,43,0.18)]"
-                  onClick={() => setIsCreateMenuOpen((current) => !current)}
-                  aria-expanded={isCreateMenuOpen}
-                  aria-haspopup="menu"
-                >
-                  <span className="text-sm font-semibold">+ New</span>
-                  <svg
-                    viewBox="0 0 20 20"
-                    className={`h-4 w-4 transition-transform ${
-                      isCreateMenuOpen ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    aria-hidden
-                  >
-                    <path
-                      d="M5 7.5 10 12l5-4.5"
-                      stroke="currentColor"
-                      strokeWidth="1.7"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </button>
-
-                {isCreateMenuOpen ? (
-                  <CreateMenu
-                    ref={createMenuRef}
-                    onNewAnalysis={handleNewAnalysis}
-                    onNewScreener={handleNewScreener}
-                    newAnalysisDisabled={newAnalysisDisabled}
-                    newScreenerDisabled={newScreenerDisabled}
-                  />
-                ) : null}
-              </div>
-
-              <nav className="mt-6 space-y-4" aria-label="Primary">
-                <SidebarSection title="Research">
-                  <SidebarNavLink
-                    href={buildHomeHref()}
-                    label="Analysis"
-                    meta="Reports and search"
-                    active={isAnalysisActive}
-                    onClick={handleNavSelection}
-                  >
-                    <AnalysisIcon />
-                  </SidebarNavLink>
-                  <SidebarNavLink
-                    href={buildScreenerHref()}
-                    label="Screener"
-                    meta="Runs and candidates"
-                    active={isScreenerActive}
-                    onClick={handleNavSelection}
-                  >
-                    <ScreenerIcon />
-                  </SidebarNavLink>
-                </SidebarSection>
-
-                <SidebarSection title="Portfolio">
-                  <SidebarNavLink
-                    href={buildAssetsHref()}
-                    label="Assets"
-                    meta="Ledger and exposure"
-                    active={isAssetsActive}
-                    onClick={handleNavSelection}
-                  >
-                    <AssetsIcon />
-                  </SidebarNavLink>
-                  <SidebarNavLink
-                    href={buildJournalHref()}
-                    label="Journal"
-                    meta="Trade review"
-                    active={isJournalActive}
-                    onClick={handleNavSelection}
-                  >
-                    <JournalIcon />
-                  </SidebarNavLink>
-                </SidebarSection>
-              </nav>
-
-              <div className="mt-auto border-t border-[var(--border)] pt-4">
-                <SidebarSectionHeading title="Operations" muted />
-                <SidebarUtilityLink
-                  href={buildActivityHref()}
-                  label="Activity"
-                  meta={
-                    totalActive > 0
-                      ? `${totalActive} active`
-                      : "No active background work"
-                  }
-                  active={isActivityActive}
-                  badge={totalActive > 0 ? `${totalActive}` : null}
-                  onClick={handleNavSelection}
-                >
-                  <ActivityIcon />
-                </SidebarUtilityLink>
-              </div>
-            </div>
-          )}
-          </div>
+          {sidebarBody}
         </aside>
 
         <div className="pointer-events-none absolute left-full top-1/2 z-[60] hidden -translate-y-1/2 md:flex">

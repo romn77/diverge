@@ -8,6 +8,11 @@ const componentPath = path.join(import.meta.dirname, "TradeReviewForm.tsx");
 test("TradeReviewForm saves structured manual entry and exit reviews with required assessment fields", () => {
   const source = readFileSync(componentPath, "utf8");
 
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/dialog"/);
+  assert.match(source, /from "@\/components\/ui\/textarea"/);
+  assert.match(source, /DialogContent/);
+  assert.doesNotMatch(source, /role="dialog"/);
   assert.match(source, /saveTradeReview/);
   assert.match(source, /Entry Review/);
   assert.match(source, /Exit Review/);

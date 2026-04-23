@@ -9,6 +9,9 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   const source = readFileSync(sidebarPath, "utf8");
 
   assert.match(source, /import Link from "next\/link"/);
+  assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/sheet"/);
+  assert.match(source, /SheetContent/);
   assert.match(source, /usePathname/);
   assert.match(source, /useWorkbench/);
   assert.match(source, /buildHomeHref/);
@@ -31,9 +34,7 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /Ledger and exposure/);
   assert.match(source, /Trade review/);
   assert.match(source, /No active background work/);
-  assert.match(source, /role="menu"/);
-  assert.match(source, /aria-haspopup="menu"/);
-  assert.match(source, /role=\{isMobileDrawerOpen \? "dialog" : undefined\}/);
+  assert.match(source, /CreateMenu/);
   assert.match(source, /const isMobileDrawerOpen = isMobileViewport && isOpen/);
   assert.match(source, /const isDesktopRail = !isMobileViewport && isDesktopCollapsed/);
   assert.match(source, /document\.body\.style\.overflow/);

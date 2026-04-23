@@ -26,15 +26,27 @@
   --border-strong: rgba(22, 34, 51, 0.2);
   --primary: #b65a2b;
   --primary-strong: #94431b;
+  --primary-foreground: #fffaf5;
   --primary-soft: #f5ded1;
   --accent: #334155;
   --accent-soft: #f1f5f9;
   --success: #2e7653;
   --danger: #a33535;
+  --danger-foreground: #fffaf5;
   --ring-strong: rgba(182, 90, 43, 0.24);
   --interactive-hover-filter: brightness(0.985);
   --interactive-active-filter: brightness(0.96);
   --surface-hover: color-mix(in srgb, var(--surface) 92%, var(--text) 8%);
+  --card: rgba(255, 253, 248, 0.96);
+  --card-foreground: var(--text);
+  --popover: rgba(255, 253, 248, 0.98);
+  --popover-foreground: var(--text);
+  --secondary: color-mix(in srgb, var(--surface) 86%, var(--primary-soft) 14%);
+  --secondary-foreground: var(--text);
+  --muted-surface: var(--surface-strong);
+  --accent-surface: var(--primary-soft);
+  --accent-foreground: var(--primary-strong);
+  --input: rgba(22, 34, 51, 0.16);
   --shadow-soft:
     0 24px 54px rgba(18, 28, 41, 0.08),
     0 2px 0 rgba(255, 255, 255, 0.78) inset;
@@ -61,15 +73,27 @@ html[data-theme="dark"] {
   --border-strong: rgba(233, 238, 246, 0.22);
   --primary: #e08a57;
   --primary-strong: #f0b38d;
+  --primary-foreground: #fffaf5;
   --primary-soft: rgba(224, 138, 87, 0.16);
   --accent: #8eb4d8;
   --accent-soft: rgba(142, 180, 216, 0.15);
   --success: #6dc79a;
   --danger: #f18b8b;
+  --danger-foreground: #fffaf5;
   --ring-strong: rgba(224, 138, 87, 0.34);
   --interactive-hover-filter: brightness(1.06);
   --interactive-active-filter: brightness(1.12);
   --surface-hover: color-mix(in srgb, var(--surface) 90%, var(--text) 10%);
+  --card: rgba(24, 34, 47, 0.96);
+  --card-foreground: var(--text);
+  --popover: rgba(24, 34, 47, 0.98);
+  --popover-foreground: var(--text);
+  --secondary: color-mix(in srgb, var(--surface) 88%, var(--primary-soft) 12%);
+  --secondary-foreground: var(--text);
+  --muted-surface: var(--surface-strong);
+  --accent-surface: rgba(224, 138, 87, 0.18);
+  --accent-foreground: #f7d7c1;
+  --input: rgba(233, 238, 246, 0.18);
   --shadow-soft:
     0 24px 54px rgba(0, 0, 0, 0.28),
     0 1px 0 rgba(255, 255, 255, 0.04) inset;
@@ -85,7 +109,23 @@ html[data-theme="dark"] {
 @theme inline {
   --color-background: var(--bg);
   --color-foreground: var(--text);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted-surface);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--accent-surface);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--danger);
+  --color-destructive-foreground: var(--danger-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--primary);
   --font-sans: var(--font-body);
   --font-mono: var(--font-mono);
 }

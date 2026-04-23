@@ -2,6 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getTickerTradeFeedback,
   getTrade,
@@ -346,7 +358,8 @@ export function TradeJournal({
     <>
       <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
-          <section className="viewer-frame overflow-hidden px-6 py-7 md:px-8 md:py-8">
+          <Card className="viewer-frame overflow-hidden">
+            <CardContent className="px-6 py-7 md:px-8 md:py-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="max-w-3xl">
                 <p className="text-[12px] font-semibold uppercase tracking-[0.38em] text-[var(--primary)]">
@@ -362,25 +375,22 @@ export function TradeJournal({
 
               <div className="flex flex-wrap items-center gap-3">
                 {onOpenSidebar ? (
-                  <button
+                  <Button
                     type="button"
-                    className={`interactive-button focus-ring rounded-full border px-4 py-3 text-xs font-semibold uppercase tracking-[0.2em] md:hidden ${
+                    variant={sidebarOpen ? "default" : "secondary"}
+                    className={`md:hidden ${
                       sidebarOpen
-                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                        : "border-[var(--border)] bg-white text-slate-600"
+                        ? "bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-none"
+                        : "text-slate-600"
                     }`}
                     onClick={onOpenSidebar}
                   >
                     {t("common.menu", "Menu")}
-                  </button>
+                  </Button>
                 ) : null}
-                <button
-                  type="button"
-                  className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white"
-                  onClick={() => setShowCreateTrade(true)}
-                >
+                <Button type="button" onClick={() => setShowCreateTrade(true)}>
                   {t("journal.recordTrade", "Record Trade")}
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -389,12 +399,12 @@ export function TradeJournal({
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("journal.filterLabel", "Filter by Ticker or Trade ID")}
                 </span>
-                <input
+                <Input
                   type="text"
                   value={tickerFilter}
                   onChange={(event) => setTickerFilter(event.target.value)}
                   placeholder={t("journal.filterPlaceholder", "MSFT or trade_id")}
-                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
+                  className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800"
                 />
               </label>
 
@@ -402,39 +412,41 @@ export function TradeJournal({
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("journal.status", "Status")}
                 </span>
-                <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
-                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
-                >
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800">
+                    <SelectValue placeholder={t("journal.status", "Status")} />
+                  </SelectTrigger>
+                  <SelectContent>
                   {statusOptions.map((status) => (
-                    <option key={status} value={status}>
+                    <SelectItem key={status} value={status}>
                       {localizeTradeValue(status, t)}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
+                  </SelectContent>
+                </Select>
               </label>
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("journal.timeWindow", "Time Window")}
                 </span>
-                <select
-                  value={timeWindow}
-                  onChange={(event) => setTimeWindow(event.target.value as TimeWindow)}
-                  className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
-                >
-                  <option value="all">{t("journal.timeWindow.all", "all")}</option>
-                  <option value="30d">
+                <Select value={timeWindow} onValueChange={(value) => setTimeWindow(value as TimeWindow)}>
+                  <SelectTrigger className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800">
+                    <SelectValue placeholder={t("journal.timeWindow", "Time Window")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                  <SelectItem value="all">{t("journal.timeWindow.all", "all")}</SelectItem>
+                  <SelectItem value="30d">
                     {t("journal.timeWindow.30d", "last 30 days")}
-                  </option>
-                  <option value="90d">
+                  </SelectItem>
+                  <SelectItem value="90d">
                     {t("journal.timeWindow.90d", "last 90 days")}
-                  </option>
-                  <option value="365d">
+                  </SelectItem>
+                  <SelectItem value="365d">
                     {t("journal.timeWindow.365d", "last 12 months")}
-                  </option>
-                </select>
+                  </SelectItem>
+                  </SelectContent>
+                </Select>
               </label>
             </div>
 
@@ -464,10 +476,12 @@ export function TradeJournal({
                 )}
               />
             </div>
-          </section>
+            </CardContent>
+          </Card>
 
           <section className="grid gap-6 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)]">
-            <div className="card-surface p-4 md:p-5">
+            <Card className="card-surface p-4 md:p-5">
+              <CardContent className="p-0">
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
@@ -477,11 +491,11 @@ export function TradeJournal({
                     {t("journal.tradeRecords", "Trade records")}
                   </h2>
                 </div>
-                <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <Badge variant="secondary" className="text-slate-500">
                   {t("sidebar.shownCount", ({ count }) => `${count} shown`, {
                     count: filteredTrades.length,
                   })}
-                </span>
+                </Badge>
               </div>
 
               {tradesError ? (
@@ -500,27 +514,24 @@ export function TradeJournal({
                       "No trade records match the current filters."
                     )}
                   </p>
-                  <button
-                    type="button"
-                    className="interactive-button focus-ring mt-4 rounded-full border border-[var(--primary)] bg-[var(--primary)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white"
-                    onClick={() => setShowCreateTrade(true)}
-                  >
+                  <Button type="button" className="mt-4" onClick={() => setShowCreateTrade(true)}>
                     {t("journal.recordFirstTrade", "Record First Trade")}
-                  </button>
+                  </Button>
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
                   {filteredTrades.map((trade) => {
                     const isSelected = selectedTradeId === trade.trade_id;
                     return (
-                      <button
+                      <Button
                         key={trade.trade_id}
                         type="button"
                         data-active={isSelected}
-                        className={`interactive-button w-full rounded-[26px] border p-4 text-left transition ${
+                        variant="secondary"
+                        className={`h-auto w-full justify-start rounded-[26px] p-4 text-left ${
                           isSelected
-                            ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 shadow-[0_18px_36px_rgba(182,90,43,0.14)]"
-                            : "border-[var(--border)] bg-white/85 hover:border-[var(--primary)] hover:bg-white"
+                            ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 text-slate-900 shadow-[0_18px_36px_rgba(182,90,43,0.14)] hover:bg-[var(--primary-soft)]/75"
+                            : "bg-white/85 text-slate-900 hover:bg-white"
                         }`}
                         onClick={() => setSelectedTradeId(trade.trade_id)}
                       >
@@ -572,12 +583,13 @@ export function TradeJournal({
                             )}
                           />
                         </div>
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
               )}
-            </div>
+              </CardContent>
+            </Card>
 
             <div className="space-y-6">
               <section className="viewer-frame px-6 py-6 md:px-8">
@@ -617,13 +629,9 @@ export function TradeJournal({
                       <div className="flex flex-wrap items-center gap-3">
                         <StatusBadge label={tradeDetail.record.side} tone="accent" />
                         <StatusBadge label={tradeDetail.record.status} tone="primary" />
-                        <button
-                          type="button"
-                          className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
-                          onClick={() => setShowEditTrade(true)}
-                        >
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setShowEditTrade(true)}>
                           {t("journal.editTrade", "Edit Trade")}
-                        </button>
+                        </Button>
                       </div>
                     </div>
 
@@ -744,11 +752,11 @@ export function TradeJournal({
                             )}
                           </h3>
                         </div>
-                        <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        <Badge variant="secondary" className="text-slate-500">
                           {t("journal.linkedCount", ({ count }) => `${count} linked`, {
                             count: tradeDetail.record.analysis_references.length,
                           })}
-                        </span>
+                        </Badge>
                       </div>
 
                       {tradeDetail.record.analysis_references.length === 0 ? (
@@ -793,44 +801,36 @@ export function TradeJournal({
                             )}
                           </h3>
                         </div>
-                        <button
-                          type="button"
-                          className="interactive-button focus-ring rounded-full border border-[var(--border)] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
-                          onClick={() => setEditingReviewType(reviewTab)}
-                        >
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setEditingReviewType(reviewTab)}>
                           {selectedReview
                             ? t("journal.editReview", "Edit Review")
                             : t("journal.createReview", "Create Review")}
-                        </button>
+                        </Button>
                       </div>
 
-                      <div className="mt-5 flex flex-wrap gap-2">
-                        {(["entry_review", "exit_review"] as TradeReviewType[]).map((type) => {
-                          const review = tradeDetail.reviews.find(
-                            (item) => item.review_type === type
-                          );
-                          return (
-                            <button
-                              key={type}
-                              type="button"
-                              data-active={reviewTab === type}
-                              className="pill-tab"
-                              onClick={() => setReviewTab(type)}
-                            >
-                              <span className="capitalize">
-                                {type === "entry_review"
-                                  ? t("journal.entryReview", "Entry Review")
-                                  : t("journal.exitReview", "Exit Review")}
-                              </span>
-                              <span className="ml-2 text-[11px] opacity-70">
-                                {review
-                                  ? t("journal.reviewSaved", "saved")
-                                  : t("journal.reviewEmpty", "empty")}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      <Tabs value={reviewTab} onValueChange={(value) => setReviewTab(value as TradeReviewType)} className="mt-5">
+                        <TabsList>
+                          {(["entry_review", "exit_review"] as TradeReviewType[]).map((type) => {
+                            const review = tradeDetail.reviews.find(
+                              (item) => item.review_type === type
+                            );
+                            return (
+                              <TabsTrigger key={type} value={type}>
+                                <span className="capitalize">
+                                  {type === "entry_review"
+                                    ? t("journal.entryReview", "Entry Review")
+                                    : t("journal.exitReview", "Exit Review")}
+                                </span>
+                                <span className="ml-2 text-[11px] opacity-70">
+                                  {review
+                                    ? t("journal.reviewSaved", "saved")
+                                    : t("journal.reviewEmpty", "empty")}
+                                </span>
+                              </TabsTrigger>
+                            );
+                          })}
+                        </TabsList>
+                      </Tabs>
 
                       {!selectedReview ? (
                         <div className="mt-5 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
@@ -921,7 +921,8 @@ export function TradeJournal({
                 )}
               </section>
 
-              <section className="card-surface p-5 md:p-6">
+              <Card className="card-surface p-5 md:p-6">
+                <CardContent className="p-0">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
@@ -935,9 +936,9 @@ export function TradeJournal({
                     </h2>
                   </div>
                   {tradeDetail?.record.ticker ? (
-                    <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <Badge variant="secondary" className="text-slate-500">
                       {tradeDetail.record.ticker}
-                    </span>
+                    </Badge>
                   ) : null}
                 </div>
 
@@ -992,7 +993,8 @@ export function TradeJournal({
                     </div>
                   </div>
                 )}
-              </section>
+                </CardContent>
+              </Card>
             </div>
           </section>
         </div>
