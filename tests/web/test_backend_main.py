@@ -3,13 +3,14 @@ import unittest
 import os
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from fastapi import HTTPException
 
 from tradingagents.runner import AnalysisRequest
 from tradingagents.screener.schema import ScreenRunResult
-from web.backend import app_config as backend_config
+from web.backend import app_config as backend_config, auth, screener_results
 from web.backend.routers import config as config_router
 from web.backend.routers import screeners as screeners_router
 from web.backend.routers import tasks as tasks_router
@@ -28,16 +29,25 @@ from web.backend.services import ticker_history as ticker_history_service
 
 class BackendMainTests(unittest.TestCase):
     def setUp(self):
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.empty_project_dir = tempfile.TemporaryDirectory()
         self.original_reports_dir = backend_config.REPORTS_DIR
         self.original_screener_results_dir = backend_config.SCREENER_RESULTS_DIR
+        self.original_screener_state_dir = backend_config.SCREENER_STATE_DIR
         self.original_screener_tasks_dir = backend_config.SCREENER_TASKS_DIR
         self.original_screener_cache_dir = backend_config.SCREENER_CACHE_DIR
         self.original_stock_history_dir = backend_config.STOCK_HISTORY_DIR
         self.original_tmp_reports_dir = backend_config.TMP_REPORTS_DIR
         backend_config.REPORTS_DIR = Path(self.temp_dir.name) / "data" / "reports"
         backend_config.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "runs"
+        backend_config.SCREENER_STATE_DIR = Path(self.temp_dir.name) / "data" / "screener" / "state"
         backend_config.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "tasks"
         backend_config.SCREENER_CACHE_DIR = Path(self.temp_dir.name) / "data" / "cache" / "screener"
         backend_config.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "data" / "history"
@@ -50,14 +60,64 @@ class BackendMainTests(unittest.TestCase):
     def tearDown(self):
         backend_config.REPORTS_DIR = self.original_reports_dir
         backend_config.SCREENER_RESULTS_DIR = self.original_screener_results_dir
+        backend_config.SCREENER_STATE_DIR = self.original_screener_state_dir
         backend_config.SCREENER_TASKS_DIR = self.original_screener_tasks_dir
         backend_config.SCREENER_CACHE_DIR = self.original_screener_cache_dir
         backend_config.STOCK_HISTORY_DIR = self.original_stock_history_dir
         backend_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
         analysis_tasks.tasks.clear()
         screener_tasks.screener_tasks.clear()
+        screener_results.reset_screener_result_observability()
+        auth.reset_runtime_state()
+        self.auth_env_patch.stop()
         self.empty_project_dir.cleanup()
         self.temp_dir.cleanup()
+
+    def _write_screener_run(
+        self,
+        run_id: str,
+        *,
+        rows: list[dict] | None = None,
+        markets: list[str] | None = None,
+        filtered_count_by_reason: dict[str, int] | None = None,
+    ) -> Path:
+        run_dir = backend_config.SCREENER_RESULTS_DIR / run_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        candidate_rows = rows or [
+            {"symbol": "600519.SH", "market": "cn", "global_rank": 1, "total_score": 1.23},
+            {"symbol": "AAPL", "market": "us", "global_rank": 2, "total_score": 0.91},
+        ]
+        headers = list(candidate_rows[0].keys())
+        (run_dir / "candidates.csv").write_text(
+            "\n".join(
+                [
+                    ",".join(headers),
+                    *[
+                        ",".join(str(row.get(header, "")) for header in headers)
+                        for row in candidate_rows
+                    ],
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (run_dir / "run_meta.json").write_text(
+            json.dumps(
+                {
+                    "run_timestamp": run_id,
+                    "as_of_date": "2026-03-24",
+                    "config": {"markets": markets or ["cn", "us"]},
+                    "candidate_count": len(candidate_rows),
+                    "filtered_count_by_reason": filtered_count_by_reason or {},
+                    "artifact_paths": {
+                        "run_meta": str(run_dir / "run_meta.json"),
+                        "candidates": str(run_dir / "candidates.csv"),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return run_dir
 
     def test_list_reports_ignores_tmp_directory(self):
         temp_report_dir = backend_config.REPORTS_DIR / ".tmp" / "task-123"
@@ -353,33 +413,19 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("queue", context.exception.detail.lower())
 
     def test_list_screener_runs_reads_run_meta_files(self):
-        run_dir = backend_config.SCREENER_RESULTS_DIR / "20260324_214530"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        (run_dir / "run_meta.json").write_text(
-            json.dumps(
-                {
-                    "run_timestamp": "20260324_214530",
-                    "as_of_date": "2026-03-24",
-                    "config": {"markets": ["cn", "us"]},
-                    "candidate_count": 12,
-                }
-            ),
-            encoding="utf-8",
-        )
+        self._write_screener_run("20260324_214530")
+        screener_results.migrate_legacy_screener_results(force=True)
 
         runs = screener_service.list_screener_runs()
 
         self.assertEqual(runs[0]["id"], "20260324_214530")
         self.assertEqual(runs[0]["markets"], ["cn", "us"])
-        self.assertEqual(runs[0]["candidate_count"], 12)
+        self.assertEqual(runs[0]["candidate_count"], 2)
+        self.assertEqual(runs[0]["snapshot_slot"], "current")
 
     def test_get_screener_run_candidates_reads_candidates_csv(self):
-        run_dir = backend_config.SCREENER_RESULTS_DIR / "20260324_214530"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        (run_dir / "candidates.csv").write_text(
-            "symbol,market,global_rank,total_score\n600519.SH,cn,1,1.23\nAAPL,us,2,0.91\n",
-            encoding="utf-8",
-        )
+        self._write_screener_run("20260324_214530")
+        screener_results.migrate_legacy_screener_results(force=True)
 
         rows = screener_service.get_screener_run_candidates("20260324_214530")
 
@@ -454,6 +500,33 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("tickers", context.exception.detail.lower())
 
     def test_run_screener_task_marks_failed_stage_as_not_processing(self):
+        screener_results.persist_screener_run(
+            SimpleNamespace(
+                request_payload={"markets": ["cn"], "as_of_date": "2026-03-24"},
+                owner_user_id=None,
+            ),
+            screener_results.ScreenerResultCandidate(
+                source_run_id="20260324_214530",
+                generated_at="20260324_214530",
+                as_of_date="2026-03-24",
+                markets=["cn"],
+                universe_count=20,
+                match_count=1,
+                filtered_count_by_reason={},
+                artifact_paths={"candidates": "runs/20260324_214530/candidates.csv"},
+                rows=[
+                    {
+                        "symbol": "600519.SH",
+                        "market": "cn",
+                        "global_rank": 1,
+                        "total_score": 0.91,
+                    }
+                ],
+                manifest_version="manifest-v1",
+                logic_version="logic-v1",
+                duration_ms=1000,
+            ),
+        )
         task = screener_tasks.ScreenerTask(
             id="task-failed-screener",
             request_payload={
@@ -489,6 +562,13 @@ class BackendMainTests(unittest.TestCase):
         )
         self.assertIn("boom", task_status["error"])
 
+        state = screener_results.load_screener_result_state()
+        self.assertEqual(state.current_result.source_run_id, "20260324_214530")
+        self.assertIsNone(state.previous_result)
+        self.assertEqual(state.recent_runs[0].status, "failed")
+        self.assertEqual(state.recent_runs[0].error_summary, "boom")
+        self.assertFalse(state.recent_runs[0].snapshot_available)
+
     def test_run_screener_task_accepts_extended_progress_callback_signature(self):
         task = screener_tasks.ScreenerTask(
             id="task-progress-screener",
@@ -518,7 +598,7 @@ class BackendMainTests(unittest.TestCase):
                 detail="cache=2025-02-17..2026-03-24",
             )
             return ScreenRunResult(
-                run_dir=Path("/tmp/results/screener/20260324_214530"),
+                run_dir=run_dir,
                 universe_count_by_market={"cn": 1},
                 fetch_failed_count=0,
                 filtered_count_by_reason={},
@@ -526,6 +606,11 @@ class BackendMainTests(unittest.TestCase):
                 candidate_preview=[],
             )
 
+        run_dir = self._write_screener_run(
+            "20260324_214530",
+            rows=[{"symbol": "600519.SH", "market": "cn", "global_rank": 1, "total_score": 0.91}],
+            markets=["cn"],
+        )
         with patch("web.backend.runtime.screener_tasks.run_screen", side_effect=fake_run_screen):
             screener_tasks.run_screener_task(task.id)
 

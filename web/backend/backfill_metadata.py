@@ -12,7 +12,7 @@ from tradingagents.trade_feedback import (
     list_trade_reviews as list_trade_reviews_file,
 )
 from tradingagents.data_layout import resolve_reports_dir, resolve_screener_runs_dir
-from web.backend import auth, report_metadata, screener_runs, trade_entries
+from web.backend import auth, report_metadata, screener_results, screener_runs, trade_entries
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 REPORTS_DIR = resolve_reports_dir(PROJECT_ROOT)
@@ -177,6 +177,7 @@ def backfill_all_metadata() -> BackfillSummary:
         summary.reports, summary.report_files = _backfill_reports(db, owner_user.id)
         summary.trades = _backfill_trades(db, owner_user.id)
         summary.screener_runs = _backfill_screener_runs(db, owner_user.id)
+    screener_results.migrate_all_legacy_screener_results(force=True)
 
     logger.info(
         "metadata backfill complete owner_user_id=%s reports=%d report_files=%d trades=%d screener_runs=%d",

@@ -361,11 +361,20 @@ export interface ScreenerRunSummary {
   markets: string[];
   candidate_count: number;
   generated_at: string;
+  status?: string;
+  snapshot_slot?: "current" | "previous" | null;
+  snapshot_available?: boolean;
 }
 
 export interface ScreenerRunDetail extends ScreenerRunSummary {
   filtered_count_by_reason: Record<string, number>;
   artifact_paths: Record<string, string>;
+  summary?: {
+    entered_symbols: string[];
+    exited_symbols: string[];
+    rank_changed_symbols: string[];
+    unchanged: number;
+  };
 }
 
 export interface ScreenerCandidateRow {

@@ -27,6 +27,7 @@ web/frontend/lib/*
 !web/frontend/lib/workbenchRoutes.ts
 !web/frontend/lib/workbenchRoutes.test.mjs
 !web/frontend/lib/uiPreferences.ts
+!web/frontend/lib/utils.ts
 lib64/
 parts/
 sdist/

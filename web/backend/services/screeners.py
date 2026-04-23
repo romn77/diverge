@@ -5,7 +5,9 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from web.backend import access, app_config, auth, screener_runs
+from web.backend import app_config, auth, screener_results, screener_runs
+
+_READ_SERVICE = screener_results.ScreenerResultReadService()
 
 
 def relative_screener_storage_path(path: Path) -> str:
@@ -94,135 +96,32 @@ def list_screener_runs_from_disk() -> list[dict]:
 
 
 def list_screener_runs(current_user: auth.User | None = None) -> list[dict]:
-    if not auth.get_auth_settings().enabled:
-        return list_screener_runs_from_disk()
-    if current_user is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
-
-    with auth.db_session() as db:
-        owner_scope = access.owner_scope_for_user(current_user)
-        return [
-            screener_runs.serialize_screener_run_summary(record)
-            for record in screener_runs.list_screener_run_records(db, owner_user_id=owner_scope)
-        ]
+    return _READ_SERVICE.list_recent_runs(current_user)
 
 
 def get_screener_run(run_id: str, current_user: auth.User | None = None) -> dict:
-    if auth.get_auth_settings().enabled:
-        if current_user is None:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        try:
-            with auth.db_session() as db:
-                owner_scope = access.owner_scope_for_user(current_user)
-                record = screener_runs.get_screener_run_record(
-                    db,
-                    run_id,
-                    owner_user_id=owner_scope,
-                )
-                payload = screener_runs.serialize_screener_run_detail(record)
-        except Exception as exc:
-            raise access.translate_auth_error(exc) from exc
-
-        resolve_screener_run_dir_from_record(record)
-        meta_path = resolve_screener_artifact_path(record, "run_meta", "run_meta.json")
-        if not meta_path.is_file():
-            raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
-        try:
-            file_payload = json.loads(meta_path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-            raise HTTPException(status_code=500, detail=f"Failed to read screener run: {exc}") from exc
-
-        payload["filtered_count_by_reason"] = file_payload.get("filtered_count_by_reason", {})
-        return payload
-
-    run_dir = resolve_screener_run_dir(run_id)
-    meta_path = run_dir / "run_meta.json"
-    if not meta_path.is_file():
-        raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
-    try:
-        payload = json.loads(meta_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to read screener run: {exc}") from exc
-
-    return {
-        "id": run_id,
-        "as_of_date": payload.get("as_of_date"),
-        "markets": payload.get("config", {}).get("markets", []),
-        "candidate_count": payload.get("candidate_count", 0),
-        "generated_at": payload.get("run_timestamp"),
-        "filtered_count_by_reason": payload.get("filtered_count_by_reason", {}),
-        "artifact_paths": payload.get("artifact_paths", {}),
-    }
+    return _READ_SERVICE.get_run(run_id, current_user)
 
 
 def get_screener_run_candidates(
     run_id: str,
     current_user: auth.User | None = None,
 ) -> list[dict]:
-    if auth.get_auth_settings().enabled:
-        if current_user is None:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        try:
-            with auth.db_session() as db:
-                owner_scope = access.owner_scope_for_user(current_user)
-                record = screener_runs.get_screener_run_record(
-                    db,
-                    run_id,
-                    owner_user_id=owner_scope,
-                )
-        except Exception as exc:
-            raise access.translate_auth_error(exc) from exc
+    return _READ_SERVICE.get_run_candidates(run_id, current_user)
 
-        candidates_path = resolve_screener_artifact_path(record, "candidates", "candidates.csv")
-    else:
-        run_dir = resolve_screener_run_dir(run_id)
-        candidates_path = run_dir / "candidates.csv"
 
-    if not candidates_path.is_file():
-        raise HTTPException(status_code=404, detail=f"Candidates for run '{run_id}' not found")
-    try:
-        import pandas as pd
+def run_screener(task, result):
+    return screener_results.run_screener(task, result)
 
-        df = pd.read_csv(candidates_path)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to read candidates: {exc}") from exc
 
-    rows = df.where(pd.notna(df), None).to_dict(orient="records")
-    return [
-        {
-            "breakout_type": None,
-            "breakout_reason": None,
-            "breakout_with_volume": None,
-            "breakout_base_bonus": None,
-            "breakout_volume_bonus": None,
-            "breakout_bonus": None,
-            "strategy_tags": "",
-            "risk_flags": "",
-            **row,
-            "strategy_tags": row.get("strategy_tags") or "",
-            "risk_flags": row.get("risk_flags") or "",
-        }
-        for row in rows
-    ]
+def persist_screener_run(task, candidate=None, *, error_summary: str | None = None, source_run_id: str | None = None):
+    return screener_results.persist_screener_run(
+        task,
+        candidate,
+        error_summary=error_summary,
+        source_run_id=source_run_id,
+    )
 
 
 def record_screener_run_metadata(task, result) -> None:
-    if not auth.get_auth_settings().enabled:
-        return
-    if not task.owner_user_id:
-        raise RuntimeError("Screener task owner is required when auth is enabled")
-
-    run_dir = Path(result.run_dir).resolve()
-    run_id = run_dir.name
-    with auth.db_session() as db:
-        screener_runs.upsert_screener_run(
-            db,
-            run_id=run_id,
-            owner_user_id=task.owner_user_id,
-            as_of_date=str(task.request_payload.get("as_of_date") or "").strip() or None,
-            markets=list(task.request_payload.get("markets") or []),
-            candidate_count=int(getattr(result, "candidate_count", 0) or 0),
-            generated_at=run_id,
-            storage_path=relative_screener_storage_path(run_dir),
-            artifact_manifest=build_screener_artifact_manifest(run_dir),
-        )
+    screener_results.record_screener_run_metadata(task, result)

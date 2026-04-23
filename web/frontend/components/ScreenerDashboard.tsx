@@ -114,21 +114,48 @@ export function ScreenerDashboard() {
             ) : (
               <div className="mt-5 space-y-3">
                 {recentRuns.map((run) => (
-                  <Link
-                    key={run.id}
-                    href={buildScreenerRunHref(run.id)}
-                    className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--accent)]"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-slate-900">{run.id}</p>
-                      <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-slate-500">
-                        {run.markets.join(", ")} · {run.candidate_count} candidates
-                      </p>
+                  run.snapshot_available ? (
+                    <Link
+                      key={run.id}
+                      href={buildScreenerRunHref(run.id)}
+                      className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--accent)]"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-slate-900">{run.id}</p>
+                        <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-slate-500">
+                          {run.markets.join(", ")} · {run.candidate_count} candidates
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
+                          {formatRunDate(run.as_of_date)}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          {run.snapshot_slot === "previous" ? "Previous" : "Current"}
+                        </p>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div
+                      key={run.id}
+                      className="list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/72 px-4 py-4"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold text-slate-900">{run.id}</p>
+                        <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-slate-500">
+                          {run.markets.join(", ")} · {run.candidate_count} candidates
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          {formatRunDate(run.as_of_date)}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          Metadata only
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-                      {formatRunDate(run.as_of_date)}
-                    </span>
-                  </Link>
+                  )
                 ))}
               </div>
             )}

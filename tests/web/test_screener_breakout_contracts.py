@@ -4,7 +4,9 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from web.backend import app_config
+import json
+
+from web.backend import app_config, screener_results
 from web.backend.routers import screeners as screeners_router
 from web.backend.runtime import screener_tasks
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
@@ -64,11 +66,24 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
                 "600519.SH,cn,1,0.91,0.42,0.18,0.12,0.19\n",
                 encoding="utf-8",
             )
+            (run_dir / "run_meta.json").write_text(
+                json.dumps(
+                    {
+                        "run_timestamp": run_id,
+                        "as_of_date": "2026-03-24",
+                        "config": {"markets": ["cn"]},
+                        "candidate_count": 1,
+                    }
+                ),
+                encoding="utf-8",
+            )
 
             with (
                 patch.object(app_config, "SCREENER_RESULTS_DIR", runs_dir),
+                patch.object(app_config, "SCREENER_STATE_DIR", Path(temp_dir) / "state"),
                 patch("web.backend.auth.get_auth_settings", return_value=SimpleNamespace(enabled=False)),
             ):
+                screener_results.migrate_legacy_screener_results(force=True)
                 rows = screener_service.get_screener_run_candidates(run_id)
 
         self.assertEqual(len(rows), 1)
