@@ -1,5 +1,7 @@
-export type Theme = "light" | "dark";
+export const THEME_VALUES = ["light", "dark", "proof", "everforest"] as const;
+export type Theme = (typeof THEME_VALUES)[number];
 export type Language = "en" | "zh";
+export type VisualStyle = "normal" | "stylful";
 
 export type TranslationParams = Record<string, number | string | undefined>;
 export type TranslationTemplate =
@@ -8,11 +10,14 @@ export type TranslationTemplate =
 
 export const THEME_STORAGE_KEY = "tradingagents.ui.theme";
 export const LANGUAGE_STORAGE_KEY = "tradingagents.ui.language";
+export const VISUAL_STYLE_STORAGE_KEY = "tradingagents.ui.visualStyle";
 export const THEME_COOKIE_NAME = THEME_STORAGE_KEY;
 export const LANGUAGE_COOKIE_NAME = LANGUAGE_STORAGE_KEY;
+export const VISUAL_STYLE_COOKIE_NAME = VISUAL_STYLE_STORAGE_KEY;
 export const PREFERENCE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 export const DEFAULT_THEME: Theme = "light";
 export const DEFAULT_LANGUAGE: Language = "en";
+export const DEFAULT_VISUAL_STYLE: VisualStyle = "normal";
 
 export const LANGUAGE_LOCALES: Record<Language, string> = {
   en: "en-US",
@@ -26,16 +31,25 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "common.clear": "清空",
   "common.close": "关闭",
   "common.dark": "深色",
+  "common.everforest": "Everforest",
+  "common.delete": "删除",
+  "common.edit": "编辑",
   "common.english": "English",
   "common.interfacePreferences": "界面偏好",
   "common.language": "语言",
   "common.latest": "最新",
   "common.light": "浅色",
+  "common.proof": "Proof",
   "common.loading": "加载中",
   "common.menu": "菜单",
+  "common.normal": "标准",
+  "common.notAvailable": "N/A",
   "common.notSet": "未设置",
   "common.open": "打开",
+  "common.refresh": "刷新",
   "common.saved": "已保存",
+  "common.settings": "设置",
+  "common.stylful": "个性",
   "common.theme": "主题",
   "common.unknownDate": "未知日期",
   "common.updates": ({ count }) => `${count ?? 0} 条更新`,
@@ -56,6 +70,35 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "home.launchScreener": "发起筛选",
   "home.openManualJournal": "打开手动日志",
   "home.recentReports": "最近报告",
+  "home.viewActivity": "查看活动",
+  "home.analysisWorkspace": "分析工作台",
+  "home.searchResultsTitle": ({ query }) => `${query ?? ""} 的分析结果`,
+  "home.workspaceDescription":
+    "搜索报告、回到已覆盖标的，并让分析工作台聚焦于报告阅读，而不是混合导航工具。",
+  "home.metric.reportLibrary": "报告库",
+  "home.metric.reportLibraryMeta": "已索引报告总数",
+  "home.metric.trackedTickersMeta": "报告库中的覆盖标的",
+  "home.metric.activeResearch": "进行中研究",
+  "home.metric.activeResearchMeta": "正在运行的分析任务",
+  "home.searchPlaceholderShort": "Ticker 或报告 ID",
+  "home.searchDeepLinkHint": "结果会即时更新，并把查询保留在 URL 中以便深链访问。",
+  "home.matchingReports": "匹配报告",
+  "home.matchingReportCount": ({ count }) => `${count ?? 0} 份匹配报告`,
+  "home.jumpBack": "继续阅读覆盖标的",
+  "home.loadingReportIndex": "正在加载报告索引...",
+  "home.noReportMatches": "当前搜索还没有匹配报告。",
+  "home.coverageMap": "覆盖地图",
+  "home.coverageSnapshot": "覆盖快照",
+  "home.snapshotSearchFocus": "搜索正聚焦于报告库中的一个切片。",
+  "home.snapshotHomeBase": "使用分析入口作为报告主工作区。",
+  "home.snapshotSearchBody":
+    ({ reports, tickers }) =>
+      `当前查询正在过滤 ${reports ?? 0} 份已索引报告，覆盖 ${tickers ?? 0} 个 ticker。`,
+  "home.snapshotLibraryBody":
+    ({ reports, tickers }) =>
+      `当前报告库包含 ${reports ?? 0} 份报告，覆盖 ${tickers ?? 0} 个 ticker；新的研究任务会通过统一侧边栏入口发起。`,
+  "home.latestIndexedReport":
+    ({ ticker }) => `最新索引报告 · ${ticker ?? ""}`,
   "home.reportsLatest": "最新",
   "home.reportsEmpty": "报告生成后会显示在这里。",
   "home.recentTickers": "最近 ticker",
@@ -64,6 +107,26 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "sidebar.closeSidebar": "关闭侧边栏",
   "sidebar.brandSubline": "研究",
   "sidebar.launch": "发起",
+  "sidebar.create": "新建",
+  "sidebar.primaryNavigation": "主导航",
+  "sidebar.workbenchNavigation": "工作台导航",
+  "sidebar.section.research": "研究",
+  "sidebar.section.portfolio": "组合",
+  "sidebar.section.operations": "运营",
+  "sidebar.nav.analysis": "分析",
+  "sidebar.nav.screener": "筛选",
+  "sidebar.nav.assets": "资产",
+  "sidebar.nav.journal": "日志",
+  "sidebar.nav.activity": "活动",
+  "sidebar.meta.analysis": "报告与搜索",
+  "sidebar.meta.screener": "运行与候选池",
+  "sidebar.meta.assets": "台账与敞口",
+  "sidebar.meta.journal": "交易复盘",
+  "sidebar.noActiveWork": "没有进行中的后台任务",
+  "sidebar.newAnalysisHint": "研究一个覆盖标的",
+  "sidebar.newScreenerHint": "构建排序候选池",
+  "sidebar.expand": "展开侧边栏",
+  "sidebar.collapse": "收起侧边栏",
   "sidebar.newAnalysis": "新建分析",
   "sidebar.queueLocked": "当前任务未完成前，队列暂时锁定",
   "sidebar.screen": "筛选",
@@ -88,6 +151,32 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "sidebar.viewLabel": "查看",
   "preferences.themeLabel": "界面主题",
   "preferences.languageLabel": "界面语言",
+  "preferences.visualStyleLabel": "界面风格",
+  "workspace.access": "工作台访问",
+  "workspace.resetRequired": "需要重置",
+  "workspace.adminConsole": "管理员控制台",
+  "workspace.signingOut": "正在退出",
+  "workspace.signOut": "退出登录",
+  "workspace.syncing": "会话详情仍在同步中。",
+  "workspace.openMode": "开放工作台",
+  "workspace.openModeHint": "当前环境已禁用认证。",
+  "sidebar.settingsLoadError": "无法加载侧边栏设置",
+  "sidebar.retry": "重试",
+  "sidebar.noOutputLanguages": "没有可用的输出语言。",
+  "sidebar.outputLanguageHint": "新建分析表单会默认使用这个输出语言。",
+  "workbench.sessionBootstrap": "会话初始化",
+  "workbench.preparingTitle": "正在准备工作台",
+  "workbench.preparingBody":
+    "TradingAgents 正在检查当前会话，然后加载报告、任务和筛选结果。",
+  "workbench.unavailable": "工作台不可用",
+  "workbench.authBoundaryTitle": "无法访问认证边界",
+  "workbench.authBoundaryBody":
+    "前端无法读取 /api/auth/me，因此受保护的工作台导航已暂停。",
+  "workbench.retrySession": "重试会话初始化",
+  "workbench.loginRequired": "需要登录",
+  "workbench.loginRequiredTitle": "正在跳转到登录页",
+  "workbench.loginRequiredBody":
+    "当前环境启用了工作台保护，因此 TradingAgents 会将本会话跳转到登录页。",
   "report.generatedUnavailable": "生成时间不可用",
   "report.loadingReport": "正在加载报告...",
   "report.noReportData": "没有报告数据",
@@ -195,6 +284,116 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "screener.market.us": "美股 (us)",
   "screener.cnSource.tushare": "Tushare",
   "screener.cnSource.akshare": "AkShare",
+  "screenerDashboard.title": "候选池工作台",
+  "screenerDashboard.description":
+    "发起新的筛选任务、回看排序候选池，并让筛选工作区与报告浏览保持分离。",
+  "screenerDashboard.newScreener": "新建筛选",
+  "screenerDashboard.recentRuns": "最近运行",
+  "screenerDashboard.recentRunsMeta": "已保存候选池",
+  "screenerDashboard.activeBuilds": "进行中构建",
+  "screenerDashboard.activeBuildsMeta": "后台筛选任务",
+  "screenerDashboard.markets": "市场",
+  "screenerDashboard.marketsMeta": "最近覆盖市场",
+  "screenerDashboard.rankedPools": "排序候选池",
+  "screenerDashboard.activeBuild": "进行中构建",
+  "screenerDashboard.emptyRuns":
+    "还没有筛选运行记录。发起一个新筛选来生成第一个排序候选池。",
+  "screenerDashboard.runMeta":
+    ({ markets, count }) => `${markets ?? ""} · ${count ?? 0} 个候选`,
+  "screenerDashboard.previous": "上一期",
+  "screenerDashboard.current": "当前",
+  "screenerDashboard.metadataOnly": "仅元数据",
+  "screenerDashboard.marketCoverage": "市场覆盖",
+  "screenerDashboard.waitingHistory": "等待筛选历史",
+  "screenerDashboard.queueSnapshot": "队列快照",
+  "screenerDashboard.queueHint":
+    "当前正在运行的筛选构建。进入活动页可按任务逐一监控。",
+  "screenerDashboard.openActivity": "打开活动页",
+  "activity.title": "后台任务",
+  "activity.description":
+    "在一个位置监控进行中的分析和筛选任务，避免把任务队列堆进导航栏。",
+  "activity.metric.total": "进行中总数",
+  "activity.metric.totalMeta": "合并后台任务",
+  "activity.metric.analysis": "分析任务",
+  "activity.metric.analysisMeta": "运行中的研究任务",
+  "activity.metric.screener": "筛选任务",
+  "activity.metric.screenerMeta": "运行中的候选池构建",
+  "activity.analysisTasks": "分析任务",
+  "activity.analysisDescription": "等待中或运行中的研究任务。",
+  "activity.noAnalysisJobs": "没有进行中的分析任务。",
+  "activity.screenerTasks": "筛选任务",
+  "activity.screenerDescription": "当前正在运行的候选池构建。",
+  "activity.noScreenerJobs": "没有进行中的筛选任务。",
+  "activity.candidatePoolBuild": "候选池构建",
+  "activity.awaitingUpdate": "等待下一次更新",
+  "assets.title": "组合资产台账",
+  "assets.description":
+    "跟踪账户、当前持仓、手动资产和按市值计量的敞口，沉淀到 PostgreSQL 台账中，供组合经理在分析任务中复用。",
+  "assets.base": "基准",
+  "assets.refreshDue": "刷新到期项",
+  "assets.addAsset": "添加资产",
+  "assets.editAsset": "编辑资产",
+  "assets.createAsset": "创建资产",
+  "assets.saveAsset": "保存资产",
+  "assets.metric.marketValue": "市值",
+  "assets.metric.marketValueMeta": "已定价持仓总额",
+  "assets.metric.unrealized": "未实现盈亏",
+  "assets.metric.unrealizedMeta": "所有已定价持仓",
+  "assets.metric.positions": "持仓",
+  "assets.metric.positionsMeta": "已跟踪资产",
+  "assets.metric.accountsMeta": "组合账户",
+  "assets.accounts": "账户",
+  "assets.groupedExposure": "分组敞口",
+  "assets.platformCount": ({ count }) => `${count ?? 0} 个平台`,
+  "assets.loadingSummary": "正在加载资产摘要...",
+  "assets.noGroups": "还没有已定价的平台分组。添加持仓或刷新手动估值。",
+  "assets.accountCount": ({ count }) => `${count ?? 0} 个账户`,
+  "assets.positionCount": ({ count }) => `${count ?? 0} 个持仓`,
+  "assets.pnlValue": ({ value }) => `盈亏 ${value ?? ""}`,
+  "assets.positionMeta":
+    ({ quantity, category, state }) =>
+      `数量 ${quantity ?? ""} · ${category ?? ""} · ${state ?? ""}`,
+  "assets.ledgerHealth": "台账健康度",
+  "assets.pricingState": "定价状态",
+  "assets.priced": "已定价",
+  "assets.unpriced": "未定价",
+  "assets.forceRevalue": "强制重估全部持仓",
+  "assets.unpricedQueue": "未定价队列",
+  "assets.noUnpriced": "没有等待定价处理的未解决或仅手动估值持仓。",
+  "assets.ledgerTable": "台账表",
+  "assets.allPositions": "全部持仓",
+  "assets.loadingLedger": "正在加载资产台账...",
+  "assets.noPositions": "还没有跟踪持仓。",
+  "assets.asset": "资产",
+  "assets.account": "账户",
+  "assets.quantityShort": "数量",
+  "assets.state": "状态",
+  "assets.value": "价值",
+  "assets.actions": "操作",
+  "assets.dialogDescription":
+    "保存账户归属、持有数量，以及市场 ticker 或手动估值，让台账和组合经理保持一致。",
+  "assets.platform": "平台",
+  "assets.assetName": "资产名称",
+  "assets.category": "类别",
+  "assets.quantity": "数量",
+  "assets.costBasis": "成本基础",
+  "assets.currency": "货币",
+  "assets.valuationMode": "估值模式",
+  "assets.valuationMode.market": "市场",
+  "assets.valuationMode.manual": "手动",
+  "assets.ticker": "Ticker",
+  "assets.manualPrice": "手动价格",
+  "assets.notes": "备注",
+  "assets.notesPlaceholder": "关于该持仓的可选内部备注。",
+  "assets.error.loadLedger": "无法加载资产台账",
+  "assets.error.loadSelected": "无法加载选中的资产",
+  "assets.error.save": "无法保存资产",
+  "assets.error.delete": "无法删除资产",
+  "assets.error.refresh": "无法刷新资产",
+  "assets.error.refreshLedger": "无法刷新资产台账",
+  "assets.confirmDelete":
+    ({ asset, platform, account }) =>
+      `确认从 ${platform ?? ""} / ${account ?? ""} 删除 ${asset ?? ""}？`,
   "task.loading": "正在加载任务进度...",
   "task.error.loadTask": "无法加载任务",
   "task.kicker": "后台任务",
@@ -411,11 +610,19 @@ const zhTranslations: Record<string, TranslationTemplate> = {
 };
 
 export function isTheme(value: string | null | undefined): value is Theme {
-  return value === "light" || value === "dark";
+  return THEME_VALUES.includes(value as Theme);
+}
+
+export function toColorScheme(theme: Theme): "light" | "dark" {
+  return theme === "dark" || theme === "everforest" ? "dark" : "light";
 }
 
 export function isLanguage(value: string | null | undefined): value is Language {
   return value === "en" || value === "zh";
+}
+
+export function isVisualStyle(value: string | null | undefined): value is VisualStyle {
+  return value === "normal" || value === "stylful";
 }
 
 export function toLocale(language: Language): string {
@@ -428,6 +635,12 @@ export function toHtmlLang(language: Language): string {
 
 export function resolveServerTheme(value: string | null | undefined): Theme {
   return isTheme(value) ? value : DEFAULT_THEME;
+}
+
+export function resolveServerVisualStyle(
+  value: string | null | undefined
+): VisualStyle {
+  return isVisualStyle(value) ? value : DEFAULT_VISUAL_STYLE;
 }
 
 export function inferLanguageFromHeader(value: string | null | undefined): Language {
@@ -454,10 +667,12 @@ export function createPreferenceCookieString(name: string, value: string): strin
 export function buildPreferencesBootstrapScript({
   initialLanguage,
   initialTheme,
+  initialVisualStyle,
   preferSystemTheme,
 }: {
   initialLanguage: Language;
   initialTheme: Theme;
+  initialVisualStyle: VisualStyle;
   preferSystemTheme: boolean;
 }): string {
   return `(() => {
@@ -465,7 +680,15 @@ export function buildPreferencesBootstrapScript({
   const storedTheme = (() => {
     try {
       const value = window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
-      return value === "light" || value === "dark" ? value : null;
+      return ["light", "dark", "proof", "everforest"].includes(value) ? value : null;
+    } catch (error) {
+      return null;
+    }
+  })();
+  const storedVisualStyle = (() => {
+    try {
+      const value = window.localStorage.getItem(${JSON.stringify(VISUAL_STYLE_STORAGE_KEY)});
+      return value === "normal" || value === "stylful" ? value : null;
     } catch (error) {
       return null;
     }
@@ -474,13 +697,16 @@ export function buildPreferencesBootstrapScript({
     ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
     : ${JSON.stringify(initialTheme)});
   const nextLanguage = ${JSON.stringify(initialLanguage)};
+  const nextVisualStyle = storedVisualStyle ?? ${JSON.stringify(initialVisualStyle)};
   root.dataset.theme = nextTheme;
   root.dataset.uiLanguage = nextLanguage;
+  root.dataset.visualStyle = nextVisualStyle;
   root.lang = ${JSON.stringify(toHtmlLang(initialLanguage))};
-  root.style.colorScheme = nextTheme;
+  root.style.colorScheme = nextTheme === "dark" || nextTheme === "everforest" ? "dark" : "light";
   try {
     window.localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, nextTheme);
     window.localStorage.setItem(${JSON.stringify(LANGUAGE_STORAGE_KEY)}, nextLanguage);
+    window.localStorage.setItem(${JSON.stringify(VISUAL_STYLE_STORAGE_KEY)}, nextVisualStyle);
   } catch (error) {}
   document.cookie = ${JSON.stringify(
     createPreferenceCookieString(THEME_COOKIE_NAME, "")
@@ -488,6 +714,9 @@ export function buildPreferencesBootstrapScript({
   document.cookie = ${JSON.stringify(
     createPreferenceCookieString(LANGUAGE_COOKIE_NAME, initialLanguage)
   )};
+  document.cookie = ${JSON.stringify(
+    createPreferenceCookieString(VISUAL_STYLE_COOKIE_NAME, "")
+  )}.replace("=", "=" + nextVisualStyle);
 })();`;
 }
 

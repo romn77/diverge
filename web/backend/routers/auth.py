@@ -28,6 +28,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
     if not settings.enabled:
         raise HTTPException(status_code=409, detail="Auth is disabled")
     client_ip = request.client.host if request.client else None
+    auth.ensure_login_allowed(payload.email, client_ip)
 
     try:
         with auth.db_session() as db:
@@ -45,6 +46,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
             )
             result = auth.build_auth_state_payload(user)
     except auth.AuthValidationError as exc:
+        auth.record_login_failure(payload.email, client_ip)
         logger.warning(
             "login failed email=%s ip=%s reason=%s",
             payload.email.strip().lower(),
@@ -53,6 +55,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
         )
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     except auth.AuthPermissionError as exc:
+        auth.record_login_failure(payload.email, client_ip)
         logger.warning(
             "login denied email=%s ip=%s reason=%s",
             payload.email.strip().lower(),
@@ -63,6 +66,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
 
+    auth.clear_login_failures(payload.email, client_ip)
     auth.set_session_cookie(response, session_token)
     logger.info(
         "login success user_id=%s email=%s role=%s ip=%s",

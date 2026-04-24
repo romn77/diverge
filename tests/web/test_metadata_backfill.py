@@ -167,10 +167,19 @@ class MetadataBackfillTests(unittest.TestCase):
                     )
 
                 async with app_client(app) as client:
-                    await client.post(
+                    login_response = await client.post(
                         "/api/auth/login",
                         json={"email": "admin@example.com", "password": "AdminPass123"},
                     )
+                    self.assertEqual(login_response.status_code, 200, login_response.text)
+                    change_response = await client.post(
+                        "/api/auth/change-password",
+                        json={
+                            "current_password": "AdminPass123",
+                            "new_password": "AdminPass456",
+                        },
+                    )
+                    self.assertEqual(change_response.status_code, 200, change_response.text)
 
                     list_response = await client.get("/api/reports")
                     self.assertEqual(list_response.status_code, 200, list_response.text)

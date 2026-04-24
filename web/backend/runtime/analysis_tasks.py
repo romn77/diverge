@@ -68,6 +68,16 @@ def task_snapshot_path(task_id: str) -> Path:
     return active_tasks_dir() / task_id / "task.json"
 
 
+def report_output_dir(report_id: str) -> Path:
+    reports_root = app_config.REPORTS_DIR.resolve()
+    report_dir = (app_config.REPORTS_DIR / report_id).resolve()
+    try:
+        report_dir.relative_to(reports_root)
+    except ValueError as exc:
+        raise ValueError("Report output directory must remain inside the reports root") from exc
+    return report_dir
+
+
 def _write_json_atomic(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
@@ -239,7 +249,7 @@ def run_task(task_id: str) -> None:
         report_id = f"{task.request.ticker}_{timestamp}"
         save_report_to_disk(final_state, task.request.ticker, temp_dir)
         app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        final_report_dir = app_config.REPORTS_DIR / report_id
+        final_report_dir = report_output_dir(report_id)
         temp_dir.replace(final_report_dir)
         if auth.auth_enabled() and task.owner_user_id:
             metadata_payload = report_metadata.build_report_metadata(

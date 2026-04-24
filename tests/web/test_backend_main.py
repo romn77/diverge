@@ -191,6 +191,33 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(snapshot["status"], "pending")
         self.assertEqual(snapshot["ticker"], "SPY")
 
+    def test_post_tasks_rejects_path_ticker_before_queueing(self):
+        payload = {
+            "ticker": "../../ESCAPE",
+            "analysis_date": "2026-03-13",
+            "analysts": ["market", "news"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+
+        with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+            with self.assertRaises(HTTPException) as context:
+                tasks_router.create_task(TaskCreatePayload(**payload))
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("path", context.exception.detail.lower())
+        start_task_thread.assert_not_called()
+        self.assertFalse((backend_config.REPORTS_DIR.parent / "ESCAPE").exists())
+
+    def test_report_output_dir_rejects_paths_outside_reports_root(self):
+        with self.assertRaises(ValueError):
+            analysis_tasks.report_output_dir("../../ESCAPE")
+
     def test_terminal_task_status_removes_persisted_active_snapshot(self):
         payload = {
             "ticker": "SPY",

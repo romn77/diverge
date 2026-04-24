@@ -14,6 +14,7 @@ from tradingagents.llm_clients.model_config import (
     get_provider_base_url,
 )
 from tradingagents.research.thesis_tracker import build_thesis_artifact
+from tradingagents.ticker_symbols import normalize_ticker_symbol
 from tradingagents.trade_feedback import get_trade_feedback_payload
 
 
@@ -41,6 +42,7 @@ STAGE_AGENT_MAP = {
     "Trading": ("Trader",),
     "Risk": tuple(RISK_TEAM),
     "Portfolio": ("Portfolio Manager",),
+    "Summary": ("Summary Agent",),
 }
 VALID_PROVIDERS = {provider for provider, _label, _base_url in PROVIDER_OPTIONS}
 VALID_RESEARCH_DEPTHS = {1, 3, 5}
@@ -141,9 +143,7 @@ class AnalysisRequest:
     portfolio_context: Optional[str] = None
 
     def __post_init__(self) -> None:
-        self.ticker = self.ticker.strip().upper()
-        if not self.ticker:
-            raise ValueError("Ticker is required")
+        self.ticker = normalize_ticker_symbol(self.ticker)
 
         try:
             analysis_date = datetime.datetime.strptime(self.analysis_date, "%Y-%m-%d")
@@ -235,6 +235,7 @@ class AnalysisTracker:
         for agent_name in RISK_TEAM:
             self.agent_status[agent_name] = "pending"
         self.agent_status["Portfolio Manager"] = "pending"
+        self.agent_status["Summary Agent"] = "pending"
 
         self.report_sections = {}
         for analyst_key in self.selected_analysts:
@@ -290,6 +291,9 @@ class AnalysisTracker:
             dirty = True
 
         if self._update_risk_status(chunk):
+            dirty = True
+
+        if self._update_summary_status(chunk):
             dirty = True
 
         if not dirty:
@@ -454,8 +458,14 @@ class AnalysisTracker:
             for agent in RISK_TEAM:
                 dirty = self.update_agent_status(agent, "completed") or dirty
             dirty = self.update_agent_status("Portfolio Manager", "completed") or dirty
+            dirty = self.update_agent_status("Summary Agent", "in_progress") or dirty
 
         return dirty
+
+    def _update_summary_status(self, chunk: dict) -> bool:
+        if not chunk.get("report_summary"):
+            return False
+        return self.update_agent_status("Summary Agent", "completed")
 
     def _write_partial_artifact(self, section_name: str, content: str) -> None:
         stage_dir_name, file_name = SECTION_FILE_MAP[section_name]
@@ -663,6 +673,16 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         json.dumps(thesis_artifact, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    if final_state.get("report_summary"):
+        summary_artifact = {
+            "type": "summary",
+            "ticker": ticker,
+            "summary": str(final_state["report_summary"]).strip(),
+        }
+        (artifacts_dir / "summary.json").write_text(
+            json.dumps(summary_artifact, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
     if final_state.get("historical_trade_reviews"):
         trade_feedback_artifact = {
             "type": "trade_feedback",

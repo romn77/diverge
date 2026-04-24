@@ -11,10 +11,12 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { AdminUserSummaryCards } from "@/components/admin/AdminUserSummaryCards";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -334,120 +336,72 @@ export default function AdminUsersPage() {
 
   if (authStatus === "loading") {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <Card className="w-full max-w-xl text-center">
-          <CardHeader>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
-            Session Bootstrap
-          </p>
-          <CardTitle>
-            Verifying admin access
-          </CardTitle>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            TradingAgents is checking the current session before loading admin APIs.
-          </p>
-          </CardHeader>
-        </Card>
-      </main>
+      <StatusPanel
+        eyebrow="Session Bootstrap"
+        title="Verifying admin access"
+        body="TradingAgents is checking the current session before loading admin APIs."
+      />
     );
   }
 
   if (authStatus === "error") {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <Card className="w-full max-w-xl text-center">
-          <CardHeader>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
-            Auth Unavailable
-          </p>
-          <CardTitle>
-            Unable to verify admin session
-          </CardTitle>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            {authError ??
-              "The admin console could not load /api/auth/me, so user management is paused."}
-          </p>
-          </CardHeader>
-          <CardContent className="flex justify-center pt-0">
-            <Button type="button" onClick={() => void refreshSession()}>
-              Retry Session Bootstrap
-            </Button>
-          </CardContent>
-        </Card>
-      </main>
+      <StatusPanel
+        eyebrow="Auth Unavailable"
+        title="Unable to verify admin session"
+        tone="danger"
+        body={
+          authError ??
+          "The admin console could not load /api/auth/me, so user management is paused."
+        }
+        action={
+          <Button type="button" onClick={() => void refreshSession()}>
+            Retry Session Bootstrap
+          </Button>
+        }
+      />
     );
   }
 
   if (shouldRedirectToLogin) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <Card className="w-full max-w-xl text-center">
-          <CardHeader>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
-            Login Required
-          </p>
-          <CardTitle>
-            Redirecting to `/login`
-          </CardTitle>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            The admin console is protected, so unauthenticated sessions are routed
-            back through the sign-in page.
-          </p>
-          </CardHeader>
-        </Card>
-      </main>
+      <StatusPanel
+        eyebrow="Login Required"
+        title="Redirecting to `/login`"
+        body="The admin console is protected, so unauthenticated sessions are routed back through the sign-in page."
+      />
     );
   }
 
   if (!authEnabled) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <Card className="w-full max-w-xl text-center">
-          <CardHeader>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-slate-500">
-            Auth Disabled
-          </p>
-          <CardTitle>
-            Admin user management is unavailable
-          </CardTitle>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            The backend has auth turned off in this environment, so `/api/admin/users`
-            cannot be used until auth is enabled.
-          </p>
-          </CardHeader>
-          <CardContent className="flex justify-center pt-0">
-            <Button asChild>
-              <Link href="/">Back to Workbench</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </main>
+      <StatusPanel
+        eyebrow="Auth Disabled"
+        title="Admin user management is unavailable"
+        tone="muted"
+        body="The backend has auth turned off in this environment, so `/api/admin/users` cannot be used until auth is enabled."
+        action={
+          <Button asChild>
+            <Link href="/">Back to Workbench</Link>
+          </Button>
+        }
+      />
     );
   }
 
   if (isForbidden) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
-        <Card className="w-full max-w-xl text-center">
-          <CardHeader>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
-            Forbidden
-          </p>
-          <CardTitle>
-            This session cannot manage users
-          </CardTitle>
-          <p className="mt-3 text-sm leading-6 text-slate-600">
-            The backend returned `403 Insufficient permissions`, so this screen stays
-            read-only and does not guess around RBAC.
-          </p>
-          </CardHeader>
-          <CardContent className="flex justify-center pt-0">
-            <Button asChild>
-              <Link href="/">Back to Workbench</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </main>
+      <StatusPanel
+        eyebrow="Forbidden"
+        title="This session cannot manage users"
+        tone="danger"
+        body="The backend returned `403 Insufficient permissions`, so this screen stays read-only and does not guess around RBAC."
+        action={
+          <Button asChild>
+            <Link href="/">Back to Workbench</Link>
+          </Button>
+        }
+      />
     );
   }
 
@@ -494,11 +448,11 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            <SummaryCard label="Total Users" value={users.length} />
-            <SummaryCard label="Active Admins" value={adminCount} accent />
-            <SummaryCard label="Disabled Accounts" value={disabledCount} muted />
-          </div>
+          <AdminUserSummaryCards
+            totalUsers={users.length}
+            adminCount={adminCount}
+            disabledCount={disabledCount}
+          />
           </CardContent>
         </Card>
 
@@ -831,35 +785,6 @@ export default function AdminUsersPage() {
         </section>
       </div>
     </main>
-  );
-}
-
-function SummaryCard({
-  label,
-  value,
-  accent = false,
-  muted = false,
-}: {
-  label: string;
-  value: number;
-  accent?: boolean;
-  muted?: boolean;
-}) {
-  const textClass = accent
-    ? "text-[var(--primary-strong)]"
-    : muted
-      ? "text-slate-600"
-      : "text-slate-900";
-
-  return (
-    <Card className="rounded-[24px] bg-white/82">
-      <CardContent className="p-5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-        {label}
-      </p>
-      <p className={`mt-3 text-3xl font-semibold tracking-tight ${textClass}`}>{value}</p>
-      </CardContent>
-    </Card>
   );
 }
 

@@ -1,0 +1,265 @@
+html[data-visual-style="stylful"] {
+  --stylful-pencil: var(--text);
+  --stylful-pencil-light: var(--muted);
+  --stylful-dot: color-mix(in srgb, var(--muted) 42%, transparent);
+  --stylful-shadow: rgba(20, 19, 18, 0.2);
+  --stylful-shadow-strong: rgba(20, 19, 18, 0.28);
+  --stylful-tape: color-mix(in srgb, var(--surface-strong) 68%, transparent);
+  --stylful-active: var(--primary-soft);
+  --radius-wobble-card: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --radius-wobble-card-alt: 230px 12px 245px 18px / 18px 240px 12px 230px;
+  --radius-wobble-btn: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --radius-wobble-badge: 120px 8px 100px 8px / 8px 100px 8px 120px;
+  --heading-scale: 0.94;
+}
+
+html[data-theme="dark"][data-visual-style="stylful"] {
+  --stylful-pencil: #ededeb;
+  --stylful-pencil-light: #a3a09a;
+  --stylful-dot: rgba(255, 255, 255, 0.06);
+  --stylful-shadow: rgba(0, 0, 0, 0.55);
+  --stylful-shadow-strong: rgba(0, 0, 0, 0.68);
+  --stylful-tape: rgba(180, 175, 155, 0.28);
+  --stylful-active: rgba(232, 86, 74, 0.16);
+}
+
+html[data-theme="everforest"][data-visual-style="stylful"] {
+  --stylful-pencil: var(--text);
+  --stylful-pencil-light: var(--muted);
+  --stylful-dot: rgba(211, 198, 170, 0.08);
+  --stylful-shadow: rgba(0, 0, 0, 0.5);
+  --stylful-shadow-strong: rgba(0, 0, 0, 0.66);
+  --stylful-tape: rgba(167, 192, 128, 0.2);
+  --stylful-active: var(--primary-soft);
+}
+
+html[data-visual-style="stylful"] body {
+  background-color: var(--bg);
+  background-image: radial-gradient(var(--stylful-dot) 0.8px, transparent 0.8px);
+  background-size: 24px 24px;
+}
+
+html[data-visual-style="stylful"] .font-heading,
+html[data-visual-style="stylful"] .sidebar-surface .text-sm.font-semibold,
+html[data-visual-style="stylful"] .summary-panel-kicker,
+html[data-visual-style="stylful"] .viewer-meta-label,
+html[data-visual-style="stylful"] .sidebar-section-label {
+  font-family: var(--font-heading), "Caveat", "DM Sans", cursive;
+  letter-spacing: 0 !important;
+}
+
+html[data-visual-style="stylful"] main h1,
+html[data-visual-style="stylful"] main h2,
+html[data-visual-style="stylful"] main h3 {
+  font-family: var(--font-heading), "Caveat", "DM Sans", cursive;
+  font-weight: 700;
+  letter-spacing: 0 !important;
+}
+
+html[data-visual-style="stylful"] main h1 {
+  font-size: calc(var(--heading-scale) * 3.5rem);
+}
+
+html[data-visual-style="stylful"] .card-surface,
+html[data-visual-style="stylful"] .viewer-frame,
+html[data-visual-style="stylful"] .modal-panel,
+html[data-visual-style="stylful"] .summary-panel,
+html[data-visual-style="stylful"] .summary-column,
+html[data-visual-style="stylful"] .summary-table-wrap,
+html[data-visual-style="stylful"] .summary-matrix-card,
+html[data-visual-style="stylful"] .sidebar-report-card,
+html[data-visual-style="stylful"] .sidebar-ticker-card,
+html[data-visual-style="stylful"] .sidebar-history-card,
+html[data-visual-style="stylful"] .viewer-meta-card {
+  border: 2px solid var(--stylful-pencil) !important;
+  border-radius: var(--radius-wobble-card) !important;
+  background: var(--surface) !important;
+  box-shadow: 3px 3px 0 var(--stylful-shadow) !important;
+  transition:
+    translate 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+html[data-visual-style="stylful"] .card-surface:nth-of-type(3n + 2),
+html[data-visual-style="stylful"] .viewer-frame:nth-of-type(3n + 2),
+html[data-visual-style="stylful"] .summary-panel:nth-child(3n + 2) {
+  border-radius: var(--radius-wobble-card-alt) !important;
+}
+
+html[data-visual-style="stylful"] .card-surface:hover,
+html[data-visual-style="stylful"] .viewer-frame:hover,
+html[data-visual-style="stylful"] .summary-panel:hover {
+  box-shadow: 5px 5px 0 var(--stylful-shadow-strong) !important;
+  translate: -1px -1px;
+}
+
+html[data-visual-style="stylful"] .summary-panel {
+  position: relative;
+  margin-top: 10px;
+  overflow: visible;
+}
+
+html[data-visual-style="stylful"] .summary-panel::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  z-index: 2;
+  width: 76px;
+  height: 22px;
+  pointer-events: none;
+  transform: translateX(-50%) rotate(-2deg);
+  border-radius: 2px 3px 3px 1px;
+  border-top: 1px solid rgba(190, 185, 165, 0.38);
+  border-bottom: 1px solid rgba(190, 185, 165, 0.3);
+  background: var(--stylful-tape);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+html[data-visual-style="stylful"] .summary-panel:nth-child(3n)::before {
+  left: 58%;
+  transform: translateX(-50%) rotate(2deg);
+}
+
+html[data-visual-style="stylful"] .sidebar-surface {
+  border-right: 2px dashed var(--stylful-pencil-light) !important;
+  background: var(--surface-strong) !important;
+  box-shadow: none !important;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface .border-b,
+html[data-visual-style="stylful"] .sidebar-surface .border-t {
+  border-color: var(--stylful-pencil-light) !important;
+  border-style: dashed !important;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface .text-slate-950,
+html[data-visual-style="stylful"] .sidebar-surface .text-slate-900,
+html[data-visual-style="stylful"] .sidebar-surface .text-slate-800,
+html[data-visual-style="stylful"] .sidebar-surface .text-slate-700 {
+  color: var(--stylful-pencil) !important;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface .text-slate-600,
+html[data-visual-style="stylful"] .sidebar-surface .text-slate-500,
+html[data-visual-style="stylful"] .sidebar-surface .text-slate-400 {
+  color: var(--stylful-pencil-light) !important;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface .sidebar-section-label {
+  color: var(--stylful-pencil-light) !important;
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface a,
+html[data-visual-style="stylful"] .sidebar-surface button,
+html[data-visual-style="stylful"] .sidebar-surface [role="button"] {
+  border-radius: var(--radius-wobble-badge) !important;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface a:hover,
+html[data-visual-style="stylful"] .sidebar-surface button:hover {
+  box-shadow: 2px 2px 0 var(--stylful-shadow);
+  translate: -1px -1px;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface [data-active="true"] {
+  border-color: var(--stylful-pencil) !important;
+  border-left: 3px dashed var(--primary) !important;
+  background: var(--stylful-active) !important;
+  color: var(--stylful-pencil) !important;
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--primary) 18%, transparent) !important;
+  translate: none;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface .bg-white,
+html[data-visual-style="stylful"] .sidebar-surface .bg-white\/95,
+html[data-visual-style="stylful"] .sidebar-surface .bg-white\/88,
+html[data-visual-style="stylful"] .sidebar-surface .bg-white\/80,
+html[data-visual-style="stylful"] .sidebar-surface .bg-white\/76,
+html[data-visual-style="stylful"] .sidebar-surface .bg-white\/68 {
+  background-color: var(--surface) !important;
+}
+
+html[data-visual-style="stylful"] .sidebar-surface .rounded-2xl,
+html[data-visual-style="stylful"] .sidebar-surface .rounded-\[20px\] {
+  border-radius: var(--radius-wobble-badge) !important;
+}
+
+html[data-visual-style="stylful"] .bg-\[var\(--primary\)\],
+html[data-visual-style="stylful"] button.bg-\[var\(--primary\)\],
+html[data-visual-style="stylful"] a.bg-\[var\(--primary\)\] {
+  border: 3px solid var(--stylful-pencil) !important;
+  border-radius: var(--radius-wobble-btn) !important;
+  box-shadow: 4px 4px 0 var(--stylful-shadow-strong) !important;
+}
+
+html[data-visual-style="stylful"] .bg-\[var\(--primary\)\]:hover {
+  box-shadow: 2px 2px 0 var(--stylful-shadow-strong) !important;
+  translate: 2px 2px;
+}
+
+html[data-visual-style="stylful"] .pill-tab,
+html[data-visual-style="stylful"] .stage-card,
+html[data-visual-style="stylful"] .summary-list-item,
+html[data-visual-style="stylful"] .summary-queue-item,
+html[data-visual-style="stylful"] input,
+html[data-visual-style="stylful"] textarea,
+html[data-visual-style="stylful"] select {
+  border-radius: var(--radius-wobble-badge) !important;
+}
+
+html[data-visual-style="stylful"] .pill-tab,
+html[data-visual-style="stylful"] .stage-card,
+html[data-visual-style="stylful"] .summary-list-item,
+html[data-visual-style="stylful"] .summary-queue-item {
+  border-width: 2px !important;
+  border-color: var(--stylful-pencil-light) !important;
+  box-shadow: 2px 2px 0 var(--stylful-shadow) !important;
+}
+
+html[data-visual-style="stylful"] .pill-tab[data-active="true"] {
+  border-color: var(--stylful-pencil) !important;
+  background: var(--stylful-pencil) !important;
+  color: var(--bg) !important;
+  box-shadow: 3px 3px 0 var(--stylful-shadow-strong) !important;
+}
+
+html[data-visual-style="stylful"] input,
+html[data-visual-style="stylful"] textarea,
+html[data-visual-style="stylful"] select {
+  border-width: 2px !important;
+  border-color: var(--stylful-pencil) !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+}
+
+html[data-visual-style="stylful"] input:focus,
+html[data-visual-style="stylful"] textarea:focus,
+html[data-visual-style="stylful"] select:focus {
+  border-style: dashed !important;
+  box-shadow: 2px 2px 0 var(--stylful-shadow) !important;
+}
+
+html[data-visual-style="stylful"] a:not(.bg-\[var\(--primary\)\]) {
+  text-decoration-style: wavy;
+  text-underline-offset: 4px;
+}
+
+html[data-visual-style="stylful"] ::-webkit-scrollbar-thumb {
+  border-radius: 8px;
+  border: 2px solid var(--bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-visual-style="stylful"] .card-surface:hover,
+  html[data-visual-style="stylful"] .viewer-frame:hover,
+  html[data-visual-style="stylful"] .summary-panel:hover,
+  html[data-visual-style="stylful"] .sidebar-surface a:hover,
+  html[data-visual-style="stylful"] .sidebar-surface button:hover,
+  html[data-visual-style="stylful"] .bg-\[var\(--primary\)\]:hover {
+    translate: none;
+  }
+}

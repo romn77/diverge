@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-tradingagents}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -32,15 +32,15 @@ services:
       SCREENER_CACHE_DIR: /app/data/cache/screener
       STOCK_HISTORY_DIR: /app/data/history
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
-      AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
       AUTH_MODE: ${AUTH_MODE:-required}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://postgres:postgres@postgres:5432/tradingagents}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-tradingagents_session}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
       SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-lax}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
-      AUTH_BOOTSTRAP_ADMIN_EMAIL: ${AUTH_BOOTSTRAP_ADMIN_EMAIL:-}
-      AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:-}
+      AUTH_BOOTSTRAP_ADMIN_EMAIL: ${AUTH_BOOTSTRAP_ADMIN_EMAIL:?Set AUTH_BOOTSTRAP_ADMIN_EMAIL in .env}
+      AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:?Set AUTH_BOOTSTRAP_ADMIN_PASSWORD in .env}
       AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME: ${AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME:-Administrator}
     depends_on:
       postgres:

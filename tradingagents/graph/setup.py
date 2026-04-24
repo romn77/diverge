@@ -18,6 +18,7 @@ from tradingagents.agents import (
     create_portfolio_manager,
     create_research_manager,
     create_social_media_analyst,
+    create_summary_agent,
     create_trader,
 )
 from tradingagents.agents.utils.agent_states import AgentState
@@ -118,6 +119,7 @@ class GraphSetup:
         portfolio_manager_node = create_portfolio_manager(
             self.deep_thinking_llm, self.portfolio_manager_memory
         )
+        summary_agent_node = create_summary_agent(self.quick_thinking_llm)
 
         # Create workflow
         workflow = StateGraph(AgentState)
@@ -139,6 +141,7 @@ class GraphSetup:
         workflow.add_node("Neutral Analyst", neutral_analyst)
         workflow.add_node("Conservative Analyst", conservative_analyst)
         workflow.add_node("Portfolio Manager", portfolio_manager_node)
+        workflow.add_node("Summary Agent", summary_agent_node)
 
         # Define edges
         # Start with the first analyst
@@ -210,7 +213,8 @@ class GraphSetup:
             },
         )
 
-        workflow.add_edge("Portfolio Manager", END)
+        workflow.add_edge("Portfolio Manager", "Summary Agent")
+        workflow.add_edge("Summary Agent", END)
 
         # Compile and return
         return workflow.compile()

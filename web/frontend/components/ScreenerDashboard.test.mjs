@@ -11,6 +11,7 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /usePreferences/);
   assert.match(source, /<Card/);
   assert.match(source, /<Button/);
   assert.match(source, /<Badge/);
@@ -18,8 +19,9 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /buildActivityHref/);
   assert.match(source, /buildScreenerRunHref/);
   assert.match(source, /snapshot_available/);
-  assert.match(source, /Recent Runs/);
-  assert.match(source, /Metadata only/);
-  assert.match(source, /Market Coverage/);
-  assert.match(source, /Queue Snapshot/);
+  assert.match(source, /t\("screenerDashboard\.recentRuns", "Recent Runs"\)/);
+  assert.match(source, /t\("screenerDashboard\.metadataOnly", "Metadata only"\)/);
+  assert.match(source, /t\("screenerDashboard\.marketCoverage", "Market Coverage"\)/);
+  assert.match(source, /t\("screenerDashboard\.queueSnapshot", "Queue Snapshot"\)/);
+  assert.match(source, /formatRunDate\(run\.as_of_date, locale\)/);
 });

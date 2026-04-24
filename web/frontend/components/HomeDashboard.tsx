@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { useWorkbench } from "@/components/WorkbenchProvider";
+import { MetricCard } from "@/components/workbench/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +23,7 @@ interface HomeDashboardProps {
 
 export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   const router = useRouter();
+  const { t } = usePreferences();
   const { openAnalysisDialog } = useWorkbenchChrome();
   const {
     activeTasks,
@@ -72,8 +75,10 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   }, [reports]);
 
   const heroTitle = deferredSearchQuery
-    ? `Analysis results for ${searchQuery.trim()}`
-    : "Analysis workspace";
+    ? t("home.searchResultsTitle", ({ query }) => `Analysis results for ${query}`, {
+        query: searchQuery.trim(),
+      })
+    : t("home.analysisWorkspace", "Analysis workspace");
 
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
@@ -83,42 +88,46 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-                Analysis
+                {t("sidebar.nav.analysis", "Analysis")}
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
                 {heroTitle}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                Search reports, jump back into coverage, and keep the analysis
-                workspace centered on report reading instead of mixed navigation utilities.
+                {t(
+                  "home.workspaceDescription",
+                  "Search reports, jump back into coverage, and keep the analysis workspace centered on report reading instead of mixed navigation utilities."
+                )}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <Button type="button" disabled={newAnalysisDisabled} onClick={openAnalysisDialog}>
-                New Analysis
+                {t("home.launchAnalysis", "New Analysis")}
               </Button>
               <Button asChild variant="secondary">
-                <Link href={buildActivityHref()}>View Activity</Link>
+                <Link href={buildActivityHref()}>
+                  {t("home.viewActivity", "View Activity")}
+                </Link>
               </Button>
             </div>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <AnalysisMetric
-              label="Report Library"
+            <MetricCard
+              label={t("home.metric.reportLibrary", "Report Library")}
               value={`${reports.length}`}
-              meta="Total indexed reports"
+              meta={t("home.metric.reportLibraryMeta", "Total indexed reports")}
             />
-            <AnalysisMetric
-              label="Tracked Tickers"
+            <MetricCard
+              label={t("home.recentTickers", "Tracked Tickers")}
               value={`${trackedTickers.length}`}
-              meta="Coverage names in the library"
+              meta={t("home.metric.trackedTickersMeta", "Coverage names in the library")}
             />
-            <AnalysisMetric
-              label="Active Research"
+            <MetricCard
+              label={t("home.metric.activeResearch", "Active Research")}
               value={`${activeTasks.length}`}
-              meta="In-flight analysis jobs"
+              meta={t("home.metric.activeResearchMeta", "In-flight analysis jobs")}
             />
           </div>
 
@@ -127,18 +136,21 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               htmlFor="home-report-search"
               className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
             >
-              Search reports
+              {t("home.searchLabel", "Search reports")}
             </label>
             <Input
               id="home-report-search"
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Ticker or report id"
+              placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
               className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
             />
             <p className="mt-2 text-sm text-slate-500">
-              Results update in place and keep the query in the URL for deep-linking.
+              {t(
+                "home.searchDeepLinkHint",
+                "Results update in place and keep the query in the URL for deep-linking."
+              )}
             </p>
           </div>
           </CardContent>
@@ -149,12 +161,16 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  {deferredSearchQuery ? "Matching Reports" : "Recent Reports"}
+                  {deferredSearchQuery
+                    ? t("home.matchingReports", "Matching Reports")
+                    : t("home.recentReports", "Recent Reports")}
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
                   {deferredSearchQuery
-                    ? `${matchingReports.length} matching reports`
-                    : "Jump back into coverage"}
+                    ? t("home.matchingReportCount", ({ count }) => `${count} matching reports`, {
+                        count: matchingReports.length,
+                      })
+                    : t("home.jumpBack", "Jump back into coverage")}
                 </h2>
               </div>
               {deferredSearchQuery ? (
@@ -162,7 +178,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                   href={buildHomeHref("")}
                   className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]"
                 >
-                  Clear search
+                  {t("common.clear", "Clear search")}
                 </Link>
               ) : null}
             </div>
@@ -173,11 +189,11 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               </div>
             ) : loadingReports ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                Loading report index...
+                {t("home.loadingReportIndex", "Loading report index...")}
               </div>
             ) : matchingReports.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                No reports match this search yet.
+                {t("home.noReportMatches", "No reports match this search yet.")}
               </div>
             ) : (
               <div className="mt-5 space-y-3">
@@ -194,7 +210,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                       </p>
                     </div>
                     <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
-                      Open
+                      {t("common.open", "Open")}
                     </span>
                   </Link>
                 ))}
@@ -208,10 +224,10 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                    Tracked Tickers
+                    {t("home.recentTickers", "Tracked Tickers")}
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                    Coverage map
+                    {t("home.coverageMap", "Coverage map")}
                   </h2>
                 </div>
                 <Badge variant="secondary" className="text-slate-500">
@@ -222,7 +238,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               <div className="mt-4 flex flex-wrap gap-2">
                 {trackedTickers.length === 0 ? (
                   <Badge variant="secondary" className="px-3 py-2 normal-case tracking-normal text-slate-500">
-                    Waiting for reports
+                    {t("home.waitingForReports", "Waiting for reports")}
                   </Badge>
                 ) : (
                   trackedTickers.slice(0, 18).map((ticker) => (
@@ -250,23 +266,37 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             <Card className="card-surface rounded-[28px]">
               <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Coverage Snapshot
+                {t("home.coverageSnapshot", "Coverage Snapshot")}
               </p>
               <div className="mt-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
                 <p className="text-sm font-semibold text-slate-900">
                   {deferredSearchQuery
-                    ? "Search is focused on one slice of the library."
-                    : "Use the analysis rail as the reports home base."}
+                    ? t("home.snapshotSearchFocus", "Search is focused on one slice of the library.")
+                    : t("home.snapshotHomeBase", "Use the analysis rail as the reports home base.")}
                 </p>
                 <p className="mt-3 text-sm leading-6 text-slate-600">
                   {deferredSearchQuery
-                    ? `The current query is filtering against ${reports.length} indexed reports across ${trackedTickers.length} tickers.`
-                    : `The library currently tracks ${reports.length} reports across ${trackedTickers.length} tickers, with new research work routed through the unified sidebar action.`}
+                    ? t(
+                        "home.snapshotSearchBody",
+                        ({ reports: reportCount, tickers }) =>
+                          `The current query is filtering against ${reportCount} indexed reports across ${tickers} tickers.`,
+                        { reports: reports.length, tickers: trackedTickers.length }
+                      )
+                    : t(
+                        "home.snapshotLibraryBody",
+                        ({ reports: reportCount, tickers }) =>
+                          `The library currently tracks ${reportCount} reports across ${tickers} tickers, with new research work routed through the unified sidebar action.`,
+                        { reports: reports.length, tickers: trackedTickers.length }
+                      )}
                 </p>
                 {recentReports[0] ? (
                   <div className="mt-4">
                     <Badge variant="secondary">
-                      Latest indexed report · {recentReports[0].ticker}
+                      {t(
+                        "home.latestIndexedReport",
+                        ({ ticker }) => `Latest indexed report · ${ticker}`,
+                        { ticker: recentReports[0].ticker }
+                      )}
                     </Badge>
                   </div>
                 ) : null}
@@ -277,27 +307,5 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
         </section>
       </div>
     </main>
-  );
-}
-
-function AnalysisMetric({
-  label,
-  value,
-  meta,
-}: {
-  label: string;
-  value: string;
-  meta: string;
-}) {
-  return (
-    <Card className="rounded-[24px] bg-white/88">
-      <CardContent className="px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-sm text-slate-500">{meta}</p>
-      </CardContent>
-    </Card>
   );
 }

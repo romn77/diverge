@@ -5,6 +5,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi import HTTPException
+
 from tradingagents import trade_feedback
 from web.backend import app_config, auth
 from web.backend.schemas.trades import (
@@ -182,6 +184,34 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         feedback_payload = get_ticker_trade_feedback("MSFT")
         self.assertEqual(feedback_payload["ticker"], "MSFT")
         self.assertIn("Historical trade feedback for ticker MSFT", feedback_payload["prompt"])
+
+    def test_create_trade_rejects_path_ticker_before_writing(self):
+        with self.assertRaises(HTTPException) as context:
+            create_trade(
+                TradeRecordCreatePayload(
+                    ticker="../../ESCAPE",
+                    exchange_or_market="NASDAQ",
+                    side="long",
+                    status="open",
+                    entry_timestamp="2026-04-01T09:30:00",
+                    entry_price=420.0,
+                    size=10,
+                    initial_thesis="Path ticker should not be accepted.",
+                    planned_horizon="swing_2w",
+                    stop_loss=408.0,
+                    take_profit=448.0,
+                    notes="Manual entry.",
+                    analysis_references=[],
+                )
+            )
+
+        self.assertEqual(getattr(context.exception, "status_code", None), 400)
+        self.assertIn("path", str(context.exception.detail).lower())
+        self.assertFalse((app_config.REPORTS_DIR.parent / "ESCAPE").exists())
+
+    def test_trade_dir_rejects_paths_outside_feedback_root(self):
+        with self.assertRaises(ValueError):
+            trade_feedback._trade_dir("MSFT", "../../ESCAPE", reports_dir=app_config.REPORTS_DIR)
 
     def test_manual_review_save_accepts_list_fields(self):
         record = create_trade(

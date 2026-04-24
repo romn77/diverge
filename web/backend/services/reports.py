@@ -64,6 +64,24 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
         return []
 
     results = []
+    summary_path = artifacts_dir / "summary.json"
+    if summary_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = payload.get("summary")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "summary",
+                "path": "artifacts/summary.json",
+                "summary": summary,
+            }
+        )
+
     thesis_path = artifacts_dir / "thesis.json"
     if thesis_path.is_file():
         summary = None

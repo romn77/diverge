@@ -89,6 +89,7 @@ class AnalysisTrackerTests(unittest.TestCase):
                     "neutral_history": "Neutral Analyst: Keep exposure balanced.",
                     "judge_decision": "Portfolio Manager: BUY with risk controls.",
                 },
+                "report_summary": "BUY with disciplined sizing; fundamentals are durable, while event volatility and valuation are the key risks.",
                 "historical_trade_feedback": "Historical trade feedback for ticker MSFT:\n1. Respect the planned stop.",
                 "historical_trade_reviews": [
                     {
@@ -103,17 +104,24 @@ class AnalysisTrackerTests(unittest.TestCase):
 
             fundamentals_path = Path(temp_dir) / "1_analysts" / "fundamentals.md"
             thesis_path = Path(temp_dir) / "artifacts" / "thesis.json"
+            summary_path = Path(temp_dir) / "artifacts" / "summary.json"
             trade_feedback_path = Path(temp_dir) / "artifacts" / "trade_feedback.json"
 
             self.assertTrue(report_path.is_file())
             self.assertTrue(fundamentals_path.is_file())
             self.assertTrue(thesis_path.is_file())
+            self.assertTrue(summary_path.is_file())
             self.assertTrue(trade_feedback_path.is_file())
             self.assertIn("## DCF Summary", fundamentals_path.read_text(encoding="utf-8"))
 
             thesis_payload = json.loads(thesis_path.read_text(encoding="utf-8"))
             self.assertEqual(thesis_payload["type"], "thesis")
             self.assertEqual(thesis_payload["ticker"], "MSFT")
+
+            summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
+            self.assertEqual(summary_payload["type"], "summary")
+            self.assertEqual(summary_payload["ticker"], "MSFT")
+            self.assertIn("disciplined sizing", summary_payload["summary"])
 
             trade_feedback_payload = json.loads(
                 trade_feedback_path.read_text(encoding="utf-8")

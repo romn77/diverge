@@ -3,7 +3,8 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
-REPORTS_DIR="${REPORTS_DIR:-$PROJECT_ROOT/reports}"
+DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"
+REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"
 
 cd "$PROJECT_ROOT"
 

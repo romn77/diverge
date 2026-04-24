@@ -10,15 +10,20 @@ test("layout seeds server preferences and bootstraps the client before hydration
 
   assert.match(source, /cookies, headers/);
   assert.match(source, /buildPreferencesBootstrapScript/);
+  assert.match(source, /isTheme/);
   assert.match(source, /resolveServerLanguage/);
   assert.match(source, /resolveServerTheme/);
+  assert.match(source, /resolveServerVisualStyle/);
   assert.match(source, /lang=\{toHtmlLang\(initialLanguage\)\}/);
   assert.match(source, /data-theme=\{initialTheme\}/);
   assert.match(source, /data-ui-language=\{initialLanguage\}/);
+  assert.match(source, /data-visual-style=\{initialVisualStyle\}/);
   assert.match(source, /dangerouslySetInnerHTML=\{\{ __html: preferencesBootstrapScript \}\}/);
   assert.match(source, /PreferencesProvider/);
   assert.match(source, /AuthProvider/);
   assert.match(source, /suppressHydrationWarning/);
   assert.match(source, /initialLanguage=\{initialLanguage\}/);
   assert.match(source, /initialTheme=\{initialTheme\}/);
+  assert.match(source, /initialVisualStyle=\{initialVisualStyle\}/);
+  assert.match(source, /preferSystemTheme:\s*!isTheme\(themeCookie\)/);
 });

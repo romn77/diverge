@@ -258,6 +258,7 @@ class MessageBuffer:
             "Conservative Analyst",
         ],
         "Portfolio Management": ["Portfolio Manager"],
+        "Summary": ["Summary Agent"],
     }
 
     # Analyst name mapping
@@ -511,6 +512,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
             "Conservative Analyst",
         ],
         "Portfolio Management": ["Portfolio Manager"],
+        "Summary": ["Summary Agent"],
     }
 
     # Filter teams to only include agents that are in agent_status
@@ -1398,6 +1400,12 @@ def run_analysis():
                         message_buffer.update_agent_status(
                             "Portfolio Manager", "completed"
                         )
+                        message_buffer.update_agent_status(
+                            "Summary Agent", "in_progress"
+                        )
+
+            if chunk.get("report_summary"):
+                message_buffer.update_agent_status("Summary Agent", "completed")
 
             # Update the display
             update_display(layout, stats_handler=stats_handler, start_time=start_time)

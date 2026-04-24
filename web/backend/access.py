@@ -31,6 +31,18 @@ def owner_scope_for_user(user: auth.User | None) -> str | None:
     return user.id
 
 
+def get_request_user_with_password_change(
+    db: Any,
+    request: Request,
+    *,
+    settings: auth.AuthSettings | None = None,
+) -> auth.User | None:
+    user = auth.get_request_user(db, request, settings=settings)
+    if user is not None:
+        auth.enforce_password_change_completed(user, request)
+    return user
+
+
 def require_trade_request_user(db: Any, request: Request | None) -> auth.User | None:
     settings = auth.get_auth_settings()
     if not settings.enabled:
@@ -38,7 +50,7 @@ def require_trade_request_user(db: Any, request: Request | None) -> auth.User | 
     if request is None:
         raise HTTPException(status_code=500, detail="Trade request context is missing")
 
-    user = auth.get_request_user(db, request, settings=settings)
+    user = get_request_user_with_password_change(db, request, settings=settings)
     if user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
     return user
@@ -65,8 +77,10 @@ def resolve_task_owner_user_id(request: Request | None) -> str | None:
         return None
 
     with auth.db_session() as db:
-        user = auth.get_request_user(db, request, settings=settings)
-        return user.id if user is not None else None
+        user = get_request_user_with_password_change(db, request, settings=settings)
+        if user is None:
+            return None
+        return user.id
 
 
 def require_screener_user(request: Request | None) -> auth.User | None:
@@ -86,7 +100,19 @@ def require_screener_user(request: Request | None) -> auth.User | None:
 def can_access_screener_owner(user: auth.User | None, owner_user_id: str | None) -> bool:
     if user is None:
         return True
+    return can_access_owner(user, owner_user_id)
+
+
+def can_access_owner(
+    user: auth.User | None,
+    owner_user_id: str | None,
+    *,
+    allow_unowned: bool = False,
+) -> bool:
+    if owner_user_id is None:
+        return allow_unowned
+    if user is None:
+        return False
     if is_admin_user(user):
         return True
-    return owner_user_id is not None and owner_user_id == user.id
-
+    return owner_user_id == user.id

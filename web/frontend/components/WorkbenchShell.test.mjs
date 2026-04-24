@@ -9,6 +9,9 @@ test("WorkbenchShell renders the utility bar inside the main content column next
   const source = readFileSync(shellPath, "utf8");
 
   assert.match(source, /<WorkspaceAccountMenu/);
+  assert.match(source, /usePreferences/);
+  assert.match(source, /t\("workbench\.preparingTitle", "Preparing the workbench"\)/);
+  assert.match(source, /t\("workbench\.loginRequiredTitle", "Redirecting to sign in"\)/);
   assert.match(source, /className="flex min-h-screen md:items-stretch"/);
   assert.match(source, /<Sidebar/);
   assert.match(source, /<div className="flex min-w-0 flex-1 flex-col">/);

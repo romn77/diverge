@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/workbenchRoutes";
 
 export function ActivityDashboard() {
+  const { t } = usePreferences();
   const { activeScreenerTasks, activeTasks } = useWorkbench();
   const totalActive = activeTasks.length + activeScreenerTasks.length;
 
@@ -24,42 +26,44 @@ export function ActivityDashboard() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-                Activity
+                {t("sidebar.nav.activity", "Activity")}
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
-                Background work
+                {t("activity.title", "Background work")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                Monitor in-flight analysis and screener jobs from one place instead of
-                stacking task queues into the navigation rail.
+                {t(
+                  "activity.description",
+                  "Monitor in-flight analysis and screener jobs from one place instead of stacking task queues into the navigation rail."
+                )}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <Button asChild variant="secondary">
-                <Link href={buildHomeHref()}>Analysis</Link>
+                <Link href={buildHomeHref()}>{t("sidebar.nav.analysis", "Analysis")}</Link>
               </Button>
               <Button asChild variant="secondary">
-                <Link href={buildScreenerHref()}>Screener</Link>
+                <Link href={buildScreenerHref()}>{t("sidebar.nav.screener", "Screener")}</Link>
               </Button>
             </div>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             <ActivityMetric
-              label="Total Active"
+              label={t("activity.metric.total", "Total Active")}
               value={`${totalActive}`}
-              meta="Combined background jobs"
+              meta={t("activity.metric.totalMeta", "Combined background jobs")}
             />
             <ActivityMetric
-              label="Analysis Jobs"
+              label={t("activity.metric.analysis", "Analysis Jobs")}
               value={`${activeTasks.length}`}
-              meta="Research tasks in flight"
+              meta={t("activity.metric.analysisMeta", "Research tasks in flight")}
             />
             <ActivityMetric
-              label="Screener Jobs"
+              label={t("activity.metric.screener", "Screener Jobs")}
               value={`${activeScreenerTasks.length}`}
-              meta="Candidate builds in flight"
+              meta={t("activity.metric.screenerMeta", "Candidate builds in flight")}
             />
           </div>
           </CardContent>
@@ -67,25 +71,32 @@ export function ActivityDashboard() {
 
         <section className="grid gap-6 xl:grid-cols-2">
           <ActivityQueueSection
-            title="Analysis tasks"
-            description="Research jobs waiting or running."
-            emptyLabel="No active analysis jobs."
+            title={t("activity.analysisTasks", "Analysis tasks")}
+            description={t("activity.analysisDescription", "Research jobs waiting or running.")}
+            emptyLabel={t("activity.noAnalysisJobs", "No active analysis jobs.")}
             items={activeTasks.map((task) => ({
               href: buildTaskHref(task.id),
               label: task.ticker,
               meta: task.latest_progress?.current_agent ?? task.analysis_date,
-              status: task.status,
+              status: t(`task.status.${task.status}`, task.status),
             }))}
           />
           <ActivityQueueSection
-            title="Screener tasks"
-            description="Candidate-pool builds currently in motion."
-            emptyLabel="No active screener jobs."
+            title={t("activity.screenerTasks", "Screener tasks")}
+            description={t(
+              "activity.screenerDescription",
+              "Candidate-pool builds currently in motion."
+            )}
+            emptyLabel={t("activity.noScreenerJobs", "No active screener jobs.")}
             items={activeScreenerTasks.map((task) => ({
               href: buildScreenerTaskHref(task.id),
-              label: task.request_payload?.markets.join(", ") || "Candidate pool build",
-              meta: task.request_payload?.as_of_date ?? "Awaiting next update",
-              status: task.status,
+              label:
+                task.request_payload?.markets.join(", ") ||
+                t("activity.candidatePoolBuild", "Candidate pool build"),
+              meta:
+                task.request_payload?.as_of_date ??
+                t("activity.awaitingUpdate", "Awaiting next update"),
+              status: t(`task.status.${task.status}`, task.status),
             }))}
           />
         </section>

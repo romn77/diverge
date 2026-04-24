@@ -15,6 +15,7 @@ test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog 
   assert.match(source, /from "@\/components\/ui\/input"/);
   assert.match(source, /from "@\/components\/ui\/table"/);
   assert.match(source, /from "@\/components\/ui\/textarea"/);
+  assert.match(source, /usePreferences/);
   assert.match(source, /<Input/);
   assert.match(source, /<Button/);
   assert.match(source, /<Card/);
@@ -27,4 +28,7 @@ test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog 
   assert.match(source, /baseCurrency/);
   assert.match(source, /createAssetPosition/);
   assert.match(source, /updateAssetPosition/);
+  assert.match(source, /t\("assets\.title", "Portfolio ledger"\)/);
+  assert.match(source, /t\("assets\.addAsset", "Add Asset"\)/);
+  assert.match(source, /t\("assets\.ledgerTable", "Ledger Table"\)/);
 });

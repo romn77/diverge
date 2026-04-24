@@ -267,6 +267,7 @@ class TradingAgentsGraph:
             },
             "investment_plan": final_state["investment_plan"],
             "final_trade_decision": final_state["final_trade_decision"],
+            "report_summary": final_state.get("report_summary", ""),
         }
 
         # Save to file

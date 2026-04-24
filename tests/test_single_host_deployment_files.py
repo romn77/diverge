@@ -42,9 +42,18 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("REPORTS_DIR: /app/data/reports", source)
         self.assertIn("SCREENER_RUNS_DIR: /app/data/screener/runs", source)
         self.assertIn("FRONTEND_ORIGIN", source)
-        self.assertIn("AUTH_ENABLED", source)
+        self.assertIn("AUTH_ENABLED: ${AUTH_ENABLED:-true}", source)
         self.assertIn("AUTH_MODE", source)
-        self.assertIn("DATABASE_URL", source)
+        self.assertIn("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}", source)
+        self.assertIn("DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}", source)
+        self.assertIn(
+            "AUTH_BOOTSTRAP_ADMIN_EMAIL: ${AUTH_BOOTSTRAP_ADMIN_EMAIL:?Set AUTH_BOOTSTRAP_ADMIN_EMAIL in .env}",
+            source,
+        )
+        self.assertIn(
+            "AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:?Set AUTH_BOOTSTRAP_ADMIN_PASSWORD in .env}",
+            source,
+        )
         self.assertIn("alembic -c alembic.ini upgrade head", source)
         self.assertIn("python -m web.backend.bootstrap_admin", source)
 
@@ -56,16 +65,21 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("FRONTEND_ORIGIN=http://localhost:3000", source)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL=http://localhost:8000", source)
         self.assertIn("TRADINGAGENTS_EVAL_RESULTS_DIR=./data/eval_results", source)
-        self.assertIn("AUTH_ENABLED=false", source)
+        self.assertIn("POSTGRES_PASSWORD=", source)
+        self.assertIn("AUTH_ENABLED=true", source)
         self.assertIn("AUTH_MODE=required", source)
-        self.assertIn("DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/tradingagents", source)
+        self.assertIn("DATABASE_URL=", source)
         self.assertIn("AUTH_BOOTSTRAP_ADMIN_EMAIL=", source)
+        self.assertIn("AUTH_BOOTSTRAP_ADMIN_PASSWORD=", source)
 
     def test_deploy_script_exists_with_docker_compose_commands(self):
         deploy_script = PROJECT_ROOT / "scripts" / "deploy-single-host.sh"
         self.assertTrue(deploy_script.is_file())
 
         source = deploy_script.read_text(encoding="utf-8")
+        self.assertIn('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"', source)
+        self.assertIn('REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"', source)
+        self.assertNotIn('$PROJECT_ROOT/reports', source)
         self.assertIn("docker compose build", source)
         self.assertIn("docker compose up -d", source)
         self.assertIn("mkdir -p", source)

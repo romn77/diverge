@@ -5,7 +5,7 @@ import test from "node:test";
 
 const taskProgressPath = path.join(import.meta.dirname, "TaskProgress.tsx");
 
-test("TaskProgress subscribes to backend task snapshots and renders the five-stage pipeline", () => {
+test("TaskProgress subscribes to backend task snapshots and renders the six-stage pipeline", () => {
   const source = readFileSync(taskProgressPath, "utf8");
 
   assert.match(source, /from "@\/components\/ui\/badge"/);
@@ -32,6 +32,7 @@ test("TaskProgress subscribes to backend task snapshots and renders the five-sta
   assert.match(source, /Trading/);
   assert.match(source, /Risk/);
   assert.match(source, /Portfolio/);
+  assert.match(source, /Summary/);
   assert.match(source, /View Report/);
   assert.match(source, /Request details for/);
   assert.match(source, /analysis_date/);

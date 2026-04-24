@@ -65,6 +65,16 @@ export function Sidebar({
   const isMobileDrawerOpen = isMobileViewport && isOpen;
   const isDesktopRail = !isMobileViewport && isDesktopCollapsed;
   const totalActive = activeTasks.length + activeScreenerTasks.length;
+  const createLabel = t("sidebar.create", "New");
+  const analysisLabel = t("sidebar.nav.analysis", "Analysis");
+  const screenerLabel = t("sidebar.nav.screener", "Screener");
+  const assetsLabel = t("sidebar.nav.assets", "Assets");
+  const journalLabel = t("sidebar.nav.journal", "Journal");
+  const activityLabel = t("sidebar.nav.activity", "Activity");
+  const workbenchNavigationLabel = t(
+    "sidebar.workbenchNavigation",
+    "Workbench navigation"
+  );
   const isAnalysisActive = pathname === "/" || pathname.startsWith("/reports/");
   const isScreenerActive =
     pathname === buildScreenerHref() || pathname.startsWith("/screeners/");
@@ -246,8 +256,8 @@ export function Sidebar({
           <div className="relative flex flex-col items-center gap-2">
             <RailButton
               ref={createButtonRef}
-              label="New"
-              title="New"
+              label={createLabel}
+              title={createLabel}
               active={isCreateMenuOpen}
               onClick={() => setIsCreateMenuOpen((current) => !current)}
             >
@@ -277,8 +287,8 @@ export function Sidebar({
             <div className="flex flex-col items-center gap-2">
               <RailLinkButton
                 href={buildHomeHref()}
-                label="Analysis"
-                title="Analysis"
+                label={analysisLabel}
+                title={analysisLabel}
                 active={isAnalysisActive}
                 onClick={handleNavSelection}
               >
@@ -286,8 +296,8 @@ export function Sidebar({
               </RailLinkButton>
               <RailLinkButton
                 href={buildScreenerHref()}
-                label="Screener"
-                title="Screener"
+                label={screenerLabel}
+                title={screenerLabel}
                 active={isScreenerActive}
                 onClick={handleNavSelection}
               >
@@ -302,8 +312,8 @@ export function Sidebar({
             <div className="flex flex-col items-center gap-2">
               <RailLinkButton
                 href={buildAssetsHref()}
-                label="Assets"
-                title="Assets"
+                label={assetsLabel}
+                title={assetsLabel}
                 active={isAssetsActive}
                 onClick={handleNavSelection}
               >
@@ -311,8 +321,8 @@ export function Sidebar({
               </RailLinkButton>
               <RailLinkButton
                 href={buildJournalHref()}
-                label="Journal"
-                title="Journal"
+                label={journalLabel}
+                title={journalLabel}
                 active={isJournalActive}
                 onClick={handleNavSelection}
               >
@@ -328,8 +338,8 @@ export function Sidebar({
             <div className="flex justify-center">
               <RailLinkButton
                 href={buildActivityHref()}
-                label="Activity"
-                title="Activity"
+                label={activityLabel}
+                title={activityLabel}
                 active={isActivityActive}
                 count={totalActive}
                 onClick={handleNavSelection}
@@ -350,7 +360,7 @@ export function Sidebar({
               aria-expanded={isCreateMenuOpen}
               aria-haspopup="menu"
             >
-              <span className="text-sm font-semibold">+ New</span>
+              <span className="text-sm font-semibold">+ {createLabel}</span>
               <svg
                 viewBox="0 0 20 20"
                 className={`h-4 w-4 transition-transform ${
@@ -380,12 +390,12 @@ export function Sidebar({
             ) : null}
           </div>
 
-          <nav className="mt-6 space-y-4" aria-label="Primary">
-            <SidebarSection title="Research">
+          <nav className="mt-6 space-y-4" aria-label={t("sidebar.primaryNavigation", "Primary")}>
+            <SidebarSection title={t("sidebar.section.research", "Research")}>
               <SidebarNavLink
                 href={buildHomeHref()}
-                label="Analysis"
-                meta="Reports and search"
+                label={analysisLabel}
+                meta={t("sidebar.meta.analysis", "Reports and search")}
                 active={isAnalysisActive}
                 onClick={handleNavSelection}
               >
@@ -393,8 +403,8 @@ export function Sidebar({
               </SidebarNavLink>
               <SidebarNavLink
                 href={buildScreenerHref()}
-                label="Screener"
-                meta="Runs and candidates"
+                label={screenerLabel}
+                meta={t("sidebar.meta.screener", "Runs and candidates")}
                 active={isScreenerActive}
                 onClick={handleNavSelection}
               >
@@ -402,11 +412,11 @@ export function Sidebar({
               </SidebarNavLink>
             </SidebarSection>
 
-            <SidebarSection title="Portfolio">
+            <SidebarSection title={t("sidebar.section.portfolio", "Portfolio")}>
               <SidebarNavLink
                 href={buildAssetsHref()}
-                label="Assets"
-                meta="Ledger and exposure"
+                label={assetsLabel}
+                meta={t("sidebar.meta.assets", "Ledger and exposure")}
                 active={isAssetsActive}
                 onClick={handleNavSelection}
               >
@@ -414,8 +424,8 @@ export function Sidebar({
               </SidebarNavLink>
               <SidebarNavLink
                 href={buildJournalHref()}
-                label="Journal"
-                meta="Trade review"
+                label={journalLabel}
+                meta={t("sidebar.meta.journal", "Trade review")}
                 active={isJournalActive}
                 onClick={handleNavSelection}
               >
@@ -425,12 +435,16 @@ export function Sidebar({
           </nav>
 
           <div className="mt-auto border-t border-[var(--border)] pt-4">
-            <SidebarSectionHeading title="Operations" muted />
+            <SidebarSectionHeading title={t("sidebar.section.operations", "Operations")} muted />
             <SidebarUtilityLink
               href={buildActivityHref()}
-              label="Activity"
+              label={activityLabel}
               meta={
-                totalActive > 0 ? `${totalActive} active` : "No active background work"
+                totalActive > 0
+                  ? t("sidebar.activeCount", ({ count }) => `${count} active`, {
+                      count: totalActive,
+                    })
+                  : t("sidebar.noActiveWork", "No active background work")
               }
               active={isActivityActive}
               badge={totalActive > 0 ? `${totalActive}` : null}
@@ -450,7 +464,7 @@ export function Sidebar({
         <Sheet open={isMobileDrawerOpen} onOpenChange={(open) => !open && onClose()}>
           <SheetContent side="left" className="sidebar-surface w-full max-w-xs border-r px-4 py-5 md:hidden [&>button]:hidden">
             <SheetHeader className="sr-only">
-              <SheetTitle>Workbench navigation</SheetTitle>
+              <SheetTitle>{workbenchNavigationLabel}</SheetTitle>
             </SheetHeader>
             {sidebarBody}
           </SheetContent>
@@ -461,7 +475,7 @@ export function Sidebar({
         <aside
           id="report-navigation"
           className={desktopDrawerClasses}
-          aria-label="Workbench navigation"
+          aria-label={workbenchNavigationLabel}
         >
           {sidebarBody}
         </aside>
@@ -580,11 +594,13 @@ const CreateMenu = forwardRef<
   },
   ref: ForwardedRef<HTMLDivElement>
 ) {
+  const { t } = usePreferences();
+
   return (
     <div
       ref={ref}
       role="menu"
-      className={`absolute z-20 rounded-[22px] border border-[var(--border)] bg-[rgba(255,253,248,0.98)] p-2 shadow-[0_20px_40px_rgba(18,28,41,0.14)] backdrop-blur-sm ${
+      className={`absolute z-20 rounded-[22px] border border-[var(--border)] bg-[var(--popover)] p-2 shadow-[0_20px_40px_rgba(18,28,41,0.14)] backdrop-blur-sm ${
         compact ? "left-full top-0 ml-3 w-[13rem]" : "left-0 right-0 top-full mt-3"
       }`}
     >
@@ -596,8 +612,12 @@ const CreateMenu = forwardRef<
         disabled={newAnalysisDisabled}
       >
         <span>
-          <span className="block text-sm font-semibold text-slate-900">New Analysis</span>
-          <span className="mt-1 block text-xs text-slate-500">Research a coverage name</span>
+          <span className="block text-sm font-semibold text-slate-900">
+            {t("sidebar.newAnalysis", "New Analysis")}
+          </span>
+          <span className="mt-1 block text-xs text-slate-500">
+            {t("sidebar.newAnalysisHint", "Research a coverage name")}
+          </span>
         </span>
         <span className="text-slate-400">+</span>
       </button>
@@ -610,8 +630,12 @@ const CreateMenu = forwardRef<
         disabled={newScreenerDisabled}
       >
         <span>
-          <span className="block text-sm font-semibold text-slate-900">New Screener</span>
-          <span className="mt-1 block text-xs text-slate-500">Build a ranked pool</span>
+          <span className="block text-sm font-semibold text-slate-900">
+            {t("sidebar.newScreener", "New Screener")}
+          </span>
+          <span className="mt-1 block text-xs text-slate-500">
+            {t("sidebar.newScreenerHint", "Build a ranked pool")}
+          </span>
         </span>
         <span className="text-slate-400">+</span>
       </button>
