@@ -188,6 +188,49 @@ class ScreenerResultReadModelTests(unittest.TestCase):
             1,
         )
 
+    def test_admin_recent_runs_deduplicates_workspace_and_owner_state(self):
+        duplicate_run_id = "20260418_171313"
+        workspace_state = screener_results.ScreenerResultState(
+            owner_user_id=None,
+            recent_runs=[
+                screener_results.ScreenerRunMetadata(
+                    id=duplicate_run_id,
+                    generated_at=duplicate_run_id,
+                    as_of_date="2026-04-17",
+                    markets=["cn", "us"],
+                    candidate_count=20,
+                    owner_user_id=None,
+                    snapshot_slot=screener_results.CURRENT_SNAPSHOT_SLOT,
+                    snapshot_available=True,
+                    result_hash="same-result",
+                )
+            ],
+        )
+        owner_state = screener_results.ScreenerResultState(
+            owner_user_id="admin-user",
+            recent_runs=[
+                screener_results.ScreenerRunMetadata(
+                    id=duplicate_run_id,
+                    generated_at=duplicate_run_id,
+                    as_of_date="2026-04-17",
+                    markets=["cn", "us"],
+                    candidate_count=20,
+                    owner_user_id="admin-user",
+                    snapshot_slot=screener_results.CURRENT_SNAPSHOT_SLOT,
+                    snapshot_available=True,
+                    result_hash="same-result",
+                )
+            ],
+        )
+        screener_results.save_screener_result_state(workspace_state)
+        screener_results.save_screener_result_state(owner_state)
+
+        with patch.dict(os.environ, {"AUTH_ENABLED": "true", "AUTH_MODE": "required"}, clear=False):
+            admin_user = SimpleNamespace(id="admin-user", role=auth.UserRole.ADMIN.value)
+            runs = screener_service.list_screener_runs(admin_user)
+
+        self.assertEqual([run["id"] for run in runs], [duplicate_run_id])
+
     def test_record_screener_run_metadata_handles_no_change_then_rotation(self):
         _write_legacy_run(
             self.runs_dir,

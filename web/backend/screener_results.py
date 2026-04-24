@@ -894,9 +894,30 @@ def _annotate_recent_runs(state: ScreenerResultState) -> None:
             recent_run.snapshot_available = False
 
 
+def _recent_run_preference_key(run: ScreenerRunMetadata) -> tuple[str, int, int, int, str]:
+    return (
+        run.generated_at or "",
+        1 if run.owner_user_id else 0,
+        1 if run.snapshot_available else 0,
+        1 if run.snapshot_slot == CURRENT_SNAPSHOT_SLOT else 0,
+        run.result_hash or "",
+    )
+
+
+def _dedupe_recent_runs(recent_runs: list[ScreenerRunMetadata]) -> list[ScreenerRunMetadata]:
+    unique_runs: dict[str, ScreenerRunMetadata] = {}
+    for run in recent_runs:
+        existing = unique_runs.get(run.id)
+        if existing is None or _recent_run_preference_key(run) > _recent_run_preference_key(
+            existing
+        ):
+            unique_runs[run.id] = run
+    return list(unique_runs.values())
+
+
 def _sort_recent_runs(recent_runs: list[ScreenerRunMetadata]) -> list[ScreenerRunMetadata]:
     return sorted(
-        recent_runs,
+        _dedupe_recent_runs(recent_runs),
         key=lambda run: (run.generated_at or "", run.id),
         reverse=True,
     )[:RECENT_RUN_LIMIT]
