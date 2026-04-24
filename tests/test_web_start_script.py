@@ -1,3 +1,7 @@
+import os
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -31,6 +35,62 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('npm run dev -- --port "$FRONTEND_PORT"', source)
         self.assertIn('wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"', source)
         self.assertIn('wait_for_http "http://localhost:${FRONTEND_PORT}"', source)
+
+    def test_start_script_cleans_up_when_auth_bootstrap_fails_before_backend_pid_exists(self):
+        script = PROJECT_ROOT / "web" / "start.sh"
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            temp_script = temp_root / "web" / "start.sh"
+            temp_backend_dir = temp_root / "web" / "backend"
+            temp_bin_dir = temp_root / "bin"
+            temp_frontend_dir = temp_root / "web" / "frontend"
+
+            temp_backend_dir.mkdir(parents=True)
+            temp_frontend_dir.mkdir(parents=True)
+            temp_bin_dir.mkdir(parents=True)
+            shutil.copy(script, temp_script)
+            (temp_root / ".env").write_text(
+                "\n".join(
+                    [
+                        "AUTH_ENABLED=true",
+                        "AUTH_MODE=required",
+                        "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tradingagents",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (temp_backend_dir / "requirements.txt").write_text("", encoding="utf-8")
+            (temp_bin_dir / "pip").write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+            (temp_bin_dir / "alembic").write_text(
+                "#!/bin/bash\n"
+                "echo 'simulated alembic failure: postgres unavailable' >&2\n"
+                "exit 1\n",
+                encoding="utf-8",
+            )
+            os.chmod(temp_bin_dir / "pip", 0o755)
+            os.chmod(temp_bin_dir / "alembic", 0o755)
+
+            env = os.environ.copy()
+            env["PATH"] = f"{temp_bin_dir}:{env['PATH']}"
+
+            result = subprocess.run(
+                ["bash", str(temp_script)],
+                cwd=temp_root,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+            )
+
+        combined_output = f"{result.stdout}\n{result.stderr}"
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("simulated alembic failure: postgres unavailable", combined_output)
+        self.assertNotIn("unbound variable", combined_output)
+        self.assertIn("AUTH_ENABLED=false", combined_output)
+        self.assertIn("Stopped.", combined_output)
 
 
 if __name__ == "__main__":

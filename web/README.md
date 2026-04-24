@@ -94,13 +94,26 @@ Recommended rollout sequence:
 cp .env.example .env
 # set DATABASE_URL, AUTH_BOOTSTRAP_ADMIN_EMAIL, AUTH_BOOTSTRAP_ADMIN_PASSWORD, and FRONTEND_ORIGIN
 
+# check database connectivity, migration status, and required tables
+scripts/check-database.sh
+
+# apply migrations and verify the schema
+scripts/check-database.sh --upgrade --bootstrap-admin
+```
+
+Equivalent manual commands:
+
+```bash
 cd web/backend
 alembic -c alembic.ini upgrade head
 
 # bootstrap the first admin if the user table is empty
 python -m web.backend.bootstrap_admin
+```
 
-# one-time metadata backfill before switching auth to required
+One-time metadata backfill before switching auth to required:
+
+```bash
 AUTH_ENABLED=true AUTH_MODE=optional python -m web.backend.backfill_metadata
 ```
 

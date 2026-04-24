@@ -29,6 +29,8 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+BACKEND_PID=""
+FRONTEND_PID=""
 
 kill_port() {
     local port="$1"
@@ -58,15 +60,17 @@ mkdir -p "$REPORTS_DIR" "$SCREENER_RUNS_DIR" "$SCREENER_TASKS_DIR" "$SCREENER_CA
 
 # Kill any lingering processes on ports 8000, 3000
 cleanup() {
+    local backend_pid="${BACKEND_PID:-}"
+    local frontend_pid="${FRONTEND_PID:-}"
     echo
     echo -e "${BLUE}Shutting down...${NC}"
-    if [ -n "$BACKEND_PID" ] && kill -0 $BACKEND_PID 2>/dev/null; then
-        kill $BACKEND_PID 2>/dev/null || true
-        wait $BACKEND_PID 2>/dev/null || true
+    if [ -n "$backend_pid" ] && kill -0 "$backend_pid" 2>/dev/null; then
+        kill "$backend_pid" 2>/dev/null || true
+        wait "$backend_pid" 2>/dev/null || true
     fi
-    if [ -n "$FRONTEND_PID" ] && kill -0 $FRONTEND_PID 2>/dev/null; then
-        kill $FRONTEND_PID 2>/dev/null || true
-        wait $FRONTEND_PID 2>/dev/null || true
+    if [ -n "$frontend_pid" ] && kill -0 "$frontend_pid" 2>/dev/null; then
+        kill "$frontend_pid" 2>/dev/null || true
+        wait "$frontend_pid" 2>/dev/null || true
     fi
     echo -e "${GREEN}Stopped.${NC}"
 }
@@ -91,7 +95,16 @@ export FRONTEND_ORIGIN="$FRONTEND_ORIGIN"
 export AUTH_ENABLED="$AUTH_ENABLED"
 export AUTH_MODE="$AUTH_MODE"
 if [ "$AUTH_ENABLED" = "true" ]; then
-    alembic -c alembic.ini upgrade head > /dev/null
+    if ! migration_output=$(alembic -c alembic.ini upgrade head 2>&1); then
+        if [ -n "$migration_output" ]; then
+            printf '%s\n' "$migration_output" >&2
+        fi
+        echo -e "${RED}Auth database migration failed before backend startup.${NC}" >&2
+        echo "When AUTH_ENABLED=true, start the configured database first." >&2
+        echo "For the default local stack: docker compose up -d postgres" >&2
+        echo "Or set AUTH_ENABLED=false in .env to use the filesystem-only workbench." >&2
+        exit 1
+    fi
     (
         cd "$ROOT_DIR"
         python -m web.backend.bootstrap_admin > /dev/null
