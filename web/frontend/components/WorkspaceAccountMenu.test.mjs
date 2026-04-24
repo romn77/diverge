@@ -28,10 +28,15 @@ test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top
   assert.doesNotMatch(source, /max-w-\[1600px\]/);
   assert.doesNotMatch(source, /fixed right-4 top-4 z-\[55\]/);
   assert.match(source, /Interface Preferences/);
+  assert.match(source, /Visual Style/);
+  assert.match(source, /\(\["light", "dark", "proof", "everforest"\] as const\)/);
+  assert.match(source, /setVisualStyle/);
   assert.match(source, /Output Language/);
   assert.match(source, /onValueChange=\{onOutputLanguageChange\}/);
   assert.match(source, /data-active=\{theme === themeValue\}/);
   assert.match(source, /data-active=\{language === languageValue\}/);
+  assert.match(source, /data-active=\{visualStyle === styleValue\}/);
+  assert.match(source, /\(\["normal", "stylful"\] as const\)/);
   assert.match(source, /t\("workspace\.resetRequired", "Reset required"\)/);
   assert.match(source, /t\("common\.settings", "Settings"\)/);
   assert.match(source, /"sidebar\.outputLanguageHint"/);

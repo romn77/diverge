@@ -77,6 +77,9 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertTrue(deploy_script.is_file())
 
         source = deploy_script.read_text(encoding="utf-8")
+        self.assertIn('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"', source)
+        self.assertIn('REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"', source)
+        self.assertNotIn('$PROJECT_ROOT/reports', source)
         self.assertIn("docker compose build", source)
         self.assertIn("docker compose up -d", source)
         self.assertIn("mkdir -p", source)

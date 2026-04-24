@@ -19,6 +19,7 @@ _EXPORTS = {
     "create_conservative_debator": ("tradingagents.agents.risk_mgmt.conservative_debator", "create_conservative_debator"),
     "create_neutral_debator": ("tradingagents.agents.risk_mgmt.neutral_debator", "create_neutral_debator"),
     "create_research_manager": ("tradingagents.agents.managers.research_manager", "create_research_manager"),
+    "create_summary_agent": ("tradingagents.agents.managers.summary_agent", "create_summary_agent"),
     "create_portfolio_manager": ("tradingagents.agents.managers.portfolio_manager", "create_portfolio_manager"),
     "create_risk_manager": ("tradingagents.agents.managers.risk_manager", "create_risk_manager"),
     "create_trader": ("tradingagents.agents.trader.trader", "create_trader"),

@@ -435,18 +435,11 @@ export function ReportViewer({
   const summaryArtifact = useMemo(
     () =>
       structure?.artifacts.find(
-        (artifact) => artifact.type.toLowerCase() === "thesis"
-      ) ??
-      structure?.artifacts[0] ??
-      null,
+        (artifact) => artifact.type.toLowerCase() === "summary"
+      ) ?? null,
     [structure]
   );
-  const summaryText =
-    summaryArtifact?.summary ??
-    t(
-      "report.summaryFallback",
-      "A concise summary is not available yet. Use the report tracks to inspect each desk's view."
-    );
+  const summaryText = summaryArtifact?.summary?.trim() ?? "";
 
   const handleTabChange = useCallback(
     (tabKey: string) => {
@@ -806,9 +799,11 @@ function SummaryPanel({
             </Badge>
           ) : null}
         </div>
-        <p className="mt-4 text-sm leading-7 text-slate-700 md:text-[15px]">
-          {summaryText}
-        </p>
+        {summaryText ? (
+          <p className="mt-4 text-sm leading-7 text-slate-700 md:text-[15px]">
+            {summaryText}
+          </p>
+        ) : null}
         </CardContent>
       </Card>
     </div>

@@ -12,6 +12,12 @@ test("globals.css defines the simplified workbench surfaces and removes glass gr
   assert.match(source, /--surface-panel:/);
   assert.match(source, /--surface-elevated:/);
   assert.match(source, /--text-xs:/);
+  assert.match(source, /html\[data-visual-style="stylful"\]/);
+  assert.match(source, /html\[data-theme="light"\]\[data-visual-style="stylful"\]/);
+  assert.match(source, /html\[data-theme="dark"\]\[data-visual-style="stylful"\]/);
+  assert.match(source, /html\[data-theme="proof"\]/);
+  assert.match(source, /html\[data-theme="everforest"\]/);
+  assert.match(source, /--button-primary-shadow:/);
   assert.equal(source.includes("backdrop-filter: blur(16px)"), false);
   assert.equal(source.includes(".app-shell::after"), false);
   assert.equal(source.includes("body::before"), false);
@@ -42,6 +48,7 @@ test("globals.css preserves selected pill controls in dark mode", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 
   assert.match(source, /html\[data-theme="dark"\] \.pill-tab\[data-active="true"\]/);
+  assert.match(source, /html\[data-theme="dark"\]\[data-visual-style="stylful"\] \.pill-tab\[data-active="true"\]/);
   assert.match(source, /background:\s*var\(--primary\)/);
   assert.match(source, /color:\s*var\(--primary-foreground\)/);
 });
@@ -69,6 +76,11 @@ test("globals.css maps every in-use white alpha surface to a dark surface", () =
       source,
       new RegExp(`html\\[data-theme="dark"\\] \\.bg-white\\\\/${alpha}`),
       `expected bg-white/${alpha} to be covered in dark mode`
+    );
+    assert.match(
+      source,
+      new RegExp(`html\\[data-theme="everforest"\\] \\.bg-white\\\\/${alpha}`),
+      `expected bg-white/${alpha} to be covered in everforest mode`
     );
   }
 });

@@ -40,7 +40,15 @@ export function WorkspaceAccountMenu({
   selectedOutputLanguage,
   onOutputLanguageChange,
 }: WorkspaceAccountMenuProps) {
-  const { language, setLanguage, setTheme, t, theme } = usePreferences();
+  const {
+    language,
+    setLanguage,
+    setTheme,
+    setVisualStyle,
+    t,
+    theme,
+    visualStyle,
+  } = usePreferences();
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsConfig, setSettingsConfig] = useState<ConfigOptions | null>(null);
@@ -284,7 +292,7 @@ export function WorkspaceAccountMenu({
             size="icon"
               className={`rounded-full ${
                 isSettingsOpen
-                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
+                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[var(--button-primary-shadow)]"
                 : "text-[var(--muted)]"
             }`}
             onClick={handleSettingsToggle}
@@ -321,8 +329,8 @@ export function WorkspaceAccountMenu({
                       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                         {t("preferences.themeLabel", "Theme")}
                       </p>
-                      <div className="mt-2 flex gap-2">
-                        {(["light", "dark"] as const).map((themeValue) => (
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {(["light", "dark", "proof", "everforest"] as const).map((themeValue) => (
                           <Button
                             key={themeValue}
                             type="button"
@@ -334,7 +342,11 @@ export function WorkspaceAccountMenu({
                           >
                             {themeValue === "light"
                               ? t("common.light", "Light")
-                              : t("common.dark", "Dark")}
+                              : themeValue === "dark"
+                                ? t("common.dark", "Dark")
+                                : themeValue === "proof"
+                                  ? t("common.proof", "Proof")
+                                  : t("common.everforest", "Everforest")}
                           </Button>
                         ))}
                       </div>
@@ -358,6 +370,29 @@ export function WorkspaceAccountMenu({
                             {languageValue === "en"
                               ? t("common.english", "English")
                               : t("common.chinese", "中文")}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                        {t("preferences.visualStyleLabel", "Visual Style")}
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        {(["normal", "stylful"] as const).map((styleValue) => (
+                          <Button
+                            key={styleValue}
+                            type="button"
+                            variant={visualStyle === styleValue ? "default" : "secondary"}
+                            size="sm"
+                            data-active={visualStyle === styleValue}
+                            className="pill-tab flex-1 justify-center px-3 py-2 text-center"
+                            onClick={() => setVisualStyle(styleValue)}
+                          >
+                            {styleValue === "normal"
+                              ? t("common.normal", "Normal")
+                              : t("common.stylful", "Stylful")}
                           </Button>
                         ))}
                       </div>

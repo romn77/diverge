@@ -88,7 +88,9 @@ test("ReportViewer promotes a dedicated summary tab instead of a right-side summ
   assert.match(source, /setSelectedTab\(SUMMARY_TAB_KEY\)/);
   assert.match(source, /selectedTab === SUMMARY_TAB_KEY/);
   assert.match(source, /SummaryPanel/);
-  assert.match(source, /report\.summary/);
+  assert.match(source, /artifact\.type\.toLowerCase\(\) === "summary"/);
+  assert.doesNotMatch(source, /artifact\.type\.toLowerCase\(\) === "thesis"/);
+  assert.doesNotMatch(source, /report\.summaryFallback/);
   assert.match(source, /TabsTrigger/);
   assert.doesNotMatch(source, /<aside className="viewer-meta-card"/);
 });

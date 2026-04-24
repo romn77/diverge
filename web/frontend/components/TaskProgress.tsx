@@ -28,7 +28,7 @@ interface TaskProgressProps {
   onTaskComplete: (reportId: string | null) => void;
 }
 
-const STAGES = ["Analysts", "Research", "Trading", "Risk", "Portfolio"] as const;
+const STAGES = ["Analysts", "Research", "Trading", "Risk", "Portfolio", "Summary"] as const;
 const RESEARCH_DEPTH_LABELS: Record<number, string> = {
   1: "Shallow",
   3: "Medium",
@@ -213,7 +213,7 @@ export function TaskProgress({
             </div>
           ) : null}
 
-          <div className="mt-8 grid gap-3 md:grid-cols-5">
+          <div className="mt-8 grid gap-3 md:grid-cols-6">
             {STAGES.map((stage) => {
               const state = stageStatus[stage] ?? "not_started";
               return (

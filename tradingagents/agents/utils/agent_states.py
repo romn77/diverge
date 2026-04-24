@@ -93,3 +93,6 @@ class AgentState(MessagesState):
         RiskDebateState, "Current state of the debate on evaluating risk"
     ]
     final_trade_decision: Annotated[str, "Final decision made by the Risk Analysts"]
+    report_summary: NotRequired[
+        Annotated[str, "Concise Summary Agent output for the complete report"]
+    ]

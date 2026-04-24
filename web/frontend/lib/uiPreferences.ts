@@ -1,5 +1,7 @@
-export type Theme = "light" | "dark";
+export const THEME_VALUES = ["light", "dark", "proof", "everforest"] as const;
+export type Theme = (typeof THEME_VALUES)[number];
 export type Language = "en" | "zh";
+export type VisualStyle = "normal" | "stylful";
 
 export type TranslationParams = Record<string, number | string | undefined>;
 export type TranslationTemplate =
@@ -8,11 +10,14 @@ export type TranslationTemplate =
 
 export const THEME_STORAGE_KEY = "tradingagents.ui.theme";
 export const LANGUAGE_STORAGE_KEY = "tradingagents.ui.language";
+export const VISUAL_STYLE_STORAGE_KEY = "tradingagents.ui.visualStyle";
 export const THEME_COOKIE_NAME = THEME_STORAGE_KEY;
 export const LANGUAGE_COOKIE_NAME = LANGUAGE_STORAGE_KEY;
+export const VISUAL_STYLE_COOKIE_NAME = VISUAL_STYLE_STORAGE_KEY;
 export const PREFERENCE_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 export const DEFAULT_THEME: Theme = "light";
 export const DEFAULT_LANGUAGE: Language = "en";
+export const DEFAULT_VISUAL_STYLE: VisualStyle = "normal";
 
 export const LANGUAGE_LOCALES: Record<Language, string> = {
   en: "en-US",
@@ -26,6 +31,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "common.clear": "清空",
   "common.close": "关闭",
   "common.dark": "深色",
+  "common.everforest": "Everforest",
   "common.delete": "删除",
   "common.edit": "编辑",
   "common.english": "English",
@@ -33,14 +39,17 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "common.language": "语言",
   "common.latest": "最新",
   "common.light": "浅色",
+  "common.proof": "Proof",
   "common.loading": "加载中",
   "common.menu": "菜单",
+  "common.normal": "标准",
   "common.notAvailable": "N/A",
   "common.notSet": "未设置",
   "common.open": "打开",
   "common.refresh": "刷新",
   "common.saved": "已保存",
   "common.settings": "设置",
+  "common.stylful": "个性",
   "common.theme": "主题",
   "common.unknownDate": "未知日期",
   "common.updates": ({ count }) => `${count ?? 0} 条更新`,
@@ -142,6 +151,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "sidebar.viewLabel": "查看",
   "preferences.themeLabel": "界面主题",
   "preferences.languageLabel": "界面语言",
+  "preferences.visualStyleLabel": "界面风格",
   "workspace.access": "工作台访问",
   "workspace.resetRequired": "需要重置",
   "workspace.adminConsole": "管理员控制台",
@@ -600,11 +610,19 @@ const zhTranslations: Record<string, TranslationTemplate> = {
 };
 
 export function isTheme(value: string | null | undefined): value is Theme {
-  return value === "light" || value === "dark";
+  return THEME_VALUES.includes(value as Theme);
+}
+
+export function toColorScheme(theme: Theme): "light" | "dark" {
+  return theme === "dark" || theme === "everforest" ? "dark" : "light";
 }
 
 export function isLanguage(value: string | null | undefined): value is Language {
   return value === "en" || value === "zh";
+}
+
+export function isVisualStyle(value: string | null | undefined): value is VisualStyle {
+  return value === "normal" || value === "stylful";
 }
 
 export function toLocale(language: Language): string {
@@ -617,6 +635,12 @@ export function toHtmlLang(language: Language): string {
 
 export function resolveServerTheme(value: string | null | undefined): Theme {
   return isTheme(value) ? value : DEFAULT_THEME;
+}
+
+export function resolveServerVisualStyle(
+  value: string | null | undefined
+): VisualStyle {
+  return isVisualStyle(value) ? value : DEFAULT_VISUAL_STYLE;
 }
 
 export function inferLanguageFromHeader(value: string | null | undefined): Language {
@@ -643,10 +667,12 @@ export function createPreferenceCookieString(name: string, value: string): strin
 export function buildPreferencesBootstrapScript({
   initialLanguage,
   initialTheme,
+  initialVisualStyle,
   preferSystemTheme,
 }: {
   initialLanguage: Language;
   initialTheme: Theme;
+  initialVisualStyle: VisualStyle;
   preferSystemTheme: boolean;
 }): string {
   return `(() => {
@@ -654,7 +680,15 @@ export function buildPreferencesBootstrapScript({
   const storedTheme = (() => {
     try {
       const value = window.localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});
-      return value === "light" || value === "dark" ? value : null;
+      return ["light", "dark", "proof", "everforest"].includes(value) ? value : null;
+    } catch (error) {
+      return null;
+    }
+  })();
+  const storedVisualStyle = (() => {
+    try {
+      const value = window.localStorage.getItem(${JSON.stringify(VISUAL_STYLE_STORAGE_KEY)});
+      return value === "normal" || value === "stylful" ? value : null;
     } catch (error) {
       return null;
     }
@@ -663,13 +697,16 @@ export function buildPreferencesBootstrapScript({
     ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
     : ${JSON.stringify(initialTheme)});
   const nextLanguage = ${JSON.stringify(initialLanguage)};
+  const nextVisualStyle = storedVisualStyle ?? ${JSON.stringify(initialVisualStyle)};
   root.dataset.theme = nextTheme;
   root.dataset.uiLanguage = nextLanguage;
+  root.dataset.visualStyle = nextVisualStyle;
   root.lang = ${JSON.stringify(toHtmlLang(initialLanguage))};
-  root.style.colorScheme = nextTheme;
+  root.style.colorScheme = nextTheme === "dark" || nextTheme === "everforest" ? "dark" : "light";
   try {
     window.localStorage.setItem(${JSON.stringify(THEME_STORAGE_KEY)}, nextTheme);
     window.localStorage.setItem(${JSON.stringify(LANGUAGE_STORAGE_KEY)}, nextLanguage);
+    window.localStorage.setItem(${JSON.stringify(VISUAL_STYLE_STORAGE_KEY)}, nextVisualStyle);
   } catch (error) {}
   document.cookie = ${JSON.stringify(
     createPreferenceCookieString(THEME_COOKIE_NAME, "")
@@ -677,6 +714,9 @@ export function buildPreferencesBootstrapScript({
   document.cookie = ${JSON.stringify(
     createPreferenceCookieString(LANGUAGE_COOKIE_NAME, initialLanguage)
   )};
+  document.cookie = ${JSON.stringify(
+    createPreferenceCookieString(VISUAL_STYLE_COOKIE_NAME, "")
+  )}.replace("=", "=" + nextVisualStyle);
 })();`;
 }
 
