@@ -27,6 +27,8 @@
 
 # TradingAgents: Multi-Agents LLM Financial Trading Framework
 
+> Based on [TradingAgents](https://github.com/TauricResearch/TradingAgents) by Tauric Research. This repository is a modified internal fork of the original Apache-2.0 licensed project.
+
 ## News
 - [2026-03] **TradingAgents v0.2.3** released with multi-language support, GPT-5.4 family models, unified model catalog, backtesting date fidelity, and proxy support.
 - [2026-03] **TradingAgents v0.2.2** released with GPT-5.4/Gemini 3.1/Claude 4.6 model coverage, five-tier rating scale, OpenAI Responses API, Anthropic effort control, and cross-platform stability.
