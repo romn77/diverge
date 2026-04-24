@@ -5,7 +5,10 @@ import json
 from datetime import datetime
 from io import StringIO
 
+from .vendor_errors import VendorRetryableError
+
 API_BASE_URL = "https://www.alphavantage.co/query"
+ALPHA_VANTAGE_TIMEOUT_SECONDS = 30
 
 def get_api_key() -> str:
     """Retrieve the API key for Alpha Vantage from environment variables."""
@@ -63,8 +66,15 @@ def _make_api_request(function_name: str, params: dict) -> dict | str:
         # Remove entitlement if it's None or empty
         api_params.pop("entitlement", None)
     
-    response = requests.get(API_BASE_URL, params=api_params)
-    response.raise_for_status()
+    try:
+        response = requests.get(
+            API_BASE_URL,
+            params=api_params,
+            timeout=ALPHA_VANTAGE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise VendorRetryableError(f"Alpha Vantage request failed: {exc}") from exc
 
     response_text = response.text
     

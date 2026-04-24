@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from tradingagents.runner import AnalysisRequest
-from web.backend import app_config, auth
+from web.backend import access, app_config, auth
 from web.backend.runtime import analysis_tasks, screener_tasks
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
@@ -23,9 +23,33 @@ def _serialize_sse_event(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
+def _current_user(request: Request | None):
+    if not auth.auth_enabled() or request is None:
+        return None
+    with auth.db_session() as db:
+        return access.get_request_user_with_password_change(db, request)
+
+
+def _can_access_task(task: analysis_tasks.Task, current_user) -> bool:
+    if not auth.auth_enabled():
+        return True
+    return access.can_access_owner(current_user, task.owner_user_id, allow_unowned=True)
+
+
+def _get_authorized_task(task_id: str, request: Request | None):
+    current_user = _current_user(request)
+    task = analysis_tasks.get_task(task_id)
+    if not _can_access_task(task, current_user):
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
+    return task
+
+
 @router.post("/api/tasks")
 def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
-    analysis_request = AnalysisRequest(**payload.model_dump())
+    try:
+        analysis_request = AnalysisRequest(**payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     hydrate_provider_credentials(analysis_request.llm_provider)
     provider_availability = get_provider_availability(analysis_request.llm_provider)
     if not provider_availability["enabled"]:
@@ -54,19 +78,24 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
 
 
 @router.get("/api/tasks")
-def list_tasks() -> list[dict]:
+def list_tasks(request: Request = None) -> list[dict]:
+    current_user = _current_user(request)
     with analysis_tasks.tasks_lock:
-        return [task.to_dict() for task in analysis_tasks.tasks.values()]
+        return [
+            task.to_dict()
+            for task in analysis_tasks.tasks.values()
+            if _can_access_task(task, current_user)
+        ]
 
 
 @router.get("/api/tasks/{task_id}")
-def get_task_status(task_id: str) -> dict:
-    return analysis_tasks.get_task(task_id).to_dict()
+def get_task_status(task_id: str, request: Request = None) -> dict:
+    return _get_authorized_task(task_id, request).to_dict()
 
 
 @router.get("/api/tasks/{task_id}/stream")
 async def stream_task(task_id: str, request: Request) -> StreamingResponse:
-    analysis_tasks.get_task(task_id)
+    _get_authorized_task(task_id, request)
 
     async def event_generator():
         cursor = 0

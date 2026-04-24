@@ -8,6 +8,7 @@ from tradingagents.llm_clients.model_config import (
     get_deep_model_options,
     get_quick_model_options,
 )
+from tradingagents.ticker_symbols import normalize_ticker_symbol as _normalize_ticker_symbol
 
 console = Console()
 
@@ -43,7 +44,7 @@ def get_ticker() -> str:
 
 def normalize_ticker_symbol(ticker: str) -> str:
     """Normalize ticker input while preserving exchange suffixes."""
-    return ticker.strip().upper()
+    return _normalize_ticker_symbol(ticker)
 
 
 def get_analysis_date() -> str:

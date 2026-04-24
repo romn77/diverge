@@ -14,6 +14,7 @@ from tradingagents.llm_clients.model_config import (
     get_provider_base_url,
 )
 from tradingagents.research.thesis_tracker import build_thesis_artifact
+from tradingagents.ticker_symbols import normalize_ticker_symbol
 from tradingagents.trade_feedback import get_trade_feedback_payload
 
 
@@ -141,9 +142,7 @@ class AnalysisRequest:
     portfolio_context: Optional[str] = None
 
     def __post_init__(self) -> None:
-        self.ticker = self.ticker.strip().upper()
-        if not self.ticker:
-            raise ValueError("Ticker is required")
+        self.ticker = normalize_ticker_symbol(self.ticker)
 
         try:
             analysis_date = datetime.datetime.strptime(self.analysis_date, "%Y-%m-%d")

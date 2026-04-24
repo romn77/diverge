@@ -5,13 +5,14 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import patch
 
+from tests.web.auth_helpers import AuthClientMixin
+from tests.web.http_harness import app_client
 from web.backend import app_config, auth
 from web.backend.main import app
 from web.backend.runtime import analysis_tasks, screener_tasks
-from tests.web.http_harness import app_client
 
 
-class AssetBackendTests(unittest.TestCase):
+class AssetBackendTests(AuthClientMixin, unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.temp_dir.name) / "project"
@@ -66,14 +67,6 @@ class AssetBackendTests(unittest.TestCase):
             async with app_client(app) as client:
                 yield client
             auth.reset_runtime_state()
-
-    async def _login(self, client, email: str, password: str) -> dict:
-        response = await client.post(
-            "/api/auth/login",
-            json={"email": email, "password": password},
-        )
-        self.assertEqual(response.status_code, 200, response.text)
-        return response.json()
 
     async def _create_user(self, client, *, email: str, password: str) -> str:
         response = await client.post(
@@ -130,7 +123,12 @@ class AssetBackendTests(unittest.TestCase):
     def test_asset_routes_are_owner_scoped_when_auth_enabled(self):
         async def scenario():
             async with self._client() as admin_client:
-                await self._login(admin_client, "admin@example.com", "AdminPass123")
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
                 await self._create_user(
                     admin_client,
                     email="owner-one@example.com",
@@ -187,7 +185,12 @@ class AssetBackendTests(unittest.TestCase):
     def test_task_creation_injects_owner_portfolio_context(self):
         async def scenario():
             async with self._client() as admin_client:
-                await self._login(admin_client, "admin@example.com", "AdminPass123")
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
                 owner_one_id = await self._create_user(
                     admin_client,
                     email="owner-one@example.com",

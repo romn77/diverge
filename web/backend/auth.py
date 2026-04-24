@@ -5,6 +5,7 @@ import logging
 import os
 import secrets
 import threading
+import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -35,12 +36,16 @@ DEFAULT_BOOTSTRAP_ADMIN_DISPLAY_NAME = "Administrator"
 VALID_COOKIE_SAMESITE = {"lax", "strict", "none"}
 VALID_AUTH_MODES = {"disabled", "optional", "required"}
 MIN_PASSWORD_LENGTH = 8
+LOGIN_FAILURE_LIMIT = 5
+LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60
 
 _PASSWORD_HASHER = PasswordHasher()
 _ENGINE_LOCK = threading.Lock()
 _ENGINE: Engine | None = None
 _ENGINE_URL: str | None = None
 _SESSION_FACTORY: sessionmaker[Session] | None = None
+_LOGIN_FAILURE_LOCK = threading.Lock()
+_LOGIN_FAILURES: dict[str, list[float]] = {}
 logger = logging.getLogger(__name__)
 
 
@@ -123,6 +128,49 @@ def verify_password(password_hash: str, password: str) -> bool:
 
 def _hash_session_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _login_rate_limit_keys(email: str | None, ip_address: str | None) -> tuple[str, str, str]:
+    normalized_email = str(email or "").strip().lower() or "<missing>"
+    normalized_ip = str(ip_address or "").strip() or "<unknown>"
+    return (
+        f"ip:{normalized_ip}",
+        f"email:{normalized_email}",
+        f"pair:{normalized_ip}:{normalized_email}",
+    )
+
+
+def ensure_login_allowed(email: str | None, ip_address: str | None) -> None:
+    keys = _login_rate_limit_keys(email, ip_address)
+    now = time.monotonic()
+    cutoff = now - LOGIN_FAILURE_WINDOW_SECONDS
+    with _LOGIN_FAILURE_LOCK:
+        for key in keys:
+            failures = [value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff]
+            _LOGIN_FAILURES[key] = failures
+            if len(failures) >= LOGIN_FAILURE_LIMIT:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many failed login attempts. Try again later.",
+                )
+
+
+def record_login_failure(email: str | None, ip_address: str | None) -> None:
+    keys = _login_rate_limit_keys(email, ip_address)
+    now = time.monotonic()
+    cutoff = now - LOGIN_FAILURE_WINDOW_SECONDS
+    with _LOGIN_FAILURE_LOCK:
+        for key in keys:
+            failures = [value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff]
+            failures.append(now)
+            _LOGIN_FAILURES[key] = failures
+
+
+def clear_login_failures(email: str | None, ip_address: str | None) -> None:
+    _ip_key, email_key, pair_key = _login_rate_limit_keys(email, ip_address)
+    with _LOGIN_FAILURE_LOCK:
+        _LOGIN_FAILURES.pop(email_key, None)
+        _LOGIN_FAILURES.pop(pair_key, None)
 
 
 class AuthError(Exception):
@@ -334,6 +382,8 @@ def reset_runtime_state() -> None:
         _ENGINE = None
         _ENGINE_URL = None
         _SESSION_FACTORY = None
+    with _LOGIN_FAILURE_LOCK:
+        _LOGIN_FAILURES.clear()
 
 
 def create_all_for_testing() -> None:
@@ -665,12 +715,26 @@ def require_request_user(db: Session, request: Request) -> User:
     return user
 
 
+def enforce_password_change_completed(user: User, request: Request) -> None:
+    if not user.must_change_password:
+        return
+    allowed_paths = {
+        "/api/auth/me",
+        "/api/auth/logout",
+        "/api/auth/change-password",
+    }
+    if request.url.path in allowed_paths:
+        return
+    raise HTTPException(status_code=403, detail="Password change required")
+
+
 def require_request_user_role(
     db: Session,
     request: Request,
     allowed_roles: Sequence[str],
 ) -> User:
     user = require_request_user(db, request)
+    enforce_password_change_completed(user, request)
     if user.role not in allowed_roles:
         logger.warning(
             "permission denied user_id=%s role=%s path=%s allowed_roles=%s",
@@ -790,7 +854,8 @@ def enforce_authenticated_api_access(request: Request) -> None:
     if not settings.enabled or settings.mode != "required":
         return
     with db_session() as db:
-        require_request_user(db, request)
+        user = require_request_user(db, request)
+        enforce_password_change_completed(user, request)
 
 
 def enforce_admin_api_access(request: Request) -> None:

@@ -11,6 +11,7 @@ from typing import Any, Optional
 from tradingagents.data_layout import resolve_reports_dir
 from tradingagents.llm_clients import create_llm_client
 from tradingagents.llm_clients.model_config import get_provider_base_url
+from tradingagents.ticker_symbols import normalize_ticker_symbol
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -770,7 +771,13 @@ def _trade_dir(
     *,
     reports_dir: Path | None = None,
 ) -> Path:
-    return get_trade_feedback_root(reports_dir) / _normalize_ticker(ticker) / trade_id
+    root = get_trade_feedback_root(reports_dir)
+    trade_dir = (root / _normalize_ticker(ticker) / trade_id).resolve()
+    try:
+        trade_dir.relative_to(root.resolve())
+    except ValueError as exc:
+        raise ValueError("Trade feedback directory must remain inside the feedback root") from exc
+    return trade_dir
 
 
 def _write_trade_record(
@@ -848,8 +855,7 @@ def _extract_json_object(raw_text: str) -> dict[str, Any]:
 
 
 def _normalize_ticker(value: Any) -> str:
-    ticker = _require_text(value, "ticker").upper()
-    return ticker
+    return normalize_ticker_symbol(value)
 
 
 def _normalize_optional_text(value: Any) -> str:
