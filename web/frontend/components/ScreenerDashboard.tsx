@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { useWorkbench } from "@/components/WorkbenchProvider";
+import { MetricCard } from "@/components/workbench/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +16,7 @@ import {
 } from "@/lib/workbenchRoutes";
 
 export function ScreenerDashboard() {
+  const { locale, t } = usePreferences();
   const { openScreenerDialog } = useWorkbenchChrome();
   const { activeScreenerTasks, screenerRuns } = useWorkbench();
   const recentRuns = screenerRuns.slice(0, 8);
@@ -41,42 +44,46 @@ export function ScreenerDashboard() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
-                Screener
+                {t("sidebar.nav.screener", "Screener")}
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
-                Candidate workspace
+                {t("screenerDashboard.title", "Candidate workspace")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                Launch fresh screens, revisit ranked pools, and keep the screener
-                workspace separate from report browsing.
+                {t(
+                  "screenerDashboard.description",
+                  "Launch fresh screens, revisit ranked pools, and keep the screener workspace separate from report browsing."
+                )}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <Button type="button" onClick={openScreenerDialog} className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105">
-                New Screener
+                {t("screenerDashboard.newScreener", "New Screener")}
               </Button>
               <Button asChild variant="secondary">
-                <Link href={buildActivityHref()}>View Activity</Link>
+                <Link href={buildActivityHref()}>
+                  {t("home.viewActivity", "View Activity")}
+                </Link>
               </Button>
             </div>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            <ScreenerMetric
-              label="Recent Runs"
+            <MetricCard
+              label={t("screenerDashboard.recentRuns", "Recent Runs")}
               value={`${screenerRuns.length}`}
-              meta="Saved candidate pools"
+              meta={t("screenerDashboard.recentRunsMeta", "Saved candidate pools")}
             />
-            <ScreenerMetric
-              label="Active Builds"
+            <MetricCard
+              label={t("screenerDashboard.activeBuilds", "Active Builds")}
               value={`${activeScreenerTasks.length}`}
-              meta="Background screener jobs"
+              meta={t("screenerDashboard.activeBuildsMeta", "Background screener jobs")}
             />
-            <ScreenerMetric
-              label="Markets"
+            <MetricCard
+              label={t("screenerDashboard.markets", "Markets")}
               value={`${recentMarkets.length}`}
-              meta="Recent market coverage"
+              meta={t("screenerDashboard.marketsMeta", "Recent market coverage")}
             />
           </div>
           </CardContent>
@@ -87,10 +94,10 @@ export function ScreenerDashboard() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Recent Runs
+                  {t("screenerDashboard.recentRuns", "Recent Runs")}
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                  Ranked candidate pools
+                  {t("screenerDashboard.rankedPools", "Ranked candidate pools")}
                 </h2>
               </div>
               {activeScreenerTasks.length > 0 ? (
@@ -102,14 +109,17 @@ export function ScreenerDashboard() {
                   }
                   className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]"
                 >
-                  Active build
+                  {t("screenerDashboard.activeBuild", "Active build")}
                 </Link>
               ) : null}
             </div>
 
             {recentRuns.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                No screener runs yet. Launch a new screener to generate the first ranked pool.
+                {t(
+                  "screenerDashboard.emptyRuns",
+                  "No screener runs yet. Launch a new screener to generate the first ranked pool."
+                )}
               </div>
             ) : (
               <div className="mt-5 space-y-3">
@@ -123,15 +133,21 @@ export function ScreenerDashboard() {
                       <div className="min-w-0">
                         <p className="truncate text-base font-semibold text-slate-900">{run.id}</p>
                         <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-slate-500">
-                          {run.markets.join(", ")} · {run.candidate_count} candidates
+                          {t(
+                            "screenerDashboard.runMeta",
+                            ({ markets, count }) => `${markets} · ${count} candidates`,
+                            { markets: run.markets.join(", "), count: run.candidate_count }
+                          )}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
-                          {formatRunDate(run.as_of_date)}
+                          {formatRunDate(run.as_of_date, locale)}
                         </p>
                         <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          {run.snapshot_slot === "previous" ? "Previous" : "Current"}
+                          {run.snapshot_slot === "previous"
+                            ? t("screenerDashboard.previous", "Previous")
+                            : t("screenerDashboard.current", "Current")}
                         </p>
                       </div>
                     </Link>
@@ -143,15 +159,19 @@ export function ScreenerDashboard() {
                       <div className="min-w-0">
                         <p className="truncate text-base font-semibold text-slate-900">{run.id}</p>
                         <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-slate-500">
-                          {run.markets.join(", ")} · {run.candidate_count} candidates
+                          {t(
+                            "screenerDashboard.runMeta",
+                            ({ markets, count }) => `${markets} · ${count} candidates`,
+                            { markets: run.markets.join(", "), count: run.candidate_count }
+                          )}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                          {formatRunDate(run.as_of_date)}
+                          {formatRunDate(run.as_of_date, locale)}
                         </p>
                         <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                          Metadata only
+                          {t("screenerDashboard.metadataOnly", "Metadata only")}
                         </p>
                       </div>
                     </div>
@@ -165,12 +185,12 @@ export function ScreenerDashboard() {
             <Card className="card-surface rounded-[28px]">
               <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Market Coverage
+                {t("screenerDashboard.marketCoverage", "Market Coverage")}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {recentMarkets.length === 0 ? (
                   <Badge variant="secondary" className="px-3 py-2 normal-case tracking-normal text-slate-500">
-                    Waiting for screener history
+                    {t("screenerDashboard.waitingHistory", "Waiting for screener history")}
                   </Badge>
                 ) : (
                   recentMarkets.map((market) => (
@@ -190,18 +210,23 @@ export function ScreenerDashboard() {
             <Card className="card-surface rounded-[28px]">
               <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Queue Snapshot
+                {t("screenerDashboard.queueSnapshot", "Queue Snapshot")}
               </p>
               <div className="mt-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
                 <p className="text-3xl font-semibold tracking-tight text-slate-900">
                   {activeScreenerTasks.length}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Screener builds currently in motion. Use Activity for task-by-task monitoring.
+                  {t(
+                    "screenerDashboard.queueHint",
+                    "Screener builds currently in motion. Use Activity for task-by-task monitoring."
+                  )}
                 </p>
                 <div className="mt-4">
                   <Button asChild variant="secondary" size="sm">
-                    <Link href={buildActivityHref()}>Open Activity</Link>
+                    <Link href={buildActivityHref()}>
+                      {t("screenerDashboard.openActivity", "Open Activity")}
+                    </Link>
                   </Button>
                 </div>
               </div>
@@ -214,32 +239,10 @@ export function ScreenerDashboard() {
   );
 }
 
-function ScreenerMetric({
-  label,
-  value,
-  meta,
-}: {
-  label: string;
-  value: string;
-  meta: string;
-}) {
-  return (
-    <Card className="rounded-[24px] bg-white/88">
-      <CardContent className="px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-sm text-slate-500">{meta}</p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function formatRunDate(value: string): string {
+function formatRunDate(value: string, locale: string): string {
   const parsed = new Date(`${value}T00:00:00`);
   if (!Number.isNaN(parsed.getTime())) {
-    return new Intl.DateTimeFormat("en", {
+    return new Intl.DateTimeFormat(locale, {
       month: "short",
       day: "numeric",
     }).format(parsed);

@@ -37,4 +37,10 @@ test("uiPreferences defines persisted theme and language cookie keys with zh tra
   assert.match(source, /"common\.interfacePreferences": "界面偏好"/);
   assert.match(source, /"common\.dark": "深色"/);
   assert.match(source, /"common\.chinese": "中文"/);
+  assert.match(source, /"common\.settings": "设置"/);
+  assert.match(source, /"workspace\.resetRequired": "需要重置"/);
+  assert.match(source, /"sidebar\.nav\.assets": "资产"/);
+  assert.match(source, /"activity\.title": "后台任务"/);
+  assert.match(source, /"assets\.title": "组合资产台账"/);
+  assert.match(source, /"screenerDashboard\.queueSnapshot": "队列快照"/);
 });

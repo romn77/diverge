@@ -2,10 +2,11 @@
   "name": "frontend",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
-    "test": "node --test app/*.test.mjs components/*.test.mjs lib/*.test.mjs",
+    "test": "node --test app/*.test.{mjs,ts} components/*.test.{mjs,ts} lib/*.test.{mjs,ts}",
     "start": "next start",
     "lint": "eslint"
   },

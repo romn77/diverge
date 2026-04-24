@@ -12,9 +12,11 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { NewAnalysisForm } from "@/components/NewAnalysisForm";
 import { NewScreenerForm } from "@/components/NewScreenerForm";
+import { usePreferences } from "@/components/PreferencesProvider";
 import { Sidebar } from "@/components/Sidebar";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { WorkspaceAccountMenu } from "@/components/WorkspaceAccountMenu";
+import { StatusPanel } from "@/components/workbench/StatusPanel";
 import {
   buildLoginHref,
   buildScreenerTaskHref,
@@ -32,6 +34,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { t } = usePreferences();
   const {
     authEnabled,
     authError,
@@ -105,9 +108,12 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   if (authStatus === "loading") {
     return (
       <StatusPanel
-        eyebrow="Session Bootstrap"
-        title="Preparing the workbench"
-        body="TradingAgents is checking the current session before loading reports, tasks, and screeners."
+        eyebrow={t("workbench.sessionBootstrap", "Session Bootstrap")}
+        title={t("workbench.preparingTitle", "Preparing the workbench")}
+        body={t(
+          "workbench.preparingBody",
+          "TradingAgents is checking the current session before loading reports, tasks, and screeners."
+        )}
       />
     );
   }
@@ -115,14 +121,24 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   if (authStatus === "error") {
     return (
       <StatusPanel
-        eyebrow="Workbench Unavailable"
-        title="We could not reach the auth boundary"
+        eyebrow={t("workbench.unavailable", "Workbench Unavailable")}
+        title={t("workbench.authBoundaryTitle", "We could not reach the auth boundary")}
         body={
           authError ??
-          "The frontend could not read /api/auth/me, so protected workbench navigation is paused."
+          t(
+            "workbench.authBoundaryBody",
+            "The frontend could not read /api/auth/me, so protected workbench navigation is paused."
+          )
         }
-        actionLabel="Retry Session Bootstrap"
-        onAction={() => void refreshSession()}
+        action={
+          <button
+            type="button"
+            className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
+            onClick={() => void refreshSession()}
+          >
+            {t("workbench.retrySession", "Retry Session Bootstrap")}
+          </button>
+        }
       />
     );
   }
@@ -130,9 +146,12 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   if (shouldRedirectToLogin) {
     return (
       <StatusPanel
-        eyebrow="Login Required"
-        title="Redirecting to sign in"
-        body="This workbench is protected in the current environment, so TradingAgents is routing this session through the login page."
+        eyebrow={t("workbench.loginRequired", "Login Required")}
+        title={t("workbench.loginRequiredTitle", "Redirecting to sign in")}
+        body={t(
+          "workbench.loginRequiredBody",
+          "This workbench is protected in the current environment, so TradingAgents is routing this session through the login page."
+        )}
       />
     );
   }
@@ -211,41 +230,4 @@ export function useWorkbenchChrome() {
     throw new Error("useWorkbenchChrome must be used within WorkbenchShell.");
   }
   return context;
-}
-
-function StatusPanel({
-  eyebrow,
-  title,
-  body,
-  actionLabel,
-  onAction,
-}: {
-  eyebrow: string;
-  title: string;
-  body: string;
-  actionLabel?: string;
-  onAction?: () => void;
-}) {
-  return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-10">
-      <div className="card-surface w-full max-w-xl rounded-[32px] px-8 py-10 text-center">
-        <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
-          {eyebrow}
-        </p>
-        <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900">
-          {title}
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-slate-600">{body}</p>
-        {actionLabel && onAction ? (
-          <button
-            type="button"
-            className="interactive-button focus-ring mt-6 rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
-            onClick={onAction}
-          >
-            {actionLabel}
-          </button>
-        ) : null}
-      </div>
-    </main>
-  );
 }

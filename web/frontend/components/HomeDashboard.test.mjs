@@ -12,14 +12,15 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/card"/);
   assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /usePreferences/);
   assert.match(source, /<Card/);
   assert.match(source, /<Input/);
   assert.match(source, /<Badge/);
   assert.match(source, /buildActivityHref/);
-  assert.match(source, /Search reports/);
-  assert.match(source, /Tracked Tickers/);
-  assert.match(source, /Coverage Snapshot/);
-  assert.match(source, /New Analysis/);
+  assert.match(source, /t\("home\.searchLabel", "Search reports"\)/);
+  assert.match(source, /t\("home\.recentTickers", "Tracked Tickers"\)/);
+  assert.match(source, /t\("home\.coverageSnapshot", "Coverage Snapshot"\)/);
+  assert.match(source, /t\("home\.launchAnalysis", "New Analysis"\)/);
   assert.doesNotMatch(source, /Launch Screener/);
   assert.doesNotMatch(source, /Open Trade Journal/);
   assert.doesNotMatch(source, /buildScreenerRunHref/);
@@ -32,5 +33,5 @@ test("HomeDashboard hero actions share a unified CTA base style across button an
   assert.match(source, /<Button/);
   assert.match(source, /asChild/);
   assert.match(source, /variant="secondary"/);
-  assert.match(source, /Search reports/);
+  assert.match(source, /home\.searchLabel/);
 });

@@ -30,6 +30,14 @@ test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top
   assert.match(source, /Interface Preferences/);
   assert.match(source, /Output Language/);
   assert.match(source, /onValueChange=\{onOutputLanguageChange\}/);
+  assert.match(source, /data-active=\{theme === themeValue\}/);
+  assert.match(source, /data-active=\{language === languageValue\}/);
+  assert.match(source, /t\("workspace\.resetRequired", "Reset required"\)/);
+  assert.match(source, /t\("common\.settings", "Settings"\)/);
+  assert.match(source, /"sidebar\.outputLanguageHint"/);
+  assert.match(source, /`analysis\.outputLanguage\.\$\{languageOption\.value\}`/);
+  assert.doesNotMatch(source, /bg-\[rgba\(255,253,248/);
+  assert.doesNotMatch(source, /border-\[rgba\(150,118,99/);
   assert.match(source, /getConfigOptions/);
   assert.match(source, /Workspace Access/);
   assert.match(source, /Admin Console/);

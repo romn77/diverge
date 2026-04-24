@@ -12,6 +12,7 @@ test("admin users page wires the backend admin APIs and explicit forbidden handl
   assert.match(source, /from "@\/components\/ui\/card"/);
   assert.match(source, /from "@\/components\/ui\/input"/);
   assert.match(source, /from "@\/components\/ui\/select"/);
+  assert.match(source, /AdminUserSummaryCards/);
   assert.match(source, /<Card/);
   assert.match(source, /<Button/);
   assert.match(source, /listAdminUsers/);

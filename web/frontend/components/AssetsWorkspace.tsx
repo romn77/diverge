@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { usePreferences } from "@/components/PreferencesProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,9 +109,13 @@ function draftToPayload(draft: AssetDraft): AssetPositionCreateRequest {
   };
 }
 
-function formatMoney(value: number | null | undefined, currency: string): string {
+function formatMoney(
+  value: number | null | undefined,
+  currency: string,
+  emptyLabel = "N/A"
+): string {
   if (value === null || value === undefined) {
-    return "N/A";
+    return emptyLabel;
   }
   return `${value.toFixed(2)} ${currency}`;
 }
@@ -145,6 +150,7 @@ function flattenPositions(summary: AssetSummaryPayload | null): AssetPositionRec
 }
 
 export function AssetsWorkspace() {
+  const { t } = usePreferences();
   const [baseCurrency, setBaseCurrency] = useState(DEFAULT_BASE_CURRENCY);
   const [summary, setSummary] = useState<AssetSummaryPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -168,18 +174,19 @@ export function AssetsWorkspace() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "Unable to load the asset ledger"
+          : t("assets.error.loadLedger", "Unable to load the asset ledger")
       );
     } finally {
       setLoading(false);
     }
-  }, [baseCurrency]);
+  }, [baseCurrency, t]);
 
   useEffect(() => {
     void loadSummary(true);
   }, [loadSummary]);
 
   const flatPositions = useMemo(() => flattenPositions(summary), [summary]);
+  const notAvailableLabel = t("common.notAvailable", "N/A");
 
   const openCreateDialog = () => {
     setEditingPositionId(null);
@@ -199,7 +206,7 @@ export function AssetsWorkspace() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "Unable to load the selected asset"
+          : t("assets.error.loadSelected", "Unable to load the selected asset")
       );
     } finally {
       setSubmitting(false);
@@ -224,7 +231,7 @@ export function AssetsWorkspace() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "Unable to save the asset"
+          : t("assets.error.save", "Unable to save the asset")
       );
     } finally {
       setSubmitting(false);
@@ -233,7 +240,16 @@ export function AssetsWorkspace() {
 
   const handleDelete = async (position: AssetPositionRecord) => {
     const confirmed = window.confirm(
-      `Delete ${position.asset_name} from ${position.account.platform_name} / ${position.account.account_name}?`
+      t(
+        "assets.confirmDelete",
+        ({ asset, platform, account }) =>
+          `Delete ${asset} from ${platform} / ${account}?`,
+        {
+          asset: position.asset_name,
+          platform: position.account.platform_name,
+          account: position.account.account_name,
+        }
+      )
     );
     if (!confirmed) {
       return;
@@ -248,7 +264,7 @@ export function AssetsWorkspace() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "Unable to delete the asset"
+          : t("assets.error.delete", "Unable to delete the asset")
       );
     } finally {
       setSubmitting(false);
@@ -267,7 +283,7 @@ export function AssetsWorkspace() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "Unable to refresh the asset"
+          : t("assets.error.refresh", "Unable to refresh the asset")
       );
     } finally {
       setSubmitting(false);
@@ -287,7 +303,7 @@ export function AssetsWorkspace() {
       setError(
         nextError instanceof Error
           ? nextError.message
-          : "Unable to refresh the asset ledger"
+          : t("assets.error.refreshLedger", "Unable to refresh the asset ledger")
       );
     } finally {
       setSubmitting(false);
@@ -307,21 +323,22 @@ export function AssetsWorkspace() {
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-                Assets
+                {t("sidebar.nav.assets", "Assets")}
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
-                Portfolio ledger
+                {t("assets.title", "Portfolio ledger")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                Track accounts, current holdings, manual assets, and marked-to-market
-                exposure in one PostgreSQL-backed ledger that the portfolio manager can
-                reuse during analysis runs.
+                {t(
+                  "assets.description",
+                  "Track accounts, current holdings, manual assets, and marked-to-market exposure in one PostgreSQL-backed ledger that the portfolio manager can reuse during analysis runs."
+                )}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <label className="rounded-full border border-[var(--border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
-                Base
+                {t("assets.base", "Base")}
                 <Input
                   type="text"
                   value={baseCurrency}
@@ -335,38 +352,46 @@ export function AssetsWorkspace() {
                 disabled={submitting}
                 onClick={() => void handleRefreshAll(false)}
               >
-                Refresh Due
+                {t("assets.refreshDue", "Refresh Due")}
               </Button>
               <Button
                 type="button"
                 disabled={submitting}
                 onClick={openCreateDialog}
               >
-                Add Asset
+                {t("assets.addAsset", "Add Asset")}
               </Button>
             </div>
           </div>
 
           <div className="mt-8 grid gap-4 md:grid-cols-4">
             <AssetMetric
-              label="Market Value"
-              value={summary ? formatMoney(summary.totals.market_value, baseCurrency) : "—"}
-              meta="Priced holdings total"
+              label={t("assets.metric.marketValue", "Market Value")}
+              value={
+                summary
+                  ? formatMoney(summary.totals.market_value, baseCurrency, notAvailableLabel)
+                  : "—"
+              }
+              meta={t("assets.metric.marketValueMeta", "Priced holdings total")}
             />
             <AssetMetric
-              label="Unrealized P/L"
-              value={summary ? formatMoney(summary.totals.unrealized_pnl, baseCurrency) : "—"}
-              meta="Across priced positions"
+              label={t("assets.metric.unrealized", "Unrealized P/L")}
+              value={
+                summary
+                  ? formatMoney(summary.totals.unrealized_pnl, baseCurrency, notAvailableLabel)
+                  : "—"
+              }
+              meta={t("assets.metric.unrealizedMeta", "Across priced positions")}
             />
             <AssetMetric
-              label="Positions"
+              label={t("assets.metric.positions", "Positions")}
               value={summary ? `${summary.totals.position_count}` : "—"}
-              meta="Tracked assets"
+              meta={t("assets.metric.positionsMeta", "Tracked assets")}
             />
             <AssetMetric
-              label="Accounts"
+              label={t("assets.accounts", "Accounts")}
               value={summary ? `${summary.totals.account_count}` : "—"}
-              meta="Portfolio buckets"
+              meta={t("assets.metric.accountsMeta", "Portfolio buckets")}
             />
           </div>
           </CardContent>
@@ -377,26 +402,31 @@ export function AssetsWorkspace() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Accounts
+                  {t("assets.accounts", "Accounts")}
                 </p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                  Grouped exposure
+                  {t("assets.groupedExposure", "Grouped exposure")}
                 </h2>
               </div>
               {summary ? (
                 <Badge variant="secondary" className="text-slate-500">
-                  {summary.groups.length} platform(s)
+                  {t("assets.platformCount", ({ count }) => `${count} platform(s)`, {
+                    count: summary.groups.length,
+                  })}
                 </Badge>
               ) : null}
             </div>
 
             {loading ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                Loading asset summary...
+                {t("assets.loadingSummary", "Loading asset summary...")}
               </div>
             ) : !summary || summary.groups.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                No priced platform groups yet. Add a position or refresh manual values.
+                {t(
+                  "assets.noGroups",
+                  "No priced platform groups yet. Add a position or refresh manual values."
+                )}
               </div>
             ) : (
               <div className="mt-5 space-y-4">
@@ -411,15 +441,23 @@ export function AssetsWorkspace() {
                           {group.platform_name}
                         </p>
                         <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
-                          {group.accounts.length} account(s)
+                          {t("assets.accountCount", ({ count }) => `${count} account(s)`, {
+                            count: group.accounts.length,
+                          })}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-semibold text-slate-900">
-                          {formatMoney(group.market_value, baseCurrency)}
+                          {formatMoney(group.market_value, baseCurrency, notAvailableLabel)}
                         </p>
                         <p className="mt-1 text-xs text-slate-500">
-                          P/L {formatMoney(group.unrealized_pnl, baseCurrency)}
+                          {t("assets.pnlValue", ({ value }) => `P/L ${value}`, {
+                            value: formatMoney(
+                              group.unrealized_pnl,
+                              baseCurrency,
+                              notAvailableLabel
+                            ),
+                          })}
                         </p>
                       </div>
                     </div>
@@ -436,15 +474,29 @@ export function AssetsWorkspace() {
                                 {account.account_name}
                               </p>
                               <p className="mt-1 text-xs text-slate-500">
-                                {account.positions.length} position(s)
+                                {t(
+                                  "assets.positionCount",
+                                  ({ count }) => `${count} position(s)`,
+                                  { count: account.positions.length }
+                                )}
                               </p>
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold text-slate-900">
-                                {formatMoney(account.market_value, baseCurrency)}
+                                {formatMoney(
+                                  account.market_value,
+                                  baseCurrency,
+                                  notAvailableLabel
+                                )}
                               </p>
                               <p className="mt-1 text-xs text-slate-500">
-                                P/L {formatMoney(account.unrealized_pnl, baseCurrency)}
+                                {t("assets.pnlValue", ({ value }) => `P/L ${value}`, {
+                                  value: formatMoney(
+                                    account.unrealized_pnl,
+                                    baseCurrency,
+                                    notAvailableLabel
+                                  ),
+                                })}
                               </p>
                             </div>
                           </div>
@@ -461,23 +513,34 @@ export function AssetsWorkspace() {
                                     {position.ticker ? ` (${position.ticker})` : ""}
                                   </p>
                                   <p className="mt-1 text-xs text-slate-500">
-                                    Qty {position.quantity} · {position.asset_category} ·{" "}
-                                    {position.state}
+                                    {t(
+                                      "assets.positionMeta",
+                                      ({ quantity, category, state }) =>
+                                        `Qty ${quantity} · ${category} · ${state}`,
+                                      {
+                                        quantity: position.quantity,
+                                        category: position.asset_category,
+                                        state: position.state,
+                                      }
+                                    )}
                                   </p>
                                 </div>
                                 <div className="text-right">
                                   <p className="text-sm font-semibold text-slate-900">
                                     {formatMoney(
                                       position.latest_snapshot?.market_value,
-                                      baseCurrency
+                                      baseCurrency,
+                                      notAvailableLabel
                                     )}
                                   </p>
                                   <p className="mt-1 text-xs text-slate-500">
-                                    P/L{" "}
-                                    {formatMoney(
-                                      position.latest_snapshot?.unrealized_pnl,
-                                      baseCurrency
-                                    )}
+                                    {t("assets.pnlValue", ({ value }) => `P/L ${value}`, {
+                                      value: formatMoney(
+                                        position.latest_snapshot?.unrealized_pnl,
+                                        baseCurrency,
+                                        notAvailableLabel
+                                      ),
+                                    })}
                                   </p>
                                 </div>
                               </div>
@@ -498,10 +561,10 @@ export function AssetsWorkspace() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                    Ledger Health
+                    {t("assets.ledgerHealth", "Ledger Health")}
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                    Pricing state
+                    {t("assets.pricingState", "Pricing state")}
                   </h2>
                 </div>
                 {summary ? (
@@ -513,11 +576,11 @@ export function AssetsWorkspace() {
 
               <div className="mt-5 grid gap-3 sm:grid-cols-2">
                 <AssetHealthTile
-                  label="Priced"
+                  label={t("assets.priced", "Priced")}
                   value={summary ? `${summary.totals.priced_position_count}` : "—"}
                 />
                 <AssetHealthTile
-                  label="Unpriced"
+                  label={t("assets.unpriced", "Unpriced")}
                   value={summary ? `${summary.totals.unpriced_position_count}` : "—"}
                 />
               </div>
@@ -529,7 +592,7 @@ export function AssetsWorkspace() {
                 disabled={submitting}
                 onClick={() => void handleRefreshAll(true)}
               >
-                Force Revalue All Positions
+                {t("assets.forceRevalue", "Force Revalue All Positions")}
               </Button>
               </CardContent>
             </Card>
@@ -537,12 +600,15 @@ export function AssetsWorkspace() {
             <Card className="card-surface rounded-[28px]">
               <CardContent className="px-6 py-6">
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Unpriced Queue
+                {t("assets.unpricedQueue", "Unpriced Queue")}
               </p>
               <div className="mt-4 space-y-3">
                 {!summary || summary.unpriced_positions.length === 0 ? (
                   <div className="rounded-[22px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-slate-500">
-                    No unresolved or manual-only positions waiting for pricing attention.
+                    {t(
+                      "assets.noUnpriced",
+                      "No unresolved or manual-only positions waiting for pricing attention."
+                    )}
                   </div>
                 ) : (
                   summary.unpriced_positions.map((position) => (
@@ -582,10 +648,10 @@ export function AssetsWorkspace() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Ledger Table
+                {t("assets.ledgerTable", "Ledger Table")}
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                All positions
+                {t("assets.allPositions", "All positions")}
               </h2>
             </div>
             <Badge variant="secondary" className="text-slate-500">
@@ -595,23 +661,23 @@ export function AssetsWorkspace() {
 
           {loading ? (
             <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-              Loading asset ledger...
+              {t("assets.loadingLedger", "Loading asset ledger...")}
             </div>
           ) : flatPositions.length === 0 ? (
             <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-              No tracked positions yet.
+              {t("assets.noPositions", "No tracked positions yet.")}
             </div>
           ) : (
             <div className="mt-5">
               <Table className="min-w-full border-separate border-spacing-y-3">
                 <TableHeader>
                   <TableRow className="text-left text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    <TableHead>Asset</TableHead>
-                    <TableHead>Account</TableHead>
-                    <TableHead>Qty</TableHead>
-                    <TableHead>State</TableHead>
-                    <TableHead>Value</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead>{t("assets.asset", "Asset")}</TableHead>
+                    <TableHead>{t("assets.account", "Account")}</TableHead>
+                    <TableHead>{t("assets.quantityShort", "Qty")}</TableHead>
+                    <TableHead>{t("assets.state", "State")}</TableHead>
+                    <TableHead>{t("assets.value", "Value")}</TableHead>
+                    <TableHead>{t("assets.actions", "Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -643,7 +709,11 @@ export function AssetsWorkspace() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-slate-700">
-                        {formatMoney(position.latest_snapshot?.market_value, baseCurrency)}
+                        {formatMoney(
+                          position.latest_snapshot?.market_value,
+                          baseCurrency,
+                          notAvailableLabel
+                        )}
                       </TableCell>
                       <TableCell className="rounded-r-[22px]">
                         <div className="flex flex-wrap gap-2">
@@ -654,7 +724,7 @@ export function AssetsWorkspace() {
                             disabled={submitting}
                             onClick={() => void handleRefreshOne(position)}
                           >
-                            Refresh
+                            {t("common.refresh", "Refresh")}
                           </Button>
                           <Button
                             type="button"
@@ -663,7 +733,7 @@ export function AssetsWorkspace() {
                             disabled={submitting}
                             onClick={() => void openEditDialog(position.id)}
                           >
-                            Edit
+                            {t("common.edit", "Edit")}
                           </Button>
                           <Button
                             type="button"
@@ -673,7 +743,7 @@ export function AssetsWorkspace() {
                             disabled={submitting}
                             onClick={() => void handleDelete(position)}
                           >
-                            Delete
+                            {t("common.delete", "Delete")}
                           </Button>
                         </div>
                       </TableCell>
@@ -689,23 +759,33 @@ export function AssetsWorkspace() {
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && setDialogOpen(false)}>
         <DialogContent
-          aria-label={editingPositionId ? "Edit asset" : "Add asset"}
+          aria-label={
+            editingPositionId
+              ? t("assets.editAsset", "Edit asset")
+              : t("assets.addAsset", "Add asset")
+          }
           className="modal-panel max-w-3xl"
         >
         <DialogHeader className="pr-12">
           <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
-            Assets
+            {t("sidebar.nav.assets", "Assets")}
           </p>
-          <DialogTitle>{editingPositionId ? "Edit Asset" : "Add Asset"}</DialogTitle>
+          <DialogTitle>
+            {editingPositionId
+              ? t("assets.editAsset", "Edit Asset")
+              : t("assets.addAsset", "Add Asset")}
+          </DialogTitle>
           <DialogDescription className="max-w-2xl">
-            Store the account bucket, the held quantity, and either a market ticker
-            or a manual valuation so the ledger and portfolio manager stay aligned.
+            {t(
+              "assets.dialogDescription",
+              "Store the account bucket, the held quantity, and either a market ticker or a manual valuation so the ledger and portfolio manager stay aligned."
+            )}
           </DialogDescription>
         </DialogHeader>
 
         <div className="mt-8 grid gap-6">
           <section className="grid gap-4 md:grid-cols-2">
-            <Field label="Platform">
+            <Field label={t("assets.platform", "Platform")}>
               <Input
                 type="text"
                 value={draft.platform_name}
@@ -719,7 +799,7 @@ export function AssetsWorkspace() {
                 placeholder="Broker"
               />
             </Field>
-            <Field label="Account">
+            <Field label={t("assets.account", "Account")}>
               <Input
                 type="text"
                 value={draft.account_name}
@@ -736,7 +816,7 @@ export function AssetsWorkspace() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-2">
-            <Field label="Asset Name">
+            <Field label={t("assets.assetName", "Asset Name")}>
               <Input
                 type="text"
                 value={draft.asset_name}
@@ -750,7 +830,7 @@ export function AssetsWorkspace() {
                 placeholder="Apple Inc."
               />
             </Field>
-            <Field label="Category">
+            <Field label={t("assets.category", "Category")}>
               <Input
                 type="text"
                 value={draft.asset_category}
@@ -767,7 +847,7 @@ export function AssetsWorkspace() {
           </section>
 
           <section className="grid gap-4 md:grid-cols-3">
-            <Field label="Quantity">
+            <Field label={t("assets.quantity", "Quantity")}>
               <Input
                 type="number"
                 step="any"
@@ -781,7 +861,7 @@ export function AssetsWorkspace() {
                 className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
               />
             </Field>
-            <Field label="Cost Basis">
+            <Field label={t("assets.costBasis", "Cost Basis")}>
               <Input
                 type="number"
                 step="any"
@@ -795,7 +875,7 @@ export function AssetsWorkspace() {
                 className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
               />
             </Field>
-            <Field label="Currency">
+            <Field label={t("assets.currency", "Currency")}>
               <Input
                 type="text"
                 value={draft.currency}
@@ -813,7 +893,7 @@ export function AssetsWorkspace() {
 
           <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Valuation Mode
+              {t("assets.valuationMode", "Valuation Mode")}
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
               {(["market", "manual"] as const).map((mode) => {
@@ -834,7 +914,7 @@ export function AssetsWorkspace() {
                       }))
                     }
                   >
-                    {mode}
+                    {t(`assets.valuationMode.${mode}`, mode)}
                   </Button>
                 );
               })}
@@ -842,7 +922,7 @@ export function AssetsWorkspace() {
           </section>
 
           {draft.valuation_mode === "market" ? (
-            <Field label="Ticker">
+            <Field label={t("assets.ticker", "Ticker")}>
               <Input
                 type="text"
                 value={draft.ticker}
@@ -857,7 +937,7 @@ export function AssetsWorkspace() {
               />
             </Field>
           ) : (
-            <Field label="Manual Price">
+            <Field label={t("assets.manualPrice", "Manual Price")}>
               <Input
                 type="number"
                 step="any"
@@ -874,7 +954,7 @@ export function AssetsWorkspace() {
             </Field>
           )}
 
-          <Field label="Notes">
+          <Field label={t("assets.notes", "Notes")}>
             <Textarea
               value={draft.notes}
               onChange={(event) =>
@@ -885,20 +965,25 @@ export function AssetsWorkspace() {
               }
               rows={4}
               className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-900"
-              placeholder="Optional internal notes about this position."
+              placeholder={t(
+                "assets.notesPlaceholder",
+                "Optional internal notes about this position."
+              )}
             />
           </Field>
 
           <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
-              Cancel
+              {t("common.cancel", "Cancel")}
             </Button>
             <Button
               type="button"
               disabled={submitting}
               onClick={() => void submitDraft()}
             >
-              {editingPositionId ? "Save Asset" : "Create Asset"}
+              {editingPositionId
+                ? t("assets.saveAsset", "Save Asset")
+                : t("assets.createAsset", "Create Asset")}
             </Button>
           </div>
         </div>

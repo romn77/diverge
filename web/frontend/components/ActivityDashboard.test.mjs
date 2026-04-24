@@ -11,12 +11,13 @@ test("ActivityDashboard centralizes in-flight analysis and screener monitoring",
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /usePreferences/);
   assert.match(source, /<Card/);
   assert.match(source, /<Badge/);
   assert.match(source, /buildTaskHref/);
   assert.match(source, /buildScreenerTaskHref/);
-  assert.match(source, /Background work/);
-  assert.match(source, /Analysis tasks/);
-  assert.match(source, /Screener tasks/);
-  assert.match(source, /Combined background jobs/);
+  assert.match(source, /t\("activity\.title", "Background work"\)/);
+  assert.match(source, /t\("activity\.analysisTasks", "Analysis tasks"\)/);
+  assert.match(source, /t\("activity\.screenerTasks", "Screener tasks"\)/);
+  assert.match(source, /t\("activity\.metric\.totalMeta", "Combined background jobs"\)/);
 });

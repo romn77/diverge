@@ -999,6 +999,18 @@ html[data-theme="dark"] .pill-tab:hover {
   color: var(--text);
 }
 
+html[data-theme="dark"] .pill-tab[data-active="true"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: 0 12px 24px rgba(224, 138, 87, 0.2);
+}
+
+html[data-theme="dark"] .pill-tab[data-active="true"]:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
 html[data-theme="dark"] .focus-ring:focus-visible {
   box-shadow:
     0 0 0 2px var(--surface),
@@ -1009,10 +1021,15 @@ html[data-theme="dark"] .bg-white,
 html[data-theme="dark"] .bg-white\/95,
 html[data-theme="dark"] .bg-white\/92,
 html[data-theme="dark"] .bg-white\/90,
+html[data-theme="dark"] .bg-white\/88,
 html[data-theme="dark"] .bg-white\/85,
+html[data-theme="dark"] .bg-white\/82,
 html[data-theme="dark"] .bg-white\/80,
 html[data-theme="dark"] .bg-white\/78,
+html[data-theme="dark"] .bg-white\/76,
 html[data-theme="dark"] .bg-white\/72,
+html[data-theme="dark"] .bg-white\/70,
+html[data-theme="dark"] .bg-white\/68,
 html[data-theme="dark"] .bg-white\/42 {
   background-color: rgba(24, 34, 47, 0.92) !important;
 }

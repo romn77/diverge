@@ -178,7 +178,7 @@ export function WorkspaceAccountMenu({
       </div>
 
       <header className="relative z-[40] ml-auto shrink-0">
-        <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[rgba(150,118,99,0.18)] bg-[rgba(255,248,243,0.88)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
+        <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--popover)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
           <DropdownMenu
             open={isAccountOpen}
             onOpenChange={(open) => {
@@ -226,7 +226,7 @@ export function WorkspaceAccountMenu({
                       </span>
                       {authUser.must_change_password ? (
                         <span className="rounded-full border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--danger)]">
-                          Reset required
+                          {t("workspace.resetRequired", "Reset required")}
                         </span>
                       ) : null}
                     </div>
@@ -282,10 +282,10 @@ export function WorkspaceAccountMenu({
             aria-controls={settingsDialogId}
             variant="secondary"
             size="icon"
-            className={`rounded-full ${
-              isSettingsOpen
-                ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
-                : "text-slate-600"
+              className={`rounded-full ${
+                isSettingsOpen
+                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_10px_24px_rgba(182,90,43,0.14)]"
+                : "text-[var(--muted)]"
             }`}
             onClick={handleSettingsToggle}
             title={t("common.settings", "Settings")}
@@ -306,7 +306,7 @@ export function WorkspaceAccountMenu({
               ref={settingsPanelRef}
               role="dialog"
               aria-labelledby="workspace-settings-title"
-              className="absolute right-0 top-full mt-2 w-[18rem] max-w-[calc(100vw-2rem)] rounded-[24px] border border-[var(--border)] bg-[rgba(255,253,248,0.98)] p-3 shadow-[0_22px_48px_rgba(18,28,41,0.18)] backdrop-blur-sm"
+              className="absolute right-0 top-full mt-2 w-[18rem] max-w-[calc(100vw-2rem)] rounded-[24px] border border-[var(--border)] bg-[var(--popover)] p-3 shadow-[0_22px_48px_rgba(18,28,41,0.18)] backdrop-blur-sm"
             >
               <div className="space-y-3">
                 <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3">
@@ -317,7 +317,7 @@ export function WorkspaceAccountMenu({
                     {t("common.interfacePreferences", "Interface Preferences")}
                   </p>
                   <div className="mt-3 space-y-3">
-                    <div className="rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
+                    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                         {t("preferences.themeLabel", "Theme")}
                       </p>
@@ -328,6 +328,7 @@ export function WorkspaceAccountMenu({
                             type="button"
                             variant={theme === themeValue ? "default" : "secondary"}
                             size="sm"
+                            data-active={theme === themeValue}
                             className="pill-tab flex-1 justify-center px-3 py-2 text-center"
                             onClick={() => setTheme(themeValue)}
                           >
@@ -339,7 +340,7 @@ export function WorkspaceAccountMenu({
                       </div>
                     </div>
 
-                    <div className="rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
+                    <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                         {t("preferences.languageLabel", "UI Language")}
                       </p>
@@ -350,6 +351,7 @@ export function WorkspaceAccountMenu({
                             type="button"
                             variant={language === languageValue ? "default" : "secondary"}
                             size="sm"
+                            data-active={language === languageValue}
                             className="pill-tab flex-1 justify-center px-3 py-2 text-center"
                             onClick={() => setLanguage(languageValue)}
                           >
@@ -375,14 +377,14 @@ export function WorkspaceAccountMenu({
                         </Button>
                       </div>
                     ) : !settingsLoading && outputLanguageOptions.length === 0 ? (
-                      <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-white/80 px-4 py-4 text-sm text-slate-600">
+                      <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-sm text-slate-600">
                         {t(
                           "sidebar.noOutputLanguages",
                           "No output languages available."
                         )}
                       </div>
                     ) : !settingsLoading ? (
-                      <label className="block rounded-[22px] border border-[var(--border)] bg-white/80 p-3">
+                      <label className="block rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
                         <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                           {t("analysis.outputLanguage", "Output Language")}
                         </span>
@@ -399,7 +401,10 @@ export function WorkspaceAccountMenu({
                               key={languageOption.value}
                               value={languageOption.value}
                             >
-                              {languageOption.label}
+                              {t(
+                                `analysis.outputLanguage.${languageOption.value}`,
+                                languageOption.label
+                              )}
                             </SelectItem>
                           ))}
                           </SelectContent>

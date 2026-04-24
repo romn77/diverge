@@ -37,3 +37,38 @@ test("globals.css provides a reusable hidden-scrollbar utility for modal panels"
   assert.match(source, /-ms-overflow-style:\s*none;/);
   assert.match(source, /\.scrollbar-hidden::\-webkit-scrollbar\s*\{\s*display:\s*none;/);
 });
+
+test("globals.css preserves selected pill controls in dark mode", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  assert.match(source, /html\[data-theme="dark"\] \.pill-tab\[data-active="true"\]/);
+  assert.match(source, /background:\s*var\(--primary\)/);
+  assert.match(source, /color:\s*var\(--primary-foreground\)/);
+});
+
+test("globals.css maps every in-use white alpha surface to a dark surface", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+  const requiredAlphaClasses = [
+    "95",
+    "92",
+    "90",
+    "88",
+    "85",
+    "82",
+    "80",
+    "78",
+    "76",
+    "72",
+    "70",
+    "68",
+    "42",
+  ];
+
+  for (const alpha of requiredAlphaClasses) {
+    assert.match(
+      source,
+      new RegExp(`html\\[data-theme="dark"\\] \\.bg-white\\\\/${alpha}`),
+      `expected bg-white/${alpha} to be covered in dark mode`
+    );
+  }
+});
