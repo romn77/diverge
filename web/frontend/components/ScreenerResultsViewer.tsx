@@ -375,7 +375,7 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                     <TagStrip
                       label="Pattern"
                       value={formatBreakoutType(row.breakout_type)}
-                      tone="bg-[rgba(181,89,38,0.08)] text-[var(--primary)]"
+                      tone="bg-[rgba(93,116,112,0.12)] text-[var(--primary)]"
                     />
                     <TagStrip
                       label="Volume"
@@ -490,7 +490,7 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                         <TagStrip
                           label="Pattern"
                           value={formatBreakoutType(row.breakout_type)}
-                          tone="bg-[rgba(181,89,38,0.08)] text-[var(--primary)]"
+                          tone="bg-[rgba(93,116,112,0.12)] text-[var(--primary)]"
                           compact
                         />
                       </TableCell>

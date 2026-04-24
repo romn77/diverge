@@ -208,7 +208,7 @@ export function TaskProgress({
           </div>
 
           {task && showRequestDetails ? (
-            <div className="mt-6 rounded-[24px] border border-[rgba(28,56,83,0.08)] bg-[rgba(248,250,252,0.82)] p-4">
+            <div className="mt-6 rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
               <TaskRequestDetails task={task} />
             </div>
           ) : null}

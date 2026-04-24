@@ -9,11 +9,22 @@ import { MetricCard } from "@/components/workbench/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import type { ScreenerRunSummary } from "@/lib/api";
 import {
   buildActivityHref,
   buildScreenerRunHref,
   buildScreenerTaskHref,
 } from "@/lib/workbenchRoutes";
+
+function buildScreenerRunListKey(run: ScreenerRunSummary, index: number): string {
+  return [
+    run.id,
+    run.snapshot_slot ?? "archive",
+    run.snapshot_available ? "snapshot" : "metadata",
+    run.generated_at,
+    index,
+  ].join(":");
+}
 
 export function ScreenerDashboard() {
   const { locale, t } = usePreferences();
@@ -52,7 +63,7 @@ export function ScreenerDashboard() {
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
                 {t(
                   "screenerDashboard.description",
-                  "Launch fresh screens, revisit ranked pools, and keep the screener workspace separate from report browsing."
+                  "Launch screens and review candidate pools."
                 )}
               </p>
             </div>
@@ -123,10 +134,10 @@ export function ScreenerDashboard() {
               </div>
             ) : (
               <div className="mt-5 space-y-3">
-                {recentRuns.map((run) => (
+                {recentRuns.map((run, index) => (
                   run.snapshot_available ? (
                     <Link
-                      key={run.id}
+                      key={buildScreenerRunListKey(run, index)}
                       href={buildScreenerRunHref(run.id)}
                       className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--accent)]"
                     >
@@ -153,7 +164,7 @@ export function ScreenerDashboard() {
                     </Link>
                   ) : (
                     <div
-                      key={run.id}
+                      key={buildScreenerRunListKey(run, index)}
                       className="list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/72 px-4 py-4"
                     >
                       <div className="min-w-0">

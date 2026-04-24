@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div className="relative w-full overflow-x-auto rounded-[24px] border border-border bg-white/80">
+    <div className="relative w-full overflow-x-auto rounded-[24px] border border-border bg-[var(--surface)]">
       <table className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   );

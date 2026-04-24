@@ -339,7 +339,7 @@ export default function AdminUsersPage() {
       <StatusPanel
         eyebrow="Session Bootstrap"
         title="Verifying admin access"
-        body="TradingAgents is checking the current session before loading admin APIs."
+        body="Checking your session."
       />
     );
   }
@@ -351,8 +351,7 @@ export default function AdminUsersPage() {
         title="Unable to verify admin session"
         tone="danger"
         body={
-          authError ??
-          "The admin console could not load /api/auth/me, so user management is paused."
+          authError ?? "We couldn't verify your session."
         }
         action={
           <Button type="button" onClick={() => void refreshSession()}>
@@ -368,7 +367,7 @@ export default function AdminUsersPage() {
       <StatusPanel
         eyebrow="Login Required"
         title="Redirecting to `/login`"
-        body="The admin console is protected, so unauthenticated sessions are routed back through the sign-in page."
+        body="Sign in to manage users."
       />
     );
   }
@@ -379,7 +378,7 @@ export default function AdminUsersPage() {
         eyebrow="Auth Disabled"
         title="Admin user management is unavailable"
         tone="muted"
-        body="The backend has auth turned off in this environment, so `/api/admin/users` cannot be used until auth is enabled."
+        body="Enable auth to manage users."
         action={
           <Button asChild>
             <Link href="/">Back to Workbench</Link>
@@ -395,7 +394,7 @@ export default function AdminUsersPage() {
         eyebrow="Forbidden"
         title="This session cannot manage users"
         tone="danger"
-        body="The backend returned `403 Insufficient permissions`, so this screen stays read-only and does not guess around RBAC."
+        body="You do not have permission to manage users."
         action={
           <Button asChild>
             <Link href="/">Back to Workbench</Link>
@@ -701,7 +700,7 @@ export default function AdminUsersPage() {
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-slate-600">
                   Create the workspace account first, then decide whether this person
-                  should administer, operate, or only view TradingAgents.
+                  should administer, operate, or only view Diverge.
                 </p>
 
                 <form className="mt-6 space-y-4" onSubmit={handleCreateUser}>
@@ -849,7 +848,7 @@ function SelectField({
 function getUserInitials(displayName: string, email: string): string {
   const source = displayName.trim() || email.trim();
   if (!source) {
-    return "TA";
+    return "DV";
   }
 
   const words = source.split(/\s+/).filter(Boolean);

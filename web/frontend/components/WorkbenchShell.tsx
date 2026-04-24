@@ -112,7 +112,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
         title={t("workbench.preparingTitle", "Preparing the workbench")}
         body={t(
           "workbench.preparingBody",
-          "TradingAgents is checking the current session before loading reports, tasks, and screeners."
+          "Checking your session."
         )}
       />
     );
@@ -127,7 +127,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
           authError ??
           t(
             "workbench.authBoundaryBody",
-            "The frontend could not read /api/auth/me, so protected workbench navigation is paused."
+            "We couldn't verify your session."
           )
         }
         action={
@@ -150,7 +150,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
         title={t("workbench.loginRequiredTitle", "Redirecting to sign in")}
         body={t(
           "workbench.loginRequiredBody",
-          "This workbench is protected in the current environment, so TradingAgents is routing this session through the login page."
+          "Sign in to continue."
         )}
       />
     );

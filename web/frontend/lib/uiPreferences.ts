@@ -58,7 +58,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "markdown.loadingContent": "正在加载报告内容",
   "markdown.scrollableTable": "可横向滚动的表格",
   "page.error.loadReports": "无法加载报告列表",
-  "home.heroKicker": "TradingAgents 报告中心",
+  "home.heroKicker": "Diverge 研究中心",
   "home.heroTitle": "以内容为中心的研究工作台",
   "home.heroDescription":
     "快速打开最新报告，按 ticker 搜索，发起新的后台分析，或构建排序后的选股池。",
@@ -74,7 +74,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "home.analysisWorkspace": "分析工作台",
   "home.searchResultsTitle": ({ query }) => `${query ?? ""} 的分析结果`,
   "home.workspaceDescription":
-    "搜索报告、回到已覆盖标的，并让分析工作台聚焦于报告阅读，而不是混合导航工具。",
+    "搜索报告并继续已有覆盖。",
   "home.metric.reportLibrary": "报告库",
   "home.metric.reportLibraryMeta": "已索引报告总数",
   "home.metric.trackedTickersMeta": "报告库中的覆盖标的",
@@ -105,7 +105,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "home.waitingForReports": "等待报告中",
   "sidebar.reportNavigation": "报告导航",
   "sidebar.closeSidebar": "关闭侧边栏",
-  "sidebar.brandSubline": "研究",
+  "sidebar.brandSubline": "独立 · 分岔 · 洞察",
   "sidebar.launch": "发起",
   "sidebar.create": "新建",
   "sidebar.primaryNavigation": "主导航",
@@ -167,16 +167,16 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "workbench.sessionBootstrap": "会话初始化",
   "workbench.preparingTitle": "正在准备工作台",
   "workbench.preparingBody":
-    "TradingAgents 正在检查当前会话，然后加载报告、任务和筛选结果。",
+    "正在检查会话。",
   "workbench.unavailable": "工作台不可用",
   "workbench.authBoundaryTitle": "无法访问认证边界",
   "workbench.authBoundaryBody":
-    "前端无法读取 /api/auth/me，因此受保护的工作台导航已暂停。",
+    "无法验证当前会话。",
   "workbench.retrySession": "重试会话初始化",
   "workbench.loginRequired": "需要登录",
   "workbench.loginRequiredTitle": "正在跳转到登录页",
   "workbench.loginRequiredBody":
-    "当前环境启用了工作台保护，因此 TradingAgents 会将本会话跳转到登录页。",
+    "请先登录后继续。",
   "report.generatedUnavailable": "生成时间不可用",
   "report.loadingReport": "正在加载报告...",
   "report.noReportData": "没有报告数据",
@@ -218,7 +218,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "analysis.dialog": "新建分析",
   "analysis.kicker": "发起分析",
   "analysis.title": "新建分析",
-  "analysis.description": "选择 ticker、研究深度、模型提供商和输出语言，开始这次研究任务。",
+  "analysis.description": "选择 ticker 和参数后开始分析。",
   "analysis.loadingOptions": "正在加载分析配置...",
   "analysis.error.loadOptions": "无法加载分析配置项",
   "analysis.error.createTask": "无法创建分析任务",
@@ -286,7 +286,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "screener.cnSource.akshare": "AkShare",
   "screenerDashboard.title": "候选池工作台",
   "screenerDashboard.description":
-    "发起新的筛选任务、回看排序候选池，并让筛选工作区与报告浏览保持分离。",
+    "发起筛选并查看候选池。",
   "screenerDashboard.newScreener": "新建筛选",
   "screenerDashboard.recentRuns": "最近运行",
   "screenerDashboard.recentRunsMeta": "已保存候选池",
@@ -311,7 +311,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "screenerDashboard.openActivity": "打开活动页",
   "activity.title": "后台任务",
   "activity.description":
-    "在一个位置监控进行中的分析和筛选任务，避免把任务队列堆进导航栏。",
+    "集中查看分析和筛选任务。",
   "activity.metric.total": "进行中总数",
   "activity.metric.totalMeta": "合并后台任务",
   "activity.metric.analysis": "分析任务",
@@ -328,7 +328,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "activity.awaitingUpdate": "等待下一次更新",
   "assets.title": "组合资产台账",
   "assets.description":
-    "跟踪账户、当前持仓、手动资产和按市值计量的敞口，沉淀到 PostgreSQL 台账中，供组合经理在分析任务中复用。",
+    "查看账户、持仓和资产敞口。",
   "assets.base": "基准",
   "assets.refreshDue": "刷新到期项",
   "assets.addAsset": "添加资产",

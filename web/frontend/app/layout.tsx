@@ -19,8 +19,8 @@ import "./globals.css";
 import "./stylful.css";
 
 export const metadata: Metadata = {
-  title: "TradingAgents Report Viewer",
-  description: "Browse and read analysis reports from TradingAgents",
+  title: "Diverge Research Workbench",
+  description: "Browse and read analysis reports from Diverge",
 };
 
 export default async function RootLayout({

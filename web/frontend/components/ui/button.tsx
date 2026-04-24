@@ -11,7 +11,7 @@ const buttonVariants = cva(
         default:
           "border border-primary bg-primary text-primary-foreground shadow-[var(--button-primary-shadow)] hover:brightness-[0.985] active:brightness-[0.96]",
         secondary:
-          "border border-border bg-white text-foreground shadow-[var(--button-secondary-shadow)] hover:bg-[color:var(--surface-hover)]",
+          "border border-border bg-[var(--surface)] text-foreground shadow-[var(--button-secondary-shadow)] hover:bg-[color:var(--surface-hover)]",
         outline:
           "border border-border bg-transparent text-foreground hover:bg-[color:var(--surface-hover)]",
         ghost: "border border-transparent bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground",

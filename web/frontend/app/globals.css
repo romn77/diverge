@@ -5,7 +5,7 @@
     "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui,
     sans-serif;
   --font-heading:
-    "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Songti SC", "STSong", serif;
+    "Bodoni 72", "Didot", "Iowan Old Style", "Songti SC", "STSong", serif;
   --font-mono: "SFMono-Regular", "JetBrains Mono", "Consolas", "Liberation Mono", monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -13,27 +13,27 @@
   --text-lg: 1.25rem;
   --text-xl: 1.75rem;
   --text-2xl: 2.5rem;
-  --bg: #ebe4d8;
+  --bg: #f5f2ec;
   --surface: #fffdf8;
-  --surface-strong: #fff8ee;
-  --surface-quiet: #f4eddf;
+  --surface-strong: #f5f2ec;
+  --surface-quiet: #e9e1d6;
   --surface-page: var(--bg);
   --surface-panel: var(--surface);
   --surface-elevated: var(--surface-strong);
-  --text: #162233;
-  --muted: #5f6b7b;
-  --border: rgba(22, 34, 51, 0.12);
-  --border-strong: rgba(22, 34, 51, 0.2);
-  --primary: #b65a2b;
-  --primary-strong: #94431b;
-  --primary-foreground: #fffaf5;
-  --primary-soft: #f5ded1;
-  --accent: #334155;
-  --accent-soft: #f1f5f9;
+  --text: #1c2430;
+  --muted: #5d7470;
+  --border: rgba(28, 36, 48, 0.12);
+  --border-strong: rgba(28, 36, 48, 0.22);
+  --primary: #1c2430;
+  --primary-strong: #111923;
+  --primary-foreground: #f5f2ec;
+  --primary-soft: rgba(93, 116, 112, 0.16);
+  --accent: #5d7470;
+  --accent-soft: rgba(93, 116, 112, 0.14);
   --success: #2e7653;
   --danger: #a33535;
   --danger-foreground: #fffaf5;
-  --ring-strong: rgba(182, 90, 43, 0.24);
+  --ring-strong: rgba(93, 116, 112, 0.28);
   --interactive-hover-filter: brightness(0.985);
   --interactive-active-filter: brightness(0.96);
   --surface-hover: color-mix(in srgb, var(--surface) 92%, var(--text) 8%);
@@ -53,12 +53,35 @@
   --shadow-hover:
     0 30px 60px rgba(18, 28, 41, 0.12),
     0 2px 0 rgba(255, 255, 255, 0.82) inset;
-  --button-primary-shadow: 0 14px 28px rgba(182, 90, 43, 0.18);
+  --button-primary-shadow: 0 14px 28px rgba(28, 36, 48, 0.16);
   --button-secondary-shadow: 0 10px 22px rgba(18, 28, 41, 0.06);
-  --body-radial-primary: rgba(223, 154, 109, 0.24);
-  --body-radial-secondary: rgba(28, 56, 83, 0.1);
-  --body-gradient-start: #f7f1e7;
-  --body-gradient-end: #ebe4d8;
+  --body-radial-primary: transparent;
+  --body-radial-secondary: transparent;
+  --body-gradient-start: #fbf8f2;
+  --body-gradient-end: #f5f2ec;
+  --report-panel-bg:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(252, 245, 235, 0.92) 100%);
+  --report-summary-bg:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(248, 240, 229, 0.82) 100%);
+  --report-tab-bg:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(252, 245, 235, 0.92) 100%);
+  --report-subtab-bg: rgba(255, 253, 248, 0.8);
+  --chart-panel-bg:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.94) 0%, rgba(248, 239, 226, 0.92) 100%);
+  --chart-shell-bg:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(252, 245, 235, 0.84) 100%);
+  --chart-metric-bg:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.96) 0%, rgba(248, 239, 226, 0.9) 100%);
+  --chart-metric-strip-bg:
+    linear-gradient(180deg, rgba(255, 252, 247, 0.8) 0%, rgba(248, 239, 226, 0.7) 100%);
+  --chart-icon-bg:
+    linear-gradient(180deg, rgba(255, 244, 232, 0.96) 0%, rgba(248, 230, 210, 0.92) 100%);
+  --chart-svg-bg: rgba(255, 252, 248, 0.92);
+  --chart-grid: rgba(202, 175, 143, 0.44);
+  --chart-grid-soft: rgba(235, 214, 190, 0.28);
+  --chart-axis: rgba(214, 191, 161, 0.55);
+  --chart-line: rgb(17, 63, 96);
+  --chart-label: rgb(96, 118, 134);
 }
 
 html[data-theme="dark"] {
@@ -73,16 +96,16 @@ html[data-theme="dark"] {
   --muted: #9aa7b7;
   --border: rgba(233, 238, 246, 0.12);
   --border-strong: rgba(233, 238, 246, 0.22);
-  --primary: #e08a57;
-  --primary-strong: #f0b38d;
-  --primary-foreground: #fffaf5;
-  --primary-soft: rgba(224, 138, 87, 0.16);
-  --accent: #8eb4d8;
-  --accent-soft: rgba(142, 180, 216, 0.15);
+  --primary: #cfc6bb;
+  --primary-strong: #f5f2ec;
+  --primary-foreground: #111923;
+  --primary-soft: rgba(207, 198, 187, 0.16);
+  --accent: #8fa6a1;
+  --accent-soft: rgba(143, 166, 161, 0.15);
   --success: #6dc79a;
   --danger: #f18b8b;
   --danger-foreground: #fffaf5;
-  --ring-strong: rgba(224, 138, 87, 0.34);
+  --ring-strong: rgba(143, 166, 161, 0.34);
   --interactive-hover-filter: brightness(1.06);
   --interactive-active-filter: brightness(1.12);
   --surface-hover: color-mix(in srgb, var(--surface) 90%, var(--text) 10%);
@@ -93,7 +116,7 @@ html[data-theme="dark"] {
   --secondary: color-mix(in srgb, var(--surface) 88%, var(--primary-soft) 12%);
   --secondary-foreground: var(--text);
   --muted-surface: var(--surface-strong);
-  --accent-surface: rgba(224, 138, 87, 0.18);
+  --accent-surface: rgba(207, 198, 187, 0.18);
   --accent-foreground: #f7d7c1;
   --input: rgba(233, 238, 246, 0.18);
   --shadow-soft:
@@ -102,12 +125,34 @@ html[data-theme="dark"] {
   --shadow-hover:
     0 30px 60px rgba(0, 0, 0, 0.34),
     0 1px 0 rgba(255, 255, 255, 0.06) inset;
-  --button-primary-shadow: 0 14px 28px rgba(224, 138, 87, 0.18);
+  --button-primary-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
   --button-secondary-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
-  --body-radial-primary: rgba(224, 138, 87, 0.16);
-  --body-radial-secondary: rgba(82, 139, 190, 0.16);
+  --body-radial-primary: transparent;
+  --body-radial-secondary: transparent;
   --body-gradient-start: #162130;
   --body-gradient-end: #111922;
+  --report-panel-bg:
+    linear-gradient(180deg, rgba(24, 34, 47, 0.96) 0%, rgba(20, 30, 42, 0.94) 100%);
+  --report-summary-bg:
+    linear-gradient(180deg, rgba(24, 34, 47, 0.9) 0%, rgba(17, 25, 34, 0.9) 100%);
+  --report-tab-bg:
+    linear-gradient(180deg, rgba(20, 30, 42, 0.98) 0%, rgba(17, 25, 34, 0.94) 100%);
+  --report-subtab-bg: rgba(20, 30, 42, 0.88);
+  --chart-panel-bg:
+    linear-gradient(180deg, rgba(24, 34, 47, 0.94) 0%, rgba(17, 25, 34, 0.9) 100%);
+  --chart-shell-bg:
+    linear-gradient(180deg, rgba(20, 30, 42, 0.92) 0%, rgba(17, 25, 34, 0.9) 100%);
+  --chart-metric-bg:
+    linear-gradient(180deg, rgba(24, 34, 47, 0.92) 0%, rgba(20, 30, 42, 0.9) 100%);
+  --chart-metric-strip-bg:
+    linear-gradient(180deg, rgba(24, 34, 47, 0.86) 0%, rgba(17, 25, 34, 0.86) 100%);
+  --chart-icon-bg: rgba(207, 198, 187, 0.12);
+  --chart-svg-bg: rgba(17, 25, 34, 0.84);
+  --chart-grid: rgba(207, 198, 187, 0.16);
+  --chart-grid-soft: rgba(207, 198, 187, 0.09);
+  --chart-axis: rgba(207, 198, 187, 0.2);
+  --chart-line: rgb(207, 198, 187);
+  --chart-label: rgb(154, 167, 183);
 }
 
 html[data-theme="proof"] {
@@ -155,6 +200,28 @@ html[data-theme="proof"] {
   --body-radial-secondary: rgba(47, 49, 45, 0.07);
   --body-gradient-start: #f7f4ed;
   --body-gradient-end: #f0ede6;
+  --report-panel-bg:
+    linear-gradient(180deg, rgba(247, 244, 237, 0.98) 0%, rgba(233, 228, 218, 0.92) 100%);
+  --report-summary-bg:
+    linear-gradient(180deg, rgba(247, 244, 237, 0.9) 0%, rgba(233, 228, 218, 0.82) 100%);
+  --report-tab-bg:
+    linear-gradient(180deg, rgba(247, 244, 237, 0.98) 0%, rgba(233, 228, 218, 0.92) 100%);
+  --report-subtab-bg: rgba(247, 244, 237, 0.8);
+  --chart-panel-bg:
+    linear-gradient(180deg, rgba(247, 244, 237, 0.94) 0%, rgba(233, 228, 218, 0.92) 100%);
+  --chart-shell-bg:
+    linear-gradient(180deg, rgba(247, 244, 237, 0.78) 0%, rgba(233, 228, 218, 0.84) 100%);
+  --chart-metric-bg:
+    linear-gradient(180deg, rgba(247, 244, 237, 0.96) 0%, rgba(233, 228, 218, 0.9) 100%);
+  --chart-metric-strip-bg:
+    linear-gradient(180deg, rgba(247, 244, 237, 0.84) 0%, rgba(233, 228, 218, 0.74) 100%);
+  --chart-icon-bg: rgba(61, 117, 93, 0.12);
+  --chart-svg-bg: rgba(247, 244, 237, 0.9);
+  --chart-grid: rgba(61, 117, 93, 0.18);
+  --chart-grid-soft: rgba(47, 49, 45, 0.08);
+  --chart-axis: rgba(61, 117, 93, 0.2);
+  --chart-line: rgb(37, 99, 75);
+  --chart-label: rgb(115, 118, 109);
 }
 
 html[data-theme="everforest"] {
@@ -204,6 +271,28 @@ html[data-theme="everforest"] {
   --body-radial-secondary: rgba(211, 198, 170, 0.08);
   --body-gradient-start: #343f44;
   --body-gradient-end: #2d353b;
+  --report-panel-bg:
+    linear-gradient(180deg, rgba(52, 63, 68, 0.96) 0%, rgba(45, 53, 59, 0.94) 100%);
+  --report-summary-bg:
+    linear-gradient(180deg, rgba(52, 63, 68, 0.9) 0%, rgba(45, 53, 59, 0.88) 100%);
+  --report-tab-bg:
+    linear-gradient(180deg, rgba(52, 63, 68, 0.98) 0%, rgba(45, 53, 59, 0.94) 100%);
+  --report-subtab-bg: rgba(52, 63, 68, 0.84);
+  --chart-panel-bg:
+    linear-gradient(180deg, rgba(52, 63, 68, 0.94) 0%, rgba(45, 53, 59, 0.9) 100%);
+  --chart-shell-bg:
+    linear-gradient(180deg, rgba(45, 53, 59, 0.92) 0%, rgba(39, 47, 52, 0.9) 100%);
+  --chart-metric-bg:
+    linear-gradient(180deg, rgba(52, 63, 68, 0.92) 0%, rgba(45, 53, 59, 0.9) 100%);
+  --chart-metric-strip-bg:
+    linear-gradient(180deg, rgba(52, 63, 68, 0.86) 0%, rgba(45, 53, 59, 0.84) 100%);
+  --chart-icon-bg: rgba(167, 192, 128, 0.12);
+  --chart-svg-bg: rgba(45, 53, 59, 0.86);
+  --chart-grid: rgba(211, 198, 170, 0.16);
+  --chart-grid-soft: rgba(211, 198, 170, 0.08);
+  --chart-axis: rgba(211, 198, 170, 0.18);
+  --chart-line: rgb(167, 192, 128);
+  --chart-label: rgb(167, 159, 141);
 }
 
 html[data-visual-style="stylful"] {
@@ -226,22 +315,22 @@ html[data-theme="light"][data-visual-style="stylful"] {
   --muted: #5a5750;
   --border: rgba(20, 19, 18, 0.16);
   --border-strong: rgba(20, 19, 18, 0.28);
-  --primary: #dc4538;
-  --primary-strong: #b63027;
+  --primary: #1c2430;
+  --primary-strong: #111923;
   --primary-foreground: #fff8ef;
-  --primary-soft: rgba(220, 69, 56, 0.12);
-  --accent: #2d5da1;
-  --accent-soft: rgba(45, 93, 161, 0.12);
+  --primary-soft: rgba(93, 116, 112, 0.14);
+  --accent: #5d7470;
+  --accent-soft: rgba(93, 116, 112, 0.12);
   --success: #2e8b57;
   --danger: #c0392b;
-  --ring-strong: rgba(220, 69, 56, 0.28);
+  --ring-strong: rgba(93, 116, 112, 0.28);
   --surface-hover: color-mix(in srgb, var(--surface) 88%, var(--text) 12%);
   --card: rgba(255, 248, 239, 0.96);
   --popover: rgba(255, 248, 239, 0.98);
   --secondary: color-mix(in srgb, var(--surface) 88%, var(--primary-soft) 12%);
   --muted-surface: var(--surface-strong);
-  --accent-surface: rgba(220, 69, 56, 0.1);
-  --accent-foreground: #b63027;
+  --accent-surface: rgba(93, 116, 112, 0.12);
+  --accent-foreground: #1c2430;
   --input: rgba(20, 19, 18, 0.22);
   --shadow-soft: 3px 3px 0 rgba(20, 19, 18, 0.18);
   --shadow-hover: 5px 5px 0 rgba(20, 19, 18, 0.24);
@@ -265,21 +354,21 @@ html[data-theme="dark"][data-visual-style="stylful"] {
   --muted: #a3a09a;
   --border: rgba(237, 237, 235, 0.14);
   --border-strong: rgba(237, 237, 235, 0.24);
-  --primary: #e8564a;
-  --primary-strong: #ff9a90;
+  --primary: #cfc6bb;
+  --primary-strong: #f5f2ec;
   --primary-foreground: #111110;
-  --primary-soft: rgba(232, 86, 74, 0.16);
+  --primary-soft: rgba(207, 198, 187, 0.16);
   --accent: #c0bdb7;
   --accent-soft: rgba(192, 189, 183, 0.12);
   --success: #5cc98a;
-  --danger: #e8564a;
-  --ring-strong: rgba(232, 86, 74, 0.34);
+  --danger: #f18b8b;
+  --ring-strong: rgba(143, 166, 161, 0.34);
   --surface-hover: color-mix(in srgb, var(--surface) 88%, var(--text) 12%);
   --card: rgba(28, 27, 25, 0.96);
   --popover: rgba(28, 27, 25, 0.98);
   --secondary: color-mix(in srgb, var(--surface) 88%, var(--primary-soft) 12%);
-  --accent-surface: rgba(232, 86, 74, 0.12);
-  --accent-foreground: #ff9a90;
+  --accent-surface: rgba(143, 166, 161, 0.14);
+  --accent-foreground: #cfc6bb;
   --input: rgba(237, 237, 235, 0.18);
   --shadow-soft: 3px 3px 0 rgba(0, 0, 0, 0.55);
   --shadow-hover: 5px 5px 0 rgba(0, 0, 0, 0.68);
@@ -327,10 +416,7 @@ body {
 body {
   margin: 0;
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, var(--body-radial-primary), transparent 32%),
-    radial-gradient(circle at top right, var(--body-radial-secondary), transparent 28%),
-    linear-gradient(180deg, var(--body-gradient-start) 0%, var(--body-gradient-end) 100%);
+  background: linear-gradient(180deg, var(--body-gradient-start) 0%, var(--body-gradient-end) 100%);
   font-family: var(--font-body);
 }
 
@@ -402,7 +488,7 @@ input {
 }
 
 .card-surface:hover {
-  border-color: rgba(182, 90, 43, 0.2);
+  border-color: rgba(93, 116, 112, 0.24);
 }
 
 .list-item-surface {
@@ -418,7 +504,27 @@ input {
 
 .sidebar-surface {
   background:
-    linear-gradient(180deg, rgba(255, 252, 246, 0.98) 0%, rgba(251, 244, 232, 0.92) 100%);
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(245, 242, 236, 0.94) 100%);
+}
+
+.diverge-login-panel {
+  background:
+    linear-gradient(
+      90deg,
+      transparent calc(50% - 0.5px),
+      rgba(28, 36, 48, 0.07) calc(50% - 0.5px),
+      rgba(28, 36, 48, 0.07) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(180deg, rgba(255, 253, 248, 0.92) 0%, rgba(245, 242, 236, 0.96) 100%);
+}
+
+.diverge-login-panel::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: rgba(28, 36, 48, 0.12);
 }
 
 .sidebar-section-label,
@@ -441,11 +547,11 @@ input {
 
 .sidebar-report-card[data-active="true"],
 .sidebar-history-card[data-active="true"] {
-  border-color: rgba(182, 90, 43, 0.22);
+  border-color: rgba(93, 116, 112, 0.24);
   background:
-    linear-gradient(180deg, rgba(255, 246, 238, 0.98) 0%, rgba(247, 226, 214, 0.88) 100%);
+    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(225, 232, 229, 0.9) 100%);
   box-shadow:
-    0 18px 34px rgba(182, 90, 43, 0.14),
+    0 18px 34px rgba(28, 36, 48, 0.1),
     0 1px 0 rgba(255, 255, 255, 0.75) inset;
 }
 
@@ -468,6 +574,60 @@ input {
   background:
     linear-gradient(180deg, rgba(255, 253, 248, 0.96) 0%, rgba(255, 249, 240, 0.92) 100%);
   box-shadow: 0 30px 80px rgba(18, 28, 41, 0.09);
+}
+
+.report-panel,
+.report-tab-rail,
+.report-subtab-rail,
+.report-summary-card,
+.ticker-price-panel,
+.ticker-chart-shell,
+.ticker-metric-card,
+.ticker-metric-strip,
+.ticker-trend-icon {
+  border-color: var(--border);
+}
+
+.report-panel {
+  background: var(--report-panel-bg);
+  box-shadow: 0 18px 36px rgba(18, 28, 41, 0.05);
+}
+
+.report-tab-rail {
+  background: var(--report-tab-bg);
+}
+
+.report-subtab-rail {
+  background: var(--report-subtab-bg);
+}
+
+.report-summary-card {
+  background: var(--report-summary-bg);
+  box-shadow: 0 18px 36px rgba(18, 28, 41, 0.05);
+}
+
+.ticker-price-panel {
+  background: var(--chart-panel-bg);
+  box-shadow: 0 20px 38px rgba(18, 28, 41, 0.06);
+}
+
+.ticker-chart-shell {
+  background: var(--chart-shell-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.ticker-metric-card {
+  background: var(--chart-metric-bg);
+  box-shadow: 0 10px 18px rgba(18, 28, 41, 0.04);
+}
+
+.ticker-metric-strip {
+  background: var(--chart-metric-strip-bg);
+}
+
+.ticker-trend-icon {
+  background: var(--chart-icon-bg);
+  box-shadow: 0 10px 22px rgba(18, 28, 41, 0.08);
 }
 
 .viewer-header-grid {
@@ -512,9 +672,9 @@ input {
 
 .pill-tab[data-active="true"] {
   border-color: rgba(28, 56, 83, 0.92);
-  background: #1c3853;
+  background: #1c2430;
   color: #fff9f1;
-  box-shadow: 0 12px 24px rgba(28, 56, 83, 0.18);
+  box-shadow: 0 12px 24px rgba(28, 36, 48, 0.18);
 }
 
 .focus-ring:focus-visible {
@@ -560,6 +720,8 @@ input {
 }
 
 .field-shell {
+  border-color: var(--border);
+  background: var(--surface);
   box-shadow: 0 14px 28px rgba(18, 28, 41, 0.04);
 }
 
@@ -760,10 +922,10 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
 
 .markdown-content blockquote {
   margin: 1.4rem 0;
-  border: 1px solid rgba(182, 90, 43, 0.15);
-  border-left: 4px solid rgba(182, 90, 43, 0.54);
+  border: 1px solid rgba(93, 116, 112, 0.18);
+  border-left: 4px solid rgba(93, 116, 112, 0.54);
   background:
-    linear-gradient(180deg, rgba(182, 90, 43, 0.08) 0%, rgba(255, 255, 255, 0.9) 100%);
+    linear-gradient(180deg, rgba(93, 116, 112, 0.1) 0%, rgba(255, 255, 255, 0.9) 100%);
   border-radius: 18px;
   padding: 0.95rem 1.15rem;
   color: #314254;
@@ -820,7 +982,7 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
 }
 
 .markdown-content tbody tr:hover {
-  background: rgba(182, 90, 43, 0.05);
+  background: rgba(93, 116, 112, 0.08);
 }
 
 .markdown-content hr {
@@ -851,15 +1013,7 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
 }
 
 .summary-hero::after {
-  content: "";
-  position: absolute;
-  right: -3rem;
-  bottom: -4rem;
-  width: 14rem;
-  height: 14rem;
-  border-radius: 999px;
-  background: radial-gradient(circle, rgba(182, 90, 43, 0.34) 0%, transparent 68%);
-  pointer-events: none;
+  display: none;
 }
 
 .summary-hero--buy {
@@ -867,7 +1021,7 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
 }
 
 .summary-hero--hold {
-  background: linear-gradient(145deg, #4b2412 0%, #7a3a17 45%, #b65a2b 100%);
+  background: linear-gradient(145deg, #263633 0%, #415a56 50%, #5d7470 100%);
 }
 
 .summary-hero--sell {
@@ -949,9 +1103,9 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
 }
 
 .viewer-signal-badge.signal-hold {
-  border-color: rgba(182, 90, 43, 0.16);
-  background: rgba(182, 90, 43, 0.12);
-  color: #8f431c;
+  border-color: rgba(93, 116, 112, 0.18);
+  background: rgba(93, 116, 112, 0.12);
+  color: #405652;
 }
 
 .viewer-signal-badge.signal-sell {
@@ -1263,10 +1417,10 @@ html[data-theme="dark"] .markdown-content h4 {
 }
 
 html[data-theme="dark"] .markdown-content blockquote {
-  border-color: rgba(224, 138, 87, 0.18);
-  border-left-color: rgba(224, 138, 87, 0.54);
+  border-color: rgba(207, 198, 187, 0.18);
+  border-left-color: rgba(207, 198, 187, 0.54);
   background:
-    linear-gradient(180deg, rgba(224, 138, 87, 0.12) 0%, rgba(24, 34, 47, 0.92) 100%);
+    linear-gradient(180deg, rgba(207, 198, 187, 0.1) 0%, rgba(24, 34, 47, 0.92) 100%);
   color: var(--text);
 }
 
@@ -1282,7 +1436,7 @@ html[data-theme="dark"] .markdown-content pre {
 }
 
 html[data-theme="dark"] .markdown-content tbody tr:hover {
-  background: rgba(224, 138, 87, 0.08);
+  background: rgba(143, 166, 161, 0.1);
 }
 
 html[data-theme="dark"] .viewer-signal-badge {
@@ -1304,7 +1458,7 @@ html[data-theme="dark"] .pill-tab[data-active="true"] {
   border-color: var(--primary);
   background: var(--primary);
   color: var(--primary-foreground);
-  box-shadow: 0 12px 24px rgba(224, 138, 87, 0.2);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
 }
 
 html[data-theme="dark"] .pill-tab[data-active="true"]:hover {

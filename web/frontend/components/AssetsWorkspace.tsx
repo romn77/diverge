@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Plus, RefreshCw } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,11 @@ type AssetDraft = {
 };
 
 const DEFAULT_BASE_CURRENCY = "USD";
+const HERO_ACTION_BUTTON_CLASS = "h-14 min-w-[10.5rem] px-7 text-[0.95rem]";
+const HERO_CURRENCY_CONTROL_CLASS =
+  "inline-flex h-14 min-w-[9.75rem] items-center justify-between gap-4 whitespace-nowrap rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-[var(--button-secondary-shadow)]";
+const HERO_CURRENCY_INPUT_CLASS =
+  "h-auto w-16 border-none bg-transparent px-0 py-0 text-right text-base font-semibold uppercase tracking-[0.18em] text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0";
 
 function buildEmptyDraft(): AssetDraft {
   return {
@@ -331,19 +337,20 @@ export function AssetsWorkspace() {
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
                 {t(
                   "assets.description",
-                  "Track accounts, current holdings, manual assets, and marked-to-market exposure in one PostgreSQL-backed ledger that the portfolio manager can reuse during analysis runs."
+                  "View accounts, holdings, and asset exposure."
                 )}
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <label className="rounded-full border border-[var(--border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600">
-                {t("assets.base", "Base")}
+            <div className="flex w-full flex-wrap gap-3 sm:w-auto sm:justify-end">
+              <label className={HERO_CURRENCY_CONTROL_CLASS}>
+                <span>{t("assets.base", "Base")}</span>
                 <Input
                   type="text"
                   value={baseCurrency}
                   onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
-                  className="ml-2 h-auto w-14 border-none bg-transparent px-0 py-0 text-right text-sm font-semibold text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  aria-label={t("assets.base", "Base")}
+                  className={HERO_CURRENCY_INPUT_CLASS}
                 />
               </label>
               <Button
@@ -351,14 +358,18 @@ export function AssetsWorkspace() {
                 variant="secondary"
                 disabled={submitting}
                 onClick={() => void handleRefreshAll(false)}
+                className={HERO_ACTION_BUTTON_CLASS}
               >
+                <RefreshCw className="size-4" aria-hidden="true" />
                 {t("assets.refreshDue", "Refresh Due")}
               </Button>
               <Button
                 type="button"
                 disabled={submitting}
                 onClick={openCreateDialog}
+                className={HERO_ACTION_BUTTON_CLASS}
               >
+                <Plus className="size-4" aria-hidden="true" />
                 {t("assets.addAsset", "Add Asset")}
               </Button>
             </div>

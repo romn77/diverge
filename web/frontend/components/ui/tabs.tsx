@@ -13,7 +13,7 @@ const TabsList = React.forwardRef<
   <TabsPrimitive.List
     ref={ref}
     className={cn(
-      "inline-flex items-center gap-2 rounded-full border border-border bg-white/70 p-1 shadow-[0_1px_0_rgba(255,255,255,0.82)_inset]",
+      "inline-flex items-center gap-2 rounded-full border border-border bg-[var(--surface)] p-1 shadow-[0_1px_0_rgba(255,255,255,0.18)_inset]",
       className
     )}
     {...props}
@@ -28,7 +28,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex min-h-10 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=active]:border data-[state=active]:border-[rgba(28,56,83,0.92)] data-[state=active]:bg-[var(--accent)] data-[state=active]:text-white data-[state=active]:shadow-[0_12px_24px_rgba(28,56,83,0.18)]",
+      "inline-flex min-h-10 items-center justify-center rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=active]:border data-[state=active]:border-[var(--primary)] data-[state=active]:bg-[var(--accent)] data-[state=active]:text-[var(--primary-foreground)] data-[state=active]:shadow-[var(--button-primary-shadow)]",
       className
     )}
     {...props}

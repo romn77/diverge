@@ -149,11 +149,11 @@ export function TickerPricePanel({
       className={
         embedded
           ? "bg-transparent p-0 shadow-none"
-          : "rounded-[32px] border border-[var(--border)] bg-[linear-gradient(180deg,rgba(255,252,247,0.94),rgba(248,239,226,0.92))] p-5 shadow-[0_20px_38px_rgba(18,28,41,0.06)] md:p-6"
+          : "ticker-price-panel rounded-[32px] border p-5 md:p-6"
       }
     >
       <div className="flex items-start gap-3">
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-[18px] border border-[rgba(196,151,107,0.16)] bg-[linear-gradient(180deg,rgba(255,244,232,0.96),rgba(248,230,210,0.92))] text-[var(--primary)] shadow-[0_10px_22px_rgba(196,151,107,0.12)]">
+        <div className="ticker-trend-icon grid h-12 w-12 shrink-0 place-items-center rounded-[18px] border text-[var(--primary)]">
           <TrendBadgeIcon />
         </div>
         <div className="min-w-0">
@@ -272,7 +272,7 @@ function ChartShell({
       className={
         embedded
           ? "mt-4"
-          : "mt-5 rounded-[28px] border border-[rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.72),rgba(252,245,235,0.84))] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] md:px-4 md:py-4"
+          : "ticker-chart-shell mt-5 rounded-[28px] border px-3 py-3 md:px-4 md:py-4"
       }
     >
       {children}
@@ -322,7 +322,7 @@ function PriceLineChart({
         width={CHART_WIDTH}
         height={CHART_HEIGHT}
         rx="24"
-        fill="rgba(255,252,248,0.92)"
+        fill="var(--chart-svg-bg)"
       />
 
       {yAxisTicks.map((tick) => (
@@ -332,7 +332,7 @@ function PriceLineChart({
           y1={tick.y}
           x2={plotRight}
           y2={tick.y}
-          stroke="rgba(202,175,143,0.44)"
+          stroke="var(--chart-grid)"
           strokeDasharray="10 10"
           strokeWidth="1.2"
         />
@@ -345,7 +345,7 @@ function PriceLineChart({
           y1={CHART_PADDING_TOP}
           x2={tick.x}
           y2={plotBottom}
-          stroke="rgba(235,214,190,0.28)"
+          stroke="var(--chart-grid-soft)"
           strokeWidth="1"
         />
       ))}
@@ -353,7 +353,7 @@ function PriceLineChart({
       <path
         d={path}
         fill="none"
-        stroke="rgb(17 63 96)"
+        stroke="var(--chart-line)"
         strokeWidth="4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -364,7 +364,7 @@ function PriceLineChart({
         y1={plotBottom}
         x2={plotRight}
         y2={plotBottom}
-        stroke="rgba(214,191,161,0.55)"
+        stroke="var(--chart-axis)"
         strokeWidth="1.2"
       />
 
@@ -373,7 +373,7 @@ function PriceLineChart({
           key={`y-label-${tick.value}`}
           x={CHART_WIDTH - CHART_PADDING_RIGHT + 18}
           y={tick.y + 5}
-          fill="rgb(96 118 134)"
+          fill="var(--chart-label)"
           fontSize="16"
           fontWeight="600"
         >
@@ -387,7 +387,7 @@ function PriceLineChart({
           x={tick.x}
           y={CHART_HEIGHT - 14}
           textAnchor="middle"
-          fill="rgb(96 118 134)"
+          fill="var(--chart-label)"
           fontSize="16"
           fontWeight="600"
         >
@@ -408,16 +408,16 @@ function TradingMetricTile({
   value: string;
 }) {
   return (
-    <div className="rounded-[20px] border border-[rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,252,247,0.96),rgba(248,239,226,0.9))] px-3 py-3 shadow-[0_10px_18px_rgba(18,28,41,0.04)]">
+    <div className="ticker-metric-card rounded-[20px] border px-3 py-3">
       <div className="flex items-center gap-2">
-        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[rgba(240,209,174,0.26)] text-[var(--primary)]">
+        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]">
           <MetricIcon icon={icon} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-600">
             {label}
           </p>
-          <div className="mt-1 h-px w-full bg-[rgba(214,191,161,0.65)]" />
+          <div className="mt-1 h-px w-full bg-[var(--border)]" />
         </div>
       </div>
       <p className="mt-2 break-words text-[0.95rem] font-semibold leading-snug tracking-tight text-slate-900 md:text-[1.05rem] md:whitespace-nowrap">
@@ -433,14 +433,14 @@ function TradingMetricStrip({
   metricCards: TradingMetricCard[];
 }) {
   return (
-    <div className="mt-4 overflow-hidden rounded-[18px] border border-[rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,252,247,0.8),rgba(248,239,226,0.7))]">
+    <div className="ticker-metric-strip mt-4 overflow-hidden rounded-[18px] border">
       <div className="grid md:grid-cols-2 xl:grid-cols-4">
         {metricCards.map((metric) => (
           <div
             key={metric.label}
-            className="flex items-center gap-2.5 border-b border-[rgba(22,34,51,0.08)] px-3 py-2.5 last:border-b-0 xl:border-b-0 xl:border-l xl:first:border-l-0"
+            className="flex items-center gap-2.5 border-b border-[var(--border)] px-3 py-2.5 last:border-b-0 xl:border-b-0 xl:border-l xl:first:border-l-0"
           >
-            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[rgba(240,209,174,0.22)] text-[var(--primary)]">
+            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]">
               <MetricIcon icon={metric.icon} />
             </div>
             <div className="min-w-0">

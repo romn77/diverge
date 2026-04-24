@@ -24,4 +24,6 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /t\("screenerDashboard\.marketCoverage", "Market Coverage"\)/);
   assert.match(source, /t\("screenerDashboard\.queueSnapshot", "Queue Snapshot"\)/);
   assert.match(source, /formatRunDate\(run\.as_of_date, locale\)/);
+  assert.match(source, /buildScreenerRunListKey\(run, index\)/);
+  assert.doesNotMatch(source, /key=\{run\.id\}/);
 });

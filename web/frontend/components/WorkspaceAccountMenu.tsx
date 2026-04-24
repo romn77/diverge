@@ -159,7 +159,7 @@ export function WorkspaceAccountMenu({
     setIsSettingsOpen((current) => !current);
   };
 
-  const displayName = authUser?.display_name.trim() || authUser?.email || "TradingAgents";
+  const displayName = authUser?.display_name.trim() || authUser?.email || "Diverge";
 
   return (
     <div className="flex items-start justify-between gap-3 px-4 pt-4 md:px-6">
@@ -205,7 +205,7 @@ export function WorkspaceAccountMenu({
                 <div className="grid h-8 w-8 place-items-center rounded-full bg-[var(--primary-soft)] text-[11px] font-semibold text-[var(--primary-strong)]">
                   {authEnabled && authUser
                     ? getUserInitials(authUser.display_name, authUser.email)
-                    : "TA"}
+                    : "DV"}
                 </div>
               </Button>
             </DropdownMenuTrigger>
@@ -466,7 +466,7 @@ export function WorkspaceAccountMenu({
 function getUserInitials(displayName: string, email: string): string {
   const source = displayName.trim() || email.trim();
   if (!source) {
-    return "TA";
+    return "DV";
   }
 
   const words = source.split(/\s+/).filter(Boolean);

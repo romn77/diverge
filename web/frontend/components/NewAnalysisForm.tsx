@@ -230,7 +230,7 @@ export function NewAnalysisForm({
           <DialogDescription className="max-w-2xl">
             {t(
               "analysis.description",
-              "Pick the ticker, debate depth, provider stack, and language we should use for this research run."
+              "Select a ticker and parameters to start analysis."
             )}
           </DialogDescription>
         </DialogHeader>

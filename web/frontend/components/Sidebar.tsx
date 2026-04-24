@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { DivergeMark } from "@/components/BrandMark";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Button } from "@/components/ui/button";
@@ -209,22 +210,14 @@ export function Sidebar({
     <div className="flex min-h-full flex-col">
       <div className={headerClasses}>
         <Link href={buildHomeHref()} className="flex min-w-0 items-center gap-3">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[var(--primary)] text-white shadow-[0_10px_20px_rgba(182,90,43,0.2)]">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
-              <path
-                d="M4 16l4.2-4.2L11 14.6l8-8"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[var(--border-strong)] bg-[var(--surface)] text-[var(--primary)] shadow-[0_10px_20px_rgba(28,36,48,0.08)]">
+            <DivergeMark className="h-9 w-9" />
           </div>
           {!isDesktopRail ? (
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900">TradingAgents</p>
+              <p className="font-heading text-lg font-semibold text-slate-900">Diverge</p>
               <p className="mt-0.5 text-xs text-slate-500">
-                {t("sidebar.brandSubline", "Research Workbench")}
+                {t("sidebar.brandSubline", "Independent Research")}
               </p>
             </div>
           ) : null}
@@ -355,7 +348,7 @@ export function Sidebar({
             <Button
               ref={createButtonRef}
               type="button"
-              className="flex w-full items-center justify-between rounded-[20px] px-4 py-3 text-left text-white shadow-[0_14px_28px_rgba(182,90,43,0.18)]"
+              className="flex w-full items-center justify-between rounded-[20px] px-4 py-3 text-left text-white shadow-[0_14px_28px_rgba(28,36,48,0.16)]"
               onClick={() => setIsCreateMenuOpen((current) => !current)}
               aria-expanded={isCreateMenuOpen}
               aria-haspopup="menu"
@@ -664,7 +657,7 @@ function SidebarNavLink({
       data-active={active}
       className={`focus-ring group flex items-center gap-3 rounded-[20px] border px-3 py-3 transition ${
         active
-          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_14px_30px_rgba(182,90,43,0.12)]"
+          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[0_14px_30px_rgba(28,36,48,0.1)]"
           : "border-transparent bg-white/68 text-slate-700 hover:border-[var(--border)] hover:bg-white"
       }`}
       onClick={onClick}
@@ -672,7 +665,7 @@ function SidebarNavLink({
       <div
         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border ${
           active
-            ? "border-[rgba(182,90,43,0.2)] bg-white text-[var(--primary-strong)]"
+            ? "border-[rgba(93,116,112,0.24)] bg-white text-[var(--primary-strong)]"
             : "border-[var(--border)] bg-white text-slate-500"
         }`}
       >

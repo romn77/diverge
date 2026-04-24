@@ -34,7 +34,7 @@ export function ActivityDashboard() {
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
                 {t(
                   "activity.description",
-                  "Monitor in-flight analysis and screener jobs from one place instead of stacking task queues into the navigation rail."
+                  "Monitor analysis and screener jobs in one place."
                 )}
               </p>
             </div>

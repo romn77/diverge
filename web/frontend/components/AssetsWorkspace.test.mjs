@@ -32,3 +32,13 @@ test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog 
   assert.match(source, /t\("assets\.addAsset", "Add Asset"\)/);
   assert.match(source, /t\("assets\.ledgerTable", "Ledger Table"\)/);
 });
+
+test("AssetsWorkspace gives hero actions stable wide touch targets", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /HERO_ACTION_BUTTON_CLASS/);
+  assert.match(source, /HERO_CURRENCY_CONTROL_CLASS/);
+  assert.match(source, /h-14/);
+  assert.match(source, /min-w-\[9\.75rem\]/);
+  assert.match(source, /min-w-\[10\.5rem\]/);
+});

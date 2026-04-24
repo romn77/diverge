@@ -530,7 +530,7 @@ export function TradeJournal({
                         variant="secondary"
                         className={`h-auto w-full justify-start rounded-[26px] p-4 text-left ${
                           isSelected
-                            ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 text-slate-900 shadow-[0_18px_36px_rgba(182,90,43,0.14)] hover:bg-[var(--primary-soft)]/75"
+                            ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 text-slate-900 shadow-[0_18px_36px_rgba(28,36,48,0.12)] hover:bg-[var(--primary-soft)]/75"
                             : "bg-white/85 text-slate-900 hover:bg-white"
                         }`}
                         onClick={() => setSelectedTradeId(trade.trade_id)}
@@ -1169,7 +1169,7 @@ function StatusBadge({
   const { t } = usePreferences();
   const classes =
     tone === "primary"
-      ? "border-[rgba(182,90,43,0.18)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+      ? "border-[rgba(93,116,112,0.22)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
       : "border-[rgba(28,56,83,0.14)] bg-[var(--accent-soft)] text-[var(--accent)]";
 
   return (

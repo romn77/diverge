@@ -54,6 +54,16 @@ const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
 
 const POLL_INTERVAL_MS = 3000;
 
+function dedupeScreenerRuns(runs: ScreenerRunSummary[]): ScreenerRunSummary[] {
+  const uniqueRuns = new Map<string, ScreenerRunSummary>();
+  for (const run of runs) {
+    if (!uniqueRuns.has(run.id)) {
+      uniqueRuns.set(run.id, run);
+    }
+  }
+  return Array.from(uniqueRuns.values());
+}
+
 export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const {
     authError,
@@ -126,7 +136,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      setScreenerRuns(await listScreenerRuns());
+      setScreenerRuns(dedupeScreenerRuns(await listScreenerRuns()));
     } catch (error) {
       if (handleProtectedError(error)) {
         return;

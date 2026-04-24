@@ -96,7 +96,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
                 {t(
                   "home.workspaceDescription",
-                  "Search reports, jump back into coverage, and keep the analysis workspace centered on report reading instead of mixed navigation utilities."
+                  "Search reports and continue existing coverage."
                 )}
               </p>
             </div>

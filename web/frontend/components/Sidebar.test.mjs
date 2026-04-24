@@ -19,7 +19,7 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /buildScreenerHref/);
   assert.match(source, /buildJournalHref/);
   assert.match(source, /buildActivityHref/);
-  assert.match(source, /t\("sidebar\.brandSubline", "Research Workbench"\)/);
+  assert.match(source, /t\("sidebar\.brandSubline", "Independent Research"\)/);
   assert.match(source, /t\("sidebar\.create", "New"\)/);
   assert.match(source, /SidebarSection title=\{t\("sidebar\.section\.research", "Research"\)\}/);
   assert.match(source, /SidebarSection title=\{t\("sidebar\.section\.portfolio", "Portfolio"\)\}/);

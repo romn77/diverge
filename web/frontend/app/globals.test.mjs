@@ -71,6 +71,9 @@ test("globals.css maps every in-use white alpha surface to a dark surface", () =
     "42",
   ];
 
+  assert.match(source, /html\[data-theme="dark"\] \.bg-white,/);
+  assert.match(source, /html\[data-theme="everforest"\] \.bg-white,/);
+
   for (const alpha of requiredAlphaClasses) {
     assert.match(
       source,
@@ -83,4 +86,34 @@ test("globals.css maps every in-use white alpha surface to a dark surface", () =
       `expected bg-white/${alpha} to be covered in everforest mode`
     );
   }
+});
+
+test("globals.css keeps report, chart, and form surfaces theme-token driven", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  for (const token of [
+    "--report-panel-bg:",
+    "--report-summary-bg:",
+    "--report-tab-bg:",
+    "--chart-panel-bg:",
+    "--chart-svg-bg:",
+    "--chart-line:",
+  ]) {
+    assert.match(source, new RegExp(token));
+  }
+
+  for (const selector of [
+    ".report-panel",
+    ".report-tab-rail",
+    ".report-summary-card",
+    ".ticker-price-panel",
+    ".ticker-chart-shell",
+    ".field-shell",
+  ]) {
+    assert.match(source, new RegExp(selector.replace(".", "\\.")));
+  }
+
+  assert.match(source, /\.report-panel\s*\{\s*background:\s*var\(--report-panel-bg\);/);
+  assert.match(source, /\.ticker-price-panel\s*\{\s*background:\s*var\(--chart-panel-bg\);/);
+  assert.match(source, /\.field-shell\s*\{\s*border-color:\s*var\(--border\);\s*background:\s*var\(--surface\);/);
 });

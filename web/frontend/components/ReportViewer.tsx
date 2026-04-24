@@ -493,7 +493,7 @@ export function ReportViewer({
         <div>
           <div className="px-4 pt-6 md:px-8 md:pt-8">
             <div className="w-full">
-              <section className="rounded-[30px] border border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(252,245,235,0.92))] px-4 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)] md:px-6 md:py-6">
+              <section className="report-panel rounded-[30px] border px-4 py-5 md:px-6 md:py-6">
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start">
                   <div className="min-w-0 space-y-5">
                     <header>
@@ -634,7 +634,7 @@ export function ReportViewer({
           </div>
 
           <div className="sticky top-0 z-20 bg-transparent">
-            <div className="border-b border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,253,248,0.98),rgba(252,245,235,0.92))] px-4 py-3 md:px-8 md:py-4">
+            <div className="report-tab-rail border-b border-[var(--border)] px-4 py-3 md:px-8 md:py-4">
               <div className="w-full">
                 <Tabs value={selectedTab} onValueChange={handleTabChange}>
                   <TabsList className="scrollbar-none flex w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none">
@@ -657,9 +657,9 @@ export function ReportViewer({
             {selectedTab !== SUMMARY_TAB_KEY &&
               selectedTab !== "complete" &&
               categoryFiles.length > 0 && (
-              <div className="border-b border-[color:rgba(22,34,51,0.08)] bg-[color:rgba(255,253,248,0.8)] px-4 py-3 md:px-8">
+              <div className="report-subtab-rail border-b border-[var(--border)] px-4 py-3 md:px-8">
                 <div className="w-full">
-                  <div className="scrollbar-none flex overflow-x-auto gap-2 rounded-[20px] border border-[color:rgba(22,34,51,0.08)] bg-white/42 p-2">
+                  <div className="scrollbar-none flex overflow-x-auto gap-2 rounded-[20px] border border-[var(--border)] bg-white/42 p-2">
                     {categoryFiles.map((file) => (
                       <Button
                         key={file}
@@ -684,7 +684,7 @@ export function ReportViewer({
           <div className="px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
             <div className="w-full">
               {selectedTab !== "complete" && selectedCategoryMeta && (
-                <div className="mb-8 flex w-full flex-col gap-3 border-b border-[color:rgba(22,34,51,0.08)] pb-5 md:flex-row md:items-end md:justify-between">
+                <div className="mb-8 flex w-full flex-col gap-3 border-b border-[var(--border)] pb-5 md:flex-row md:items-end md:justify-between">
                   <div className="space-y-1">
                     <p className="viewer-meta-label">
                       {t("report.currentFile", "Current file")}
@@ -778,7 +778,7 @@ function SummaryPanel({
 }) {
   return (
     <div className="space-y-6">
-      <Card className="rounded-[28px] border-[color:rgba(22,34,51,0.08)] bg-[linear-gradient(180deg,rgba(255,255,255,0.86),rgba(248,240,229,0.82))] shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
+      <Card className="report-summary-card rounded-[28px] border">
         <CardContent className="px-5 py-5 md:px-6">
         <p className="viewer-meta-label">{t("report.summary", "Summary")}</p>
         <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -786,7 +786,7 @@ function SummaryPanel({
             className={`signal-badge viewer-signal-badge min-h-11 ${
               finalSignal
                 ? signalClass(finalSignal)
-                : "border-[color:rgba(22,34,51,0.1)] bg-white/70 text-slate-600"
+                : "border-[var(--border)] bg-white/70 text-slate-600"
             }`}
           >
             {finalSignal ?? t("report.pending", "Pending")}
