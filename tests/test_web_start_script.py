@@ -36,6 +36,26 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"', source)
         self.assertIn('wait_for_http "http://localhost:${FRONTEND_PORT}"', source)
 
+    def test_start_script_supports_redis_worker_mode(self):
+        script = PROJECT_ROOT / "web" / "start.sh"
+        source = script.read_text(encoding="utf-8")
+
+        self.assertIn('TASK_BACKEND="${TASK_BACKEND:-local}"', source)
+        self.assertIn('TASK_QUEUE_LIMIT="${TASK_QUEUE_LIMIT:-2}"', source)
+        self.assertIn('REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"', source)
+        self.assertIn('WORKER_LOG="${WORKER_LOG:-/tmp/tradingagents-worker.log}"', source)
+        self.assertIn('WORKER_PID=""', source)
+        self.assertIn('ensure_redis_available() {', source)
+        self.assertIn('if [ "$TASK_BACKEND" != "redis" ]; then', source)
+        self.assertIn('START_REDIS_DOCKER="${START_REDIS_DOCKER:-false}"', source)
+        self.assertIn('docker run -d --name "$REDIS_CONTAINER_NAME"', source)
+        self.assertIn('export TASK_BACKEND="$TASK_BACKEND"', source)
+        self.assertIn('export TASK_QUEUE_LIMIT="$TASK_QUEUE_LIMIT"', source)
+        self.assertIn('export REDIS_URL="$REDIS_URL"', source)
+        self.assertIn('python -m web.backend.worker', source)
+        self.assertIn('WORKER_PID=$!', source)
+        self.assertIn('Task backend: $TASK_BACKEND', source)
+
     def test_start_script_cleans_up_when_auth_bootstrap_fails_before_backend_pid_exists(self):
         script = PROJECT_ROOT / "web" / "start.sh"
 

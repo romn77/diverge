@@ -35,6 +35,17 @@ You can override ports before launch:
 BACKEND_PORT=8010 FRONTEND_PORT=3010 ./start.sh
 ```
 
+To exercise the production-style Redis worker path locally, run:
+
+```bash
+TASK_BACKEND=redis \
+REDIS_URL=redis://127.0.0.1:6379/0 \
+START_REDIS_DOCKER=true \
+./start.sh
+```
+
+With `TASK_BACKEND=redis`, the script verifies Redis before startup and launches `python -m web.backend.worker` alongside the API. Without `START_REDIS_DOCKER=true`, start Redis yourself first, for example `docker run --rm -p 6379:6379 redis:7-alpine`.
+
 ### Option 2: Manual Start
 
 **Backend**:
@@ -179,3 +190,22 @@ Notes:
 - backend remains on `8000`
 - backend CORS uses `FRONTEND_ORIGIN`
 - frontend API target is compiled from `NEXT_PUBLIC_API_BASE_URL`
+
+## Production MVP On Tencent Cloud
+
+Use `compose.prod.yml` for the domestic production MVP stack. It adds Nginx, Redis, a dedicated worker, and a backup service around the existing frontend/backend/Postgres services:
+
+```bash
+docker compose -f compose.prod.yml build
+docker compose -f compose.prod.yml up -d
+```
+
+Production defaults:
+
+- only Nginx exposes `80/443`
+- backend and worker use `TASK_BACKEND=redis`
+- object storage uses `STORAGE_BACKEND=tencent_cos`
+- Postgres remains same-host but is dumped to COS by the `backup` service
+- the frontend remains self-hosted, but `NEXT_PUBLIC_API_BASE_URL` keeps a future Vercel deployment possible
+
+See `docs/deployment/tencent-cloud-production.md` for the Tencent Cloud checklist, COS migration, backup, and future overseas storage notes.

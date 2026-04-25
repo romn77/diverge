@@ -23,6 +23,8 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
+from web.backend.runtime import task_store
+
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PROJECT_ENV_FILE = PROJECT_ROOT / ".env"
 
@@ -144,6 +146,17 @@ def ensure_login_allowed(email: str | None, ip_address: str | None) -> None:
     keys = _login_rate_limit_keys(email, ip_address)
     now = time.monotonic()
     cutoff = now - LOGIN_FAILURE_WINDOW_SECONDS
+    redis_client = _login_failure_redis_client()
+    if redis_client is not None:
+        for key in keys:
+            redis_key = f"tradingagents:auth:failures:{key}"
+            redis_client.zremrangebyscore(redis_key, 0, cutoff)
+            if int(redis_client.zcard(redis_key) or 0) >= LOGIN_FAILURE_LIMIT:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Too many failed login attempts. Try again later.",
+                )
+        return
     with _LOGIN_FAILURE_LOCK:
         for key in keys:
             failures = [value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff]
@@ -159,6 +172,14 @@ def record_login_failure(email: str | None, ip_address: str | None) -> None:
     keys = _login_rate_limit_keys(email, ip_address)
     now = time.monotonic()
     cutoff = now - LOGIN_FAILURE_WINDOW_SECONDS
+    redis_client = _login_failure_redis_client()
+    if redis_client is not None:
+        for key in keys:
+            redis_key = f"tradingagents:auth:failures:{key}"
+            redis_client.zremrangebyscore(redis_key, 0, cutoff)
+            redis_client.zadd(redis_key, {str(now): now})
+            redis_client.expire(redis_key, LOGIN_FAILURE_WINDOW_SECONDS)
+        return
     with _LOGIN_FAILURE_LOCK:
         for key in keys:
             failures = [value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff]
@@ -168,9 +189,23 @@ def record_login_failure(email: str | None, ip_address: str | None) -> None:
 
 def clear_login_failures(email: str | None, ip_address: str | None) -> None:
     _ip_key, email_key, pair_key = _login_rate_limit_keys(email, ip_address)
+    redis_client = _login_failure_redis_client()
+    if redis_client is not None:
+        redis_client.delete(
+            f"tradingagents:auth:failures:{email_key}",
+            f"tradingagents:auth:failures:{pair_key}",
+        )
+        return
     with _LOGIN_FAILURE_LOCK:
         _LOGIN_FAILURES.pop(email_key, None)
         _LOGIN_FAILURES.pop(pair_key, None)
+
+
+def _login_failure_redis_client():
+    if not task_store.redis_task_backend_enabled():
+        return None
+    store = task_store.get_task_store()
+    return getattr(store, "client", None)
 
 
 class AuthError(Exception):

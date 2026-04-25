@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 
 from tradingagents.runner import AnalysisRequest
 from web.backend import access, app_config, auth
-from web.backend.runtime import analysis_tasks, screener_tasks
+from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
 from web.backend.services.config import (
@@ -58,7 +58,10 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             detail=str(provider_availability["disabled_reason"]),
         )
 
-    if analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks() >= 2:
+    if (
+        analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
+        >= task_store.get_queue_limit()
+    ):
         raise HTTPException(
             status_code=409,
             detail="Task queue is full. Wait for the active tasks to finish.",
@@ -80,12 +83,11 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
 @router.get("/api/tasks")
 def list_tasks(request: Request = None) -> list[dict]:
     current_user = _current_user(request)
-    with analysis_tasks.tasks_lock:
-        return [
-            task.to_dict()
-            for task in analysis_tasks.tasks.values()
-            if _can_access_task(task, current_user)
-        ]
+    return [
+        task.to_dict()
+        for task in analysis_tasks.list_tasks()
+        if _can_access_task(task, current_user)
+    ]
 
 
 @router.get("/api/tasks/{task_id}")
@@ -104,12 +106,12 @@ async def stream_task(task_id: str, request: Request) -> StreamingResponse:
             if await request.is_disconnected():
                 break
 
-            with analysis_tasks.tasks_lock:
-                task = analysis_tasks.tasks.get(task_id)
-                if task is None:
-                    break
-                pending_events = task.progress_events[cursor:]
-                task_status = task.status
+            try:
+                task = _get_authorized_task(task_id, request)
+            except HTTPException:
+                break
+            pending_events = analysis_tasks.get_progress_events(task_id, cursor)
+            task_status = task.status
 
             for event in pending_events:
                 cursor += 1

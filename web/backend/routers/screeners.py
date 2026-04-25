@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from tradingagents.screener.schema import ScreenRunConfig
 from web.backend import access, app_config, auth
-from web.backend.runtime import analysis_tasks, screener_tasks
+from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.services import screeners as screener_service
 
@@ -36,7 +36,10 @@ def create_screener_task(
     request: Request = None,
 ) -> dict:
     current_user = access.require_screener_user(request)
-    if analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks() >= 2:
+    if (
+        analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
+        >= task_store.get_queue_limit()
+    ):
         raise HTTPException(
             status_code=409,
             detail="Task queue is full. Wait for the active tasks to finish.",
@@ -73,12 +76,11 @@ def create_screener_task(
 @router.get("/api/screener/tasks")
 def list_screener_tasks(request: Request = None) -> list[dict]:
     current_user = access.require_screener_user(request)
-    with screener_tasks.screener_tasks_lock:
-        return [
-            task.to_dict()
-            for task in screener_tasks.screener_tasks.values()
-            if access.can_access_screener_owner(current_user, task.owner_user_id)
-        ]
+    return [
+        task.to_dict()
+        for task in screener_tasks.list_screener_tasks()
+        if access.can_access_screener_owner(current_user, task.owner_user_id)
+    ]
 
 
 @router.get("/api/screener/tasks/{task_id}")
@@ -101,12 +103,12 @@ async def stream_screener_task(task_id: str, request: Request) -> StreamingRespo
             if await request.is_disconnected():
                 break
 
-            with screener_tasks.screener_tasks_lock:
-                task = screener_tasks.screener_tasks.get(task_id)
-                if task is None:
-                    break
-                pending_events = task.progress_events[cursor:]
-                task_status = task.status
+            try:
+                task = _get_authorized_screener_task(task_id, current_user)
+            except HTTPException:
+                break
+            pending_events = screener_tasks.get_screener_progress_events(task_id, cursor)
+            task_status = task.status
 
             for event in pending_events:
                 cursor += 1

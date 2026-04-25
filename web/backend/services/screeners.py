@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from web.backend import app_config, auth, screener_results, screener_runs
+from web.backend import app_config, auth, screener_results, screener_runs, storage
 
 _READ_SERVICE = screener_results.ScreenerResultReadService()
 
@@ -33,6 +33,8 @@ def resolve_screener_run_dir(run_id: str) -> Path:
     if "/" in run_id or "\\" in run_id or ".." in run_id:
         raise HTTPException(status_code=404, detail="Screener run not found")
     run_dir = app_config.SCREENER_RESULTS_DIR / run_id
+    if not run_dir.is_dir() and storage_backend_is_remote():
+        storage.download_prefix(f"screener/runs/{run_id}", run_dir)
     if not run_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
     return run_dir
@@ -44,6 +46,8 @@ def resolve_screener_run_dir_from_record(record: screener_runs.ScreenerRun) -> P
         run_dir.relative_to(app_config.SCREENER_RESULTS_DIR.resolve())
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Screener run not found") from exc
+    if not run_dir.is_dir() and storage_backend_is_remote():
+        storage.download_prefix(f"screener/runs/{record.storage_path}", run_dir)
     if not run_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Screener run '{record.id}' not found")
     return run_dir
@@ -62,7 +66,14 @@ def resolve_screener_artifact_path(
         artifact_path.relative_to(app_config.SCREENER_RESULTS_DIR.resolve())
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Screener artifact not found") from exc
+    if not artifact_path.is_file() and storage_backend_is_remote():
+        run_dir = resolve_screener_run_dir_from_record(record)
+        artifact_path = run_dir / Path(relative_path).name
     return artifact_path
+
+
+def storage_backend_is_remote() -> bool:
+    return storage.os.environ.get("STORAGE_BACKEND", "local").strip().lower() != "local"
 
 
 def list_screener_runs_from_disk() -> list[dict]:

@@ -4,6 +4,10 @@ WORKDIR /app
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
 ENV UV_LINK_MODE=copy
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends bash postgresql-client ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml uv.lock README.md requirements.txt ./
 COPY web/backend/requirements.txt ./web/backend/requirements.txt
 

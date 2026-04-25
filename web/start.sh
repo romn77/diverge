@@ -21,8 +21,17 @@ FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"
 NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${BACKEND_PORT}}"
 BACKEND_LOG="${BACKEND_LOG:-/tmp/tradingagents-backend.log}"
 FRONTEND_LOG="${FRONTEND_LOG:-/tmp/tradingagents-frontend.log}"
+WORKER_LOG="${WORKER_LOG:-/tmp/tradingagents-worker.log}"
 AUTH_ENABLED="${AUTH_ENABLED:-false}"
 AUTH_MODE="${AUTH_MODE:-required}"
+TASK_BACKEND="${TASK_BACKEND:-local}"
+TASK_QUEUE_LIMIT="${TASK_QUEUE_LIMIT:-2}"
+REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"
+START_REDIS_DOCKER="${START_REDIS_DOCKER:-false}"
+REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-tradingagents-redis}"
+REDIS_PORT="${REDIS_PORT:-6379}"
+STORAGE_BACKEND="${STORAGE_BACKEND:-local}"
+STORAGE_LOCAL_ROOT="${STORAGE_LOCAL_ROOT:-$DATA_DIR}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -31,6 +40,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 BACKEND_PID=""
 FRONTEND_PID=""
+WORKER_PID=""
 
 kill_port() {
     local port="$1"
@@ -52,6 +62,40 @@ wait_for_http() {
     return 1
 }
 
+redis_ping() {
+    python -c "import os, redis; redis.Redis.from_url(os.environ['REDIS_URL'], socket_connect_timeout=2, socket_timeout=2).ping()" > /dev/null 2>&1
+}
+
+ensure_redis_available() {
+    if [ "$TASK_BACKEND" != "redis" ]; then
+        return 0
+    fi
+
+    if redis_ping; then
+        return 0
+    fi
+
+    if [ "$START_REDIS_DOCKER" = "true" ]; then
+        if ! command -v docker > /dev/null 2>&1; then
+            echo -e "${RED}TASK_BACKEND=redis requires Redis, but Docker is not available.${NC}" >&2
+            exit 1
+        fi
+        echo -e "${BLUE}Starting local Redis container...${NC}"
+        docker start "$REDIS_CONTAINER_NAME" > /dev/null 2>&1 || \
+            docker run -d --name "$REDIS_CONTAINER_NAME" -p "${REDIS_PORT}:6379" redis:7-alpine > /dev/null
+        sleep 2
+        if redis_ping; then
+            return 0
+        fi
+    fi
+
+    echo -e "${RED}Redis is not reachable at $REDIS_URL.${NC}" >&2
+    echo "Start Redis first, for example:" >&2
+    echo "  docker run --rm -p ${REDIS_PORT}:6379 redis:7-alpine" >&2
+    echo "Or set START_REDIS_DOCKER=true to let this script start a named local container." >&2
+    exit 1
+}
+
 echo -e "${BLUE}Starting TradingAgents Report Viewer...${NC}"
 echo
 
@@ -62,8 +106,13 @@ mkdir -p "$REPORTS_DIR" "$SCREENER_RUNS_DIR" "$SCREENER_TASKS_DIR" "$SCREENER_CA
 cleanup() {
     local backend_pid="${BACKEND_PID:-}"
     local frontend_pid="${FRONTEND_PID:-}"
+    local worker_pid="${WORKER_PID:-}"
     echo
     echo -e "${BLUE}Shutting down...${NC}"
+    if [ -n "$worker_pid" ] && kill -0 "$worker_pid" 2>/dev/null; then
+        kill "$worker_pid" 2>/dev/null || true
+        wait "$worker_pid" 2>/dev/null || true
+    fi
     if [ -n "$backend_pid" ] && kill -0 "$backend_pid" 2>/dev/null; then
         kill "$backend_pid" 2>/dev/null || true
         wait "$backend_pid" 2>/dev/null || true
@@ -94,6 +143,12 @@ export STOCK_HISTORY_DIR="$STOCK_HISTORY_DIR"
 export FRONTEND_ORIGIN="$FRONTEND_ORIGIN"
 export AUTH_ENABLED="$AUTH_ENABLED"
 export AUTH_MODE="$AUTH_MODE"
+export TASK_BACKEND="$TASK_BACKEND"
+export TASK_QUEUE_LIMIT="$TASK_QUEUE_LIMIT"
+export REDIS_URL="$REDIS_URL"
+export STORAGE_BACKEND="$STORAGE_BACKEND"
+export STORAGE_LOCAL_ROOT="$STORAGE_LOCAL_ROOT"
+ensure_redis_available
 if [ "$AUTH_ENABLED" = "true" ]; then
     if ! migration_output=$(alembic -c alembic.ini upgrade head 2>&1); then
         if [ -n "$migration_output" ]; then
@@ -127,6 +182,22 @@ if ! wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"; then
 fi
 echo -e "${GREEN}✓ Backend started (PID $BACKEND_PID)${NC}"
 
+if [ "$TASK_BACKEND" = "redis" ]; then
+    echo -e "${BLUE}Starting worker...${NC}"
+    (
+        cd "$ROOT_DIR"
+        python -m web.backend.worker
+    ) > "$WORKER_LOG" 2>&1 &
+    WORKER_PID=$!
+    sleep 1
+    if ! kill -0 "$WORKER_PID" 2>/dev/null; then
+        echo -e "${RED}Worker failed to start. Log:${NC}"
+        cat "$WORKER_LOG"
+        exit 1
+    fi
+    echo -e "${GREEN}✓ Worker started (PID $WORKER_PID)${NC}"
+fi
+
 # Start frontend
 echo -e "${BLUE}Starting frontend...${NC}"
 cd "$SCRIPT_DIR/frontend"
@@ -154,6 +225,10 @@ echo
 echo "Reports found: $(find "$REPORTS_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)"
 echo "Frontend origin: $FRONTEND_ORIGIN"
 echo "Frontend API target: $NEXT_PUBLIC_API_BASE_URL"
+echo "Task backend: $TASK_BACKEND"
+if [ "$TASK_BACKEND" = "redis" ]; then
+    echo "Redis URL: $REDIS_URL"
+fi
 echo
 echo -e "${BLUE}Press Ctrl+C to stop${NC}"
 echo

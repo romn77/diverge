@@ -57,6 +57,34 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("alembic -c alembic.ini upgrade head", source)
         self.assertIn("python -m web.backend.bootstrap_admin", source)
 
+    def test_prod_compose_adds_nginx_redis_worker_and_backup_without_public_datastores(self):
+        compose_file = PROJECT_ROOT / "compose.prod.yml"
+        self.assertTrue(compose_file.is_file())
+
+        source = compose_file.read_text(encoding="utf-8")
+        self.assertIn("nginx:", source)
+        self.assertIn("redis:", source)
+        self.assertIn("worker:", source)
+        self.assertIn("backup:", source)
+        self.assertIn("${HTTP_PORT:-80}:80", source)
+        self.assertIn("${HTTPS_PORT:-443}:443", source)
+        self.assertNotIn("${POSTGRES_PORT:-5432}:5432", source)
+        self.assertNotIn("${REDIS_PORT:-6379}:6379", source)
+        self.assertIn("TASK_BACKEND: redis", source)
+        self.assertIn("STORAGE_BACKEND: ${STORAGE_BACKEND:-tencent_cos}", source)
+        self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}", source)
+
+    def test_nginx_production_config_routes_frontend_api_and_sse(self):
+        nginx_config = PROJECT_ROOT / "deploy" / "nginx" / "tradingagents.conf"
+        self.assertTrue(nginx_config.is_file())
+
+        source = nginx_config.read_text(encoding="utf-8")
+        self.assertIn("proxy_pass http://backend:8000", source)
+        self.assertIn("proxy_pass http://frontend:3000", source)
+        self.assertIn("proxy_read_timeout 3600s", source)
+        self.assertIn("text/event-stream", source)
+        self.assertIn("ssl_certificate", source)
+
     def test_env_example_documents_frontend_port_and_origin(self):
         env_example = PROJECT_ROOT / ".env.example"
         source = env_example.read_text(encoding="utf-8")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import threading
 import uuid
@@ -18,7 +19,8 @@ from tradingagents.runner import (
     run_analysis_streaming,
     save_report_to_disk,
 )
-from web.backend import access, app_config, auth, report_metadata
+from web.backend import access, app_config, auth, report_metadata, storage
+from web.backend.runtime import task_store
 
 
 @dataclass
@@ -52,6 +54,8 @@ tasks_lock = threading.Lock()
 
 
 def count_active_tasks() -> int:
+    if task_store.redis_task_backend_enabled():
+        return task_store.get_task_store().count_active("analysis")
     with tasks_lock:
         return sum(1 for task in tasks.values() if task.status in {"pending", "running"})
 
@@ -100,6 +104,9 @@ def delete_task_snapshot(task_id: str) -> None:
 
 def persist_task_snapshot(task_id: str) -> None:
     task = get_task(task_id)
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
+        return
     snapshot = task.to_dict()
     if snapshot["status"] in app_config.TERMINAL_TASK_STATUSES:
         delete_task_snapshot(task_id)
@@ -120,10 +127,18 @@ def task_from_snapshot(payload: dict) -> Task:
         latest_progress=payload.get("latest_progress"),
         report_id=payload.get("report_id"),
         error=payload.get("error"),
+        progress_events=list(payload.get("progress_events") or []),
     )
 
 
 def get_task(task_id: str) -> Task:
+    if task_store.redis_task_backend_enabled():
+        payload = task_store.get_task_store().get_task("analysis", task_id)
+        if payload is None:
+            raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
+        task = task_from_snapshot(payload)
+        task.progress_events = task_store.get_task_store().list_events("analysis", task_id)
+        return task
     with tasks_lock:
         task = tasks.get(task_id)
     if task is None:
@@ -133,6 +148,13 @@ def get_task(task_id: str) -> Task:
 
 def append_progress(task_id: str, progress: AnalysisProgress) -> None:
     event_payload = progress.to_dict()
+    if task_store.redis_task_backend_enabled():
+        task = get_task(task_id)
+        task.latest_progress = event_payload
+        task.progress_events.append(event_payload)
+        task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
+        task_store.get_task_store().append_event("analysis", task_id, event_payload)
+        return
     with tasks_lock:
         task = tasks[task_id]
         task.latest_progress = event_payload
@@ -141,6 +163,13 @@ def append_progress(task_id: str, progress: AnalysisProgress) -> None:
 
 
 def set_task_status(task_id: str, status: str, error: Optional[str] = None) -> None:
+    if task_store.redis_task_backend_enabled():
+        task = get_task(task_id)
+        task.status = status
+        if error is not None:
+            task.error = error
+        task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
+        return
     with tasks_lock:
         task = tasks[task_id]
         task.status = status
@@ -173,6 +202,17 @@ def build_failure_progress(task: Task, error: str) -> dict:
 
 
 def restore_persisted_active_tasks() -> None:
+    if task_store.redis_task_backend_enabled():
+        for task in list_tasks():
+            if task.status == "running":
+                task.status = "failed"
+                task.error = app_config.RECOVERED_TASK_ERROR
+                failure_progress = build_failure_progress(task, app_config.RECOVERED_TASK_ERROR)
+                task.latest_progress = failure_progress
+                task.progress_events.append(failure_progress)
+                task_store.get_task_store().save_task("analysis", task.id, task.to_dict())
+                task_store.get_task_store().append_event("analysis", task.id, failure_progress)
+        return
     active_dir = active_tasks_dir()
     if not active_dir.is_dir():
         return
@@ -269,24 +309,29 @@ def run_task(task_id: str) -> None:
                     file_entries=file_entries,
                 )
 
-        with tasks_lock:
-            current_task = tasks[task_id]
-            current_task.status = "completed"
-            current_task.report_id = report_id
-            if current_task.latest_progress is not None:
-                current_task.latest_progress["status"] = "completed"
+        if storage_backend_is_remote():
+            storage.upload_directory(final_report_dir, f"reports/{report_id}")
+
+        current_task = get_task(task_id)
+        current_task.status = "completed"
+        current_task.report_id = report_id
+        if current_task.latest_progress is not None:
+            current_task.latest_progress["status"] = "completed"
+        save_task(current_task)
         persist_task_snapshot(task_id)
     except Exception as exc:  # pragma: no cover
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
 
-        with tasks_lock:
-            current_task = tasks[task_id]
-            current_task.status = "failed"
-            current_task.error = str(exc)
-            failure_progress = build_failure_progress(current_task, str(exc))
-            current_task.latest_progress = failure_progress
-            current_task.progress_events.append(failure_progress)
+        current_task = get_task(task_id)
+        current_task.status = "failed"
+        current_task.error = str(exc)
+        failure_progress = build_failure_progress(current_task, str(exc))
+        current_task.latest_progress = failure_progress
+        current_task.progress_events.append(failure_progress)
+        save_task(current_task)
+        if task_store.redis_task_backend_enabled():
+            task_store.get_task_store().append_event("analysis", task_id, failure_progress)
         persist_task_snapshot(task_id)
 
 
@@ -298,9 +343,17 @@ def create_task(analysis_request: AnalysisRequest, *, owner_user_id: str | None 
         owner_user_id=owner_user_id,
     )
 
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().save_task(
+            "analysis",
+            task_id,
+            task.to_dict(),
+            enqueue=True,
+        )
+        return {"task_id": task_id, "status": "pending"}
+
     with tasks_lock:
         tasks[task_id] = task
-
     persist_task_snapshot(task_id)
     start_task_thread(task_id)
     return {"task_id": task_id, "status": "pending"}
@@ -308,3 +361,41 @@ def create_task(analysis_request: AnalysisRequest, *, owner_user_id: str | None 
 
 def resolve_owner_user_id(request) -> str | None:
     return access.resolve_task_owner_user_id(request)
+
+
+def list_tasks() -> list[Task]:
+    if task_store.redis_task_backend_enabled():
+        return [
+            task_from_snapshot(payload)
+            for payload in task_store.get_task_store().list_tasks("analysis")
+        ]
+    with tasks_lock:
+        return list(tasks.values())
+
+
+def get_progress_events(task_id: str, start: int = 0) -> list[dict]:
+    if task_store.redis_task_backend_enabled():
+        return task_store.get_task_store().list_events("analysis", task_id, start)
+    with tasks_lock:
+        task = tasks.get(task_id)
+        if task is None:
+            return []
+        return task.progress_events[start:]
+
+
+def save_task(task: Task) -> None:
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().save_task("analysis", task.id, task.to_dict())
+        return
+    with tasks_lock:
+        tasks[task.id] = task
+
+
+def claim_next_task(*, timeout: int = 5) -> str | None:
+    if not task_store.redis_task_backend_enabled():
+        return None
+    return task_store.get_task_store().claim("analysis", timeout=timeout)
+
+
+def storage_backend_is_remote() -> bool:
+    return os.environ.get("STORAGE_BACKEND", "local").strip().lower() != "local"

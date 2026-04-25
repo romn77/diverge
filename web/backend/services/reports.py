@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from web.backend import access, app_config, auth, report_metadata
+from web.backend import access, app_config, auth, report_metadata, storage
 
 
 def parse_complete_report_header(
@@ -15,32 +15,33 @@ def parse_complete_report_header(
     complete = report_dir / "complete_report.md"
     if not complete.is_file():
         return None, None, None
-
     try:
-        with complete.open(encoding="utf-8") as file_handle:
-            lines = [file_handle.readline() for _ in range(4)]
-
-        ticker: str | None = None
-        date_str: str | None = None
-        time_str: str | None = None
-
-        ticker_match = re.match(r"^#\s+Trading Analysis Report:\s+(\S+)", lines[0])
-        if ticker_match:
-            ticker = ticker_match.group(1).strip()
-
-        for line in lines[1:]:
-            generated_match = re.match(
-                r"^Generated:\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})",
-                line,
-            )
-            if generated_match:
-                date_str = generated_match.group(1)
-                time_str = generated_match.group(2)
-                break
-
-        return ticker, date_str, time_str
+        return parse_complete_report_header_text(complete.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError):
         return None, None, None
+
+
+def parse_complete_report_header_text(content: str) -> tuple[str | None, str | None, str | None]:
+    lines = content.splitlines()[:4]
+    while len(lines) < 4:
+        lines.append("")
+
+    ticker: str | None = None
+    date_str: str | None = None
+    time_str: str | None = None
+    ticker_match = re.match(r"^#\s+Trading Analysis Report:\s+(\S+)", lines[0])
+    if ticker_match:
+        ticker = ticker_match.group(1).strip()
+    for line in lines[1:]:
+        generated_match = re.match(
+            r"^Generated:\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})",
+            line,
+        )
+        if generated_match:
+            date_str = generated_match.group(1)
+            time_str = generated_match.group(2)
+            break
+    return ticker, date_str, time_str
 
 
 def scan_categories(report_dir: Path) -> dict[str, list[str]]:
@@ -133,6 +134,8 @@ def resolve_report_dir(report_id: str) -> Path:
         raise HTTPException(status_code=404, detail="Report not found")
 
     report_dir = app_config.REPORTS_DIR / report_id
+    if not report_dir.is_dir() and storage_backend_is_remote():
+        storage.download_prefix(f"reports/{report_id}", report_dir)
     if not report_dir.is_dir():
         raise HTTPException(status_code=404, detail=f"Report '{report_id}' not found")
     return report_dir
@@ -144,9 +147,46 @@ def resolve_report_dir_from_storage_path(storage_path: str) -> Path:
         report_dir.relative_to(app_config.REPORTS_DIR.resolve())
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Report not found") from exc
+    if not report_dir.is_dir() and storage_backend_is_remote():
+        storage.download_prefix(f"reports/{storage_path}", report_dir)
     if not report_dir.is_dir():
         raise HTTPException(status_code=404, detail="Report not found")
     return report_dir
+
+
+def storage_backend_is_remote() -> bool:
+    return storage.os.environ.get("STORAGE_BACKEND", "local").strip().lower() != "local"
+
+
+def list_reports_from_storage() -> list[dict]:
+    report_ids: set[str] = set()
+    for key in storage.get_storage().list("reports"):
+        parts = key.split("/")
+        if len(parts) >= 3 and parts[0] == "reports":
+            report_ids.add(parts[1])
+
+    results: list[dict] = []
+    for report_id in sorted(report_ids):
+        ticker = report_id
+        date_str = None
+        time_str = None
+        try:
+            content = storage.get_storage().get_text(f"reports/{report_id}/complete_report.md")
+            parsed_ticker, date_str, time_str = parse_complete_report_header_text(content)
+            if parsed_ticker:
+                ticker = parsed_ticker
+        except Exception:
+            pass
+        results.append(
+            {
+                "id": report_id,
+                "ticker": ticker,
+                "date": date_str,
+                "time": time_str,
+            }
+        )
+    results.sort(key=lambda row: (row["date"] or "", row["time"] or ""), reverse=True)
+    return results
 
 
 def build_report_structure_from_index(
@@ -206,6 +246,8 @@ def list_reports(request: Request | None = None) -> list[dict]:
             raise access.translate_auth_error(exc) from exc
 
     if not app_config.REPORTS_DIR.is_dir():
+        if storage_backend_is_remote():
+            return list_reports_from_storage()
         return []
 
     results = []
