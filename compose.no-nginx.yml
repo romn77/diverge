@@ -63,8 +63,7 @@ services:
       redis:
         condition: service_healthy
     command: >
-      sh -c "cd /app/web/backend
-      && alembic -c alembic.ini upgrade head
+      sh -c "alembic -c web/backend/alembic.ini upgrade head
       && python -m web.backend.devops.bootstrap_admin
       && uvicorn web.backend.main:app --host 0.0.0.0 --port 8000"
     healthcheck:

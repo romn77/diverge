@@ -54,8 +54,9 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
             "AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${AUTH_BOOTSTRAP_ADMIN_PASSWORD:?Set AUTH_BOOTSTRAP_ADMIN_PASSWORD in .env}",
             source,
         )
-        self.assertIn("alembic -c alembic.ini upgrade head", source)
+        self.assertIn("alembic -c web/backend/alembic.ini upgrade head", source)
         self.assertIn("python -m web.backend.devops.bootstrap_admin", source)
+        self.assertNotIn("cd /app/web/backend", source)
 
     def test_prod_compose_adds_nginx_redis_worker_and_backup_without_public_datastores(self):
         compose_file = PROJECT_ROOT / "compose.prod.yml"
