@@ -27,13 +27,16 @@ test("NewAnalysisForm is driven by backend config options and task creation call
   assert.doesNotMatch(source, /<button/);
 });
 
-test("NewAnalysisForm disables providers without configured credentials", () => {
+test("NewAnalysisForm hides providers without configured credentials", () => {
   const source = readFileSync(formPath, "utf8");
 
   assert.match(source, /provider\.enabled/);
-  assert.match(source, /disabled=\{!provider\.enabled\}/);
+  assert.match(source, /enabledProviderOptions/);
+  assert.match(source, /filter\(\(provider\) => provider\.enabled\)/);
+  assert.match(source, /enabledProviderOptions\.map/);
+  assert.doesNotMatch(source, /disabled=\{!provider\.enabled\}/);
+  assert.doesNotMatch(source, /analysis\.disabledProvider/);
   assert.match(source, /providerUnavailableLabel/);
-  assert.match(source, /analysis\.disabledProvider/);
   assert.match(source, /analysis\.providerHint/);
   assert.match(source, /API key/i);
 });

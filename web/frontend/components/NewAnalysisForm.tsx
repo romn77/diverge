@@ -60,7 +60,7 @@ export function NewAnalysisForm({
   );
   const providerUnavailableLabel = t(
     "analysis.providerUnavailable",
-    "This provider is unavailable because its API key is not configured."
+    "No configured LLM providers are available. Add an API key first."
   );
   const selectAnalystErrorLabel = t(
     "analysis.pickAnalyst",
@@ -123,10 +123,11 @@ export function NewAnalysisForm({
   }, [configOptions, formState, isOpen]);
 
   const providerOptions = configOptions?.providers ?? [];
+  const enabledProviderOptions = providerOptions.filter((provider) => provider.enabled);
   const selectedProviderOption =
-    providerOptions.find((provider) => provider.value === formState?.llm_provider) ??
+    enabledProviderOptions.find((provider) => provider.value === formState?.llm_provider) ??
     null;
-  const selectedProvider = formState?.llm_provider ?? providerOptions[0]?.value ?? "";
+  const selectedProvider = selectedProviderOption?.value ?? "";
   const selectedModels = useMemo(() => {
     if (!configOptions || !selectedProvider) {
       return { quick: [], deep: [] };
@@ -134,6 +135,29 @@ export function NewAnalysisForm({
 
     return configOptions.models[selectedProvider] ?? { quick: [], deep: [] };
   }, [configOptions, selectedProvider]);
+
+  useEffect(() => {
+    if (!configOptions || !formState) {
+      return;
+    }
+    if (configOptions.providers.some(
+      (provider) => provider.enabled && provider.value === formState.llm_provider
+    )) {
+      return;
+    }
+
+    const fallbackProvider = configOptions.providers.find(
+      (provider) => provider.enabled
+    )?.value;
+    if (!fallbackProvider) {
+      return;
+    }
+
+    setFormState({
+      ...formState,
+      ...buildProviderSelection(configOptions, fallbackProvider),
+    });
+  }, [configOptions, formState]);
 
   if (!isOpen) {
     return null;
@@ -149,22 +173,9 @@ export function NewAnalysisForm({
     if (!providerOption?.enabled) {
       return;
     }
-    const providerModels = configOptions.models[provider];
     setFormState({
       ...formState,
-      llm_provider: provider,
-      quick_think_llm: providerModels.quick[0]?.value ?? "",
-      deep_think_llm: providerModels.deep[0]?.value ?? "",
-      openai_reasoning_effort:
-        provider === "openai"
-          ? configOptions.provider_settings.openai?.openai_reasoning_effort?.[0]
-              ?.value ?? "medium"
-          : null,
-      google_thinking_level:
-        provider === "google"
-          ? configOptions.provider_settings.google?.google_thinking_level?.[0]
-              ?.value ?? "high"
-          : null,
+      ...buildProviderSelection(configOptions, provider),
     });
   };
 
@@ -354,15 +365,15 @@ export function NewAnalysisForm({
                 value={formState.llm_provider}
                 onChange={onProviderChange}
                 hint={
-                  selectedProviderOption?.enabled
+                  enabledProviderOptions.length > 0
                     ? t(
                         "analysis.providerHint",
-                        "Providers without a configured API key are unavailable in web tasks."
+                        "Only providers with a configured API key are shown."
                       )
                     : providerUnavailableLabel
                 }
               >
-                {configOptions.providers.map((provider) => {
+                {enabledProviderOptions.map((provider) => {
                   const providerLabel = t(
                     `analysis.provider.${optionKey(provider.value)}`,
                     provider.label
@@ -371,15 +382,8 @@ export function NewAnalysisForm({
                     <SelectItem
                       key={provider.value}
                       value={provider.value}
-                      disabled={!provider.enabled}
                     >
-                      {provider.enabled
-                        ? providerLabel
-                        : t(
-                            "analysis.disabledProvider",
-                            ({ label }) => `${label} (API key not configured)`,
-                            { label: providerLabel }
-                          )}
+                      {providerLabel}
                     </SelectItem>
                   );
                 })}
@@ -554,9 +558,7 @@ function buildInitialFormState(
 ): FormState {
   const provider =
     configOptions.providers.find((option) => option.enabled)?.value ??
-    configOptions.providers[0]?.value ??
-    "openai";
-  const providerModels = configOptions.models[provider];
+    "";
   const firstDepth = configOptions.research_depth[0]?.value ?? 1;
   const firstLanguage =
     configOptions.output_languages.find(
@@ -570,19 +572,37 @@ function buildInitialFormState(
     analysis_date: new Date().toISOString().slice(0, 10),
     analysts: configOptions.analysts.map((option) => option.value),
     research_depth: Number(firstDepth),
-    llm_provider: provider,
-    quick_think_llm: providerModels?.quick[0]?.value ?? "",
-    deep_think_llm: providerModels?.deep[0]?.value ?? "",
     output_language: firstLanguage,
-    google_thinking_level:
-      provider === "google"
-        ? configOptions.provider_settings.google?.google_thinking_level?.[0]
-            ?.value ?? "high"
-        : null,
+    ...buildProviderSelection(configOptions, provider),
+  };
+}
+
+function buildProviderSelection(
+  configOptions: ConfigOptions,
+  provider: string
+): Pick<
+  FormState,
+  | "llm_provider"
+  | "quick_think_llm"
+  | "deep_think_llm"
+  | "openai_reasoning_effort"
+  | "google_thinking_level"
+> {
+  const providerModels = configOptions.models[provider] ?? { quick: [], deep: [] };
+
+  return {
+    llm_provider: provider,
+    quick_think_llm: providerModels.quick[0]?.value ?? "",
+    deep_think_llm: providerModels.deep[0]?.value ?? "",
     openai_reasoning_effort:
       provider === "openai"
         ? configOptions.provider_settings.openai?.openai_reasoning_effort?.[0]
             ?.value ?? "medium"
+        : null,
+    google_thinking_level:
+      provider === "google"
+        ? configOptions.provider_settings.google?.google_thinking_level?.[0]
+            ?.value ?? "high"
         : null,
   };
 }
