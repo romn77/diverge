@@ -10,3 +10,13 @@ test("api client remains configurable for Vercel or separate backend deployments
   assert.doesNotMatch(source, /window\.location\.origin/);
   assert.doesNotMatch(source, /\/api\/healthz["'`]/);
 });
+
+test("frontend API exposes AI-generated trade review creation endpoint", () => {
+  assert.match(source, /interface TradeReviewCreateRequest/);
+  assert.match(source, /export async function createTradeReview/);
+  assert.match(source, /\/api\/trades\/\$\{tradeId\}\/reviews/);
+  assert.match(source, /llm_provider/);
+  assert.match(source, /model/);
+  assert.match(source, /openai_reasoning_effort/);
+  assert.match(source, /google_thinking_level/);
+});

@@ -26,10 +26,20 @@ test("TradeReviewForm saves structured manual entry and exit reviews with requir
   assert.match(source, /Cross-Ticker Tags/);
 });
 
-test("TradeReviewForm stays manual-only and requires linked snapshot references before saving", () => {
+test("TradeReviewForm can request an AI-generated review before manual editing", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /Manual-only MVP/);
+  assert.match(source, /createTradeReview/);
+  assert.match(source, /generateReview/);
+  assert.match(source, /Generating AI review/);
+  assert.match(source, /Apply generated review/);
+  assert.match(source, /llm_provider/);
+  assert.match(source, /model/);
+});
+
+test("TradeReviewForm requires linked snapshot references before saving or generating", () => {
+  const source = readFileSync(componentPath, "utf8");
+
   assert.match(source, /Link at least one analysis snapshot on the trade record before saving a review\./);
   assert.match(source, /No analysis references are currently attached to this trade\./);
   assert.match(source, /splitMultilineList/);

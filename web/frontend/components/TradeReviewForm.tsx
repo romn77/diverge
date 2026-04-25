@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,11 +11,23 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  createTradeReview,
+  getConfigOptions,
   saveTradeReview,
+  type ConfigOptions,
+  type SelectOption,
   type TradeRecord,
   type TradeReview,
+  type TradeReviewCreateRequest,
   type TradeReviewType,
 } from "@/lib/api";
 
@@ -40,6 +52,15 @@ interface TradeReviewFormState {
   cross_ticker_tags: string;
 }
 
+type ReviewGenerationState = Pick<
+  TradeReviewCreateRequest,
+  | "llm_provider"
+  | "model"
+  | "output_language"
+  | "google_thinking_level"
+  | "openai_reasoning_effort"
+>;
+
 export function TradeReviewForm({
   isOpen,
   reviewType,
@@ -48,11 +69,17 @@ export function TradeReviewForm({
   onClose,
   onSaved,
 }: TradeReviewFormProps) {
-  const { t } = usePreferences();
+  const { language, t } = usePreferences();
   const [formState, setFormState] = useState<TradeReviewFormState>(() =>
     buildInitialState(existingReview, tradeRecord)
   );
+  const [configOptions, setConfigOptions] = useState<ConfigOptions | null>(null);
+  const [generationState, setGenerationState] =
+    useState<ReviewGenerationState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [generatedReview, setGeneratedReview] = useState<TradeReview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -62,8 +89,54 @@ export function TradeReviewForm({
 
     setFormState(buildInitialState(existingReview, tradeRecord));
     setSaving(false);
+    setGenerating(false);
+    setGeneratedReview(null);
     setError(null);
   }, [existingReview, isOpen, tradeRecord]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    let isActive = true;
+
+    const loadOptions = async () => {
+      if (configOptions) {
+        return;
+      }
+
+      setLoadingOptions(true);
+      setError(null);
+
+      try {
+        const nextOptions = await getConfigOptions();
+        if (!isActive) {
+          return;
+        }
+        setConfigOptions(nextOptions);
+        setGenerationState(buildInitialGenerationState(nextOptions, language));
+      } catch (optionsError) {
+        if (isActive) {
+          setError(
+            optionsError instanceof Error
+              ? optionsError.message
+              : t("tradeReview.error.loadOptions", "Unable to load AI review options")
+          );
+        }
+      } finally {
+        if (isActive) {
+          setLoadingOptions(false);
+        }
+      }
+    };
+
+    void loadOptions();
+
+    return () => {
+      isActive = false;
+    };
+  }, [configOptions, isOpen, language, t]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -89,6 +162,30 @@ export function TradeReviewForm({
         : tradeRecord.analysis_references,
     [existingReview, tradeRecord.analysis_references]
   );
+  const enabledProviderOptions = configOptions?.providers.filter(
+    (provider) => provider.enabled
+  ) ?? [];
+  const reviewModelOptions =
+    configOptions && generationState
+      ? getReviewModelOptions(configOptions, generationState.llm_provider)
+      : [];
+
+  const onProviderChange = (provider: string) => {
+    if (!configOptions) {
+      return;
+    }
+    const providerOption = configOptions.providers.find(
+      (option) => option.value === provider
+    );
+    if (!providerOption?.enabled) {
+      return;
+    }
+    const nextSelection = buildGenerationProviderSelection(configOptions, provider);
+    setGenerationState({
+      ...nextSelection,
+      output_language: generationState?.output_language ?? nextSelection.output_language,
+    });
+  };
 
   if (!isOpen) {
     return null;
@@ -169,6 +266,53 @@ export function TradeReviewForm({
     }
   };
 
+  const generateReview = async () => {
+    if (referenceSummary.length === 0) {
+      setError(
+        t(
+          "tradeReview.linkSnapshotFirstGenerate",
+          "Link at least one analysis snapshot on the trade record before generating a review."
+        )
+      );
+      return;
+    }
+    if (!generationState?.llm_provider || !generationState.model) {
+      setError(
+        t(
+          "tradeReview.providerUnavailable",
+          "No configured LLM provider is available for AI review generation."
+        )
+      );
+      return;
+    }
+
+    setGenerating(true);
+    setGeneratedReview(null);
+    setError(null);
+
+    try {
+      const review = await createTradeReview(tradeRecord.trade_id, {
+        ...generationState,
+        review_type: reviewType,
+        analysis_date: requireText(
+          formState.analysis_date,
+          t("tradeReview.analysisDate", "Analysis date")
+        ),
+        analysis_references: referenceSummary,
+      });
+      setGeneratedReview(review);
+      setFormState(buildInitialState(review, tradeRecord));
+    } catch (generateError) {
+      setError(
+        generateError instanceof Error
+          ? generateError.message
+          : t("tradeReview.error.generate", "Unable to generate the AI review")
+      );
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -190,14 +334,148 @@ export function TradeReviewForm({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="mt-6 rounded-[26px] border border-[rgba(28,56,83,0.12)] bg-[var(--accent-soft)]/70 px-5 py-4 text-sm text-slate-700">
-          {t(
-            "tradeReview.manualOnly",
-            "Manual-only MVP: reviews stay process-focused and snapshot-linked. The UI does not imply automated trade execution or broker sync."
-          )}
-        </div>
-
         <div className="mt-8 grid gap-6">
+          <section className="rounded-[28px] border border-[var(--border)] bg-white/85 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {t("tradeReview.aiAssist", "AI Review")}
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                  {t(
+                    "tradeReview.generateFromJournal",
+                    "Generate from the trade record, notes, and linked snapshots"
+                  )}
+                </h3>
+              </div>
+              {generatedReview ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => onSaved(generatedReview)}
+                >
+                  {t("tradeReview.applyGenerated", "Apply generated review")}
+                </Button>
+              ) : null}
+            </div>
+
+            {loadingOptions || !generationState || !configOptions ? (
+              <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
+                {t("tradeReview.loadingOptions", "Loading AI review options...")}
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-4 md:grid-cols-3">
+                <ReviewSelectField
+                  label={t("analysis.provider", "LLM Provider")}
+                  value={generationState.llm_provider}
+                  onChange={onProviderChange}
+                >
+                  {enabledProviderOptions.map((provider) => (
+                    <SelectItem key={provider.value} value={provider.value}>
+                      {provider.label}
+                    </SelectItem>
+                  ))}
+                </ReviewSelectField>
+
+                <ReviewSelectField
+                  label={t("analysis.deepModel", "Deep Model")}
+                  value={generationState.model}
+                  onChange={(value) =>
+                    setGenerationState({
+                      ...generationState,
+                      model: value,
+                    })
+                  }
+                >
+                  {reviewModelOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </ReviewSelectField>
+
+                <ReviewSelectField
+                  label={t("analysis.outputLanguage", "Output Language")}
+                  value={generationState.output_language}
+                  onChange={(value) =>
+                    setGenerationState({
+                      ...generationState,
+                      output_language: value,
+                    })
+                  }
+                >
+                  {configOptions.output_languages.map((languageOption) => (
+                    <SelectItem key={languageOption.value} value={languageOption.value}>
+                      {languageOption.label}
+                    </SelectItem>
+                  ))}
+                </ReviewSelectField>
+
+                {generationState.llm_provider === "openai" ? (
+                  <ReviewSelectField
+                    label={t("analysis.openaiReasoning", "OpenAI Reasoning Effort")}
+                    value={generationState.openai_reasoning_effort ?? ""}
+                    onChange={(value) =>
+                      setGenerationState({
+                        ...generationState,
+                        openai_reasoning_effort: value,
+                      })
+                    }
+                  >
+                    {configOptions.provider_settings.openai?.openai_reasoning_effort?.map(
+                      (option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      )
+                    )}
+                  </ReviewSelectField>
+                ) : null}
+
+                {generationState.llm_provider === "google" ? (
+                  <ReviewSelectField
+                    label={t("analysis.googleThinking", "Google Thinking Level")}
+                    value={generationState.google_thinking_level ?? ""}
+                    onChange={(value) =>
+                      setGenerationState({
+                        ...generationState,
+                        google_thinking_level: value,
+                      })
+                    }
+                  >
+                    {configOptions.provider_settings.google?.google_thinking_level?.map(
+                      (option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      )
+                    )}
+                  </ReviewSelectField>
+                ) : null}
+
+                <div className="flex items-end">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full"
+                    onClick={() => void generateReview()}
+                    disabled={
+                      generating ||
+                      loadingOptions ||
+                      referenceSummary.length === 0 ||
+                      !generationState.llm_provider ||
+                      !generationState.model
+                    }
+                  >
+                    {generating
+                      ? t("tradeReview.generating", "Generating AI review...")
+                      : t("tradeReview.generateReview", "Generate and Save AI Review")}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </section>
+
           <section className="rounded-[28px] border border-[var(--border)] bg-white/85 p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -447,6 +725,54 @@ function buildInitialState(
   };
 }
 
+function buildInitialGenerationState(
+  configOptions: ConfigOptions,
+  language: string
+): ReviewGenerationState {
+  const provider =
+    configOptions.providers.find((option) => option.enabled)?.value ?? "";
+  const preferredLanguage = language === "zh" ? "cn" : "en";
+  const outputLanguage =
+    configOptions.output_languages.find((option) => option.value === preferredLanguage)
+      ?.value ??
+    configOptions.output_languages[0]?.value ??
+    "en";
+
+  return {
+    ...buildGenerationProviderSelection(configOptions, provider),
+    output_language: outputLanguage,
+  };
+}
+
+function buildGenerationProviderSelection(
+  configOptions: ConfigOptions,
+  provider: string
+): ReviewGenerationState {
+  return {
+    llm_provider: provider,
+    model: getReviewModelOptions(configOptions, provider)[0]?.value ?? "",
+    output_language: configOptions.output_languages[0]?.value ?? "en",
+    openai_reasoning_effort:
+      provider === "openai"
+        ? configOptions.provider_settings.openai?.openai_reasoning_effort?.[0]
+            ?.value ?? "medium"
+        : null,
+    google_thinking_level:
+      provider === "google"
+        ? configOptions.provider_settings.google?.google_thinking_level?.[0]
+            ?.value ?? "high"
+        : null,
+  };
+}
+
+function getReviewModelOptions(
+  configOptions: ConfigOptions,
+  provider: string
+): SelectOption[] {
+  const providerModels = configOptions.models[provider] ?? { quick: [], deep: [] };
+  return providerModels.deep.length > 0 ? providerModels.deep : providerModels.quick;
+}
+
 function requireText(value: string, fieldName: string): string {
   const normalized = value.trim();
   if (!normalized) {
@@ -485,6 +811,32 @@ function splitTagList(value: string): string[] {
 
 function joinList(items: string[]): string {
   return items.join("\n");
+}
+
+function ReviewSelectField({
+  children,
+  label,
+  onChange,
+  value,
+}: {
+  children: ReactNode;
+  label: string;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+        {label}
+      </span>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className="mt-2 bg-white text-slate-800">
+          <SelectValue placeholder={label} />
+        </SelectTrigger>
+        <SelectContent>{children}</SelectContent>
+      </Select>
+    </label>
+  );
 }
 
 function ReviewField({

@@ -199,6 +199,17 @@ export interface TradeReviewSaveRequest {
   analysis_references?: AnalysisReference[];
 }
 
+export interface TradeReviewCreateRequest {
+  review_type: TradeReviewType;
+  llm_provider: string;
+  model: string;
+  output_language: string;
+  google_thinking_level: string | null;
+  openai_reasoning_effort: string | null;
+  analysis_date?: string | null;
+  analysis_references?: AnalysisReference[];
+}
+
 export interface TradeFeedbackEntry {
   trade_id: string;
   ticker: string;
@@ -624,6 +635,16 @@ export async function updateTrade(
   return requestJson<TradeRecord>(
     `/api/trades/${tradeId}`,
     createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function createTradeReview(
+  tradeId: string,
+  payload: TradeReviewCreateRequest
+): Promise<TradeReview> {
+  return requestJson<TradeReview>(
+    `/api/trades/${tradeId}/reviews`,
+    createJsonRequestInit("POST", payload)
   );
 }
 
