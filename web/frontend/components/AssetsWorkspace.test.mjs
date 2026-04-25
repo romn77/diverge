@@ -42,3 +42,10 @@ test("AssetsWorkspace gives hero actions stable wide touch targets", () => {
   assert.match(source, /min-w-\[9\.75rem\]/);
   assert.match(source, /min-w-\[10\.5rem\]/);
 });
+
+test("AssetsWorkspace uses the shared responsive workbench width frame", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /className="workbench-content-frame space-y-6"/);
+  assert.doesNotMatch(source, /max-w-7xl/);
+});

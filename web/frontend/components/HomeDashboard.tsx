@@ -82,7 +82,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
 
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
+      <div className="workbench-content-frame space-y-6">
         <Card className="card-surface rounded-[30px]">
           <CardContent className="px-6 py-8 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">

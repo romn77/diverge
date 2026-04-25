@@ -357,7 +357,7 @@ export function TradeJournal({
   return (
     <>
       <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <div className="workbench-content-frame flex flex-col gap-6">
           <Card className="viewer-frame overflow-hidden">
             <CardContent className="px-6 py-7 md:px-8 md:py-8">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -479,7 +479,7 @@ export function TradeJournal({
             </CardContent>
           </Card>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(320px,360px)_minmax(0,1fr)]">
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,2.05fr)]">
             <Card className="card-surface p-4 md:p-5">
               <CardContent className="p-0">
               <div className="flex items-center justify-between gap-4">
@@ -528,7 +528,7 @@ export function TradeJournal({
                         type="button"
                         data-active={isSelected}
                         variant="secondary"
-                        className={`h-auto w-full justify-start rounded-[26px] p-4 text-left ${
+                        className={`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[26px] p-4 text-left whitespace-normal ${
                           isSelected
                             ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 text-slate-900 shadow-[0_18px_36px_rgba(28,36,48,0.12)] hover:bg-[var(--primary-soft)]/75"
                             : "bg-white/85 text-slate-900 hover:bg-white"
@@ -549,7 +549,7 @@ export function TradeJournal({
                             <StatusBadge label={trade.status} tone="primary" />
                           </div>
                         </div>
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
                           <MetaItem
                             label={t("journal.entry", "Entry")}
                             value={formatDateTime(

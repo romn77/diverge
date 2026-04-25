@@ -27,3 +27,10 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /buildScreenerRunListKey\(run, index\)/);
   assert.doesNotMatch(source, /key=\{run\.id\}/);
 });
+
+test("ScreenerDashboard uses the shared responsive workbench width frame", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /className="workbench-content-frame space-y-6"/);
+  assert.doesNotMatch(source, /max-w-6xl/);
+});

@@ -35,3 +35,10 @@ test("HomeDashboard hero actions share a unified CTA base style across button an
   assert.match(source, /variant="secondary"/);
   assert.match(source, /home\.searchLabel/);
 });
+
+test("HomeDashboard uses the shared responsive workbench width frame", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /className="workbench-content-frame space-y-6"/);
+  assert.doesNotMatch(source, /max-w-6xl/);
+});

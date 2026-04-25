@@ -318,7 +318,7 @@ export function AssetsWorkspace() {
 
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
-      <div className="mx-auto w-full max-w-7xl space-y-6">
+      <div className="workbench-content-frame space-y-6">
         {error ? (
           <section className="rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-5 py-4 text-sm text-[var(--danger)]">
             {error}

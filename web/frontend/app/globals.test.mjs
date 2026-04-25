@@ -44,6 +44,14 @@ test("globals.css provides a reusable hidden-scrollbar utility for modal panels"
   assert.match(source, /\.scrollbar-hidden::\-webkit-scrollbar\s*\{\s*display:\s*none;/);
 });
 
+test("globals.css provides a responsive capped workbench content frame", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  assert.match(source, /\.workbench-content-frame\s*\{/);
+  assert.match(source, /width:\s*min\(100%, clamp\(72rem, 92vw, 100rem\)\);/);
+  assert.match(source, /margin-inline:\s*auto;/);
+});
+
 test("globals.css preserves selected pill controls in dark mode", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 

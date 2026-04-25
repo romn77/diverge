@@ -64,3 +64,23 @@ test("TradeJournal adds health and review overview blocks so a selected trade is
   assert.match(source, /selectionSummaryCards/);
   assert.match(source, /reviewCoverageLabel/);
 });
+
+test("TradeJournal keeps trade history metadata inside each record card", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(
+    source,
+    /className=\{`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[26px\] p-4 text-left whitespace-normal/
+  );
+  assert.match(source, /<div className="mt-4 grid w-full gap-3 sm:grid-cols-2">/);
+});
+
+test("TradeJournal lets the journal workspace fill the available browser width", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /<div className="workbench-content-frame flex flex-col gap-6">/);
+  assert.match(source, /xl:grid-cols-\[minmax\(0,0\.95fr\)_minmax\(0,2\.05fr\)\]/);
+  assert.doesNotMatch(source, /mx-auto flex w-full max-w-7xl/);
+  assert.doesNotMatch(source, /max-w-none/);
+  assert.doesNotMatch(source, /minmax\(320px,360px\)/);
+});
