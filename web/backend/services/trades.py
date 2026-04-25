@@ -12,7 +12,7 @@ from tradingagents.trade_feedback import (
     save_trade_review as save_trade_review_file,
     update_trade_record as update_trade_record_file,
 )
-from web.backend import access, app_config, auth, trade_entries
+from web.backend import access, analysis_limits, app_config, auth, trade_entries
 from web.backend.schemas.trades import (
     TradeRecordCreatePayload,
     TradeRecordUpdatePayload,
@@ -26,9 +26,15 @@ from web.backend.services.config import (
 
 
 def translate_trade_feedback_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, analysis_limits.WeeklyUsageLimitExceeded):
+        return HTTPException(status_code=429, detail=str(exc))
     detail = str(exc)
     status_code = 404 if "not found" in detail.lower() else 400
     return HTTPException(status_code=status_code, detail=detail)
+
+
+def record_journal_usage(db, user: auth.User) -> None:
+    analysis_limits.record_module_usage(db, user, module="journal")
 
 
 def sync_trade_entry_metadata(db, record: dict, owner_user_id: str) -> None:
@@ -71,7 +77,7 @@ def list_trades(ticker: str | None = None, request: Request | None = None) -> li
         return list_trade_records_file(ticker=ticker, reports_dir=app_config.REPORTS_DIR)
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc
 
 
@@ -84,6 +90,7 @@ def create_trade(
             with auth.db_session() as db:
                 user = access.require_trade_request_user(db, request)
                 assert user is not None
+                record_journal_usage(db, user)
                 record = create_trade_record_file(
                     payload.model_dump(),
                     reports_dir=app_config.REPORTS_DIR,
@@ -93,7 +100,7 @@ def create_trade(
         return create_trade_record_file(payload.model_dump(), reports_dir=app_config.REPORTS_DIR)
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc
 
 
@@ -114,7 +121,7 @@ def get_trade(trade_id: str, request: Request | None = None) -> dict:
         }
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc
 
 
@@ -129,6 +136,7 @@ def update_trade(
                 user = access.require_trade_request_user(db, request)
                 assert user is not None
                 trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                record_journal_usage(db, user)
                 record = update_trade_record_file(
                     trade_id,
                     payload.model_dump(exclude_unset=True),
@@ -143,7 +151,7 @@ def update_trade(
         )
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc
 
 
@@ -158,7 +166,7 @@ def get_trade_reviews(trade_id: str, request: Request | None = None) -> list[dic
         return list_trade_reviews_file(trade_id, reports_dir=app_config.REPORTS_DIR)
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc
 
 
@@ -181,6 +189,7 @@ def create_trade_review(
                 user = access.require_trade_request_user(db, request)
                 assert user is not None
                 trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                record_journal_usage(db, user)
                 review = generate_trade_review_file(
                     trade_id,
                     review_type=payload.review_type,
@@ -218,7 +227,7 @@ def create_trade_review(
         )
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc
 
 
@@ -234,6 +243,7 @@ def save_trade_review(
                 user = access.require_trade_request_user(db, request)
                 assert user is not None
                 trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
+                record_journal_usage(db, user)
                 review = save_trade_review_file(
                     trade_id,
                     review_type=review_type,
@@ -267,7 +277,7 @@ def save_trade_review(
         )
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc
 
 
@@ -303,5 +313,5 @@ def get_ticker_trade_feedback(
         )
     except HTTPException:
         raise
-    except ValueError as exc:
+    except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
         raise translate_trade_feedback_error(exc) from exc

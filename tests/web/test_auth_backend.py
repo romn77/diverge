@@ -10,7 +10,7 @@ from unittest.mock import patch
 from tradingagents.runner import AnalysisRequest
 from tests.web.auth_helpers import AuthClientMixin
 from tests.web.http_harness import app_client
-from web.backend import app_config, auth, screener_runs
+from web.backend import analysis_limits, app_config, auth, screener_results, screener_runs
 from web.backend.main import app
 from web.backend.runtime import analysis_tasks, screener_tasks
 
@@ -20,18 +20,21 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.original_reports_dir = app_config.REPORTS_DIR
         self.original_screener_results_dir = app_config.SCREENER_RESULTS_DIR
+        self.original_screener_state_dir = app_config.SCREENER_STATE_DIR
         self.original_screener_tasks_dir = app_config.SCREENER_TASKS_DIR
         self.original_screener_cache_dir = app_config.SCREENER_CACHE_DIR
         self.original_stock_history_dir = app_config.STOCK_HISTORY_DIR
         self.original_tmp_reports_dir = app_config.TMP_REPORTS_DIR
         app_config.REPORTS_DIR = Path(self.temp_dir.name) / "data" / "reports"
         app_config.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "runs"
+        app_config.SCREENER_STATE_DIR = Path(self.temp_dir.name) / "data" / "screener" / "state"
         app_config.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "tasks"
         app_config.SCREENER_CACHE_DIR = Path(self.temp_dir.name) / "data" / "cache" / "screener"
         app_config.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "data" / "history"
         app_config.TMP_REPORTS_DIR = app_config.REPORTS_DIR / ".tmp"
         app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         app_config.SCREENER_RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        app_config.SCREENER_STATE_DIR.mkdir(parents=True, exist_ok=True)
         app_config.SCREENER_TASKS_DIR.mkdir(parents=True, exist_ok=True)
         app_config.SCREENER_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         app_config.STOCK_HISTORY_DIR.mkdir(parents=True, exist_ok=True)
@@ -43,12 +46,14 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
     def tearDown(self):
         app_config.REPORTS_DIR = self.original_reports_dir
         app_config.SCREENER_RESULTS_DIR = self.original_screener_results_dir
+        app_config.SCREENER_STATE_DIR = self.original_screener_state_dir
         app_config.SCREENER_TASKS_DIR = self.original_screener_tasks_dir
         app_config.SCREENER_CACHE_DIR = self.original_screener_cache_dir
         app_config.STOCK_HISTORY_DIR = self.original_stock_history_dir
         app_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
         analysis_tasks.tasks.clear()
         screener_tasks.screener_tasks.clear()
+        screener_results.reset_screener_result_observability()
         auth.reset_runtime_state()
         self.temp_dir.cleanup()
 
@@ -384,7 +389,7 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
         asyncio.run(scenario())
 
-    def test_screener_tasks_require_operator_role_and_scope_to_owner(self):
+    def test_screener_tasks_scope_to_owner_and_allow_viewer_limited_usage(self):
         async def scenario():
             async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
                 await self._login(
@@ -460,7 +465,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
             async with self._client(auth_enabled=True, auth_mode="required") as viewer_client:
                 await self._login(viewer_client, "viewer@example.com", "ViewerPass123")
-                self.assertEqual((await viewer_client.get("/api/screener/tasks")).status_code, 403)
+                list_response = await viewer_client.get("/api/screener/tasks")
+                self.assertEqual(list_response.status_code, 200, list_response.text)
+                self.assertEqual(list_response.json(), [])
 
             async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
                 await self._login(admin_client, "admin@example.com", "AdminPass456")
@@ -544,6 +551,145 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 list_response = await admin_client.get("/api/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
                 self.assertEqual([row["id"] for row in list_response.json()], ["task-owned"])
+
+        asyncio.run(scenario())
+
+    def test_analysis_tasks_enforce_admin_configured_weekly_role_limits(self):
+        task_payload = {
+            "ticker": "MSFT",
+            "analysis_date": "2026-04-23",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+
+        async def scenario():
+            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                await self._create_user(
+                    admin_client,
+                    email="operator.limited@example.com",
+                    display_name="Limited Operator",
+                    password="OperatorPass123",
+                    role="operator",
+                )
+
+                limits_response = await admin_client.put(
+                    "/api/admin/analysis-limits",
+                    json={
+                        "limits": [
+                            {"role": "admin", "weekly_limit": None},
+                            {"role": "operator", "weekly_limit": 1},
+                            {"role": "viewer", "weekly_limit": 4},
+                        ]
+                    },
+                )
+                self.assertEqual(limits_response.status_code, 200, limits_response.text)
+                self.assertEqual(
+                    {
+                        row["role"]: row["weekly_limit"]
+                        for row in limits_response.json()["limits"]
+                    },
+                    {"admin": None, "operator": 1, "viewer": 4},
+                )
+
+            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
+                await self._login(
+                    operator_client,
+                    "operator.limited@example.com",
+                    "OperatorPass123",
+                )
+                with (
+                    patch("web.backend.routers.tasks.hydrate_provider_credentials"),
+                    patch(
+                        "web.backend.routers.tasks.get_provider_availability",
+                        return_value={"enabled": True, "disabled_reason": None},
+                    ),
+                    patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
+                ):
+                    first_response = await operator_client.post("/api/tasks", json=task_payload)
+                    second_response = await operator_client.post(
+                        "/api/tasks",
+                        json={**task_payload, "ticker": "AAPL"},
+                    )
+
+                self.assertEqual(first_response.status_code, 200, first_response.text)
+                self.assertEqual(second_response.status_code, 429, second_response.text)
+                self.assertIn("Weekly analysis limit", second_response.json()["detail"])
+                start_task_thread.assert_called_once()
+
+        asyncio.run(scenario())
+
+    def test_admin_users_include_weekly_usage_stats_and_reset_current_week(self):
+        async def scenario():
+            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                operator_user = await self._create_user(
+                    admin_client,
+                    email="operator.usage@example.com",
+                    display_name="Usage Operator",
+                    password="OperatorPass123",
+                    role="operator",
+                )
+
+                with auth.db_session() as db:
+                    persisted_user = auth.get_user_by_id(db, operator_user["id"])
+                    analysis_limits.record_module_usage(db, persisted_user, module="analysis")
+                    analysis_limits.record_module_usage(db, persisted_user, module="screener")
+
+                users_response = await admin_client.get("/api/admin/users")
+                self.assertEqual(users_response.status_code, 200, users_response.text)
+                usage_user = next(
+                    row
+                    for row in users_response.json()
+                    if row["id"] == operator_user["id"]
+                )
+                self.assertEqual(usage_user["usage"]["weekly_limit"], 20)
+                self.assertEqual(
+                    usage_user["usage"]["modules"]["analysis"]["used_count"],
+                    1,
+                )
+                self.assertEqual(
+                    usage_user["usage"]["modules"]["screener"]["used_count"],
+                    1,
+                )
+
+                reset_response = await admin_client.post(
+                    f"/api/admin/users/{operator_user['id']}/usage/reset"
+                )
+                self.assertEqual(reset_response.status_code, 200, reset_response.text)
+                self.assertEqual(reset_response.json()["reset_count"], 2)
+
+                users_response = await admin_client.get("/api/admin/users")
+                self.assertEqual(users_response.status_code, 200, users_response.text)
+                usage_user = next(
+                    row
+                    for row in users_response.json()
+                    if row["id"] == operator_user["id"]
+                )
+                self.assertEqual(
+                    usage_user["usage"]["modules"]["analysis"]["used_count"],
+                    0,
+                )
+                self.assertEqual(
+                    usage_user["usage"]["modules"]["screener"]["used_count"],
+                    0,
+                )
 
         asyncio.run(scenario())
 
@@ -645,7 +791,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
             async with self._client(auth_enabled=True, auth_mode="required") as viewer_client:
                 await self._login(viewer_client, "viewer@example.com", "ViewerPass123")
-                self.assertEqual((await viewer_client.get("/api/screener/runs")).status_code, 403)
+                list_response = await viewer_client.get("/api/screener/runs")
+                self.assertEqual(list_response.status_code, 200, list_response.text)
+                self.assertEqual(list_response.json(), [])
 
         asyncio.run(scenario())
 

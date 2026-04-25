@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 
 from tradingagents.assets.market_data import MarketDataClient, SymbolCandidate
-from web.backend import access, asset_entries, auth
+from web.backend import access, analysis_limits, asset_entries, auth
 from web.backend.schemas.assets import AssetPositionCreatePayload, AssetPositionUpdatePayload
 
 REFRESH_INTERVAL = timedelta(minutes=15)
@@ -33,6 +33,8 @@ def _require_asset_runtime() -> None:
 
 
 def translate_asset_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, analysis_limits.WeeklyUsageLimitExceeded):
+        return HTTPException(status_code=429, detail=str(exc))
     if isinstance(exc, auth.AuthNotFoundError):
         return HTTPException(status_code=404, detail=str(exc))
     if isinstance(exc, auth.AuthPermissionError):
@@ -151,6 +153,10 @@ def _resolve_request_scope(db, request: Request | None) -> tuple[auth.User, str 
     user = access.require_trade_request_user(db, request)
     assert user is not None
     return user, access.owner_scope_for_user(user)
+
+
+def _record_asset_usage(db, user: auth.User) -> None:
+    analysis_limits.record_module_usage(db, user, module="assets")
 
 
 def _list_position_payloads(
@@ -413,6 +419,7 @@ def create_asset_position(
     market_data = build_market_data_client()
     with auth.db_session() as db:
         user, _owner_scope = _resolve_request_scope(db, request)
+        _record_asset_usage(db, user)
         valuation_mode = _normalize_valuation_mode(payload.valuation_mode)
         account = asset_entries.get_or_create_asset_account(
             db,
@@ -463,7 +470,8 @@ def update_asset_position(
     market_data = build_market_data_client()
     changes = payload.model_dump(exclude_unset=True)
     with auth.db_session() as db:
-        _user, owner_scope = _resolve_request_scope(db, request)
+        user, owner_scope = _resolve_request_scope(db, request)
+        _record_asset_usage(db, user)
         position = asset_entries.get_asset_position_record(db, position_id, owner_user_id=owner_scope)
         current_account = asset_entries.get_asset_account_record(
             db,
@@ -536,7 +544,8 @@ def update_asset_position(
 def delete_asset_position(position_id: str, request: Request | None) -> dict[str, Any]:
     _require_asset_runtime()
     with auth.db_session() as db:
-        _user, owner_scope = _resolve_request_scope(db, request)
+        user, owner_scope = _resolve_request_scope(db, request)
+        _record_asset_usage(db, user)
         position = asset_entries.get_asset_position_record(db, position_id, owner_user_id=owner_scope)
         db.delete(position)
         db.flush()
@@ -552,7 +561,8 @@ def refresh_asset_position(
     _require_asset_runtime()
     market_data = build_market_data_client()
     with auth.db_session() as db:
-        _user, owner_scope = _resolve_request_scope(db, request)
+        user, owner_scope = _resolve_request_scope(db, request)
+        _record_asset_usage(db, user)
         position = asset_entries.get_asset_position_record(db, position_id, owner_user_id=owner_scope)
         account = asset_entries.get_asset_account_record(db, position.account_id, owner_user_id=position.owner_user_id)
         _refresh_position_record(db, position, base_currency=base_currency, market_data=market_data)
@@ -565,11 +575,14 @@ def refresh_due_asset_positions(
     base_currency: str = "USD",
     force: bool = False,
     request: Request | None,
+    record_usage: bool = True,
 ) -> list[dict[str, Any]]:
     _require_asset_runtime()
     market_data = build_market_data_client()
     with auth.db_session() as db:
-        _user, owner_scope = _resolve_request_scope(db, request)
+        user, owner_scope = _resolve_request_scope(db, request)
+        if record_usage:
+            _record_asset_usage(db, user)
         positions = asset_entries.list_asset_position_records(db, owner_user_id=owner_scope)
         accounts = {
             account.id: account
@@ -611,7 +624,12 @@ def get_asset_summary(
     _require_asset_runtime()
     normalized_base_currency = _normalize_upper(base_currency) or "USD"
     if refresh_if_stale:
-        refresh_due_asset_positions(base_currency=normalized_base_currency, force=False, request=request)
+        refresh_due_asset_positions(
+            base_currency=normalized_base_currency,
+            force=False,
+            request=request,
+            record_usage=False,
+        )
 
     with auth.db_session() as db:
         _user, owner_scope = _resolve_request_scope(db, request)

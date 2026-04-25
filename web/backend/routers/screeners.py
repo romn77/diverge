@@ -8,12 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from tradingagents.screener.schema import ScreenRunConfig
-from web.backend import access, app_config, auth
+from web.backend import access, analysis_limits, app_config, auth
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.services import screeners as screener_service
 
-router = APIRouter(dependencies=[Depends(auth.enforce_operator_api_access)])
+router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
 
 
 def _serialize_sse_event(data: dict) -> str:
@@ -65,6 +65,20 @@ def create_screener_task(
         ScreenRunConfig(**config_payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if current_user is not None:
+        try:
+            with auth.db_session() as db:
+                persisted_user = auth.get_user_by_id(db, current_user.id)
+                analysis_limits.record_module_usage(
+                    db,
+                    persisted_user,
+                    module="screener",
+                )
+        except analysis_limits.WeeklyUsageLimitExceeded as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
+        except Exception as exc:
+            raise access.translate_auth_error(exc) from exc
 
     return screener_tasks.create_screener_task(
         request_payload=request_payload,

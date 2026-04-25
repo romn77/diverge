@@ -93,7 +93,11 @@ def require_screener_user(request: Request | None) -> auth.User | None:
         return auth.require_request_user_role(
             db,
             request,
-            (auth.UserRole.ADMIN.value, auth.UserRole.OPERATOR.value),
+            (
+                auth.UserRole.ADMIN.value,
+                auth.UserRole.OPERATOR.value,
+                auth.UserRole.VIEWER.value,
+            ),
         )
 
 

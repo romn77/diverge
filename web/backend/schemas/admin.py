@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from web.backend import auth
 
@@ -26,3 +26,12 @@ class AdminUserUpdatePayload(BaseModel):
 class AdminUserResetPasswordPayload(BaseModel):
     new_password: str
     must_change_password: bool = True
+
+
+class AdminAnalysisRoleLimitPayload(BaseModel):
+    role: auth.UserRole
+    weekly_limit: Optional[int] = Field(default=None, ge=0)
+
+
+class AdminAnalysisLimitsUpdatePayload(BaseModel):
+    limits: list[AdminAnalysisRoleLimitPayload]

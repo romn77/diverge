@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from web.backend import (
+    analysis_limits,
     app_config,
     asset_entries,
     auth,
@@ -37,6 +38,7 @@ from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
 @asynccontextmanager
 async def _app_lifespan(_: FastAPI):
     auth.initialize_auth_runtime()
+    analysis_limits.initialize_analysis_limits_runtime()
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
     screener_results.initialize_screener_result_runtime()

@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from tradingagents.runner import AnalysisRequest
-from web.backend import access, app_config, auth
+from web.backend import access, analysis_limits, app_config, auth
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
@@ -67,7 +67,18 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             detail="Task queue is full. Wait for the active tasks to finish.",
         )
 
-    owner_user_id = analysis_tasks.resolve_owner_user_id(request)
+    current_user = _current_user(request)
+    owner_user_id = current_user.id if current_user is not None else None
+    if current_user is not None:
+        try:
+            with auth.db_session() as db:
+                persisted_user = auth.get_user_by_id(db, current_user.id)
+                analysis_limits.record_analysis_task_creation(db, persisted_user)
+        except analysis_limits.WeeklyUsageLimitExceeded as exc:
+            raise HTTPException(status_code=429, detail=str(exc)) from exc
+        except Exception as exc:
+            raise access.translate_auth_error(exc) from exc
+
     if owner_user_id:
         analysis_request.portfolio_context = asset_service.build_portfolio_context_for_owner(
             owner_user_id,
