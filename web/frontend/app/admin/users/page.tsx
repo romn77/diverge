@@ -10,6 +10,13 @@ import {
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import {
+  MoreHorizontal,
+  RefreshCw,
+  Search,
+  SlidersHorizontal,
+  UserPlus,
+} from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { AdminUserSummaryCards } from "@/components/admin/AdminUserSummaryCards";
 import { usePreferences } from "@/components/PreferencesProvider";
@@ -17,6 +24,14 @@ import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -26,12 +41,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   ApiError,
   createAdminUser,
   deleteAdminUser,
+  listAdminAnalysisLimits,
   listAdminUsers,
   resetAdminUserPassword,
+  resetAdminUserUsage,
+  updateAdminAnalysisLimits,
   updateAdminUser,
+  type AdminAnalysisRoleLimit,
   type AdminUserCreateRequest,
   type AdminUserUpdateRequest,
   type AuthUser,
@@ -49,6 +76,21 @@ const STATUS_OPTIONS: Array<{ label: string; value: UserStatus }> = [
   { label: "Active", value: "active" },
   { label: "Disabled", value: "disabled" },
 ];
+
+const USAGE_MODULES = [
+  { label: "Analysis", value: "analysis" },
+  { label: "Screener", value: "screener" },
+  { label: "Assets", value: "assets" },
+  { label: "Journal", value: "journal" },
+] as const;
+
+function createEmptyRoleLimitDrafts(): Record<UserRole, string> {
+  return {
+    admin: "",
+    operator: "",
+    viewer: "",
+  };
+}
 
 function createEmptyUserForm(): AdminUserCreateRequest {
   return {
@@ -70,6 +112,16 @@ function createEditDraft(user: AuthUser): Required<AdminUserUpdateRequest> {
   };
 }
 
+function createRoleLimitDrafts(
+  limits: AdminAnalysisRoleLimit[]
+): Record<UserRole, string> {
+  const drafts = createEmptyRoleLimitDrafts();
+  for (const limit of limits) {
+    drafts[limit.role] = limit.weekly_limit === null ? "" : String(limit.weekly_limit);
+  }
+  return drafts;
+}
+
 function sortUsers(users: AuthUser[]): AuthUser[] {
   return [...users].sort((left, right) => {
     const leftTime = Date.parse(left.created_at);
@@ -81,17 +133,44 @@ function sortUsers(users: AuthUser[]): AuthUser[] {
   });
 }
 
+function parseWeeklyLimitDraft(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error("Weekly module limits must be whole numbers or blank.");
+  }
+  return parsed;
+}
+
+function formatWeeklyLimit(limit: number | null | undefined): string {
+  return limit === null || limit === undefined ? "Unlimited" : `${limit} / week`;
+}
+
+function getRoleLimit(limits: AdminAnalysisRoleLimit[], role: UserRole): number | null {
+  return limits.find((limit) => limit.role === role)?.weekly_limit ?? null;
+}
+
 export default function AdminUsersPage() {
   const router = useRouter();
   const { locale } = usePreferences();
   const { authError, authState, authStatus, refreshSession } = useAuth();
   const [users, setUsers] = useState<AuthUser[]>([]);
+  const [roleLimits, setRoleLimits] = useState<AdminAnalysisRoleLimit[]>([]);
+  const [roleLimitDrafts, setRoleLimitDrafts] = useState<Record<UserRole, string>>(
+    createEmptyRoleLimitDrafts
+  );
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ kind: "success" | "error"; message: string } | null>(
     null
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isQuotaDialogOpen, setIsQuotaDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<AdminUserCreateRequest>(
     createEmptyUserForm
@@ -100,6 +179,8 @@ export default function AdminUsersPage() {
   const [resetPassword, setResetPassword] = useState("");
   const [resetMustChangePassword, setResetMustChangePassword] = useState(true);
   const [isMutating, setIsMutating] = useState(false);
+  const [isSavingRoleLimits, setIsSavingRoleLimits] = useState(false);
+  const [resettingUsageUserId, setResettingUsageUserId] = useState<string | null>(null);
   const [isForbidden, setIsForbidden] = useState(false);
 
   const authEnabled = authState?.enabled ?? false;
@@ -128,6 +209,9 @@ export default function AdminUsersPage() {
   const adminCount = users.filter((user) => user.role === "admin").length;
   const disabledCount = users.filter((user) => user.status === "disabled").length;
   const activeCount = users.filter((user) => user.status === "active").length;
+  const selectedUserLimit = selectedUser
+    ? getRoleLimit(roleLimits, selectedUser.role)
+    : null;
 
   const handleAuthBoundary = useCallback((error: unknown): boolean => {
     if (error instanceof ApiError && error.status === 401) {
@@ -152,13 +236,19 @@ export default function AdminUsersPage() {
     setIsForbidden(false);
 
     try {
-      const nextUsers = sortUsers(await listAdminUsers());
+      const [usersPayload, limitsPayload] = await Promise.all([
+        listAdminUsers(),
+        listAdminAnalysisLimits(),
+      ]);
+      const nextUsers = sortUsers(usersPayload);
+      setRoleLimits(limitsPayload.limits);
+      setRoleLimitDrafts(createRoleLimitDrafts(limitsPayload.limits));
       setUsers(nextUsers);
       setSelectedUserId((current) => {
         if (current && nextUsers.some((user) => user.id === current)) {
           return current;
         }
-        return nextUsers[0]?.id ?? null;
+        return null;
       });
     } catch (error) {
       if (handleAuthBoundary(error)) {
@@ -212,8 +302,9 @@ export default function AdminUsersPage() {
     try {
       const createdUser = await createAdminUser(createForm);
       setUsers((current) => sortUsers([...current, createdUser]));
-      setSelectedUserId(createdUser.id);
+      setSelectedUserId(null);
       setCreateForm(createEmptyUserForm());
+      setIsCreateDialogOpen(false);
       setNotice({
         kind: "success",
         message: `Created ${createdUser.email}`,
@@ -302,6 +393,34 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleResetUsage = async (user: AuthUser) => {
+    setNotice(null);
+    setResettingUsageUserId(user.id);
+
+    try {
+      const payload = await resetAdminUserUsage(user.id);
+      setUsers((current) =>
+        current.map((item) =>
+          item.id === user.id ? { ...item, usage: payload.usage } : item
+        )
+      );
+      setNotice({
+        kind: "success",
+        message: `Reset weekly usage for ${user.email}`,
+      });
+    } catch (error) {
+      if (handleAuthBoundary(error)) {
+        return;
+      }
+      setNotice({
+        kind: "error",
+        message: error instanceof Error ? error.message : "Unable to reset usage",
+      });
+    } finally {
+      setResettingUsageUserId(null);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!selectedUser) {
       return;
@@ -331,6 +450,38 @@ export default function AdminUsersPage() {
       });
     } finally {
       setIsMutating(false);
+    }
+  };
+
+  const handleSaveAnalysisLimits = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setNotice(null);
+    setIsSavingRoleLimits(true);
+
+    try {
+      const nextLimits = ROLE_OPTIONS.map(({ value }) => ({
+        role: value,
+        weekly_limit: parseWeeklyLimitDraft(roleLimitDrafts[value]),
+      }));
+      const savedLimits = await updateAdminAnalysisLimits({ limits: nextLimits });
+      setRoleLimits(savedLimits.limits);
+      setRoleLimitDrafts(createRoleLimitDrafts(savedLimits.limits));
+      setNotice({
+        kind: "success",
+        message: "Updated weekly module limits",
+      });
+      setIsQuotaDialogOpen(false);
+    } catch (error) {
+      if (handleAuthBoundary(error)) {
+        return;
+      }
+      setNotice({
+        kind: "error",
+        message:
+          error instanceof Error ? error.message : "Unable to update weekly limits",
+      });
+    } finally {
+      setIsSavingRoleLimits(false);
     }
   };
 
@@ -409,49 +560,63 @@ export default function AdminUsersPage() {
       <div className="mx-auto max-w-7xl space-y-6">
         <Card className="rounded-[30px]">
           <CardContent className="px-6 py-7 md:px-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <Link
-                href="/"
-                className="text-[12px] font-semibold uppercase tracking-[0.32em] text-[var(--primary)]"
-              >
-                Back to Workbench
-              </Link>
-              <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                Manage workspace access
-              </h1>
-              <p className="mt-3 text-sm leading-7 text-slate-600">
-                Add accounts, change who can operate the workspace, and handle resets
-                without leaving the admin console.
-              </p>
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <Link
+                  href="/"
+                  className="text-[12px] font-semibold uppercase tracking-[0.32em] text-[var(--primary)]"
+                >
+                  Back to Workbench
+                </Link>
+                <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                  Manage workspace access
+                </h1>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  Keep the roster visible, then open focused panels for account
+                  creation, user edits, and weekly module quotas.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setCreateForm(createEmptyUserForm());
+                    setNotice(null);
+                    setIsCreateDialogOpen(true);
+                  }}
+                >
+                  <UserPlus className="size-4" />
+                  Create Account
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setRoleLimitDrafts(createRoleLimitDrafts(roleLimits));
+                    setNotice(null);
+                    setIsQuotaDialogOpen(true);
+                  }}
+                >
+                  <SlidersHorizontal className="size-4" />
+                  Configure quotas
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => void loadUsers()}
+                  disabled={loadingUsers}
+                >
+                  <RefreshCw className="size-4" />
+                  Refresh
+                </Button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                type="button"
-                onClick={() => {
-                  setSelectedUserId(null);
-                  setCreateForm(createEmptyUserForm());
-                  setNotice(null);
-                }}
-              >
-                Create Account
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => void loadUsers()}
-                disabled={loadingUsers}
-              >
-                Refresh
-              </Button>
-            </div>
-          </div>
 
-          <AdminUserSummaryCards
-            totalUsers={users.length}
-            adminCount={adminCount}
-            disabledCount={disabledCount}
-          />
+            <AdminUserSummaryCards
+              totalUsers={users.length}
+              adminCount={adminCount}
+              disabledCount={disabledCount}
+            />
           </CardContent>
         </Card>
 
@@ -467,26 +632,26 @@ export default function AdminUsersPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-6 xl:grid-cols-[1.12fr_0.88fr]">
-          <Card className="rounded-[30px]">
-            <CardContent className="px-6 py-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <Card className="rounded-[30px]">
+          <CardContent className="px-6 py-6 md:px-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                    Directory
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                    Current access roster
-                  </h2>
-                </div>
-              <label className="block w-full md:max-w-xs">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
+                  Directory
+                </p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                  Current access roster
+                </h2>
+              </div>
+              <label className="relative block w-full lg:max-w-sm">
                 <span className="sr-only">Search users</span>
+                <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
                   placeholder="Search by name, email, or role"
-                  className="w-full bg-white"
+                  className="w-full bg-white pl-11"
                 />
               </label>
             </div>
@@ -507,272 +672,76 @@ export default function AdminUsersPage() {
               </div>
             ) : (
               <div className="mt-6 overflow-hidden rounded-[28px] border border-[var(--border)] bg-white">
-                <div className="hidden grid-cols-[minmax(0,1.2fr)_9rem_8rem_9rem] gap-4 border-b border-[var(--border)] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 md:grid">
+                <div className="hidden grid-cols-[minmax(0,1.25fr)_7rem_7rem_minmax(14rem,1fr)_9rem_11rem] gap-4 border-b border-[var(--border)] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 lg:grid">
                   <span>User</span>
                   <span>Role</span>
                   <span>Status</span>
+                  <span>Usage this week</span>
                   <span>Last Login</span>
+                  <span className="text-right">Actions</span>
                 </div>
                 <div className="divide-y divide-[var(--border)]">
-                  {filteredUsers.map((user) => {
-                    const isSelected = user.id === selectedUserId;
-                    return (
-                      <button
-                        key={user.id}
-                        type="button"
-                        onClick={() => setSelectedUserId(user.id)}
-                        className={`grid w-full gap-3 px-5 py-4 text-left transition md:grid-cols-[minmax(0,1.2fr)_9rem_8rem_9rem] md:items-center ${
-                          isSelected
-                            ? "bg-[var(--primary-soft)]"
-                            : "hover:bg-[var(--surface-strong)]"
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-3">
-                            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--surface-strong)] text-sm font-semibold text-[var(--primary-strong)]">
-                              {getUserInitials(user.display_name, user.email)}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-slate-900">
-                                {user.display_name}
-                              </p>
-                              <p className="truncate text-xs text-slate-500">
-                                {user.email}
-                              </p>
-                            </div>
+                  {filteredUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="grid gap-3 px-5 py-4 transition hover:bg-[var(--surface-strong)] lg:grid-cols-[minmax(0,1.25fr)_7rem_7rem_minmax(14rem,1fr)_9rem_11rem] lg:items-center"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--surface-strong)] text-sm font-semibold text-[var(--primary-strong)]">
+                            {getUserInitials(user.display_name, user.email)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-slate-900">
+                              {user.display_name}
+                            </p>
+                            <p className="truncate text-xs text-slate-500">
+                              {user.email}
+                            </p>
                           </div>
                         </div>
-                        <Badge variant="secondary" className="w-fit">
-                          {user.role}
-                        </Badge>
-                        <Badge
-                          variant={user.status === "active" ? "success" : "destructive"}
-                          className="w-fit"
+                      </div>
+                      <Badge variant="secondary" className="w-fit">
+                        {user.role}
+                      </Badge>
+                      <Badge
+                        variant={user.status === "active" ? "success" : "destructive"}
+                        className="w-fit"
+                      >
+                        {user.status}
+                      </Badge>
+                      <UsageSummary user={user} />
+                      <span className="text-xs font-medium text-slate-500">
+                        {formatDateTime(user.last_login_at, locale)}
+                      </span>
+                      <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => void handleResetUsage(user)}
+                          disabled={resettingUsageUserId === user.id}
                         >
-                          {user.status}
-                        </Badge>
-                        <span className="text-xs font-medium text-slate-500">
-                          {formatDateTime(user.last_login_at, locale)}
-                        </span>
-                      </button>
-                    );
-                  })}
+                          <RefreshCw className="size-4" />
+                          {resettingUsageUserId === user.id ? "Resetting" : "Reset Usage"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedUserId(user.id)}
+                        >
+                          <MoreHorizontal className="size-4" />
+                          Manage
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
-            </CardContent>
-          </Card>
-
-          <Card className="rounded-[30px]">
-            <CardContent className="px-6 py-6">
-            {selectedUser ? (
-              <>
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                      Selected User
-                    </p>
-                    <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                      {selectedUser.display_name}
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-500">{selectedUser.email}</p>
-                  </div>
-                  <Badge variant="secondary">
-                    {selectedUser.role}
-                  </Badge>
-                </div>
-
-                {editForm ? (
-                  <form className="mt-6 space-y-4" onSubmit={handleSaveUser}>
-                    <TextField
-                      label="Display Name"
-                      value={editForm.display_name}
-                      onChange={(value) =>
-                        setEditForm((current) =>
-                          current ? { ...current, display_name: value } : current
-                        )
-                      }
-                    />
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <SelectField
-                        label="Role"
-                        value={editForm.role}
-                        options={ROLE_OPTIONS}
-                        onChange={(value) =>
-                          setEditForm((current) =>
-                            current ? { ...current, role: value as UserRole } : current
-                          )
-                        }
-                      />
-                      <SelectField
-                        label="Status"
-                        value={editForm.status}
-                        options={STATUS_OPTIONS}
-                        onChange={(value) =>
-                          setEditForm((current) =>
-                            current ? { ...current, status: value as UserStatus } : current
-                          )
-                        }
-                      />
-                    </div>
-                    <label className="flex items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={editForm.must_change_password}
-                        onChange={(event) =>
-                          setEditForm((current) =>
-                            current
-                              ? {
-                                  ...current,
-                                  must_change_password: event.target.checked,
-                                }
-                              : current
-                          )
-                        }
-                      />
-                      Force password rotation on next reset
-                    </label>
-                    <Button type="submit" disabled={isMutating}>
-                      {isMutating ? "Saving" : "Save User"}
-                    </Button>
-                  </form>
-                ) : null}
-
-                <form
-                  className="mt-6 rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-4"
-                  onSubmit={handleResetPassword}
-                >
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                    Reset Password
-                  </p>
-                  <TextField
-                    label="Temporary Password"
-                    type="password"
-                    value={resetPassword}
-                    onChange={setResetPassword}
-                  />
-                  <label className="mt-4 flex items-center gap-3 text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={resetMustChangePassword}
-                      onChange={(event) =>
-                        setResetMustChangePassword(event.target.checked)
-                      }
-                    />
-                    Require password change after reset
-                  </label>
-                  <Button
-                    type="submit"
-                    variant="secondary"
-                    disabled={isMutating || !resetPassword.trim()}
-                    className="mt-4 bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
-                  >
-                    {isMutating ? "Resetting" : "Reset Password"}
-                  </Button>
-                </form>
-
-                <div className="mt-6 rounded-[28px] border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] p-4">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[var(--danger)]">
-                    Destructive Action
-                  </p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    Deleting a user also revokes their active sessions. The backend
-                    protects the last active admin account.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isMutating}
-                    onClick={() => void handleDeleteUser()}
-                    className="mt-4 border-[var(--danger)] text-[var(--danger)] hover:bg-[rgba(163,53,53,0.06)] hover:text-[var(--danger)]"
-                  >
-                    {isMutating ? "Deleting" : "Delete User"}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
-                  Create User
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                  Provision a new account
-                </h2>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Create the workspace account first, then decide whether this person
-                  should administer, operate, or only view Diverge.
-                </p>
-
-                <form className="mt-6 space-y-4" onSubmit={handleCreateUser}>
-                  <TextField
-                    label="Email"
-                    type="email"
-                    value={createForm.email}
-                    onChange={(value) =>
-                      setCreateForm((current) => ({ ...current, email: value }))
-                    }
-                  />
-                  <TextField
-                    label="Display Name"
-                    value={createForm.display_name}
-                    onChange={(value) =>
-                      setCreateForm((current) => ({ ...current, display_name: value }))
-                    }
-                  />
-                  <TextField
-                    label="Temporary Password"
-                    type="password"
-                    value={createForm.password}
-                    onChange={(value) =>
-                      setCreateForm((current) => ({ ...current, password: value }))
-                    }
-                  />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <SelectField
-                      label="Role"
-                      value={createForm.role}
-                      options={ROLE_OPTIONS}
-                      onChange={(value) =>
-                        setCreateForm((current) => ({
-                          ...current,
-                          role: value as UserRole,
-                        }))
-                      }
-                    />
-                    <SelectField
-                      label="Status"
-                      value={createForm.status}
-                      options={STATUS_OPTIONS}
-                      onChange={(value) =>
-                        setCreateForm((current) => ({
-                          ...current,
-                          status: value as UserStatus,
-                        }))
-                      }
-                    />
-                  </div>
-                  <label className="flex items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={createForm.must_change_password}
-                      onChange={(event) =>
-                        setCreateForm((current) => ({
-                          ...current,
-                          must_change_password: event.target.checked,
-                        }))
-                      }
-                    />
-                    Require password change after first login
-                  </label>
-                  <Button type="submit" disabled={isMutating}>
-                    {isMutating ? "Creating" : "Create User"}
-                  </Button>
-                </form>
-              </>
-            )}
-            </CardContent>
-          </Card>
-        </div>
+          </CardContent>
+        </Card>
 
         <section className="rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-4 text-sm text-slate-600">
           <div className="flex flex-wrap items-center gap-4">
@@ -783,6 +752,338 @@ export default function AdminUsersPage() {
           </div>
         </section>
       </div>
+
+      <Dialog open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (open) {
+            setCreateForm(createEmptyUserForm());
+            setNotice(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Provision a new account</DialogTitle>
+            <DialogDescription>
+              Create the workspace account first, then assign a role and login status.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleCreateUser}>
+            <TextField
+              label="Email"
+              type="email"
+              value={createForm.email}
+              onChange={(value) =>
+                setCreateForm((current) => ({ ...current, email: value }))
+              }
+            />
+            <TextField
+              label="Display Name"
+              value={createForm.display_name}
+              onChange={(value) =>
+                setCreateForm((current) => ({ ...current, display_name: value }))
+              }
+            />
+            <TextField
+              label="Temporary Password"
+              type="password"
+              value={createForm.password}
+              onChange={(value) =>
+                setCreateForm((current) => ({ ...current, password: value }))
+              }
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <SelectField
+                label="Role"
+                value={createForm.role}
+                options={ROLE_OPTIONS}
+                onChange={(value) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    role: value as UserRole,
+                  }))
+                }
+              />
+              <SelectField
+                label="Status"
+                value={createForm.status}
+                options={STATUS_OPTIONS}
+                onChange={(value) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    status: value as UserStatus,
+                  }))
+                }
+              />
+            </div>
+            <label className="flex items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-700">
+              <input
+                type="checkbox"
+                checked={createForm.must_change_password}
+                onChange={(event) =>
+                  setCreateForm((current) => ({
+                    ...current,
+                    must_change_password: event.target.checked,
+                  }))
+                }
+              />
+              Require password change after first login
+            </label>
+            <DialogFooter>
+              <Button type="submit" disabled={isMutating}>
+                {isMutating ? "Creating" : "Create User"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isQuotaDialogOpen}
+        onOpenChange={(open) => {
+          setIsQuotaDialogOpen(open);
+          if (open) {
+            setRoleLimitDrafts(createRoleLimitDrafts(roleLimits));
+            setNotice(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Weekly module limits</DialogTitle>
+            <DialogDescription>
+              Leave a role blank for unlimited module usage. Use zero to block new
+              module actions for that role.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleSaveAnalysisLimits}>
+            {ROLE_OPTIONS.map((roleOption) => {
+              const persistedLimit = getRoleLimit(roleLimits, roleOption.value);
+              return (
+                <label
+                  key={roleOption.value}
+                  className="block rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4"
+                >
+                  <span className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-slate-900">
+                      {roleOption.label}
+                    </span>
+                    <span className="text-xs font-medium text-slate-500">
+                      {formatWeeklyLimit(persistedLimit)}
+                    </span>
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    placeholder="Unlimited"
+                    value={roleLimitDrafts[roleOption.value]}
+                    onChange={(event) =>
+                      setRoleLimitDrafts((current) => ({
+                        ...current,
+                        [roleOption.value]: event.target.value,
+                      }))
+                    }
+                    className="mt-3 bg-white"
+                  />
+                </label>
+              );
+            })}
+            <DialogFooter>
+              <Button type="submit" disabled={isSavingRoleLimits || loadingUsers}>
+                {isSavingRoleLimits ? "Saving" : "Save Limits"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={Boolean(selectedUser)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedUserId(null);
+          }
+        }}
+      >
+        <SheetContent className="overflow-y-auto sm:max-w-xl">
+          {selectedUser ? (
+            <>
+              <SheetHeader>
+                <SheetTitle>Manage User</SheetTitle>
+                <SheetDescription>
+                  {selectedUser.display_name} · {selectedUser.email}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge variant="secondary">{selectedUser.role}</Badge>
+                <Badge
+                  variant={selectedUser.status === "active" ? "success" : "destructive"}
+                >
+                  {selectedUser.status}
+                </Badge>
+                <Badge variant="secondary">
+                  Weekly quota {formatWeeklyLimit(selectedUserLimit)}
+                </Badge>
+              </div>
+
+              {editForm ? (
+                <form className="mt-6 space-y-4" onSubmit={handleSaveUser}>
+                  <TextField
+                    label="Display Name"
+                    value={editForm.display_name}
+                    onChange={(value) =>
+                      setEditForm((current) =>
+                        current ? { ...current, display_name: value } : current
+                      )
+                    }
+                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <SelectField
+                      label="Role"
+                      value={editForm.role}
+                      options={ROLE_OPTIONS}
+                      onChange={(value) =>
+                        setEditForm((current) =>
+                          current ? { ...current, role: value as UserRole } : current
+                        )
+                      }
+                    />
+                    <SelectField
+                      label="Status"
+                      value={editForm.status}
+                      options={STATUS_OPTIONS}
+                      onChange={(value) =>
+                        setEditForm((current) =>
+                          current ? { ...current, status: value as UserStatus } : current
+                        )
+                      }
+                    />
+                  </div>
+                  <label className="flex items-center gap-3 rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={editForm.must_change_password}
+                      onChange={(event) =>
+                        setEditForm((current) =>
+                          current
+                            ? {
+                                ...current,
+                                must_change_password: event.target.checked,
+                              }
+                            : current
+                        )
+                      }
+                    />
+                    Force password rotation on next reset
+                  </label>
+                  <SheetFooter>
+                    <Button type="submit" disabled={isMutating}>
+                      {isMutating ? "Saving" : "Save User"}
+                    </Button>
+                  </SheetFooter>
+                </form>
+              ) : null}
+
+              <form
+                className="mt-6 rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-4"
+                onSubmit={handleResetPassword}
+              >
+                <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                  Reset Password
+                </p>
+                <TextField
+                  label="Temporary Password"
+                  type="password"
+                  value={resetPassword}
+                  onChange={setResetPassword}
+                />
+                <label className="mt-4 flex items-center gap-3 text-sm font-medium text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={resetMustChangePassword}
+                    onChange={(event) =>
+                      setResetMustChangePassword(event.target.checked)
+                    }
+                  />
+                  Require password change after reset
+                </label>
+                <Button
+                  type="submit"
+                  variant="secondary"
+                  disabled={isMutating || !resetPassword.trim()}
+                  className="mt-4 bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
+                >
+                  {isMutating ? "Resetting" : "Reset Password"}
+                </Button>
+              </form>
+
+              <section className="mt-6 rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                      Usage this week
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      {selectedUser.usage
+                        ? `Week of ${selectedUser.usage.usage_week}`
+                        : "No usage recorded for this user yet."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={resettingUsageUserId === selectedUser.id}
+                    onClick={() => void handleResetUsage(selectedUser)}
+                  >
+                    {resettingUsageUserId === selectedUser.id
+                      ? "Resetting"
+                      : "Reset Usage"}
+                  </Button>
+                </div>
+                {selectedUser.usage ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {Object.entries(selectedUser.usage.modules).map(
+                      ([moduleName, usage]) => (
+                        <div
+                          key={moduleName}
+                          className="rounded-[20px] border border-[var(--border)] bg-white/80 px-4 py-3"
+                        >
+                          <p className="text-xs font-semibold capitalize text-slate-700">
+                            {moduleName}
+                          </p>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {usage.used_count} used ·{" "}
+                            {formatWeeklyLimit(usage.weekly_limit)}
+                          </p>
+                        </div>
+                      )
+                    )}
+                  </div>
+                ) : null}
+              </section>
+
+              <div className="mt-6 rounded-[28px] border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] p-4">
+                <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-[var(--danger)]">
+                  Destructive Action
+                </p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Deleting a user also revokes their active sessions. The backend
+                  protects the last active admin account.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isMutating}
+                  onClick={() => void handleDeleteUser()}
+                  className="mt-4 border-[var(--danger)] text-[var(--danger)] hover:bg-[rgba(163,53,53,0.06)] hover:text-[var(--danger)]"
+                >
+                  {isMutating ? "Deleting" : "Delete User"}
+                </Button>
+              </div>
+            </>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </main>
   );
 }
@@ -842,6 +1143,37 @@ function SelectField({
         </SelectContent>
       </Select>
     </label>
+  );
+}
+
+function UsageSummary({ user }: { user: AuthUser }) {
+  if (!user.usage) {
+    return (
+      <span className="text-xs font-medium text-slate-500">
+        No usage yet
+      </span>
+    );
+  }
+
+  return (
+    <div className="grid gap-1 text-xs text-slate-600 sm:grid-cols-2 lg:grid-cols-2">
+      {USAGE_MODULES.map((module) => {
+        const usage = user.usage?.modules[module.value];
+        const usedCount = usage?.used_count ?? 0;
+        const limit = usage?.weekly_limit ?? user.usage?.weekly_limit ?? null;
+        return (
+          <span
+            key={module.value}
+            className="flex items-center justify-between gap-2 rounded-full bg-[var(--surface-strong)] px-2.5 py-1"
+          >
+            <span className="font-medium">{module.label}</span>
+            <span className="text-slate-500">
+              {usedCount}/{limit === null ? "unlimited" : limit}
+            </span>
+          </span>
+        );
+      })}
+    </div>
   );
 }
 

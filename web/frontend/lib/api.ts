@@ -19,6 +19,7 @@ export interface AuthUser {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+  usage?: UserWeeklyUsage;
 }
 
 export interface AuthState {
@@ -59,9 +60,38 @@ export interface AdminUserResetPasswordRequest {
   must_change_password: boolean;
 }
 
+export interface AdminAnalysisRoleLimit {
+  role: UserRole;
+  weekly_limit: number | null;
+}
+
+export interface AdminAnalysisLimitsResponse {
+  limits: AdminAnalysisRoleLimit[];
+}
+
+export type UsageModule = "analysis" | "screener" | "assets" | "journal";
+
+export interface UsageModuleSummary {
+  used_count: number;
+  weekly_limit: number | null;
+  remaining_count: number | null;
+}
+
+export interface UserWeeklyUsage {
+  usage_week: string;
+  weekly_limit: number | null;
+  modules: Record<UsageModule, UsageModuleSummary>;
+}
+
 export interface DeleteAdminUserResponse {
   deleted: boolean;
   user_id: string;
+}
+
+export interface ResetAdminUserUsageResponse {
+  user_id: string;
+  reset_count: number;
+  usage: UserWeeklyUsage;
 }
 
 export class ApiError extends Error {
@@ -535,6 +565,21 @@ export async function listAdminUsers(): Promise<AuthUser[]> {
   });
 }
 
+export async function listAdminAnalysisLimits(): Promise<AdminAnalysisLimitsResponse> {
+  return requestJson<AdminAnalysisLimitsResponse>("/api/admin/analysis-limits", {
+    cache: "no-store",
+  });
+}
+
+export async function updateAdminAnalysisLimits(
+  payload: AdminAnalysisLimitsResponse
+): Promise<AdminAnalysisLimitsResponse> {
+  return requestJson<AdminAnalysisLimitsResponse>(
+    "/api/admin/analysis-limits",
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
 export async function getAdminUser(userId: string): Promise<AuthUser> {
   return requestJson<AuthUser>(`/api/admin/users/${userId}`, {
     cache: "no-store",
@@ -576,6 +621,15 @@ export async function resetAdminUserPassword(
   return requestJson<AuthUser>(
     `/api/admin/users/${userId}/reset-password`,
     createJsonRequestInit("POST", payload)
+  );
+}
+
+export async function resetAdminUserUsage(
+  userId: string
+): Promise<ResetAdminUserUsageResponse> {
+  return requestJson<ResetAdminUserUsageResponse>(
+    `/api/admin/users/${userId}/usage/reset`,
+    createJsonRequestInit("POST")
   );
 }
 
