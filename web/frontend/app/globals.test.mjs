@@ -53,6 +53,16 @@ test("globals.css preserves selected pill controls in dark mode", () => {
   assert.match(source, /color:\s*var\(--primary-foreground\)/);
 });
 
+test("globals.css gives primary buttons explicit token colors", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  assert.match(source, /\.button-primary\s*\{/);
+  assert.match(source, /border-color:\s*var\(--primary\)/);
+  assert.match(source, /background-color:\s*var\(--primary\)/);
+  assert.match(source, /color:\s*var\(--primary-foreground\)/);
+  assert.match(source, /\.button-primary:hover,\s*[\s\S]*?\.button-primary:active/);
+});
+
 test("globals.css maps every in-use white alpha surface to a dark surface", () => {
   const source = readFileSync(globalsCssPath, "utf8");
   const requiredAlphaClasses = [

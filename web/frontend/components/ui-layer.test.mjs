@@ -55,6 +55,7 @@ test("frontend exposes the first-wave shadcn-style UI primitives under component
 
   assert.match(buttonSource, /class-variance-authority/);
   assert.match(buttonSource, /@radix-ui\/react-slot/);
+  assert.match(buttonSource, /button-primary/);
   assert.match(buttonSource, /export \{ Button, buttonVariants \}/);
   assert.match(dialogSource, /@radix-ui\/react-dialog/);
   assert.match(dialogSource, /DialogContent/);

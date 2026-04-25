@@ -196,7 +196,23 @@ html[data-visual-style="stylful"] a.bg-\[var\(--primary\)\] {
   box-shadow: 4px 4px 0 var(--stylful-shadow-strong) !important;
 }
 
+html[data-visual-style="stylful"] .button-primary,
+html[data-visual-style="stylful"] button.button-primary,
+html[data-visual-style="stylful"] a.button-primary {
+  border: 3px solid var(--stylful-pencil) !important;
+  border-radius: var(--radius-wobble-btn) !important;
+  background: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+  box-shadow: 4px 4px 0 var(--stylful-shadow-strong) !important;
+}
+
 html[data-visual-style="stylful"] .bg-\[var\(--primary\)\]:hover {
+  box-shadow: 2px 2px 0 var(--stylful-shadow-strong) !important;
+  translate: 2px 2px;
+}
+
+html[data-visual-style="stylful"] .button-primary:hover {
+  color: var(--primary-foreground) !important;
   box-shadow: 2px 2px 0 var(--stylful-shadow-strong) !important;
   translate: 2px 2px;
 }
