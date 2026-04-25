@@ -18,7 +18,7 @@ run_backup() {
     --no-owner \
     --no-privileges \
     | gzip > "$output"
-  python -m web.backend.backup_to_storage "$output"
+  python -m web.backend.devops.backup_to_storage "$output"
 }
 
 if [[ "${BACKUP_ONCE:-false}" == "true" ]]; then

@@ -55,7 +55,7 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
             source,
         )
         self.assertIn("alembic -c alembic.ini upgrade head", source)
-        self.assertIn("python -m web.backend.bootstrap_admin", source)
+        self.assertIn("python -m web.backend.devops.bootstrap_admin", source)
 
     def test_prod_compose_adds_nginx_redis_worker_and_backup_without_public_datastores(self):
         compose_file = PROJECT_ROOT / "compose.prod.yml"

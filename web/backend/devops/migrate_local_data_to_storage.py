@@ -46,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         total += len(keys)
         print(f"{name}: {len(keys)} file(s)")
     if args.backfill_metadata and not args.dry_run:
-        from web.backend import backfill_metadata
+        from web.backend.devops import backfill_metadata
 
         backfill_metadata.main()
     print(f"total: {total} file(s)")

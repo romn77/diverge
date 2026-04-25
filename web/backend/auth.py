@@ -849,7 +849,7 @@ def ensure_bootstrap_admin(db: Session, settings: AuthSettings | None = None) ->
     if not resolved_settings.bootstrap_admin_email or not resolved_settings.bootstrap_admin_password:
         raise RuntimeError(
             "Auth is enabled but no users exist. Set AUTH_BOOTSTRAP_ADMIN_EMAIL and "
-            "AUTH_BOOTSTRAP_ADMIN_PASSWORD, or run `python -m web.backend.bootstrap_admin`."
+            "AUTH_BOOTSTRAP_ADMIN_PASSWORD, or run `python -m web.backend.devops.bootstrap_admin`."
         )
 
     user = create_user(

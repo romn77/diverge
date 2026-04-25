@@ -28,9 +28,9 @@ class ResetAdminPasswordScriptTests(unittest.TestCase):
 
     def _load_module(self):
         try:
-            from web.backend import reset_admin_password
+            from web.backend.devops import reset_admin_password
         except ImportError as exc:
-            self.fail(f"Expected web.backend.reset_admin_password module to exist: {exc}")
+            self.fail(f"Expected web.backend.devops.reset_admin_password module to exist: {exc}")
         return reset_admin_password
 
     def test_reset_script_resets_existing_bootstrap_admin_password(self):

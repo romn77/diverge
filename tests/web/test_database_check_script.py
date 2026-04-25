@@ -28,9 +28,9 @@ class DatabaseCheckScriptTests(unittest.TestCase):
 
     def _load_check_database_module(self):
         try:
-            from web.backend import check_database
+            from web.backend.devops import check_database
         except ImportError as exc:
-            self.fail(f"Expected web.backend.check_database module to exist: {exc}")
+            self.fail(f"Expected web.backend.devops.check_database module to exist: {exc}")
         return check_database
 
     def test_check_reports_pending_migrations_for_empty_database(self):

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TextIO
 
 from web.backend import auth
-from web.backend.check_database import DEFAULT_ENV_FILE, load_env_file
+from web.backend.devops.check_database import DEFAULT_ENV_FILE, load_env_file
 
 
 @dataclass(frozen=True)

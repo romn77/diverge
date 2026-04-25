@@ -14,7 +14,7 @@ from tradingagents.trade_feedback import (
 from tradingagents.data_layout import resolve_reports_dir, resolve_screener_runs_dir
 from web.backend import auth, report_metadata, screener_results, screener_runs, trade_entries
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 REPORTS_DIR = resolve_reports_dir(PROJECT_ROOT)
 SCREENER_RUNS_DIR = resolve_screener_runs_dir(PROJECT_ROOT)
 SCREENER_ARTIFACT_FILENAMES = {

@@ -17,8 +17,8 @@ from sqlalchemy.engine import make_url
 from web.backend import auth
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-BACKEND_DIR = PROJECT_ROOT / "web" / "backend"
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = BACKEND_DIR.parents[1]
 ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
 DEFAULT_ENV_FILE = PROJECT_ROOT / ".env"
 
@@ -125,7 +125,7 @@ def run_database_check(
         )
 
     if exit_code == 0 and backfill:
-        from web.backend import backfill_metadata
+        from web.backend.devops import backfill_metadata
 
         summary = backfill_metadata.backfill_all_metadata()
         print(

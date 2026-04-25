@@ -119,13 +119,13 @@ cd web/backend
 alembic -c alembic.ini upgrade head
 
 # bootstrap the first admin if the user table is empty
-python -m web.backend.bootstrap_admin
+python -m web.backend.devops.bootstrap_admin
 ```
 
 One-time metadata backfill before switching auth to required:
 
 ```bash
-AUTH_ENABLED=true AUTH_MODE=optional python -m web.backend.backfill_metadata
+AUTH_ENABLED=true AUTH_MODE=optional python -m web.backend.devops.backfill_metadata
 ```
 
 Backfill defaults:

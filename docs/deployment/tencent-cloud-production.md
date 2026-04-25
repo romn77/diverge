@@ -57,8 +57,8 @@ Only ports `80` and `443` should be public. Do not expose Postgres or Redis in t
 After COS credentials are configured:
 
 ```bash
-python -m web.backend.migrate_local_data_to_storage --dry-run
-python -m web.backend.migrate_local_data_to_storage
+python -m web.backend.devops.migrate_local_data_to_storage --dry-run
+python -m web.backend.devops.migrate_local_data_to_storage
 ```
 
 The migration uploads:

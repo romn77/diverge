@@ -162,9 +162,9 @@ if [ "$AUTH_ENABLED" = "true" ]; then
     fi
     (
         cd "$ROOT_DIR"
-        python -m web.backend.bootstrap_admin > /dev/null
+        python -m web.backend.devops.bootstrap_admin > /dev/null
         if [ "$AUTH_MODE" = "optional" ]; then
-            python -m web.backend.backfill_metadata > /dev/null
+            python -m web.backend.devops.backfill_metadata > /dev/null
         fi
     )
 fi

@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from web.backend import app_config, migrate_local_data_to_storage, storage
+from web.backend import app_config, storage
+from web.backend.devops import migrate_local_data_to_storage
 
 
 class StorageBackendTests(unittest.TestCase):
