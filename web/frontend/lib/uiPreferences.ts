@@ -105,7 +105,6 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "home.waitingForReports": "等待报告中",
   "sidebar.reportNavigation": "报告导航",
   "sidebar.closeSidebar": "关闭侧边栏",
-  "sidebar.brandSubline": "独立 · 分岔 · 洞察",
   "sidebar.launch": "发起",
   "sidebar.create": "新建",
   "sidebar.primaryNavigation": "主导航",

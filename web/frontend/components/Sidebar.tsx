@@ -216,9 +216,6 @@ export function Sidebar({
           {!isDesktopRail ? (
             <div className="min-w-0">
               <p className="font-heading text-lg font-semibold text-slate-900">Diverge</p>
-              <p className="mt-0.5 text-xs text-slate-500">
-                {t("sidebar.brandSubline", "Independent Research")}
-              </p>
             </div>
           ) : null}
         </Link>
