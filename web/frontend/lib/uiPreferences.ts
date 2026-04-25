@@ -534,6 +534,7 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "trade.side.long": "做多",
   "trade.side.short": "做空",
   "trade.status.open": "未平仓",
+  "trade.status.closed": "已平仓",
   "tradeReview.manualOnly":
     "当前是纯手动 MVP：复盘聚焦于流程与快照引用，不代表自动交易或券商同步。",
   "tradeReview.manualReview": "手动复盘",

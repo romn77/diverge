@@ -56,3 +56,12 @@ test("TradeRecordForm hides native scrollbar chrome while keeping internal modal
   assert.match(source, /overflow-y-auto/);
   assert.match(source, /scrollbar-hidden/);
 });
+
+test("TradeRecordForm normalizes persisted trade statuses before binding the Select", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /function normalizeTradeStatus/);
+  assert.match(source, /normalized === "close" \|\| normalized === "closed"/);
+  assert.match(source, /status: normalizeTradeStatus\(record\?\.status \?\? "open"\)/);
+  assert.match(source, /status: normalizeTradeStatus\(requireText\(state\.status/);
+});

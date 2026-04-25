@@ -235,18 +235,23 @@ export function TradeRecordForm({
               <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                 {t("tradeRecord.status", "Status")}
               </span>
-              <input
-                type="text"
+              <Select
                 value={formState.status}
-                onChange={(event) =>
+                onValueChange={(value) =>
                   setFormState((current) => ({
                     ...current,
-                    status: event.target.value,
+                    status: value,
                   }))
                 }
-                placeholder="open"
-                className="focus-ring mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-medium text-slate-800"
-              />
+              >
+                <SelectTrigger className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-medium text-slate-800">
+                  <SelectValue placeholder={t("tradeRecord.status", "Status")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">{t("trade.status.open", "Open")}</SelectItem>
+                  <SelectItem value="closed">{t("trade.status.closed", "Closed")}</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
           </section>
 
@@ -668,7 +673,7 @@ function buildInitialState(record: TradeRecord | null): TradeRecordFormState {
     ticker: record?.ticker ?? "",
     exchange_or_market: record?.exchange_or_market ?? "",
     side: record?.side ?? "long",
-    status: record?.status ?? "open",
+    status: normalizeTradeStatus(record?.status ?? "open"),
     entry_timestamp: toDateTimeLocalValue(record?.entry_timestamp ?? null),
     entry_price: toInputNumber(record?.entry_price ?? null),
     exit_timestamp: toDateTimeLocalValue(record?.exit_timestamp ?? null),
@@ -696,7 +701,7 @@ function buildPayload(
       t("tradeRecord.marketExchange", "Market / exchange")
     ),
     side: requireText(state.side, t("tradeRecord.side", "Side")).toLowerCase(),
-    status: requireText(state.status, t("tradeRecord.status", "Status")),
+    status: normalizeTradeStatus(requireText(state.status, t("tradeRecord.status", "Status"))),
     entry_timestamp: normalizeOptionalTimestamp(
       state.entry_timestamp,
       t("tradeRecord.entryTime", "Entry time"),
@@ -743,6 +748,14 @@ function requireText(value: string, fieldName: string): string {
     throw new Error(`${fieldName} is required.`);
   }
   return normalized;
+}
+
+function normalizeTradeStatus(value: string): string {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "close" || normalized === "closed") {
+    return "closed";
+  }
+  return normalized || "open";
 }
 
 function normalizeOptionalTimestamp(

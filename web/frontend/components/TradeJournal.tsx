@@ -1222,8 +1222,9 @@ function localizeTradeValue(
   if (normalized === "long" || normalized === "short") {
     return t(`trade.side.${normalized}`, value);
   }
-  if (normalized === "open") {
-    return t("trade.status.open", value);
+  if (normalized === "open" || normalized === "closed" || normalized === "close") {
+    const statusKey = normalized === "close" ? "closed" : normalized;
+    return t(`trade.status.${statusKey}`, value);
   }
   return value;
 }

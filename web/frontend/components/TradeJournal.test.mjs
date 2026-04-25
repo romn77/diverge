@@ -84,3 +84,11 @@ test("TradeJournal lets the journal workspace fill the available browser width",
   assert.doesNotMatch(source, /max-w-none/);
   assert.doesNotMatch(source, /minmax\(320px,360px\)/);
 });
+
+test("TradeJournal localizes open and closed trade status labels", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /normalized === "open" \|\| normalized === "closed" \|\| normalized === "close"/);
+  assert.match(source, /const statusKey = normalized === "close" \? "closed" : normalized/);
+  assert.match(source, /t\(`trade\.status\.\$\{statusKey\}`, value\)/);
+});
