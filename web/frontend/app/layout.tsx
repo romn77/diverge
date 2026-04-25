@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
-import Script from "next/script";
 import { AuthProvider } from "@/components/AuthProvider";
 import { PreferencesProvider } from "@/components/PreferencesProvider";
 import {
@@ -65,13 +64,6 @@ export default async function RootLayout({
           id="preferences-bootstrap"
           dangerouslySetInnerHTML={{ __html: preferencesBootstrapScript }}
         />
-        {process.env.NODE_ENV === "development" && (
-          <Script
-            src="//unpkg.com/react-grab/dist/index.global.js"
-            crossOrigin="anonymous"
-            strategy="beforeInteractive"
-          />
-        )}
       </head>
       <body className="antialiased">
         <PreferencesProvider
