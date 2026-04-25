@@ -3,9 +3,6 @@ FROM python:3.13-slim
 WORKDIR /app
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
 ENV UV_LINK_MODE=copy
-
-RUN sed -i 's|http://deb.debian.org/debian|https://mirrors.tencent.com/debian|g' /etc/apt/sources.list.d/debian.sources \
-    && sed -i 's|http://deb.debian.org/debian-security|https://mirrors.tencent.com/debian-security|g' /etc/apt/sources.list.d/debian.sources
     
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bash postgresql-client ca-certificates \

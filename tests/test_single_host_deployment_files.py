@@ -74,6 +74,26 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("STORAGE_BACKEND: ${STORAGE_BACKEND:-tencent_cos}", source)
         self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}", source)
 
+    def test_no_nginx_compose_supports_public_ip_http_deployment(self):
+        compose_file = PROJECT_ROOT / "compose.no-nginx.yml"
+        self.assertTrue(compose_file.is_file())
+
+        source = compose_file.read_text(encoding="utf-8")
+        self.assertNotIn("nginx:", source)
+        self.assertIn("redis:", source)
+        self.assertIn("worker:", source)
+        self.assertIn("backup:", source)
+        self.assertIn("${BACKEND_PORT:-8000}:8000", source)
+        self.assertIn("${FRONTEND_PORT:-3000}:3000", source)
+        self.assertNotIn("${POSTGRES_PORT:-5432}:5432", source)
+        self.assertNotIn("${REDIS_PORT:-6379}:6379", source)
+        self.assertIn("FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env}", source)
+        self.assertIn(
+            "NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?Set NEXT_PUBLIC_API_BASE_URL in .env}",
+            source,
+        )
+        self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}", source)
+
     def test_nginx_production_config_routes_frontend_api_and_sse(self):
         nginx_config = PROJECT_ROOT / "deploy" / "nginx" / "tradingagents.conf"
         self.assertTrue(nginx_config.is_file())
@@ -111,6 +131,21 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("docker compose build", source)
         self.assertIn("docker compose up -d", source)
         self.assertIn("mkdir -p", source)
+
+    def test_offline_image_script_builds_amd64_tarball_and_compose_override(self):
+        script = PROJECT_ROOT / "scripts" / "build-offline-images.sh"
+        self.assertTrue(script.is_file())
+
+        source = script.read_text(encoding="utf-8")
+        self.assertIn('PLATFORM="${PLATFORM:-linux/amd64}"', source)
+        self.assertIn('BACKEND_IMAGE="${BACKEND_IMAGE:-tradingagents-backend}"', source)
+        self.assertIn('FRONTEND_IMAGE="${FRONTEND_IMAGE:-tradingagents-frontend}"', source)
+        self.assertIn("docker buildx build", source)
+        self.assertIn("--load", source)
+        self.assertIn("docker save", source)
+        self.assertIn("${BACKEND_IMAGE}:${TAG}", source)
+        self.assertIn("${FRONTEND_IMAGE}:${TAG}", source)
+        self.assertIn("compose.images-${TAG}.yml", source)
 
     def test_dockerignore_excludes_env_and_data_artifacts(self):
         dockerignore = PROJECT_ROOT / ".dockerignore"
