@@ -3,6 +3,12 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
+EXPLICIT_NEXT_PUBLIC_API_BASE_URL_SET=false
+if [ "${NEXT_PUBLIC_API_BASE_URL+x}" = "x" ]; then
+  EXPLICIT_NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL"
+  EXPLICIT_NEXT_PUBLIC_API_BASE_URL_SET=true
+fi
+
 OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_ROOT/dist}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 TAG="${TAG:-$(date +%Y%m%d%H%M%S)}"
@@ -72,6 +78,10 @@ if [ -f "$ENV_FILE" ]; then
   # shellcheck disable=SC1090
   source "$ENV_FILE"
   set +a
+fi
+
+if [ "$EXPLICIT_NEXT_PUBLIC_API_BASE_URL_SET" = "true" ]; then
+  NEXT_PUBLIC_API_BASE_URL="$EXPLICIT_NEXT_PUBLIC_API_BASE_URL"
 fi
 
 NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-}"

@@ -5,9 +5,14 @@
 .sisyphus
 __pycache__
 *.pyc
+dist
+*.tar
+*.tar.gz
+*.zip
 data
 reports
 .env
+deploy/certs
 web/frontend/.next
 web/frontend/node_modules
 node_modules

@@ -1,3 +1,6 @@
+import os
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -69,8 +72,10 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("backup:", source)
         self.assertIn("${HTTP_PORT:-80}:80", source)
         self.assertIn("${HTTPS_PORT:-443}:443", source)
-        self.assertNotIn("${POSTGRES_PORT:-5432}:5432", source)
-        self.assertNotIn("${REDIS_PORT:-6379}:6379", source)
+        self.assertIn("127.0.0.1:${POSTGRES_PORT:-5432}:5432", source)
+        self.assertIn("127.0.0.1:${REDIS_PORT:-6379}:6379", source)
+        self.assertNotIn('      - "${POSTGRES_PORT:-5432}:5432"', source)
+        self.assertNotIn('      - "${REDIS_PORT:-6379}:6379"', source)
         self.assertIn("TASK_BACKEND: redis", source)
         self.assertIn("STORAGE_BACKEND: ${STORAGE_BACKEND:-tencent_cos}", source)
         self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}", source)
@@ -86,8 +91,10 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("backup:", source)
         self.assertIn("${BACKEND_PORT:-8000}:8000", source)
         self.assertIn("${FRONTEND_PORT:-3000}:3000", source)
-        self.assertNotIn("${POSTGRES_PORT:-5432}:5432", source)
-        self.assertNotIn("${REDIS_PORT:-6379}:6379", source)
+        self.assertIn("127.0.0.1:${POSTGRES_PORT:-5432}:5432", source)
+        self.assertIn("127.0.0.1:${REDIS_PORT:-6379}:6379", source)
+        self.assertNotIn('      - "${POSTGRES_PORT:-5432}:5432"', source)
+        self.assertNotIn('      - "${REDIS_PORT:-6379}:6379"', source)
         self.assertIn("FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env}", source)
         self.assertIn(
             "NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?Set NEXT_PUBLIC_API_BASE_URL in .env}",
@@ -147,6 +154,78 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("${BACKEND_IMAGE}:${TAG}", source)
         self.assertIn("${FRONTEND_IMAGE}:${TAG}", source)
         self.assertIn("compose.images-${TAG}.yml", source)
+
+    def test_offline_image_script_prefers_explicit_api_base_url_over_env_file(self):
+        script = PROJECT_ROOT / "scripts" / "build-offline-images.sh"
+        self.assertTrue(script.is_file())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            fake_bin = tmp_path / "bin"
+            fake_bin.mkdir()
+            docker_log = tmp_path / "docker.log"
+            fake_docker = fake_bin / "docker"
+            fake_docker.write_text(
+                """#!/bin/bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "$DOCKER_LOG"
+if [ "${1:-}" = "buildx" ] && [ "${2:-}" = "version" ]; then
+  exit 0
+fi
+if [ "${1:-}" = "buildx" ] && [ "${2:-}" = "build" ]; then
+  exit 0
+fi
+if [ "${1:-}" = "save" ]; then
+  printf 'fake image archive'
+  exit 0
+fi
+if [ "${1:-}" = "pull" ]; then
+  exit 0
+fi
+exit 1
+""",
+                encoding="utf-8",
+            )
+            fake_docker.chmod(0o755)
+            env_file = tmp_path / ".env"
+            env_file.write_text(
+                "NEXT_PUBLIC_API_BASE_URL=http://localhost:8000\n"
+                "PUBLIC_HOSTNAME=example.com\n",
+                encoding="utf-8",
+            )
+            output_dir = tmp_path / "dist"
+
+            env = os.environ.copy()
+            env.update(
+                {
+                    "DOCKER_LOG": str(docker_log),
+                    "ENV_FILE": str(env_file),
+                    "NEXT_PUBLIC_API_BASE_URL": "http://124.222.28.71:8000",
+                    "OUTPUT_DIR": str(output_dir),
+                    "PATH": f"{fake_bin}{os.pathsep}{env['PATH']}",
+                    "TAG": "explicit-api-test",
+                }
+            )
+
+            result = subprocess.run(
+                [str(script)],
+                cwd=PROJECT_ROOT,
+                env=env,
+                check=False,
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            log = docker_log.read_text(encoding="utf-8")
+            self.assertIn(
+                "--build-arg NEXT_PUBLIC_API_BASE_URL=http://124.222.28.71:8000",
+                log,
+            )
+            self.assertNotIn(
+                "--build-arg NEXT_PUBLIC_API_BASE_URL=http://localhost:8000",
+                log,
+            )
 
     def test_dockerignore_excludes_env_and_data_artifacts(self):
         dockerignore = PROJECT_ROOT / ".dockerignore"
