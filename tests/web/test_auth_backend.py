@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from contextlib import asynccontextmanager
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from tradingagents.runner import AnalysisRequest
@@ -305,6 +306,35 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertEqual(correct_response.status_code, 429, correct_response.text)
 
         asyncio.run(scenario())
+
+    def test_login_rate_limit_uses_forwarded_client_ip_from_trusted_proxy(self):
+        request = SimpleNamespace(
+            client=SimpleNamespace(host="172.18.0.5"),
+            headers={"x-forwarded-for": "198.51.100.7, 203.0.113.9"},
+        )
+        untrusted_request = SimpleNamespace(
+            client=SimpleNamespace(host="203.0.113.200"),
+            headers={"x-forwarded-for": "198.51.100.7"},
+        )
+        invalid_forwarded_request = SimpleNamespace(
+            client=SimpleNamespace(host="172.18.0.5"),
+            headers={"x-forwarded-for": "not-an-ip"},
+        )
+
+        with patch.dict(
+            os.environ,
+            {"TRUSTED_PROXY_CIDRS": "172.16.0.0/12"},
+            clear=False,
+        ):
+            self.assertEqual(auth.client_ip_for_request(request), "203.0.113.9")
+            self.assertEqual(
+                auth.client_ip_for_request(untrusted_request),
+                "203.0.113.200",
+            )
+            self.assertEqual(
+                auth.client_ip_for_request(invalid_forwarded_request),
+                "172.18.0.5",
+            )
 
     def test_optional_mode_keeps_existing_routes_public_but_admin_routes_protected(self):
         async def scenario():

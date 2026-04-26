@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { Trash2 } from "lucide-react";
+import { Trash2, XCircle } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { deleteScreenerTask, deleteTask } from "@/lib/api";
+import {
+  cancelScreenerTask,
+  cancelTask,
+  deleteScreenerTask,
+  deleteTask,
+  type ScreenerTask,
+  type Task,
+} from "@/lib/api";
 import {
   buildHomeHref,
   buildScreenerHref,
@@ -26,8 +33,10 @@ export function ActivityDashboard() {
     tasks,
   } = useWorkbench();
   const totalActive = activeTasks.length + activeScreenerTasks.length;
-  const failedTasks = tasks.filter((task) => task.status === "failed");
-  const failedScreenerTasks = screenerTasks.filter((task) => task.status === "failed");
+  const failedTasks = tasks.filter((task) => task.status === "failed" || task.status === "canceled");
+  const failedScreenerTasks = screenerTasks.filter(
+    (task) => task.status === "failed" || task.status === "canceled"
+  );
 
   const confirmDeleteFailedTask = () =>
     window.confirm(
@@ -50,6 +59,30 @@ export function ActivityDashboard() {
       return;
     }
     await deleteScreenerTask(taskId);
+    await refreshScreenerTasks();
+  };
+
+  const confirmCancelTask = () =>
+    window.confirm(
+      t(
+        "activity.cancelTaskConfirm",
+        "Cancel this queued task? Running or finished tasks cannot be canceled."
+      )
+    );
+
+  const handleCancelTask = async (taskId: string) => {
+    if (!confirmCancelTask()) {
+      return;
+    }
+    await cancelTask(taskId);
+    await refreshTasks();
+  };
+
+  const handleCancelScreenerTask = async (taskId: string) => {
+    if (!confirmCancelTask()) {
+      return;
+    }
+    await cancelScreenerTask(taskId);
     await refreshScreenerTasks();
   };
 
@@ -112,8 +145,14 @@ export function ActivityDashboard() {
             items={activeTasks.map((task) => ({
               href: buildTaskHref(task.id),
               label: task.ticker,
-              meta: task.latest_progress?.current_agent ?? task.analysis_date,
+              meta: formatAnalysisTaskMeta(task, t),
               status: t(`task.status.${task.status}`, task.status),
+              cancelLabel: canCancelTask(task)
+                ? t("activity.cancelTask", "Cancel task")
+                : undefined,
+              onCancel: canCancelTask(task)
+                ? () => void handleCancelTask(task.id)
+                : undefined,
             }))}
           />
           <ActivityQueueSection
@@ -125,8 +164,14 @@ export function ActivityDashboard() {
               label: task.ticker,
               meta: task.error ?? task.analysis_date,
               status: t(`task.status.${task.status}`, task.status),
-              deleteLabel: t("activity.deleteFailedTask", "Delete failed task"),
-              onDelete: () => void handleDeleteTask(task.id),
+              deleteLabel:
+                task.status === "failed"
+                  ? t("activity.deleteFailedTask", "Delete failed task")
+                  : undefined,
+              onDelete:
+                task.status === "failed"
+                  ? () => void handleDeleteTask(task.id)
+                  : undefined,
             }))}
           />
           <ActivityQueueSection
@@ -142,9 +187,14 @@ export function ActivityDashboard() {
                 task.request_payload?.markets.join(", ") ||
                 t("activity.candidatePoolBuild", "Candidate pool build"),
               meta:
-                task.request_payload?.as_of_date ??
-                t("activity.awaitingUpdate", "Awaiting next update"),
+                formatScreenerTaskMeta(task, t),
               status: t(`task.status.${task.status}`, task.status),
+              cancelLabel: canCancelTask(task)
+                ? t("activity.cancelTask", "Cancel task")
+                : undefined,
+              onCancel: canCancelTask(task)
+                ? () => void handleCancelScreenerTask(task.id)
+                : undefined,
             }))}
           />
           <ActivityQueueSection
@@ -161,8 +211,14 @@ export function ActivityDashboard() {
                 task.request_payload?.as_of_date ??
                 t("activity.awaitingUpdate", "Awaiting next update"),
               status: t(`task.status.${task.status}`, task.status),
-              deleteLabel: t("activity.deleteFailedTask", "Delete failed task"),
-              onDelete: () => void handleDeleteScreenerTask(task.id),
+              deleteLabel:
+                task.status === "failed"
+                  ? t("activity.deleteFailedTask", "Delete failed task")
+                  : undefined,
+              onDelete:
+                task.status === "failed"
+                  ? () => void handleDeleteScreenerTask(task.id)
+                  : undefined,
             }))}
           />
         </section>
@@ -209,6 +265,8 @@ function ActivityQueueSection({
     status: string;
     deleteLabel?: string;
     onDelete?: () => void;
+    cancelLabel?: string;
+    onCancel?: () => void;
   }>;
 }) {
   return (
@@ -264,6 +322,23 @@ function ActivityQueueSection({
                     <Trash2 className="size-4" />
                   </Button>
                 ) : null}
+                {item.onCancel ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={item.cancelLabel}
+                    title={item.cancelLabel}
+                    className="size-8 text-slate-500 hover:bg-[rgba(28,56,83,0.08)] hover:text-[var(--accent)]"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      item.onCancel?.();
+                    }}
+                  >
+                    <XCircle className="size-4" />
+                  </Button>
+                ) : null}
               </div>
             </div>
           ))}
@@ -272,4 +347,79 @@ function ActivityQueueSection({
       </CardContent>
     </Card>
   );
+}
+
+function canCancelTask(task: Task | ScreenerTask): boolean {
+  return (
+    task.status === "pending" ||
+    task.status === "queued" ||
+    task.status === "waiting_for_quota"
+  );
+}
+
+function formatAnalysisTaskMeta(
+  task: Task,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  if (task.status === "queued" || task.status === "pending") {
+    return formatQueueMeta(task.queue_position, t);
+  }
+  if (task.status === "waiting_for_quota") {
+    return formatQuotaMeta(task.blocked_vendor, task.blocked_until, t);
+  }
+  return task.latest_progress?.current_agent ?? task.analysis_date;
+}
+
+function formatScreenerTaskMeta(
+  task: ScreenerTask,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  if (task.status === "queued" || task.status === "pending") {
+    return formatQueueMeta(task.queue_position, t);
+  }
+  if (task.status === "waiting_for_quota") {
+    return formatQuotaMeta(task.blocked_vendor, task.blocked_until, t);
+  }
+  return (
+    task.request_payload?.as_of_date ??
+    t("activity.awaitingUpdate", "Awaiting next update")
+  );
+}
+
+function formatQueueMeta(
+  queuePosition: number | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return typeof queuePosition === "number"
+    ? t("task.queuePosition", ({ position }) => `Queue position ${position}`, {
+        position: queuePosition,
+      })
+    : t("activity.awaitingWorker", "Awaiting worker slot");
+}
+
+function formatQuotaMeta(
+  vendor: string | null | undefined,
+  blockedUntil: string | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(
+    "activity.waitingForQuota",
+    ({ vendor: vendorName, until }) =>
+      `Waiting for ${vendorName ?? "data source"} quota${until ? ` until ${until}` : ""}`,
+    {
+      vendor: vendor ?? undefined,
+      until: formatDateTimeLabel(blockedUntil),
+    }
+  );
+}
+
+function formatDateTimeLabel(value: string | null | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString();
 }

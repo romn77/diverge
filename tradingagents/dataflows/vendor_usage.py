@@ -5,7 +5,8 @@ import contextvars
 import json
 import os
 import uuid
-from datetime import date, datetime, timezone
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterator, TypeVar
 
@@ -51,6 +52,34 @@ _current_module: contextvars.ContextVar[str] = contextvars.ContextVar(
     "data_source_usage_module",
     default="unknown",
 )
+
+
+@dataclass(slots=True)
+class DataSourceQuotaAcquisition:
+    vendor: str
+    acquired: bool
+    reason: str | None = None
+    blocked_until: str | None = None
+    retryable: bool = False
+    reservation_keys: list[str] = field(default_factory=list)
+
+
+class QuotaWaitRequired(Exception):
+    def __init__(
+        self,
+        *,
+        vendor: str,
+        reason: str,
+        blocked_until: str | None,
+    ) -> None:
+        self.vendor = vendor
+        self.reason = reason
+        self.blocked_until = blocked_until
+        super().__init__(
+            f"Data source '{vendor}' is waiting for quota recovery"
+            + (f" until {blocked_until}" if blocked_until else "")
+            + f": {reason}"
+        )
 
 
 def _usage_path() -> Path:
@@ -232,10 +261,14 @@ def data_source_usage_context(module: str) -> Iterator[None]:
 def _try_database_store(operation: Callable[[object], T]) -> T | object:
     database_store = _database_store()
     if database_store is None:
+        if _database_governance_required():
+            raise RuntimeError("Database-backed data-source governance is required but unavailable")
         return _DATABASE_FALLBACK
     try:
         return operation(database_store)
-    except Exception:
+    except Exception as exc:
+        if _database_governance_required():
+            raise RuntimeError("Database-backed data-source governance failed") from exc
         return _DATABASE_FALLBACK
 
 
@@ -327,6 +360,192 @@ def is_data_source_available(vendor: str) -> bool:
         return used_this_hour < hourly_limit
 
 
+def acquire_data_source_quota(vendor: str) -> DataSourceQuotaAcquisition:
+    normalized_vendor = _normalize_vendor(vendor)
+    source = _source_summary_by_vendor(normalized_vendor)
+    if not source["enabled"]:
+        return DataSourceQuotaAcquisition(
+            vendor=normalized_vendor,
+            acquired=False,
+            reason="Data source is disabled.",
+            retryable=False,
+        )
+
+    blocked_until = _blocked_until_for_source(source)
+    if blocked_until is not None:
+        return DataSourceQuotaAcquisition(
+            vendor=normalized_vendor,
+            acquired=False,
+            reason="Data source quota exhausted.",
+            blocked_until=blocked_until,
+            retryable=True,
+        )
+
+    acquisition = _reserve_redis_quota(normalized_vendor, source)
+    if acquisition is not None:
+        return acquisition
+
+    return DataSourceQuotaAcquisition(vendor=normalized_vendor, acquired=True)
+
+
+def release_data_source_quota(acquisition: DataSourceQuotaAcquisition | None) -> None:
+    if acquisition is None or not acquisition.reservation_keys:
+        return
+    client = _quota_redis_client()
+    if client is None:
+        return
+    for key in acquisition.reservation_keys:
+        with contextlib.suppress(Exception):
+            client.decr(key)
+
+
+def _source_summary_by_vendor(vendor: str) -> dict:
+    sources = {
+        source["vendor"]: source
+        for source in get_data_source_usage_summary()["sources"]
+    }
+    return sources[vendor]
+
+
+def _blocked_until_for_source(source: dict) -> str | None:
+    daily_exhausted = bool(source.get("daily_exhausted"))
+    hour_exhausted = bool(source.get("hour_exhausted"))
+    if hour_exhausted:
+        return _next_hour_iso()
+    if daily_exhausted:
+        return _next_day_iso()
+    return None
+
+
+def _next_hour_iso() -> str:
+    now = datetime.now(timezone.utc)
+    next_hour = (now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+    return next_hour.isoformat()
+
+
+def _next_day_iso() -> str:
+    now = datetime.now(timezone.utc)
+    next_day = (now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))
+    return next_day.isoformat()
+
+
+def _seconds_until(iso_value: str | None, *, default: int) -> int:
+    if not iso_value:
+        return default
+    try:
+        target = datetime.fromisoformat(iso_value)
+    except ValueError:
+        return default
+    if target.tzinfo is None:
+        target = target.replace(tzinfo=timezone.utc)
+    return max(int((target - datetime.now(timezone.utc)).total_seconds()), 1)
+
+
+def _quota_redis_client():
+    if os.environ.get("TASK_BACKEND", "local").strip().lower() != "redis":
+        return None
+    try:
+        import redis
+    except ImportError:
+        return None
+    redis_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
+    return redis.Redis.from_url(redis_url, decode_responses=False)
+
+
+def _reserve_redis_quota(
+    vendor: str,
+    source: dict,
+) -> DataSourceQuotaAcquisition | None:
+    client = _quota_redis_client()
+    if client is None:
+        return None
+
+    daily_limit = source.get("daily_limit")
+    hourly_limit = source.get("hourly_limit")
+    if daily_limit is None and hourly_limit is None:
+        return DataSourceQuotaAcquisition(vendor=vendor, acquired=True)
+
+    prefix = os.environ.get("TASK_STORE_PREFIX", "tradingagents").strip(":")
+    day_key = current_usage_date()
+    hour_key = _current_hour_key()
+    daily_redis_key = f"{prefix}:quota:{vendor}:day:{day_key}"
+    hourly_redis_key = f"{prefix}:quota:{vendor}:hour:{hour_key}"
+    daily_ttl = _seconds_until(_next_day_iso(), default=24 * 60 * 60)
+    hourly_ttl = _seconds_until(_next_hour_iso(), default=60 * 60)
+
+    script = """
+local daily_key = KEYS[1]
+local hourly_key = KEYS[2]
+local daily_limit = tonumber(ARGV[1])
+local daily_used = tonumber(ARGV[2])
+local hourly_limit = tonumber(ARGV[3])
+local hourly_used = tonumber(ARGV[4])
+local daily_ttl = tonumber(ARGV[5])
+local hourly_ttl = tonumber(ARGV[6])
+local daily_reserved = tonumber(redis.call('GET', daily_key) or '0')
+local hourly_reserved = tonumber(redis.call('GET', hourly_key) or '0')
+if daily_limit >= 0 and daily_used + daily_reserved >= daily_limit then
+  return 2
+end
+if hourly_limit >= 0 and hourly_used + hourly_reserved >= hourly_limit then
+  return 3
+end
+if daily_limit >= 0 then
+  redis.call('INCR', daily_key)
+  redis.call('EXPIRE', daily_key, daily_ttl)
+end
+if hourly_limit >= 0 then
+  redis.call('INCR', hourly_key)
+  redis.call('EXPIRE', hourly_key, hourly_ttl)
+end
+return 1
+"""
+    try:
+        result = int(
+            client.eval(
+                script,
+                2,
+                daily_redis_key,
+                hourly_redis_key,
+                -1 if daily_limit is None else int(daily_limit),
+                int(source.get("used_today") or 0),
+                -1 if hourly_limit is None else int(hourly_limit),
+                int(source.get("used_this_hour") or 0),
+                daily_ttl,
+                hourly_ttl,
+            )
+        )
+    except Exception:
+        return None
+
+    if result == 1:
+        keys = []
+        if daily_limit is not None:
+            keys.append(daily_redis_key)
+        if hourly_limit is not None:
+            keys.append(hourly_redis_key)
+        return DataSourceQuotaAcquisition(
+            vendor=vendor,
+            acquired=True,
+            reservation_keys=keys,
+        )
+    if result == 3:
+        return DataSourceQuotaAcquisition(
+            vendor=vendor,
+            acquired=False,
+            reason="Data source hourly quota exhausted.",
+            blocked_until=_next_hour_iso(),
+            retryable=True,
+        )
+    return DataSourceQuotaAcquisition(
+        vendor=vendor,
+        acquired=False,
+        reason="Data source daily quota exhausted.",
+        blocked_until=_next_day_iso(),
+        retryable=True,
+    )
+
+
 def record_data_source_call(
     vendor: str,
     *,
@@ -371,12 +590,27 @@ def record_data_source_call(
 
 
 def track_data_source_call(vendor: str, callback: Callable[[], T]) -> T:
+    acquisition = acquire_data_source_quota(vendor)
+    if not acquisition.acquired:
+        if acquisition.retryable:
+            raise QuotaWaitRequired(
+                vendor=acquisition.vendor,
+                reason=acquisition.reason or "Data source quota exhausted.",
+                blocked_until=acquisition.blocked_until,
+            )
+        raise RuntimeError(acquisition.reason or f"Data source '{vendor}' is unavailable.")
     try:
         result = callback()
     except Exception:
-        record_data_source_call(vendor, success=False)
+        try:
+            record_data_source_call(vendor, success=False)
+        finally:
+            release_data_source_quota(acquisition)
         raise
-    record_data_source_call(vendor, success=True)
+    try:
+        record_data_source_call(vendor, success=True)
+    finally:
+        release_data_source_quota(acquisition)
     return result
 
 
@@ -459,3 +693,25 @@ def _database_store():
     except Exception:
         return None
     return None
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _database_governance_required() -> bool:
+    if _env_bool("DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK", False):
+        return False
+    strict_env = os.environ.get("APP_ENV", "").strip().lower() == "production"
+    if not strict_env and not _env_bool("DATA_SOURCE_GOVERNANCE_STRICT", False):
+        return False
+    try:
+        from web.backend import auth
+
+        settings = auth.get_auth_settings()
+    except Exception:
+        return False
+    return settings.enabled and bool(settings.database_url)

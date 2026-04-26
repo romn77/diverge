@@ -11,32 +11,46 @@ from .stages import evaluate_screen_stage, prepare_universe_stage
 from .storage import prepare_run_dir, write_run_artifacts
 
 
+def _filter_selected_breakouts(
+    ranked_df: pd.DataFrame,
+    config: ScreenRunConfig,
+) -> pd.DataFrame:
+    if ranked_df.empty or not config.breakout_types:
+        return ranked_df
+    selected_breakouts = set(config.breakout_types)
+    return ranked_df.loc[
+        ranked_df["breakout_hit"].eq(True)
+        & ranked_df["breakout_type"].isin(selected_breakouts)
+    ]
+
+
 def _select_candidates(ranked_df: pd.DataFrame, config: ScreenRunConfig) -> pd.DataFrame:
-    if ranked_df.empty:
-        return ranked_df.copy()
+    candidate_pool = _filter_selected_breakouts(ranked_df, config)
+    if candidate_pool.empty:
+        return candidate_pool.copy()
 
     if set(config.markets) != {"cn", "us"}:
-        return ranked_df.head(config.top_k).reset_index(drop=True)
+        return candidate_pool.head(config.top_k).reset_index(drop=True)
 
     per_market_floor = config.top_k // 2
     if per_market_floor <= 0:
-        return ranked_df.head(config.top_k).reset_index(drop=True)
+        return candidate_pool.head(config.top_k).reset_index(drop=True)
 
     selected_indices: list[int] = []
     for market in ("cn", "us"):
-        market_rows = ranked_df[ranked_df["market"] == market].head(per_market_floor)
+        market_rows = candidate_pool[candidate_pool["market"] == market].head(per_market_floor)
         selected_indices.extend(market_rows.index.tolist())
 
     remaining_slots = max(config.top_k - len(selected_indices), 0)
     if remaining_slots > 0:
-        backfill = ranked_df.drop(index=selected_indices, errors="ignore").head(remaining_slots)
+        backfill = candidate_pool.drop(index=selected_indices, errors="ignore").head(remaining_slots)
         selected_indices.extend(backfill.index.tolist())
 
     if not selected_indices:
-        return ranked_df.head(config.top_k).reset_index(drop=True)
+        return candidate_pool.head(config.top_k).reset_index(drop=True)
 
     return (
-        ranked_df.loc[selected_indices]
+        candidate_pool.loc[selected_indices]
         .sort_values(["global_rank", "symbol"], ascending=[True, True])
         .head(config.top_k)
         .reset_index(drop=True)

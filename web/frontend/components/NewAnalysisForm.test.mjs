@@ -48,6 +48,14 @@ test("NewAnalysisForm defaults to the full analyst set instead of truncating to 
   assert.match(source, /analysts:\s*configOptions\.analysts\.map\(\(option\)\s*=>\s*option\.value\)/);
 });
 
+test("NewAnalysisForm uses the shared local date helper for the initial analysis date", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /from "@\/lib\/localDate"/);
+  assert.match(source, /analysis_date:\s*getLocalDateInputValue\(\)/);
+  assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.slice\(0,\s*10\)/);
+});
+
 test("NewAnalysisForm relies on automatic market data routing instead of a user selector", () => {
   const source = readFileSync(formPath, "utf8");
 

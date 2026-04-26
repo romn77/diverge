@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import logging
 import os
 import secrets
@@ -40,6 +41,7 @@ VALID_AUTH_MODES = {"disabled", "optional", "required"}
 MIN_PASSWORD_LENGTH = 8
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60
+DEFAULT_TRUSTED_PROXY_CIDRS = "127.0.0.1/32,::1/128"
 
 _PASSWORD_HASHER = PasswordHasher()
 _ENGINE_LOCK = threading.Lock()
@@ -140,6 +142,67 @@ def _login_rate_limit_keys(email: str | None, ip_address: str | None) -> tuple[s
         f"email:{normalized_email}",
         f"pair:{normalized_ip}:{normalized_email}",
     )
+
+
+def _trusted_proxy_networks() -> list[ipaddress._BaseNetwork]:
+    raw_value = (
+        os.environ.get("TRUSTED_PROXY_CIDRS")
+        or os.environ.get("TRUSTED_PROXY_IPS")
+        or DEFAULT_TRUSTED_PROXY_CIDRS
+    )
+    networks: list[ipaddress._BaseNetwork] = []
+    for item in raw_value.split(","):
+        candidate = item.strip()
+        if not candidate:
+            continue
+        try:
+            if "/" in candidate:
+                networks.append(ipaddress.ip_network(candidate, strict=False))
+            else:
+                address = ipaddress.ip_address(candidate)
+                suffix = 32 if address.version == 4 else 128
+                networks.append(ipaddress.ip_network(f"{candidate}/{suffix}", strict=False))
+        except ValueError:
+            logger.warning("Ignoring invalid trusted proxy CIDR: %s", candidate)
+    return networks
+
+
+def _is_trusted_proxy_ip(value: str | None) -> bool:
+    if not value:
+        return False
+    try:
+        address = ipaddress.ip_address(value.strip())
+    except ValueError:
+        return False
+    return any(address in network for network in _trusted_proxy_networks())
+
+
+def _parse_ip_address(value: str | None) -> ipaddress._BaseAddress | None:
+    if not value:
+        return None
+    try:
+        return ipaddress.ip_address(value.strip())
+    except ValueError:
+        return None
+
+
+def client_ip_for_request(request: Request) -> str | None:
+    direct_ip = request.client.host if request.client else None
+    if not direct_ip or not _is_trusted_proxy_ip(direct_ip):
+        return direct_ip
+
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    forwarded_chain = [
+        item.strip()
+        for item in forwarded_for.split(",")
+        if item.strip()
+    ]
+    for candidate in reversed(forwarded_chain):
+        if _parse_ip_address(candidate) is None:
+            continue
+        if not _is_trusted_proxy_ip(candidate):
+            return candidate
+    return direct_ip
 
 
 def ensure_login_allowed(email: str | None, ip_address: str | None) -> None:

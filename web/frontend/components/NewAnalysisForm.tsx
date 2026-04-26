@@ -24,6 +24,7 @@ import {
   type ConfigOptions,
   type TaskCreateRequest,
 } from "@/lib/api";
+import { getLocalDateInputValue } from "@/lib/localDate";
 import { optionKey } from "@/lib/uiPreferences";
 
 interface NewAnalysisFormProps {
@@ -569,7 +570,7 @@ function buildInitialFormState(
 
   return {
     ticker: "SPY",
-    analysis_date: new Date().toISOString().slice(0, 10),
+    analysis_date: getLocalDateInputValue(),
     analysts: configOptions.analysts.map((option) => option.value),
     research_depth: Number(firstDepth),
     output_language: firstLanguage,

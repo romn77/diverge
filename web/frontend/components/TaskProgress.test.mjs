@@ -24,6 +24,12 @@ test("TaskProgress subscribes to backend task snapshots and renders the six-stag
   assert.doesNotMatch(source, /<select/);
   assert.match(source, /subscribeToTask/);
   assert.match(source, /getTask/);
+  assert.match(source, /cancelTask/);
+  assert.match(source, /waiting_for_quota/);
+  assert.match(source, /queue_position/);
+  assert.match(source, /blocked_vendor/);
+  assert.match(source, /TaskQueueNotice/);
+  assert.match(source, /task\.cancel/);
   assert.match(source, /not_started/);
   assert.match(source, /processing/);
   assert.match(source, /completed/);

@@ -135,6 +135,43 @@ export interface AdminDataSourceRouteUpdateResponse {
   route: AdminDataSourceRoute;
 }
 
+export interface AdminTaskQueueOwner {
+  id: string;
+  email: string;
+  display_name: string;
+  role: UserRole;
+}
+
+export interface AdminTaskQueueItem {
+  kind: "analysis" | "screener";
+  task_id: string;
+  label: string;
+  status: TaskStatus;
+  owner_user_id: string | null;
+  owner: AdminTaskQueueOwner | null;
+  created_at: string | null;
+  queued_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  queue_position: number | null;
+  blocked_reason: string | null;
+  blocked_vendor: string | null;
+  blocked_until: string | null;
+  detail_path: string;
+}
+
+export interface AdminTaskQueueResponse {
+  task_backend: string;
+  generated_at: string;
+  totals: {
+    active: number;
+    queued: number;
+    running: number;
+    waiting_for_quota: number;
+  };
+  tasks: AdminTaskQueueItem[];
+}
+
 export type UsageModule = "analysis" | "screener" | "assets" | "journal";
 
 export interface UsageModuleSummary {
@@ -366,7 +403,19 @@ export interface DeleteTaskResponse {
   task_id: string;
 }
 
-export type TaskStatus = "pending" | "running" | "completed" | "failed";
+export interface CancelTaskResponse {
+  canceled: boolean;
+  task_id: string;
+}
+
+export type TaskStatus =
+  | "pending"
+  | "queued"
+  | "waiting_for_quota"
+  | "running"
+  | "completed"
+  | "failed"
+  | "canceled";
 export type StageStatus = "not_started" | "processing" | "completed";
 
 export interface ProgressEvent {
@@ -388,6 +437,15 @@ export interface Task {
   latest_progress: ProgressEvent | null;
   report_id: string | null;
   error: string | null;
+  created_at?: string | null;
+  queued_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  queue_position?: number | null;
+  blocked_reason?: string | null;
+  blocked_vendor?: string | null;
+  blocked_until?: string | null;
+  canceled_at?: string | null;
 }
 
 export interface SelectOption {
@@ -473,6 +531,15 @@ export interface ScreenerTask {
   progress_events: ProgressEvent[];
   run_id: string | null;
   error: string | null;
+  created_at?: string | null;
+  queued_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  queue_position?: number | null;
+  blocked_reason?: string | null;
+  blocked_vendor?: string | null;
+  blocked_until?: string | null;
+  canceled_at?: string | null;
 }
 
 export interface ScreenerRunSummary {
@@ -685,6 +752,12 @@ export async function updateAdminDataSourceRoute(
   );
 }
 
+export async function listAdminTaskQueue(): Promise<AdminTaskQueueResponse> {
+  return requestJson<AdminTaskQueueResponse>("/api/admin/task-queue", {
+    cache: "no-store",
+  });
+}
+
 export async function getAdminUser(userId: string): Promise<AuthUser> {
   return requestJson<AuthUser>(`/api/admin/users/${userId}`, {
     cache: "no-store",
@@ -862,6 +935,13 @@ export async function deleteTask(taskId: string): Promise<DeleteTaskResponse> {
   });
 }
 
+export async function cancelTask(taskId: string): Promise<CancelTaskResponse> {
+  return requestJson<CancelTaskResponse>(`/api/tasks/${taskId}/cancel`, {
+    method: "POST",
+    credentials: "include",
+  });
+}
+
 export async function getConfigOptions(): Promise<ConfigOptions> {
   return requestJson<ConfigOptions>("/api/config/options", {
     cache: "no-store",
@@ -900,6 +980,18 @@ export async function deleteScreenerTask(taskId: string): Promise<DeleteTaskResp
     method: "DELETE",
     credentials: "include",
   });
+}
+
+export async function cancelScreenerTask(
+  taskId: string
+): Promise<CancelTaskResponse> {
+  return requestJson<CancelTaskResponse>(
+    `/api/screener/tasks/${taskId}/cancel`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
 }
 
 export async function listScreenerRuns(): Promise<ScreenerRunSummary[]> {

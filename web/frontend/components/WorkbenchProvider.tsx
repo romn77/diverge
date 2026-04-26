@@ -20,6 +20,7 @@ import {
   type ScreenerRunSummary,
   type ScreenerTask,
   type Task,
+  type TaskStatus,
 } from "@/lib/api";
 
 interface WorkbenchContextValue {
@@ -53,6 +54,12 @@ interface WorkbenchContextValue {
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
 
 const POLL_INTERVAL_MS = 3000;
+const ACTIVE_TASK_STATUSES = new Set<TaskStatus>([
+  "pending",
+  "queued",
+  "waiting_for_quota",
+  "running",
+]);
 
 function dedupeScreenerRuns(runs: ScreenerRunSummary[]): ScreenerRunSummary[] {
   const uniqueRuns = new Map<string, ScreenerRunSummary>();
@@ -252,17 +259,13 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   }, [sortedReports]);
 
   const activeTasks = useMemo(
-    () => tasks.filter((task) => task.status === "pending" || task.status === "running"),
+    () => tasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
     [tasks]
   );
   const activeScreenerTasks = useMemo(
-    () =>
-      screenerTasks.filter(
-        (task) => task.status === "pending" || task.status === "running"
-      ),
+    () => screenerTasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
     [screenerTasks]
   );
-  const combinedActiveCount = activeTasks.length + activeScreenerTasks.length;
 
   const value = useMemo<WorkbenchContextValue>(
     () => ({
@@ -276,8 +279,8 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       canManageUsers,
       loadingReports,
       logout,
-      newAnalysisDisabled: combinedActiveCount >= 2,
-      newScreenerDisabled: combinedActiveCount >= 2,
+      newAnalysisDisabled: false,
+      newScreenerDisabled: false,
       recentReports,
       recentTickers,
       refreshReports,
@@ -301,7 +304,6 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       authStatus,
       canAccessWorkbench,
       canManageUsers,
-      combinedActiveCount,
       loadingReports,
       logout,
       recentReports,

@@ -34,3 +34,16 @@ test("ActivityDashboard lets failed task records be deleted from the task rows",
   assert.match(source, /stopPropagation/);
   assert.match(source, /activity\.deleteFailedTask/);
 });
+
+test("ActivityDashboard shows queued quota-aware work and exposes cancel actions", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /XCircle/);
+  assert.match(source, /cancelTask/);
+  assert.match(source, /cancelScreenerTask/);
+  assert.match(source, /waiting_for_quota/);
+  assert.match(source, /queue_position/);
+  assert.match(source, /activity\.waitingForQuota/);
+  assert.match(source, /activity\.cancelTask/);
+  assert.match(source, /onCancel/);
+});

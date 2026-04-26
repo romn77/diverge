@@ -47,6 +47,8 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("FRONTEND_ORIGIN", source)
         self.assertIn("AUTH_ENABLED: ${AUTH_ENABLED:-true}", source)
         self.assertIn("AUTH_MODE", source)
+        self.assertIn("TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}", source)
+        self.assertIn("TASK_USER_PENDING_LIMIT_OPERATOR: ${TASK_USER_PENDING_LIMIT_OPERATOR:-5}", source)
         self.assertIn("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}", source)
         self.assertIn("DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}", source)
         self.assertIn(
@@ -77,6 +79,9 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertNotIn('      - "${POSTGRES_PORT:-5432}:5432"', source)
         self.assertNotIn('      - "${REDIS_PORT:-6379}:6379"', source)
         self.assertIn("TASK_BACKEND: redis", source)
+        self.assertIn("TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}", source)
+        self.assertIn("TASK_USER_RUNNING_LIMIT: ${TASK_USER_RUNNING_LIMIT:-1}", source)
+        self.assertIn("TASK_GLOBAL_PENDING_LIMIT: ${TASK_GLOBAL_PENDING_LIMIT:-100}", source)
         self.assertIn("STORAGE_BACKEND: ${STORAGE_BACKEND:-tencent_cos}", source)
         self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}", source)
 
@@ -101,6 +106,7 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
             source,
         )
         self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}", source)
+        self.assertIn("TASK_USER_PENDING_LIMIT_VIEWER: ${TASK_USER_PENDING_LIMIT_VIEWER:-2}", source)
 
     def test_nginx_production_config_routes_frontend_api_and_sse(self):
         nginx_config = PROJECT_ROOT / "deploy" / "nginx" / "tradingagents.conf"
@@ -127,6 +133,10 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("DATABASE_URL=", source)
         self.assertIn("AUTH_BOOTSTRAP_ADMIN_EMAIL=", source)
         self.assertIn("AUTH_BOOTSTRAP_ADMIN_PASSWORD=", source)
+        self.assertIn("TASK_GLOBAL_RUNNING_LIMIT=2", source)
+        self.assertIn("TASK_USER_RUNNING_LIMIT=1", source)
+        self.assertIn("TASK_GLOBAL_PENDING_LIMIT=100", source)
+        self.assertIn("TASK_USER_PENDING_LIMIT_VIEWER=2", source)
 
     def test_deploy_script_exists_with_docker_compose_commands(self):
         deploy_script = PROJECT_ROOT / "scripts" / "deploy-single-host.sh"

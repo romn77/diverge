@@ -44,6 +44,38 @@ def _get_authorized_task(task_id: str, request: Request | None):
     return task
 
 
+def _enforce_task_submission_capacity(current_user) -> None:
+    if not task_store.redis_task_backend_enabled():
+        if (
+            analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
+            >= task_store.get_queue_limit()
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Task queue is full. Wait for the active tasks to finish.",
+            )
+        return
+
+    store = task_store.get_task_store()
+    global_active = store.count_active("analysis") + store.count_active("screener")
+    if global_active >= task_store.get_global_pending_limit():
+        raise HTTPException(
+            status_code=409,
+            detail="Global task queue is full. Wait for queued work to finish.",
+        )
+    if current_user is None:
+        return
+    user_limit = task_store.get_user_pending_limit(getattr(current_user, "role", None))
+    if store.count_active_by_owner(current_user.id) >= user_limit:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"User task queue is full ({user_limit} queued, waiting, or running tasks). "
+                "Cancel queued work or wait for tasks to finish."
+            ),
+        )
+
+
 @router.post("/api/tasks")
 def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
     try:
@@ -58,16 +90,8 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             detail=str(provider_availability["disabled_reason"]),
         )
 
-    if (
-        analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
-        >= task_store.get_queue_limit()
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail="Task queue is full. Wait for the active tasks to finish.",
-        )
-
     current_user = _current_user(request)
+    _enforce_task_submission_capacity(current_user)
     owner_user_id = current_user.id if current_user is not None else None
     if current_user is not None:
         try:
@@ -111,6 +135,13 @@ def delete_task(task_id: str, request: Request = None) -> dict:
     _get_authorized_task(task_id, request)
     analysis_tasks.delete_failed_task(task_id)
     return {"deleted": True, "task_id": task_id}
+
+
+@router.post("/api/tasks/{task_id}/cancel")
+def cancel_task(task_id: str, request: Request = None) -> dict:
+    _get_authorized_task(task_id, request)
+    analysis_tasks.cancel_task(task_id)
+    return {"canceled": True, "task_id": task_id}
 
 
 @router.get("/api/tasks/{task_id}/stream")

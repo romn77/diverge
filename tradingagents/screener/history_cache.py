@@ -120,6 +120,7 @@ def checkpoint_path(
     *,
     cn_data_source_fallbacks: list[str] | None = None,
     us_data_source: str | None = None,
+    us_data_source_fallbacks: list[str] | None = None,
 ) -> Path:
     symbols = [
         f"{row.market}:{row.symbol}"
@@ -131,6 +132,7 @@ def checkpoint_path(
         "cn_data_source_fallbacks": list(cn_data_source_fallbacks or []),
         "symbols": symbols,
         "us_data_source": us_data_source,
+        "us_data_source_fallbacks": list(us_data_source_fallbacks or []),
     }
     digest = hashlib.sha1(
         json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("utf-8")

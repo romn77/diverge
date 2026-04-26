@@ -136,6 +136,18 @@ def is_market_trading_day(market: str, day: date) -> bool:
     return True
 
 
+def latest_trading_day_on_or_before(market: str, day_value: object) -> date | None:
+    day = _parse_date(day_value)
+    if day is None:
+        return None
+
+    normalized_market = str(market).strip().lower()
+    current = day
+    while not is_market_trading_day(normalized_market, current):
+        current -= timedelta(days=1)
+    return current
+
+
 def count_trading_days(
     market: str,
     start_date_value: object,

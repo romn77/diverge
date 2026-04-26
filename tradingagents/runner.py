@@ -14,7 +14,9 @@ from tradingagents.llm_clients.model_config import (
     get_model_ids_for_provider,
     get_provider_base_url,
 )
+from tradingagents.dataflows.cn_market_utils import detect_market
 from tradingagents.research.thesis_tracker import build_thesis_artifact
+from tradingagents.screener.market_calendar import latest_trading_day_on_or_before
 from tradingagents.ticker_symbols import normalize_ticker_symbol
 from tradingagents.trade_feedback import get_trade_feedback_payload
 
@@ -155,6 +157,16 @@ class AnalysisRequest:
 
         if analysis_date.date() > datetime.datetime.now().date():
             raise ValueError("analysis_date cannot be in the future")
+
+        market = detect_market(self.ticker)
+        if market not in {"cn", "us"}:
+            market = "us"
+        latest_trading_date = latest_trading_day_on_or_before(
+            market,
+            analysis_date.date(),
+        )
+        if latest_trading_date is not None:
+            self.analysis_date = latest_trading_date.strftime("%Y-%m-%d")
 
         self.analysts = [_coerce_analyst_key(analyst) for analyst in self.analysts]
         if not self.analysts:

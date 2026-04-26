@@ -42,6 +42,10 @@ class WebStartScriptTests(unittest.TestCase):
 
         self.assertIn('TASK_BACKEND="${TASK_BACKEND:-local}"', source)
         self.assertIn('TASK_QUEUE_LIMIT="${TASK_QUEUE_LIMIT:-2}"', source)
+        self.assertIn('TASK_GLOBAL_RUNNING_LIMIT="${TASK_GLOBAL_RUNNING_LIMIT:-$TASK_QUEUE_LIMIT}"', source)
+        self.assertIn('TASK_USER_RUNNING_LIMIT="${TASK_USER_RUNNING_LIMIT:-1}"', source)
+        self.assertIn('TASK_GLOBAL_PENDING_LIMIT="${TASK_GLOBAL_PENDING_LIMIT:-100}"', source)
+        self.assertIn('TASK_USER_PENDING_LIMIT_OPERATOR="${TASK_USER_PENDING_LIMIT_OPERATOR:-5}"', source)
         self.assertIn('REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"', source)
         self.assertIn('WORKER_LOG="${WORKER_LOG:-/tmp/tradingagents-worker.log}"', source)
         self.assertIn('WORKER_PID=""', source)
@@ -51,10 +55,14 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('docker run -d --name "$REDIS_CONTAINER_NAME"', source)
         self.assertIn('export TASK_BACKEND="$TASK_BACKEND"', source)
         self.assertIn('export TASK_QUEUE_LIMIT="$TASK_QUEUE_LIMIT"', source)
+        self.assertIn('export TASK_GLOBAL_RUNNING_LIMIT="$TASK_GLOBAL_RUNNING_LIMIT"', source)
+        self.assertIn('export TASK_USER_RUNNING_LIMIT="$TASK_USER_RUNNING_LIMIT"', source)
+        self.assertIn('export TASK_GLOBAL_PENDING_LIMIT="$TASK_GLOBAL_PENDING_LIMIT"', source)
         self.assertIn('export REDIS_URL="$REDIS_URL"', source)
         self.assertIn('python -m web.backend.worker', source)
         self.assertIn('WORKER_PID=$!', source)
         self.assertIn('Task backend: $TASK_BACKEND', source)
+        self.assertIn('Running limits: global=$TASK_GLOBAL_RUNNING_LIMIT user=$TASK_USER_RUNNING_LIMIT', source)
 
     def test_start_script_cleans_up_when_auth_bootstrap_fails_before_backend_pid_exists(self):
         script = PROJECT_ROOT / "web" / "start.sh"

@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 from tradingagents.dataflows import vendor_usage
+from tradingagents.dataflows.vendor_usage import QuotaWaitRequired
 from tradingagents.dataflows.interface import execute_vendor_chain
 from web.backend import auth
 from web.backend.schemas.admin import AdminDataSourceRouteUpdatePayload
@@ -76,6 +77,37 @@ class VendorUsageTests(unittest.TestCase):
         self.assertTrue(sources["alpha_vantage"]["exhausted"])
         self.assertEqual(sources["alpha_vantage"]["used_today"], 1)
 
+    def test_all_exhausted_vendor_chain_raises_quota_wait_required(self):
+        vendor_usage.update_data_source_config(
+            "alpha_vantage",
+            enabled=True,
+            daily_limit=1,
+        )
+        vendor_usage.record_data_source_call(
+            "alpha_vantage",
+            module="analysis",
+            success=True,
+        )
+
+        with self.assertRaises(QuotaWaitRequired) as context:
+            execute_vendor_chain(
+                method="get_stock_data",
+                market="us",
+                symbol="AAPL",
+                resolved_args=("AAPL", "2026-04-01", "2026-04-26"),
+                resolved_kwargs={},
+                vendors=["alpha_vantage"],
+                vendor_methods={
+                    "get_stock_data": {
+                        "alpha_vantage": lambda *args, **kwargs: "alpha",
+                    }
+                },
+            )
+
+        self.assertEqual(context.exception.vendor, "alpha_vantage")
+        self.assertIn("quota", context.exception.reason.lower())
+        self.assertIsNotNone(context.exception.blocked_until)
+
     def test_hourly_limit_marks_source_unavailable_before_daily_limit(self):
         vendor_usage.update_data_source_config(
             "alpha_vantage",
@@ -140,7 +172,14 @@ class VendorUsageTests(unittest.TestCase):
             def get_data_source_usage_summary(self):
                 raise RuntimeError("database unavailable")
 
-        with patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()):
+        with (
+            patch.dict(
+                os.environ,
+                {"DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK": "true"},
+                clear=False,
+            ),
+            patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()),
+        ):
             self.assertEqual(
                 vendor_usage.get_data_source_route(
                     module="analysis",
@@ -237,6 +276,18 @@ class VendorUsageDatabaseTests(unittest.TestCase):
         self.assertEqual(sources["alpha_vantage"]["hourly_limit"], 3)
         self.assertEqual(sources["massive"]["modules"]["analysis"]["total_calls"], 1)
 
+    def test_database_store_failure_is_not_silently_ignored_when_database_backed(self):
+        class BrokenDatabaseStore:
+            def is_data_source_available(self, *args, **kwargs):
+                raise RuntimeError("database unavailable")
+
+        with (
+            patch.dict(os.environ, {"APP_ENV": "production"}, clear=False),
+            patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "data-source governance"):
+                vendor_usage.is_data_source_available("alpha_vantage")
+
     def test_database_route_policy_overrides_analysis_vendor_chain(self):
         from tradingagents.dataflows.interface import build_vendor_chain
         from web.backend.routers import admin as admin_router
@@ -277,7 +328,7 @@ class VendorUsageDatabaseTests(unittest.TestCase):
             module="screener",
             market="us",
             category="core_stock_apis",
-            vendor_chain=["yfinance"],
+            vendor_chain=["yfinance", "massive"],
         )
 
         sources = screeners_router.resolve_screener_data_sources(["cn", "us"])
@@ -285,6 +336,7 @@ class VendorUsageDatabaseTests(unittest.TestCase):
         self.assertEqual(sources["cn_data_source"], "akshare")
         self.assertEqual(sources["cn_data_source_fallbacks"], ["tushare"])
         self.assertEqual(sources["us_data_source"], "yfinance")
+        self.assertEqual(sources["us_data_source_fallbacks"], ["massive"])
 
 
 if __name__ == "__main__":

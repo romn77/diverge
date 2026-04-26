@@ -70,6 +70,16 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
 
         self.assertIn("Historical trade feedback for ticker MSFT", llm.prompts[0])
 
+    def test_market_analyst_prompt_limits_price_history_to_120_trading_days(self):
+        llm = _FakeLLM()
+        state = Propagator().create_initial_state("MSFT", "2026-04-01")
+
+        node = create_market_analyst(llm)
+        node(state)
+
+        self.assertIn("past 120 trading days", llm.prompts[0])
+        self.assertIn("get_stock_data", llm.prompts[0])
+
     def test_trader_prompt_contains_historical_trade_feedback(self):
         llm = _FakeLLM()
         node = create_trader(llm, _FakeMemory())

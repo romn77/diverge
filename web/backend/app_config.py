@@ -33,7 +33,7 @@ TMP_REPORTS_DIR = REPORTS_DIR / ".tmp"
 TASKS_STATE_DIRNAME = ".tasks"
 ACTIVE_TASKS_DIRNAME = "active"
 RECOVERED_TASK_ERROR = "Service restarted before task completion."
-TERMINAL_TASK_STATUSES = {"completed", "failed"}
+TERMINAL_TASK_STATUSES = {"completed", "failed", "canceled"}
 SCREENER_ARTIFACT_FILENAMES = {
     "run_meta": "run_meta.json",
     "universe": "universe.csv",

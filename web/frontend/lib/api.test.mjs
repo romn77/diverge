@@ -41,6 +41,18 @@ test("task APIs rely on automatic analysis data routing and expose failed task d
   assert.match(source, /method:\s*"DELETE"/);
 });
 
+test("task APIs expose Redis queue statuses, scheduling metadata, and cancel endpoints", () => {
+  assert.match(source, /waiting_for_quota/);
+  assert.match(source, /queue_position\?:\s*number \| null/);
+  assert.match(source, /blocked_vendor\?:\s*string \| null/);
+  assert.match(source, /blocked_until\?:\s*string \| null/);
+  assert.match(source, /canceled_at\?:\s*string \| null/);
+  assert.match(source, /export async function cancelTask/);
+  assert.match(source, /export async function cancelScreenerTask/);
+  assert.match(source, /\/api\/tasks\/\$\{taskId\}\/cancel/);
+  assert.match(source, /\/api\/screener\/tasks\/\$\{taskId\}\/cancel/);
+});
+
 test("admin APIs expose data-source usage and configuration controls", () => {
   assert.match(source, /AdminDataSourceUsageResponse/);
   assert.match(source, /AdminDataSourceRoute/);
@@ -51,4 +63,11 @@ test("admin APIs expose data-source usage and configuration controls", () => {
   assert.match(source, /updateAdminDataSourceRoute/);
   assert.match(source, /\/api\/admin\/data-sources/);
   assert.match(source, /\/api\/admin\/data-source-routes\/\$\{route\.module\}/);
+});
+
+test("admin APIs expose the read-only task queue snapshot", () => {
+  assert.match(source, /AdminTaskQueueResponse/);
+  assert.match(source, /AdminTaskQueueItem/);
+  assert.match(source, /listAdminTaskQueue/);
+  assert.match(source, /\/api\/admin\/task-queue/);
 });

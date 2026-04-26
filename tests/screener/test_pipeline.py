@@ -10,6 +10,7 @@ import pandas as pd
 
 from tradingagents.screener.pipeline import run_screen
 from tradingagents.screener.schema import ScreenRunConfig
+from tradingagents.screener.stages import evaluate_screen_stage
 
 
 class _FixedDateTime(datetime):
@@ -56,6 +57,70 @@ def _evaluation_stage(
         dropped_df=pd.DataFrame(columns=["drop_reason"]) if dropped_df is None else dropped_df,
         ranked_df=pd.DataFrame() if ranked_df is None else ranked_df,
     )
+
+
+def test_evaluate_screen_stage_passes_us_data_source_fallbacks(tmp_path):
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=10,
+        us_data_source="yfinance",
+        us_data_source_fallbacks=["massive"],
+        us_manifest_path="/tmp/us.csv",
+    )
+    universe_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+            }
+        ]
+    )
+    features_df = pd.DataFrame(
+        [
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "close": 10.0,
+                "volume": 10.0,
+                "amount": 100.0,
+            }
+        ]
+    )
+
+    with (
+        patch(
+            "tradingagents.screener.stages.fetch_history_for_universe",
+            return_value=(
+                {"AAPL": pd.DataFrame()},
+                pd.DataFrame(columns=["symbol", "market", "drop_reason"]),
+            ),
+        ) as fetch_history,
+        patch(
+            "tradingagents.screener.stages.build_features_table",
+            return_value=features_df,
+        ),
+        patch(
+            "tradingagents.screener.stages.apply_hard_filters",
+            return_value=(features_df, pd.DataFrame(columns=["drop_reason"])),
+        ),
+        patch("tradingagents.screener.stages.score_candidates", return_value=features_df),
+    ):
+        evaluate_screen_stage(
+            config,
+            source_universe_df=universe_df,
+            fetch_universe_df=universe_df,
+            cache_root=tmp_path / "cache",
+            history_root=tmp_path / "history",
+        )
+
+    self_kwargs = fetch_history.call_args.kwargs
+    assert self_kwargs["us_data_source"] == "yfinance"
+    assert self_kwargs["us_data_source_fallbacks"] == ["massive"]
 
 
 def test_run_screen_uses_shared_stage_helpers(tmp_path):
@@ -537,3 +602,83 @@ def test_run_screen_keeps_single_market_selection_as_plain_top_k(tmp_path):
 
     candidates = pd.read_csv(Path(result.run_dir) / "candidates.csv")
     assert candidates["symbol"].tolist() == ["AAPL", "MSFT"]
+
+
+def test_run_screen_requires_selected_breakout_type_in_final_candidates(tmp_path):
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=3,
+        breakout_types=["platform_breakout"],
+        output_dir=str(tmp_path),
+    )
+    universe_df = pd.DataFrame(
+        [
+            {"symbol": "300308.SZ", "market": "cn", "name": "No Breakout", "exchange": "SZSE", "sector": "Technology", "list_date": "20120927"},
+            {"symbol": "600519.SH", "market": "cn", "name": "Platform Hit", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
+            {"symbol": "688256.SH", "market": "cn", "name": "Wrong Breakout", "exchange": "SSE", "sector": "Technology", "list_date": "20200722"},
+            {"symbol": "000001.SZ", "market": "cn", "name": "Volume Hit", "exchange": "SZSE", "sector": "Banking", "list_date": "19910403"},
+        ]
+    )
+    ranked_df = pd.DataFrame(
+        [
+            {
+                "symbol": "300308.SZ",
+                "market": "cn",
+                "global_rank": 1,
+                "market_rank": 1,
+                "total_score": 9.8,
+                "breakout_hit": False,
+                "breakout_type": None,
+                "breakout_with_volume": False,
+            },
+            {
+                "symbol": "688256.SH",
+                "market": "cn",
+                "global_rank": 2,
+                "market_rank": 2,
+                "total_score": 8.4,
+                "breakout_hit": True,
+                "breakout_type": "box_breakout",
+                "breakout_with_volume": True,
+            },
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "global_rank": 3,
+                "market_rank": 3,
+                "total_score": 7.2,
+                "breakout_hit": True,
+                "breakout_type": "platform_breakout",
+                "breakout_with_volume": False,
+            },
+            {
+                "symbol": "000001.SZ",
+                "market": "cn",
+                "global_rank": 4,
+                "market_rank": 4,
+                "total_score": 6.9,
+                "breakout_hit": True,
+                "breakout_type": "platform_breakout",
+                "breakout_with_volume": True,
+            },
+        ]
+    )
+
+    with (
+        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch(
+            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            return_value=_evaluation_stage(
+                kept_df=ranked_df,
+                ranked_df=ranked_df,
+            ),
+        ),
+        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+    ):
+        result = run_screen(config)
+
+    candidates = pd.read_csv(Path(result.run_dir) / "candidates.csv")
+    assert result.candidate_count == 2
+    assert candidates["symbol"].tolist() == ["600519.SH", "000001.SZ"]
+    assert candidates["breakout_type"].tolist() == ["platform_breakout", "platform_breakout"]

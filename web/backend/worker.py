@@ -4,22 +4,31 @@ import logging
 import os
 import time
 
-from web.backend.runtime import analysis_tasks, screener_tasks, task_store
+from web.backend.runtime import analysis_tasks, screener_tasks, task_scheduler, task_store
 
 logger = logging.getLogger(__name__)
 
 
 def run_once(*, timeout: int = 5) -> bool:
-    analysis_task_id = analysis_tasks.claim_next_task(timeout=timeout)
-    if analysis_task_id:
-        logger.info("Running analysis task %s", analysis_task_id)
-        analysis_tasks.run_task(analysis_task_id)
+    claimed = task_scheduler.claim_next_task(timeout=timeout)
+    if claimed is None:
+        return False
+
+    kind, task_id = claimed
+    if kind == "analysis":
+        logger.info("Running analysis task %s", task_id)
+        try:
+            analysis_tasks.run_task(task_id)
+        finally:
+            task_store.get_task_store().ack("analysis", task_id)
         return True
 
-    screener_task_id = screener_tasks.claim_next_screener_task(timeout=timeout)
-    if screener_task_id:
-        logger.info("Running screener task %s", screener_task_id)
-        screener_tasks.run_screener_task(screener_task_id)
+    if kind == "screener":
+        logger.info("Running screener task %s", task_id)
+        try:
+            screener_tasks.run_screener_task(task_id)
+        finally:
+            task_store.get_task_store().ack("screener", task_id)
         return True
 
     return False

@@ -7,7 +7,7 @@ import threading
 import uuid
 from contextlib import suppress
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +34,15 @@ class Task:
     progress_events: list[dict] = field(default_factory=list)
     report_id: Optional[str] = None
     error: Optional[str] = None
+    created_at: Optional[str] = None
+    queued_at: Optional[str] = None
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    queue_position: Optional[int] = None
+    blocked_reason: Optional[str] = None
+    blocked_vendor: Optional[str] = None
+    blocked_until: Optional[str] = None
+    canceled_at: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -47,6 +56,15 @@ class Task:
             "latest_progress": self.latest_progress,
             "report_id": self.report_id,
             "error": self.error,
+            "created_at": self.created_at,
+            "queued_at": self.queued_at,
+            "started_at": self.started_at,
+            "finished_at": self.finished_at,
+            "queue_position": self.queue_position,
+            "blocked_reason": self.blocked_reason,
+            "blocked_vendor": self.blocked_vendor,
+            "blocked_until": self.blocked_until,
+            "canceled_at": self.canceled_at,
         }
 
 
@@ -58,7 +76,11 @@ def count_active_tasks() -> int:
     if task_store.redis_task_backend_enabled():
         return task_store.get_task_store().count_active("analysis")
     with tasks_lock:
-        return sum(1 for task in tasks.values() if task.status in {"pending", "running"})
+        return sum(1 for task in tasks.values() if task.status in task_store.ACTIVE_STATUSES)
+
+
+def _utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
 def active_tasks_dir() -> Path:
@@ -120,15 +142,27 @@ def task_from_snapshot(payload: dict) -> Task:
     if not isinstance(request_payload, dict):
         raise ValueError("Persisted task snapshot is missing request_payload")
 
+    status = str(payload.get("status") or "pending")
+    if task_store.redis_task_backend_enabled() and status == "pending":
+        status = "queued"
     return Task(
         id=str(payload["id"]),
         request=AnalysisRequest(**request_payload),
         owner_user_id=payload.get("owner_user_id"),
-        status=str(payload.get("status") or "pending"),
+        status=status,
         latest_progress=payload.get("latest_progress"),
         report_id=payload.get("report_id"),
         error=payload.get("error"),
         progress_events=list(payload.get("progress_events") or []),
+        created_at=payload.get("created_at"),
+        queued_at=payload.get("queued_at"),
+        started_at=payload.get("started_at"),
+        finished_at=payload.get("finished_at"),
+        queue_position=payload.get("queue_position"),
+        blocked_reason=payload.get("blocked_reason"),
+        blocked_vendor=payload.get("blocked_vendor"),
+        blocked_until=payload.get("blocked_until"),
+        canceled_at=payload.get("canceled_at"),
     )
 
 
@@ -138,6 +172,7 @@ def get_task(task_id: str) -> Task:
         if payload is None:
             raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
         task = task_from_snapshot(payload)
+        task.queue_position = task_store.get_task_store().queue_position("analysis", task_id)
         task.progress_events = task_store.get_task_store().list_events("analysis", task_id)
         return task
     with tasks_lock:
@@ -184,6 +219,10 @@ def set_task_status(task_id: str, status: str, error: Optional[str] = None) -> N
     if task_store.redis_task_backend_enabled():
         task = get_task(task_id)
         task.status = status
+        if status == "running" and task.started_at is None:
+            task.started_at = _utc_iso()
+        if status in task_store.TERMINAL_STATUSES:
+            task.finished_at = _utc_iso()
         if error is not None:
             task.error = error
         task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
@@ -191,6 +230,10 @@ def set_task_status(task_id: str, status: str, error: Optional[str] = None) -> N
     with tasks_lock:
         task = tasks[task_id]
         task.status = status
+        if status == "running" and task.started_at is None:
+            task.started_at = _utc_iso()
+        if status in task_store.TERMINAL_STATUSES:
+            task.finished_at = _utc_iso()
         if error is not None:
             task.error = error
     persist_task_snapshot(task_id)
@@ -219,8 +262,63 @@ def build_failure_progress(task: Task, error: str) -> dict:
     return failure_progress.to_dict()
 
 
+def build_waiting_for_quota_progress(task: Task, exc: vendor_usage.QuotaWaitRequired) -> dict:
+    latest_progress = task.latest_progress or {
+        "stage_status": {
+            "Analysts": "not_started",
+            "Research": "not_started",
+            "Trading": "not_started",
+            "Risk": "not_started",
+            "Portfolio": "not_started",
+        },
+        "agent_status": {},
+        "current_agent": None,
+    }
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": "waiting_for_quota",
+        "stage_status": latest_progress["stage_status"],
+        "agent_status": latest_progress["agent_status"],
+        "current_agent": latest_progress["current_agent"],
+        "message": (
+            f"Waiting for {exc.vendor} quota"
+            + (f" until {exc.blocked_until}" if exc.blocked_until else "")
+            + "."
+        ),
+    }
+
+
+def _blocked_until_timestamp(blocked_until: str | None) -> float:
+    if not blocked_until:
+        return datetime.now(timezone.utc).timestamp() + 3600
+    try:
+        parsed = datetime.fromisoformat(blocked_until)
+    except ValueError:
+        return datetime.now(timezone.utc).timestamp() + 3600
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
+def wait_for_quota(task_id: str, exc: vendor_usage.QuotaWaitRequired) -> None:
+    current_task = get_task(task_id)
+    current_task.status = "waiting_for_quota"
+    current_task.blocked_reason = exc.reason
+    current_task.blocked_vendor = exc.vendor
+    current_task.blocked_until = exc.blocked_until
+    waiting_progress = build_waiting_for_quota_progress(current_task, exc)
+    current_task.latest_progress = waiting_progress
+    current_task.progress_events.append(waiting_progress)
+    save_task(current_task)
+    if task_store.redis_task_backend_enabled():
+        store = task_store.get_task_store()
+        store.delay("analysis", task_id, _blocked_until_timestamp(exc.blocked_until))
+        store.append_event("analysis", task_id, waiting_progress)
+
+
 def restore_persisted_active_tasks() -> None:
     if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().recover_processing("analysis")
         for task in list_tasks():
             if task.status == "running":
                 task.status = "failed"
@@ -230,6 +328,7 @@ def restore_persisted_active_tasks() -> None:
                 task.progress_events.append(failure_progress)
                 task_store.get_task_store().save_task("analysis", task.id, task.to_dict())
                 task_store.get_task_store().append_event("analysis", task.id, failure_progress)
+                task_store.get_task_store().ack("analysis", task.id)
         return
     active_dir = active_tasks_dir()
     if not active_dir.is_dir():
@@ -270,6 +369,20 @@ def start_task_thread(task_id: str) -> threading.Thread:
     thread = threading.Thread(target=run_task, args=(task_id,), daemon=True)
     thread.start()
     return thread
+
+
+def _fail_task(task_id: str, error: str) -> None:
+    current_task = get_task(task_id)
+    current_task.status = "failed"
+    current_task.finished_at = _utc_iso()
+    current_task.error = error
+    failure_progress = build_failure_progress(current_task, error)
+    current_task.latest_progress = failure_progress
+    current_task.progress_events.append(failure_progress)
+    save_task(current_task)
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().append_event("analysis", task_id, failure_progress)
+    persist_task_snapshot(task_id)
 
 
 def run_task(task_id: str) -> None:
@@ -333,43 +446,63 @@ def run_task(task_id: str) -> None:
 
         current_task = get_task(task_id)
         current_task.status = "completed"
+        current_task.finished_at = _utc_iso()
         current_task.report_id = report_id
         if current_task.latest_progress is not None:
             current_task.latest_progress["status"] = "completed"
         save_task(current_task)
         persist_task_snapshot(task_id)
+    except vendor_usage.QuotaWaitRequired as exc:
+        if temp_dir.exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+        if task_store.redis_task_backend_enabled():
+            wait_for_quota(task_id, exc)
+            return
+        _fail_task(task_id, str(exc))
     except Exception as exc:  # pragma: no cover
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
-
-        current_task = get_task(task_id)
-        current_task.status = "failed"
-        current_task.error = str(exc)
-        failure_progress = build_failure_progress(current_task, str(exc))
-        current_task.latest_progress = failure_progress
-        current_task.progress_events.append(failure_progress)
-        save_task(current_task)
-        if task_store.redis_task_backend_enabled():
-            task_store.get_task_store().append_event("analysis", task_id, failure_progress)
-        persist_task_snapshot(task_id)
+        _fail_task(task_id, str(exc))
 
 
 def create_task(analysis_request: AnalysisRequest, *, owner_user_id: str | None = None) -> dict:
     task_id = uuid.uuid4().hex
+    now_iso = _utc_iso()
     task = Task(
         id=task_id,
         request=analysis_request,
         owner_user_id=owner_user_id,
+        created_at=now_iso,
     )
 
     if task_store.redis_task_backend_enabled():
+        task.status = "queued"
+        task.queued_at = now_iso
         task_store.get_task_store().save_task(
             "analysis",
             task_id,
             task.to_dict(),
             enqueue=True,
         )
-        return {"task_id": task_id, "status": "pending"}
+        task_store.get_task_store().append_event(
+            "analysis",
+            task_id,
+            {
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+                "status": "queued",
+                "stage_status": {
+                    "Analysts": "not_started",
+                    "Research": "not_started",
+                    "Trading": "not_started",
+                    "Risk": "not_started",
+                    "Portfolio": "not_started",
+                },
+                "agent_status": {},
+                "current_agent": None,
+                "message": "Task queued.",
+            },
+        )
+        return {"task_id": task_id, "status": "queued"}
 
     with tasks_lock:
         tasks[task_id] = task
@@ -384,10 +517,13 @@ def resolve_owner_user_id(request) -> str | None:
 
 def list_tasks() -> list[Task]:
     if task_store.redis_task_backend_enabled():
-        return [
-            task_from_snapshot(payload)
-            for payload in task_store.get_task_store().list_tasks("analysis")
-        ]
+        store = task_store.get_task_store()
+        result = []
+        for payload in store.list_tasks("analysis"):
+            task = task_from_snapshot(payload)
+            task.queue_position = store.queue_position("analysis", task.id)
+            result.append(task)
+        return result
     with tasks_lock:
         return list(tasks.values())
 
@@ -413,7 +549,35 @@ def save_task(task: Task) -> None:
 def claim_next_task(*, timeout: int = 5) -> str | None:
     if not task_store.redis_task_backend_enabled():
         return None
-    return task_store.get_task_store().claim("analysis", timeout=timeout)
+    from web.backend.runtime import task_scheduler
+
+    return task_scheduler.claim_next_kind("analysis", timeout=timeout)
+
+
+def cancel_task(task_id: str) -> None:
+    task = get_task(task_id)
+    if task.status not in {"pending", "queued", "waiting_for_quota"}:
+        raise HTTPException(status_code=409, detail="Only queued or waiting tasks can be canceled.")
+    now_iso = _utc_iso()
+    task.status = "canceled"
+    task.canceled_at = now_iso
+    task.finished_at = now_iso
+    save_task(task)
+    if task_store.redis_task_backend_enabled():
+        store = task_store.get_task_store()
+        store.remove_task_refs("analysis", task_id)
+        store.append_event(
+            "analysis",
+            task_id,
+            {
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+                "status": "canceled",
+                "stage_status": {},
+                "agent_status": {},
+                "current_agent": None,
+                "message": "Task canceled.",
+            },
+        )
 
 
 def storage_backend_is_remote() -> bool:

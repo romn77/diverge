@@ -27,7 +27,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
     settings = auth.get_auth_settings()
     if not settings.enabled:
         raise HTTPException(status_code=409, detail="Auth is disabled")
-    client_ip = request.client.host if request.client else None
+    client_ip = auth.client_ip_for_request(request)
     auth.ensure_login_allowed(payload.email, client_ip)
 
     try:
@@ -40,7 +40,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
             session_token = auth.create_user_session(
                 db,
                 user,
-                ip_address=request.client.host if request.client else None,
+                ip_address=client_ip,
                 user_agent=request.headers.get("user-agent"),
                 settings=settings,
             )
@@ -110,7 +110,7 @@ def change_password(
             session_token = auth.create_user_session(
                 db,
                 user,
-                ip_address=request.client.host if request.client else None,
+                ip_address=auth.client_ip_for_request(request),
                 user_agent=request.headers.get("user-agent"),
                 settings=settings,
             )

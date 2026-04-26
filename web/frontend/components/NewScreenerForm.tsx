@@ -258,7 +258,7 @@ export function NewScreenerForm({
                 <p className="mt-2 text-xs leading-5 text-slate-500">
                   {t(
                     "screener.breakoutHelp",
-                    "Selected breakout signals add ranking bonus and appear in results, but they do not hard-filter the pool."
+                    "Selected breakout signals restrict final candidates to matching breakout setups and add ranking bonus."
                   )}
                 </p>
               </section>

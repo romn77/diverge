@@ -11,6 +11,7 @@ def test_screen_run_config_accepts_valid_dual_market_input():
         cn_data_source="akshare",
         cn_data_source_fallbacks=["tushare"],
         us_data_source="tushare",
+        us_data_source_fallbacks=["massive"],
         cn_manifest_path=" /tmp/cn_manifest.csv ",
         us_manifest_path=" /tmp/us_manifest.csv ",
     )
@@ -21,6 +22,7 @@ def test_screen_run_config_accepts_valid_dual_market_input():
     assert config.cn_data_source == "akshare"
     assert config.cn_data_source_fallbacks == ["tushare"]
     assert config.us_data_source == "tushare"
+    assert config.us_data_source_fallbacks == ["massive"]
     assert config.cn_manifest_path == "/tmp/cn_manifest.csv"
     assert config.us_manifest_path == "/tmp/us_manifest.csv"
 
@@ -80,6 +82,18 @@ def test_screen_run_config_rejects_unknown_us_data_source():
             as_of_date="2026-03-24",
             top_k=50,
             us_data_source="bogus",
+            us_manifest_path="/tmp/us_manifest.csv",
+        )
+
+
+def test_screen_run_config_rejects_invalid_us_fallback_data_source():
+    with pytest.raises(ValueError, match="us_data_source_fallbacks"):
+        ScreenRunConfig(
+            markets=["us"],
+            as_of_date="2026-03-24",
+            top_k=50,
+            us_data_source="massive",
+            us_data_source_fallbacks=["bogus"],
             us_manifest_path="/tmp/us_manifest.csv",
         )
 

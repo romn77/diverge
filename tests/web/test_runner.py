@@ -27,6 +27,51 @@ class _FakeTradingAgentsGraph:
 
 
 class AnalysisTrackerTests(unittest.TestCase):
+    def test_analysis_request_keeps_trading_session_date(self):
+        request = AnalysisRequest(
+            ticker="SPY",
+            analysis_date="2024-03-15",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+        )
+
+        self.assertEqual(request.analysis_date, "2024-03-15")
+
+    def test_analysis_request_moves_us_weekend_to_previous_close(self):
+        request = AnalysisRequest(
+            ticker="SPY",
+            analysis_date="2024-03-17",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+        )
+
+        self.assertEqual(request.analysis_date, "2024-03-15")
+
+    def test_analysis_request_moves_cn_holiday_to_previous_close(self):
+        request = AnalysisRequest(
+            ticker="600519.SH",
+            analysis_date="2025-10-05",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+        )
+
+        self.assertEqual(request.analysis_date, "2025-09-30")
+
     def test_tracker_derives_three_state_stage_progress_from_agent_status(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             tracker = AnalysisTracker(["market", "news"], Path(temp_dir))
@@ -159,7 +204,7 @@ class AnalysisTrackerTests(unittest.TestCase):
         mock_feedback.assert_called_once_with(
             "MSFT",
             reports_dir=None,
-            analysis_date="2026-04-03",
+            analysis_date="2026-04-02",
             visible_trade_ids=None,
         )
 

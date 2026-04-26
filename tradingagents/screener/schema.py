@@ -33,6 +33,18 @@ def build_cn_source_chain(
     return chain
 
 
+def build_us_source_chain(
+    primary_source: str,
+    fallback_sources: list[str] | None = None,
+) -> list[str]:
+    chain: list[str] = []
+    for source in [primary_source, *(fallback_sources or [])]:
+        normalized = str(source).strip().lower()
+        if normalized and normalized not in chain:
+            chain.append(normalized)
+    return chain
+
+
 @dataclass(slots=True)
 class ScreenRunConfig:
     markets: list[str]
@@ -54,6 +66,7 @@ class ScreenRunConfig:
     cn_data_source: str = "tushare"
     cn_data_source_fallbacks: list[str] = field(default_factory=list)
     us_data_source: str = "yfinance"
+    us_data_source_fallbacks: list[str] = field(default_factory=list)
     cn_manifest_path: str | None = None
     us_manifest_path: str | None = None
 
@@ -75,6 +88,9 @@ class ScreenRunConfig:
             source.strip().lower() for source in self.cn_data_source_fallbacks
         ]
         self.us_data_source = self.us_data_source.strip().lower()
+        self.us_data_source_fallbacks = [
+            source.strip().lower() for source in self.us_data_source_fallbacks
+        ]
         if self.cn_manifest_path is not None:
             normalized_cn_manifest_path = self.cn_manifest_path.strip()
             self.cn_manifest_path = normalized_cn_manifest_path or None
@@ -123,6 +139,13 @@ class ScreenRunConfig:
         if self.us_data_source not in VALID_US_DATA_SOURCES:
             raise ValueError("us_data_source must be one of {'akshare', 'alpha_vantage', 'massive', 'tushare', 'yfinance'}")
         if any(
+            source not in VALID_US_DATA_SOURCES
+            for source in self.us_data_source_fallbacks
+        ):
+            raise ValueError(
+                "us_data_source_fallbacks must only include values from {'akshare', 'alpha_vantage', 'massive', 'tushare', 'yfinance'}"
+            )
+        if any(
             breakout_type not in VALID_BREAKOUT_TYPES
             for breakout_type in self.breakout_types
         ):
@@ -143,6 +166,13 @@ class ScreenRunConfig:
             for source in build_cn_source_chain(
                 self.cn_data_source,
                 self.cn_data_source_fallbacks,
+            )[1:]
+        ]
+        self.us_data_source_fallbacks = [
+            source
+            for source in build_us_source_chain(
+                self.us_data_source,
+                self.us_data_source_fallbacks,
             )[1:]
         ]
 

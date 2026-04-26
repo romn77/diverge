@@ -15,11 +15,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  cancelTask,
   getTask,
   subscribeToTask,
   type ProgressEvent,
   type StageStatus,
   type Task,
+  type TaskStatus,
 } from "@/lib/api";
 
 interface TaskProgressProps {
@@ -46,6 +48,7 @@ export function TaskProgress({
   const [loading, setLoading] = useState(true);
   const [streamError, setStreamError] = useState<string | null>(null);
   const [showRequestDetails, setShowRequestDetails] = useState(false);
+  const [canceling, setCanceling] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -90,7 +93,7 @@ export function TaskProgress({
             }
       );
 
-      if (event.status === "completed" || event.status === "failed") {
+      if (isTerminalTaskStatus(event.status)) {
         void syncTask();
       }
     };
@@ -128,6 +131,29 @@ export function TaskProgress({
         .slice(0, 12),
     [events]
   );
+  const canCancelTask = task ? canCancelTaskStatus(task.status) : false;
+
+  const handleCancelTask = async () => {
+    if (!task || !canCancelTask) {
+      return;
+    }
+    setCanceling(true);
+    setStreamError(null);
+    try {
+      await cancelTask(task.id);
+      const nextTask = await getTask(task.id);
+      setTask(nextTask);
+      onTaskComplete(nextTask.report_id);
+    } catch (error) {
+      setStreamError(
+        error instanceof Error
+          ? error.message
+          : t("task.error.cancel", "Unable to cancel task")
+      );
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -199,6 +225,18 @@ export function TaskProgress({
 
             <div className="flex flex-wrap items-center gap-3">
               <TaskStatusBadge status={task?.status ?? "pending"} labelForStatus={t} />
+              {canCancelTask ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={canceling}
+                  onClick={() => void handleCancelTask()}
+                >
+                  {canceling
+                    ? t("task.canceling", "Canceling...")
+                    : t("task.cancel", "Cancel task")}
+                </Button>
+              ) : null}
               {task?.report_id ? (
                 <Button type="button" className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105" onClick={() => onViewReport(task.report_id!)}>
                   {t("task.viewReport", "View Report")}
@@ -212,6 +250,8 @@ export function TaskProgress({
               <TaskRequestDetails task={task} />
             </div>
           ) : null}
+
+          {task ? <TaskQueueNotice task={task} /> : null}
 
           <div className="mt-8 grid gap-3 md:grid-cols-6">
             {STAGES.map((stage) => {
@@ -262,6 +302,12 @@ export function TaskProgress({
           {task?.status === "failed" ? (
             <div className="mt-6 rounded-2xl border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
               {task.error ?? t("task.failedFallback", "The analysis task failed.")}
+            </div>
+          ) : null}
+
+          {task?.status === "canceled" ? (
+            <div className="mt-6 rounded-2xl border border-[rgba(28,56,83,0.14)] bg-[rgba(28,56,83,0.08)] px-4 py-3 text-sm text-slate-700">
+              {t("task.canceledFallback", "This analysis task was canceled.")}
             </div>
           ) : null}
 
@@ -326,6 +372,14 @@ function buildEventKey(event: ProgressEvent): string {
   return `${event.timestamp}|${event.status}|${event.current_agent ?? ""}|${event.message ?? ""}`;
 }
 
+function isTerminalTaskStatus(status: TaskStatus): boolean {
+  return status === "completed" || status === "failed" || status === "canceled";
+}
+
+function canCancelTaskStatus(status: TaskStatus): boolean {
+  return status === "pending" || status === "queued" || status === "waiting_for_quota";
+}
+
 function formatStageLabel(
   state: StageStatus,
   t: ReturnType<typeof usePreferences>["t"]
@@ -351,13 +405,63 @@ function TaskStatusBadge({
       ? "border-[rgba(46,118,83,0.2)] bg-[rgba(46,118,83,0.1)] text-[var(--success)]"
       : status === "failed"
         ? "border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
-        : "border-[rgba(28,56,83,0.16)] bg-[rgba(28,56,83,0.08)] text-[var(--accent)]";
+        : status === "canceled"
+          ? "border-[rgba(100,116,139,0.22)] bg-[rgba(100,116,139,0.1)] text-slate-600"
+          : status === "waiting_for_quota"
+            ? "border-[rgba(181,121,34,0.24)] bg-[rgba(181,121,34,0.1)] text-[rgb(146,91,22)]"
+            : "border-[rgba(28,56,83,0.16)] bg-[rgba(28,56,83,0.08)] text-[var(--accent)]";
 
   return (
     <Badge className={classes}>
       {labelForStatus(`task.status.${status}`, status)}
     </Badge>
   );
+}
+
+function TaskQueueNotice({ task }: { task: Task }) {
+  const { t } = usePreferences();
+  if (task.status === "queued" || task.status === "pending") {
+    const position =
+      typeof task.queue_position === "number"
+        ? t("task.queuePosition", ({ position }) => `Queue position ${position}`, {
+            position: task.queue_position,
+          })
+        : t("task.queuedWaiting", "Waiting for a worker slot.");
+    return (
+      <div className="mt-6 rounded-2xl border border-[rgba(28,56,83,0.14)] bg-[rgba(28,56,83,0.07)] px-4 py-3 text-sm text-slate-700">
+        {position}
+      </div>
+    );
+  }
+
+  if (task.status === "waiting_for_quota") {
+    return (
+      <div className="mt-6 rounded-2xl border border-[rgba(181,121,34,0.24)] bg-[rgba(181,121,34,0.08)] px-4 py-3 text-sm text-slate-700">
+        {t(
+          "task.waitingForQuota",
+          ({ vendor, until }) =>
+            `Waiting for ${vendor ?? "data source"} quota to recover${until ? ` around ${until}` : ""}.`,
+          {
+            vendor: task.blocked_vendor ?? undefined,
+            until: formatDateTimeLabel(task.blocked_until),
+          }
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function formatDateTimeLabel(value: string | null | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleString();
 }
 
 function TaskRequestDetails({ task }: { task: Task }) {

@@ -39,7 +39,7 @@ from .history_cache import (
     save_history_cache,
     slice_history_window,
 )
-from .schema import build_cn_source_chain
+from .schema import build_cn_source_chain, build_us_source_chain
 
 CN_REQUEST_DELAY_SECONDS = 0.35
 US_REQUEST_DELAY_SECONDS = 2.0
@@ -108,7 +108,10 @@ class _HistoryFetchExecutor:
         self.as_of_date = as_of_date
         self.cn_source_chain = list(cn_source_chain)
         self.us_data_source = us_data_source
-        self.us_source_chain = [us_data_source] + list(us_data_source_fallbacks or [])
+        self.us_source_chain = build_us_source_chain(
+            us_data_source,
+            us_data_source_fallbacks,
+        )
         self.cn_network_fetch_count = 0
         self.us_network_fetch_count = 0
         self.last_source: str | None = None
@@ -494,10 +497,6 @@ def _process_history_symbol(
 
 
 def _call_price_data_source(vendor: str, fetcher: Callable[[], pd.DataFrame]) -> pd.DataFrame:
-    if not vendor_usage.is_data_source_available(vendor):
-        raise VendorRetryableError(
-            f"Data source '{vendor}' is disabled or over its daily quota."
-        )
     return vendor_usage.track_data_source_call(vendor, fetcher)
 
 
@@ -656,6 +655,7 @@ def fetch_history_for_universe(
     cn_data_source: str = "tushare",
     cn_data_source_fallbacks: list[str] | None = None,
     us_data_source: str = "yfinance",
+    us_data_source_fallbacks: list[str] | None = None,
     progress_callback: Callable[..., None] | None = None,
     history_dir: str | Path | None = None,
     cache_dir: str | Path | None = None,
@@ -686,6 +686,7 @@ def fetch_history_for_universe(
         cn_data_source,
         cn_data_source_fallbacks=cn_data_source_fallbacks,
         us_data_source=us_data_source,
+        us_data_source_fallbacks=us_data_source_fallbacks,
     )
     histories: dict[str, pd.DataFrame] = {}
     total = len(universe_df.index)
@@ -697,6 +698,7 @@ def fetch_history_for_universe(
         as_of_date=as_of_date,
         cn_source_chain=cn_source_chain,
         us_data_source=us_data_source,
+        us_data_source_fallbacks=us_data_source_fallbacks,
     )
     checkpoint_state = _HistoryCheckpointState.load(
         path=history_checkpoint_path,

@@ -49,6 +49,7 @@ PROVIDER_API_KEY_ENV_VARS: dict[str, str | None] = {
     "xai": "XAI_API_KEY",
     "openrouter": "OPENROUTER_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
+    "siliconflow": "SILICONFLOW_API_KEY",
     "ollama": None,
     "xiaohumini": "XIAOHUMINI_API_KEY",
 }

@@ -31,6 +31,7 @@ _PROVIDER_CONFIG = {
     "qwen": ("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "DASHSCOPE_API_KEY"),
     "glm": ("https://api.z.ai/api/paas/v4/", "ZHIPU_API_KEY"),
     "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
+    "siliconflow": ("https://api.siliconflow.cn/v1", "SILICONFLOW_API_KEY"),
     "xiaohumini": ("https://xiaohumini.site/v1", "XIAOHUMINI_API_KEY"),
     "deepseek": ("https://api.deepseek.com/v1", "DEEPSEEK_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
@@ -43,7 +44,7 @@ class OpenAIClient(BaseLLMClient):
     For native OpenAI models, uses the Responses API (/v1/responses) which
     supports reasoning_effort with function tools across all model families
     (GPT-4.1, GPT-5). Third-party compatible providers (xAI, OpenRouter,
-    DeepSeek, XiaoHuMini, Ollama) use standard Chat Completions.
+    DeepSeek, SiliconFlow, XiaoHuMini, Ollama) use standard Chat Completions.
     """
 
     def __init__(

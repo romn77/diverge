@@ -55,7 +55,7 @@ test("NewScreenerForm keeps Top K editable without forcing blank input to zero",
   assert.doesNotMatch(source, /top_k:\s*Number\(event\.target\.value\)/);
 });
 
-test("NewScreenerForm exposes breakout selection without describing it as a hard filter", () => {
+test("NewScreenerForm describes breakout selection as a final candidate constraint", () => {
   const source = readFileSync(formPath, "utf8");
 
   assert.match(source, /breakout_types/);
@@ -63,7 +63,8 @@ test("NewScreenerForm exposes breakout selection without describing it as a hard
   assert.match(source, /Platform Breakout/i);
   assert.match(source, /Box Breakout/i);
   assert.match(source, /Wedge Breakout/i);
-  assert.match(source, /do not hard-filter the pool/i);
+  assert.match(source, /restrict final candidates to matching breakout setups/i);
+  assert.doesNotMatch(source, /do not hard-filter the pool/i);
 });
 
 test("NewScreenerForm performs submit-time validation before posting", () => {

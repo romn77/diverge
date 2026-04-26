@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import logging
+import os
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from tradingagents.dataflows import vendor_usage
 from web.backend import access, analysis_limits, auth, data_sources
+from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
     AdminDataSourceRouteUpdatePayload,
@@ -17,6 +20,141 @@ from web.backend.schemas.admin import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(dependencies=[Depends(auth.enforce_admin_api_access)])
+
+
+def _utc_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _load_admin_user_lookup() -> dict[str, dict]:
+    with auth.db_session() as db:
+        return {user.id: auth.serialize_user(user) for user in auth.list_users(db)}
+
+
+def _normalize_queue_status(status: object) -> str:
+    normalized = str(status or "pending")
+    if task_store.redis_task_backend_enabled() and normalized == "pending":
+        return "queued"
+    return normalized
+
+
+def _analysis_label(payload: dict) -> str:
+    request_payload = payload.get("request_payload")
+    if isinstance(request_payload, dict) and request_payload.get("ticker"):
+        return str(request_payload["ticker"])
+    if payload.get("ticker"):
+        return str(payload["ticker"])
+    return str(payload.get("id") or "Analysis task")
+
+
+def _screener_label(payload: dict) -> str:
+    request_payload = payload.get("request_payload")
+    if isinstance(request_payload, dict):
+        markets = request_payload.get("markets")
+        if isinstance(markets, list) and markets:
+            return ", ".join(str(market) for market in markets)
+    return str(payload.get("id") or "Screener task")
+
+
+def _active_task_payloads(kind: str) -> list[dict]:
+    if task_store.redis_task_backend_enabled():
+        return task_store.get_task_store().list_tasks(kind)
+    if kind == "analysis":
+        return [task.to_dict() for task in analysis_tasks.list_tasks()]
+    return [task.to_dict() for task in screener_tasks.list_screener_tasks()]
+
+
+def _queue_position(kind: str, task_id: str, payload: dict) -> int | None:
+    if task_store.redis_task_backend_enabled():
+        return task_store.get_task_store().queue_position(kind, task_id)
+    value = payload.get("queue_position")
+    return value if isinstance(value, int) else None
+
+
+def _serialize_queue_item(
+    *,
+    kind: str,
+    payload: dict,
+    user_lookup: dict[str, dict],
+) -> dict:
+    task_id = str(payload.get("id") or "")
+    status = _normalize_queue_status(payload.get("status"))
+    owner_user_id = payload.get("owner_user_id")
+    owner = user_lookup.get(str(owner_user_id)) if owner_user_id else None
+    label = _analysis_label(payload) if kind == "analysis" else _screener_label(payload)
+    return {
+        "kind": kind,
+        "task_id": task_id,
+        "label": label,
+        "status": status,
+        "owner_user_id": owner_user_id,
+        "owner": owner,
+        "created_at": payload.get("created_at"),
+        "queued_at": payload.get("queued_at"),
+        "started_at": payload.get("started_at"),
+        "finished_at": payload.get("finished_at"),
+        "queue_position": _queue_position(kind, task_id, payload),
+        "blocked_reason": payload.get("blocked_reason"),
+        "blocked_vendor": payload.get("blocked_vendor"),
+        "blocked_until": payload.get("blocked_until"),
+        "detail_path": f"/tasks/{task_id}" if kind == "analysis" else f"/screener-tasks/{task_id}",
+    }
+
+
+def _queue_sort_key(item: dict) -> tuple[int, int, str, str]:
+    status_priority = {
+        "running": 0,
+        "queued": 1,
+        "pending": 1,
+        "waiting_for_quota": 2,
+    }.get(str(item["status"]), 9)
+    queue_position = item.get("queue_position")
+    position = queue_position if isinstance(queue_position, int) else 999_999
+    timestamp = (
+        item.get("started_at")
+        or item.get("queued_at")
+        or item.get("blocked_until")
+        or item.get("created_at")
+        or ""
+    )
+    return (status_priority, position, str(timestamp), str(item["task_id"]))
+
+
+@router.get("/api/admin/task-queue")
+def list_admin_task_queue() -> dict:
+    try:
+        user_lookup = _load_admin_user_lookup()
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+    items: list[dict] = []
+    for kind in ("analysis", "screener"):
+        for payload in _active_task_payloads(kind):
+            status = _normalize_queue_status(payload.get("status"))
+            if status not in task_store.ACTIVE_STATUSES:
+                continue
+            items.append(
+                _serialize_queue_item(
+                    kind=kind,
+                    payload=payload,
+                    user_lookup=user_lookup,
+                )
+            )
+    items.sort(key=_queue_sort_key)
+    totals = {
+        "active": len(items),
+        "queued": sum(1 for item in items if item["status"] in task_store.QUEUED_STATUSES),
+        "running": sum(1 for item in items if item["status"] == "running"),
+        "waiting_for_quota": sum(
+            1 for item in items if item["status"] == "waiting_for_quota"
+        ),
+    }
+    return {
+        "task_backend": os.environ.get("TASK_BACKEND", "local").strip().lower(),
+        "generated_at": _utc_iso(),
+        "totals": totals,
+        "tasks": items,
+    }
 
 
 @router.get("/api/admin/users")

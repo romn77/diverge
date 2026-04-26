@@ -85,6 +85,7 @@ def evaluate_screen_stage(
         cn_data_source=config.cn_data_source,
         cn_data_source_fallbacks=config.cn_data_source_fallbacks,
         us_data_source=config.us_data_source,
+        us_data_source_fallbacks=config.us_data_source_fallbacks,
         progress_callback=progress_callback,
         history_dir=history_root,
         cache_dir=cache_root,

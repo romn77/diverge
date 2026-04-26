@@ -52,8 +52,41 @@ def resolve_screener_data_sources(markets: list[str]) -> dict:
     if not us_chain:
         us_chain = ["massive"]
     sources["us_data_source"] = us_chain[0]
+    sources["us_data_source_fallbacks"] = us_chain[1:]
 
     return sources
+
+
+def _enforce_screener_submission_capacity(current_user) -> None:
+    if not task_store.redis_task_backend_enabled():
+        if (
+            analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
+            >= task_store.get_queue_limit()
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="Task queue is full. Wait for the active tasks to finish.",
+            )
+        return
+
+    store = task_store.get_task_store()
+    global_active = store.count_active("analysis") + store.count_active("screener")
+    if global_active >= task_store.get_global_pending_limit():
+        raise HTTPException(
+            status_code=409,
+            detail="Global task queue is full. Wait for queued work to finish.",
+        )
+    if current_user is None:
+        return
+    user_limit = task_store.get_user_pending_limit(getattr(current_user, "role", None))
+    if store.count_active_by_owner(current_user.id) >= user_limit:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"User task queue is full ({user_limit} queued, waiting, or running tasks). "
+                "Cancel queued work or wait for tasks to finish."
+            ),
+        )
 
 
 @router.post("/api/screener/tasks")
@@ -62,14 +95,7 @@ def create_screener_task(
     request: Request = None,
 ) -> dict:
     current_user = access.require_screener_user(request)
-    if (
-        analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
-        >= task_store.get_queue_limit()
-    ):
-        raise HTTPException(
-            status_code=409,
-            detail="Task queue is full. Wait for the active tasks to finish.",
-        )
+    _enforce_screener_submission_capacity(current_user)
 
     request_payload = payload.model_dump()
     request_payload.update(resolve_screener_data_sources(request_payload["markets"]))
@@ -136,6 +162,14 @@ def delete_screener_task(task_id: str, request: Request = None) -> dict:
     _get_authorized_screener_task(task_id, current_user)
     screener_tasks.delete_failed_screener_task(task_id)
     return {"deleted": True, "task_id": task_id}
+
+
+@router.post("/api/screener/tasks/{task_id}/cancel")
+def cancel_screener_task(task_id: str, request: Request = None) -> dict:
+    current_user = access.require_screener_user(request)
+    _get_authorized_screener_task(task_id, current_user)
+    screener_tasks.cancel_screener_task(task_id)
+    return {"canceled": True, "task_id": task_id}
 
 
 @router.get(

@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import asyncio
+import contextlib
 import os
 import json
 from pathlib import Path
@@ -17,7 +18,7 @@ from web.backend.routers import admin as admin_router
 from web.backend.routers import config as config_router
 from web.backend.routers import screeners as screeners_router
 from web.backend.routers import tasks as tasks_router
-from web.backend.runtime import analysis_tasks, screener_tasks
+from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.admin import AdminDataSourceUpdatePayload
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.schemas.tasks import TaskCreatePayload
@@ -206,6 +207,36 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(snapshot["status"], "pending")
         self.assertEqual(snapshot["ticker"], "SPY")
 
+    def test_post_tasks_normalizes_non_trading_analysis_date(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2024-03-17",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+            "market_data_source": "massive",
+        }
+        self.empty_project_env.write_text(
+            "OPENAI_API_KEY=test-openai-key\n",
+            encoding="utf-8",
+        )
+
+        with (
+            patch("web.backend.runtime.analysis_tasks.start_task_thread"),
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
+        ):
+            body = tasks_router.create_task(TaskCreatePayload(**payload))
+
+        task_status = tasks_router.get_task_status(body["task_id"])
+        self.assertEqual(task_status["request_payload"]["analysis_date"], "2024-03-15")
+
     def test_post_tasks_rejects_path_ticker_before_queueing(self):
         payload = {
             "ticker": "../../ESCAPE",
@@ -228,6 +259,86 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("path", context.exception.detail.lower())
         start_task_thread.assert_not_called()
         self.assertFalse((backend_config.REPORTS_DIR.parent / "ESCAPE").exists())
+
+    def test_redis_task_submission_uses_per_user_limit_not_global_active_count(self):
+        fake_store = task_store.InMemoryTaskStore()
+        for index in range(5):
+            fake_store.save_task(
+                "analysis",
+                f"operator-one-{index}",
+                {
+                    "id": f"operator-one-{index}",
+                    "status": "queued",
+                    "owner_user_id": "operator-one",
+                    "request_payload": {
+                        "ticker": "SPY",
+                        "analysis_date": "2026-03-13",
+                        "analysts": ["market"],
+                        "research_depth": 1,
+                        "llm_provider": "openai",
+                        "quick_think_llm": "gpt-5-mini",
+                        "deep_think_llm": "gpt-5.2",
+                        "output_language": "en",
+                        "openai_reasoning_effort": "medium",
+                        "google_thinking_level": None,
+                    },
+                },
+                enqueue=False,
+            )
+
+        payload = {
+            "ticker": "AAPL",
+            "analysis_date": "2026-03-13",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+
+        def user(user_id: str):
+            return SimpleNamespace(id=user_id, role=auth.UserRole.OPERATOR.value)
+
+        with (
+            patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
+            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch("web.backend.routers.tasks.hydrate_provider_credentials"),
+            patch(
+                "web.backend.routers.tasks.get_provider_availability",
+                return_value={"enabled": True, "disabled_reason": None},
+            ),
+            patch("web.backend.routers.tasks.auth.db_session", return_value=contextlib.nullcontext()),
+            patch("web.backend.routers.tasks.auth.get_user_by_id", return_value=user("operator-one")),
+            patch("web.backend.routers.tasks.analysis_limits.record_analysis_task_creation"),
+            patch("web.backend.routers.tasks.asset_service.build_portfolio_context_for_owner", return_value=None),
+            patch("web.backend.routers.tasks._current_user", return_value=user("operator-one")),
+        ):
+            with self.assertRaises(HTTPException) as context:
+                tasks_router.create_task(TaskCreatePayload(**payload))
+
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertIn("user", context.exception.detail.lower())
+
+        with (
+            patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
+            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch("web.backend.routers.tasks.hydrate_provider_credentials"),
+            patch(
+                "web.backend.routers.tasks.get_provider_availability",
+                return_value={"enabled": True, "disabled_reason": None},
+            ),
+            patch("web.backend.routers.tasks.auth.db_session", return_value=contextlib.nullcontext()),
+            patch("web.backend.routers.tasks.auth.get_user_by_id", return_value=user("operator-two")),
+            patch("web.backend.routers.tasks.analysis_limits.record_analysis_task_creation"),
+            patch("web.backend.routers.tasks.asset_service.build_portfolio_context_for_owner", return_value=None),
+            patch("web.backend.routers.tasks._current_user", return_value=user("operator-two")),
+        ):
+            body = tasks_router.create_task(TaskCreatePayload(**payload))
+
+        self.assertEqual(body["status"], "queued")
 
     def test_report_output_dir_rejects_paths_outside_reports_root(self):
         with self.assertRaises(ValueError):
@@ -460,6 +571,96 @@ class BackendMainTests(unittest.TestCase):
         self.assertFalse(updated["source"]["enabled"])
         self.assertEqual(updated["source"]["hourly_limit"], 5)
         self.assertFalse(vendor_usage.is_data_source_available("alpha_vantage"))
+
+    def test_admin_task_queue_endpoint_lists_active_tasks_with_owner_details(self):
+        fake_store = task_store.InMemoryTaskStore()
+        fake_store.save_task(
+            "analysis",
+            "analysis-queued",
+            {
+                "id": "analysis-queued",
+                "ticker": "AAPL",
+                "status": "queued",
+                "owner_user_id": "user-1",
+                "created_at": "2026-04-26T01:00:00+00:00",
+                "queued_at": "2026-04-26T01:01:00+00:00",
+            },
+            enqueue=True,
+        )
+        fake_store.save_task(
+            "analysis",
+            "analysis-running",
+            {
+                "id": "analysis-running",
+                "ticker": "MSFT",
+                "status": "running",
+                "owner_user_id": "user-2",
+                "started_at": "2026-04-26T01:05:00+00:00",
+            },
+            enqueue=False,
+        )
+        fake_store.save_task(
+            "screener",
+            "screener-waiting",
+            {
+                "id": "screener-waiting",
+                "request_payload": {
+                    "markets": ["us", "cn"],
+                    "as_of_date": "2026-04-26",
+                },
+                "status": "waiting_for_quota",
+                "owner_user_id": "user-1",
+                "blocked_vendor": "alpha_vantage",
+                "blocked_until": "2026-04-27T00:00:00+00:00",
+            },
+            enqueue=False,
+        )
+
+        users = [
+            SimpleNamespace(
+                id="user-1",
+                email="operator@example.com",
+                display_name="Operator",
+                role="operator",
+            ),
+            SimpleNamespace(
+                id="user-2",
+                email="viewer@example.com",
+                display_name="Viewer",
+                role="viewer",
+            ),
+        ]
+
+        with (
+            patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
+            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch("web.backend.routers.admin.auth.db_session", return_value=contextlib.nullcontext(object())),
+            patch("web.backend.routers.admin.auth.list_users", return_value=users),
+            patch(
+                "web.backend.routers.admin.auth.serialize_user",
+                side_effect=lambda user: {
+                    "id": user.id,
+                    "email": user.email,
+                    "display_name": user.display_name,
+                    "role": user.role,
+                },
+            ),
+        ):
+            payload = admin_router.list_admin_task_queue()
+
+        self.assertEqual(payload["task_backend"], "redis")
+        self.assertEqual(payload["totals"]["active"], 3)
+        self.assertEqual(payload["totals"]["queued"], 1)
+        self.assertEqual(payload["totals"]["running"], 1)
+        self.assertEqual(payload["totals"]["waiting_for_quota"], 1)
+        items = {item["task_id"]: item for item in payload["tasks"]}
+        self.assertEqual(items["analysis-queued"]["kind"], "analysis")
+        self.assertEqual(items["analysis-queued"]["label"], "AAPL")
+        self.assertEqual(items["analysis-queued"]["queue_position"], 1)
+        self.assertEqual(items["analysis-queued"]["owner"]["email"], "operator@example.com")
+        self.assertEqual(items["analysis-running"]["owner"]["role"], "viewer")
+        self.assertEqual(items["screener-waiting"]["label"], "us, cn")
+        self.assertEqual(items["screener-waiting"]["blocked_vendor"], "alpha_vantage")
 
     def test_delete_failed_analysis_task_removes_local_record(self):
         payload = {
@@ -979,8 +1180,25 @@ class BackendMainTests(unittest.TestCase):
 
         self.assertIn("openai", provider_values)
         self.assertIn("google", provider_values)
+        self.assertIn("siliconflow", provider_values)
         self.assertIn("market", {option["value"] for option in payload["analysts"]})
         self.assertIn("gpt-5-mini", {option["value"] for option in payload["models"]["openai"]["quick"]})
+        self.assertIn(
+            "deepseek-ai/DeepSeek-V4-Flash",
+            {option["value"] for option in payload["models"]["siliconflow"]["quick"]},
+        )
+        self.assertIn(
+            "Pro/zai-org/GLM-5.1",
+            {option["value"] for option in payload["models"]["siliconflow"]["deep"]},
+        )
+        self.assertIn(
+            "deepseek-v4-flash",
+            {option["value"] for option in payload["models"]["deepseek"]["quick"]},
+        )
+        self.assertIn(
+            "deepseek-v4-pro",
+            {option["value"] for option in payload["models"]["deepseek"]["deep"]},
+        )
 
     def test_config_options_mark_provider_availability_from_project_env_file(self):
         self.empty_project_env.write_text(
@@ -998,6 +1216,7 @@ class BackendMainTests(unittest.TestCase):
         providers = {provider["value"]: provider for provider in payload["providers"]}
 
         self.assertTrue(providers["openai"]["enabled"])
+        self.assertFalse(providers["siliconflow"]["enabled"])
         self.assertFalse(providers["xiaohumini"]["enabled"])
         self.assertIn("API key", providers["xiaohumini"]["disabled_reason"])
 
@@ -1005,7 +1224,8 @@ class BackendMainTests(unittest.TestCase):
         temp_project = tempfile.TemporaryDirectory()
         temp_project_path = Path(temp_project.name)
         (temp_project_path / ".env").write_text(
-            "XIAOHUMINI_API_KEY=test-xiaohumini-key\n",
+            "XIAOHUMINI_API_KEY=test-xiaohumini-key\n"
+            "SILICONFLOW_API_KEY=test-siliconflow-key\n",
             encoding="utf-8",
         )
 
@@ -1021,6 +1241,7 @@ class BackendMainTests(unittest.TestCase):
 
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertTrue(providers["xiaohumini"]["enabled"])
+        self.assertTrue(providers["siliconflow"]["enabled"])
 
     def test_config_options_ignore_process_env_without_project_env_value(self):
         with (
