@@ -33,6 +33,7 @@ from web.backend.routers import (
 )
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
+from web.backend.runtime import task_store
 
 
 @asynccontextmanager
@@ -44,8 +45,9 @@ async def _app_lifespan(_: FastAPI):
     screener_results.initialize_screener_result_runtime()
     trade_entries.initialize_trade_entries_runtime()
     asset_entries.initialize_asset_runtime()
-    restore_persisted_active_tasks()
-    restore_persisted_screener_tasks()
+    if not task_store.redis_task_backend_enabled():
+        restore_persisted_active_tasks()
+        restore_persisted_screener_tasks()
     yield
 
 

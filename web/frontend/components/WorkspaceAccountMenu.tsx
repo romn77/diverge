@@ -239,7 +239,7 @@ export function WorkspaceAccountMenu({
                       ) : null}
                     </div>
 
-                    <div className="mt-4 flex justify-end gap-2">
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
                       {canManageUsers ? (
                         <Button asChild size="sm" onClick={() => setIsAccountOpen(false)}>
                           <Link href="/admin/users">

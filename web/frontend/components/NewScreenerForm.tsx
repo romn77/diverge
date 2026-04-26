@@ -26,6 +26,10 @@ interface NewScreenerFormProps {
   onTaskCreated: (taskId: string) => void;
 }
 
+type ScreenerFormState = Omit<ScreenTaskCreateRequest, "top_k"> & {
+  top_k: string;
+};
+
 const BREAKOUT_LABELS: Record<string, string> = {
   platform_breakout: "Platform Breakout",
   box_breakout: "Box Breakout",
@@ -33,14 +37,15 @@ const BREAKOUT_LABELS: Record<string, string> = {
 };
 
 function validateScreenerRequest(
-  formState: ScreenTaskCreateRequest,
+  formState: ScreenerFormState,
   t: ReturnType<typeof usePreferences>["t"]
 ): string | null {
   if (formState.markets.length === 0) {
     return t("screener.selectMarket", "Select at least one market.");
   }
 
-  if (!Number.isFinite(formState.top_k) || formState.top_k <= 0) {
+  const topK = Number(formState.top_k);
+  if (!Number.isFinite(topK) || topK <= 0) {
     return t("screener.topKPositive", "Top K must be positive.");
   }
 
@@ -61,7 +66,7 @@ export function NewScreenerForm({
 }: NewScreenerFormProps) {
   const { t } = usePreferences();
   const [configOptions, setConfigOptions] = useState<ScreenerConfigOptions | null>(null);
-  const [formState, setFormState] = useState<ScreenTaskCreateRequest | null>(null);
+  const [formState, setFormState] = useState<ScreenerFormState | null>(null);
   const [loadingOptions, setLoadingOptions] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,7 +99,8 @@ export function NewScreenerForm({
           markets: nextOptions.markets.filter((market) => market.enabled).slice(0, 1).map((market) => market.value),
           as_of_date: getLocalDateInputValue(),
           cn_data_source: nextOptions.defaults.cn_data_source,
-          top_k: nextOptions.defaults.top_k,
+          us_data_source: nextOptions.defaults.us_data_source,
+          top_k: String(nextOptions.defaults.top_k),
           breakout_types: nextOptions.defaults.breakout_types,
         });
       } catch (nextError) {
@@ -155,7 +161,10 @@ export function NewScreenerForm({
 
     setLoading(true);
     try {
-      const response = await createScreenerTask(formState);
+      const response = await createScreenerTask({
+        ...formState,
+        top_k: Number(formState.top_k),
+      });
       onClose();
       onTaskCreated(response.task_id);
     } catch (submitError) {
@@ -182,7 +191,7 @@ export function NewScreenerForm({
           <DialogDescription>
             {t(
               "screener.description",
-              "Pick the markets, optional CN source, candidate count, and breakout signals for this ranking run."
+              "Pick the markets, candidate count, and breakout signals for this ranking run."
             )}
           </DialogDescription>
         </DialogHeader>
@@ -223,38 +232,6 @@ export function NewScreenerForm({
             </section>
 
             <section className="grid gap-4 md:grid-cols-2">
-              {formState.markets.includes("cn") ? (
-                <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
-                  <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                    {t("screener.cnDataSource", "CN Data Source")}
-                  </span>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {configOptions.cn_data_sources.map((sourceOption) => {
-                      const active = formState.cn_data_source === sourceOption.value;
-                      return (
-                        <Button
-                          key={sourceOption.value}
-                          type="button"
-                          variant={active ? "default" : "secondary"}
-                          size="sm"
-                          onClick={() =>
-                            setFormState({
-                              ...formState,
-                              cn_data_source: sourceOption.value,
-                            })
-                          }
-                        >
-                          {t(
-                            `screener.cnSource.${optionKey(sourceOption.value)}`,
-                            sourceOption.label
-                          )}
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </label>
-              ) : null}
-
               <section className="field-shell rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
                 <p className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("screener.breakouts", "Breakout Signals")}
@@ -308,7 +285,7 @@ export function NewScreenerForm({
                   type="number"
                   value={formState.top_k}
                   onChange={(event) =>
-                    setFormState({ ...formState, top_k: Number(event.target.value) })
+                    setFormState({ ...formState, top_k: event.target.value })
                   }
                   className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 />

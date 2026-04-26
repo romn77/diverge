@@ -220,57 +220,28 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.6fr)]">
-            <div className="grid gap-4 md:grid-cols-3">
-              <SummaryCard
-                label={t("screenerResults.summary.topPick", "Top pick")}
-                value={strongestSignal?.symbol ?? "—"}
-                hint={
-                  strongestSignal
-                    ? `${strongestSignal.market} · total ${formatScore(strongestSignal.total_score, locale)}`
-                    : "Waiting for screener candidates"
-                }
-              />
-              <SummaryCard
-                label={t("screenerResults.summary.coverage", "Markets")}
-                value={String(marketCount || 0)}
-                hint="Distinct markets represented in this run"
-              />
-              <SummaryCard
-                label={t("screenerResults.summary.filtered", "Filtered Out")}
-                value={String(
-                  filteredReasons.reduce((sum, [, count]) => sum + count, 0)
-                )}
-                hint="Candidates removed before the final export"
-              />
-            </div>
-
-            <Card className="rounded-[24px] bg-[var(--surface-strong)] shadow-none">
-              <CardContent className="p-4">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                {t("screenerResults.summary.artifacts", "Artifacts")}
-              </p>
-              <div className="mt-3 space-y-2">
-                {Object.entries(run?.artifact_paths ?? {}).length === 0 ? (
-                  <p className="text-sm text-slate-500">No artifact paths exposed yet.</p>
-                ) : (
-                  Object.entries(run?.artifact_paths ?? {}).map(([label, artifactPath]) => (
-                    <div
-                      key={label}
-                      className="rounded-[18px] border border-[var(--border)] bg-white/88 px-3 py-3"
-                    >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                        {label}
-                      </p>
-                      <p className="mt-1 break-all font-mono text-[11px] text-slate-700">
-                        {artifactPath}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-              </CardContent>
-            </Card>
+          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            <SummaryCard
+              label={t("screenerResults.summary.topPick", "Top pick")}
+              value={strongestSignal?.symbol ?? "—"}
+              hint={
+                strongestSignal
+                  ? `${strongestSignal.market} · total ${formatScore(strongestSignal.total_score, locale)}`
+                  : "Waiting for screener candidates"
+              }
+            />
+            <SummaryCard
+              label={t("screenerResults.summary.coverage", "Markets")}
+              value={String(marketCount || 0)}
+              hint="Distinct markets represented in this run"
+            />
+            <SummaryCard
+              label={t("screenerResults.summary.filtered", "Filtered Out")}
+              value={String(
+                filteredReasons.reduce((sum, [, count]) => sum + count, 0)
+              )}
+              hint="Candidates removed before the final export"
+            />
           </div>
 
           <div className="mt-8 flex flex-wrap gap-2">

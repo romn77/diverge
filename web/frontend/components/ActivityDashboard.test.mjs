@@ -21,3 +21,16 @@ test("ActivityDashboard centralizes in-flight analysis and screener monitoring",
   assert.match(source, /t\("activity\.screenerTasks", "Screener tasks"\)/);
   assert.match(source, /t\("activity\.metric\.totalMeta", "Combined background jobs"\)/);
 });
+
+test("ActivityDashboard lets failed task records be deleted from the task rows", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /Trash2/);
+  assert.match(source, /deleteTask/);
+  assert.match(source, /deleteScreenerTask/);
+  assert.match(source, /failedTasks/);
+  assert.match(source, /failedScreenerTasks/);
+  assert.match(source, /onDelete/);
+  assert.match(source, /stopPropagation/);
+  assert.match(source, /activity\.deleteFailedTask/);
+});

@@ -16,3 +16,4 @@ class TaskCreatePayload(BaseModel):
     output_language: str
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
+    market_data_source: str = "yfinance"

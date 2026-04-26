@@ -46,6 +46,8 @@ def create_screener_task(
         )
 
     request_payload = payload.model_dump()
+    request_payload["cn_data_source"] = "tushare"
+    request_payload["us_data_source"] = "massive"
     config_payload = dict(request_payload)
     config_payload["output_dir"] = str(app_config.SCREENER_RESULTS_DIR)
     if "cn" in request_payload["markets"]:
@@ -103,15 +105,28 @@ def get_screener_task_status(task_id: str, request: Request = None) -> dict:
     return _get_authorized_screener_task(task_id, current_user).to_dict()
 
 
+@router.delete("/api/screener/tasks/{task_id}")
+def delete_screener_task(task_id: str, request: Request = None) -> dict:
+    current_user = access.require_screener_user(request)
+    _get_authorized_screener_task(task_id, current_user)
+    screener_tasks.delete_failed_screener_task(task_id)
+    return {"deleted": True, "task_id": task_id}
+
+
 @router.get(
     "/api/screener/tasks/{task_id}/stream",
 )
-async def stream_screener_task(task_id: str, request: Request) -> StreamingResponse:
+async def stream_screener_task(
+    task_id: str,
+    request: Request,
+    cursor: int = 0,
+) -> StreamingResponse:
     current_user = access.require_screener_user(request)
     _get_authorized_screener_task(task_id, current_user)
+    start_cursor = max(cursor, 0)
 
     async def event_generator():
-        cursor = 0
+        cursor = start_cursor
 
         while True:
             if await request.is_disconnected():

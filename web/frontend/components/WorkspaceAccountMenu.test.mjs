@@ -46,6 +46,9 @@ test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top
   assert.match(source, /getConfigOptions/);
   assert.match(source, /Workspace Access/);
   assert.match(source, /Admin Console/);
+  assert.doesNotMatch(source, /workspace\.dataSources/);
+  assert.doesNotMatch(source, /href="\/admin\/data-sources"/);
+  assert.match(source, /flex flex-wrap justify-end gap-2/);
   assert.match(source, /Sign Out/);
   assert.match(source, /Open Workspace/);
   assert.match(source, /must_change_password/);

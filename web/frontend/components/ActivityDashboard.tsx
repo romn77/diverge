@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { Trash2 } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { deleteScreenerTask, deleteTask } from "@/lib/api";
 import {
   buildHomeHref,
   buildScreenerHref,
@@ -15,8 +17,41 @@ import {
 
 export function ActivityDashboard() {
   const { t } = usePreferences();
-  const { activeScreenerTasks, activeTasks } = useWorkbench();
+  const {
+    activeScreenerTasks,
+    activeTasks,
+    refreshScreenerTasks,
+    refreshTasks,
+    screenerTasks,
+    tasks,
+  } = useWorkbench();
   const totalActive = activeTasks.length + activeScreenerTasks.length;
+  const failedTasks = tasks.filter((task) => task.status === "failed");
+  const failedScreenerTasks = screenerTasks.filter((task) => task.status === "failed");
+
+  const confirmDeleteFailedTask = () =>
+    window.confirm(
+      t(
+        "activity.deleteFailedTaskConfirm",
+        "Delete this failed task record? This removes only the task record."
+      )
+    );
+
+  const handleDeleteTask = async (taskId: string) => {
+    if (!confirmDeleteFailedTask()) {
+      return;
+    }
+    await deleteTask(taskId);
+    await refreshTasks();
+  };
+
+  const handleDeleteScreenerTask = async (taskId: string) => {
+    if (!confirmDeleteFailedTask()) {
+      return;
+    }
+    await deleteScreenerTask(taskId);
+    await refreshScreenerTasks();
+  };
 
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
@@ -82,6 +117,19 @@ export function ActivityDashboard() {
             }))}
           />
           <ActivityQueueSection
+            title={t("activity.failedAnalysisTasks", "Failed analysis tasks")}
+            description={t("activity.failedAnalysisDescription", "Failed research records that can be removed.")}
+            emptyLabel={t("activity.noFailedAnalysisJobs", "No failed analysis jobs.")}
+            items={failedTasks.map((task) => ({
+              href: buildTaskHref(task.id),
+              label: task.ticker,
+              meta: task.error ?? task.analysis_date,
+              status: t(`task.status.${task.status}`, task.status),
+              deleteLabel: t("activity.deleteFailedTask", "Delete failed task"),
+              onDelete: () => void handleDeleteTask(task.id),
+            }))}
+          />
+          <ActivityQueueSection
             title={t("activity.screenerTasks", "Screener tasks")}
             description={t(
               "activity.screenerDescription",
@@ -97,6 +145,24 @@ export function ActivityDashboard() {
                 task.request_payload?.as_of_date ??
                 t("activity.awaitingUpdate", "Awaiting next update"),
               status: t(`task.status.${task.status}`, task.status),
+            }))}
+          />
+          <ActivityQueueSection
+            title={t("activity.failedScreenerTasks", "Failed screener tasks")}
+            description={t("activity.failedScreenerDescription", "Failed candidate-pool records that can be removed.")}
+            emptyLabel={t("activity.noFailedScreenerJobs", "No failed screener jobs.")}
+            items={failedScreenerTasks.map((task) => ({
+              href: buildScreenerTaskHref(task.id),
+              label:
+                task.request_payload?.markets.join(", ") ||
+                t("activity.candidatePoolBuild", "Candidate pool build"),
+              meta:
+                task.error ??
+                task.request_payload?.as_of_date ??
+                t("activity.awaitingUpdate", "Awaiting next update"),
+              status: t(`task.status.${task.status}`, task.status),
+              deleteLabel: t("activity.deleteFailedTask", "Delete failed task"),
+              onDelete: () => void handleDeleteScreenerTask(task.id),
             }))}
           />
         </section>
@@ -136,7 +202,14 @@ function ActivityQueueSection({
   title: string;
   description: string;
   emptyLabel: string;
-  items: Array<{ href: string; label: string; meta: string; status: string }>;
+  items: Array<{
+    href: string;
+    label: string;
+    meta: string;
+    status: string;
+    deleteLabel?: string;
+    onDelete?: () => void;
+  }>;
 }) {
   return (
     <Card className="card-surface rounded-[28px]">
@@ -160,21 +233,39 @@ function ActivityQueueSection({
       ) : (
         <div className="mt-5 space-y-3">
           {items.map((item) => (
-            <Link
+            <div
               key={`${item.href}-${item.label}`}
-              href={item.href}
               className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
             >
-              <div className="min-w-0">
+              <Link href={item.href} className="min-w-0 flex-1">
                 <p className="truncate text-base font-semibold text-slate-900">{item.label}</p>
                 <p className="mt-1 truncate text-xs uppercase tracking-[0.16em] text-slate-500">
                   {item.meta}
                 </p>
+              </Link>
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge variant="secondary">
+                  {item.status}
+                </Badge>
+                {item.onDelete ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={item.deleteLabel}
+                    title={item.deleteLabel}
+                    className="size-8 text-[var(--danger)] hover:bg-[rgba(163,53,53,0.08)] hover:text-[var(--danger)]"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      item.onDelete?.();
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                ) : null}
               </div>
-              <Badge variant="secondary">
-                {item.status}
-              </Badge>
-            </Link>
+            </div>
           ))}
         </div>
       )}

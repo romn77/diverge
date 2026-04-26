@@ -7,6 +7,7 @@ from unittest.mock import patch
 from tradingagents.runner import (
     AnalysisRequest,
     AnalysisTracker,
+    build_analysis_config,
     run_analysis_streaming,
     save_report_to_disk,
 )
@@ -160,6 +161,35 @@ class AnalysisTrackerTests(unittest.TestCase):
             reports_dir=None,
             analysis_date="2026-04-03",
             visible_trade_ids=None,
+        )
+
+    def test_build_analysis_config_can_prefer_massive_for_us_market_data(self):
+        request = AnalysisRequest(
+            ticker="MSFT",
+            analysis_date="2026-04-03",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+            market_data_source="massive",
+        )
+
+        config = build_analysis_config(request)
+
+        self.assertEqual(
+            config["market_overrides"]["us"]["core_stock_apis"],
+            "massive,yfinance",
+        )
+        self.assertEqual(
+            config["market_overrides"]["us"]["technical_indicators"],
+            "yfinance",
+        )
+        self.assertNotIn(
+            "alpha_vantage",
+            config["market_overrides"]["us"]["core_stock_apis"],
         )
 
 

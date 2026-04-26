@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import time
+import contextlib
 from typing import Any
 
 
@@ -41,6 +42,14 @@ class InMemoryTaskStore:
     def get_task(self, kind: str, task_id: str) -> dict | None:
         payload = self.tasks.setdefault(kind, {}).get(task_id)
         return dict(payload) if payload is not None else None
+
+    def delete_task(self, kind: str, task_id: str) -> None:
+        self.tasks.setdefault(kind, {}).pop(task_id, None)
+        self.events.setdefault(kind, {}).pop(task_id, None)
+        with contextlib.suppress(ValueError):
+            self.queue_names.setdefault(kind, []).remove(task_id)
+        with contextlib.suppress(ValueError):
+            self.ids.setdefault(kind, []).remove(task_id)
 
     def list_tasks(self, kind: str) -> list[dict]:
         return [
@@ -93,6 +102,14 @@ class RedisTaskStore:
         if value is None:
             return None
         return _loads(value)
+
+    def delete_task(self, kind: str, task_id: str) -> None:
+        self.client.delete(
+            self._key(kind, f"task:{task_id}"),
+            self._key(kind, f"task:{task_id}:events"),
+        )
+        self.client.lrem(self._key(kind, "ids"), 0, task_id)
+        self.client.lrem(self._key(kind, "queue"), 0, task_id)
 
     def list_tasks(self, kind: str) -> list[dict]:
         ids = self.client.lrange(self._key(kind, "ids"), 0, -1) or []

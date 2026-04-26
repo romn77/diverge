@@ -17,7 +17,6 @@ test("NewScreenerForm is driven by backend screener config options and task crea
   assert.match(source, /<Button/);
   assert.match(source, /DialogContent/);
   assert.match(source, /Markets/i);
-  assert.match(source, /CN Data Source/i);
   assert.match(source, /Top K/i);
   assert.doesNotMatch(source, /Limit Per Market/i);
   assert.doesNotMatch(source, /limit_per_market/);
@@ -35,13 +34,25 @@ test("NewScreenerForm disables backend-unavailable markets with an explanation",
   assert.match(source, /SCREEN_US_MANIFEST_PATH/i);
 });
 
-test("NewScreenerForm includes a CN data-source selector wired to form state", () => {
+test("NewScreenerForm hides data-source selectors from regular screener runs", () => {
   const source = readFileSync(formPath, "utf8");
 
-  assert.match(source, /cn_data_source/);
-  assert.match(source, /configOptions\.cn_data_sources/);
-  assert.match(source, /sourceOption\.label/);
-  assert.match(source, /sourceOption\.value/);
+  assert.match(source, /cn_data_source:\s*nextOptions\.defaults\.cn_data_source/);
+  assert.match(source, /us_data_source:\s*nextOptions\.defaults\.us_data_source/);
+  assert.doesNotMatch(source, /configOptions\.cn_data_sources\.map/);
+  assert.doesNotMatch(source, /configOptions\.us_data_sources\.map/);
+  assert.doesNotMatch(source, /screener\.cnDataSource/);
+  assert.doesNotMatch(source, /screener\.usDataSource/);
+});
+
+test("NewScreenerForm keeps Top K editable without forcing blank input to zero", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /type ScreenerFormState = Omit<ScreenTaskCreateRequest, "top_k">/);
+  assert.match(source, /top_k:\s*String\(nextOptions\.defaults\.top_k\)/);
+  assert.match(source, /top_k:\s*event\.target\.value/);
+  assert.match(source, /top_k:\s*Number\(formState\.top_k\)/);
+  assert.doesNotMatch(source, /top_k:\s*Number\(event\.target\.value\)/);
 });
 
 test("NewScreenerForm exposes breakout selection without describing it as a hard filter", () => {

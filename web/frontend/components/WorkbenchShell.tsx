@@ -168,14 +168,6 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
             <Sidebar
               isOpen={isSidebarOpen}
               onClose={() => setIsSidebarOpen(false)}
-              onNewAnalysis={() => {
-                chromeValue.openAnalysisDialog();
-                setIsSidebarOpen(false);
-              }}
-              onNewScreener={() => {
-                chromeValue.openScreenerDialog();
-                setIsSidebarOpen(false);
-              }}
             />
 
             <div className="flex min-w-0 flex-1 flex-col">

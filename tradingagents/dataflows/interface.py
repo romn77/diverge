@@ -54,6 +54,7 @@ from .vendor_errors import (
     VendorNotSupportedError,
     VendorRetryableError,
 )
+from . import vendor_usage
 
 # Tools organized by category
 TOOLS_CATEGORIES = {
@@ -345,6 +346,12 @@ def execute_vendor_chain(
         if vendor not in method_vendor_map[method]:
             continue
 
+        if not vendor_usage.is_data_source_available(vendor):
+            last_error = VendorRetryableError(
+                f"Data source '{vendor}' is disabled or over its daily quota."
+            )
+            continue
+
         attempted_vendors.append(vendor)
 
         vendor_args = resolved_args
@@ -367,11 +374,18 @@ def execute_vendor_chain(
         try:
             result = impl_func(*vendor_args, **vendor_kwargs)
             if isinstance(result, str):
-                return _normalize_legacy_vendor_result(result, vendor, method)
+                normalized_result = _normalize_legacy_vendor_result(result, vendor, method)
+                vendor_usage.record_data_source_call(vendor, success=True)
+                return normalized_result
+            vendor_usage.record_data_source_call(vendor, success=True)
             return result
         except FALLBACK_ERRORS as exc:
+            vendor_usage.record_data_source_call(vendor, success=False)
             last_error = exc
             continue
+        except Exception:
+            vendor_usage.record_data_source_call(vendor, success=False)
+            raise
 
     if last_error is not None:
         raise RuntimeError(

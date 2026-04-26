@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
+from tradingagents.dataflows import vendor_usage
 from tradingagents.runner import (
     AnalysisProgress,
     AnalysisRequest,
@@ -146,6 +147,23 @@ def get_task(task_id: str) -> Task:
     return task
 
 
+def delete_failed_task(task_id: str) -> None:
+    task = get_task(task_id)
+    if task.status != "failed":
+        raise HTTPException(
+            status_code=409,
+            detail="Only failed tasks can be deleted.",
+        )
+
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().delete_task("analysis", task_id)
+        return
+
+    with tasks_lock:
+        tasks.pop(task_id, None)
+    delete_task_snapshot(task_id)
+
+
 def append_progress(task_id: str, progress: AnalysisProgress) -> None:
     event_payload = progress.to_dict()
     if task_store.redis_task_backend_enabled():
@@ -266,21 +284,22 @@ def run_task(task_id: str) -> None:
         temp_dir.mkdir(parents=True, exist_ok=True)
 
         visible_ids = access.visible_trade_ids_for_task(task)
-        progress_stream = run_analysis_streaming(
-            task.request,
-            temp_dir,
-            reports_dir=app_config.REPORTS_DIR,
-            visible_trade_ids=visible_ids,
-        )
-        final_state = None
-        while True:
-            try:
-                progress = next(progress_stream)
-            except StopIteration as stop:
-                final_state = stop.value
-                break
+        with vendor_usage.data_source_usage_context("analysis"):
+            progress_stream = run_analysis_streaming(
+                task.request,
+                temp_dir,
+                reports_dir=app_config.REPORTS_DIR,
+                visible_trade_ids=visible_ids,
+            )
+            final_state = None
+            while True:
+                try:
+                    progress = next(progress_stream)
+                except StopIteration as stop:
+                    final_state = stop.value
+                    break
 
-            append_progress(task_id, progress)
+                append_progress(task_id, progress)
 
         if final_state is None:
             raise RuntimeError("Analysis did not return a final state")

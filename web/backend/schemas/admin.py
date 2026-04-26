@@ -35,3 +35,8 @@ class AdminAnalysisRoleLimitPayload(BaseModel):
 
 class AdminAnalysisLimitsUpdatePayload(BaseModel):
     limits: list[AdminAnalysisRoleLimitPayload]
+
+
+class AdminDataSourceUpdatePayload(BaseModel):
+    enabled: bool
+    daily_limit: Optional[int] = Field(default=None, ge=0)

@@ -20,7 +20,7 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /buildJournalHref/);
   assert.match(source, /buildActivityHref/);
   assert.doesNotMatch(source, /sidebar\.brandSubline/);
-  assert.match(source, /t\("sidebar\.create", "New"\)/);
+  assert.doesNotMatch(source, /t\("sidebar\.create", "New"\)/);
   assert.match(source, /SidebarSection title=\{t\("sidebar\.section\.research", "Research"\)\}/);
   assert.match(source, /SidebarSection title=\{t\("sidebar\.section\.portfolio", "Portfolio"\)\}/);
   assert.match(source, /SidebarSectionHeading title=\{t\("sidebar\.section\.operations", "Operations"\)\} muted/);
@@ -34,12 +34,14 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /t\("sidebar\.meta\.assets", "Ledger and exposure"\)/);
   assert.match(source, /t\("sidebar\.meta\.journal", "Trade review"\)/);
   assert.match(source, /t\("sidebar\.noActiveWork", "No active background work"\)/);
-  assert.match(source, /CreateMenu/);
+  assert.doesNotMatch(source, /CreateMenu/);
   assert.match(source, /const isMobileDrawerOpen = isMobileViewport && isOpen/);
   assert.match(source, /const isDesktopRail = !isMobileViewport && isDesktopCollapsed/);
   assert.match(source, /document\.body\.style\.overflow/);
   assert.match(source, /event\.key !== "Escape"/);
-  assert.match(source, /createButtonRef\.current\?\.focus/);
+  assert.doesNotMatch(source, /createButtonRef/);
+  assert.doesNotMatch(source, /createMenuRef/);
+  assert.doesNotMatch(source, /isCreateMenuOpen/);
   assert.match(source, /window\.matchMedia\("\(max-width: 767px\)"\)/);
   assert.match(source, /Collapse sidebar/);
   assert.match(source, /Expand sidebar/);

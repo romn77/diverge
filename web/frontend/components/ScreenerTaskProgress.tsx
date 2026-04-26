@@ -32,44 +32,65 @@ export function ScreenerTaskProgress({
 
   useEffect(() => {
     let isActive = true;
+    let unsubscribe: (() => void) | undefined;
 
-    const syncTask = async () => {
+    const syncTask = async (replaceEvents = false) => {
       const nextTask = await getScreenerTask(taskId);
       if (!isActive) {
-        return;
+        return null;
       }
+      const existingEvents = nextTask.progress_events ?? [];
       setTask(nextTask);
+      if (replaceEvents) {
+        setEvents(existingEvents);
+      }
       if (nextTask.status === "completed") {
         onTaskComplete(nextTask.run_id);
       }
+      return { nextTask, existingEvents };
     };
 
-    const unsubscribe = subscribeToScreenerTask(taskId, (event) => {
-      if (!isActive) {
+    const syncAndSubscribe = async () => {
+      const snapshot = await syncTask(true);
+      if (!snapshot || snapshot.nextTask.status === "completed" || snapshot.nextTask.status === "failed") {
         return;
       }
-      setEvents((current) => [...current, event]);
-      setTask((current) =>
-        current
-          ? { ...current, status: event.status, latest_progress: event }
-          : {
-              id: taskId,
-              request_payload: null,
-              status: event.status,
-              latest_progress: event,
-              run_id: null,
-              error: null,
-            }
-      );
-      if (event.status === "completed" || event.status === "failed") {
-        void syncTask();
-      }
-    });
 
-    void syncTask();
+      unsubscribe = subscribeToScreenerTask(
+        taskId,
+        (event) => {
+          if (!isActive) {
+            return;
+          }
+          setEvents((current) => [...current, event]);
+          setTask((current) =>
+            current
+              ? { ...current, status: event.status, latest_progress: event }
+              : {
+                  id: taskId,
+                  request_payload: null,
+                  status: event.status,
+                  latest_progress: event,
+                  progress_events: [event],
+                  run_id: null,
+                  error: null,
+                }
+          );
+          if (event.status === "completed" || event.status === "failed") {
+            unsubscribe?.();
+            unsubscribe = undefined;
+            void syncTask();
+          }
+        },
+        undefined,
+        snapshot.existingEvents.length
+      );
+    };
+
+    void syncAndSubscribe();
     return () => {
       isActive = false;
-      unsubscribe();
+      unsubscribe?.();
     };
   }, [onTaskComplete, taskId]);
 

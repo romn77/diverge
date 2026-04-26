@@ -568,6 +568,14 @@ export default function AdminUsersPage() {
                 >
                   Back to Workbench
                 </Link>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button type="button" size="sm">
+                    User Management
+                  </Button>
+                  <Button asChild type="button" size="sm" variant="secondary">
+                    <Link href="/admin/data-sources">Data Sources</Link>
+                  </Button>
+                </div>
                 <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
                   Manage workspace access
                 </h1>

@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import asyncio
 import os
 import json
 from pathlib import Path
@@ -8,13 +9,16 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
+from tradingagents.dataflows import vendor_usage
 from tradingagents.runner import AnalysisRequest
 from tradingagents.screener.schema import ScreenRunResult
-from web.backend import app_config as backend_config, auth, screener_results
+from web.backend import app_config as backend_config, auth, main as backend_main, screener_results
+from web.backend.routers import admin as admin_router
 from web.backend.routers import config as config_router
 from web.backend.routers import screeners as screeners_router
 from web.backend.routers import tasks as tasks_router
 from web.backend.runtime import analysis_tasks, screener_tasks
+from web.backend.schemas.admin import AdminDataSourceUpdatePayload
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.schemas.ticker_history import (
@@ -45,6 +49,13 @@ class BackendMainTests(unittest.TestCase):
         self.original_screener_cache_dir = backend_config.SCREENER_CACHE_DIR
         self.original_stock_history_dir = backend_config.STOCK_HISTORY_DIR
         self.original_tmp_reports_dir = backend_config.TMP_REPORTS_DIR
+        self.vendor_usage_env_patch = patch.dict(
+            os.environ,
+            {"DATA_SOURCE_USAGE_PATH": str(Path(self.temp_dir.name) / "vendor_usage.json")},
+            clear=False,
+        )
+        self.vendor_usage_env_patch.start()
+        vendor_usage.reset_data_source_usage_state()
         backend_config.REPORTS_DIR = Path(self.temp_dir.name) / "data" / "reports"
         backend_config.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "runs"
         backend_config.SCREENER_STATE_DIR = Path(self.temp_dir.name) / "data" / "screener" / "state"
@@ -68,6 +79,8 @@ class BackendMainTests(unittest.TestCase):
         analysis_tasks.tasks.clear()
         screener_tasks.screener_tasks.clear()
         screener_results.reset_screener_result_observability()
+        vendor_usage.reset_data_source_usage_state()
+        self.vendor_usage_env_patch.stop()
         auth.reset_runtime_state()
         self.auth_env_patch.stop()
         self.empty_project_dir.cleanup()
@@ -161,6 +174,7 @@ class BackendMainTests(unittest.TestCase):
             "output_language": "en",
             "openai_reasoning_effort": "medium",
             "google_thinking_level": None,
+            "market_data_source": "massive",
         }
 
         self.empty_project_env.write_text(
@@ -184,6 +198,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(task_status["request_payload"]["ticker"], "SPY")
         self.assertEqual(task_status["request_payload"]["analysts"], ["market", "news"])
         self.assertEqual(task_status["request_payload"]["llm_provider"], "openai")
+        self.assertEqual(task_status["request_payload"]["market_data_source"], "massive")
 
         snapshot_path = analysis_tasks.task_snapshot_path(body["task_id"])
         self.assertTrue(snapshot_path.is_file())
@@ -283,6 +298,21 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("restarted", restored["error"].lower())
         self.assertFalse(analysis_tasks.task_snapshot_path("task-recover").exists())
 
+    def test_api_lifespan_skips_task_recovery_when_redis_worker_is_enabled(self):
+        async def run_lifespan():
+            async with backend_main._app_lifespan(backend_main.app):
+                pass
+
+        with (
+            patch("web.backend.runtime.task_store.redis_task_backend_enabled", return_value=True),
+            patch("web.backend.main.restore_persisted_active_tasks") as restore_analysis,
+            patch("web.backend.main.restore_persisted_screener_tasks") as restore_screener,
+        ):
+            asyncio.run(run_lifespan())
+
+        restore_analysis.assert_not_called()
+        restore_screener.assert_not_called()
+
     def test_post_tasks_rejects_when_two_active_tasks_already_exist(self):
         payload = {
             "ticker": "SPY",
@@ -343,20 +373,190 @@ class BackendMainTests(unittest.TestCase):
         task_status = screeners_router.get_screener_task_status(body["task_id"])
         self.assertEqual(task_status["status"], "pending")
         self.assertEqual(task_status["request_payload"]["markets"], ["cn"])
-        self.assertEqual(task_status["request_payload"]["cn_data_source"], "akshare")
-        self.assertEqual(task_status["config_payload"]["cn_data_source"], "akshare")
+        self.assertEqual(task_status["request_payload"]["cn_data_source"], "tushare")
+        self.assertEqual(task_status["request_payload"]["us_data_source"], "massive")
+        self.assertEqual(task_status["config_payload"]["cn_data_source"], "tushare")
+        self.assertEqual(task_status["config_payload"]["us_data_source"], "massive")
         self.assertNotIn("limit_per_market", task_status["request_payload"])
         self.assertNotIn("limit_per_market", task_status["config_payload"])
 
-    def test_get_screener_config_options_exposes_cn_data_source_choices(self):
+    def test_post_screener_tasks_forces_fixed_sources_for_us_market(self):
+        payload = {
+            "markets": ["us"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+            "cn_data_source": "akshare",
+            "us_data_source": "alpha_vantage",
+        }
+
+        with (
+            patch.dict(os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us.csv"}, clear=False),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+        ):
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
+
+        start_task_thread.assert_called_once()
+        task_status = screeners_router.get_screener_task_status(body["task_id"])
+        self.assertEqual(task_status["request_payload"]["cn_data_source"], "tushare")
+        self.assertEqual(task_status["request_payload"]["us_data_source"], "massive")
+        self.assertEqual(task_status["config_payload"]["cn_data_source"], "tushare")
+        self.assertEqual(task_status["config_payload"]["us_data_source"], "massive")
+
+    def test_get_screener_config_options_exposes_market_data_source_choices(self):
         payload = config_service.get_screener_config_options_payload()
 
         self.assertEqual(payload["defaults"]["cn_data_source"], "tushare")
+        self.assertEqual(payload["defaults"]["us_data_source"], "massive")
         self.assertNotIn("limit_per_market", payload["defaults"])
         self.assertEqual(
             [option["value"] for option in payload["cn_data_sources"]],
-            ["tushare", "akshare"],
+            ["tushare"],
         )
+        self.assertEqual(
+            [option["value"] for option in payload["us_data_sources"]],
+            ["massive"],
+        )
+
+    def test_get_config_options_exposes_analysis_market_data_source_choices(self):
+        payload = config_service.get_config_options_payload()
+
+        self.assertEqual(
+            [option["value"] for option in payload["market_data_sources"]],
+            ["yfinance", "massive"],
+        )
+        self.assertEqual(payload["defaults"]["market_data_source"], "massive")
+
+    def test_admin_data_source_usage_endpoint_reports_and_updates_vendor_state(self):
+        vendor_usage.record_data_source_call(
+            "alpha_vantage",
+            module="analysis",
+            success=True,
+        )
+
+        payload = admin_router.list_admin_data_sources()
+        sources = {source["vendor"]: source for source in payload["sources"]}
+
+        self.assertEqual(sources["alpha_vantage"]["daily_limit"], 25)
+        self.assertEqual(sources["alpha_vantage"]["used_today"], 1)
+        self.assertEqual(
+            sources["alpha_vantage"]["modules"]["analysis"]["total_calls"],
+            1,
+        )
+
+        updated = admin_router.update_admin_data_source(
+            "alpha_vantage",
+            AdminDataSourceUpdatePayload(enabled=False, daily_limit=25),
+        )
+
+        self.assertFalse(updated["source"]["enabled"])
+        self.assertFalse(vendor_usage.is_data_source_available("alpha_vantage"))
+
+    def test_delete_failed_analysis_task_removes_local_record(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2026-03-13",
+            "analysts": ["market", "news"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+        task = analysis_tasks.Task(
+            id="task-failed-delete",
+            request=AnalysisRequest(**payload),
+            status="failed",
+            error="boom",
+        )
+        analysis_tasks.tasks[task.id] = task
+
+        body = tasks_router.delete_task(task.id)
+
+        self.assertEqual(body, {"deleted": True, "task_id": task.id})
+        with self.assertRaises(HTTPException) as context:
+            tasks_router.get_task_status(task.id)
+        self.assertEqual(context.exception.status_code, 404)
+
+    def test_delete_running_analysis_task_is_rejected(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2026-03-13",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+        task = analysis_tasks.Task(
+            id="task-running-delete",
+            request=AnalysisRequest(**payload),
+            status="running",
+        )
+        analysis_tasks.tasks[task.id] = task
+
+        with self.assertRaises(HTTPException) as context:
+            tasks_router.delete_task(task.id)
+
+        self.assertEqual(context.exception.status_code, 409)
+
+    def test_delete_failed_screener_task_removes_local_record(self):
+        task = screener_tasks.ScreenerTask(
+            id="screener-failed-delete",
+            request_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+            config_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+            status="failed",
+            error="boom",
+        )
+        screener_tasks.screener_tasks[task.id] = task
+
+        body = screeners_router.delete_screener_task(task.id)
+
+        self.assertEqual(body, {"deleted": True, "task_id": task.id})
+        with self.assertRaises(HTTPException) as context:
+            screeners_router.get_screener_task_status(task.id)
+        self.assertEqual(context.exception.status_code, 404)
+
+    def test_post_screener_tasks_forces_us_data_source_selection(self):
+        payload = {
+            "markets": ["us"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+            "us_data_source": "alpha_vantage",
+        }
+
+        with (
+            patch.dict(os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us_manifest.csv"}, clear=True),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+        ):
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
+
+        self.assertEqual(body["status"], "pending")
+        start_task_thread.assert_called_once()
+
+        task_status = screeners_router.get_screener_task_status(body["task_id"])
+        self.assertEqual(task_status["request_payload"]["markets"], ["us"])
+        self.assertEqual(task_status["request_payload"]["us_data_source"], "massive")
+        self.assertEqual(task_status["config_payload"]["us_data_source"], "massive")
+        self.assertEqual(task_status["config_payload"]["us_manifest_path"], "/tmp/us_manifest.csv")
 
     def test_post_screener_tasks_injects_backend_cn_manifest_when_configured(self):
         payload = {
@@ -645,6 +845,49 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(task_status["status"], "completed")
         self.assertIn("cache_hit", task_status["progress_events"][0]["message"])
         self.assertIn("600519.SH", task_status["progress_events"][0]["message"])
+
+    def test_screener_task_stream_starts_from_cursor(self):
+        task = screener_tasks.ScreenerTask(
+            id="task-stream-cursor",
+            request_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+            config_payload={
+                "markets": ["cn"],
+                "as_of_date": "2026-03-24",
+                "top_k": 20,
+                "cn_data_source": "akshare",
+            },
+            status="failed",
+            latest_progress={"timestamp": "10:00:01", "status": "failed", "message": "new"},
+            progress_events=[
+                {"timestamp": "10:00:00", "status": "running", "message": "old"},
+                {"timestamp": "10:00:01", "status": "failed", "message": "new"},
+            ],
+        )
+        screener_tasks.screener_tasks[task.id] = task
+
+        class RequestStub:
+            async def is_disconnected(self):
+                return False
+
+        async def render_stream() -> str:
+            response = await screeners_router.stream_screener_task(
+                task.id,
+                RequestStub(),
+                cursor=1,
+            )
+            chunks = []
+            async for chunk in response.body_iterator:
+                chunks.append(chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk)
+            return "".join(chunks)
+
+        body = asyncio.run(render_stream())
+        self.assertIn("new", body)
+        self.assertNotIn("old", body)
 
     def test_post_screener_tasks_rejects_empty_markets_before_queueing(self):
         payload = {

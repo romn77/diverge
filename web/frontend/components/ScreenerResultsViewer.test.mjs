@@ -44,3 +44,10 @@ test("ScreenerResultsViewer includes breakout filter controls for results explor
   assert.match(source, /Box Breakout/i);
   assert.match(source, /Wedge Breakout/i);
 });
+
+test("ScreenerResultsViewer does not expose internal artifact paths in the report summary", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.doesNotMatch(source, /screenerResults\.summary\.artifacts/);
+  assert.doesNotMatch(source, /artifact_paths/);
+});

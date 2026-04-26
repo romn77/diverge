@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
+from tradingagents.dataflows import vendor_usage
 from web.backend import access, analysis_limits, auth
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
+    AdminDataSourceUpdatePayload,
     AdminUserCreatePayload,
     AdminUserResetPasswordPayload,
     AdminUserUpdatePayload,
@@ -62,6 +64,34 @@ def update_admin_analysis_limits(
         ",".join(row["role"] for row in result["limits"]),
     )
     return result
+
+
+@router.get("/api/admin/data-sources")
+def list_admin_data_sources() -> dict:
+    return vendor_usage.get_data_source_usage_summary()
+
+
+@router.put("/api/admin/data-sources/{vendor}")
+def update_admin_data_source(
+    vendor: str,
+    payload: AdminDataSourceUpdatePayload,
+) -> dict:
+    try:
+        source = vendor_usage.update_data_source_config(
+            vendor,
+            enabled=payload.enabled,
+            daily_limit=payload.daily_limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    logger.info(
+        "admin data source updated vendor=%s enabled=%s daily_limit=%s",
+        source["vendor"],
+        source["enabled"],
+        source["daily_limit"],
+    )
+    return {"source": source}
 
 
 @router.get("/api/admin/users/{user_id}")

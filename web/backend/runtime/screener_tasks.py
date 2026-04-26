@@ -12,6 +12,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
+from tradingagents.dataflows import vendor_usage
 from tradingagents.screener.pipeline import run_screen
 from tradingagents.screener.schema import ScreenRunConfig
 from web.backend import app_config, storage
@@ -117,6 +118,23 @@ def get_screener_task(task_id: str) -> ScreenerTask:
     if task is None:
         raise HTTPException(status_code=404, detail=f"Screener task '{task_id}' not found")
     return task
+
+
+def delete_failed_screener_task(task_id: str) -> None:
+    task = get_screener_task(task_id)
+    if task.status != "failed":
+        raise HTTPException(
+            status_code=409,
+            detail="Only failed screener tasks can be deleted.",
+        )
+
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().delete_task("screener", task_id)
+        return
+
+    with screener_tasks_lock:
+        screener_tasks.pop(task_id, None)
+    delete_screener_task_snapshot(task_id)
 
 
 def append_screener_progress(task_id: str, progress: dict) -> None:
@@ -305,10 +323,11 @@ def run_screener_task(task_id: str) -> None:
             append_screener_progress(task_id, progress)
 
         current_task = get_screener_task(task_id)
-        result = run_screen(
-            ScreenRunConfig(**current_task.config_payload),
-            progress_callback=progress_callback,
-        )
+        with vendor_usage.data_source_usage_context("screener"):
+            result = run_screen(
+                ScreenRunConfig(**current_task.config_payload),
+                progress_callback=progress_callback,
+            )
         if storage_backend_is_remote():
             storage.upload_directory(Path(result.run_dir), f"screener/runs/{Path(result.run_dir).name}")
 

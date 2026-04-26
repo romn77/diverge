@@ -18,6 +18,7 @@ from tradingagents.dataflows.alpha_vantage_stock import _fetch_alpha_vantage_sto
 from tradingagents.dataflows.cn_market_utils import detect_market, normalize_symbol_for_vendor
 from tradingagents.dataflows.massive_stock import _fetch_massive_stock_df
 from tradingagents.dataflows.tushare_stock import _fetch_tushare_stock_df, _fetch_tushare_us_stock_df
+from tradingagents.dataflows import vendor_usage
 from tradingagents.dataflows.vendor_errors import (
     VendorAuthError,
     VendorDataEmptyError,
@@ -482,6 +483,14 @@ def _process_history_symbol(
     return _fetch_symbol_history(context, executor=executor)
 
 
+def _call_price_data_source(vendor: str, fetcher: Callable[[], pd.DataFrame]) -> pd.DataFrame:
+    if not vendor_usage.is_data_source_available(vendor):
+        raise VendorRetryableError(
+            f"Data source '{vendor}' is disabled or over its daily quota."
+        )
+    return vendor_usage.track_data_source_call(vendor, fetcher)
+
+
 def fetch_price_history(
     symbol: str,
     market: str,
@@ -493,9 +502,15 @@ def fetch_price_history(
     if market == "cn":
         vendor_symbol = normalize_symbol_for_vendor(symbol, market="cn", vendor=cn_data_source)
         if cn_data_source == "tushare":
-            frame = _fetch_tushare_stock_df(vendor_symbol, start_date, end_date)
+            frame = _call_price_data_source(
+                "tushare",
+                lambda: _fetch_tushare_stock_df(vendor_symbol, start_date, end_date),
+            )
         elif cn_data_source == "akshare":
-            frame = _fetch_akshare_stock_df(vendor_symbol, start_date, end_date)
+            frame = _call_price_data_source(
+                "akshare",
+                lambda: _fetch_akshare_stock_df(vendor_symbol, start_date, end_date),
+            )
         else:
             raise ValueError(f"Unsupported CN data source '{cn_data_source}'")
 
@@ -507,21 +522,36 @@ def fetch_price_history(
     if market == "us":
         if us_data_source == "yfinance":
             vendor_symbol = _normalize_us_symbol_for_yfinance(symbol)
-            frame = _fetch_yfinance_ohlcv_df(
-                vendor_symbol,
-                start_date,
-                end_date,
-                use_cache=True,
-                auto_adjust=False,
+            frame = _call_price_data_source(
+                "yfinance",
+                lambda: _fetch_yfinance_ohlcv_df(
+                    vendor_symbol,
+                    start_date,
+                    end_date,
+                    use_cache=True,
+                    auto_adjust=False,
+                ),
             )
         elif us_data_source == "alpha_vantage":
-            frame = _fetch_alpha_vantage_stock_df(symbol, start_date, end_date)
+            frame = _call_price_data_source(
+                "alpha_vantage",
+                lambda: _fetch_alpha_vantage_stock_df(symbol, start_date, end_date),
+            )
         elif us_data_source == "tushare":
-            frame = _fetch_tushare_us_stock_df(symbol, start_date, end_date)
+            frame = _call_price_data_source(
+                "tushare",
+                lambda: _fetch_tushare_us_stock_df(symbol, start_date, end_date),
+            )
         elif us_data_source == "akshare":
-            frame = _fetch_akshare_us_stock_df(symbol, start_date, end_date)
+            frame = _call_price_data_source(
+                "akshare",
+                lambda: _fetch_akshare_us_stock_df(symbol, start_date, end_date),
+            )
         elif us_data_source == "massive":
-            frame = _fetch_massive_stock_df(symbol, start_date, end_date)
+            frame = _call_price_data_source(
+                "massive",
+                lambda: _fetch_massive_stock_df(symbol, start_date, end_date),
+            )
         else:
             raise ValueError(f"Unsupported US data source '{us_data_source}'")
         return _normalize_price_frame(frame)

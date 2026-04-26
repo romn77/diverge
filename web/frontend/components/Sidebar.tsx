@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import {
-  forwardRef,
-  type ForwardedRef,
   type ReactNode,
   useEffect,
-  useRef,
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
@@ -26,29 +23,17 @@ import {
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
-  onNewAnalysis: () => void;
-  onNewScreener: () => void;
 }
 
 export function Sidebar({
   isOpen,
   onClose,
-  onNewAnalysis,
-  onNewScreener,
 }: SidebarProps) {
   const pathname = usePathname();
   const { t } = usePreferences();
-  const {
-    activeScreenerTasks,
-    activeTasks,
-    newAnalysisDisabled,
-    newScreenerDisabled,
-  } = useWorkbench();
+  const { activeScreenerTasks, activeTasks } = useWorkbench();
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const createButtonRef = useRef<HTMLButtonElement>(null);
-  const createMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(max-width: 767px)");
@@ -66,7 +51,6 @@ export function Sidebar({
   const isMobileDrawerOpen = isMobileViewport && isOpen;
   const isDesktopRail = !isMobileViewport && isDesktopCollapsed;
   const totalActive = activeTasks.length + activeScreenerTasks.length;
-  const createLabel = t("sidebar.create", "New");
   const analysisLabel = t("sidebar.nav.analysis", "Analysis");
   const screenerLabel = t("sidebar.nav.screener", "Screener");
   const assetsLabel = t("sidebar.nav.assets", "Assets");
@@ -100,54 +84,8 @@ export function Sidebar({
   }, [isMobileDrawerOpen]);
 
   useEffect(() => {
-    if (!isMobileDrawerOpen) {
-      return;
-    }
-
-    const rafId = window.requestAnimationFrame(() => {
-      createButtonRef.current?.focus();
-    });
-
-    return () => {
-      window.cancelAnimationFrame(rafId);
-    };
-  }, [isMobileDrawerOpen]);
-
-  useEffect(() => {
-    if (!isCreateMenuOpen) {
-      return;
-    }
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-
-      if (
-        createMenuRef.current?.contains(target) ||
-        createButtonRef.current?.contains(target)
-      ) {
-        return;
-      }
-
-      setIsCreateMenuOpen(false);
-    };
-
-    window.addEventListener("pointerdown", handlePointerDown);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, [isCreateMenuOpen]);
-
-  useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") {
-        return;
-      }
-
-      if (isCreateMenuOpen) {
-        setIsCreateMenuOpen(false);
         return;
       }
 
@@ -160,7 +98,7 @@ export function Sidebar({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isCreateMenuOpen, isMobileDrawerOpen, onClose]);
+  }, [isMobileDrawerOpen, onClose]);
 
   const desktopDrawerClasses = [
     "sidebar-surface hidden flex-col overflow-y-auto border-r border-[var(--border)] py-5 transition-[width,padding] duration-300 md:flex",
@@ -178,31 +116,13 @@ export function Sidebar({
     isDesktopRail ? "flex justify-center" : "flex items-center",
   ].join(" ");
 
-  const handleNewAnalysis = () => {
-    setIsCreateMenuOpen(false);
-    if (isMobileDrawerOpen) {
-      onClose();
-    }
-    onNewAnalysis();
-  };
-
-  const handleNewScreener = () => {
-    setIsCreateMenuOpen(false);
-    if (isMobileDrawerOpen) {
-      onClose();
-    }
-    onNewScreener();
-  };
-
   const handleNavSelection = () => {
-    setIsCreateMenuOpen(false);
     if (isMobileDrawerOpen) {
       onClose();
     }
   };
 
   const toggleDesktopCollapse = () => {
-    setIsCreateMenuOpen(false);
     setIsDesktopCollapsed((current) => !current);
   };
 
@@ -243,37 +163,7 @@ export function Sidebar({
 
       {isDesktopRail ? (
         <div className="mt-5 flex flex-1 flex-col items-center">
-          <div className="relative flex flex-col items-center gap-2">
-            <RailButton
-              ref={createButtonRef}
-              label={createLabel}
-              title={createLabel}
-              active={isCreateMenuOpen}
-              onClick={() => setIsCreateMenuOpen((current) => !current)}
-            >
-              <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-                <path
-                  d="M10 4v12M4 10h12"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </RailButton>
-
-            {isCreateMenuOpen ? (
-              <CreateMenu
-                ref={createMenuRef}
-                compact
-                onNewAnalysis={handleNewAnalysis}
-                onNewScreener={handleNewScreener}
-                newAnalysisDisabled={newAnalysisDisabled}
-                newScreenerDisabled={newScreenerDisabled}
-              />
-            ) : null}
-          </div>
-
-          <div className="mt-6 flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-2">
             <div className="flex flex-col items-center gap-2">
               <RailLinkButton
                 href={buildHomeHref()}
@@ -341,46 +231,7 @@ export function Sidebar({
         </div>
       ) : (
         <div className="mt-5 flex flex-1 flex-col">
-          <div className="relative">
-            <Button
-              ref={createButtonRef}
-              type="button"
-              className="flex w-full items-center justify-between rounded-[20px] px-4 py-3 text-left text-white shadow-[0_14px_28px_rgba(28,36,48,0.16)]"
-              onClick={() => setIsCreateMenuOpen((current) => !current)}
-              aria-expanded={isCreateMenuOpen}
-              aria-haspopup="menu"
-            >
-              <span className="text-sm font-semibold">+ {createLabel}</span>
-              <svg
-                viewBox="0 0 20 20"
-                className={`h-4 w-4 transition-transform ${
-                  isCreateMenuOpen ? "rotate-180" : ""
-                }`}
-                fill="none"
-                aria-hidden
-              >
-                <path
-                  d="M5 7.5 10 12l5-4.5"
-                  stroke="currentColor"
-                  strokeWidth="1.7"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Button>
-
-            {isCreateMenuOpen ? (
-              <CreateMenu
-                ref={createMenuRef}
-                onNewAnalysis={handleNewAnalysis}
-                onNewScreener={handleNewScreener}
-                newAnalysisDisabled={newAnalysisDisabled}
-                newScreenerDisabled={newScreenerDisabled}
-              />
-            ) : null}
-          </div>
-
-          <nav className="mt-6 space-y-4" aria-label={t("sidebar.primaryNavigation", "Primary")}>
+          <nav className="space-y-4" aria-label={t("sidebar.primaryNavigation", "Primary")}>
             <SidebarSection title={t("sidebar.section.research", "Research")}>
               <SidebarNavLink
                 href={buildHomeHref()}
@@ -565,74 +416,6 @@ function SidebarSectionHeading({
   );
 }
 
-const CreateMenu = forwardRef<
-  HTMLDivElement,
-  {
-    compact?: boolean;
-    onNewAnalysis: () => void;
-    onNewScreener: () => void;
-    newAnalysisDisabled: boolean;
-    newScreenerDisabled: boolean;
-  }
->(function CreateMenu(
-  {
-    compact = false,
-    onNewAnalysis,
-    onNewScreener,
-    newAnalysisDisabled,
-    newScreenerDisabled,
-  },
-  ref: ForwardedRef<HTMLDivElement>
-) {
-  const { t } = usePreferences();
-
-  return (
-    <div
-      ref={ref}
-      role="menu"
-      className={`absolute z-20 rounded-[22px] border border-[var(--border)] bg-[var(--popover)] p-2 shadow-[0_20px_40px_rgba(18,28,41,0.14)] backdrop-blur-sm ${
-        compact ? "left-full top-0 ml-3 w-[13rem]" : "left-0 right-0 top-full mt-3"
-      }`}
-    >
-      <button
-        type="button"
-        role="menuitem"
-        className="focus-ring flex w-full items-center justify-between rounded-[18px] px-3 py-3 text-left transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-55"
-        onClick={onNewAnalysis}
-        disabled={newAnalysisDisabled}
-      >
-        <span>
-          <span className="block text-sm font-semibold text-slate-900">
-            {t("sidebar.newAnalysis", "New Analysis")}
-          </span>
-          <span className="mt-1 block text-xs text-slate-500">
-            {t("sidebar.newAnalysisHint", "Research a coverage name")}
-          </span>
-        </span>
-        <span className="text-slate-400">+</span>
-      </button>
-
-      <button
-        type="button"
-        role="menuitem"
-        className="focus-ring mt-1 flex w-full items-center justify-between rounded-[18px] px-3 py-3 text-left transition hover:bg-[var(--surface-strong)] disabled:cursor-not-allowed disabled:opacity-55"
-        onClick={onNewScreener}
-        disabled={newScreenerDisabled}
-      >
-        <span>
-          <span className="block text-sm font-semibold text-slate-900">
-            {t("sidebar.newScreener", "New Screener")}
-          </span>
-          <span className="mt-1 block text-xs text-slate-500">
-            {t("sidebar.newScreenerHint", "Build a ranked pool")}
-          </span>
-        </span>
-        <span className="text-slate-400">+</span>
-      </button>
-    </div>
-  );
-});
-
 function SidebarNavLink({
   href,
   label,
@@ -721,34 +504,6 @@ function SidebarUtilityLink({
     </Link>
   );
 }
-
-const RailButton = forwardRef<
-  HTMLButtonElement,
-  {
-    label: string;
-    title: string;
-    active?: boolean;
-    onClick: () => void;
-    children: ReactNode;
-  }
->(function RailButton({ label, title, active = false, onClick, children }, ref) {
-  return (
-    <button
-      ref={ref}
-      type="button"
-      title={title}
-      aria-label={label}
-      onClick={onClick}
-      className={`group relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border transition ${
-        active
-          ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-          : "border-[var(--border)] bg-white text-slate-600 hover:border-[var(--primary)] hover:text-[var(--primary)]"
-      }`}
-    >
-      {children}
-    </button>
-  );
-});
 
 function RailLinkButton({
   href,

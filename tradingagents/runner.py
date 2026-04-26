@@ -1,4 +1,5 @@
 import datetime
+import copy
 import json
 from collections.abc import Collection
 from dataclasses import asdict, dataclass, field
@@ -49,6 +50,7 @@ VALID_RESEARCH_DEPTHS = {1, 3, 5}
 VALID_OUTPUT_LANGUAGES = {"en", "cn"}
 OPENAI_REASONING_EFFORTS = {"low", "medium", "high"}
 GOOGLE_THINKING_LEVELS = {"high", "minimal"}
+MARKET_DATA_SOURCES = {"yfinance", "massive"}
 
 
 def _coerce_analyst_key(value: str | AnalystType) -> str:
@@ -141,6 +143,7 @@ class AnalysisRequest:
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
+    market_data_source: str = "yfinance"
 
     def __post_init__(self) -> None:
         self.ticker = normalize_ticker_symbol(self.ticker)
@@ -191,6 +194,10 @@ class AnalysisRequest:
         if self.portfolio_context is not None:
             normalized_portfolio_context = self.portfolio_context.strip()
             self.portfolio_context = normalized_portfolio_context or None
+
+        self.market_data_source = self.market_data_source.strip().lower()
+        if self.market_data_source not in MARKET_DATA_SOURCES:
+            raise ValueError("Unsupported market_data_source")
 
 
 @dataclass
@@ -475,7 +482,7 @@ class AnalysisTracker:
 
 
 def build_analysis_config(request: AnalysisRequest) -> dict:
-    config = DEFAULT_CONFIG.copy()
+    config = copy.deepcopy(DEFAULT_CONFIG)
     config["max_debate_rounds"] = request.research_depth
     config["max_risk_discuss_rounds"] = request.research_depth
     config["quick_think_llm"] = request.quick_think_llm
@@ -485,6 +492,14 @@ def build_analysis_config(request: AnalysisRequest) -> dict:
     config["output_language"] = request.output_language
     config["google_thinking_level"] = request.google_thinking_level
     config["openai_reasoning_effort"] = request.openai_reasoning_effort
+    us_overrides = config.setdefault("market_overrides", {}).setdefault("us", {})
+    if request.market_data_source == "massive":
+        us_overrides["core_stock_apis"] = "massive,yfinance"
+    else:
+        us_overrides["core_stock_apis"] = "yfinance"
+    us_overrides["technical_indicators"] = "yfinance"
+    us_overrides["fundamental_data"] = "yfinance"
+    us_overrides["news_data"] = "yfinance"
     return config
 
 

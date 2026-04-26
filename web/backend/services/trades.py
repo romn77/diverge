@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request
 
+from tradingagents.dataflows import vendor_usage
 from tradingagents.trade_feedback import (
     create_trade_record as create_trade_record_file,
     generate_trade_review as generate_trade_review_file,
@@ -190,41 +191,43 @@ def create_trade_review(
                 assert user is not None
                 trade_entries.require_trade_entry_for_owner(db, trade_id, user.id)
                 record_journal_usage(db, user)
-                review = generate_trade_review_file(
-                    trade_id,
-                    review_type=payload.review_type,
-                    llm_provider=payload.llm_provider,
-                    model=payload.model,
-                    output_language=payload.output_language,
-                    google_thinking_level=payload.google_thinking_level,
-                    openai_reasoning_effort=payload.openai_reasoning_effort,
-                    analysis_date=payload.analysis_date,
-                    analysis_references=(
-                        payload.model_dump()["analysis_references"]
-                        if payload.analysis_references is not None
-                        else None
-                    ),
-                    reports_dir=app_config.REPORTS_DIR,
-                )
+                with vendor_usage.data_source_usage_context("trade_journal"):
+                    review = generate_trade_review_file(
+                        trade_id,
+                        review_type=payload.review_type,
+                        llm_provider=payload.llm_provider,
+                        model=payload.model,
+                        output_language=payload.output_language,
+                        google_thinking_level=payload.google_thinking_level,
+                        openai_reasoning_effort=payload.openai_reasoning_effort,
+                        analysis_date=payload.analysis_date,
+                        analysis_references=(
+                            payload.model_dump()["analysis_references"]
+                            if payload.analysis_references is not None
+                            else None
+                        ),
+                        reports_dir=app_config.REPORTS_DIR,
+                    )
                 record = get_trade_record_file(trade_id, reports_dir=app_config.REPORTS_DIR)
                 sync_trade_entry_metadata(db, record, user.id)
                 return review
-        return generate_trade_review_file(
-            trade_id,
-            review_type=payload.review_type,
-            llm_provider=payload.llm_provider,
-            model=payload.model,
-            output_language=payload.output_language,
-            google_thinking_level=payload.google_thinking_level,
-            openai_reasoning_effort=payload.openai_reasoning_effort,
-            analysis_date=payload.analysis_date,
-            analysis_references=(
-                payload.model_dump()["analysis_references"]
-                if payload.analysis_references is not None
-                else None
-            ),
-            reports_dir=app_config.REPORTS_DIR,
-        )
+        with vendor_usage.data_source_usage_context("trade_journal"):
+            return generate_trade_review_file(
+                trade_id,
+                review_type=payload.review_type,
+                llm_provider=payload.llm_provider,
+                model=payload.model,
+                output_language=payload.output_language,
+                google_thinking_level=payload.google_thinking_level,
+                openai_reasoning_effort=payload.openai_reasoning_effort,
+                analysis_date=payload.analysis_date,
+                analysis_references=(
+                    payload.model_dump()["analysis_references"]
+                    if payload.analysis_references is not None
+                    else None
+                ),
+                reports_dir=app_config.REPORTS_DIR,
+            )
     except HTTPException:
         raise
     except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:

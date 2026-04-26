@@ -106,6 +106,13 @@ def get_task_status(task_id: str, request: Request = None) -> dict:
     return _get_authorized_task(task_id, request).to_dict()
 
 
+@router.delete("/api/tasks/{task_id}")
+def delete_task(task_id: str, request: Request = None) -> dict:
+    _get_authorized_task(task_id, request)
+    analysis_tasks.delete_failed_task(task_id)
+    return {"deleted": True, "task_id": task_id}
+
+
 @router.get("/api/tasks/{task_id}/stream")
 async def stream_task(task_id: str, request: Request) -> StreamingResponse:
     _get_authorized_task(task_id, request)

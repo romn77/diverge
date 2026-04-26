@@ -69,6 +69,42 @@ export interface AdminAnalysisLimitsResponse {
   limits: AdminAnalysisRoleLimit[];
 }
 
+export type DataSourceUsageModule = "analysis" | "screener" | "trade_journal";
+
+export interface DataSourceUsageModuleSummary {
+  total_calls: number;
+  success_count: number;
+  failure_count: number;
+}
+
+export interface AdminDataSourceUsage {
+  vendor: string;
+  label: string;
+  enabled: boolean;
+  daily_limit: number | null;
+  used_today: number;
+  remaining_today: number | null;
+  exhausted: boolean;
+  success_count: number;
+  failure_count: number;
+  last_called_at: string | null;
+  modules: Record<DataSourceUsageModule, DataSourceUsageModuleSummary>;
+}
+
+export interface AdminDataSourceUsageResponse {
+  date: string;
+  sources: AdminDataSourceUsage[];
+}
+
+export interface AdminDataSourceUpdateRequest {
+  enabled: boolean;
+  daily_limit: number | null;
+}
+
+export interface AdminDataSourceUpdateResponse {
+  source: AdminDataSourceUsage;
+}
+
 export type UsageModule = "analysis" | "screener" | "assets" | "journal";
 
 export interface UsageModuleSummary {
@@ -282,6 +318,7 @@ export interface TaskCreateRequest {
   analysis_date: string;
   analysts: string[];
   research_depth: number;
+  market_data_source: string;
   llm_provider: string;
   quick_think_llm: string;
   deep_think_llm: string;
@@ -293,6 +330,11 @@ export interface TaskCreateRequest {
 export interface TaskCreateResponse {
   task_id: string;
   status: string;
+}
+
+export interface DeleteTaskResponse {
+  deleted: boolean;
+  task_id: string;
 }
 
 export type TaskStatus = "pending" | "running" | "completed" | "failed";
@@ -346,6 +388,10 @@ export interface ConfigOptions {
   analysts: SelectOption[];
   research_depth: ResearchDepthOption[];
   output_languages: SelectOption[];
+  market_data_sources: SelectOption[];
+  defaults: {
+    market_data_source: string;
+  };
   provider_settings: {
     openai?: { openai_reasoning_effort: SelectOption[] };
     google?: { google_thinking_level: SelectOption[] };
@@ -363,12 +409,17 @@ export interface ScreenerConfigOptions {
     label: string;
     value: string;
   }>;
+  us_data_sources: Array<{
+    label: string;
+    value: string;
+  }>;
   breakout_types: Array<{
     label: string;
     value: string;
   }>;
   defaults: {
     cn_data_source: string;
+    us_data_source: string;
     top_k: number;
     breakout_types: string[];
   };
@@ -379,6 +430,7 @@ export interface ScreenTaskCreateRequest {
   as_of_date: string;
   top_k: number;
   cn_data_source: string;
+  us_data_source: string;
   breakout_types: string[];
 }
 
@@ -392,6 +444,7 @@ export interface ScreenerTask {
   request_payload: ScreenTaskCreateRequest | null;
   status: TaskStatus;
   latest_progress: ProgressEvent | null;
+  progress_events: ProgressEvent[];
   run_id: string | null;
   error: string | null;
 }
@@ -580,6 +633,22 @@ export async function updateAdminAnalysisLimits(
   );
 }
 
+export async function listAdminDataSources(): Promise<AdminDataSourceUsageResponse> {
+  return requestJson<AdminDataSourceUsageResponse>("/api/admin/data-sources", {
+    cache: "no-store",
+  });
+}
+
+export async function updateAdminDataSource(
+  vendor: string,
+  payload: AdminDataSourceUpdateRequest
+): Promise<AdminDataSourceUpdateResponse> {
+  return requestJson<AdminDataSourceUpdateResponse>(
+    `/api/admin/data-sources/${vendor}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
 export async function getAdminUser(userId: string): Promise<AuthUser> {
   return requestJson<AuthUser>(`/api/admin/users/${userId}`, {
     cache: "no-store",
@@ -750,6 +819,13 @@ export async function getTask(taskId: string): Promise<Task> {
   });
 }
 
+export async function deleteTask(taskId: string): Promise<DeleteTaskResponse> {
+  return requestJson<DeleteTaskResponse>(`/api/tasks/${taskId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+}
+
 export async function getConfigOptions(): Promise<ConfigOptions> {
   return requestJson<ConfigOptions>("/api/config/options", {
     cache: "no-store",
@@ -780,6 +856,13 @@ export async function listScreenerTasks(): Promise<ScreenerTask[]> {
 export async function getScreenerTask(taskId: string): Promise<ScreenerTask> {
   return requestJson<ScreenerTask>(`/api/screener/tasks/${taskId}`, {
     cache: "no-store",
+  });
+}
+
+export async function deleteScreenerTask(taskId: string): Promise<DeleteTaskResponse> {
+  return requestJson<DeleteTaskResponse>(`/api/screener/tasks/${taskId}`, {
+    method: "DELETE",
+    credentials: "include",
   });
 }
 
@@ -875,14 +958,17 @@ export function subscribeToTask(
 export function subscribeToScreenerTask(
   taskId: string,
   onEvent: (event: ProgressEvent) => void,
-  onError?: (error: Error) => void
+  onError?: (error: Error) => void,
+  startCursor = 0
 ): () => void {
-  const eventSource = new EventSource(
-    buildApiUrl(`/api/screener/tasks/${taskId}/stream`),
-    {
-      withCredentials: true,
-    }
-  );
+  const url = new URL(buildApiUrl(`/api/screener/tasks/${taskId}/stream`));
+  if (startCursor > 0) {
+    url.searchParams.set("cursor", String(startCursor));
+  }
+
+  const eventSource = new EventSource(url.toString(), {
+    withCredentials: true,
+  });
 
   eventSource.onmessage = (event) => {
     try {
