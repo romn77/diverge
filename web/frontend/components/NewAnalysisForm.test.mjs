@@ -48,13 +48,13 @@ test("NewAnalysisForm defaults to the full analyst set instead of truncating to 
   assert.match(source, /analysts:\s*configOptions\.analysts\.map\(\(option\)\s*=>\s*option\.value\)/);
 });
 
-test("NewAnalysisForm exposes a market data source selector for analysis runs", () => {
+test("NewAnalysisForm relies on automatic market data routing instead of a user selector", () => {
   const source = readFileSync(formPath, "utf8");
 
-  assert.match(source, /market_data_source/);
-  assert.match(source, /configOptions\.market_data_sources/);
-  assert.match(source, /analysis\.marketDataSource/);
-  assert.match(source, /analysis\.marketDataSourceHint/);
+  assert.doesNotMatch(source, /market_data_source/);
+  assert.doesNotMatch(source, /configOptions\.market_data_sources/);
+  assert.doesNotMatch(source, /analysis\.marketDataSource/);
+  assert.doesNotMatch(source, /analysis\.marketDataSourceHint/);
 });
 
 test("NewAnalysisForm preserves an open draft when the sidebar language default changes", () => {

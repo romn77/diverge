@@ -125,13 +125,7 @@ def get_config_options_payload() -> dict:
         "analysts": analyst_options,
         "research_depth": RESEARCH_DEPTH_OPTIONS,
         "output_languages": OUTPUT_LANGUAGE_OPTIONS,
-        "market_data_sources": [
-            {"label": "Yahoo Finance", "value": "yfinance"},
-            {"label": "Massive", "value": "massive"},
-        ],
-        "defaults": {
-            "market_data_source": "massive",
-        },
+        "defaults": {},
         "provider_settings": {
             "openai": {"openai_reasoning_effort": OPENAI_REASONING_OPTIONS},
             "google": {"google_thinking_level": GOOGLE_THINKING_OPTIONS},

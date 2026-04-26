@@ -82,8 +82,13 @@ export interface AdminDataSourceUsage {
   label: string;
   enabled: boolean;
   daily_limit: number | null;
+  hourly_limit: number | null;
   used_today: number;
+  used_this_hour: number;
   remaining_today: number | null;
+  remaining_this_hour: number | null;
+  daily_exhausted: boolean;
+  hour_exhausted: boolean;
   exhausted: boolean;
   success_count: number;
   failure_count: number;
@@ -91,18 +96,43 @@ export interface AdminDataSourceUsage {
   modules: Record<DataSourceUsageModule, DataSourceUsageModuleSummary>;
 }
 
+export type DataSourceRouteMarket = "cn" | "us" | "global";
+export type DataSourceRouteCategory =
+  | "core_stock_apis"
+  | "technical_indicators"
+  | "fundamental_data"
+  | "news_data";
+
+export interface AdminDataSourceRoute {
+  module: DataSourceUsageModule;
+  market: DataSourceRouteMarket;
+  category: DataSourceRouteCategory;
+  vendor_chain: string[];
+  default_vendor_chain: string[];
+}
+
 export interface AdminDataSourceUsageResponse {
   date: string;
   sources: AdminDataSourceUsage[];
+  routes: AdminDataSourceRoute[];
 }
 
 export interface AdminDataSourceUpdateRequest {
   enabled: boolean;
   daily_limit: number | null;
+  hourly_limit: number | null;
 }
 
 export interface AdminDataSourceUpdateResponse {
   source: AdminDataSourceUsage;
+}
+
+export interface AdminDataSourceRouteUpdateRequest {
+  vendor_chain: string[];
+}
+
+export interface AdminDataSourceRouteUpdateResponse {
+  route: AdminDataSourceRoute;
 }
 
 export type UsageModule = "analysis" | "screener" | "assets" | "journal";
@@ -318,7 +348,6 @@ export interface TaskCreateRequest {
   analysis_date: string;
   analysts: string[];
   research_depth: number;
-  market_data_source: string;
   llm_provider: string;
   quick_think_llm: string;
   deep_think_llm: string;
@@ -388,10 +417,7 @@ export interface ConfigOptions {
   analysts: SelectOption[];
   research_depth: ResearchDepthOption[];
   output_languages: SelectOption[];
-  market_data_sources: SelectOption[];
-  defaults: {
-    market_data_source: string;
-  };
+  defaults: Record<string, never>;
   provider_settings: {
     openai?: { openai_reasoning_effort: SelectOption[] };
     google?: { google_thinking_level: SelectOption[] };
@@ -645,6 +671,16 @@ export async function updateAdminDataSource(
 ): Promise<AdminDataSourceUpdateResponse> {
   return requestJson<AdminDataSourceUpdateResponse>(
     `/api/admin/data-sources/${vendor}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function updateAdminDataSourceRoute(
+  route: Pick<AdminDataSourceRoute, "module" | "market" | "category">,
+  payload: AdminDataSourceRouteUpdateRequest
+): Promise<AdminDataSourceRouteUpdateResponse> {
+  return requestJson<AdminDataSourceRouteUpdateResponse>(
+    `/api/admin/data-source-routes/${route.module}/${route.market}/${route.category}`,
     createJsonRequestInit("PUT", payload)
   );
 }

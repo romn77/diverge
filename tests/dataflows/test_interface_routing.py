@@ -107,6 +107,28 @@ class InterfaceRoutingTests(unittest.TestCase):
             ],
         )
 
+    def test_us_analysis_fundamentals_routes_fmp_alpha_vantage_yfinance(self):
+        with patch.object(interface.vendor_usage, "_database_store", return_value=None):
+            with interface.vendor_usage.data_source_usage_context("analysis"):
+                self.assertEqual(
+                    interface.build_vendor_chain("get_fundamentals", "us"),
+                    ["fmp", "alpha_vantage", "yfinance"],
+                )
+                self.assertEqual(
+                    interface.build_vendor_chain("get_insider_transactions", "us"),
+                    ["fmp", "alpha_vantage", "yfinance"],
+                )
+
+        for method in (
+            "get_fundamentals",
+            "get_balance_sheet",
+            "get_cashflow",
+            "get_income_statement",
+            "get_news",
+            "get_insider_transactions",
+        ):
+            self.assertIn("fmp", interface.VENDOR_METHODS[method])
+
     def test_route_to_normalized_fundamentals_uses_existing_vendor_routing(self):
         payloads = {
             "get_fundamentals": (

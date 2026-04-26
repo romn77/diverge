@@ -143,7 +143,7 @@ class AnalysisRequest:
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
-    market_data_source: str = "yfinance"
+    market_data_source: str = "massive"
 
     def __post_init__(self) -> None:
         self.ticker = normalize_ticker_symbol(self.ticker)
@@ -494,12 +494,12 @@ def build_analysis_config(request: AnalysisRequest) -> dict:
     config["openai_reasoning_effort"] = request.openai_reasoning_effort
     us_overrides = config.setdefault("market_overrides", {}).setdefault("us", {})
     if request.market_data_source == "massive":
-        us_overrides["core_stock_apis"] = "massive,yfinance"
+        us_overrides["core_stock_apis"] = "massive"
     else:
         us_overrides["core_stock_apis"] = "yfinance"
-    us_overrides["technical_indicators"] = "yfinance"
-    us_overrides["fundamental_data"] = "yfinance"
-    us_overrides["news_data"] = "yfinance"
+    us_overrides["technical_indicators"] = "local"
+    us_overrides["fundamental_data"] = "fmp,alpha_vantage,yfinance"
+    us_overrides["news_data"] = "fmp,alpha_vantage,yfinance"
     return config
 
 

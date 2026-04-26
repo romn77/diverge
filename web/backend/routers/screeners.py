@@ -7,6 +7,7 @@ import os
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from tradingagents.dataflows import vendor_usage
 from tradingagents.screener.schema import ScreenRunConfig
 from web.backend import access, analysis_limits, app_config, auth
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
@@ -30,6 +31,31 @@ def _get_authorized_screener_task(
     return task
 
 
+def resolve_screener_data_sources(markets: list[str]) -> dict:
+    sources: dict[str, object] = {}
+
+    cn_chain = vendor_usage.get_data_source_route(
+        module="screener",
+        market="cn",
+        category="core_stock_apis",
+    )
+    if not cn_chain:
+        cn_chain = ["tushare"]
+    sources["cn_data_source"] = cn_chain[0]
+    sources["cn_data_source_fallbacks"] = cn_chain[1:]
+
+    us_chain = vendor_usage.get_data_source_route(
+        module="screener",
+        market="us",
+        category="core_stock_apis",
+    )
+    if not us_chain:
+        us_chain = ["massive"]
+    sources["us_data_source"] = us_chain[0]
+
+    return sources
+
+
 @router.post("/api/screener/tasks")
 def create_screener_task(
     payload: ScreenTaskCreatePayload,
@@ -46,8 +72,7 @@ def create_screener_task(
         )
 
     request_payload = payload.model_dump()
-    request_payload["cn_data_source"] = "tushare"
-    request_payload["us_data_source"] = "massive"
+    request_payload.update(resolve_screener_data_sources(request_payload["markets"]))
     config_payload = dict(request_payload)
     config_payload["output_dir"] = str(app_config.SCREENER_RESULTS_DIR)
     if "cn" in request_payload["markets"]:

@@ -11,7 +11,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from web.backend import asset_entries, auth, report_metadata, screener_runs, trade_entries  # noqa: F401
+from web.backend import analysis_limits, asset_entries, auth, data_sources, report_metadata, screener_runs, trade_entries  # noqa: F401
 
 config = context.config
 

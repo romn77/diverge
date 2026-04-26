@@ -35,23 +35,23 @@ DEFAULT_CONFIG = {
     # Data vendor configuration
     # Category-level configuration (default for all tools in category)
     "data_vendors": {
-        "core_stock_apis": "yfinance,alpha_vantage",
-        "technical_indicators": "yfinance,alpha_vantage",
-        "fundamental_data": "yfinance,alpha_vantage",
-        "news_data": "yfinance,alpha_vantage",
+        "core_stock_apis": "massive,yfinance,alpha_vantage",
+        "technical_indicators": "local",
+        "fundamental_data": "fmp,alpha_vantage,yfinance",
+        "news_data": "fmp,alpha_vantage,yfinance",
     },
     "market_overrides": {
         "cn": {
             "core_stock_apis": "akshare,tushare",
-            "technical_indicators": "akshare,tushare",
+            "technical_indicators": "local",
             "fundamental_data": "tushare,akshare",
             "news_data": "akshare,yfinance",
         },
         "us": {
-            "core_stock_apis": "yfinance,alpha_vantage",
-            "technical_indicators": "yfinance,alpha_vantage",
-            "fundamental_data": "yfinance,alpha_vantage",
-            "news_data": "yfinance,alpha_vantage",
+            "core_stock_apis": "massive",
+            "technical_indicators": "local",
+            "fundamental_data": "fmp,alpha_vantage,yfinance",
+            "news_data": "fmp,alpha_vantage,yfinance",
         },
     },
     # Tool-level configuration (takes precedence over category-level)

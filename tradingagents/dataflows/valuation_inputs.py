@@ -8,7 +8,7 @@ def build_yfinance_valuation_input(
     curr_date: str | None = None,
     freq: str = "annual",
 ):
-    from .yfinance_valuation import build_yfinance_valuation_input as _impl
+    from .vendors.yfinance.valuation import build_yfinance_valuation_input as _impl
 
     return _impl(ticker=ticker, curr_date=curr_date, freq=freq)
 
@@ -18,7 +18,7 @@ def build_akshare_valuation_input(
     curr_date: str | None = None,
     freq: str = "annual",
 ):
-    from .akshare_valuation import build_akshare_valuation_input as _impl
+    from .vendors.akshare.valuation import build_akshare_valuation_input as _impl
 
     return _impl(ticker=ticker, curr_date=curr_date, freq=freq)
 

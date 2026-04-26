@@ -40,3 +40,8 @@ class AdminAnalysisLimitsUpdatePayload(BaseModel):
 class AdminDataSourceUpdatePayload(BaseModel):
     enabled: bool
     daily_limit: Optional[int] = Field(default=None, ge=0)
+    hourly_limit: Optional[int] = Field(default=None, ge=0)
+
+
+class AdminDataSourceRouteUpdatePayload(BaseModel):
+    vendor_chain: list[str] = Field(min_length=1)

@@ -18,7 +18,17 @@ SECTION_KEYS = (
 
 
 ALIASES = {
-    "report_date": ["reportDate", "report_date", "Report Date", "fiscalDateEnding", "end_date", "报告日"],
+    "report_date": [
+        "reportDate",
+        "report_date",
+        "Report Date",
+        "fiscalDateEnding",
+        "end_date",
+        "date",
+        "fillingDate",
+        "acceptedDate",
+        "报告日",
+    ],
     "market_cap": ["Market Cap", "MarketCapitalization", "marketCap", "marketCapitalization"],
     "shares_outstanding": [
         "Shares Outstanding",
@@ -28,7 +38,7 @@ ALIASES = {
         "Ordinary Shares Number",
         "总股本",
     ],
-    "share_price": ["Current Price", "currentPrice", "Share Price"],
+    "share_price": ["Current Price", "currentPrice", "Share Price", "price"],
     "revenue": ["Revenue", "Revenue (TTM)", "totalRevenue", "Total Revenue", "营业总收入", "营业收入"],
     "ebitda": ["EBITDA", "ebitda"],
     "net_income": ["Net Income", "netIncome", "netIncomeToCommon", "净利润"],
@@ -37,12 +47,14 @@ ALIASES = {
         "Cash And Cash Equivalents",
         "cashAndCashEquivalentsAtCarryingValue",
         "Cash And Short Term Investments",
+        "cashAndCashEquivalents",
         "货币资金",
     ],
     "total_debt": ["Total Debt", "shortLongTermDebtTotal", "totalDebt", "负债合计"],
     "shareholders_equity": [
         "Stockholders Equity",
         "totalShareholderEquity",
+        "totalStockholdersEquity",
         "Shareholders Equity",
         "股东权益合计",
     ],

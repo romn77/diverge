@@ -32,6 +32,9 @@ REQUIRED_TABLES = (
     "asset_accounts",
     "asset_positions",
     "asset_valuation_snapshots",
+    "data_source_vendor_configs",
+    "data_source_route_policies",
+    "data_source_usage",
 )
 
 

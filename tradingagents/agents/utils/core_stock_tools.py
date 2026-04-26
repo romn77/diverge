@@ -1,6 +1,6 @@
 from langchain_core.tools import tool
 from typing import Annotated
-from tradingagents.dataflows.interface import route_to_vendor
+from tradingagents.dataflows.vendors.local.analysis_market_data import get_stock_data_from_history
 
 
 @tool
@@ -11,7 +11,7 @@ def get_stock_data(
 ) -> str:
     """
     Retrieve stock price data (OHLCV) for a given ticker symbol.
-    Uses the configured core_stock_apis vendor.
+    Uses the shared screener history cache before fetching missing price data.
     Args:
         symbol (str): Ticker symbol of the company, e.g. AAPL, TSM
         start_date (str): Start date in yyyy-mm-dd format
@@ -19,4 +19,4 @@ def get_stock_data(
     Returns:
         str: A formatted dataframe containing the stock price data for the specified ticker symbol in the specified date range.
     """
-    return route_to_vendor("get_stock_data", symbol, start_date, end_date)
+    return get_stock_data_from_history(symbol, start_date, end_date)

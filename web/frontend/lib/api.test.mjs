@@ -33,9 +33,9 @@ test("screener API types include US market data source selection", () => {
   assert.match(source, /us_data_source:\s*string/);
 });
 
-test("task APIs expose analysis data source and failed task deletion", () => {
-  assert.match(source, /market_data_sources:\s*SelectOption\[\]/);
-  assert.match(source, /market_data_source:\s*string/);
+test("task APIs rely on automatic analysis data routing and expose failed task deletion", () => {
+  assert.doesNotMatch(source, /market_data_sources:\s*SelectOption\[\]/);
+  assert.doesNotMatch(source, /market_data_source:\s*string/);
   assert.match(source, /export async function deleteTask/);
   assert.match(source, /export async function deleteScreenerTask/);
   assert.match(source, /method:\s*"DELETE"/);
@@ -43,8 +43,12 @@ test("task APIs expose analysis data source and failed task deletion", () => {
 
 test("admin APIs expose data-source usage and configuration controls", () => {
   assert.match(source, /AdminDataSourceUsageResponse/);
+  assert.match(source, /AdminDataSourceRoute/);
   assert.match(source, /AdminDataSourceUpdateRequest/);
+  assert.match(source, /AdminDataSourceRouteUpdateRequest/);
   assert.match(source, /listAdminDataSources/);
   assert.match(source, /updateAdminDataSource/);
+  assert.match(source, /updateAdminDataSourceRoute/);
   assert.match(source, /\/api\/admin\/data-sources/);
+  assert.match(source, /\/api\/admin\/data-source-routes\/\$\{route\.module\}/);
 });

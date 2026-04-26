@@ -361,30 +361,6 @@ export function NewAnalysisForm({
 
             <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:grid-cols-2">
               <AnalysisSelectField
-                label={t("analysis.marketDataSource", "Market Data Source")}
-                value={formState.market_data_source}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    market_data_source: value,
-                  })
-                }
-                hint={t(
-                  "analysis.marketDataSourceHint",
-                  "Use Massive for US price history when Yahoo Finance is rate limited."
-                )}
-              >
-                {configOptions.market_data_sources.map((sourceOption) => (
-                  <SelectItem key={sourceOption.value} value={sourceOption.value}>
-                    {t(
-                      `analysis.marketDataSource.${optionKey(sourceOption.value)}`,
-                      sourceOption.label
-                    )}
-                  </SelectItem>
-                ))}
-              </AnalysisSelectField>
-
-              <AnalysisSelectField
                 label={t("analysis.provider", "LLM Provider")}
                 value={formState.llm_provider}
                 onChange={onProviderChange}
@@ -596,10 +572,6 @@ function buildInitialFormState(
     analysis_date: new Date().toISOString().slice(0, 10),
     analysts: configOptions.analysts.map((option) => option.value),
     research_depth: Number(firstDepth),
-    market_data_source:
-      configOptions.defaults?.market_data_source ??
-      configOptions.market_data_sources[0]?.value ??
-      "yfinance",
     output_language: firstLanguage,
     ...buildProviderSelection(configOptions, provider),
   };

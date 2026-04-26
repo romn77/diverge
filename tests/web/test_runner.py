@@ -181,15 +181,15 @@ class AnalysisTrackerTests(unittest.TestCase):
 
         self.assertEqual(
             config["market_overrides"]["us"]["core_stock_apis"],
-            "massive,yfinance",
+            "massive",
         )
         self.assertEqual(
             config["market_overrides"]["us"]["technical_indicators"],
-            "yfinance",
+            "local",
         )
-        self.assertNotIn(
-            "alpha_vantage",
-            config["market_overrides"]["us"]["core_stock_apis"],
+        self.assertEqual(
+            config["market_overrides"]["us"]["fundamental_data"],
+            "fmp,alpha_vantage,yfinance",
         )
 
 

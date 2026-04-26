@@ -1,4 +1,4 @@
-from .akshare import (
+from .vendors.akshare import (
     get_stock as get_akshare_stock,
     get_indicator as get_akshare_indicator,
     get_fundamentals as get_akshare_fundamentals,
@@ -9,7 +9,7 @@ from .akshare import (
     get_news as get_akshare_news,
     get_global_news as get_akshare_global_news,
 )
-from .alpha_vantage import (
+from .vendors.alpha_vantage import (
     get_stock as get_alpha_vantage_stock,
     get_latest_price as get_alpha_vantage_latest_price,
     get_indicator as get_alpha_vantage_indicator,
@@ -21,12 +21,24 @@ from .alpha_vantage import (
     get_news as get_alpha_vantage_news,
     get_global_news as get_alpha_vantage_global_news,
 )
-from .massive import get_stock as get_massive_stock
-from .alpha_vantage_common import AlphaVantageRateLimitError
+from .vendors.massive import get_stock as get_massive_stock
+from .vendors.local.analysis_market_data import get_local_indicator
+from .vendors.fmp.fundamentals import (
+    get_fundamentals as get_fmp_fundamentals,
+    get_balance_sheet as get_fmp_balance_sheet,
+    get_cashflow as get_fmp_cashflow,
+    get_income_statement as get_fmp_income_statement,
+)
+from .vendors.fmp.news import (
+    get_news as get_fmp_news,
+    get_global_news as get_fmp_global_news,
+    get_insider_transactions as get_fmp_insider_transactions,
+)
+from .vendors.alpha_vantage.common import AlphaVantageRateLimitError
 from .cn_market_utils import detect_market, normalize_symbol_for_vendor
 from .config import get_config
 from .fundamentals_normalizer import normalize_fundamentals_payload
-from .tushare import (
+from .vendors.tushare import (
     get_stock as get_tushare_stock,
     get_indicator as get_tushare_indicator,
     get_fundamentals as get_tushare_fundamentals,
@@ -37,7 +49,7 @@ from .tushare import (
     get_news as get_tushare_news,
     get_global_news as get_tushare_global_news,
 )
-from .y_finance import (
+from .vendors.yfinance.stock import (
     get_YFin_data_online,
     get_latest_price as get_yfinance_latest_price,
     get_stock_stats_indicators_window,
@@ -47,7 +59,7 @@ from .y_finance import (
     get_income_statement as get_yfinance_income_statement,
     get_insider_transactions as get_yfinance_insider_transactions,
 )
-from .yfinance_news import get_news_yfinance, get_global_news_yfinance
+from .vendors.yfinance.news import get_news_yfinance, get_global_news_yfinance
 from .vendor_errors import (
     VendorAuthError,
     VendorDataEmptyError,
@@ -86,17 +98,19 @@ TOOLS_CATEGORIES = {
 }
 
 VENDOR_LIST = [
+    "local",
     "akshare",
     "tushare",
+    "fmp",
     "yfinance",
     "alpha_vantage",
     "massive",
 ]
 
 MARKET_VENDOR_ALLOWLIST = {
-    "cn": {"akshare", "tushare", "yfinance"},
-    "us": {"yfinance", "alpha_vantage", "massive"},
-    "global": {"yfinance", "alpha_vantage"},
+    "cn": {"local", "akshare", "tushare", "yfinance"},
+    "us": {"local", "fmp", "yfinance", "alpha_vantage", "massive"},
+    "global": {"yfinance", "alpha_vantage", "fmp"},
 }
 
 METHOD_ARG_SCHEMA = {
@@ -128,6 +142,7 @@ VENDOR_METHODS = {
     },
     # technical_indicators
     "get_indicators": {
+        "local": get_local_indicator,
         "akshare": get_akshare_indicator,
         "tushare": get_tushare_indicator,
         "alpha_vantage": get_alpha_vantage_indicator,
@@ -137,24 +152,28 @@ VENDOR_METHODS = {
     "get_fundamentals": {
         "akshare": get_akshare_fundamentals,
         "tushare": get_tushare_fundamentals,
+        "fmp": get_fmp_fundamentals,
         "alpha_vantage": get_alpha_vantage_fundamentals,
         "yfinance": get_yfinance_fundamentals,
     },
     "get_balance_sheet": {
         "akshare": get_akshare_balance_sheet,
         "tushare": get_tushare_balance_sheet,
+        "fmp": get_fmp_balance_sheet,
         "alpha_vantage": get_alpha_vantage_balance_sheet,
         "yfinance": get_yfinance_balance_sheet,
     },
     "get_cashflow": {
         "akshare": get_akshare_cashflow,
         "tushare": get_tushare_cashflow,
+        "fmp": get_fmp_cashflow,
         "alpha_vantage": get_alpha_vantage_cashflow,
         "yfinance": get_yfinance_cashflow,
     },
     "get_income_statement": {
         "akshare": get_akshare_income_statement,
         "tushare": get_tushare_income_statement,
+        "fmp": get_fmp_income_statement,
         "alpha_vantage": get_alpha_vantage_income_statement,
         "yfinance": get_yfinance_income_statement,
     },
@@ -162,18 +181,21 @@ VENDOR_METHODS = {
     "get_news": {
         "akshare": get_akshare_news,
         "tushare": get_tushare_news,
+        "fmp": get_fmp_news,
         "alpha_vantage": get_alpha_vantage_news,
         "yfinance": get_news_yfinance,
     },
     "get_global_news": {
         "akshare": get_akshare_global_news,
         "tushare": get_tushare_global_news,
+        "fmp": get_fmp_global_news,
         "yfinance": get_global_news_yfinance,
         "alpha_vantage": get_alpha_vantage_global_news,
     },
     "get_insider_transactions": {
         "akshare": get_akshare_insider_transactions,
         "tushare": get_tushare_insider_transactions,
+        "fmp": get_fmp_insider_transactions,
         "alpha_vantage": get_alpha_vantage_insider_transactions,
         "yfinance": get_yfinance_insider_transactions,
     },
@@ -208,6 +230,13 @@ def get_vendor(category: str, method: str | None = None, market: str = "global")
         tool_vendors = config.get("tool_vendors", {})
         if method in tool_vendors:
             return tool_vendors[method]
+
+    route_vendors = vendor_usage.get_data_source_route(
+        category=category,
+        market=market,
+    )
+    if route_vendors:
+        return ",".join(route_vendors)
 
     market_overrides = config.get("market_overrides", {})
     if market in market_overrides:
@@ -309,16 +338,27 @@ def resolve_market_and_symbol(method: str, args, kwargs):
 
 def build_vendor_chain(method: str, market: str):
     category = get_category_for_method(method)
-    vendor_config = get_vendor(category, method, market)
-    primary_vendors = [
-        vendor.strip() for vendor in vendor_config.split(",") if vendor.strip()
-    ]
     allowed_vendors = MARKET_VENDOR_ALLOWLIST.get(
         market, set(VENDOR_METHODS[method].keys())
     )
     method_supported_vendors = list(VENDOR_METHODS[method].keys())
     all_available_vendors = [
         vendor for vendor in method_supported_vendors if vendor in allowed_vendors
+    ]
+    route_vendors = vendor_usage.get_data_source_route(
+        category=category,
+        market=market,
+    )
+    if route_vendors:
+        return [
+            vendor
+            for vendor in route_vendors
+            if vendor in all_available_vendors
+        ]
+
+    vendor_config = get_vendor(category, method, market)
+    primary_vendors = [
+        vendor.strip() for vendor in vendor_config.split(",") if vendor.strip()
     ]
 
     fallback_vendors = []

@@ -419,14 +419,11 @@ class BackendMainTests(unittest.TestCase):
             ["massive"],
         )
 
-    def test_get_config_options_exposes_analysis_market_data_source_choices(self):
+    def test_get_config_options_uses_automatic_analysis_market_data_routing(self):
         payload = config_service.get_config_options_payload()
 
-        self.assertEqual(
-            [option["value"] for option in payload["market_data_sources"]],
-            ["yfinance", "massive"],
-        )
-        self.assertEqual(payload["defaults"]["market_data_source"], "massive")
+        self.assertNotIn("market_data_sources", payload)
+        self.assertNotIn("market_data_source", payload["defaults"])
 
     def test_admin_data_source_usage_endpoint_reports_and_updates_vendor_state(self):
         vendor_usage.record_data_source_call(
@@ -437,20 +434,31 @@ class BackendMainTests(unittest.TestCase):
 
         payload = admin_router.list_admin_data_sources()
         sources = {source["vendor"]: source for source in payload["sources"]}
+        routes = {
+            (route["module"], route["market"], route["category"]): route
+            for route in payload["routes"]
+        }
 
         self.assertEqual(sources["alpha_vantage"]["daily_limit"], 25)
+        self.assertIsNone(sources["alpha_vantage"]["hourly_limit"])
         self.assertEqual(sources["alpha_vantage"]["used_today"], 1)
+        self.assertEqual(sources["alpha_vantage"]["used_this_hour"], 1)
         self.assertEqual(
             sources["alpha_vantage"]["modules"]["analysis"]["total_calls"],
             1,
         )
+        self.assertEqual(
+            routes[("screener", "us", "core_stock_apis")]["vendor_chain"],
+            ["massive"],
+        )
 
         updated = admin_router.update_admin_data_source(
             "alpha_vantage",
-            AdminDataSourceUpdatePayload(enabled=False, daily_limit=25),
+            AdminDataSourceUpdatePayload(enabled=False, daily_limit=25, hourly_limit=5),
         )
 
         self.assertFalse(updated["source"]["enabled"])
+        self.assertEqual(updated["source"]["hourly_limit"], 5)
         self.assertFalse(vendor_usage.is_data_source_available("alpha_vantage"))
 
     def test_delete_failed_analysis_task_removes_local_record(self):

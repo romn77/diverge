@@ -1,10 +1,13 @@
 import os
+from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 
 from tradingagents.dataflows import vendor_usage
 from tradingagents.dataflows.interface import execute_vendor_chain
+from web.backend import auth
+from web.backend.schemas.admin import AdminDataSourceRouteUpdatePayload
 
 
 class VendorUsageTests(unittest.TestCase):
@@ -13,7 +16,11 @@ class VendorUsageTests(unittest.TestCase):
         self.usage_path = os.path.join(self.temp_dir.name, "vendor_usage.json")
         self.env_patch = patch.dict(
             os.environ,
-            {"DATA_SOURCE_USAGE_PATH": self.usage_path},
+            {
+                "AUTH_ENABLED": "false",
+                "AUTH_MODE": "disabled",
+                "DATA_SOURCE_USAGE_PATH": self.usage_path,
+            },
             clear=False,
         )
         self.env_patch.start()
@@ -69,6 +76,35 @@ class VendorUsageTests(unittest.TestCase):
         self.assertTrue(sources["alpha_vantage"]["exhausted"])
         self.assertEqual(sources["alpha_vantage"]["used_today"], 1)
 
+    def test_hourly_limit_marks_source_unavailable_before_daily_limit(self):
+        vendor_usage.update_data_source_config(
+            "alpha_vantage",
+            enabled=True,
+            daily_limit=25,
+            hourly_limit=1,
+        )
+        vendor_usage.record_data_source_call(
+            "alpha_vantage",
+            module="analysis",
+            success=True,
+        )
+
+        self.assertFalse(vendor_usage.is_data_source_available("alpha_vantage"))
+        sources = {
+            source["vendor"]: source
+            for source in vendor_usage.get_data_source_usage_summary()["sources"]
+        }
+        alpha = sources["alpha_vantage"]
+        self.assertEqual(alpha["daily_limit"], 25)
+        self.assertEqual(alpha["hourly_limit"], 1)
+        self.assertEqual(alpha["used_today"], 1)
+        self.assertEqual(alpha["used_this_hour"], 1)
+        self.assertEqual(alpha["remaining_today"], 24)
+        self.assertEqual(alpha["remaining_this_hour"], 0)
+        self.assertFalse(alpha["daily_exhausted"])
+        self.assertTrue(alpha["hour_exhausted"])
+        self.assertTrue(alpha["exhausted"])
+
     def test_vendor_call_counts_are_scoped_by_module_and_status(self):
         with vendor_usage.data_source_usage_context("trade_journal"):
             vendor_usage.record_data_source_call("massive", success=True)
@@ -86,6 +122,169 @@ class VendorUsageTests(unittest.TestCase):
         self.assertEqual(massive["modules"]["trade_journal"]["total_calls"], 2)
         self.assertEqual(massive["modules"]["trade_journal"]["success_count"], 1)
         self.assertEqual(massive["modules"]["trade_journal"]["failure_count"], 1)
+
+    def test_unavailable_database_store_falls_back_to_local_state(self):
+        class BrokenDatabaseStore:
+            def resolve_data_source_route(self, **kwargs):
+                raise RuntimeError("database unavailable")
+
+            def update_data_source_config(self, *args, **kwargs):
+                raise RuntimeError("database unavailable")
+
+            def is_data_source_available(self, *args, **kwargs):
+                raise RuntimeError("database unavailable")
+
+            def record_data_source_call(self, *args, **kwargs):
+                raise RuntimeError("database unavailable")
+
+            def get_data_source_usage_summary(self):
+                raise RuntimeError("database unavailable")
+
+        with patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()):
+            self.assertEqual(
+                vendor_usage.get_data_source_route(
+                    module="analysis",
+                    market="us",
+                    category="core_stock_apis",
+                ),
+                ["massive"],
+            )
+            vendor_usage.update_data_source_config(
+                "alpha_vantage",
+                enabled=True,
+                daily_limit=1,
+            )
+            self.assertTrue(vendor_usage.is_data_source_available("alpha_vantage"))
+            vendor_usage.record_data_source_call(
+                "alpha_vantage",
+                module="analysis",
+                success=True,
+            )
+            self.assertFalse(vendor_usage.is_data_source_available("alpha_vantage"))
+            sources = {
+                source["vendor"]: source
+                for source in vendor_usage.get_data_source_usage_summary()["sources"]
+            }
+            self.assertEqual(sources["alpha_vantage"]["used_today"], 1)
+
+
+class VendorUsageDatabaseTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.database_url = f"sqlite+pysqlite:///{Path(self.temp_dir.name) / 'usage.db'}"
+        self.usage_path = Path(self.temp_dir.name) / "should-not-be-used.json"
+        self.env_patch = patch.dict(
+            os.environ,
+            {
+                "AUTH_ENABLED": "true",
+                "AUTH_MODE": "required",
+                "DATABASE_URL": self.database_url,
+                "DATA_SOURCE_USAGE_PATH": str(self.usage_path),
+            },
+            clear=False,
+        )
+        self.env_patch.start()
+        auth.reset_runtime_state()
+        auth.create_all_for_testing()
+
+    def tearDown(self):
+        auth.reset_runtime_state()
+        self.env_patch.stop()
+        self.temp_dir.cleanup()
+
+    def test_vendor_config_and_usage_are_written_to_database_when_available(self):
+        from web.backend import data_sources
+
+        vendor_usage.update_data_source_config(
+            "alpha_vantage",
+            enabled=False,
+            daily_limit=7,
+            hourly_limit=3,
+        )
+        vendor_usage.record_data_source_call(
+            "massive",
+            module="analysis",
+            success=True,
+        )
+
+        self.assertFalse(self.usage_path.exists())
+        with auth.db_session() as db:
+            config = db.get(data_sources.DataSourceVendorConfig, "alpha_vantage")
+            self.assertIsNotNone(config)
+            self.assertFalse(config.enabled)
+            self.assertEqual(config.daily_limit, 7)
+            self.assertEqual(config.hourly_limit, 3)
+
+            usage = db.scalar(
+                data_sources.select_usage_row(
+                    vendor="massive",
+                    module="analysis",
+                    usage_date=vendor_usage.current_usage_date(),
+                )
+            )
+            self.assertIsNotNone(usage)
+            self.assertEqual(usage.total_calls, 1)
+            self.assertEqual(usage.success_count, 1)
+            self.assertEqual(usage.failure_count, 0)
+
+        auth.reset_runtime_state()
+        sources = {
+            source["vendor"]: source
+            for source in vendor_usage.get_data_source_usage_summary()["sources"]
+        }
+        self.assertFalse(sources["alpha_vantage"]["enabled"])
+        self.assertEqual(sources["alpha_vantage"]["daily_limit"], 7)
+        self.assertEqual(sources["alpha_vantage"]["hourly_limit"], 3)
+        self.assertEqual(sources["massive"]["modules"]["analysis"]["total_calls"], 1)
+
+    def test_database_route_policy_overrides_analysis_vendor_chain(self):
+        from tradingagents.dataflows.interface import build_vendor_chain
+        from web.backend.routers import admin as admin_router
+        from web.backend import data_sources
+
+        updated = admin_router.update_admin_data_source_route(
+            "analysis",
+            "us",
+            "core_stock_apis",
+            AdminDataSourceRouteUpdatePayload(vendor_chain=["yfinance"]),
+        )
+
+        with vendor_usage.data_source_usage_context("analysis"):
+            self.assertEqual(build_vendor_chain("get_stock_data", "us"), ["yfinance"])
+        self.assertEqual(updated["route"]["vendor_chain"], ["yfinance"])
+
+        summary = data_sources.get_data_source_usage_summary()
+        routes = {
+            (route["module"], route["market"], route["category"]): route
+            for route in summary["routes"]
+        }
+        self.assertEqual(
+            routes[("analysis", "us", "core_stock_apis")]["vendor_chain"],
+            ["yfinance"],
+        )
+
+    def test_database_route_policy_provides_screener_sources(self):
+        from web.backend import data_sources
+        from web.backend.routers import screeners as screeners_router
+
+        data_sources.update_data_source_route(
+            module="screener",
+            market="cn",
+            category="core_stock_apis",
+            vendor_chain=["akshare", "tushare"],
+        )
+        data_sources.update_data_source_route(
+            module="screener",
+            market="us",
+            category="core_stock_apis",
+            vendor_chain=["yfinance"],
+        )
+
+        sources = screeners_router.resolve_screener_data_sources(["cn", "us"])
+
+        self.assertEqual(sources["cn_data_source"], "akshare")
+        self.assertEqual(sources["cn_data_source_fallbacks"], ["tushare"])
+        self.assertEqual(sources["us_data_source"], "yfinance")
 
 
 if __name__ == "__main__":

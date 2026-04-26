@@ -5,9 +5,10 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from tradingagents.dataflows import vendor_usage
-from web.backend import access, analysis_limits, auth
+from web.backend import access, analysis_limits, auth, data_sources
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
+    AdminDataSourceRouteUpdatePayload,
     AdminDataSourceUpdatePayload,
     AdminUserCreatePayload,
     AdminUserResetPasswordPayload,
@@ -81,17 +82,46 @@ def update_admin_data_source(
             vendor,
             enabled=payload.enabled,
             daily_limit=payload.daily_limit,
+            hourly_limit=payload.hourly_limit,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     logger.info(
-        "admin data source updated vendor=%s enabled=%s daily_limit=%s",
+        "admin data source updated vendor=%s enabled=%s daily_limit=%s hourly_limit=%s",
         source["vendor"],
         source["enabled"],
         source["daily_limit"],
+        source["hourly_limit"],
     )
     return {"source": source}
+
+
+@router.put("/api/admin/data-source-routes/{module}/{market}/{category}")
+def update_admin_data_source_route(
+    module: str,
+    market: str,
+    category: str,
+    payload: AdminDataSourceRouteUpdatePayload,
+) -> dict:
+    try:
+        route = data_sources.update_data_source_route(
+            module=module,
+            market=market,
+            category=category,
+            vendor_chain=payload.vendor_chain,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    logger.info(
+        "admin data source route updated module=%s market=%s category=%s vendor_chain=%s",
+        route["module"],
+        route["market"],
+        route["category"],
+        ",".join(route["vendor_chain"]),
+    )
+    return {"route": route}
 
 
 @router.get("/api/admin/users/{user_id}")

@@ -12,12 +12,12 @@ from tradingagents.data_layout import (
     resolve_history_dir,
     resolve_screener_cache_dir,
 )
-from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df, _fetch_akshare_us_stock_df
-from tradingagents.dataflows.alpha_vantage_common import AlphaVantageRateLimitError
-from tradingagents.dataflows.alpha_vantage_stock import _fetch_alpha_vantage_stock_df
+from tradingagents.dataflows.vendors.akshare.stock import _fetch_akshare_stock_df, _fetch_akshare_us_stock_df
+from tradingagents.dataflows.vendors.alpha_vantage.common import AlphaVantageRateLimitError
+from tradingagents.dataflows.vendors.alpha_vantage.stock import _fetch_alpha_vantage_stock_df
 from tradingagents.dataflows.cn_market_utils import detect_market, normalize_symbol_for_vendor
-from tradingagents.dataflows.massive_stock import _fetch_massive_stock_df
-from tradingagents.dataflows.tushare_stock import _fetch_tushare_stock_df, _fetch_tushare_us_stock_df
+from tradingagents.dataflows.vendors.massive.stock import _fetch_massive_stock_df
+from tradingagents.dataflows.vendors.tushare.stock import _fetch_tushare_stock_df, _fetch_tushare_us_stock_df
 from tradingagents.dataflows import vendor_usage
 from tradingagents.dataflows.vendor_errors import (
     VendorAuthError,
@@ -25,7 +25,7 @@ from tradingagents.dataflows.vendor_errors import (
     VendorNotSupportedError,
     VendorRetryableError,
 )
-from tradingagents.dataflows.y_finance import _fetch_yfinance_ohlcv_df
+from tradingagents.dataflows.vendors.yfinance.stock import _fetch_yfinance_ohlcv_df
 from .history_cache import (
     checkpoint_path,
     delete_checkpoint,
@@ -103,10 +103,12 @@ class _HistoryFetchExecutor:
         as_of_date: str,
         cn_source_chain: list[str],
         us_data_source: str,
+        us_data_source_fallbacks: list[str] | None = None,
     ) -> None:
         self.as_of_date = as_of_date
         self.cn_source_chain = list(cn_source_chain)
         self.us_data_source = us_data_source
+        self.us_source_chain = [us_data_source] + list(us_data_source_fallbacks or [])
         self.cn_network_fetch_count = 0
         self.us_network_fetch_count = 0
         self.last_source: str | None = None
@@ -118,28 +120,36 @@ class _HistoryFetchExecutor:
         return self._fetch_cn(symbol, market, fetch_start)
 
     def _fetch_us(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
-        attempt = 0
-        while True:
-            try:
-                if self.us_network_fetch_count > 0:
-                    time.sleep(US_REQUEST_DELAY_SECONDS)
-                self.us_network_fetch_count += 1
-                self.last_source = self.us_data_source
-                frame = fetch_price_history(
-                    symbol,
-                    market,
-                    fetch_start,
-                    self.as_of_date,
-                    us_data_source=self.us_data_source,
-                )
-                return _FetchedHistoryFrame(frame=frame, source=self.last_source)
-            except US_RETRYABLE_ERRORS as exc:
-                if attempt >= len(RETRY_BACKOFF_SECONDS):
-                    if isinstance(exc, VendorRetryableError):
-                        raise _unwrap_vendor_error(exc)
-                    raise
-                time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                attempt += 1
+        last_error: Exception | None = None
+        for source in self.us_source_chain:
+            attempt = 0
+            while True:
+                try:
+                    if self.us_network_fetch_count > 0:
+                        time.sleep(US_REQUEST_DELAY_SECONDS)
+                    self.us_network_fetch_count += 1
+                    self.last_source = source
+                    frame = fetch_price_history(
+                        symbol,
+                        market,
+                        fetch_start,
+                        self.as_of_date,
+                        us_data_source=source,
+                    )
+                    return _FetchedHistoryFrame(frame=frame, source=self.last_source)
+                except US_RETRYABLE_ERRORS as exc:
+                    last_error = exc
+                    if attempt >= len(RETRY_BACKOFF_SECONDS):
+                        break
+                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
+                    attempt += 1
+
+        if last_error is not None:
+            if isinstance(last_error, VendorRetryableError):
+                raise _unwrap_vendor_error(last_error)
+            raise last_error
+
+        raise VendorRetryableError("US history fetch failed without a fallback result")
 
     def _fetch_cn(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
         last_error: Exception | None = None
@@ -579,6 +589,7 @@ def fetch_ticker_history(
     cn_data_source: str = "tushare",
     cn_data_source_fallbacks: list[str] | None = None,
     us_data_source: str = "yfinance",
+    us_data_source_fallbacks: list[str] | None = None,
     cache_dir: str | Path | None = None,
 ) -> tuple[str, pd.DataFrame]:
     normalized_symbol = str(symbol).strip()
@@ -622,6 +633,7 @@ def fetch_ticker_history(
             cn_data_source_fallbacks,
         ),
         us_data_source=us_data_source,
+        us_data_source_fallbacks=us_data_source_fallbacks,
     )
     result = _fetch_symbol_history(context, executor=executor)
     if result.failure is not None:

@@ -6,11 +6,11 @@ from pathlib import Path
 
 import pandas as pd
 
-from tradingagents.dataflows.akshare_rate_limit import call_akshare_api
+from tradingagents.dataflows.vendors.akshare.rate_limit import call_akshare_api
 from tradingagents.data.manifest_schema import COMMON_MANIFEST_COLUMNS, COMPARE_MANIFEST_COLUMNS
-from tradingagents.dataflows.akshare_stock import _import_akshare
+from tradingagents.dataflows.vendors.akshare.stock import _import_akshare
 from tradingagents.dataflows.cn_market_utils import infer_cn_exchange
-from tradingagents.dataflows.tushare_common import get_tushare_pro_client
+from tradingagents.dataflows.vendors.tushare.common import get_tushare_pro_client
 from tradingagents.dataflows.vendor_errors import (
     VendorAuthError,
     VendorNotSupportedError,

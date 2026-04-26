@@ -14,6 +14,7 @@ from web.backend import (
     app_config,
     asset_entries,
     auth,
+    data_sources,
     screener_results,
     report_metadata,
     screener_runs,
@@ -40,6 +41,7 @@ from web.backend.runtime import task_store
 async def _app_lifespan(_: FastAPI):
     auth.initialize_auth_runtime()
     analysis_limits.initialize_analysis_limits_runtime()
+    data_sources.initialize_data_source_runtime()
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
     screener_results.initialize_screener_result_runtime()

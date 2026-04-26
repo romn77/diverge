@@ -14,7 +14,9 @@ import { Input } from "@/components/ui/input";
 import {
   ApiError,
   listAdminDataSources,
+  updateAdminDataSourceRoute,
   updateAdminDataSource,
+  type AdminDataSourceRoute,
   type AdminDataSourceUsage,
 } from "@/lib/api";
 
@@ -25,18 +27,34 @@ const MODULE_LABELS = [
 ] as const;
 
 const VENDOR_LABELS: Record<string, string> = {
+  local: "Local Cache",
   akshare: "AkShare",
   tushare: "Tushare",
+  fmp: "Financial Modeling Prep",
   yfinance: "Yahoo Finance",
   alpha_vantage: "Alpha Vantage",
   massive: "Massive",
 };
+const KNOWN_VENDORS = new Set(Object.keys(VENDOR_LABELS));
 
-function formatLimit(value: number | null): string {
-  return value === null ? "Unlimited" : `${value} / day`;
+const MARKET_LABELS: Record<string, string> = {
+  cn: "A-share",
+  us: "US",
+  global: "Global",
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  core_stock_apis: "Core Stock APIs",
+  technical_indicators: "Technical Indicators",
+  fundamental_data: "Fundamental Data",
+  news_data: "News Data",
+};
+
+function formatLimit(value: number | null, interval: "day" | "hour"): string {
+  return value === null ? "Unlimited" : `${value} / ${interval}`;
 }
 
-function createLimitDrafts(
+function createDailyLimitDrafts(
   sources: AdminDataSourceUsage[]
 ): Record<string, string> {
   return Object.fromEntries(
@@ -44,6 +62,29 @@ function createLimitDrafts(
       source.vendor,
       source.daily_limit === null ? "" : String(source.daily_limit),
     ])
+  );
+}
+
+function createHourlyLimitDrafts(
+  sources: AdminDataSourceUsage[]
+): Record<string, string> {
+  return Object.fromEntries(
+    sources.map((source) => [
+      source.vendor,
+      source.hourly_limit === null ? "" : String(source.hourly_limit),
+    ])
+  );
+}
+
+function routeKey(route: Pick<AdminDataSourceRoute, "module" | "market" | "category">) {
+  return `${route.module}:${route.market}:${route.category}`;
+}
+
+function createRouteDrafts(
+  routes: AdminDataSourceRoute[]
+): Record<string, string> {
+  return Object.fromEntries(
+    routes.map((route) => [routeKey(route), route.vendor_chain.join(", ")])
   );
 }
 
@@ -59,16 +100,48 @@ function parseDailyLimitDraft(value: string): number | null {
   return parsed;
 }
 
+function parseHourlyLimitDraft(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error("Hourly limit must be a whole number or blank.");
+  }
+  return parsed;
+}
+
+function parseRouteDraft(value: string): string[] {
+  const vendors = value
+    .split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  const uniqueVendors = Array.from(new Set(vendors));
+  if (!uniqueVendors.length) {
+    throw new Error("Route chain must include at least one vendor.");
+  }
+  const unknownVendor = uniqueVendors.find((vendor) => !KNOWN_VENDORS.has(vendor));
+  if (unknownVendor) {
+    throw new Error(`Unknown vendor: ${unknownVendor}.`);
+  }
+  return uniqueVendors;
+}
+
 export default function AdminDataSourcesPage() {
   const router = useRouter();
   const { authState, authStatus, refreshSession } = useAuth();
   const [sources, setSources] = useState<AdminDataSourceUsage[]>([]);
+  const [routes, setRoutes] = useState<AdminDataSourceRoute[]>([]);
   const [usageDate, setUsageDate] = useState("");
-  const [limitDrafts, setLimitDrafts] = useState<Record<string, string>>({});
+  const [dailyLimitDrafts, setDailyLimitDrafts] = useState<Record<string, string>>({});
+  const [hourlyLimitDrafts, setHourlyLimitDrafts] = useState<Record<string, string>>({});
+  const [routeDrafts, setRouteDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [mutatingVendor, setMutatingVendor] = useState<string | null>(null);
+  const [mutatingRouteKey, setMutatingRouteKey] = useState<string | null>(null);
 
   const authEnabled = authState?.enabled ?? false;
   const shouldRedirectToLogin =
@@ -105,8 +178,11 @@ export default function AdminDataSourcesPage() {
     try {
       const payload = await listAdminDataSources();
       setSources(payload.sources);
+      setRoutes(payload.routes ?? []);
       setUsageDate(payload.date);
-      setLimitDrafts(createLimitDrafts(payload.sources));
+      setDailyLimitDrafts(createDailyLimitDrafts(payload.sources));
+      setHourlyLimitDrafts(createHourlyLimitDrafts(payload.sources));
+      setRouteDrafts(createRouteDrafts(payload.routes ?? []));
     } catch (error) {
       if (!handleAuthBoundary(error)) {
         setPageError(
@@ -138,20 +214,27 @@ export default function AdminDataSourcesPage() {
     setMutatingVendor(source.vendor);
     setNotice(null);
     try {
-      const dailyLimit = parseDailyLimitDraft(limitDrafts[source.vendor] ?? "");
+      const dailyLimit = parseDailyLimitDraft(dailyLimitDrafts[source.vendor] ?? "");
+      const hourlyLimit = parseHourlyLimitDraft(hourlyLimitDrafts[source.vendor] ?? "");
       const payload = await updateAdminDataSource(source.vendor, {
         enabled,
         daily_limit: dailyLimit,
+        hourly_limit: hourlyLimit,
       });
       setSources((current) =>
         current.map((item) =>
           item.vendor === payload.source.vendor ? payload.source : item
         )
       );
-      setLimitDrafts((current) => ({
+      setDailyLimitDrafts((current) => ({
         ...current,
         [payload.source.vendor]:
           payload.source.daily_limit === null ? "" : String(payload.source.daily_limit),
+      }));
+      setHourlyLimitDrafts((current) => ({
+        ...current,
+        [payload.source.vendor]:
+          payload.source.hourly_limit === null ? "" : String(payload.source.hourly_limit),
       }));
       setNotice(`${payload.source.label} ${enabled ? "enabled" : "disabled"}.`);
     } catch (error) {
@@ -165,38 +248,67 @@ export default function AdminDataSourcesPage() {
     }
   };
 
+  const saveRoute = async (route: AdminDataSourceRoute) => {
+    const key = routeKey(route);
+    setMutatingRouteKey(key);
+    setNotice(null);
+    try {
+      const vendorChain = parseRouteDraft(routeDrafts[key] ?? "");
+      const payload = await updateAdminDataSourceRoute(route, {
+        vendor_chain: vendorChain,
+      });
+      setRoutes((current) =>
+        current.map((item) =>
+          routeKey(item) === routeKey(payload.route) ? payload.route : item
+        )
+      );
+      setRouteDrafts((current) => ({
+        ...current,
+        [routeKey(payload.route)]: payload.route.vendor_chain.join(", "),
+      }));
+      setNotice(
+        `${MODULE_LABELS.find((item) => item.value === payload.route.module)?.label ?? payload.route.module} ${MARKET_LABELS[payload.route.market] ?? payload.route.market} route saved.`
+      );
+    } catch (error) {
+      if (!handleAuthBoundary(error)) {
+        setPageError(
+          error instanceof Error ? error.message : "Unable to update route policy"
+        );
+      }
+    } finally {
+      setMutatingRouteKey(null);
+    }
+  };
+
   if (authStatus !== "ready" || loading) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-6 py-10">
-        <StatusPanel
-          title="Loading data sources"
-          body="Checking admin access and data source usage."
-        />
-      </main>
+      <StatusPanel
+        eyebrow="Admin Console"
+        title="Loading data sources"
+        body="Checking admin access and data source usage."
+      />
     );
   }
 
   if (!authEnabled) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-6 py-10">
-        <StatusPanel
-          tone="warning"
-          title="Admin data sources are unavailable"
-          body="Enable auth to manage data source API configuration."
-        />
-      </main>
+      <StatusPanel
+        eyebrow="Auth Disabled"
+        tone="muted"
+        title="Admin data sources are unavailable"
+        body="Enable auth to manage data source API configuration."
+      />
     );
   }
 
   if (!canManage) {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-6xl items-center justify-center px-6 py-10">
-        <StatusPanel
-          tone="danger"
-          title="This session cannot manage data sources"
-          body={pageError ?? "You do not have permission to manage data sources."}
-        />
-      </main>
+      <StatusPanel
+        eyebrow="Forbidden"
+        tone="danger"
+        title="This session cannot manage data sources"
+        body={pageError ?? "You do not have permission to manage data sources."}
+      />
     );
   }
 
@@ -297,22 +409,32 @@ export default function AdminDataSourcesPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-5">
+                  <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
                     <MetricBlock label="Used today" value={`${source.used_today}`} />
-                    <MetricBlock label="Daily limit" value={formatLimit(source.daily_limit)} />
+                    <MetricBlock label="Used this hour" value={`${source.used_this_hour}`} />
+                    <MetricBlock label="Daily limit" value={formatLimit(source.daily_limit, "day")} />
+                    <MetricBlock label="Hourly limit" value={formatLimit(source.hourly_limit, "hour")} />
                     <MetricBlock
-                      label="Remaining"
+                      label="Daily remaining"
                       value={
                         source.remaining_today === null
                           ? "Unlimited"
                           : `${source.remaining_today}`
                       }
                     />
+                    <MetricBlock
+                      label="Hourly remaining"
+                      value={
+                        source.remaining_this_hour === null
+                          ? "Unlimited"
+                          : `${source.remaining_this_hour}`
+                      }
+                    />
                     <MetricBlock label="Success" value={`${source.success_count}`} />
                     <MetricBlock label="Failure" value={`${source.failure_count}`} />
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                  <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
                     <div className="grid gap-3 md:grid-cols-3">
                       {MODULE_LABELS.map((module) => {
                         const usage = source.modules[module.value];
@@ -336,21 +458,42 @@ export default function AdminDataSourcesPage() {
                       })}
                     </div>
 
-                    <label className="field-shell block rounded-lg border border-[var(--border)] bg-white/90 p-4">
-                      <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        Daily limit
-                      </span>
-                      <div className="mt-3 flex gap-2">
-                        <Input
-                          value={limitDrafts[source.vendor] ?? ""}
-                          placeholder="Unlimited"
-                          onChange={(event) =>
-                            setLimitDrafts((current) => ({
-                              ...current,
-                              [source.vendor]: event.target.value,
-                            }))
-                          }
-                        />
+                    <div className="field-shell rounded-lg border border-[var(--border)] bg-white/90 p-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block">
+                          <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                            Daily limit
+                          </span>
+                          <Input
+                            className="mt-3"
+                            value={dailyLimitDrafts[source.vendor] ?? ""}
+                            placeholder="Unlimited"
+                            onChange={(event) =>
+                              setDailyLimitDrafts((current) => ({
+                                ...current,
+                                [source.vendor]: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                            Hourly limit
+                          </span>
+                          <Input
+                            className="mt-3"
+                            value={hourlyLimitDrafts[source.vendor] ?? ""}
+                            placeholder="Unlimited"
+                            onChange={(event) =>
+                              setHourlyLimitDrafts((current) => ({
+                                ...current,
+                                [source.vendor]: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                      </div>
+                      <div className="mt-3 flex justify-end">
                         <Button
                           type="button"
                           variant="secondary"
@@ -361,9 +504,9 @@ export default function AdminDataSourcesPage() {
                         </Button>
                       </div>
                       <p className="mt-2 text-xs leading-5 text-slate-500">
-                        Leave blank for no daily quota.
+                        Leave blank for no quota.
                       </p>
-                    </label>
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-500">
@@ -373,6 +516,79 @@ export default function AdminDataSourcesPage() {
               </Card>
             );
           })}
+        </section>
+
+        <section className="grid gap-3">
+          <div>
+            <h2 className="text-xl font-semibold tracking-normal text-slate-950">
+              Routing Policies
+            </h2>
+            <p className="mt-1 text-sm leading-6 text-slate-600">
+              Configure the vendor chain used by each workflow and market. Changes are
+              read at runtime.
+            </p>
+          </div>
+          <Card className="rounded-lg border-[var(--border)]">
+            <CardContent className="grid gap-3 p-5">
+              {routes.map((route) => {
+                const key = routeKey(route);
+                const isSaving = mutatingRouteKey === key;
+                return (
+                  <div
+                    key={key}
+                    className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 lg:grid-cols-[180px_140px_minmax(160px,1fr)_minmax(260px,1.5fr)_auto]"
+                  >
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Module
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950">
+                        {MODULE_LABELS.find((item) => item.value === route.module)
+                          ?.label ?? route.module}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Market
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950">
+                        {MARKET_LABELS[route.market] ?? route.market}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                        Category
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-slate-950">
+                        {CATEGORY_LABELS[route.category] ?? route.category}
+                      </p>
+                    </div>
+                    <label className="block">
+                      <span className="sr-only">Vendor chain</span>
+                      <Input
+                        value={routeDrafts[key] ?? ""}
+                        placeholder={route.default_vendor_chain.join(", ")}
+                        onChange={(event) =>
+                          setRouteDrafts((current) => ({
+                            ...current,
+                            [key]: event.target.value,
+                          }))
+                        }
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={isSaving}
+                      onClick={() => void saveRoute(route)}
+                    >
+                      <Save className="size-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
         </section>
       </div>
     </main>

@@ -12,183 +12,136 @@
 </div>
 
 <div align="center">
-  <!-- Keep these links. Translations will automatically update with the README. -->
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=de">Deutsch</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=es">Español</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=fr">français</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ja">日本語</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ko">한국어</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=pt">Português</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ru">Русский</a> | 
-  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=zh">中文</a>
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=de">Deutsch</a> |
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=es">Espanol</a> |
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=fr">francais</a> |
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ja">Japanese</a> |
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ko">Korean</a> |
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=pt">Portugues</a> |
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=ru">Russian</a> |
+  <a href="https://www.readme-i18n.com/TauricResearch/TradingAgents?lang=zh">Chinese</a>
 </div>
 
 ---
 
-# TradingAgents: Multi-Agents LLM Financial Trading Framework
+# TradingAgents: Multi-Agent LLM Financial Analysis Framework
 
-> Based on [TradingAgents](https://github.com/TauricResearch/TradingAgents) by Tauric Research. This repository is a modified internal fork of the original Apache-2.0 licensed project.
-
-## News
-- [2026-03] **TradingAgents v0.2.3** released with multi-language support, GPT-5.4 family models, unified model catalog, backtesting date fidelity, and proxy support.
-- [2026-03] **TradingAgents v0.2.2** released with GPT-5.4/Gemini 3.1/Claude 4.6 model coverage, five-tier rating scale, OpenAI Responses API, Anthropic effort control, and cross-platform stability.
-- [2026-02] **TradingAgents v0.2.0** released with multi-provider LLM support (GPT-5.x, Gemini 3.x, Claude 4.x, Grok 4.x) and improved system architecture.
-- [2026-01] **Trading-R1** [Technical Report](https://arxiv.org/abs/2509.11420) released, with [Terminal](https://github.com/TauricResearch/Trading-R1) expected to land soon.
-
-<div align="center">
-<a href="https://www.star-history.com/#TauricResearch/TradingAgents&Date">
- <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date" />
-   <img alt="TradingAgents Star History" src="https://api.star-history.com/svg?repos=TauricResearch/TradingAgents&type=Date" style="width: 80%; height: auto;" />
- </picture>
-</a>
-</div>
-
-> 🎉 **TradingAgents** officially released! We have received numerous inquiries about the work, and we would like to express our thanks for the enthusiasm in our community.
+> This repository is a modified fork of [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents), the Apache-2.0 licensed multi-agent financial trading research framework by Tauric Research and contributors.
 >
-> So we decided to fully open-source the framework. Looking forward to building impactful projects with you!
+> The fork keeps the original attribution, citation, assets, and Apache-2.0 license, and adds project-specific changes around data-source routing, CN/US screening, valuation inputs, web operations, authentication, and deployment.
 
-<div align="center">
-
-🚀 [TradingAgents](#tradingagents-framework) | ⚡ [Installation & CLI](#installation-and-cli) | 🎬 [Demo](https://www.youtube.com/watch?v=90gr5lwjIho) | 📦 [Package Usage](#tradingagents-package) | 🤝 [Contributing](#contributing) | 📄 [Citation](#citation)
-
-</div>
-
-## TradingAgents Framework
-
-TradingAgents is a multi-agent trading framework that mirrors the dynamics of real-world trading firms. By deploying specialized LLM-powered agents: from fundamental analysts, sentiment experts, and technical analysts, to trader, risk management team, the platform collaboratively evaluates market conditions and informs trading decisions. Moreover, these agents engage in dynamic discussions to pinpoint the optimal strategy.
+TradingAgents models the workflow of a trading desk with specialized LLM-powered agents: fundamentals, sentiment, news, technical analysis, bullish and bearish researchers, trader, risk analysts, and portfolio manager. The framework is intended for research, education, and internal decision-support workflows. It is not financial, investment, legal, tax, or trading advice.
 
 <p align="center">
   <img src="assets/schema.png" style="width: 100%; height: auto;">
 </p>
 
-> TradingAgents framework is designed for research purposes. Trading performance may vary based on many factors, including the chosen backbone language models, model temperature, trading periods, the quality of data, and other non-deterministic factors. [It is not intended as financial, investment, or trading advice.](https://tauric.ai/disclaimer/)
+## Current Implementation
 
-Our framework decomposes complex trading tasks into specialized roles. This ensures the system achieves a robust, scalable approach to market analysis and decision-making.
+This fork currently includes:
 
-### Analyst Team
-- Fundamentals Analyst: Evaluates company financials and performance metrics, identifying intrinsic values and potential red flags.
-- Sentiment Analyst: Analyzes social media and public sentiment using sentiment scoring algorithms to gauge short-term market mood.
-- News Analyst: Monitors global news and macroeconomic indicators, interpreting the impact of events on market conditions.
-- Technical Analyst: Utilizes technical indicators (like MACD and RSI) to detect trading patterns and forecast price movements.
+- LangGraph-based multi-agent analysis with CLI and package entry points.
+- Multi-provider LLM support through OpenAI, Google, Anthropic, xAI, OpenRouter, DeepSeek, Xiaohumini, and local Ollama-compatible settings.
+- Vendor-routed market data under `tradingagents/dataflows/vendors/`, grouped by source: `akshare`, `alpha_vantage`, `fmp`, `massive`, `tushare`, `yfinance`, and `local`.
+- Market-aware routing for `core_stock_apis`, `technical_indicators`, `fundamental_data`, and `news_data`, with fallback chains, usage tracking, and admin-configurable route policies.
+- CN/US screener pipeline with manifest loading, source fallbacks, cached OHLCV history, breakout filters, hard-filter replay, and run artifacts.
+- Market-routed valuation input builders for US and CN instruments, DCF/multiples helpers, and generated valuation report sections.
+- Web Workbench for reports, analysis tasks, screener tasks, candidate review, assets, trades, feedback loops, and ticker history.
+- Optional auth and admin operations backed by PostgreSQL, including users, role limits, data-source enablement, daily/hourly source limits, and route policy editing.
+- Local single-host deployment plus production-style Docker Compose with Postgres, Redis worker, Nginx, backup service, and optional Tencent Cloud COS storage.
 
-<p align="center">
-  <img src="assets/analyst.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
+## Repository Layout
 
-### Researcher Team
-- Comprises both bullish and bearish researchers who critically assess the insights provided by the Analyst Team. Through structured debates, they balance potential gains against inherent risks.
+```text
+cli/                         Typer CLI entry point and terminal UI
+tradingagents/agents/        Analyst, researcher, trader, risk, and manager agents
+tradingagents/dataflows/     Router, vendor registry, shared errors, and market utilities
+tradingagents/dataflows/vendors/
+                             Source-specific adapters grouped by vendor
+tradingagents/screener/      CN/US screener pipeline, filters, history cache, and replay
+tradingagents/valuation/     DCF, FCFF, multiples, assumptions, and schemas
+web/backend/                 FastAPI backend, auth, admin, tasks, storage, and workers
+web/frontend/                Next.js Workbench frontend
+data/                        Runtime data, reports, screener runs, cache, and history
+docs/                        Plans, deployment notes, and feature documentation
+scripts/                     Deployment, database checks, backup, and restore helpers
+```
 
-<p align="center">
-  <img src="assets/researcher.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
+## Installation
 
-### Trader Agent
-- Composes reports from the analysts and researchers to make informed trading decisions. It determines the timing and magnitude of trades based on comprehensive market insights.
+Clone this fork or your own fork:
 
-<p align="center">
-  <img src="assets/trader.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
-
-### Risk Management and Portfolio Manager
-- Continuously evaluates portfolio risk by assessing market volatility, liquidity, and other risk factors. The risk management team evaluates and adjusts trading strategies, providing assessment reports to the Portfolio Manager for final decision.
-- The Portfolio Manager approves/rejects the transaction proposal. If approved, the order will be sent to the simulated exchange and executed.
-
-<p align="center">
-  <img src="assets/risk.png" width="70%" style="display: inline-block; margin: 0 2%;">
-</p>
-
-## Installation and CLI
-
-### Installation
-
-Clone TradingAgents:
 ```bash
-git clone https://github.com/TauricResearch/TradingAgents.git
+git clone https://github.com/romn77/TradingAgents.git
 cd TradingAgents
 ```
 
-Create a virtual environment in any of your favorite environment managers:
-```bash
-conda create -n tradingagents python=3.13
-conda activate tradingagents
-```
+Create a Python environment and install the package:
 
-Install the package and its dependencies:
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install .
 ```
 
-### Required APIs
-
-TradingAgents supports multiple LLM providers. Set the API key for your chosen provider:
+For development with optional web dependencies:
 
 ```bash
-export OPENAI_API_KEY=...          # OpenAI (GPT)
-export GOOGLE_API_KEY=...          # Google (Gemini)
-export ANTHROPIC_API_KEY=...       # Anthropic (Claude)
-export XAI_API_KEY=...             # xAI (Grok)
-export OPENROUTER_API_KEY=...      # OpenRouter
-export DEEPSEEK_API_KEY=...        # DeepSeek
-export ALPHA_VANTAGE_API_KEY=...   # Alpha Vantage
-export TUSHARE_TOKEN=...           # Tushare (required for CN market data)
+pip install -e ".[web]"
 ```
 
-### CN Data Source Setup (akshare + tushare)
+If you use `uv`:
 
-TradingAgents supports CN-market routing through `akshare` and `tushare` under the same tool interfaces.
+```bash
+uv sync
+```
 
-- Keep `market: "auto"` to detect CN/US by symbol automatically (e.g. `600519`, `600519.SH`, `sh600519`, `SZ000001` for CN).
-- Set `market: "cn"` to force CN routing.
-- Configure vendor priority with:
-  - `tool_vendors` (highest precedence)
-  - `market_overrides[market][category]`
-  - `data_vendors[category]`
+## Configuration
 
-If a configured vendor is unavailable or unsupported for a method, the router applies semantic fallback to the next available vendor. For example, CN news can fallback from `akshare`/`tushare` to `yfinance` for global coverage when capability-gated errors occur.
+Copy the sample environment file and fill in the providers you need:
 
-For local models, configure Ollama with `llm_provider: "ollama"` in your config.
-
-Alternatively, copy `.env.example` to `.env` and fill in your keys:
 ```bash
 cp .env.example .env
 ```
 
-### CLI Usage
+Common environment variables:
 
-Launch the interactive CLI:
 ```bash
-tradingagents          # installed command
-python -m cli.main     # alternative: run directly from source
+OPENAI_API_KEY=
+GOOGLE_API_KEY=
+ANTHROPIC_API_KEY=
+XAI_API_KEY=
+OPENROUTER_API_KEY=
+DEEPSEEK_API_KEY=
+XIAOHUMINI_API_KEY=
+ALPHA_VANTAGE_API_KEY=
+MASSIVE_API_KEY=
+MASSIVE_BASE_URL=
+FMP_API_KEY=
+TUSHARE_TOKEN=
 ```
-You will see a screen where you can select your desired tickers, analysis date, LLM provider, research depth, and more.
 
-<p align="center">
-  <img src="assets/cli/cli_init.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
+Web/auth/deployment variables are also documented in `.env.example`, including `DATABASE_URL`, `AUTH_ENABLED`, `AUTH_MODE`, `FRONTEND_ORIGIN`, `NEXT_PUBLIC_API_BASE_URL`, `TASK_BACKEND`, `REDIS_URL`, `STORAGE_BACKEND`, and Tencent COS settings.
 
-An interface will appear showing results as they load, letting you track the agent's progress as it runs.
+The default runtime configuration lives in `tradingagents/default_config.py`. Data-source priority can be configured by:
 
-<p align="center">
-  <img src="assets/cli/cli_news.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
+- `tool_vendors`: method-specific override, highest precedence.
+- `market_overrides[market][category]`: market/category override.
+- `data_vendors[category]`: global category default.
+- Web admin data-source routes when auth/database-backed admin features are enabled.
 
-<p align="center">
-  <img src="assets/cli/cli_transaction.png" width="100%" style="display: inline-block; margin: 0 2%;">
-</p>
+## CLI Usage
 
-### Screener CLI
+The installed command is `tradingagents`; from source you can also run `python -m cli.main`.
 
-TradingAgents also ships with a daily screener that builds a ranked candidate pool without invoking LLM analysis during screening.
+```bash
+tradingagents --help
+tradingagents analyze
+```
 
-- CN screening accepts an optional manifest path via `--cn-manifest`; if omitted, the screener falls back to live CN universe loading with `--cn-data-source`
-- US screening requires a manifest path via `--us-manifest`
-- US screening uses `yfinance` by default and can switch to `alpha_vantage`, `tushare`, `akshare`, or `massive` with `--us-data-source`
-- LLM analysis happens after screener output, not during screener execution
-- Screener runs live under `data/screener/runs/`, reusable checkpoints and universe cache live under `data/cache/screener/`, and persisted OHLCV CSVs live under `data/history/<market>/`
+The interactive `analyze` command asks for ticker, date, analysts, LLM provider, model, and research depth, then streams progress and writes report artifacts.
 
-Example:
+Screener commands:
 
 ```bash
 tradingagents screen \
@@ -197,111 +150,169 @@ tradingagents screen \
   --top-k 100 \
   --cn-manifest /absolute/path/to/cn_manifest.csv \
   --us-manifest /absolute/path/to/us_manifest.csv \
-  --us-data-source alpha_vantage \
+  --us-data-source yfinance \
   --output-dir ./data/screener/runs
+
+tradingagents screen-debug \
+  --symbol AAPL \
+  --market us \
+  --date 2026-03-24 \
+  --us-manifest /absolute/path/to/us_manifest.csv
+
+tradingagents screen-replay ./data/screener/runs/<run_id>
 ```
 
-Manifest generation lives alongside the screener input data:
+Manifest helpers:
 
 ```bash
 python -m tradingagents.data.us_manifest
 python -m tradingagents.data.cn_manifest
 ```
 
-Both exporters write CSVs under `tradingagents/data/` with the shared column order `symbol,name,exchange,sector,list_date,mktcap`. The CN exporter expects `tushare` stock metadata so `list_date` stays populated for downstream filters. You can still override the source chain explicitly when needed, but a source that yields blank `list_date` values will now fail manifest generation instead of silently producing incomplete rows.
+US screening requires `--us-manifest`. CN screening can use `--cn-manifest`; if omitted, the screener falls back to live CN universe loading through the configured CN source chain.
 
-When `--cn-manifest` is supplied, the screener loads the CN universe from that CSV and reuses the manifest normalization rules, including dropping BSE rows. If `--cn-manifest` is omitted, the screener keeps the previous live-universe fetch path as a fallback.
-
-The CN manifest leaves `mktcap` blank for now because the current CN universe sources do not provide a stable market-cap field in the same path.
-
-Artifacts are written to `data/screener/runs/<YYYYMMDD_HHMMSS>/` and include:
-
-- `run_meta.json`
-- `universe.csv`
-- `features.csv`
-- `filtered_out.csv`
-- `candidates.csv`
-- `llm_pool.json`
-
-Legacy interactive `analyze` CLI runtime traces now live under `data/eval_results/`. That root stores per-ticker/per-date runtime folders such as `data/eval_results/<ticker>/<analysis_date>/reports/` plus `message_tool.log`, and full state logs under `data/eval_results/<ticker>/TradingAgentsStrategy_logs/`.
-
-## Single-Host Docker Deployment
-
-The current web stack is best deployed on a single machine because the backend keeps task state in memory and writes reports to the local `reports/` directory.
-
-```bash
-cp .env.example .env
-# update FRONTEND_PORT, FRONTEND_ORIGIN, NEXT_PUBLIC_API_BASE_URL and any provider keys you need
-
-./scripts/deploy-single-host.sh
-```
-
-This starts:
-
-- frontend on `http://localhost:${FRONTEND_PORT}`
-- backend on `http://localhost:8000`
-
-If you deploy to a remote host without a reverse proxy, make sure:
-
-- `FRONTEND_ORIGIN=http://<HOST>:<FRONTEND_PORT>`
-- `NEXT_PUBLIC_API_BASE_URL=http://<HOST>:8000`
-
-## TradingAgents Package
-
-### Implementation Details
-
-We built TradingAgents with LangGraph to ensure flexibility and modularity. The framework supports multiple LLM providers: OpenAI, Google, Anthropic, xAI, OpenRouter, DeepSeek, and Ollama.
-
-### Python Usage
-
-To use TradingAgents inside your code, you can import the `tradingagents` module and initialize a `TradingAgentsGraph()` object. The `.propagate()` function will return a decision. You can run `main.py`, here's also a quick example:
+## Python Usage
 
 ```python
-from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
-
-ta = TradingAgentsGraph(debug=True, config=DEFAULT_CONFIG.copy())
-
-# forward propagate
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
-```
-
-You can also adjust the default configuration to set your own choice of LLMs, debate rounds, etc.
-
-```python
 from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
 
 config = DEFAULT_CONFIG.copy()
-config["llm_provider"] = "openai"          # openai, google, anthropic, xai, openrouter, deepseek, xiaohumini
-config["deep_think_llm"] = "gpt-5.4"       # Model for complex reasoning
-config["quick_think_llm"] = "gpt-5.4-mini" # Model for quick tasks
-config["max_debate_rounds"] = 2
+config["llm_provider"] = "openai"
+config["deep_think_llm"] = "gpt-5.4"
+config["quick_think_llm"] = "gpt-5.4-mini"
+config["market"] = "auto"
+config["output_language"] = "en"
 
 ta = TradingAgentsGraph(debug=True, config=config)
 _, decision = ta.propagate("NVDA", "2026-01-15")
 print(decision)
 ```
 
-See `tradingagents/default_config.py` for all configuration options.
+## Data Sources
 
-## Contributing
+Source-specific adapters live under `tradingagents/dataflows/vendors/`:
 
-We welcome contributions from the community! Whether it's fixing a bug, improving documentation, or suggesting a new feature, your input helps make this project better. If you are interested in this line of research, please consider joining our open-source financial AI research community [Tauric Research](https://tauric.ai/).
+```text
+akshare/        CN/US price helpers, CN fundamentals/news, rate limiting, valuation inputs
+alpha_vantage/  Price, indicators, fundamentals, news, and rate-limit handling
+fmp/            Financial Modeling Prep fundamentals and news
+massive/        Massive price data client and rate limiting
+tushare/        CN stock, fundamentals, indicators, and metadata helpers
+yfinance/       Yahoo Finance stock, news, indicators, and valuation inputs
+local/          Cached-history stock and indicator analysis
+```
+
+Legacy import paths such as `tradingagents.dataflows.akshare_stock` and `tradingagents.dataflows.y_finance` are kept as compatibility aliases, but new code should import from the vendor packages directly.
+
+## Web Workbench
+
+The web app is split into a FastAPI backend and a Next.js frontend.
+
+```bash
+cd web
+./start.sh
+```
+
+Defaults:
+
+- Backend: `http://localhost:8000`
+- Frontend: `http://localhost:3000`
+- Reports: `data/reports/`
+- Analysis runtime output: `data/eval_results/`
+- Screener runs: `data/screener/runs/`
+- Screener tasks: `data/screener/tasks/`
+- Screener cache: `data/cache/screener/`
+- Stock history: `data/history/`
+
+Production-style local Redis worker mode:
+
+```bash
+cd web
+TASK_BACKEND=redis \
+REDIS_URL=redis://127.0.0.1:6379/0 \
+START_REDIS_DOCKER=true \
+./start.sh
+```
+
+Auth rollout is controlled by:
+
+- `AUTH_ENABLED=false`: legacy filesystem-readable workbench.
+- `AUTH_ENABLED=true` and `AUTH_MODE=optional`: enable auth and metadata while keeping legacy reads available during migration.
+- `AUTH_ENABLED=true` and `AUTH_MODE=required`: require login for protected routes.
+
+When auth/database mode is enabled:
+
+```bash
+scripts/check-database.sh
+scripts/check-database.sh --upgrade --bootstrap-admin
+```
+
+See `web/README.md` for backend endpoints, auth rollout, metadata backfill, and development commands.
+
+## Docker Deployment
+
+Single-host development/preview deployment:
+
+```bash
+cp .env.example .env
+./scripts/deploy-single-host.sh
+```
+
+Production MVP compose stack:
+
+```bash
+docker compose -f compose.prod.yml build
+docker compose -f compose.prod.yml up -d
+```
+
+`compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, and optional Tencent COS object storage. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
+
+## Testing
+
+Useful focused checks:
+
+```bash
+python -m cli.main --help
+python -m pytest -q tests/dataflows tests/test_akshare.py tests/test_yfinance.py tests/screener/test_market_data.py tests/screener/test_universe.py
+python -m pytest -q tests/web/test_backend_main.py tests/web/test_runner.py
+```
+
+Frontend checks are under `web/frontend`:
+
+```bash
+cd web/frontend
+npm test
+npm run build
+```
+
+## Apache-2.0 License And Attribution
+
+This repository is distributed under the Apache License, Version 2.0. The full license text is in `LICENSE`.
+
+Apache-2.0 compliance notes for this modified fork:
+
+- The original upstream project is [TauricResearch/TradingAgents](https://github.com/TauricResearch/TradingAgents).
+- This repository contains modifications to the upstream work, including data-source routing, screener, valuation, Web Workbench, auth/admin, deployment, and project-operations changes.
+- Keep the `LICENSE` file and this attribution section when redistributing source or object forms.
+- Retain upstream copyright, patent, trademark, attribution, citation, and asset notices that apply to the original work.
+- The current checkout does not include a separate upstream `NOTICE` file. If one is added upstream and relevant notices apply, include a readable copy as required by Apache-2.0 section 4(d).
+- Unless explicitly stated otherwise, contributions submitted to this repository are provided under Apache-2.0.
+
+The upstream framework is research software. Use of Tauric Research names, marks, and badges is limited to attribution and origin description; the Apache-2.0 license does not grant trademark rights beyond that.
 
 ## Citation
 
-Please reference our work if you find *TradingAgents* provides you with some help :)
+Please cite the original TradingAgents work if this project helps your research or implementation:
 
-```
+```bibtex
 @misc{xiao2025tradingagentsmultiagentsllmfinancial,
-      title={TradingAgents: Multi-Agents LLM Financial Trading Framework}, 
+      title={TradingAgents: Multi-Agents LLM Financial Trading Framework},
       author={Yijia Xiao and Edward Sun and Di Luo and Wei Wang},
       year={2025},
       eprint={2412.20138},
       archivePrefix={arXiv},
       primaryClass={q-fin.TR},
-      url={https://arxiv.org/abs/2412.20138}, 
+      url={https://arxiv.org/abs/2412.20138},
 }
 ```
