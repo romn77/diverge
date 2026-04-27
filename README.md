@@ -179,7 +179,7 @@ from tradingagents.graph.trading_graph import TradingAgentsGraph
 
 config = DEFAULT_CONFIG.copy()
 config["llm_provider"] = "openai"
-config["deep_think_llm"] = "gpt-5.4"
+config["deep_think_llm"] = "gpt-5.5"
 config["quick_think_llm"] = "gpt-5.4-mini"
 config["market"] = "auto"
 config["output_language"] = "en"

@@ -4,7 +4,7 @@ ProviderOption = tuple[str, str, str]
 ModelOption = tuple[str, str]
 
 DEFAULT_LLM_PROVIDER: Final[str] = "openai"
-DEFAULT_DEEP_MODEL: Final[str] = "gpt-5.4"
+DEFAULT_DEEP_MODEL: Final[str] = "gpt-5.5"
 DEFAULT_QUICK_MODEL: Final[str] = "gpt-5.4-mini"
 
 PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
@@ -16,29 +16,36 @@ PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
     ("deepseek", "DeepSeek", "https://api.deepseek.com/v1"),
     ("siliconflow", "SiliconFlow", "https://api.siliconflow.cn/v1"),
     ("xiaohumini", "Xiaohumini", "https://xiaohumini.site/v1"),
+    ("sub2api", "Sub2API", "https://cc.z2blog.com"),
 )
 
 OPENAI_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("GPT-5.4 Mini - Fast, strong coding and tool use", "gpt-5.4-mini"),
-    ("GPT-5.4 Nano - Cheapest, high-volume tasks", "gpt-5.4-nano"),
-    ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
-    ("GPT-5.2 - Strong reasoning, cost-effective", "gpt-5.2"),
+    ("GPT-5.4 Nano - High-volume simple tasks", "gpt-5.4-nano"),
+    ("GPT-5.5 - Latest frontier, complex work", "gpt-5.5"),
+    ("GPT-5.4 - Frontier model, 1M context", "gpt-5.4"),
+    ("GPT-5.2 - Strong reasoning", "gpt-5.2"),
     ("GPT-5.1 - Flexible reasoning", "gpt-5.1"),
-    ("GPT-5 Mini - Balanced speed, cost, and capability", "gpt-5-mini"),
-    ("GPT-5 Nano - High-throughput, simple tasks", "gpt-5-nano"),
+    ("GPT-5 Mini - Balanced speed and capability", "gpt-5-mini"),
+    ("GPT-5 Nano - High-throughput simple tasks", "gpt-5-nano"),
     ("GPT-4.1 - Smartest non-reasoning model", "gpt-4.1"),
 )
 
 OPENAI_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
-    ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
-    ("GPT-5.2 - Strong reasoning, cost-effective", "gpt-5.2"),
+    ("GPT-5.5 - Latest frontier for complex reasoning and coding", "gpt-5.5"),
+    ("GPT-5.4 - Frontier model, 1M context", "gpt-5.4"),
+    ("GPT-5.5 Pro - Highest precision, slowest", "gpt-5.5-pro"),
+    ("GPT-5.4 Pro - High-compute GPT-5.4", "gpt-5.4-pro"),
+    ("GPT-5.2 - Strong reasoning", "gpt-5.2"),
     ("GPT-5.1 - Flexible reasoning", "gpt-5.1"),
-    ("GPT-5.4 Pro - Most capable, expensive", "gpt-5.4-pro"),
     ("GPT-5 - Advanced reasoning", "gpt-5"),
     ("GPT-4.1 - Smartest non-reasoning model", "gpt-4.1"),
-    ("GPT-5 Mini - Balanced speed, cost, and capability", "gpt-5-mini"),
-    ("GPT-5 Nano - High-throughput, simple tasks", "gpt-5-nano"),
+    ("GPT-5 Mini - Balanced speed and capability", "gpt-5-mini"),
+    ("GPT-5 Nano - High-throughput simple tasks", "gpt-5-nano"),
 )
+
+SUB2API_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = OPENAI_QUICK_MODEL_OPTIONS
+SUB2API_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = OPENAI_DEEP_MODEL_OPTIONS
 
 ANTHROPIC_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("Claude Sonnet 4.6 - Best speed and intelligence balance", "claude-sonnet-4-6"),
@@ -57,8 +64,8 @@ ANTHROPIC_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
 GOOGLE_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("Gemini 3 Flash - Next-gen fast", "gemini-3-flash-preview"),
     ("Gemini 2.5 Flash - Balanced, stable", "gemini-2.5-flash"),
-    ("Gemini 3.1 Flash Lite - Most cost-efficient", "gemini-3.1-flash-lite-preview"),
-    ("Gemini 2.5 Flash Lite - Fast, low-cost", "gemini-2.5-flash-lite"),
+    ("Gemini 3.1 Flash Lite - Fast lightweight", "gemini-3.1-flash-lite-preview"),
+    ("Gemini 2.5 Flash Lite - Fast lightweight", "gemini-2.5-flash-lite"),
 )
 
 GOOGLE_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
@@ -103,16 +110,16 @@ XAI_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
 
 OPENROUTER_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     (
-        "NVIDIA Nemotron 3 Nano 30B (free)",
+        "NVIDIA Nemotron 3 Nano 30B",
         "nvidia/nemotron-3-nano-30b-a3b:free",
     ),
-    ("Z.AI GLM 4.5 Air (free)", "z-ai/glm-4.5-air:free"),
+    ("Z.AI GLM 4.5 Air", "z-ai/glm-4.5-air:free"),
 )
 
 OPENROUTER_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
-    ("Z.AI GLM 4.5 Air (free)", "z-ai/glm-4.5-air:free"),
+    ("Z.AI GLM 4.5 Air", "z-ai/glm-4.5-air:free"),
     (
-        "NVIDIA Nemotron 3 Nano 30B (free)",
+        "NVIDIA Nemotron 3 Nano 30B",
         "nvidia/nemotron-3-nano-30b-a3b:free",
     ),
 )
@@ -131,31 +138,96 @@ DEEPSEEK_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("DeepSeek V3 Chat - Balanced performance", "deepseek-chat"),
 )
 
+SILICONFLOW_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("DeepSeek V4 Flash - Latest fast preview", "deepseek-ai/DeepSeek-V4-Flash"),
+    ("MiniMax M2.5 - Latest MiniMax standard", "MiniMaxAI/MiniMax-M2.5"),
+    ("DeepSeek V3.2 - Efficient latest DeepSeek", "deepseek-ai/DeepSeek-V3.2"),
+    ("DeepSeek V3.1 Terminus - Stable efficient chat", "deepseek-ai/DeepSeek-V3.1-Terminus"),
+    ("DeepSeek V3 - Latest V3 refresh", "deepseek-ai/DeepSeek-V3"),
+    ("Z.AI GLM 4.6 - Efficient GLM chat", "zai-org/GLM-4.6"),
+    ("Z.AI GLM 4.6V - Vision-capable GLM", "zai-org/GLM-4.6V"),
+    ("Qwen3.6 27B - Compact Qwen", "Qwen/Qwen3.6-27B"),
+    ("Qwen3.6 35B A3B - Fast MoE Qwen", "Qwen/Qwen3.6-35B-A3B"),
+)
+
+SILICONFLOW_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("Kimi K2.6 Pro - Latest Kimi flagship", "Pro/moonshotai/Kimi-K2.6"),
+    ("Z.AI GLM 5.1 Pro - Latest GLM flagship", "Pro/zai-org/GLM-5.1"),
+    ("MiniMax M2.5 Pro - Higher-throughput MiniMax", "Pro/MiniMaxAI/MiniMax-M2.5"),
+    ("Z.AI GLM 5 Pro - Deep agent tasks", "Pro/zai-org/GLM-5"),
+    ("Kimi K2.5 Pro - Strong long-context Kimi", "Pro/moonshotai/Kimi-K2.5"),
+    ("Z.AI GLM 4.7 Pro - Strong reasoning GLM", "Pro/zai-org/GLM-4.7"),
+    ("DeepSeek V3.2 Pro - Latest DeepSeek pro", "Pro/deepseek-ai/DeepSeek-V3.2"),
+    ("DeepSeek V3.1 Terminus Pro - Stable pro chat", "Pro/deepseek-ai/DeepSeek-V3.1-Terminus"),
+    ("DeepSeek R1 - Reasoning baseline", "deepseek-ai/DeepSeek-R1"),
+    ("DeepSeek R1 Pro - Pro reasoning", "Pro/deepseek-ai/DeepSeek-R1"),
+    ("DeepSeek V3 Pro - Pro V3 refresh", "Pro/deepseek-ai/DeepSeek-V3"),
+    ("Kimi K2 Thinking - Open reasoning Kimi", "moonshotai/Kimi-K2-Thinking"),
+    ("Kimi K2 Thinking Pro - Pro reasoning Kimi", "Pro/moonshotai/Kimi-K2-Thinking"),
+    ("Qwen3.5 122B A10B - Large Qwen", "Qwen/Qwen3.5-122B-A10B"),
+    ("Qwen3.5 397B A17B - Largest Qwen", "Qwen/Qwen3.5-397B-A17B"),
+)
+
 SILICONFLOW_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
-    ("DeepSeek V4 Flash", "deepseek-ai/DeepSeek-V4-Flash"),
-    ("Kimi K2.6 Pro", "Pro/moonshotai/Kimi-K2.6"),
-    ("Z.AI GLM 5.1 Pro", "Pro/zai-org/GLM-5.1"),
-    ("MiniMax M2.5", "MiniMaxAI/MiniMax-M2.5"),
-    ("MiniMax M2.5 Pro", "Pro/MiniMaxAI/MiniMax-M2.5"),
-    ("Z.AI GLM 5 Pro", "Pro/zai-org/GLM-5"),
-    ("Kimi K2.5 Pro", "Pro/moonshotai/Kimi-K2.5"),
-    ("Z.AI GLM 4.7 Pro", "Pro/zai-org/GLM-4.7"),
-    ("DeepSeek V3.2", "deepseek-ai/DeepSeek-V3.2"),
-    ("DeepSeek V3.2 Pro", "Pro/deepseek-ai/DeepSeek-V3.2"),
-    ("DeepSeek V3.1 Terminus", "deepseek-ai/DeepSeek-V3.1-Terminus"),
-    ("DeepSeek V3.1 Terminus Pro", "Pro/deepseek-ai/DeepSeek-V3.1-Terminus"),
-    ("Qwen3.6 35B A3B", "Qwen/Qwen3.6-35B-A3B"),
-    ("Qwen3.6 27B", "Qwen/Qwen3.6-27B"),
-    ("Qwen3.5 397B A17B", "Qwen/Qwen3.5-397B-A17B"),
-    ("Qwen3.5 122B A10B", "Qwen/Qwen3.5-122B-A10B"),
+    SILICONFLOW_QUICK_MODEL_OPTIONS + SILICONFLOW_DEEP_MODEL_OPTIONS
+)
+
+XIAOHUMINI_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("GPT-5.4 Mini - Fast balanced OpenAI", "gpt-5.4-mini"),
+    ("GPT-5.4 Nano - High-volume OpenAI tasks", "gpt-5.4-nano"),
+    (
+        "Grok 4.1 Fast Reasoning - Fast lightweight reasoning",
+        "grok-4-1-fast-reasoning",
+    ),
+    (
+        "Grok 4.1 Fast Non-Reasoning - Fast lightweight chat",
+        "grok-4-1-fast-non-reasoning",
+    ),
+    (
+        "Gemini 3.1 Flash Lite Preview - Fast multimodal",
+        "gemini-3.1-flash-lite-preview",
+    ),
+    ("DeepSeek V4 Flash - Fast V4", "deepseek-v4-flash"),
+    (
+        "Grok 4.20 Non-Reasoning - Latest xAI fast",
+        "grok-4-20-non-reasoning",
+    ),
+    ("GPT-5.4 - Strong frontier", "gpt-5.4"),
+    ("MiniMax M2.7 - Latest MiniMax", "MiniMax-M2.7"),
+    (
+        "Claude Sonnet 4.6 - Latest Anthropic balanced",
+        "claude-sonnet-4-6",
+    ),
+)
+
+XIAOHUMINI_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("GPT-5.5 - Best balanced frontier", "gpt-5.5"),
+    ("GPT-5.4 - Deep OpenAI baseline", "gpt-5.4"),
+    (
+        "Grok 4.20 Reasoning - Latest xAI reasoning",
+        "grok-4-20-reasoning",
+    ),
+    ("Grok 4.2 - Current xAI flagship", "grok-4.2"),
+    (
+        "Gemini 3.1 Pro Preview - Latest Gemini pro",
+        "gemini-3.1-pro-preview",
+    ),
+    ("MiniMax M2.7 - Latest MiniMax", "MiniMax-M2.7"),
+    (
+        "Claude Sonnet 4.6 - Latest Anthropic balanced",
+        "claude-sonnet-4-6",
+    ),
+    ("Kimi K2.6 - Latest Kimi", "kimi-k2.6"),
+    ("DeepSeek V4 Pro - Latest DeepSeek pro", "deepseek-v4-pro"),
+    ("GPT-5.4 Pro - High-compute GPT-5.4", "gpt-5.4-pro"),
+    (
+        "GPT-5.5 Pro - Highest capability",
+        "gpt-5.5-pro",
+    ),
 )
 
 XIAOHUMINI_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
-    ("gpt-5.3-chat-latest", "gpt-5.3-chat-latest"),
-    ("GPT-5.4 - Latest frontier, 1M context", "gpt-5.4"),
-    ("Claude Sonnet 4.6 - Fast + capable", "claude-sonnet-4-6"),
-    ("Gemini 3.1 Pro Preview - Fast + capable", "gemini-3.1-pro-preview"),
-    ("Grok 4.2 - Fast + capable", "grok-4.2"),
+    XIAOHUMINI_QUICK_MODEL_OPTIONS + XIAOHUMINI_DEEP_MODEL_OPTIONS
 )
 
 QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
@@ -165,8 +237,9 @@ QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     "xai": XAI_QUICK_MODEL_OPTIONS,
     "openrouter": OPENROUTER_QUICK_MODEL_OPTIONS,
     "deepseek": DEEPSEEK_QUICK_MODEL_OPTIONS,
-    "siliconflow": SILICONFLOW_MODEL_OPTIONS,
-    "xiaohumini": XIAOHUMINI_MODEL_OPTIONS,
+    "siliconflow": SILICONFLOW_QUICK_MODEL_OPTIONS,
+    "xiaohumini": XIAOHUMINI_QUICK_MODEL_OPTIONS,
+    "sub2api": SUB2API_QUICK_MODEL_OPTIONS,
 }
 
 DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
@@ -176,8 +249,9 @@ DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     "xai": XAI_DEEP_MODEL_OPTIONS,
     "openrouter": OPENROUTER_DEEP_MODEL_OPTIONS,
     "deepseek": DEEPSEEK_DEEP_MODEL_OPTIONS,
-    "siliconflow": SILICONFLOW_MODEL_OPTIONS,
-    "xiaohumini": XIAOHUMINI_MODEL_OPTIONS,
+    "siliconflow": SILICONFLOW_DEEP_MODEL_OPTIONS,
+    "xiaohumini": XIAOHUMINI_DEEP_MODEL_OPTIONS,
+    "sub2api": SUB2API_DEEP_MODEL_OPTIONS,
 }
 
 EXTRA_VALIDATED_MODELS: Final[dict[str, tuple[str, ...]]] = {
@@ -209,6 +283,7 @@ EXTRA_VALIDATED_MODELS: Final[dict[str, tuple[str, ...]]] = {
         "grok-4-1-fast",
         "grok-4",
     ),
+    "sub2api": (),
     "deepseek": (),
     "siliconflow": (),
     "openrouter": (),
