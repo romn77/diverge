@@ -158,19 +158,19 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
 
   return (
     <WorkbenchChromeContext.Provider value={chromeValue}>
-      <div className="app-shell relative min-h-screen bg-[var(--bg)] md:flex md:items-stretch">
+      <div className="app-shell relative min-h-screen overflow-x-hidden bg-[var(--bg)] md:flex md:items-stretch">
         <div
-          className="min-h-screen flex-1"
+          className="min-h-screen min-w-0 flex-1 overflow-x-hidden"
           inert={activeDialog !== null ? true : undefined}
           aria-hidden={activeDialog !== null}
         >
-          <div className="flex min-h-screen md:items-stretch">
+          <div className="flex min-h-screen min-w-0 max-w-full md:items-stretch">
             <Sidebar
               isOpen={isSidebarOpen}
               onClose={() => setIsSidebarOpen(false)}
             />
 
-            <div className="flex min-w-0 flex-1 flex-col">
+            <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
               <WorkspaceAccountMenu
                 authEnabled={authEnabled}
                 authUser={authState?.user ?? null}

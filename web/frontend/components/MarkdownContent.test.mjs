@@ -14,7 +14,10 @@ test("MarkdownContent renders highlights outside the article and enables reading
   assert.ok(articleStart >= 0);
   assert.ok(articleEnd > articleStart);
   assert.equal(articleBlock.includes("<HighlightCards"), false);
-  assert.match(source, /w-full max-w-none/);
+  assert.match(source, /relative min-w-0 w-full max-w-full space-y-12 overflow-hidden/);
+  assert.match(source, /markdown-content min-w-0 w-full max-w-full/);
+  assert.match(source, /min-w-0 max-w-full overflow-x-auto/);
+  assert.equal(source.includes("w-full max-w-none"), false);
   assert.equal(source.includes("max-w-[88ch] mx-auto"), false);
   assert.match(source, /overflow-x-auto/);
   assert.match(source, /tabIndex=\{0\}/);

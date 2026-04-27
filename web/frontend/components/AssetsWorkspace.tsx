@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { MetricCard } from "@/components/workbench/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -331,7 +332,7 @@ export function AssetsWorkspace() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
                 {t("sidebar.nav.assets", "Assets")}
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
+              <h1 className="workbench-page-title mt-3">
                 {t("assets.title", "Portfolio ledger")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
@@ -415,7 +416,7 @@ export function AssetsWorkspace() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                   {t("assets.accounts", "Accounts")}
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                <h2 className="workbench-section-title mt-2 text-2xl">
                   {t("assets.groupedExposure", "Grouped exposure")}
                 </h2>
               </div>
@@ -574,7 +575,7 @@ export function AssetsWorkspace() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                     {t("assets.ledgerHealth", "Ledger Health")}
                   </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                  <h2 className="workbench-section-title mt-2 text-2xl">
                     {t("assets.pricingState", "Pricing state")}
                   </h2>
                 </div>
@@ -661,7 +662,7 @@ export function AssetsWorkspace() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                 {t("assets.ledgerTable", "Ledger Table")}
               </p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+              <h2 className="workbench-section-title mt-2 text-2xl">
                 {t("assets.allPositions", "All positions")}
               </h2>
             </div>
@@ -1030,19 +1031,7 @@ function AssetMetric({
   value: string;
   meta: string;
 }) {
-  return (
-    <Card className="rounded-[24px] bg-white/88">
-      <CardContent className="px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-        {value}
-      </p>
-      <p className="mt-2 text-sm text-slate-500">{meta}</p>
-      </CardContent>
-    </Card>
-  );
+  return <MetricCard label={label} value={value} meta={meta} />;
 }
 
 function AssetHealthTile({
@@ -1053,15 +1042,11 @@ function AssetHealthTile({
   value: string;
 }) {
   return (
-    <Card className="rounded-[22px] bg-white/88">
-      <CardContent className="px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
-        {value}
-      </p>
-      </CardContent>
-    </Card>
+    <MetricCard
+      label={label}
+      value={value}
+      valueClassName="text-2xl"
+      className="rounded-[22px]"
+    />
   );
 }

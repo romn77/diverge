@@ -101,3 +101,14 @@ test("NewAnalysisForm keeps tall dialog content inside an internal scroll contai
   assert.match(source, /scrollbar-hidden/);
   assert.match(source, /className="modal-panel scrollbar-hidden max-h-\[92vh\] max-w-3xl overflow-y-auto"/);
 });
+
+test("NewAnalysisForm keeps research depth descriptions contained within each option", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(
+    source,
+    /className=\{`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[24px\] p-4 text-left whitespace-normal/
+  );
+  assert.match(source, /<p className="min-w-0 text-sm font-semibold">/);
+  assert.match(source, /<p className="mt-2 min-w-0 break-words text-xs leading-5">/);
+});

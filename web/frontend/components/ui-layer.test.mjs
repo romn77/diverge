@@ -52,11 +52,15 @@ test("frontend exposes the first-wave shadcn-style UI primitives under component
   const dialogSource = readFileSync(path.join(uiRoot, "dialog.tsx"), "utf8");
   const sheetSource = readFileSync(path.join(uiRoot, "sheet.tsx"), "utf8");
   const selectSource = readFileSync(path.join(uiRoot, "select.tsx"), "utf8");
+  const tabsSource = readFileSync(path.join(uiRoot, "tabs.tsx"), "utf8");
 
   assert.match(buttonSource, /class-variance-authority/);
   assert.match(buttonSource, /@radix-ui\/react-slot/);
   assert.match(buttonSource, /button-primary/);
   assert.match(buttonSource, /export \{ Button, buttonVariants \}/);
+  assert.match(tabsSource, /border border-transparent/);
+  assert.match(tabsSource, /shrink-0/);
+  assert.doesNotMatch(tabsSource, /data-\[state=active\]:border data-\[state=active\]:border-\[var\(--primary\)\]/);
   assert.match(dialogSource, /@radix-ui\/react-dialog/);
   assert.match(dialogSource, /DialogContent/);
   assert.match(selectSource, /@radix-ui\/react-select/);

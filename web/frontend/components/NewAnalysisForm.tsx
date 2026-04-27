@@ -361,7 +361,7 @@ export function NewAnalysisForm({
                       key={option.value}
                       type="button"
                       variant={active ? "default" : "secondary"}
-                      className={`h-auto w-full justify-start rounded-[24px] p-4 text-left ${
+                      className={`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[24px] p-4 text-left whitespace-normal ${
                         active
                           ? "bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
                           : "text-slate-600"
@@ -373,9 +373,9 @@ export function NewAnalysisForm({
                         })
                       }
                     >
-                      <p className="text-sm font-semibold">{localizedLabel}</p>
+                      <p className="min-w-0 text-sm font-semibold">{localizedLabel}</p>
                       {localizedDescription ? (
-                        <p className="mt-2 text-xs leading-5">
+                        <p className="mt-2 min-w-0 break-words text-xs leading-5">
                           {localizedDescription}
                         </p>
                       ) : null}

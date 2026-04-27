@@ -146,7 +146,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
                 {t("sidebar.nav.analysis", "Analysis")}
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
+              <h1 className="workbench-page-title mt-3">
                 {t("home.analysisWorkspace", "Analysis workspace")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
@@ -225,7 +225,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                     ? t("home.matchingReports", "Matching Reports")
                     : t("home.recentReports", "Recent Reports")}
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                <h2 className="workbench-section-title mt-2 text-2xl">
                   {deferredSearchQuery
                     ? t("home.matchingReportCount", ({ count }) => `${count} matching reports`, {
                         count: matchingReports.length,
@@ -318,7 +318,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                     {t("home.recentTickers", "Tracked Tickers")}
                   </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                  <h2 className="workbench-section-title mt-2 text-2xl">
                     {t("home.coverageMap", "Coverage map")}
                   </h2>
                 </div>

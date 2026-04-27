@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Trash2, XCircle } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
+import { MetricCard } from "@/components/workbench/MetricCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -96,7 +97,7 @@ export function ActivityDashboard() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
                 {t("sidebar.nav.activity", "Activity")}
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
+              <h1 className="workbench-page-title mt-3">
                 {t("activity.title", "Background work")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
@@ -236,17 +237,7 @@ function ActivityMetric({
   value: string;
   meta: string;
 }) {
-  return (
-    <Card className="rounded-[24px] bg-white/88">
-      <CardContent className="px-4 py-4">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-sm text-slate-500">{meta}</p>
-      </CardContent>
-    </Card>
-  );
+  return <MetricCard label={label} value={value} meta={meta} />;
 }
 
 function ActivityQueueSection({

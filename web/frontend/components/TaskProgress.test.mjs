@@ -54,5 +54,6 @@ test("TaskProgress subscribes to backend task snapshots and renders the six-stag
   assert.doesNotMatch(source, /openai_reasoning_effort/);
   assert.doesNotMatch(source, /google_thinking_level/);
   assert.equal(source.includes("max-w-5xl"), false);
-  assert.match(source, /w-full space-y-6/);
+  assert.match(source, /workbench-content-frame space-y-6/);
+  assert.match(source, /task-event-item/);
 });

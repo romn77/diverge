@@ -122,7 +122,7 @@ export const MarkdownContent = React.memo(function MarkdownContent({
       },
       table: ({ children, ...props }: React.ComponentPropsWithoutRef<"table">) => (
         <div
-          className="overflow-x-auto"
+          className="min-w-0 max-w-full overflow-x-auto"
           tabIndex={0}
           role="region"
           aria-label={t("markdown.scrollableTable", "Scrollable table")}
@@ -146,7 +146,7 @@ export const MarkdownContent = React.memo(function MarkdownContent({
   }
 
   return (
-    <div className="relative space-y-12">
+    <div className="relative min-w-0 w-full max-w-full space-y-12 overflow-hidden">
       {showProgressBar && (
         <div
           className="progress-slide pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-full bg-[var(--primary)]"
@@ -156,7 +156,10 @@ export const MarkdownContent = React.memo(function MarkdownContent({
 
       {highlights && <HighlightCards highlights={highlights} />}
 
-      <article className="markdown-content w-full max-w-none" aria-busy={isLoading}>
+      <article
+        className="markdown-content min-w-0 w-full max-w-full"
+        aria-busy={isLoading}
+      >
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
           {processedContent}
         </ReactMarkdown>

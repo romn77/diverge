@@ -195,63 +195,57 @@ export function TradeReviewForm({
     reviewType === "entry_review"
       ? t("journal.entryReview", "Entry Review")
       : t("journal.exitReview", "Exit Review");
+  const isEntryReview = reviewType === "entry_review";
+  const actionLabel = isEntryReview
+    ? t("journal.entry", "Entry")
+    : t("journal.exit", "Exit");
+  const actionPrice = isEntryReview ? tradeRecord.entry_price : tradeRecord.exit_price;
   const reviewFocus =
-    reviewType === "entry_review"
+    isEntryReview
       ? t(
           "tradeReview.entryFocus",
-          "Stay anchored on thesis quality, timing, sizing, and discipline at the point of entry."
+          "Use AI to judge whether this entry price was justified by the evidence available at the time."
         )
       : t(
           "tradeReview.exitFocus",
-          "Judge the exit relative to the original thesis, stated horizon, and how risk was actually managed."
+          "Use AI to judge whether this exit price was a disciplined action relative to the plan and updated evidence."
         );
 
   const submitReview = async () => {
-    if (referenceSummary.length === 0) {
-      setError(
-        t(
-          "tradeReview.linkSnapshotFirst",
-          "Link at least one analysis snapshot on the trade record before saving a review."
-        )
-      );
-      return;
-    }
-
     setSaving(true);
     setError(null);
 
     try {
+      const decisionContext = optionalText(
+        formState.thesis_assessment,
+        buildDefaultDecisionContext(tradeRecord, t)
+      );
+      const priceAssessment = optionalText(
+        formState.timing_assessment,
+        buildDefaultPriceAssessment(actionLabel, t)
+      );
       const review = await saveTradeReview(tradeRecord.trade_id, reviewType, {
         analysis_date: requireText(
           formState.analysis_date,
           t("tradeReview.analysisDate", "Analysis date")
         ),
-        analysis_references: referenceSummary,
-        thesis_assessment: requireText(
-          formState.thesis_assessment,
-          t("journal.thesisAssessment", "Thesis assessment")
-        ),
-        timing_assessment: requireText(
-          formState.timing_assessment,
-          t("journal.timingAssessment", "Timing assessment")
-        ),
-        sizing_assessment: requireText(
+        analysis_references: referenceSummary.length > 0 ? referenceSummary : undefined,
+        thesis_assessment: decisionContext,
+        timing_assessment: priceAssessment,
+        sizing_assessment: optionalText(
           formState.sizing_assessment,
-          t("journal.sizingAssessment", "Sizing assessment")
+          buildDefaultSizingAssessment(tradeRecord, t)
         ),
-        discipline_assessment: requireText(
+        discipline_assessment: optionalText(
           formState.discipline_assessment,
-          t("journal.disciplineAssessment", "Discipline assessment")
+          buildDefaultDisciplineAssessment(actionLabel, t)
         ),
-        outcome_summary: requireText(
+        outcome_summary: optionalText(
           formState.outcome_summary,
-          t("journal.outcomeSummary", "Outcome summary")
+          priceAssessment
         ),
-        improvement_actions: splitMultilineList(formState.improvement_actions, t),
-        ticker_specific_lessons: splitMultilineList(
-          formState.ticker_specific_lessons,
-          t
-        ),
+        improvement_actions: splitOptionalMultilineList(formState.improvement_actions),
+        ticker_specific_lessons: splitOptionalMultilineList(formState.ticker_specific_lessons),
         cross_ticker_tags: splitTagList(formState.cross_ticker_tags),
       });
       onSaved(review);
@@ -267,15 +261,6 @@ export function TradeReviewForm({
   };
 
   const generateReview = async () => {
-    if (referenceSummary.length === 0) {
-      setError(
-        t(
-          "tradeReview.linkSnapshotFirstGenerate",
-          "Link at least one analysis snapshot on the trade record before generating a review."
-        )
-      );
-      return;
-    }
     if (!generationState?.llm_provider || !generationState.model) {
       setError(
         t(
@@ -298,7 +283,7 @@ export function TradeReviewForm({
           formState.analysis_date,
           t("tradeReview.analysisDate", "Analysis date")
         ),
-        analysis_references: referenceSummary,
+        analysis_references: referenceSummary.length > 0 ? referenceSummary : undefined,
       });
       setGeneratedReview(review);
       setFormState(buildInitialState(review, tradeRecord));
@@ -326,11 +311,11 @@ export function TradeReviewForm({
           </p>
           <DialogTitle>{reviewTitle}</DialogTitle>
           <DialogDescription className="max-w-3xl">
-            {reviewFocus} This editor stores a structured manual review for trade
+            {reviewFocus} Use the saved trade thesis, notes, and linked snapshots to draft the structured review for trade
             <span className="mx-1 rounded bg-slate-100 px-2 py-1 font-mono text-[12px] text-slate-700">
               {tradeRecord.trade_id}
             </span>
-            and keeps it attached to the same stable trade record.
+            and keep the result attached to the same stable trade record.
           </DialogDescription>
         </DialogHeader>
 
@@ -344,7 +329,12 @@ export function TradeReviewForm({
                 <h3 className="mt-2 text-xl font-semibold text-slate-900">
                   {t(
                     "tradeReview.generateFromJournal",
-                    "Generate from the trade record, notes, and linked snapshots"
+                    ({ action, price }) =>
+                      `Let AI review this ${String(action ?? "action").toLowerCase()} at ${price}`,
+                    {
+                      action: actionLabel,
+                      price: formatPrice(actionPrice),
+                    }
                   )}
                 </h3>
               </div>
@@ -462,7 +452,6 @@ export function TradeReviewForm({
                     disabled={
                       generating ||
                       loadingOptions ||
-                      referenceSummary.length === 0 ||
                       !generationState.llm_provider ||
                       !generationState.model
                     }
@@ -512,7 +501,7 @@ export function TradeReviewForm({
               <div className="mt-4 rounded-3xl border border-dashed border-amber-300 bg-amber-50 px-5 py-5 text-sm text-amber-800">
                 {t(
                   "tradeReview.noReferences",
-                  "No analysis references are currently attached to this trade. Edit the trade record first so the review can stay aligned with the MAY-8 report and full-state-log contract."
+                  "No analysis references are currently attached. AI can still review the saved trade record; linked reports will be used as supplementary evidence when available."
                 )}
               </div>
             ) : (
@@ -537,86 +526,63 @@ export function TradeReviewForm({
             )}
           </section>
 
-          <section className="grid gap-4 md:grid-cols-2">
-            <ReviewField
-              label={t("journal.thesisAssessment", "Thesis Assessment")}
-              value={formState.thesis_assessment}
-              onChange={(value) =>
-                setFormState((current) => ({
-                  ...current,
-                  thesis_assessment: value,
-                }))
-              }
-              placeholder={t(
-                "tradeReview.thesisPlaceholder",
-                "Was the thesis explicit, evidence-based, and appropriate for this setup?"
-              )}
-            />
-            <ReviewField
-              label={t("journal.timingAssessment", "Timing Assessment")}
-              value={formState.timing_assessment}
-              onChange={(value) =>
-                setFormState((current) => ({
-                  ...current,
-                  timing_assessment: value,
-                }))
-              }
-              placeholder={t(
-                "tradeReview.timingPlaceholder",
-                "Judge the entry or exit timing relative to the plan and information available then."
-              )}
-            />
-            <ReviewField
-              label={t("journal.sizingAssessment", "Sizing Assessment")}
-              value={formState.sizing_assessment}
-              onChange={(value) =>
-                setFormState((current) => ({
-                  ...current,
-                  sizing_assessment: value,
-                }))
-              }
-              placeholder={t(
-                "tradeReview.sizingPlaceholder",
-                "Did size respect the stop distance, risk budget, and conviction?"
-              )}
-            />
-            <ReviewField
-              label={t("journal.disciplineAssessment", "Discipline Assessment")}
-              value={formState.discipline_assessment}
-              onChange={(value) =>
-                setFormState((current) => ({
-                  ...current,
-                  discipline_assessment: value,
-                }))
-              }
-              placeholder={t(
-                "tradeReview.disciplinePlaceholder",
-                "Did execution stay aligned with the stated rules and risk plan?"
-              )}
-            />
-          </section>
+          <section className="rounded-[28px] border border-[var(--border)] bg-white/85 p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {t("tradeReview.manualAdjustments", "Manual Adjustments")}
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-slate-900">
+                  {t(
+                    "tradeReview.reviewThisAction",
+                    ({ action, price }) => `${action} at ${price}`,
+                    {
+                      action: actionLabel,
+                      price: formatPrice(actionPrice),
+                    }
+                  )}
+                </h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                  {t(
+                    "tradeReview.recordContextHint",
+                    "The original thesis and notes are already part of the trade record, so this section is only for optional corrections or lessons."
+                  )}
+                </p>
+              </div>
+            </div>
 
-          <section className="grid gap-4">
-            <ReviewField
-              label={t("journal.outcomeSummary", "Outcome Summary")}
-              value={formState.outcome_summary}
-              onChange={(value) =>
-                setFormState((current) => ({
-                  ...current,
-                  outcome_summary: value,
-                }))
-              }
-              placeholder={t(
-                "tradeReview.outcomePlaceholder",
-                "Summarize what happened without reducing the verdict to PnL alone."
-              )}
-              rows={4}
-            />
-
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="mt-5 grid gap-4">
+              <ReviewField
+                label={t(
+                  "tradeReview.priceAssessment",
+                  ({ action }) => `${action} Price Assessment`,
+                  { action: actionLabel }
+                )}
+                helper={t(
+                  "tradeReview.priceAssessmentHelper",
+                  "Optional before saving. Leave this blank when you want the saved review to inherit the trade record and let AI or a later pass make the price verdict."
+                )}
+                value={formState.timing_assessment}
+                onChange={(value) =>
+                  setFormState((current) => ({
+                    ...current,
+                    timing_assessment: value,
+                  }))
+                }
+                placeholder={t(
+                  "tradeReview.timingPlaceholder",
+                  ({ action }) =>
+                    `What should AI decide about this ${String(action ?? "action").toLowerCase()} price? For example: chased, patient, too early, protected gains, or cut risk.`,
+                  { action: actionLabel }
+                )}
+                rows={4}
+              />
               <ListField
-                label={t("journal.improvementActions", "Improvement Actions")}
-                helper={t("tradeReview.actionsHelper", "One concrete action per line.")}
+                label={t("journal.improvementActions", "Next-Time Guardrail")}
+                helper={t(
+                  "tradeReview.actionsHelper",
+                  "Optional. One concrete rule per line if you already know the lesson."
+                )}
                 value={formState.improvement_actions}
                 onChange={(value) =>
                   setFormState((current) => ({
@@ -626,47 +592,9 @@ export function TradeReviewForm({
                 }
                 placeholder={t(
                   "tradeReview.actionsPlaceholder",
-                  "Write the invalidation clause before entry.\nConfirm catalyst quality before adding."
+                  "Wait for confirmation before entering.\nUse the planned stop before adding."
                 )}
-              />
-              <ListField
-                label={t(
-                  "journal.tickerSpecificLessons",
-                  "Ticker-Specific Lessons"
-                )}
-                helper={t(
-                  "tradeReview.lessonsHelper",
-                  "Lessons that apply directly to this ticker or setup."
-                )}
-                value={formState.ticker_specific_lessons}
-                onChange={(value) =>
-                  setFormState((current) => ({
-                    ...current,
-                    ticker_specific_lessons: value,
-                  }))
-                }
-                placeholder={t(
-                  "tradeReview.lessonsPlaceholder",
-                  "MSFT setups improve when cloud commentary confirms demand durability."
-                )}
-              />
-              <ListField
-                label={t("journal.crossTickerTags", "Cross-Ticker Tags")}
-                helper={t(
-                  "tradeReview.tagsHelper",
-                  "Optional. Use one per line or separate with commas."
-                )}
-                value={formState.cross_ticker_tags}
-                onChange={(value) =>
-                  setFormState((current) => ({
-                    ...current,
-                    cross_ticker_tags: value,
-                  }))
-                }
-                placeholder={t(
-                  "tradeReview.tagsPlaceholder",
-                  "planned_stop\nquality_growth"
-                )}
+                rows={3}
               />
             </div>
           </section>
@@ -684,8 +612,7 @@ export function TradeReviewForm({
             <Button
               type="button"
               onClick={() => void submitReview()}
-              disabled={saving || referenceSummary.length === 0}
-              className={referenceSummary.length === 0 ? "border-slate-200 bg-slate-200 text-slate-500 shadow-none hover:brightness-100" : undefined}
+              disabled={saving}
             >
               {saving
                 ? t("tradeRecord.saving", "Saving...")
@@ -781,25 +708,77 @@ function requireText(value: string, fieldName: string): string {
   return normalized;
 }
 
-function splitMultilineList(
-  value: string,
-  t: ReturnType<typeof usePreferences>["t"]
-): string[] {
-  const items = value
+function optionalText(value: string, fallback: string): string {
+  const normalized = value.trim();
+  return normalized || fallback;
+}
+
+function splitOptionalMultilineList(value: string): string[] {
+  return value
     .split(/\r?\n/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
 
-  if (items.length === 0) {
-    throw new Error(
-      t(
-        "tradeReview.listItemRequired",
-        "Add at least one list item before saving the review."
-      )
+function buildDefaultSizingAssessment(
+  tradeRecord: TradeRecord,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  if (tradeRecord.size === null || tradeRecord.size === undefined) {
+    return t(
+      "tradeReview.defaultSizingAssessment",
+      "Position size was not separately reviewed in this manual adjustment."
     );
   }
 
-  return items;
+  return t(
+    "tradeReview.defaultSizingAssessmentWithSize",
+    ({ size }) =>
+      `Position size was recorded as ${size}; sizing was not separately expanded in this manual adjustment.`,
+    { size: tradeRecord.size }
+  );
+}
+
+function buildDefaultDisciplineAssessment(
+  actionLabel: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(
+    "tradeReview.defaultDisciplineAssessment",
+    ({ action }) =>
+      `This manual adjustment focused on the ${String(action ?? "action").toLowerCase()} price decision; rule discipline was not separately expanded.`,
+    { action: actionLabel }
+  );
+}
+
+function buildDefaultDecisionContext(
+  tradeRecord: TradeRecord,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const contextParts = [tradeRecord.initial_thesis, tradeRecord.notes]
+    .map((part) => part?.trim())
+    .filter(Boolean);
+
+  if (contextParts.length > 0) {
+    return contextParts.join("\n\n");
+  }
+
+  return t(
+    "tradeReview.defaultDecisionContext",
+    "Review context was inherited from the saved trade record."
+  );
+}
+
+function buildDefaultPriceAssessment(
+  actionLabel: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(
+    "tradeReview.defaultPriceAssessment",
+    ({ action }) =>
+      `This manual adjustment inherited the saved trade context; the ${String(action ?? "action").toLowerCase()} price verdict was left for AI review or a later structured pass.`,
+    { action: actionLabel }
+  );
 }
 
 function splitTagList(value: string): string[] {
@@ -811,6 +790,10 @@ function splitTagList(value: string): string[] {
 
 function joinList(items: string[]): string {
   return items.join("\n");
+}
+
+function formatPrice(value: number | null | undefined): string {
+  return value === null || value === undefined ? "N/A" : String(value);
 }
 
 function ReviewSelectField({
@@ -841,12 +824,14 @@ function ReviewSelectField({
 
 function ReviewField({
   label,
+  helper,
   value,
   onChange,
   placeholder,
   rows = 5,
 }: {
   label: string;
+  helper?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
@@ -857,6 +842,7 @@ function ReviewField({
       <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
         {label}
       </span>
+      {helper ? <span className="mt-2 block text-xs text-slate-500">{helper}</span> : null}
       <Textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -874,12 +860,14 @@ function ListField({
   value,
   onChange,
   placeholder,
+  rows = 5,
 }: {
   label: string;
   helper: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  rows?: number;
 }) {
   return (
     <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
@@ -890,7 +878,7 @@ function ListField({
       <Textarea
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        rows={6}
+        rows={rows}
         placeholder={placeholder}
         className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800"
       />

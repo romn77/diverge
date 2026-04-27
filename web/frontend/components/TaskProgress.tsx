@@ -157,9 +157,9 @@ export function TaskProgress({
 
   if (loading) {
     return (
-      <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
-        <div className="w-full">
-          <Card className="fade-in rounded-[30px] bg-white/92">
+      <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+        <div className="workbench-content-frame">
+          <Card className="card-surface fade-in rounded-[30px]">
             <CardContent className="p-8">
             {t("task.loading", "Loading task progress...")}
             </CardContent>
@@ -170,9 +170,9 @@ export function TaskProgress({
   }
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
-      <div className="w-full space-y-6">
-        <Card className="fade-in rounded-[30px] bg-white/95">
+    <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+      <div className="workbench-content-frame space-y-6">
+        <Card className="card-surface fade-in rounded-[30px]">
           <CardContent className="p-6 md:p-8">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -180,7 +180,7 @@ export function TaskProgress({
                 {t("task.kicker", "Background Task")}
               </p>
               <div className="mt-3 flex items-center gap-2">
-                <h1 className="font-heading text-3xl font-bold tracking-tight text-slate-900">
+                <h1 className="workbench-section-title text-3xl font-bold">
                   {task?.ticker ?? t("task.fallbackTitle", "New Analysis")}
                 </h1>
                 {task ? (
@@ -253,7 +253,7 @@ export function TaskProgress({
 
           {task ? <TaskQueueNotice task={task} /> : null}
 
-          <div className="mt-8 grid gap-3 md:grid-cols-6">
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
             {STAGES.map((stage) => {
               const state = stageStatus[stage] ?? "not_started";
               return (
@@ -319,14 +319,14 @@ export function TaskProgress({
           </CardContent>
         </Card>
 
-        <Card className="rounded-[30px] bg-white/95">
+        <Card className="viewer-frame rounded-[30px]">
           <CardContent className="p-6 md:p-8">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
                 {t("task.eventLog", "Event Log")}
               </p>
-              <h2 className="font-heading mt-3 text-2xl font-bold tracking-tight text-slate-900">
+              <h2 className="workbench-section-title mt-3 text-2xl font-bold">
                 {t("task.liveFeed", "Live progress feed")}
               </h2>
             </div>
@@ -347,13 +347,13 @@ export function TaskProgress({
               eventLog.map((event) => (
                 <div
                   key={buildEventKey(event)}
-                  className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4"
+                  className="task-event-item"
                 >
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  <div className="ml-3 flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
                     <span>{event.timestamp}</span>
                     {event.current_agent ? <span>{event.current_agent}</span> : null}
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                  <p className="ml-3 mt-2 text-sm leading-6 text-slate-700">
                     {event.message}
                   </p>
                 </div>

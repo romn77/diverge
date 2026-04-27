@@ -5,7 +5,8 @@
     "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui,
     sans-serif;
   --font-heading:
-    "Bodoni 72", "Didot", "Iowan Old Style", "Songti SC", "STSong", serif;
+    "Playfair Display", "Bodoni 72", "Didot", "Iowan Old Style", "Songti SC", "STSong",
+    serif;
   --font-mono: "SFMono-Regular", "JetBrains Mono", "Consolas", "Liberation Mono", monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -478,6 +479,8 @@ input {
 }
 
 .card-surface {
+  position: relative;
+  overflow: hidden;
   border: 1px solid rgba(22, 34, 51, 0.1);
   border-radius: 28px;
   background:
@@ -487,19 +490,33 @@ input {
   transition: border-color 180ms ease;
 }
 
+.card-surface::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  pointer-events: none;
+}
+
 .card-surface:hover {
   border-color: rgba(93, 116, 112, 0.24);
 }
 
 .list-item-surface {
+  box-shadow: 0 10px 24px rgba(18, 28, 41, 0.035);
   transition:
+    transform 150ms ease,
     border-color 150ms ease,
     background-color 150ms ease,
-    color 150ms ease;
+    color 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .list-item-surface:hover {
+  transform: translateY(-1px);
   background: var(--surface-hover);
+  box-shadow: 0 16px 32px rgba(18, 28, 41, 0.07);
 }
 
 .sidebar-surface {
@@ -569,6 +586,8 @@ input {
 }
 
 .viewer-frame {
+  position: relative;
+  overflow: hidden;
   border: 1px solid rgba(22, 34, 51, 0.1);
   border-radius: 30px;
   background:
@@ -576,9 +595,72 @@ input {
   box-shadow: 0 30px 80px rgba(18, 28, 41, 0.09);
 }
 
+.viewer-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.82), transparent);
+  pointer-events: none;
+}
+
 .workbench-content-frame {
   width: min(100%, clamp(72rem, 92vw, 100rem));
   margin-inline: auto;
+}
+
+.workbench-page-title {
+  font-family: var(--font-heading);
+  font-size: 2.75rem;
+  font-weight: 600;
+  line-height: 1.02;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+.workbench-section-title {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: 0;
+  color: var(--text);
+}
+
+@media (min-width: 768px) {
+  .workbench-page-title {
+    font-size: 3.25rem;
+  }
+}
+
+.metric-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(22, 34, 51, 0.08);
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 252, 247, 0.78) 100%),
+    var(--surface);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 16px 32px rgba(18, 28, 41, 0.055);
+}
+
+.metric-card::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--accent), transparent);
+  opacity: 0.42;
+}
+
+.metric-card-value {
+  font-family: var(--font-heading);
+  letter-spacing: 0;
+}
+
+.metric-card-meta {
+  color: color-mix(in srgb, var(--muted) 82%, var(--text) 18%);
 }
 
 .report-panel,
@@ -647,6 +729,28 @@ input {
     linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(247, 239, 228, 0.72) 100%);
   padding: 1rem 1.1rem;
   box-shadow: 0 18px 40px rgba(18, 28, 41, 0.05);
+}
+
+.report-overview-companion {
+  align-self: stretch;
+  min-height: 100%;
+}
+
+.report-reading-frame {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.report-reading-frame > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.markdown-content > [role="region"] {
+  width: 100%;
+  max-width: 100%;
+  contain: inline-size;
 }
 
 .pill-tab {
@@ -742,6 +846,8 @@ input {
 }
 
 .stage-card {
+  position: relative;
+  overflow: hidden;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -749,16 +855,53 @@ input {
   box-shadow: 0 12px 24px rgba(18, 28, 41, 0.04);
 }
 
+.stage-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: transparent;
+}
+
 .stage-card[data-state="processing"] {
   box-shadow: 0 18px 34px rgba(28, 56, 83, 0.12);
+}
+
+.stage-card[data-state="processing"]::after {
+  background: var(--accent);
 }
 
 .stage-card[data-state="completed"] {
   box-shadow: 0 18px 34px rgba(46, 118, 83, 0.12);
 }
 
+.stage-card[data-state="completed"]::after {
+  background: var(--success);
+}
+
+.task-event-item {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--surface-strong) 88%, white 12%);
+  padding: 1rem 1rem 1rem 1.25rem;
+}
+
+.task-event-item::before {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  top: 1.15rem;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px var(--accent-soft);
+}
+
 html[data-visual-style="stylful"] .card-surface,
 html[data-visual-style="stylful"] .viewer-frame,
+html[data-visual-style="stylful"] .metric-card,
 html[data-visual-style="stylful"] .modal-panel {
   border-color: color-mix(in srgb, var(--primary) 34%, var(--border) 66%);
   background:
@@ -885,6 +1028,7 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
   color: #1d2937;
   font-size: clamp(1rem, 0.98rem + 0.12vw, 1.08rem);
   line-height: 1.72;
+  overflow-wrap: anywhere;
 }
 
 .markdown-content > *:first-child {
@@ -954,9 +1098,11 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
   border: 1px solid rgba(28, 56, 83, 0.12);
   border-radius: 6px;
   padding: 0.1rem 0.35rem;
+  word-break: break-word;
 }
 
 .markdown-content pre {
+  max-width: 100%;
   background: #162233;
   color: #f2eee5;
   border-radius: 18px;
@@ -975,6 +1121,9 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
 
 .markdown-content table {
   width: 100%;
+  min-width: 100%;
+  max-width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin: 1rem 0;
   border: 1px solid rgba(22, 34, 51, 0.1);
@@ -995,6 +1144,8 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
   text-align: left;
   vertical-align: top;
   font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-content tbody tr:hover {
@@ -1373,6 +1524,8 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
 
 html[data-theme="dark"] .card-surface,
 html[data-theme="dark"] .viewer-frame,
+html[data-theme="dark"] .metric-card,
+html[data-theme="dark"] .task-event-item,
 html[data-theme="dark"] .viewer-meta-card,
 html[data-theme="dark"] .modal-panel,
 html[data-theme="dark"] .summary-panel,
@@ -1388,9 +1541,14 @@ html[data-theme="dark"] .markdown-content table {
 
 html[data-theme="dark"] .card-surface,
 html[data-theme="dark"] .viewer-frame,
+html[data-theme="dark"] .metric-card,
 html[data-theme="dark"] .modal-panel {
   background:
     linear-gradient(180deg, rgba(24, 34, 47, 0.98) 0%, rgba(29, 42, 57, 0.94) 100%);
+}
+
+html[data-theme="dark"] .task-event-item {
+  background: color-mix(in srgb, var(--surface-strong) 92%, white 8%);
 }
 
 html[data-theme="dark"] .sidebar-surface {
@@ -1562,6 +1720,8 @@ html[data-theme="dark"] .text-amber-800 {
 
 html[data-theme="everforest"] .card-surface,
 html[data-theme="everforest"] .viewer-frame,
+html[data-theme="everforest"] .metric-card,
+html[data-theme="everforest"] .task-event-item,
 html[data-theme="everforest"] .viewer-meta-card,
 html[data-theme="everforest"] .modal-panel,
 html[data-theme="everforest"] .summary-panel,
@@ -1577,9 +1737,14 @@ html[data-theme="everforest"] .markdown-content table {
 
 html[data-theme="everforest"] .card-surface,
 html[data-theme="everforest"] .viewer-frame,
+html[data-theme="everforest"] .metric-card,
 html[data-theme="everforest"] .modal-panel {
   background:
     linear-gradient(180deg, rgba(52, 63, 68, 0.98) 0%, rgba(61, 72, 77, 0.94) 100%);
+}
+
+html[data-theme="everforest"] .task-event-item {
+  background: color-mix(in srgb, var(--surface-strong) 92%, white 8%);
 }
 
 html[data-theme="everforest"] .sidebar-surface {

@@ -5,7 +5,7 @@ import test from "node:test";
 
 const componentPath = path.join(import.meta.dirname, "TradeReviewForm.tsx");
 
-test("TradeReviewForm saves structured manual entry and exit reviews with required assessment fields", () => {
+test("TradeReviewForm keeps manual entry and exit reviews focused on price-action context", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /from "@\/components\/ui\/button"/);
@@ -16,14 +16,26 @@ test("TradeReviewForm saves structured manual entry and exit reviews with requir
   assert.match(source, /saveTradeReview/);
   assert.match(source, /Entry Review/);
   assert.match(source, /Exit Review/);
-  assert.match(source, /Thesis Assessment/);
-  assert.match(source, /Timing Assessment/);
-  assert.match(source, /Sizing Assessment/);
-  assert.match(source, /Discipline Assessment/);
-  assert.match(source, /Outcome Summary/);
-  assert.match(source, /Improvement Actions/);
-  assert.match(source, /Ticker-Specific Lessons/);
-  assert.match(source, /Cross-Ticker Tags/);
+  assert.match(source, /Manual Adjustments/);
+  assert.match(source, /The original thesis and notes are already part of the trade record/);
+  assert.match(source, /buildDefaultDecisionContext/);
+  assert.match(source, /Price Assessment/);
+  assert.match(source, /Next-Time Guardrail/);
+  assert.match(source, /optionalText/);
+  assert.match(source, /splitOptionalMultilineList/);
+  assert.match(source, /buildDefaultSizingAssessment/);
+  assert.match(source, /buildDefaultDisciplineAssessment/);
+  assert.match(source, /buildDefaultPriceAssessment/);
+  assert.match(source, /Optional before saving/);
+  assert.doesNotMatch(source, /Review Brief/);
+  assert.doesNotMatch(source, /Decision Context/);
+  assert.doesNotMatch(source, /Advanced Structured Fields/);
+  assert.doesNotMatch(source, /Sizing Assessment/);
+  assert.doesNotMatch(source, /Discipline Assessment/);
+  assert.doesNotMatch(source, /Outcome Summary/);
+  assert.doesNotMatch(source, /Ticker-Specific Lessons/);
+  assert.doesNotMatch(source, /Cross-Ticker Tags/);
+  assert.doesNotMatch(source, /Add at least one list item before saving the review/);
 });
 
 test("TradeReviewForm can request an AI-generated review before manual editing", () => {
@@ -37,14 +49,15 @@ test("TradeReviewForm can request an AI-generated review before manual editing",
   assert.match(source, /model/);
 });
 
-test("TradeReviewForm requires linked snapshot references before saving or generating", () => {
+test("TradeReviewForm treats linked snapshots as optional AI context", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /Link at least one analysis snapshot on the trade record before saving a review\./);
-  assert.match(source, /No analysis references are currently attached to this trade\./);
-  assert.match(source, /splitMultilineList/);
+  assert.doesNotMatch(source, /Link at least one analysis snapshot on the trade record before saving a review\./);
+  assert.doesNotMatch(source, /Link at least one analysis snapshot on the trade record before generating a review\./);
+  assert.match(source, /No analysis references are currently attached\. AI can still review the saved trade record/);
+  assert.match(source, /analysis_references: referenceSummary\.length > 0 \? referenceSummary : undefined/);
+  assert.match(source, /splitOptionalMultilineList/);
   assert.match(source, /splitTagList/);
-  assert.match(source, /Optional\. Use one per line or separate with commas\./);
   assert.equal(
     source.includes("Add at least one cross-ticker tag before saving the review."),
     false

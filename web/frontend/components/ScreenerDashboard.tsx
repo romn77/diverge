@@ -71,7 +71,7 @@ export function ScreenerDashboard() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--accent)]">
                 {t("sidebar.nav.screener", "Screener")}
               </p>
-              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
+              <h1 className="workbench-page-title mt-3">
                 {t("screenerDashboard.title", "Candidate workspace")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
@@ -126,7 +126,7 @@ export function ScreenerDashboard() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                   {t("screenerDashboard.recentRuns", "Recent Runs")}
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                <h2 className="workbench-section-title mt-2 text-2xl">
                   {t("screenerDashboard.rankedPools", "Ranked candidate pools")}
                 </h2>
               </div>
@@ -249,7 +249,7 @@ export function ScreenerDashboard() {
                 {t("screenerDashboard.queueSnapshot", "Queue Snapshot")}
               </p>
               <div className="mt-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
-                <p className="text-3xl font-semibold tracking-tight text-slate-900">
+                <p className="metric-card-value text-3xl font-semibold text-slate-900">
                   {activeScreenerTasks.length}
                 </p>
                 <p className="mt-2 text-sm leading-6 text-slate-600">

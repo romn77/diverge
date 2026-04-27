@@ -25,6 +25,11 @@ test("ReportViewer uses sticky headers with pressed-state navigation buttons", (
 test("ReportViewer lets the reading surface use the full content column", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
+  assert.match(source, /viewer-frame mx-auto min-w-0 w-full max-w-full/);
+  assert.match(source, /flex min-w-0 max-w-full flex-1 flex-col/);
+  assert.match(source, /report-reading-frame/);
+  assert.match(source, /min-w-0 w-full max-w-full/);
+  assert.match(source, /TabsList className="scrollbar-none flex min-w-0 w-full max-w-full/);
   assert.equal(source.includes("max-w-[1080px]"), false);
   assert.equal(source.includes("max-w-[76rem]"), false);
   assert.equal(source.includes("max-w-[1260px]"), false);
@@ -56,6 +61,8 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
   assert.match(source, /Available tracks/);
   assert.match(source, /Source files/);
   assert.match(source, /SummaryMetric/);
+  assert.match(source, /ReportOverviewCompanion/);
+  assert.match(source, /report-overview-companion/);
   assert.match(source, /TickerPricePanel/);
   assert.match(source, /Price Trend/);
   assert.match(source, /embedded/);
@@ -64,10 +71,12 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
   assert.doesNotMatch(source, /sm:grid-cols-3/);
 
   const headerIndex = source.indexOf("<header>");
-  const panelIndex = source.indexOf("<TickerPricePanel");
+  const panelIndex = source.indexOf("<ReportOverviewCompanion");
+  const tickerPanelIndex = source.indexOf("<TickerPricePanel");
   const stickyIndex = source.indexOf('className="sticky top-0');
   assert.notEqual(headerIndex, -1);
   assert.notEqual(panelIndex, -1);
+  assert.notEqual(tickerPanelIndex, -1);
   assert.notEqual(stickyIndex, -1);
   assert.ok(
     headerIndex < panelIndex,
@@ -76,6 +85,10 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
   assert.ok(
     panelIndex < stickyIndex,
     "price panel should render beside the header before the sticky tab rail"
+  );
+  assert.ok(
+    tickerPanelIndex > panelIndex,
+    "overview companion should own the ticker price panel rendering"
   );
 });
 
@@ -92,6 +105,25 @@ test("ReportViewer lets the top overview panel collapse above the report body", 
   assert.match(source, /ChevronDown/);
   assert.match(source, /collapsedOverviewSummary/);
   assert.match(source, /!\s*isOverviewCollapsed && \(/);
+});
+
+test("ReportViewer keeps tab changes smooth by caching report content instead of blanking the body", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+  const handleStart = source.indexOf("const handleTabChange = useCallback");
+  const handleEnd = source.indexOf("if (!structure)", handleStart);
+  const handleBlock = source.slice(handleStart, handleEnd);
+  const fileClickStart = source.indexOf("onClick={() => {");
+  const fileClickEnd = source.indexOf("setSelectedFile(file);", fileClickStart);
+  const fileClickBlock = source.slice(fileClickStart, fileClickEnd);
+
+  assert.match(source, /contentCacheRef/);
+  assert.match(source, /new Map<string, string>\(\)/);
+  assert.match(source, /contentCacheRef\.current\.get\(path\)/);
+  assert.match(source, /contentCacheRef\.current\.set\(path, decoratedContent\)/);
+  assert.match(source, /startTransition\(\(\) => \{/);
+  assert.match(source, /const ReportOverviewCompanion = memo/);
+  assert.doesNotMatch(handleBlock, /setContent\(""\)/);
+  assert.doesNotMatch(fileClickBlock, /setContent\(""\)/);
 });
 
 test("ReportViewer keeps the summary body free of unresolved signal badges", () => {

@@ -29,10 +29,18 @@ test("globals.css keeps markdown typography compact for dense report reading", (
   const source = readFileSync(globalsCssPath, "utf8");
 
   assert.match(source, /line-height:\s*1\.72;/);
+  assert.match(source, /overflow-wrap:\s*anywhere;/);
+  assert.match(source, /\.report-reading-frame\s*\{[\s\S]*?overflow-x:\s*hidden;/);
   assert.match(source, /\.markdown-content p\s*\{\s*margin:\s*0\.66em 0;/);
   assert.match(source, /\.markdown-content h1\s*\{\s*margin:\s*0 0 0\.55em;/);
   assert.match(source, /\.markdown-content h2\s*\{\s*margin:\s*0\.5em 0 0\.48em;/);
   assert.match(source, /\.markdown-content h3\s*\{\s*margin:\s*1em 0 0\.38em;/);
+  assert.match(source, /\.markdown-content pre\s*\{[\s\S]*?max-width:\s*100%;/);
+  assert.match(source, /\.markdown-content > \[role="region"\]\s*\{[\s\S]*?max-width:\s*100%;/);
+  assert.match(source, /\.markdown-content table\s*\{[\s\S]*?min-width:\s*100%;/);
+  assert.match(source, /\.markdown-content table\s*\{[\s\S]*?max-width:\s*100%;/);
+  assert.match(source, /\.markdown-content table\s*\{[\s\S]*?table-layout:\s*fixed;/);
+  assert.equal(source.includes("min-width: max-content"), false);
 });
 
 test("globals.css provides a reusable hidden-scrollbar utility for modal panels", () => {

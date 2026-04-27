@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Button } from "@/components/ui/button";
@@ -191,6 +191,26 @@ function decorateReportContent(markdown: string): string {
   return injectValuationMetricsIntoHighlights(markdown);
 }
 
+function resolveReportContentPath(
+  tabKey: string,
+  selectedFile: string | null
+): string | null {
+  if (tabKey === SUMMARY_TAB_KEY) {
+    return null;
+  }
+
+  if (tabKey === "complete") {
+    return "complete_report.md";
+  }
+
+  const categoryInfo = CATEGORY_MAP[tabKey];
+  if (!categoryInfo || !selectedFile) {
+    return null;
+  }
+
+  return `${categoryInfo.dir}/${selectedFile}.md`;
+}
+
 function formatGeneratedLabel(
   reportMeta: Report | null | undefined,
   locale: string,
@@ -242,6 +262,7 @@ export function ReportViewer({
   const [error, setError] = useState<string | null>(null);
   const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(false);
   const requestIdRef = useRef(0);
+  const contentCacheRef = useRef(new Map<string, string>());
 
   useEffect(() => {
     let isActive = true;
@@ -262,6 +283,7 @@ export function ReportViewer({
         setSelectedTab(SUMMARY_TAB_KEY);
         setSelectedFile(null);
         setContent("");
+        contentCacheRef.current.clear();
         setIsOverviewCollapsed(false);
       } catch (err) {
         if (!isActive) {
@@ -302,17 +324,20 @@ export function ReportViewer({
         return;
       }
 
-      let path: string;
+      const path = resolveReportContentPath(selectedTab, selectedFile);
+      if (!path) {
+        return;
+      }
 
-      if (selectedTab === "complete") {
-        path = "complete_report.md";
-      } else {
-        const categoryInfo = CATEGORY_MAP[selectedTab];
-        if (!categoryInfo || !selectedFile) {
-          return;
-        }
-
-        path = `${categoryInfo.dir}/${selectedFile}.md`;
+      const cachedContent = contentCacheRef.current.get(path);
+      if (cachedContent !== undefined) {
+        requestIdRef.current += 1;
+        setError(null);
+        setIsLoading(false);
+        startTransition(() => {
+          setContent(cachedContent);
+        });
+        return;
       }
 
       const thisRequest = ++requestIdRef.current;
@@ -326,7 +351,11 @@ export function ReportViewer({
           return;
         }
 
-        setContent(decorateReportContent(data));
+        const decoratedContent = decorateReportContent(data);
+        contentCacheRef.current.set(path, decoratedContent);
+        startTransition(() => {
+          setContent(decoratedContent);
+        });
       } catch (err) {
         if (thisRequest !== requestIdRef.current) {
           return;
@@ -411,14 +440,6 @@ export function ReportViewer({
     (tabKey: string) => {
       setSelectedTab(tabKey);
 
-      const crossMode =
-        (selectedTab === "complete") !== (tabKey === "complete") ||
-        selectedTab === SUMMARY_TAB_KEY ||
-        tabKey === SUMMARY_TAB_KEY;
-      if (crossMode) {
-        setContent("");
-      }
-
       if (tabKey === SUMMARY_TAB_KEY) {
         setSelectedFile(null);
         return;
@@ -432,7 +453,7 @@ export function ReportViewer({
 
       setSelectedFile(null);
     },
-    [selectedTab, structure]
+    [structure]
   );
 
   if (!structure) {
@@ -450,15 +471,15 @@ export function ReportViewer({
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col p-2 md:p-3 lg:p-4">
+    <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden p-2 md:p-3 lg:p-4">
       <section
         id="report-content-panel"
-        className="viewer-frame mx-auto w-full"
+        className="viewer-frame mx-auto min-w-0 w-full max-w-full"
         aria-live="polite"
       >
-        <div>
-          <div className="px-4 pt-6 md:px-8 md:pt-8">
-            <div className="w-full">
+        <div className="min-w-0 max-w-full">
+          <div className="min-w-0 max-w-full px-4 pt-6 md:px-8 md:pt-8">
+            <div className="min-w-0 w-full max-w-full">
               <section className="report-panel rounded-[30px] border px-4 py-4 md:px-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -478,19 +499,19 @@ export function ReportViewer({
                   <Button
                     type="button"
                     variant="secondary"
-                    size="sm"
+                    size="icon"
                     onClick={() => setIsOverviewCollapsed((current) => !current)}
                     aria-expanded={!isOverviewCollapsed}
                     aria-controls="report-overview-panel"
+                    aria-label={overviewToggleLabel}
                     title={overviewToggleLabel}
-                    className="min-h-10 rounded-full px-3"
+                    className="size-10 rounded-full"
                   >
                     {isOverviewCollapsed ? (
                       <ChevronDown className="size-4" aria-hidden />
                     ) : (
                       <ChevronUp className="size-4" aria-hidden />
                     )}
-                    <span>{overviewToggleLabel}</span>
                   </Button>
                 </div>
                 {!isOverviewCollapsed && (
@@ -529,10 +550,6 @@ export function ReportViewer({
                           )}
 
                           <div className="min-w-0">
-                            <p className="viewer-meta-label">
-                              {selectedCategoryLabel ??
-                                t("report.researchWorkbench", "Research workbench")}
-                            </p>
                             <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
                               {structure.ticker}
                             </h2>
@@ -613,29 +630,22 @@ export function ReportViewer({
                     </header>
                   </div>
 
-                  <div className="min-w-0">
-                    <TickerPricePanel
-                      symbol={structure.ticker}
-                      asOfDate={reportMeta?.date ?? null}
-                      title={t("report.priceTrend", "Price Trend")}
-                      subtitle={t(
-                        "report.priceTrendHint",
-                        "400-day vendor-backed history aligned to this report date."
-                      )}
-                      embedded
-                    />
-                  </div>
+                  <ReportOverviewCompanion
+                    ticker={structure.ticker}
+                    asOfDate={reportMeta?.date ?? null}
+                    t={t}
+                  />
                 </div>
                 )}
               </section>
             </div>
           </div>
 
-          <div className="sticky top-0 z-20 bg-transparent">
+          <div className="sticky top-0 z-20 min-w-0 max-w-full bg-transparent">
             <div className="report-tab-rail border-b border-[var(--border)] px-4 py-3 md:px-8 md:py-4">
-              <div className="w-full">
+              <div className="min-w-0 w-full max-w-full">
                 <Tabs value={selectedTab} onValueChange={handleTabChange}>
-                  <TabsList className="scrollbar-none flex w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none">
+                  <TabsList className="scrollbar-none flex min-w-0 w-full max-w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none">
                     <TabsTrigger value={SUMMARY_TAB_KEY}>
                       {t("report.summary", "Summary")}
                     </TabsTrigger>
@@ -656,13 +666,12 @@ export function ReportViewer({
               selectedTab !== "complete" &&
               categoryFiles.length > 0 && (
               <div className="report-subtab-rail border-b border-[var(--border)] px-4 py-3 md:px-8">
-                <div className="w-full">
-                  <div className="scrollbar-none flex overflow-x-auto gap-2 rounded-[20px] border border-[var(--border)] bg-white/42 p-2">
+                <div className="min-w-0 w-full max-w-full">
+                  <div className="scrollbar-none flex min-w-0 max-w-full overflow-x-auto gap-2 rounded-[20px] border border-[var(--border)] bg-white/42 p-2">
                     {categoryFiles.map((file) => (
                       <Button
                         key={file}
                         onClick={() => {
-                          setContent("");
                           setSelectedFile(file);
                         }}
                         variant={selectedFile === file ? "default" : "secondary"}
@@ -679,8 +688,8 @@ export function ReportViewer({
             )}
           </div>
 
-          <div className="px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
-            <div className="w-full">
+          <div className="min-w-0 max-w-full px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
+            <div className="report-reading-frame min-w-0 w-full max-w-full">
               {selectedTab !== "complete" && selectedCategoryMeta && (
                 <div className="mb-8 flex w-full flex-col gap-3 border-b border-[var(--border)] pb-5 md:flex-row md:items-end md:justify-between">
                   <div className="space-y-1">
@@ -738,6 +747,31 @@ export function ReportViewer({
     </div>
   );
 }
+
+const ReportOverviewCompanion = memo(function ReportOverviewCompanion({
+  asOfDate,
+  ticker,
+  t,
+}: {
+  asOfDate: string | null;
+  ticker: string;
+  t: ReturnType<typeof usePreferences>["t"];
+}) {
+  return (
+    <div className="report-overview-companion min-w-0">
+      <TickerPricePanel
+        symbol={ticker}
+        asOfDate={asOfDate}
+        title={t("report.priceTrend", "Price Trend")}
+        subtitle={t(
+          "report.priceTrendHint",
+          "400-day vendor-backed history aligned to this report date."
+        )}
+        embedded
+      />
+    </div>
+  );
+});
 
 function SummaryMetric({
   label,
