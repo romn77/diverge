@@ -1222,8 +1222,10 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("openai", provider_values)
         self.assertIn("google", provider_values)
         self.assertIn("siliconflow", provider_values)
+        self.assertIn("sub2api", provider_values)
         self.assertIn("market", {option["value"] for option in payload["analysts"]})
         self.assertIn("gpt-5-mini", {option["value"] for option in payload["models"]["openai"]["quick"]})
+        self.assertIn("gpt-5.4", {option["value"] for option in payload["models"]["sub2api"]["deep"]})
         self.assertIn(
             "deepseek-ai/DeepSeek-V4-Flash",
             {option["value"] for option in payload["models"]["siliconflow"]["quick"]},
@@ -1258,6 +1260,7 @@ class BackendMainTests(unittest.TestCase):
 
         self.assertTrue(providers["openai"]["enabled"])
         self.assertFalse(providers["siliconflow"]["enabled"])
+        self.assertFalse(providers["sub2api"]["enabled"])
         self.assertFalse(providers["xiaohumini"]["enabled"])
         self.assertIn("API key", providers["xiaohumini"]["disabled_reason"])
 
@@ -1283,6 +1286,27 @@ class BackendMainTests(unittest.TestCase):
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertTrue(providers["xiaohumini"]["enabled"])
         self.assertTrue(providers["siliconflow"]["enabled"])
+
+    def test_config_options_detect_sub2api_key_from_project_env_file(self):
+        temp_project = tempfile.TemporaryDirectory()
+        temp_project_path = Path(temp_project.name)
+        (temp_project_path / ".env").write_text(
+            "SUB2API_API_KEY=test-sub2api-key\n",
+            encoding="utf-8",
+        )
+
+        try:
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch.object(backend_config, "PROJECT_ROOT", temp_project_path),
+                patch.object(backend_config, "PROJECT_ENV_FILE", temp_project_path / ".env"),
+            ):
+                payload = config_service.get_config_options_payload()
+        finally:
+            temp_project.cleanup()
+
+        providers = {provider["value"]: provider for provider in payload["providers"]}
+        self.assertTrue(providers["sub2api"]["enabled"])
 
     def test_config_options_ignore_process_env_without_project_env_value(self):
         with (

@@ -36,6 +36,12 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"', source)
         self.assertIn('wait_for_http "http://localhost:${FRONTEND_PORT}"', source)
 
+    def test_start_script_local_health_checks_bypass_proxy_settings(self):
+        script = PROJECT_ROOT / "web" / "start.sh"
+        source = script.read_text(encoding="utf-8")
+
+        self.assertIn('curl --noproxy "*" -fsS "$url"', source)
+
     def test_start_script_supports_redis_worker_mode(self):
         script = PROJECT_ROOT / "web" / "start.sh"
         source = script.read_text(encoding="utf-8")

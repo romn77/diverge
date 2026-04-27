@@ -63,7 +63,7 @@ wait_for_http() {
     local delay="${3:-1}"
 
     for _ in $(seq 1 "$attempts"); do
-        if curl -s "$url" > /dev/null 2>&1; then
+        if curl --noproxy "*" -fsS "$url" > /dev/null 2>&1; then
             return 0
         fi
         sleep "$delay"

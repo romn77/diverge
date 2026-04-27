@@ -52,6 +52,7 @@ PROVIDER_API_KEY_ENV_VARS: dict[str, str | None] = {
     "siliconflow": "SILICONFLOW_API_KEY",
     "ollama": None,
     "xiaohumini": "XIAOHUMINI_API_KEY",
+    "sub2api": "SUB2API_API_KEY",
 }
 
 
