@@ -309,10 +309,6 @@ def generate_trade_review(
         if analysis_references is not None
         else trade_record.get("analysis_references") or []
     )
-    if not snapshot_references:
-        raise ValueError(
-            "Review generation requires at least one analysis reference with complete_report and full state log paths"
-        )
 
     prompt = _build_review_prompt(
         trade_record,
@@ -396,10 +392,6 @@ def _save_trade_review(
         existing_review=existing_review,
         analysis_references=analysis_references,
     )
-    if not snapshot_references:
-        raise ValueError(
-            "Review saving requires at least one analysis reference with complete_report and full state log paths"
-        )
 
     now = _now_iso()
     review = {
@@ -453,12 +445,15 @@ def _build_review_prompt(
         "realized_return_pct": _calculate_realized_return_pct(trade_record),
     }
 
-    snapshot_context = [_load_snapshot_context(reference) for reference in analysis_references]
-    review_focus = (
-        "This is an entry review. Judge the quality of the thesis, timing, sizing, and discipline mostly from information available at or before entry. If later outcome information exists, use it carefully as calibration rather than the primary verdict."
-        if review_type == "entry_review"
-        else "This is an exit review. Judge the quality of the exit decision relative to the initial thesis, stated horizon, risk limits, and what changed. Realized PnL matters, but it cannot be the sole basis of the review."
+    snapshot_context = [
+        _load_snapshot_context(reference) for reference in analysis_references
+    ]
+    snapshot_note = (
+        "Attached analysis snapshots are available. Use them as supplementary evidence, but keep the saved trade record as the primary source of truth."
+        if analysis_references
+        else "No analysis snapshots are attached. Review from the saved trade record, thesis, notes, prices, timestamps, risk plan, and any realized outcome fields. Do not invent report evidence."
     )
+    review_focus = _build_review_focus(review_type)
     language_instruction = (
         "Write free-form string values in Simplified Chinese."
         if output_language.lower() == "cn"
@@ -470,10 +465,11 @@ def _build_review_prompt(
 {review_focus}
 
 Guardrails:
+- Reports and full-state logs are optional supplements, not prerequisites. {snapshot_note}
 - Do not reduce the review to PnL alone.
 - Separate process quality from realized outcome.
 - Avoid obvious hindsight bias. If a point depends on information that was unavailable at the time, say so explicitly.
-- Anchor every conclusion in the trade record or the attached analysis snapshots.
+- Anchor every conclusion in the trade record first; use attached analysis snapshots only when they exist.
 
 Trade record:
 ```json
@@ -505,10 +501,98 @@ Return exactly one JSON object and nothing else. Use this schema exactly:
 Requirements:
 - Keep the JSON keys in English exactly as shown.
 - Each assessment field must be specific and evidence-based.
+- Include the overall verdict and 1-to-5 scores inside the assessment strings because the storage schema is fixed:
+  - For entry reviews: score fundamental thesis, technical timing, risk/reward, sizing, and discipline.
+  - For exit reviews: score fundamental change assessment, technical exit timing, risk/reward, sizing/risk control, and discipline.
+- Put key strengths, key weaknesses, and hindsight calibration in `outcome_summary`.
+- For exit reviews, state whether the exit was plan-based, evidence-based, or emotion-based in `discipline_assessment`.
 - `improvement_actions` must contain concrete next-time actions.
 - `ticker_specific_lessons` should be lessons that apply directly to this ticker or setup.
 - `cross_ticker_tags` should be short reusable tags like `earnings_gap_risk` or `late_breakout_entry`.
 - {language_instruction}
+"""
+
+
+def _build_review_focus(review_type: str) -> str:
+    if review_type == "entry_review":
+        return """
+This is an ENTRY review.
+
+Evaluate the quality of the entry decision primarily using information that was available at or before the entry time.
+Do not judge the entry mainly by the later outcome. If post-entry price action, news, or PnL is available, place it in a separate hindsight calibration section only.
+
+Review the entry from both fundamental and technical perspectives:
+
+1. Fundamental thesis:
+   - Was there a clear fundamental reason to enter?
+   - Were valuation, growth, earnings, macro, sector trend, catalyst, liquidity, or narrative conditions supportive?
+   - Were key risks, counterarguments, or missing information acknowledged?
+   - Was the thesis specific enough to be tested later?
+
+2. Technical setup:
+   - Was the entry aligned with trend, market structure, support/resistance, volume, volatility, momentum, or breakout/pullback conditions?
+   - Was the timing early, reasonable, late, or chasing?
+   - Was there confirmation, or was the entry premature?
+
+3. Risk/reward and sizing:
+   - Was the expected upside/downside attractive?
+   - Was there a clear invalidation level or stop-loss logic?
+   - Was position size appropriate relative to conviction, volatility, portfolio risk, and account drawdown limits?
+
+4. Discipline and process:
+   - Did the trader follow the plan?
+   - Was the entry driven by evidence or by FOMO, revenge trading, overconfidence, or impulse?
+   - Were there better alternatives, such as waiting, scaling in, or using a smaller size?
+
+Output the review content with:
+- Overall entry verdict: Excellent / Good / Mixed / Poor
+- Scores from 1 to 5 for: fundamental thesis, technical timing, risk/reward, sizing, discipline
+- Key strengths
+- Key weaknesses
+- What should be improved before taking a similar trade again
+- Hindsight calibration, if later outcome data exists
+"""
+
+    return """
+This is an EXIT review.
+
+Evaluate the quality of the exit decision relative to the original thesis, intended holding period, risk limits, and information available at or before the exit time.
+Realized PnL matters, but it must not be the sole basis of the review. If later price action after the exit is available, use it only as hindsight calibration.
+
+Review the exit from both fundamental and technical perspectives:
+
+1. Change in fundamental thesis:
+   - Did the original fundamental thesis improve, weaken, break, or remain intact?
+   - Were there new earnings results, guidance changes, macro shifts, sector changes, regulatory/news events, liquidity changes, or catalyst failures?
+   - Was the exit based on a real thesis change or merely emotional discomfort?
+
+2. Technical exit quality:
+   - Did the technical structure justify exiting?
+   - Consider trend, support/resistance, moving averages, volume, momentum, volatility, breakdowns, failed breakouts, exhaustion, or reversal signals.
+   - Was the exit early, timely, late, or panic-driven?
+
+3. Risk/reward after holding:
+   - At the exit point, was the remaining upside still worth the downside risk?
+   - Had the trade reached target, stop, trailing stop, time stop, or invalidation level?
+   - Would partial exit, full exit, holding, hedging, or adding have been more rational?
+
+4. Sizing and portfolio risk:
+   - Did the exit reduce risk appropriately?
+   - Was the decision consistent with account-level risk, drawdown control, concentration, and volatility?
+
+5. Discipline and process:
+   - Did the trader follow the pre-defined plan?
+   - Was the exit based on evidence, or on fear, greed, impatience, regret, or PnL anchoring?
+   - Was the exit consistent with the stated time horizon?
+
+Output the review content with:
+- Overall exit verdict: Excellent / Good / Mixed / Poor
+- Scores from 1 to 5 for: fundamental change assessment, technical exit timing, risk/reward, sizing/risk control, discipline
+- Key strengths
+- Key weaknesses
+- Whether the exit was plan-based, evidence-based, or emotion-based
+- What should be improved in future exits
+- Hindsight calibration, if later outcome data exists
 """
 
 
@@ -607,7 +691,9 @@ def _resolve_review_date(
         return _normalize_analysis_date(analysis_date)
     if isinstance(existing_review, dict) and existing_review.get("analysis_date"):
         return _normalize_analysis_date(existing_review["analysis_date"])
-    return max(reference["analysis_date"] for reference in analysis_references)
+    if analysis_references:
+        return max(reference["analysis_date"] for reference in analysis_references)
+    return _now_iso()[:10]
 
 
 def _review_analysis_date(review: dict[str, Any]) -> str:

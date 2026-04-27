@@ -142,6 +142,8 @@ class TradeFeedbackServiceTests(unittest.TestCase):
         self.assertEqual(review["review_type"], "exit_review")
         self.assertEqual(review["analysis_date"], "2026-04-04")
         self.assertIn("Avoid obvious hindsight bias", fake_llm.prompts[0])
+        self.assertIn("This is an EXIT review.", fake_llm.prompts[0])
+        self.assertIn("Reports and full-state logs are optional supplements", fake_llm.prompts[0])
 
         earlier_feedback = trade_feedback.get_trade_feedback_payload(
             "MSFT",
@@ -225,6 +227,94 @@ class TradeFeedbackServiceTests(unittest.TestCase):
 
         self.assertEqual(hidden_feedback["reviews"], [])
         self.assertEqual(len(visible_feedback["reviews"]), 1)
+
+    def test_manual_review_can_save_without_analysis_references(self):
+        record = trade_feedback.create_trade_record(
+            {
+                "ticker": "msft",
+                "exchange_or_market": "NASDAQ",
+                "side": "long",
+                "status": "open",
+                "entry_timestamp": "2026-04-01T09:30:00",
+                "entry_price": 420.5,
+                "size": 12,
+                "initial_thesis": "Cloud durability and AI demand remain underpriced.",
+                "planned_horizon": "swing_2w",
+                "stop_loss": 405.0,
+                "take_profit": 450.0,
+                "notes": "Entered after a manual chart review.",
+                "analysis_references": [],
+            },
+            reports_dir=self.reports_dir,
+        )
+
+        review = trade_feedback.save_trade_review(
+            record["trade_id"],
+            review_type="entry_review",
+            payload={
+                "thesis_assessment": "Inherited from the saved trade record.",
+                "timing_assessment": "Manual entry review saved without linked snapshots.",
+                "sizing_assessment": "Sizing was not separately reviewed.",
+                "discipline_assessment": "Discipline was not separately reviewed.",
+                "outcome_summary": "Manual review remains available for future context.",
+                "improvement_actions": [],
+                "ticker_specific_lessons": [],
+                "cross_ticker_tags": [],
+            },
+            analysis_date="2026-04-01",
+            reports_dir=self.reports_dir,
+        )
+
+        self.assertEqual(review["analysis_references"], [])
+        self.assertEqual(review["analysis_date"], "2026-04-01")
+
+    def test_ai_review_can_generate_without_analysis_references(self):
+        record = trade_feedback.create_trade_record(
+            {
+                "ticker": "msft",
+                "exchange_or_market": "NASDAQ",
+                "side": "long",
+                "status": "open",
+                "entry_timestamp": "2026-04-01T09:30:00",
+                "entry_price": 420.5,
+                "size": 12,
+                "initial_thesis": "Cloud durability and AI demand remain underpriced.",
+                "planned_horizon": "swing_2w",
+                "stop_loss": 405.0,
+                "take_profit": 450.0,
+                "notes": "Entered after a manual chart review.",
+                "analysis_references": [],
+            },
+            reports_dir=self.reports_dir,
+        )
+        fake_llm = _FakeLLM(
+            json.dumps(
+                {
+                    "thesis_assessment": "Overall entry verdict: Mixed. Fundamental thesis score: 3/5.",
+                    "timing_assessment": "Technical timing score: 3/5. Entry was reasonable but needed confirmation.",
+                    "sizing_assessment": "Risk/reward score: 3/5. Sizing score: 3/5.",
+                    "discipline_assessment": "Discipline score: 4/5. The decision followed the written plan.",
+                    "outcome_summary": "Strengths: clear thesis. Weaknesses: limited confirmation. Hindsight calibration: unavailable.",
+                    "improvement_actions": ["Wait for confirmation before entry."],
+                    "ticker_specific_lessons": ["MSFT entries need clear cloud demand confirmation."],
+                    "cross_ticker_tags": ["confirmation_needed"],
+                }
+            )
+        )
+
+        review = trade_feedback.generate_trade_review(
+            record["trade_id"],
+            review_type="entry_review",
+            llm_provider="ollama",
+            model="local-test",
+            analysis_date="2026-04-01",
+            reports_dir=self.reports_dir,
+            llm=fake_llm,
+        )
+
+        self.assertEqual(review["analysis_references"], [])
+        self.assertIn("This is an ENTRY review.", fake_llm.prompts[0])
+        self.assertIn("No analysis snapshots are attached", fake_llm.prompts[0])
 
 
 if __name__ == "__main__":
