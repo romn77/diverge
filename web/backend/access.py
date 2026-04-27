@@ -1,24 +1,33 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import HTTPException, Request
 
 from web.backend import auth, trade_entries
 
+logger = logging.getLogger(__name__)
+
 
 def translate_auth_error(exc: Exception) -> HTTPException:
+    if isinstance(exc, HTTPException):
+        return exc
     if isinstance(exc, auth.AuthNotFoundError):
-        return HTTPException(status_code=404, detail=str(exc))
+        return HTTPException(status_code=404, detail="Resource not found")
     if isinstance(exc, auth.AuthConflictError):
-        return HTTPException(status_code=409, detail=str(exc))
+        return HTTPException(
+            status_code=409,
+            detail="Request conflicts with existing state",
+        )
     if isinstance(exc, auth.AuthPermissionError):
-        return HTTPException(status_code=403, detail=str(exc))
+        return HTTPException(status_code=403, detail="Access denied")
     if isinstance(exc, auth.AuthDisabledError):
-        return HTTPException(status_code=409, detail=str(exc))
+        return HTTPException(status_code=409, detail="Auth is disabled")
     if isinstance(exc, auth.AuthValidationError):
-        return HTTPException(status_code=400, detail=str(exc))
-    return HTTPException(status_code=500, detail=str(exc))
+        return HTTPException(status_code=400, detail="Invalid request")
+    logger.exception("unexpected auth/access error")
+    return HTTPException(status_code=500, detail="Internal server error")
 
 
 def is_admin_user(user: auth.User | None) -> bool:
@@ -40,6 +49,27 @@ def get_request_user_with_password_change(
     user = auth.get_request_user(db, request, settings=settings)
     if user is not None:
         auth.enforce_password_change_completed(user, request)
+    return user
+
+
+def require_permission(db: Any, request: Request | None, permission: str) -> auth.User | None:
+    settings = auth.get_auth_settings()
+    if not settings.enabled:
+        return None
+    if request is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    user = get_request_user_with_password_change(db, request, settings=settings)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    if not auth.user_has_permission(db, user, permission):
+        logger.warning(
+            "permission denied user_id=%s permission=%s path=%s",
+            user.id,
+            permission,
+            request.url.path,
+        )
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
     return user
 
 
@@ -67,6 +97,7 @@ def visible_trade_ids_for_task(task: Any) -> set[str] | None:
         return trade_entries.list_visible_trade_ids(
             db,
             task.owner_user_id,
+            tenant_id=getattr(task, "tenant_id", None),
             ticker=task.request.ticker,
         )
 
@@ -83,39 +114,43 @@ def resolve_task_owner_user_id(request: Request | None) -> str | None:
         return user.id
 
 
-def require_screener_user(request: Request | None) -> auth.User | None:
+def require_screener_user(
+    request: Request | None,
+    *,
+    permission: str = auth.PERMISSION_SCREENER_READ,
+) -> auth.User | None:
     settings = auth.get_auth_settings()
     if not settings.enabled:
         return None
     if request is None:
         raise HTTPException(status_code=500, detail="Request context is required")
     with auth.db_session() as db:
-        return auth.require_request_user_role(
-            db,
-            request,
-            (
-                auth.UserRole.ADMIN.value,
-                auth.UserRole.OPERATOR.value,
-                auth.UserRole.VIEWER.value,
-            ),
-        )
+        return require_permission(db, request, permission)
 
 
-def can_access_screener_owner(user: auth.User | None, owner_user_id: str | None) -> bool:
+def can_access_screener_owner(
+    user: auth.User | None,
+    owner_user_id: str | None,
+    *,
+    tenant_id: str | None = None,
+) -> bool:
     if user is None:
         return True
-    return can_access_owner(user, owner_user_id)
+    return can_access_owner(user, owner_user_id, tenant_id=tenant_id)
 
 
 def can_access_owner(
     user: auth.User | None,
     owner_user_id: str | None,
     *,
+    tenant_id: str | None = None,
     allow_unowned: bool = False,
 ) -> bool:
     if owner_user_id is None:
         return allow_unowned
     if user is None:
+        return False
+    if tenant_id is not None and tenant_id != user.tenant_id:
         return False
     if is_admin_user(user):
         return True

@@ -61,9 +61,11 @@ def _review_summary(reviews: Iterable[dict]) -> tuple[int, datetime | None]:
 class TradeEntry(auth.Base):
     __tablename__ = "trade_entries"
     __table_args__ = (
+        Index("ix_trade_entries_tenant_updated_at", "tenant_id", "updated_at"),
         Index("ix_trade_entries_owner_updated_at", "owner_user_id", "updated_at"),
         Index(
-            "ix_trade_entries_owner_ticker_updated_at",
+            "ix_trade_entries_tenant_owner_ticker_updated_at",
+            "tenant_id",
             "owner_user_id",
             "ticker",
             "updated_at",
@@ -71,6 +73,11 @@ class TradeEntry(auth.Base):
     )
 
     trade_id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     owner_user_id: Mapped[str] = mapped_column(
         String(32),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -119,16 +126,22 @@ def upsert_trade_entry(
     record: dict,
     *,
     owner_user_id: str,
+    tenant_id: str | None = None,
     reports_dir: Path,
     reviews: Iterable[dict] = (),
 ) -> TradeEntry:
     review_count, last_review_at = _review_summary(reviews)
     now = _utcnow()
+    normalized_tenant_id = tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+    if normalized_tenant_id is None:
+        owner = db.get(auth.User, owner_user_id)
+        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
 
     entry = db.get(TradeEntry, record["trade_id"])
     if entry is None:
         entry = TradeEntry(
             trade_id=record["trade_id"],
+            tenant_id=normalized_tenant_id,
             owner_user_id=owner_user_id,
             ticker=_normalize_ticker(record["ticker"]),
             status=str(record["status"]),
@@ -140,6 +153,7 @@ def upsert_trade_entry(
         )
         db.add(entry)
     else:
+        entry.tenant_id = normalized_tenant_id
         entry.owner_user_id = owner_user_id
         entry.ticker = _normalize_ticker(record["ticker"])
         entry.status = str(record["status"])
@@ -156,9 +170,12 @@ def list_trade_entries_for_owner(
     db: Session,
     owner_user_id: str,
     *,
+    tenant_id: str | None = None,
     ticker: str | None = None,
 ) -> list[TradeEntry]:
     statement = select(TradeEntry).where(TradeEntry.owner_user_id == owner_user_id)
+    if tenant_id is not None:
+        statement = statement.where(TradeEntry.tenant_id == tenant_id)
     if ticker:
         statement = statement.where(TradeEntry.ticker == _normalize_ticker(ticker))
     statement = statement.order_by(TradeEntry.updated_at.desc(), TradeEntry.trade_id.desc())
@@ -169,11 +186,17 @@ def list_visible_trade_ids(
     db: Session,
     owner_user_id: str,
     *,
+    tenant_id: str | None = None,
     ticker: str | None = None,
 ) -> set[str]:
     return {
         entry.trade_id
-        for entry in list_trade_entries_for_owner(db, owner_user_id, ticker=ticker)
+        for entry in list_trade_entries_for_owner(
+            db,
+            owner_user_id,
+            tenant_id=tenant_id,
+            ticker=ticker,
+        )
     }
 
 
@@ -181,8 +204,11 @@ def require_trade_entry_for_owner(
     db: Session,
     trade_id: str,
     owner_user_id: str,
+    tenant_id: str | None = None,
 ) -> TradeEntry:
     entry = db.get(TradeEntry, trade_id)
     if entry is None or entry.owner_user_id != owner_user_id:
+        raise ValueError(f"Trade '{trade_id}' not found")
+    if tenant_id is not None and entry.tenant_id != tenant_id:
         raise ValueError(f"Trade '{trade_id}' not found")
     return entry

@@ -371,6 +371,40 @@ class BackendMainTests(unittest.TestCase):
 
         self.assertFalse(analysis_tasks.task_snapshot_path(task.id).exists())
 
+    def test_run_analysis_task_hides_internal_failure_detail(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2026-03-13",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+        task = analysis_tasks.Task(
+            id="task-failed-analysis",
+            request=AnalysisRequest(**payload),
+            status="pending",
+        )
+        analysis_tasks.tasks[task.id] = task
+
+        with patch(
+            "web.backend.runtime.analysis_tasks.run_analysis_streaming",
+            side_effect=RuntimeError("secret /tmp/provider-token"),
+        ):
+            analysis_tasks.run_task(task.id)
+
+        task_status = tasks_router.get_task_status(task.id)
+        self.assertEqual(task_status["status"], "failed")
+        self.assertEqual(
+            task_status["error"],
+            analysis_tasks.GENERIC_ANALYSIS_TASK_ERROR,
+        )
+        self.assertNotIn("secret", task_status["latest_progress"]["message"])
+
     def test_restore_persisted_active_tasks_marks_running_tasks_failed(self):
         task_dir = analysis_tasks.task_snapshot_path("task-recover").parent
         task_dir.mkdir(parents=True, exist_ok=True)
@@ -996,13 +1030,20 @@ class BackendMainTests(unittest.TestCase):
                 "Export": "not_started",
             },
         )
-        self.assertIn("boom", task_status["error"])
+        self.assertEqual(
+            task_status["error"],
+            screener_tasks.GENERIC_SCREENER_TASK_ERROR,
+        )
+        self.assertNotIn("boom", task_status["latest_progress"]["message"])
 
         state = screener_results.load_screener_result_state()
         self.assertEqual(state.current_result.source_run_id, "20260324_214530")
         self.assertIsNone(state.previous_result)
         self.assertEqual(state.recent_runs[0].status, "failed")
-        self.assertEqual(state.recent_runs[0].error_summary, "boom")
+        self.assertEqual(
+            state.recent_runs[0].error_summary,
+            screener_tasks.GENERIC_SCREENER_TASK_ERROR,
+        )
         self.assertFalse(state.recent_runs[0].snapshot_available)
 
     def test_run_screener_task_accepts_extended_progress_callback_signature(self):

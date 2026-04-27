@@ -17,6 +17,7 @@ import {
   listScreenerTasks,
   listTasks,
   type Report,
+  type Permission,
   type ScreenerRunSummary,
   type ScreenerTask,
   type Task,
@@ -61,6 +62,16 @@ const ACTIVE_TASK_STATUSES = new Set<TaskStatus>([
   "running",
 ]);
 
+function hasPermission(
+  authState: ReturnType<typeof useAuth>["authState"],
+  permission: Permission
+): boolean {
+  if (!authState?.enabled) {
+    return true;
+  }
+  return Boolean(authState.permissions.includes(permission));
+}
+
 function dedupeScreenerRuns(runs: ScreenerRunSummary[]): ScreenerRunSummary[] {
   const uniqueRuns = new Map<string, ScreenerRunSummary>();
   for (const run of runs) {
@@ -89,7 +100,9 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const authEnabled = authState?.enabled ?? false;
   const canAccessWorkbench =
     authStatus === "ready" && (!authEnabled || Boolean(authState?.authenticated));
-  const canManageUsers = authState?.user?.role === "admin";
+  const canManageUsers = hasPermission(authState, "admin:users");
+  const canCreateAnalysis = hasPermission(authState, "analysis:create");
+  const canCreateScreener = hasPermission(authState, "screener:create");
 
   const handleProtectedError = useCallback(
     (error: unknown): boolean => {
@@ -279,8 +292,8 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       canManageUsers,
       loadingReports,
       logout,
-      newAnalysisDisabled: false,
-      newScreenerDisabled: false,
+      newAnalysisDisabled: !canCreateAnalysis,
+      newScreenerDisabled: !canCreateScreener,
       recentReports,
       recentTickers,
       refreshReports,
@@ -303,6 +316,8 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       authState,
       authStatus,
       canAccessWorkbench,
+      canCreateAnalysis,
+      canCreateScreener,
       canManageUsers,
       loadingReports,
       logout,

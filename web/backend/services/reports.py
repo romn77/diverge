@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
-import re
+import logging
 from pathlib import Path
 
 from fastapi import HTTPException, Request
 
 from web.backend import access, app_config, auth, report_metadata, storage
+
+logger = logging.getLogger(__name__)
 
 
 def parse_complete_report_header(
@@ -21,27 +23,10 @@ def parse_complete_report_header(
         return None, None, None
 
 
-def parse_complete_report_header_text(content: str) -> tuple[str | None, str | None, str | None]:
-    lines = content.splitlines()[:4]
-    while len(lines) < 4:
-        lines.append("")
-
-    ticker: str | None = None
-    date_str: str | None = None
-    time_str: str | None = None
-    ticker_match = re.match(r"^#\s+Trading Analysis Report:\s+(\S+)", lines[0])
-    if ticker_match:
-        ticker = ticker_match.group(1).strip()
-    for line in lines[1:]:
-        generated_match = re.match(
-            r"^Generated:\s+(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})",
-            line,
-        )
-        if generated_match:
-            date_str = generated_match.group(1)
-            time_str = generated_match.group(2)
-            break
-    return ticker, date_str, time_str
+def parse_complete_report_header_text(
+    content: str,
+) -> tuple[str | None, str | None, str | None]:
+    return report_metadata.parse_complete_report_header_text(content)
 
 
 def scan_categories(report_dir: Path) -> dict[str, list[str]]:
@@ -189,6 +174,18 @@ def list_reports_from_storage() -> list[dict]:
     return results
 
 
+def _require_report_user(db, request: Request | None) -> auth.User:
+    if request is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+    current_user = access.require_permission(
+        db,
+        request,
+        auth.PERMISSION_ANALYSIS_READ,
+    )
+    assert current_user is not None
+    return current_user
+
+
 def build_report_structure_from_index(
     report_dir: Path,
     file_entries: list[report_metadata.ReportFile],
@@ -227,21 +224,23 @@ def build_report_structure_from_index(
 
 
 def list_reports(request: Request | None = None) -> list[dict]:
-    if auth.auth_enabled() and request is not None:
+    if auth.auth_enabled():
         try:
             with auth.db_session() as db:
-                current_user = auth.get_request_user(db, request)
-                if current_user is not None:
-                    owner_scope = access.owner_scope_for_user(current_user)
-                    records = report_metadata.list_report_runs(
-                        db,
-                        owner_user_id=owner_scope,
-                        include_workspace=owner_scope is not None,
-                    )
-                    return [
-                        report_metadata.serialize_report_summary(record)
-                        for record in records
-                    ]
+                current_user = _require_report_user(db, request)
+                owner_scope = access.owner_scope_for_user(current_user)
+                records = report_metadata.list_report_runs(
+                    db,
+                    tenant_id=current_user.tenant_id,
+                    owner_user_id=owner_scope,
+                    include_workspace=owner_scope is not None,
+                )
+                return [
+                    report_metadata.serialize_report_summary(record)
+                    for record in records
+                ]
+        except HTTPException:
+            raise
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
 
@@ -274,28 +273,30 @@ def list_reports(request: Request | None = None) -> list[dict]:
 
 
 def get_structure(report_id: str, request: Request | None = None) -> dict:
-    if auth.auth_enabled() and request is not None:
+    if auth.auth_enabled():
         try:
             with auth.db_session() as db:
-                current_user = auth.get_request_user(db, request)
-                if current_user is not None:
-                    owner_scope = access.owner_scope_for_user(current_user)
-                    record = report_metadata.get_report_run(
-                        db,
-                        report_id,
-                        owner_user_id=owner_scope,
-                        include_workspace=owner_scope is not None,
-                    )
-                    report_dir = resolve_report_dir_from_storage_path(record.storage_path)
-                    structure = build_report_structure_from_index(
-                        report_dir,
-                        report_metadata.list_report_files(db, report_id),
-                    )
-                    return {
-                        "id": record.id,
-                        "ticker": record.ticker,
-                        **structure,
-                    }
+                current_user = _require_report_user(db, request)
+                owner_scope = access.owner_scope_for_user(current_user)
+                record = report_metadata.get_report_run(
+                    db,
+                    report_id,
+                    tenant_id=current_user.tenant_id,
+                    owner_user_id=owner_scope,
+                    include_workspace=owner_scope is not None,
+                )
+                report_dir = resolve_report_dir_from_storage_path(record.storage_path)
+                structure = build_report_structure_from_index(
+                    report_dir,
+                    report_metadata.list_report_files(db, report_id),
+                )
+                return {
+                    "id": record.id,
+                    "ticker": record.ticker,
+                    **structure,
+                }
+        except HTTPException:
+            raise
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
 
@@ -315,26 +316,26 @@ def get_structure(report_id: str, request: Request | None = None) -> dict:
 
 
 def get_content(report_id: str, path: str, request: Request | None = None) -> dict:
-    if auth.auth_enabled() and request is not None:
+    if auth.auth_enabled():
         try:
             with auth.db_session() as db:
-                current_user = auth.get_request_user(db, request)
-                if current_user is not None:
-                    owner_scope = access.owner_scope_for_user(current_user)
-                    record = report_metadata.get_report_run(
-                        db,
-                        report_id,
-                        owner_user_id=owner_scope,
-                        include_workspace=owner_scope is not None,
-                    )
-                    report_metadata.get_report_file(
-                        db,
-                        report_id=record.id,
-                        relative_path=path,
-                    )
-                    report_dir = resolve_report_dir_from_storage_path(record.storage_path)
-                else:
-                    report_dir = resolve_report_dir(report_id)
+                current_user = _require_report_user(db, request)
+                owner_scope = access.owner_scope_for_user(current_user)
+                record = report_metadata.get_report_run(
+                    db,
+                    report_id,
+                    tenant_id=current_user.tenant_id,
+                    owner_user_id=owner_scope,
+                    include_workspace=owner_scope is not None,
+                )
+                report_metadata.get_report_file(
+                    db,
+                    report_id=record.id,
+                    relative_path=path,
+                )
+                report_dir = resolve_report_dir_from_storage_path(record.storage_path)
+        except HTTPException:
+            raise
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
     else:
@@ -354,6 +355,11 @@ def get_content(report_id: str, path: str, request: Request | None = None) -> di
     try:
         content = target.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to read file: {exc}") from exc
+        logger.exception(
+            "failed to read report file report_id=%s path=%s",
+            report_id,
+            path,
+        )
+        raise HTTPException(status_code=500, detail="Failed to read report file") from exc
 
     return {"content": content}

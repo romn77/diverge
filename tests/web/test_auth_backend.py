@@ -58,6 +58,27 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
         auth.reset_runtime_state()
         self.temp_dir.cleanup()
 
+    def test_role_permission_presets_preserve_current_workbench_access(self):
+        admin_permissions = auth.permissions_for_role(auth.UserRole.ADMIN.value)
+        operator_permissions = auth.permissions_for_role(auth.UserRole.OPERATOR.value)
+        viewer_permissions = auth.permissions_for_role(auth.UserRole.VIEWER.value)
+
+        self.assertIn(auth.PERMISSION_ANALYSIS_CREATE, admin_permissions)
+        self.assertIn(auth.PERMISSION_ADMIN_USERS, admin_permissions)
+        self.assertIn(auth.PERMISSION_ADMIN_SETTINGS, admin_permissions)
+
+        for permissions in (operator_permissions, viewer_permissions):
+            self.assertIn(auth.PERMISSION_ANALYSIS_CREATE, permissions)
+            self.assertIn(auth.PERMISSION_ANALYSIS_READ, permissions)
+            self.assertIn(auth.PERMISSION_SCREENER_CREATE, permissions)
+            self.assertIn(auth.PERMISSION_SCREENER_READ, permissions)
+            self.assertIn(auth.PERMISSION_ASSETS_READ, permissions)
+            self.assertIn(auth.PERMISSION_ASSETS_WRITE, permissions)
+            self.assertIn(auth.PERMISSION_JOURNAL_READ, permissions)
+            self.assertIn(auth.PERMISSION_JOURNAL_WRITE, permissions)
+            self.assertNotIn(auth.PERMISSION_ADMIN_USERS, permissions)
+            self.assertNotIn(auth.PERMISSION_ADMIN_SETTINGS, permissions)
+
     def _write_report(self, report_id: str = "SPY_20260305_155836") -> None:
         report_dir = app_config.REPORTS_DIR / report_id
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -170,6 +191,8 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                         "mode": "disabled",
                         "authenticated": False,
                         "user": None,
+                        "permissions": [],
+                        "tenant": None,
                     },
                 )
 
@@ -206,10 +229,14 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertTrue(login_payload["authenticated"])
                 self.assertEqual(login_payload["user"]["email"], "admin@example.com")
                 self.assertTrue(login_payload["user"]["must_change_password"])
+                self.assertEqual(login_payload["tenant"]["slug"], auth.DEFAULT_TENANT_SLUG)
+                self.assertEqual(login_payload["user"]["tenant_id"], login_payload["tenant"]["id"])
+                self.assertIn(auth.PERMISSION_ADMIN_AUDIT, login_payload["permissions"])
 
                 me_response = await client.get("/api/auth/me")
                 self.assertEqual(me_response.status_code, 200)
                 self.assertTrue(me_response.json()["user"]["must_change_password"])
+                self.assertEqual(me_response.json()["tenant"]["slug"], auth.DEFAULT_TENANT_SLUG)
 
                 self.assertEqual((await client.get("/api/reports")).status_code, 403)
                 self.assertEqual(
@@ -336,13 +363,22 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 "172.18.0.5",
             )
 
-    def test_optional_mode_keeps_existing_routes_public_but_admin_routes_protected(self):
+    def test_optional_mode_requires_login_for_reports_but_keeps_market_history_public(self):
         async def scenario():
             self._write_report()
             self._write_history_cache(market="us", symbol="AAPL")
 
             async with self._client(auth_enabled=True, auth_mode="optional") as client:
-                self.assertEqual((await client.get("/api/reports")).status_code, 200)
+                self.assertEqual((await client.get("/api/reports")).status_code, 401)
+                self.assertEqual(
+                    (
+                        await client.get(
+                            "/api/reports/SPY_20260305_155836/content",
+                            params={"path": "complete_report.md"},
+                        )
+                    ).status_code,
+                    401,
+                )
                 self.assertEqual((await client.get("/api/admin/users")).status_code, 401)
                 history_response = await client.get(
                     "/api/ticker-history",
@@ -657,6 +693,99 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertEqual(second_response.status_code, 429, second_response.text)
                 self.assertIn("Weekly analysis limit", second_response.json()["detail"])
                 start_task_thread.assert_called_once()
+
+        asyncio.run(scenario())
+
+    def test_user_permission_deny_blocks_analysis_create_route(self):
+        task_payload = {
+            "ticker": "MSFT",
+            "analysis_date": "2026-04-23",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+
+        async def scenario():
+            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                operator_user = await self._create_user(
+                    admin_client,
+                    email="operator.deny@example.com",
+                    display_name="Operator Deny",
+                    password="OperatorPass123",
+                    role="operator",
+                )
+                with auth.db_session() as db:
+                    auth.set_user_permission(
+                        db,
+                        operator_user["id"],
+                        auth.PERMISSION_ANALYSIS_CREATE,
+                        effect=auth.PERMISSION_EFFECT_DENY,
+                    )
+
+            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
+                await self._login(
+                    operator_client,
+                    "operator.deny@example.com",
+                    "OperatorPass123",
+                )
+                with (
+                    patch("web.backend.routers.tasks.hydrate_provider_credentials") as hydrate_provider_credentials,
+                    patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
+                ):
+                    response = await operator_client.post("/api/tasks", json=task_payload)
+
+                self.assertEqual(response.status_code, 403, response.text)
+                hydrate_provider_credentials.assert_not_called()
+                start_task_thread.assert_not_called()
+
+        asyncio.run(scenario())
+
+    def test_user_permission_grant_allows_admin_settings_without_user_admin(self):
+        async def scenario():
+            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                operator_user = await self._create_user(
+                    admin_client,
+                    email="operator.settings@example.com",
+                    display_name="Operator Settings",
+                    password="OperatorPass123",
+                    role="operator",
+                )
+                with auth.db_session() as db:
+                    auth.set_user_permission(
+                        db,
+                        operator_user["id"],
+                        auth.PERMISSION_ADMIN_SETTINGS,
+                        effect=auth.PERMISSION_EFFECT_GRANT,
+                    )
+
+            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
+                await self._login(
+                    operator_client,
+                    "operator.settings@example.com",
+                    "OperatorPass123",
+                )
+                settings_response = await operator_client.get("/api/admin/data-sources")
+                self.assertEqual(settings_response.status_code, 200, settings_response.text)
+
+                users_response = await operator_client.get("/api/admin/users")
+                self.assertEqual(users_response.status_code, 403)
 
         asyncio.run(scenario())
 

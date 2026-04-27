@@ -70,6 +70,14 @@ The migration uploads:
 
 Run the existing metadata backfill if historical reports or screener runs are not yet indexed in Postgres.
 
+Auth schema rollout order:
+
+1. Run `scripts/check-database.sh --upgrade --bootstrap-admin` so migrations create user permissions, the default tenant, workbench `tenant_id` columns, and `audit_events`.
+2. Run metadata backfill for historical reports, trades, and screener runs; the records land in the default tenant unless you later move users/data with a dedicated migration.
+3. Confirm `/api/auth/me` returns `permissions` and `tenant` for the bootstrap admin before switching public traffic to `AUTH_MODE=required`.
+
+Audit events are tenant-scoped and readable from `/api/admin/audit-events` by users with `admin:audit`. Retain them only as long as your operational policy requires, and never log secrets, API keys, auth tokens, raw prompts, report content, portfolio details, or full exception text.
+
 ## Backup And Restore
 
 The `backup` service runs `pg_dump` every `BACKUP_INTERVAL_SECONDS` and uploads compressed dumps to `backups/postgres/` in the configured storage backend.

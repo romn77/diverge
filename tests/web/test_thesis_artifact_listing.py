@@ -1,14 +1,23 @@
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from web.backend import app_config
+from web.backend import app_config, auth
 from web.backend.services.reports import get_structure
 
 
 class ThesisArtifactListingTests(unittest.TestCase):
     def setUp(self):
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.original_reports_dir = app_config.REPORTS_DIR
         app_config.REPORTS_DIR = Path(self.temp_dir.name)
@@ -18,6 +27,8 @@ class ThesisArtifactListingTests(unittest.TestCase):
         app_config.REPORTS_DIR = self.original_reports_dir
         app_config.TMP_REPORTS_DIR = app_config.REPORTS_DIR / ".tmp"
         self.temp_dir.cleanup()
+        auth.reset_runtime_state()
+        self.auth_env_patch.stop()
 
     def test_report_structure_exposes_thesis_artifact_metadata_when_present(self):
         report_dir = app_config.REPORTS_DIR / "MSFT_20260320_100000"

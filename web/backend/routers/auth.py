@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, Request, Response
 
-from web.backend import access, auth
+from web.backend import access, audit, auth
 from web.backend.schemas.auth import ChangePasswordPayload, LoginPayload
 
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ def get_current_auth_state(request: Request) -> dict:
 
     with auth.db_session() as db:
         user = auth.get_request_user(db, request, settings=settings)
-        return auth.build_auth_state_payload(user)
+        return auth.build_auth_state_payload(user, db=db)
 
 
 @router.post("/api/auth/login")
@@ -44,9 +44,28 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
                 user_agent=request.headers.get("user-agent"),
                 settings=settings,
             )
-            result = auth.build_auth_state_payload(user)
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=user.tenant_id,
+                actor_user_id=user.id,
+                action="auth.login.success",
+                resource_type="session",
+                metadata={"email": user.email, "role": user.role},
+                request=request,
+            )
+            result = auth.build_auth_state_payload(user, db=db)
     except auth.AuthValidationError as exc:
         auth.record_login_failure(payload.email, client_ip)
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=None,
+                actor_user_id=None,
+                action="auth.login.failed",
+                resource_type="session",
+                metadata={"email": payload.email.strip().lower()},
+                request=request,
+            )
         logger.warning(
             "login failed email=%s ip=%s reason=%s",
             payload.email.strip().lower(),
@@ -56,6 +75,16 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     except auth.AuthPermissionError as exc:
         auth.record_login_failure(payload.email, client_ip)
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=None,
+                actor_user_id=None,
+                action="auth.login.denied",
+                resource_type="session",
+                metadata={"email": payload.email.strip().lower()},
+                request=request,
+            )
         logger.warning(
             "login denied email=%s ip=%s reason=%s",
             payload.email.strip().lower(),
@@ -83,6 +112,17 @@ def logout(request: Request, response: Response) -> dict:
     settings = auth.get_auth_settings()
     if settings.enabled:
         with auth.db_session() as db:
+            session_record = auth.current_session_record(db, request)
+            if session_record is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=session_record.user.tenant_id,
+                    actor_user_id=session_record.user_id,
+                    action="auth.logout",
+                    resource_type="session",
+                    resource_id=session_record.id,
+                    request=request,
+                )
             auth.revoke_session_token(db, auth.current_session_token(request))
     auth.clear_session_cookie(response)
     return auth.build_auth_state_payload(None)
@@ -107,6 +147,15 @@ def change_password(
                 current_password=payload.current_password,
                 new_password=payload.new_password,
             )
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=user.tenant_id,
+                actor_user_id=user.id,
+                action="auth.password_changed",
+                resource_type="user",
+                resource_id=user.id,
+                request=request,
+            )
             session_token = auth.create_user_session(
                 db,
                 user,
@@ -114,7 +163,7 @@ def change_password(
                 user_agent=request.headers.get("user-agent"),
                 settings=settings,
             )
-            result = auth.build_auth_state_payload(user)
+            result = auth.build_auth_state_payload(user, db=db)
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
 

@@ -148,7 +148,7 @@ export default function AdminDataSourcesPage() {
     authStatus === "ready" && authEnabled && !authState?.authenticated;
   const canLoad =
     authStatus === "ready" && authEnabled && Boolean(authState?.authenticated);
-  const canManage = authState?.user?.role === "admin";
+  const canManage = Boolean(authState?.permissions.includes("admin:settings"));
 
   const totals = useMemo(() => {
     const used = sources.reduce((sum, source) => sum + source.used_today, 0);

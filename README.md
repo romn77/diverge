@@ -47,7 +47,7 @@ This fork currently includes:
 - CN/US screener pipeline with manifest loading, source fallbacks, cached OHLCV history, breakout filters, hard-filter replay, and run artifacts.
 - Market-routed valuation input builders for US and CN instruments, DCF/multiples helpers, and generated valuation report sections.
 - Web Workbench for reports, analysis tasks, screener tasks, candidate review, assets, trades, feedback loops, and ticker history.
-- Optional auth and admin operations backed by PostgreSQL, including users, role limits, data-source enablement, daily/hourly source limits, and route policy editing.
+- Optional auth and admin operations backed by PostgreSQL, including tenant-scoped users, module permissions, role limits, audit events, data-source enablement, daily/hourly source limits, and route policy editing.
 - Local single-host deployment plus production-style Docker Compose with Postgres, Redis worker, Nginx, backup service, and optional Tencent Cloud COS storage.
 
 ## Repository Layout
@@ -238,7 +238,7 @@ START_REDIS_DOCKER=true \
 Auth rollout is controlled by:
 
 - `AUTH_ENABLED=false`: legacy filesystem-readable workbench.
-- `AUTH_ENABLED=true` and `AUTH_MODE=optional`: enable auth and metadata while keeping legacy reads available during migration.
+- `AUTH_ENABLED=true` and `AUTH_MODE=optional`: enable auth and metadata while leaving only low-sensitivity compatibility routes public during migration; report listing and report content still require login.
 - `AUTH_ENABLED=true` and `AUTH_MODE=required`: require login for protected routes.
 
 When auth/database mode is enabled:
@@ -247,6 +247,8 @@ When auth/database mode is enabled:
 scripts/check-database.sh
 scripts/check-database.sh --upgrade --bootstrap-admin
 ```
+
+Database migrations create a default tenant, backfill `tenant_id` on workbench metadata, and then add append-only `audit_events`. Existing `admin`, `operator`, and `viewer` roles remain presets, but route checks use module permissions such as `analysis:create`, `screener:read`, `assets:write`, `journal:write`, `admin:users`, `admin:settings`, and `admin:audit`.
 
 See `web/README.md` for backend endpoints, auth rollout, metadata backfill, and development commands.
 

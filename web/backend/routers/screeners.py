@@ -9,7 +9,7 @@ from fastapi.responses import StreamingResponse
 
 from tradingagents.dataflows import vendor_usage
 from tradingagents.screener.schema import ScreenRunConfig
-from web.backend import access, analysis_limits, app_config, auth
+from web.backend import access, analysis_limits, app_config, audit, auth
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.services import screeners as screener_service
@@ -26,7 +26,11 @@ def _get_authorized_screener_task(
     current_user,
 ):
     task = screener_tasks.get_screener_task(task_id)
-    if not access.can_access_screener_owner(current_user, task.owner_user_id):
+    if not access.can_access_screener_owner(
+        current_user,
+        task.owner_user_id,
+        tenant_id=getattr(task, "tenant_id", None),
+    ):
         raise HTTPException(status_code=404, detail=f"Screener task '{task_id}' not found")
     return task
 
@@ -94,7 +98,10 @@ def create_screener_task(
     payload: ScreenTaskCreatePayload,
     request: Request = None,
 ) -> dict:
-    current_user = access.require_screener_user(request)
+    current_user = access.require_screener_user(
+        request,
+        permission=auth.PERMISSION_SCREENER_CREATE,
+    )
     _enforce_screener_submission_capacity(current_user)
 
     request_payload = payload.model_dump()
@@ -133,11 +140,26 @@ def create_screener_task(
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
 
-    return screener_tasks.create_screener_task(
+    tenant_id = getattr(current_user, "tenant_id", None)
+    result = screener_tasks.create_screener_task(
         request_payload=request_payload,
         config_payload=config_payload,
         owner_user_id=current_user.id if current_user is not None else None,
+        tenant_id=tenant_id,
     )
+    if current_user is not None and tenant_id is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=tenant_id,
+                actor_user_id=current_user.id,
+                action="screener.task.created",
+                resource_type="screener_task",
+                resource_id=str(result.get("task_id")),
+                metadata={"markets": request_payload.get("markets")},
+                request=request,
+            )
+    return result
 
 
 @router.get("/api/screener/tasks")
@@ -146,7 +168,11 @@ def list_screener_tasks(request: Request = None) -> list[dict]:
     return [
         task.to_dict()
         for task in screener_tasks.list_screener_tasks()
-        if access.can_access_screener_owner(current_user, task.owner_user_id)
+        if access.can_access_screener_owner(
+            current_user,
+            task.owner_user_id,
+            tenant_id=getattr(task, "tenant_id", None),
+        )
     ]
 
 

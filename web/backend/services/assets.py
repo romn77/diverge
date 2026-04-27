@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 
 from tradingagents.assets.market_data import MarketDataClient, SymbolCandidate
-from web.backend import access, analysis_limits, asset_entries, auth
+from web.backend import access, analysis_limits, asset_entries, audit, auth
 from web.backend.schemas.assets import AssetPositionCreatePayload, AssetPositionUpdatePayload
 
 REFRESH_INTERVAL = timedelta(minutes=15)
@@ -162,14 +162,23 @@ def _record_asset_usage(db, user: auth.User) -> None:
 def _list_position_payloads(
     db,
     *,
+    tenant_id: str | None,
     owner_scope: str | None,
     base_currency: str | None = None,
     now: datetime | None = None,
 ) -> list[dict[str, Any]]:
-    positions = asset_entries.list_asset_position_records(db, owner_user_id=owner_scope)
+    positions = asset_entries.list_asset_position_records(
+        db,
+        tenant_id=tenant_id,
+        owner_user_id=owner_scope,
+    )
     accounts = {
         account.id: account
-        for account in asset_entries.list_asset_account_records(db, owner_user_id=owner_scope)
+        for account in asset_entries.list_asset_account_records(
+            db,
+            tenant_id=tenant_id,
+            owner_user_id=owner_scope,
+        )
     }
     latest_snapshots = asset_entries.list_latest_snapshots_by_position(db, [position.id for position in positions])
     payloads = [
@@ -397,17 +406,37 @@ def _is_snapshot_fresh(
 def list_asset_positions(request: Request | None) -> list[dict[str, Any]]:
     _require_asset_runtime()
     with auth.db_session() as db:
-        _user, owner_scope = _resolve_request_scope(db, request)
-        return _list_position_payloads(db, owner_scope=owner_scope)
+        user, owner_scope = _resolve_request_scope(db, request)
+        return _list_position_payloads(db, tenant_id=user.tenant_id, owner_scope=owner_scope)
 
 
 def get_asset_position(position_id: str, request: Request | None) -> dict[str, Any]:
     _require_asset_runtime()
     with auth.db_session() as db:
-        _user, owner_scope = _resolve_request_scope(db, request)
-        position = asset_entries.get_asset_position_record(db, position_id, owner_user_id=owner_scope)
-        account = asset_entries.get_asset_account_record(db, position.account_id, owner_user_id=position.owner_user_id)
+        user, owner_scope = _resolve_request_scope(db, request)
+        position = asset_entries.get_asset_position_record(
+            db,
+            position_id,
+            tenant_id=user.tenant_id,
+            owner_user_id=owner_scope,
+        )
+        account = asset_entries.get_asset_account_record(
+            db,
+            position.account_id,
+            tenant_id=user.tenant_id,
+            owner_user_id=position.owner_user_id,
+        )
         snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
+        audit.record_audit_event_safely(
+            db,
+            tenant_id=user.tenant_id,
+            actor_user_id=user.id,
+            action="assets.position.created",
+            resource_type="asset_position",
+            resource_id=position.id,
+            metadata={"asset_category": position.asset_category, "valuation_mode": position.valuation_mode},
+            request=request,
+        )
         return _serialize_position(position, account, snapshot)
 
 
@@ -424,10 +453,12 @@ def create_asset_position(
         account = asset_entries.get_or_create_asset_account(
             db,
             owner_user_id=user.id,
+            tenant_id=user.tenant_id,
             platform_name=payload.platform_name,
             account_name=payload.account_name,
         )
         position = asset_entries.AssetPosition(
+            tenant_id=user.tenant_id,
             owner_user_id=user.id,
             account_id=account.id,
             asset_name=_require_text(payload.asset_name, "asset_name"),
@@ -472,10 +503,16 @@ def update_asset_position(
     with auth.db_session() as db:
         user, owner_scope = _resolve_request_scope(db, request)
         _record_asset_usage(db, user)
-        position = asset_entries.get_asset_position_record(db, position_id, owner_user_id=owner_scope)
+        position = asset_entries.get_asset_position_record(
+            db,
+            position_id,
+            tenant_id=user.tenant_id,
+            owner_user_id=owner_scope,
+        )
         current_account = asset_entries.get_asset_account_record(
             db,
             position.account_id,
+            tenant_id=user.tenant_id,
             owner_user_id=position.owner_user_id,
         )
 
@@ -484,6 +521,7 @@ def update_asset_position(
         target_account = asset_entries.get_or_create_asset_account(
             db,
             owner_user_id=position.owner_user_id,
+            tenant_id=user.tenant_id,
             platform_name=platform_name,
             account_name=account_name,
         )
@@ -538,6 +576,16 @@ def update_asset_position(
             market_data=market_data,
         )
         snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
+        audit.record_audit_event_safely(
+            db,
+            tenant_id=user.tenant_id,
+            actor_user_id=user.id,
+            action="assets.position.updated",
+            resource_type="asset_position",
+            resource_id=position.id,
+            metadata={"asset_category": position.asset_category, "valuation_mode": position.valuation_mode},
+            request=request,
+        )
         return _serialize_position(position, target_account, snapshot)
 
 
@@ -546,7 +594,21 @@ def delete_asset_position(position_id: str, request: Request | None) -> dict[str
     with auth.db_session() as db:
         user, owner_scope = _resolve_request_scope(db, request)
         _record_asset_usage(db, user)
-        position = asset_entries.get_asset_position_record(db, position_id, owner_user_id=owner_scope)
+        position = asset_entries.get_asset_position_record(
+            db,
+            position_id,
+            tenant_id=user.tenant_id,
+            owner_user_id=owner_scope,
+        )
+        audit.record_audit_event_safely(
+            db,
+            tenant_id=user.tenant_id,
+            actor_user_id=user.id,
+            action="assets.position.deleted",
+            resource_type="asset_position",
+            resource_id=position.id,
+            request=request,
+        )
         db.delete(position)
         db.flush()
         return {"deleted": True, "position_id": position_id}
@@ -563,8 +625,18 @@ def refresh_asset_position(
     with auth.db_session() as db:
         user, owner_scope = _resolve_request_scope(db, request)
         _record_asset_usage(db, user)
-        position = asset_entries.get_asset_position_record(db, position_id, owner_user_id=owner_scope)
-        account = asset_entries.get_asset_account_record(db, position.account_id, owner_user_id=position.owner_user_id)
+        position = asset_entries.get_asset_position_record(
+            db,
+            position_id,
+            tenant_id=user.tenant_id,
+            owner_user_id=owner_scope,
+        )
+        account = asset_entries.get_asset_account_record(
+            db,
+            position.account_id,
+            tenant_id=user.tenant_id,
+            owner_user_id=position.owner_user_id,
+        )
         _refresh_position_record(db, position, base_currency=base_currency, market_data=market_data)
         snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
         return _serialize_position(position, account, snapshot, base_currency=base_currency)
@@ -583,10 +655,18 @@ def refresh_due_asset_positions(
         user, owner_scope = _resolve_request_scope(db, request)
         if record_usage:
             _record_asset_usage(db, user)
-        positions = asset_entries.list_asset_position_records(db, owner_user_id=owner_scope)
+        positions = asset_entries.list_asset_position_records(
+            db,
+            tenant_id=user.tenant_id,
+            owner_user_id=owner_scope,
+        )
         accounts = {
             account.id: account
-            for account in asset_entries.list_asset_account_records(db, owner_user_id=owner_scope)
+            for account in asset_entries.list_asset_account_records(
+                db,
+                tenant_id=user.tenant_id,
+                owner_user_id=owner_scope,
+            )
         }
         latest_snapshots = asset_entries.list_latest_snapshots_by_position(db, [position.id for position in positions])
         now = _coerce_now()
@@ -632,10 +712,11 @@ def get_asset_summary(
         )
 
     with auth.db_session() as db:
-        _user, owner_scope = _resolve_request_scope(db, request)
+        user, owner_scope = _resolve_request_scope(db, request)
         now = _coerce_now()
         positions = _list_position_payloads(
             db,
+            tenant_id=user.tenant_id,
             owner_scope=owner_scope,
             base_currency=normalized_base_currency,
             now=now,
@@ -728,6 +809,7 @@ def get_asset_summary(
 def build_portfolio_context_for_owner(
     owner_user_id: str,
     *,
+    tenant_id: str | None = None,
     ticker: str | None = None,
     base_currency: str = "USD",
 ) -> str:
@@ -737,13 +819,21 @@ def build_portfolio_context_for_owner(
     normalized_ticker = _normalize_upper(ticker)
 
     with auth.db_session() as db:
-        positions = asset_entries.list_asset_position_records(db, owner_user_id=normalized_owner_user_id)
+        positions = asset_entries.list_asset_position_records(
+            db,
+            tenant_id=tenant_id,
+            owner_user_id=normalized_owner_user_id,
+        )
         if not positions:
             return ""
 
         accounts = {
             account.id: account
-            for account in asset_entries.list_asset_account_records(db, owner_user_id=normalized_owner_user_id)
+            for account in asset_entries.list_asset_account_records(
+                db,
+                tenant_id=tenant_id,
+                owner_user_id=normalized_owner_user_id,
+            )
         }
         latest_snapshots = asset_entries.list_latest_snapshots_by_position(db, [position.id for position in positions])
 

@@ -87,7 +87,8 @@ class AnalysisTaskUsage(auth.Base):
     __tablename__ = "analysis_task_usage"
     __table_args__ = (
         Index(
-            "ix_analysis_task_usage_user_module_week",
+            "ix_analysis_task_usage_tenant_user_module_week",
+            "tenant_id",
             "user_id",
             "module",
             "usage_week",
@@ -104,6 +105,11 @@ class AnalysisTaskUsage(auth.Base):
         String(32),
         primary_key=True,
         default=lambda: uuid.uuid4().hex,
+    )
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     user_id: Mapped[str] = mapped_column(
         String(32),
@@ -240,14 +246,19 @@ def count_user_module_usage(
     db: Session,
     *,
     user_id: str,
+    tenant_id: str | None = None,
     module: str,
     usage_week: str | None = None,
 ) -> int:
     normalized_module = _normalize_module(module)
     resolved_week = usage_week or _week_key()
+    if tenant_id is None:
+        user = db.get(auth.User, user_id)
+        tenant_id = user.tenant_id if user is not None else None
     return int(
         db.scalar(
             select(func.count(AnalysisTaskUsage.id)).where(
+                AnalysisTaskUsage.tenant_id == tenant_id,
                 AnalysisTaskUsage.user_id == user_id,
                 AnalysisTaskUsage.module == normalized_module,
                 AnalysisTaskUsage.usage_week == resolved_week,
@@ -271,6 +282,7 @@ def record_module_usage(
     used_count = count_user_module_usage(
         db,
         user_id=user.id,
+        tenant_id=user.tenant_id,
         module=normalized_module,
         usage_week=resolved_week,
     )
@@ -286,6 +298,7 @@ def record_module_usage(
 
     db.add(
         AnalysisTaskUsage(
+            tenant_id=user.tenant_id,
             user_id=user.id,
             role=role,
             module=normalized_module,
@@ -338,6 +351,7 @@ def build_user_weekly_usage_summary(
         for module, count in db.execute(
             select(AnalysisTaskUsage.module, func.count(AnalysisTaskUsage.id))
             .where(
+                AnalysisTaskUsage.tenant_id == user.tenant_id,
                 AnalysisTaskUsage.user_id == user.id,
                 AnalysisTaskUsage.usage_week == resolved_week,
             )
@@ -371,7 +385,10 @@ def reset_user_weekly_usage(
     usage_week: str | None = None,
 ) -> int:
     resolved_week = usage_week or _week_key()
+    user = db.get(auth.User, user_id)
+    tenant_id = user.tenant_id if user is not None else None
     statement = delete(AnalysisTaskUsage).where(
+        AnalysisTaskUsage.tenant_id == tenant_id,
         AnalysisTaskUsage.user_id == user_id,
         AnalysisTaskUsage.usage_week == resolved_week,
     )

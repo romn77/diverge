@@ -29,7 +29,7 @@ function buildScreenerRunListKey(run: ScreenerRunSummary, index: number): string
 export function ScreenerDashboard() {
   const { locale, t } = usePreferences();
   const { openScreenerDialog } = useWorkbenchChrome();
-  const { activeScreenerTasks, screenerRuns } = useWorkbench();
+  const { activeScreenerTasks, newScreenerDisabled, screenerRuns } = useWorkbench();
   const recentRuns = screenerRuns.slice(0, 8);
   const firstActiveScreenerTask = activeScreenerTasks[0];
   const recentMarkets = useMemo(() => {
@@ -69,7 +69,12 @@ export function ScreenerDashboard() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button type="button" onClick={openScreenerDialog} className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105">
+              <Button
+                type="button"
+                disabled={newScreenerDisabled}
+                onClick={openScreenerDialog}
+                className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105"
+              >
                 {t("screenerDashboard.newScreener", "New Screener")}
               </Button>
               <Button asChild variant="secondary">

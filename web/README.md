@@ -81,6 +81,7 @@ Then open http://localhost:3000 in your browser.
 - `GET /api/screener/runs` — List completed screener runs
 - `GET /api/screener/runs/{run_id}` — Fetch screener run metadata
 - `GET /api/screener/runs/{run_id}/candidates` — Fetch screener candidate rows
+- `GET /api/admin/audit-events` — List tenant-scoped audit events for users with `admin:audit`
 
 ## Screener Notes
 
@@ -96,7 +97,7 @@ Then open http://localhost:3000 in your browser.
 The auth/session layer is controlled by `AUTH_ENABLED` and `AUTH_MODE`:
 
 - `AUTH_ENABLED=false`: disable auth entirely and fall back to the legacy filesystem-only workbench
-- `AUTH_ENABLED=true` with `AUTH_MODE=optional`: enable PostgreSQL-backed auth and metadata while keeping the existing workbench readable during rollout
+- `AUTH_ENABLED=true` with `AUTH_MODE=optional`: enable PostgreSQL-backed auth and metadata while leaving only low-sensitivity compatibility routes public during rollout; report listing and report content still require login
 - `AUTH_ENABLED=true` with `AUTH_MODE=required`: require login for protected routes
 
 Recommended rollout sequence:
@@ -125,7 +126,7 @@ python -m web.backend.devops.bootstrap_admin
 One-time metadata backfill before switching auth to required:
 
 ```bash
-AUTH_ENABLED=true AUTH_MODE=optional python -m web.backend.devops.backfill_metadata
+AUTH_ENABLED=true AUTH_MODE=required python -m web.backend.devops.backfill_metadata
 ```
 
 Backfill defaults:
@@ -133,17 +134,28 @@ Backfill defaults:
 - historical reports are indexed into PostgreSQL as `workspace` visibility and assigned to the bootstrap admin as owner
 - historical trades are assigned to the bootstrap admin through `trade_entries`
 - historical screener runs are assigned to the bootstrap admin through `screener_runs`
+- existing users and historical metadata are assigned to the default tenant during migrations and backfill
+
+Permissions and tenant scope:
+
+- roles are presets over module permissions; admin receives all permissions, operator/viewer keep the current workbench access preset
+- per-user permission overrides support explicit `grant` and `deny`, with deny winning over the role preset
+- `/api/auth/me` returns `permissions` and `tenant`; frontend create/admin actions use those fields, while backend checks remain the source of truth
+- workspace reports are visible only inside the same tenant; private reports, tasks, screeners, assets, trades, and usage counters stay owner-scoped within that tenant
+- there is no cross-tenant super-admin role yet; admin override is tenant-admin override
 
 Operational notes:
 
-- startup logs now include login success/failure, permission-denied events, admin user mutations, and metadata backfill counts
+- `audit_events` now include login success/failure, logout, password changes, admin user mutations, data-source changes, task creation, asset writes, and journal writes; startup logs still include metadata backfill counts
 - report markdown and artifacts stay on disk; PostgreSQL stores ownership, visibility, and file index metadata
 - new reports created by authenticated tasks default to `private`
+- audit metadata must stay small and must not include secrets, API keys, auth tokens, report content, raw prompts, portfolio details, or full exception text; retain audit rows according to your deployment policy and export/delete old rows during regular maintenance
 
 Rollback:
 
-- soft rollback: keep `AUTH_ENABLED=true` and change `AUTH_MODE=required` back to `AUTH_MODE=optional`
+- soft rollback: keep `AUTH_ENABLED=true` and change `AUTH_MODE=required` back to `AUTH_MODE=optional`; reports still require login in optional mode
 - full rollback: set `AUTH_ENABLED=false`
+- schema rollback order is the reverse migration order: audit events, workbench `tenant_id` columns, tenants/users membership, then user permissions
 
 The backfilled PostgreSQL metadata can remain in place for either rollback path.
 

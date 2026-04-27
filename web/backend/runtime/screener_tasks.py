@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import uuid
@@ -20,6 +21,8 @@ from web.backend.runtime import task_store
 from web.backend.services import screeners as screener_service
 
 SCREENER_STAGES = ["Universe", "History", "Features", "Filters", "Ranking", "Export"]
+GENERIC_SCREENER_TASK_ERROR = "Screener task failed. Check backend logs for details."
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,6 +31,7 @@ class ScreenerTask:
     request_payload: dict
     config_payload: dict
     owner_user_id: Optional[str] = None
+    tenant_id: Optional[str] = None
     status: str = "pending"
     latest_progress: Optional[dict] = None
     progress_events: list[dict] = field(default_factory=list)
@@ -49,6 +53,7 @@ class ScreenerTask:
             "request_payload": self.request_payload,
             "config_payload": self.config_payload,
             "owner_user_id": self.owner_user_id,
+            "tenant_id": self.tenant_id,
             "status": self.status,
             "latest_progress": self.latest_progress,
             "progress_events": self.progress_events,
@@ -461,8 +466,9 @@ def run_screener_task(task_id: str) -> None:
             wait_screener_for_quota(task_id, exc)
             return
         _fail_screener_task(task_id, str(exc))
-    except Exception as exc:  # pragma: no cover
-        _fail_screener_task(task_id, str(exc))
+    except Exception:  # pragma: no cover
+        logger.exception("screener task failed task_id=%s", task_id)
+        _fail_screener_task(task_id, GENERIC_SCREENER_TASK_ERROR)
 
 
 def create_screener_task(
@@ -470,6 +476,7 @@ def create_screener_task(
     request_payload: dict,
     config_payload: dict,
     owner_user_id: str | None = None,
+    tenant_id: str | None = None,
 ) -> dict:
     task_id = uuid.uuid4().hex
     now_iso = _utc_iso()
@@ -478,6 +485,7 @@ def create_screener_task(
         request_payload=request_payload,
         config_payload=config_payload,
         owner_user_id=owner_user_id,
+        tenant_id=tenant_id,
         created_at=now_iso,
     )
 
@@ -521,6 +529,11 @@ def screener_task_from_payload(payload: dict) -> ScreenerTask:
         owner_user_id=(
             str(payload["owner_user_id"]).strip()
             if payload.get("owner_user_id")
+            else None
+        ),
+        tenant_id=(
+            str(payload["tenant_id"]).strip()
+            if payload.get("tenant_id")
             else None
         ),
         status=status,

@@ -438,7 +438,19 @@ def execute_vendor_chain(
             raise
         else:
             if isinstance(result, str):
-                normalized_result = _normalize_legacy_vendor_result(result, vendor, method)
+                try:
+                    normalized_result = _normalize_legacy_vendor_result(
+                        result,
+                        vendor,
+                        method,
+                    )
+                except FALLBACK_ERRORS as exc:
+                    try:
+                        vendor_usage.record_data_source_call(vendor, success=False)
+                    finally:
+                        vendor_usage.release_data_source_quota(quota)
+                    last_error = exc
+                    continue
                 try:
                     vendor_usage.record_data_source_call(vendor, success=True)
                 finally:

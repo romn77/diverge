@@ -58,7 +58,7 @@ export default function AdminTaskQueuePage() {
     authStatus === "ready" && authEnabled && !authState?.authenticated;
   const canLoad =
     authStatus === "ready" && authEnabled && Boolean(authState?.authenticated);
-  const canManage = authState?.user?.role === "admin";
+  const canManage = Boolean(authState?.permissions.includes("admin:settings"));
 
   const groupedTasks = useMemo(() => {
     const groups: Record<(typeof QUEUE_SECTIONS)[number]["key"], AdminTaskQueueItem[]> = {

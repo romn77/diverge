@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from tradingagents.runner import AnalysisRequest
-from web.backend import access, analysis_limits, app_config, auth
+from web.backend import access, analysis_limits, app_config, audit, auth
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
@@ -23,17 +23,26 @@ def _serialize_sse_event(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-def _current_user(request: Request | None):
+def _current_user(
+    request: Request | None,
+    *,
+    permission: str = auth.PERMISSION_ANALYSIS_READ,
+):
     if not auth.auth_enabled() or request is None:
         return None
     with auth.db_session() as db:
-        return access.get_request_user_with_password_change(db, request)
+        return access.require_permission(db, request, permission)
 
 
 def _can_access_task(task: analysis_tasks.Task, current_user) -> bool:
     if not auth.auth_enabled():
         return True
-    return access.can_access_owner(current_user, task.owner_user_id, allow_unowned=True)
+    return access.can_access_owner(
+        current_user,
+        task.owner_user_id,
+        tenant_id=getattr(task, "tenant_id", None),
+        allow_unowned=True,
+    )
 
 
 def _get_authorized_task(task_id: str, request: Request | None):
@@ -82,6 +91,7 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
         analysis_request = AnalysisRequest(**payload.model_dump())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    current_user = _current_user(request, permission=auth.PERMISSION_ANALYSIS_CREATE)
     hydrate_provider_credentials(analysis_request.llm_provider)
     provider_availability = get_provider_availability(analysis_request.llm_provider)
     if not provider_availability["enabled"]:
@@ -90,9 +100,9 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             detail=str(provider_availability["disabled_reason"]),
         )
 
-    current_user = _current_user(request)
     _enforce_task_submission_capacity(current_user)
     owner_user_id = current_user.id if current_user is not None else None
+    tenant_id = getattr(current_user, "tenant_id", None)
     if current_user is not None:
         try:
             with auth.db_session() as db:
@@ -106,13 +116,28 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
     if owner_user_id:
         analysis_request.portfolio_context = asset_service.build_portfolio_context_for_owner(
             owner_user_id,
+            tenant_id=tenant_id,
             ticker=analysis_request.ticker,
         )
 
-    return analysis_tasks.create_task(
+    result = analysis_tasks.create_task(
         analysis_request,
         owner_user_id=owner_user_id,
+        tenant_id=tenant_id,
     )
+    if current_user is not None and tenant_id is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=tenant_id,
+                actor_user_id=current_user.id,
+                action="analysis.task.created",
+                resource_type="analysis_task",
+                resource_id=str(result.get("task_id")),
+                metadata={"ticker": analysis_request.ticker},
+                request=request,
+            )
+    return result
 
 
 @router.get("/api/tasks")

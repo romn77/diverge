@@ -36,6 +36,9 @@ AuthMode = Literal["disabled", "optional", "required"]
 DEFAULT_SESSION_COOKIE_NAME = "tradingagents_session"
 DEFAULT_SESSION_TTL_HOURS = 24 * 7
 DEFAULT_BOOTSTRAP_ADMIN_DISPLAY_NAME = "Administrator"
+DEFAULT_TENANT_ID = "default"
+DEFAULT_TENANT_NAME = "Default Workspace"
+DEFAULT_TENANT_SLUG = "default"
 VALID_COOKIE_SAMESITE = {"lax", "strict", "none"}
 VALID_AUTH_MODES = {"disabled", "optional", "required"}
 MIN_PASSWORD_LENGTH = 8
@@ -305,19 +308,94 @@ class UserRole(str, Enum):
     VIEWER = "viewer"
 
 
+PERMISSION_ANALYSIS_CREATE = "analysis:create"
+PERMISSION_ANALYSIS_READ = "analysis:read"
+PERMISSION_SCREENER_CREATE = "screener:create"
+PERMISSION_SCREENER_READ = "screener:read"
+PERMISSION_ASSETS_READ = "assets:read"
+PERMISSION_ASSETS_WRITE = "assets:write"
+PERMISSION_JOURNAL_READ = "journal:read"
+PERMISSION_JOURNAL_WRITE = "journal:write"
+PERMISSION_ADMIN_USERS = "admin:users"
+PERMISSION_ADMIN_SETTINGS = "admin:settings"
+PERMISSION_ADMIN_AUDIT = "admin:audit"
+PERMISSION_EFFECT_GRANT = "grant"
+PERMISSION_EFFECT_DENY = "deny"
+VALID_PERMISSION_EFFECTS = {
+    PERMISSION_EFFECT_GRANT,
+    PERMISSION_EFFECT_DENY,
+}
+
+WORKBENCH_PERMISSIONS = {
+    PERMISSION_ANALYSIS_CREATE,
+    PERMISSION_ANALYSIS_READ,
+    PERMISSION_SCREENER_CREATE,
+    PERMISSION_SCREENER_READ,
+    PERMISSION_ASSETS_READ,
+    PERMISSION_ASSETS_WRITE,
+    PERMISSION_JOURNAL_READ,
+    PERMISSION_JOURNAL_WRITE,
+}
+ADMIN_PERMISSIONS = {
+    PERMISSION_ADMIN_USERS,
+    PERMISSION_ADMIN_SETTINGS,
+    PERMISSION_ADMIN_AUDIT,
+}
+ALL_PERMISSIONS = WORKBENCH_PERMISSIONS | ADMIN_PERMISSIONS
+ROLE_PERMISSION_PRESETS = {
+    UserRole.ADMIN.value: ALL_PERMISSIONS,
+    UserRole.OPERATOR.value: WORKBENCH_PERMISSIONS,
+    UserRole.VIEWER.value: WORKBENCH_PERMISSIONS,
+}
+
+
+def permissions_for_role(role: UserRole | str) -> set[str]:
+    normalized_role = _normalize_role(role)
+    return set(ROLE_PERMISSION_PRESETS[normalized_role])
+
+
 class UserStatus(str, Enum):
     ACTIVE = "active"
     DISABLED = "disabled"
+
+
+class Tenant(Base):
+    __tablename__ = "tenants"
+    __table_args__ = (
+        Index("ix_tenants_slug", "slug", unique=True),
+        Index("ix_tenants_status", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        onupdate=_utcnow,
+    )
+
+    users: Mapped[list["User"]] = relationship(back_populates="tenant")
 
 
 class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         Index("ix_users_email", "email", unique=True),
+        Index("ix_users_tenant_email", "tenant_id", "email", unique=True),
         Index("ix_users_role_status", "role", "status"),
     )
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    tenant_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=False,
+        default=DEFAULT_TENANT_ID,
+    )
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -338,6 +416,38 @@ class User(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    tenant: Mapped[Tenant] = relationship(back_populates="users")
+    permissions: Mapped[list["UserPermission"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class UserPermission(Base):
+    __tablename__ = "user_permissions"
+    __table_args__ = (
+        Index("ix_user_permissions_user_permission", "user_id", "permission", unique=True),
+        Index("ix_user_permissions_user_effect", "user_id", "effect"),
+    )
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    user_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    permission: Mapped[str] = mapped_column(String(128), nullable=False)
+    effect: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        onupdate=_utcnow,
+    )
+
+    user: Mapped[User] = relationship(back_populates="permissions")
 
 
 class AuthSession(Base):
@@ -485,17 +595,20 @@ def reset_runtime_state() -> None:
 
 
 def create_all_for_testing() -> None:
-    from web.backend import analysis_limits, asset_entries, data_sources, report_metadata, screener_runs, trade_entries  # noqa: F401
+    from web.backend import analysis_limits, asset_entries, audit, data_sources, report_metadata, screener_runs, trade_entries  # noqa: F401
 
     settings = get_auth_settings()
     engine = get_engine(settings)
     Base.metadata.create_all(engine)
+    with get_session_factory(settings)() as db:
+        ensure_default_tenant(db)
+        db.commit()
 
 
 def _ensure_auth_tables_exist(settings: AuthSettings) -> None:
     engine = get_engine(settings)
     inspector = inspect(engine)
-    required_tables = ("users", "auth_sessions")
+    required_tables = ("tenants", "users", "auth_sessions", "user_permissions")
     missing_tables = [table_name for table_name in required_tables if not inspector.has_table(table_name)]
     if missing_tables:
         joined = ", ".join(missing_tables)
@@ -522,6 +635,7 @@ def db_session() -> Iterator[Session]:
 def serialize_user(user: User) -> dict[str, object]:
     return {
         "id": user.id,
+        "tenant_id": user.tenant_id,
         "email": user.email,
         "display_name": user.display_name,
         "role": user.role,
@@ -533,14 +647,106 @@ def serialize_user(user: User) -> dict[str, object]:
     }
 
 
-def build_auth_state_payload(user: User | None) -> dict[str, object]:
+def serialize_tenant(tenant: Tenant | None) -> dict[str, object] | None:
+    if tenant is None:
+        return None
+    return {
+        "id": tenant.id,
+        "name": tenant.name,
+        "slug": tenant.slug,
+        "status": tenant.status,
+        "created_at": _serialize_datetime(tenant.created_at),
+        "updated_at": _serialize_datetime(tenant.updated_at),
+    }
+
+
+def build_auth_state_payload(user: User | None, db: Session | None = None) -> dict[str, object]:
     settings = get_auth_settings()
+    permissions: list[str] = []
+    tenant_payload: dict[str, object] | None = None
+    if user is not None:
+        permissions = sorted(
+            effective_permissions_for_user(db, user)
+            if db is not None
+            else permissions_for_role(user.role)
+        )
+        tenant_payload = serialize_tenant(getattr(user, "tenant", None))
     return {
         "enabled": settings.enabled,
         "mode": settings.mode,
         "authenticated": user is not None,
         "user": serialize_user(user) if user is not None else None,
+        "permissions": permissions,
+        "tenant": tenant_payload,
     }
+
+
+def _normalize_tenant_slug(value: str | None) -> str:
+    candidate = _require_text(value, "slug").lower()
+    normalized = "".join(
+        char if char.isalnum() else "-"
+        for char in candidate
+    ).strip("-")
+    while "--" in normalized:
+        normalized = normalized.replace("--", "-")
+    if not normalized:
+        raise AuthValidationError("slug is required")
+    return normalized
+
+
+def get_tenant_by_id(db: Session, tenant_id: str) -> Tenant:
+    tenant = db.get(Tenant, _require_text(tenant_id, "tenant_id"))
+    if tenant is None:
+        raise AuthNotFoundError(f"Tenant '{tenant_id}' not found")
+    return tenant
+
+
+def get_tenant_by_slug(db: Session, slug: str) -> Tenant | None:
+    return db.scalar(select(Tenant).where(Tenant.slug == _normalize_tenant_slug(slug)))
+
+
+def ensure_default_tenant(db: Session) -> Tenant:
+    tenant = db.get(Tenant, DEFAULT_TENANT_ID)
+    if tenant is not None:
+        return tenant
+    tenant = get_tenant_by_slug(db, DEFAULT_TENANT_SLUG)
+    if tenant is not None:
+        return tenant
+
+    tenant = Tenant(
+        id=DEFAULT_TENANT_ID,
+        name=DEFAULT_TENANT_NAME,
+        slug=DEFAULT_TENANT_SLUG,
+        status="active",
+    )
+    db.add(tenant)
+    db.flush()
+    return tenant
+
+
+def create_tenant(
+    db: Session,
+    *,
+    name: str,
+    slug: str,
+    status: str = "active",
+) -> Tenant:
+    normalized_name = _require_text(name, "name")
+    normalized_slug = _normalize_tenant_slug(slug)
+    normalized_status = _require_text(status, "status").lower()
+    if normalized_status not in {"active", "disabled"}:
+        raise AuthValidationError("tenant status must be one of active or disabled")
+    tenant = Tenant(
+        name=normalized_name,
+        slug=normalized_slug,
+        status=normalized_status,
+    )
+    db.add(tenant)
+    try:
+        db.flush()
+    except IntegrityError as exc:
+        raise AuthConflictError(f"Tenant '{normalized_slug}' already exists") from exc
+    return tenant
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
@@ -555,8 +761,12 @@ def get_user_by_id(db: Session, user_id: str) -> User:
     return user
 
 
-def list_users(db: Session) -> list[User]:
-    return list(db.scalars(select(User).order_by(User.created_at.asc(), User.email.asc())))
+def list_users(db: Session, *, tenant_id: str | None = None) -> list[User]:
+    statement = select(User)
+    if tenant_id is not None:
+        statement = statement.where(User.tenant_id == _require_text(tenant_id, "tenant_id"))
+    statement = statement.order_by(User.created_at.asc(), User.email.asc())
+    return list(db.scalars(statement))
 
 
 def _normalize_role(value: UserRole | str | None, field_name: str = "role") -> str:
@@ -567,6 +777,75 @@ def _normalize_role(value: UserRole | str | None, field_name: str = "role") -> s
         return UserRole(candidate).value
     except ValueError as exc:
         raise AuthValidationError(f"{field_name} must be one of admin, operator, or viewer") from exc
+
+
+def _normalize_permission(value: str | None) -> str:
+    candidate = _require_text(value, "permission").lower()
+    if candidate not in ALL_PERMISSIONS:
+        raise AuthValidationError(f"permission must be one of {', '.join(sorted(ALL_PERMISSIONS))}")
+    return candidate
+
+
+def _normalize_permission_effect(value: str | None) -> str:
+    candidate = _require_text(value, "effect").lower()
+    if candidate not in VALID_PERMISSION_EFFECTS:
+        raise AuthValidationError("effect must be one of grant or deny")
+    return candidate
+
+
+def set_user_permission(
+    db: Session,
+    user_id: str,
+    permission: str,
+    *,
+    effect: str,
+) -> UserPermission:
+    user = get_user_by_id(db, user_id)
+    normalized_permission = _normalize_permission(permission)
+    normalized_effect = _normalize_permission_effect(effect)
+    record = db.scalar(
+        select(UserPermission).where(
+            UserPermission.user_id == user.id,
+            UserPermission.permission == normalized_permission,
+        )
+    )
+    if record is None:
+        record = UserPermission(
+            user_id=user.id,
+            permission=normalized_permission,
+            effect=normalized_effect,
+        )
+        db.add(record)
+    else:
+        record.effect = normalized_effect
+        record.updated_at = _utcnow()
+    db.flush()
+    return record
+
+
+def list_user_permissions(db: Session, user_id: str) -> list[UserPermission]:
+    return list(
+        db.scalars(
+            select(UserPermission)
+            .where(UserPermission.user_id == _require_text(user_id, "user_id"))
+            .order_by(UserPermission.permission.asc())
+        )
+    )
+
+
+def effective_permissions_for_user(db: Session, user: User) -> set[str]:
+    permissions = permissions_for_role(user.role)
+    for override in list_user_permissions(db, user.id):
+        if override.effect == PERMISSION_EFFECT_DENY:
+            permissions.discard(override.permission)
+        elif override.effect == PERMISSION_EFFECT_GRANT:
+            permissions.add(override.permission)
+    return permissions
+
+
+def user_has_permission(db: Session, user: User, permission: str) -> bool:
+    normalized_permission = _normalize_permission(permission)
+    return normalized_permission in effective_permissions_for_user(db, user)
 
 
 def _normalize_status(value: UserStatus | str | None, field_name: str = "status") -> str:
@@ -628,6 +907,7 @@ def create_user(
     role: UserRole | str = UserRole.VIEWER.value,
     status: UserStatus | str = UserStatus.ACTIVE.value,
     must_change_password: bool = True,
+    tenant_id: str | None = None,
 ) -> User:
     normalized_email = normalize_email(email)
     normalized_role = _normalize_role(role)
@@ -635,8 +915,10 @@ def create_user(
     normalized_display_name = (
         display_name.strip() if display_name is not None and display_name.strip() else normalized_email
     )
+    tenant = get_tenant_by_id(db, tenant_id) if tenant_id else ensure_default_tenant(db)
 
     user = User(
+        tenant_id=tenant.id,
         email=normalized_email,
         display_name=normalized_display_name,
         password_hash=hash_password(password),
@@ -944,6 +1226,7 @@ def initialize_auth_runtime() -> None:
         return
     _ensure_auth_tables_exist(settings)
     with db_session() as db:
+        ensure_default_tenant(db)
         ensure_bootstrap_admin(db, settings)
 
 

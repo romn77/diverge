@@ -95,6 +95,7 @@ class ReportMetadataAuthTests(unittest.TestCase):
         *,
         owner_user_id: str,
         visibility: str,
+        tenant_id: str | None = None,
     ) -> Path:
         report_dir = self.reports_dir / report_id
         (report_dir / "1_analysts").mkdir(parents=True, exist_ok=True)
@@ -118,6 +119,7 @@ class ReportMetadataAuthTests(unittest.TestCase):
                 db,
                 report_id=report_id,
                 owner_user_id=owner_user_id,
+                tenant_id=tenant_id,
                 visibility=visibility,
                 ticker=str(metadata_payload["ticker"] or "MSFT"),
                 generated_at=metadata_payload["generated_at"],
@@ -158,6 +160,56 @@ class ReportMetadataAuthTests(unittest.TestCase):
             self.assertIn("MSFT_20260420_093000", report_ids)
             self.assertIn("QQQ_20260420_101500", report_ids)
             self.assertNotIn("IWM_20260420_110500", report_ids)
+
+        asyncio.run(scenario())
+
+    def test_workspace_reports_are_visible_only_within_same_tenant(self):
+        async def scenario():
+            with auth.db_session() as db:
+                owner = auth.get_user_by_id(db, self.owner_id)
+                other_tenant = auth.create_tenant(db, name="External Desk", slug="external-desk")
+                other_user = auth.create_user(
+                    db,
+                    email="external@example.com",
+                    display_name="External",
+                    password="external-password",
+                    role=auth.UserRole.VIEWER,
+                    must_change_password=False,
+                    tenant_id=other_tenant.id,
+                )
+                owner_tenant_id = owner.tenant_id
+                other_user_id = other_user.id
+                other_tenant_id = other_tenant.id
+
+            self._write_report(
+                "MSFT_20260420_093000",
+                owner_user_id=self.owner_id,
+                tenant_id=owner_tenant_id,
+                visibility=report_metadata.REPORT_VISIBILITY_WORKSPACE,
+            )
+            self._write_report(
+                "QQQ_20260420_101500",
+                owner_user_id=other_user_id,
+                tenant_id=other_tenant_id,
+                visibility=report_metadata.REPORT_VISIBILITY_WORKSPACE,
+            )
+
+            async with app_client(app) as client:
+                login_response = await client.post(
+                    "/api/auth/login",
+                    json={"email": "owner@example.com", "password": "owner-password"},
+                )
+                self.assertEqual(login_response.status_code, 200)
+
+                reports_response = await client.get("/api/reports")
+                self.assertEqual(reports_response.status_code, 200)
+                self.assertEqual(
+                    [row["id"] for row in reports_response.json()],
+                    ["MSFT_20260420_093000"],
+                )
+
+                external_detail = await client.get("/api/reports/QQQ_20260420_101500/structure")
+                self.assertEqual(external_detail.status_code, 404)
 
         asyncio.run(scenario())
 

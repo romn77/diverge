@@ -163,7 +163,7 @@ def backfill_all_metadata() -> BackfillSummary:
     if not settings.enabled:
         raise RuntimeError(
             "Auth must be enabled to backfill metadata. "
-            "Use AUTH_ENABLED=true with AUTH_MODE=optional before switching to required."
+            "Use AUTH_ENABLED=true and run this before exposing the authenticated workbench."
         )
 
     auth.initialize_auth_runtime()

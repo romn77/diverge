@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from tradingagents.dataflows import vendor_usage
-from web.backend import access, analysis_limits, auth, data_sources
+from web.backend import access, analysis_limits, audit, auth, data_sources
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
@@ -19,16 +19,53 @@ from web.backend.schemas.admin import (
 )
 
 logger = logging.getLogger(__name__)
-router = APIRouter(dependencies=[Depends(auth.enforce_admin_api_access)])
+router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
 
 
 def _utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _load_admin_user_lookup() -> dict[str, dict]:
+def _parse_datetime_filter(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    candidate = value.strip()
+    if candidate.endswith("Z"):
+        candidate = candidate[:-1] + "+00:00"
+    parsed = datetime.fromisoformat(candidate)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _require_admin_permission(request: Request | None, permission: str) -> auth.User | None:
+    if request is None or not auth.auth_enabled():
+        return None
     with auth.db_session() as db:
-        return {user.id: auth.serialize_user(user) for user in auth.list_users(db)}
+        return access.require_permission(db, request, permission)
+
+
+def _require_db_admin_permission(
+    db,
+    request: Request | None,
+    permission: str,
+) -> auth.User | None:
+    if request is None or not auth.auth_enabled():
+        return None
+    return access.require_permission(db, request, permission)
+
+
+def _ensure_same_tenant(actor: auth.User | None, target: auth.User) -> None:
+    if actor is not None and target.tenant_id != actor.tenant_id:
+        raise auth.AuthNotFoundError(f"User '{target.id}' not found")
+
+
+def _load_admin_user_lookup(tenant_id: str | None = None) -> dict[str, dict]:
+    with auth.db_session() as db:
+        return {
+            user.id: auth.serialize_user(user)
+            for user in auth.list_users(db, tenant_id=tenant_id)
+        }
 
 
 def _normalize_queue_status(status: object) -> str:
@@ -121,15 +158,18 @@ def _queue_sort_key(item: dict) -> tuple[int, int, str, str]:
 
 
 @router.get("/api/admin/task-queue")
-def list_admin_task_queue() -> dict:
+def list_admin_task_queue(request: Request = None) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
     try:
-        user_lookup = _load_admin_user_lookup()
+        user_lookup = _load_admin_user_lookup(actor.tenant_id if actor is not None else None)
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
 
     items: list[dict] = []
     for kind in ("analysis", "screener"):
         for payload in _active_task_payloads(kind):
+            if actor is not None and payload.get("tenant_id") != actor.tenant_id:
+                continue
             status = _normalize_queue_status(payload.get("status"))
             if status not in task_store.ACTIVE_STATUSES:
                 continue
@@ -157,11 +197,45 @@ def list_admin_task_queue() -> dict:
     }
 
 
-@router.get("/api/admin/users")
-def list_admin_users() -> list[dict]:
+@router.get("/api/admin/audit-events")
+def list_admin_audit_events(
+    request: Request = None,
+    action: str | None = None,
+    resource_type: str | None = None,
+    actor_user_id: str | None = None,
+    created_from: str | None = None,
+    created_to: str | None = None,
+    limit: int = 100,
+) -> dict:
     try:
         with auth.db_session() as db:
-            users = auth.list_users(db)
+            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_AUDIT)
+            if actor is None:
+                return {"events": []}
+            events = audit.list_audit_events(
+                db,
+                tenant_id=actor.tenant_id,
+                action=action,
+                resource_type=resource_type,
+                actor_user_id=actor_user_id,
+                created_from=_parse_datetime_filter(created_from),
+                created_to=_parse_datetime_filter(created_to),
+                limit=limit,
+            )
+            return {"events": [audit.serialize_audit_event(event) for event in events]}
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+
+@router.get("/api/admin/users")
+def list_admin_users(request: Request = None) -> list[dict]:
+    try:
+        with auth.db_session() as db:
+            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_USERS)
+            users = auth.list_users(
+                db,
+                tenant_id=actor.tenant_id if actor is not None else None,
+            )
             return [
                 {
                     **auth.serialize_user(user),
@@ -174,9 +248,10 @@ def list_admin_users() -> list[dict]:
 
 
 @router.get("/api/admin/analysis-limits")
-def list_admin_analysis_limits() -> dict:
+def list_admin_analysis_limits(request: Request = None) -> dict:
     try:
         with auth.db_session() as db:
+            _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_SETTINGS)
             return {"limits": analysis_limits.list_role_limits(db)}
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
@@ -185,28 +260,43 @@ def list_admin_analysis_limits() -> dict:
 @router.put("/api/admin/analysis-limits")
 def update_admin_analysis_limits(
     payload: AdminAnalysisLimitsUpdatePayload,
-    request: Request,
+    request: Request = None,
 ) -> dict:
     try:
         with auth.db_session() as db:
-            actor = auth.require_request_user(db, request)
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_SETTINGS,
+            )
             limits = analysis_limits.update_role_limits(
                 db,
                 [item.model_dump() for item in payload.limits],
             )
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.analysis_limits.updated",
+                    resource_type="analysis_limits",
+                    metadata={"roles": [row["role"] for row in limits]},
+                    request=request,
+                )
             result = {"limits": limits}
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
     logger.info(
         "admin analysis limits updated actor_user_id=%s roles=%s",
-        actor.id,
+        actor.id if actor is not None else None,
         ",".join(row["role"] for row in result["limits"]),
     )
     return result
 
 
 @router.get("/api/admin/data-sources")
-def list_admin_data_sources() -> dict:
+def list_admin_data_sources(request: Request = None) -> dict:
+    _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
     return vendor_usage.get_data_source_usage_summary()
 
 
@@ -214,7 +304,9 @@ def list_admin_data_sources() -> dict:
 def update_admin_data_source(
     vendor: str,
     payload: AdminDataSourceUpdatePayload,
+    request: Request = None,
 ) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
     try:
         source = vendor_usage.update_data_source_config(
             vendor,
@@ -232,6 +324,18 @@ def update_admin_data_source(
         source["daily_limit"],
         source["hourly_limit"],
     )
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.data_source.updated",
+                resource_type="data_source",
+                resource_id=source["vendor"],
+                metadata={"enabled": source["enabled"]},
+                request=request,
+            )
     return {"source": source}
 
 
@@ -241,7 +345,9 @@ def update_admin_data_source_route(
     market: str,
     category: str,
     payload: AdminDataSourceRouteUpdatePayload,
+    request: Request = None,
 ) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
     try:
         route = data_sources.update_data_source_route(
             module=module,
@@ -259,23 +365,42 @@ def update_admin_data_source_route(
         route["category"],
         ",".join(route["vendor_chain"]),
     )
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.data_source_route.updated",
+                resource_type="data_source_route",
+                resource_id=f"{module}:{market}:{category}",
+                metadata={"vendor_chain": route["vendor_chain"]},
+                request=request,
+            )
     return {"route": route}
 
 
 @router.get("/api/admin/users/{user_id}")
-def get_admin_user(user_id: str) -> dict:
+def get_admin_user(user_id: str, request: Request = None) -> dict:
     try:
         with auth.db_session() as db:
-            return auth.serialize_user(auth.get_user_by_id(db, user_id))
+            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_USERS)
+            target = auth.get_user_by_id(db, user_id)
+            _ensure_same_tenant(actor, target)
+            return auth.serialize_user(target)
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
 
 
 @router.post("/api/admin/users")
-def create_admin_user(payload: AdminUserCreatePayload, request: Request) -> dict:
+def create_admin_user(payload: AdminUserCreatePayload, request: Request = None) -> dict:
     try:
         with auth.db_session() as db:
-            actor = auth.require_request_user(db, request)
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_USERS,
+            )
             user = auth.create_user(
                 db,
                 email=payload.email,
@@ -284,13 +409,25 @@ def create_admin_user(payload: AdminUserCreatePayload, request: Request) -> dict
                 role=payload.role,
                 status=payload.status,
                 must_change_password=payload.must_change_password,
+                tenant_id=actor.tenant_id if actor is not None else None,
             )
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.user.created",
+                    resource_type="user",
+                    resource_id=user.id,
+                    metadata={"role": user.role, "status": user.status},
+                    request=request,
+                )
             result = auth.serialize_user(user)
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
     logger.info(
         "admin user created actor_user_id=%s target_user_id=%s role=%s status=%s",
-        actor.id,
+        actor.id if actor is not None else None,
         user.id,
         user.role,
         user.status,
@@ -302,11 +439,16 @@ def create_admin_user(payload: AdminUserCreatePayload, request: Request) -> dict
 def update_admin_user(
     user_id: str,
     payload: AdminUserUpdatePayload,
-    request: Request,
+    request: Request = None,
 ) -> dict:
     try:
         with auth.db_session() as db:
-            actor = auth.require_request_user(db, request)
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_USERS,
+            )
+            _ensure_same_tenant(actor, auth.get_user_by_id(db, user_id))
             user = auth.update_user(
                 db,
                 user_id,
@@ -315,12 +457,24 @@ def update_admin_user(
                 status=payload.status,
                 must_change_password=payload.must_change_password,
             )
+            _ensure_same_tenant(actor, user)
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.user.updated",
+                    resource_type="user",
+                    resource_id=user.id,
+                    metadata={"role": user.role, "status": user.status},
+                    request=request,
+                )
             result = auth.serialize_user(user)
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
     logger.info(
         "admin user updated actor_user_id=%s target_user_id=%s role=%s status=%s",
-        actor.id,
+        actor.id if actor is not None else None,
         user.id,
         user.role,
         user.status,
@@ -329,17 +483,33 @@ def update_admin_user(
 
 
 @router.delete("/api/admin/users/{user_id}")
-def delete_admin_user(user_id: str, request: Request) -> dict:
+def delete_admin_user(user_id: str, request: Request = None) -> dict:
     try:
         with auth.db_session() as db:
-            actor = auth.require_request_user(db, request)
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_USERS,
+            )
+            user = auth.get_user_by_id(db, user_id)
+            _ensure_same_tenant(actor, user)
             auth.delete_user(db, user_id)
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.user.deleted",
+                    resource_type="user",
+                    resource_id=user_id,
+                    request=request,
+                )
             result = {"deleted": True, "user_id": user_id}
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
     logger.info(
         "admin user deleted actor_user_id=%s target_user_id=%s",
-        actor.id,
+        actor.id if actor is not None else None,
         user_id,
     )
     return result
@@ -351,35 +521,68 @@ def delete_admin_user(user_id: str, request: Request) -> dict:
 def reset_admin_user_password(
     user_id: str,
     payload: AdminUserResetPasswordPayload,
-    request: Request,
+    request: Request = None,
 ) -> dict:
     try:
         with auth.db_session() as db:
-            actor = auth.require_request_user(db, request)
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_USERS,
+            )
+            _ensure_same_tenant(actor, auth.get_user_by_id(db, user_id))
             user = auth.reset_user_password(
                 db,
                 user_id,
                 new_password=payload.new_password,
                 must_change_password=payload.must_change_password,
             )
+            _ensure_same_tenant(actor, user)
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.user.password_reset",
+                    resource_type="user",
+                    resource_id=user.id,
+                    metadata={"must_change_password": user.must_change_password},
+                    request=request,
+                )
             result = auth.serialize_user(user)
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
     logger.info(
         "admin user password reset actor_user_id=%s target_user_id=%s",
-        actor.id,
+        actor.id if actor is not None else None,
         user.id,
     )
     return result
 
 
 @router.post("/api/admin/users/{user_id}/usage/reset")
-def reset_admin_user_usage(user_id: str, request: Request) -> dict:
+def reset_admin_user_usage(user_id: str, request: Request = None) -> dict:
     try:
         with auth.db_session() as db:
-            actor = auth.require_request_user(db, request)
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_USERS,
+            )
             user = auth.get_user_by_id(db, user_id)
+            _ensure_same_tenant(actor, user)
             reset_count = analysis_limits.reset_user_weekly_usage(db, user_id)
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.user.usage_reset",
+                    resource_type="user",
+                    resource_id=user_id,
+                    metadata={"reset_count": reset_count},
+                    request=request,
+                )
             result = {
                 "user_id": user_id,
                 "reset_count": reset_count,
@@ -389,7 +592,7 @@ def reset_admin_user_usage(user_id: str, request: Request) -> dict:
         raise access.translate_auth_error(exc) from exc
     logger.info(
         "admin user weekly usage reset actor_user_id=%s target_user_id=%s reset_count=%s",
-        actor.id,
+        actor.id if actor is not None else None,
         user_id,
         reset_count,
     )

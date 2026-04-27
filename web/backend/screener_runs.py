@@ -16,11 +16,17 @@ def _utcnow() -> datetime:
 class ScreenerRun(auth.Base):
     __tablename__ = "screener_runs"
     __table_args__ = (
+        Index("ix_screener_runs_tenant_generated_at", "tenant_id", "generated_at"),
         Index("ix_screener_runs_owner_generated_at", "owner_user_id", "generated_at"),
         Index("ix_screener_runs_generated_at", "generated_at"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     owner_user_id: Mapped[str] = mapped_column(
         String(32),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -93,6 +99,7 @@ def upsert_screener_run(
     *,
     run_id: str,
     owner_user_id: str,
+    tenant_id: str | None = None,
     as_of_date: str | None,
     markets: list[str] | tuple[str, ...] | None,
     candidate_count: int,
@@ -102,14 +109,23 @@ def upsert_screener_run(
 ) -> ScreenerRun:
     normalized_run_id = _normalize_text(run_id, "run_id")
     normalized_owner_user_id = _normalize_text(owner_user_id, "owner_user_id")
+    normalized_tenant_id = tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+    if normalized_tenant_id is None:
+        owner = db.get(auth.User, normalized_owner_user_id)
+        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
     normalized_storage_path = _normalize_text(storage_path, "storage_path")
     normalized_generated_at = _normalize_text(generated_at, "generated_at")
 
     record = db.get(ScreenerRun, normalized_run_id)
     if record is None:
-        record = ScreenerRun(id=normalized_run_id, owner_user_id=normalized_owner_user_id)
+        record = ScreenerRun(
+            id=normalized_run_id,
+            tenant_id=normalized_tenant_id,
+            owner_user_id=normalized_owner_user_id,
+        )
         db.add(record)
 
+    record.tenant_id = normalized_tenant_id
     record.owner_user_id = normalized_owner_user_id
     record.as_of_date = as_of_date.strip() if isinstance(as_of_date, str) and as_of_date.strip() else None
     record.markets = _normalize_markets(markets)
@@ -125,9 +141,12 @@ def upsert_screener_run(
 def list_screener_run_records(
     db: Session,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
 ) -> list[ScreenerRun]:
     statement = select(ScreenerRun)
+    if tenant_id is not None:
+        statement = statement.where(ScreenerRun.tenant_id == tenant_id)
     if owner_user_id is not None:
         statement = statement.where(ScreenerRun.owner_user_id == owner_user_id)
     statement = statement.order_by(ScreenerRun.generated_at.desc(), ScreenerRun.id.desc())
@@ -138,9 +157,12 @@ def get_screener_run_record(
     db: Session,
     run_id: str,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
 ) -> ScreenerRun:
     statement = select(ScreenerRun).where(ScreenerRun.id == run_id)
+    if tenant_id is not None:
+        statement = statement.where(ScreenerRun.tenant_id == tenant_id)
     if owner_user_id is not None:
         statement = statement.where(ScreenerRun.owner_user_id == owner_user_id)
     record = db.scalar(statement)
@@ -164,6 +186,7 @@ def serialize_screener_run_detail(record: ScreenerRun) -> dict[str, Any]:
     payload.update(
         {
             "owner_user_id": record.owner_user_id,
+            "tenant_id": record.tenant_id,
             "storage_path": record.storage_path,
             "artifact_paths": dict(record.artifact_manifest or {}),
         }

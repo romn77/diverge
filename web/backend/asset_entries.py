@@ -17,9 +17,11 @@ def _utcnow() -> datetime:
 class AssetAccount(auth.Base):
     __tablename__ = "asset_accounts"
     __table_args__ = (
+        Index("ix_asset_accounts_tenant_updated_at", "tenant_id", "updated_at"),
         Index("ix_asset_accounts_owner_updated_at", "owner_user_id", "updated_at"),
         Index(
-            "ix_asset_accounts_owner_platform_account",
+            "ix_asset_accounts_tenant_owner_platform_account",
+            "tenant_id",
             "owner_user_id",
             "platform_name",
             "account_name",
@@ -31,6 +33,11 @@ class AssetAccount(auth.Base):
         String(32),
         primary_key=True,
         default=lambda: uuid.uuid4().hex,
+    )
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     owner_user_id: Mapped[str] = mapped_column(
         String(32),
@@ -55,9 +62,11 @@ class AssetAccount(auth.Base):
 class AssetPosition(auth.Base):
     __tablename__ = "asset_positions"
     __table_args__ = (
+        Index("ix_asset_positions_tenant_updated_at", "tenant_id", "updated_at"),
         Index("ix_asset_positions_owner_updated_at", "owner_user_id", "updated_at"),
         Index(
-            "ix_asset_positions_owner_ticker_updated_at",
+            "ix_asset_positions_tenant_owner_ticker_updated_at",
+            "tenant_id",
             "owner_user_id",
             "ticker",
             "updated_at",
@@ -69,6 +78,11 @@ class AssetPosition(auth.Base):
         String(32),
         primary_key=True,
         default=lambda: uuid.uuid4().hex,
+    )
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     owner_user_id: Mapped[str] = mapped_column(
         String(32),
@@ -113,6 +127,11 @@ class AssetValuationSnapshot(auth.Base):
     __tablename__ = "asset_valuation_snapshots"
     __table_args__ = (
         Index(
+            "ix_asset_valuation_snapshots_tenant_captured_at",
+            "tenant_id",
+            "captured_at",
+        ),
+        Index(
             "ix_asset_valuation_snapshots_position_captured_at",
             "position_id",
             "captured_at",
@@ -123,6 +142,11 @@ class AssetValuationSnapshot(auth.Base):
         String(32),
         primary_key=True,
         default=lambda: uuid.uuid4().hex,
+    )
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=True,
     )
     position_id: Mapped[str] = mapped_column(
         String(32),
@@ -192,6 +216,7 @@ def _normalize_upper(value: str | None) -> str | None:
 def serialize_asset_account(account: AssetAccount) -> dict[str, Any]:
     return {
         "id": account.id,
+        "tenant_id": account.tenant_id,
         "owner_user_id": account.owner_user_id,
         "platform_name": account.platform_name,
         "account_name": account.account_name,
@@ -205,6 +230,7 @@ def serialize_asset_snapshot(snapshot: AssetValuationSnapshot | None) -> dict[st
         return None
     return {
         "id": snapshot.id,
+        "tenant_id": snapshot.tenant_id,
         "position_id": snapshot.position_id,
         "status": snapshot.status,
         "price": snapshot.price,
@@ -223,14 +249,20 @@ def get_or_create_asset_account(
     db: Session,
     *,
     owner_user_id: str,
+    tenant_id: str | None = None,
     platform_name: str,
     account_name: str,
 ) -> AssetAccount:
     normalized_owner_user_id = _require_text(owner_user_id, "owner_user_id")
+    normalized_tenant_id = _normalize_optional_text(tenant_id)
+    if normalized_tenant_id is None:
+        owner = db.get(auth.User, normalized_owner_user_id)
+        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
     normalized_platform_name = _require_text(platform_name, "platform_name")
     normalized_account_name = _require_text(account_name, "account_name")
 
     statement = select(AssetAccount).where(
+        AssetAccount.tenant_id == normalized_tenant_id,
         AssetAccount.owner_user_id == normalized_owner_user_id,
         AssetAccount.platform_name == normalized_platform_name,
         AssetAccount.account_name == normalized_account_name,
@@ -240,6 +272,7 @@ def get_or_create_asset_account(
         return record
 
     record = AssetAccount(
+        tenant_id=normalized_tenant_id,
         owner_user_id=normalized_owner_user_id,
         platform_name=normalized_platform_name,
         account_name=normalized_account_name,
@@ -252,9 +285,14 @@ def get_or_create_asset_account(
 def list_asset_account_records(
     db: Session,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
 ) -> list[AssetAccount]:
     statement = select(AssetAccount)
+    if tenant_id is not None:
+        statement = statement.where(
+            AssetAccount.tenant_id == _require_text(tenant_id, "tenant_id")
+        )
     if owner_user_id is not None:
         statement = statement.where(
             AssetAccount.owner_user_id == _require_text(owner_user_id, "owner_user_id")
@@ -271,10 +309,15 @@ def get_asset_account_record(
     db: Session,
     account_id: str,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
 ) -> AssetAccount:
     normalized_account_id = _require_text(account_id, "account_id")
     statement = select(AssetAccount).where(AssetAccount.id == normalized_account_id)
+    if tenant_id is not None:
+        statement = statement.where(
+            AssetAccount.tenant_id == _require_text(tenant_id, "tenant_id")
+        )
     if owner_user_id is not None:
         statement = statement.where(
             AssetAccount.owner_user_id == _require_text(owner_user_id, "owner_user_id")
@@ -288,9 +331,14 @@ def get_asset_account_record(
 def list_asset_position_records(
     db: Session,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
 ) -> list[AssetPosition]:
     statement = select(AssetPosition)
+    if tenant_id is not None:
+        statement = statement.where(
+            AssetPosition.tenant_id == _require_text(tenant_id, "tenant_id")
+        )
     if owner_user_id is not None:
         statement = statement.where(
             AssetPosition.owner_user_id == _require_text(owner_user_id, "owner_user_id")
@@ -307,10 +355,15 @@ def get_asset_position_record(
     db: Session,
     position_id: str,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
 ) -> AssetPosition:
     normalized_position_id = _require_text(position_id, "position_id")
     statement = select(AssetPosition).where(AssetPosition.id == normalized_position_id)
+    if tenant_id is not None:
+        statement = statement.where(
+            AssetPosition.tenant_id == _require_text(tenant_id, "tenant_id")
+        )
     if owner_user_id is not None:
         statement = statement.where(
             AssetPosition.owner_user_id == _require_text(owner_user_id, "owner_user_id")
@@ -346,6 +399,7 @@ def list_latest_snapshots_by_position(
 def add_asset_snapshot(
     db: Session,
     *,
+    tenant_id: str | None = None,
     position_id: str,
     status: str,
     price: float | None = None,
@@ -358,8 +412,14 @@ def add_asset_snapshot(
     error_message: str | None = None,
     captured_at: datetime | None = None,
 ) -> AssetValuationSnapshot:
+    normalized_position_id = _require_text(position_id, "position_id")
+    normalized_tenant_id = _normalize_optional_text(tenant_id)
+    if normalized_tenant_id is None:
+        position = db.get(AssetPosition, normalized_position_id)
+        normalized_tenant_id = position.tenant_id if position is not None else None
     snapshot = AssetValuationSnapshot(
-        position_id=_require_text(position_id, "position_id"),
+        tenant_id=normalized_tenant_id,
+        position_id=normalized_position_id,
         status=_require_text(status, "status"),
         price=price,
         quote_currency=_normalize_upper(quote_currency),

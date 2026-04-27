@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import shutil
 import threading
@@ -23,12 +24,16 @@ from tradingagents.runner import (
 from web.backend import access, app_config, auth, report_metadata, storage
 from web.backend.runtime import task_store
 
+logger = logging.getLogger(__name__)
+GENERIC_ANALYSIS_TASK_ERROR = "Analysis task failed. Check backend logs for details."
+
 
 @dataclass
 class Task:
     id: str
     request: AnalysisRequest
     owner_user_id: Optional[str] = None
+    tenant_id: Optional[str] = None
     status: str = "pending"
     latest_progress: Optional[dict] = None
     progress_events: list[dict] = field(default_factory=list)
@@ -52,6 +57,7 @@ class Task:
             "analysts": list(self.request.analysts),
             "request_payload": asdict(self.request),
             "owner_user_id": self.owner_user_id,
+            "tenant_id": self.tenant_id,
             "status": self.status,
             "latest_progress": self.latest_progress,
             "report_id": self.report_id,
@@ -149,6 +155,7 @@ def task_from_snapshot(payload: dict) -> Task:
         id=str(payload["id"]),
         request=AnalysisRequest(**request_payload),
         owner_user_id=payload.get("owner_user_id"),
+        tenant_id=payload.get("tenant_id"),
         status=status,
         latest_progress=payload.get("latest_progress"),
         report_id=payload.get("report_id"),
@@ -434,6 +441,7 @@ def run_task(task_id: str) -> None:
                     db,
                     report_id=report_id,
                     owner_user_id=task.owner_user_id,
+                    tenant_id=task.tenant_id,
                     visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
                     ticker=str(metadata_payload["ticker"] or task.request.ticker),
                     generated_at=metadata_payload["generated_at"],
@@ -459,19 +467,26 @@ def run_task(task_id: str) -> None:
             wait_for_quota(task_id, exc)
             return
         _fail_task(task_id, str(exc))
-    except Exception as exc:  # pragma: no cover
+    except Exception:  # pragma: no cover
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
-        _fail_task(task_id, str(exc))
+        logger.exception("analysis task failed task_id=%s", task_id)
+        _fail_task(task_id, GENERIC_ANALYSIS_TASK_ERROR)
 
 
-def create_task(analysis_request: AnalysisRequest, *, owner_user_id: str | None = None) -> dict:
+def create_task(
+    analysis_request: AnalysisRequest,
+    *,
+    owner_user_id: str | None = None,
+    tenant_id: str | None = None,
+) -> dict:
     task_id = uuid.uuid4().hex
     now_iso = _utc_iso()
     task = Task(
         id=task_id,
         request=analysis_request,
         owner_user_id=owner_user_id,
+        tenant_id=tenant_id,
         created_at=now_iso,
     )
 

@@ -8,9 +8,31 @@ export const AUTH_REQUIRED_EVENT = "tradingagents:auth-required";
 export type AuthMode = "disabled" | "optional" | "required";
 export type UserRole = "admin" | "operator" | "viewer";
 export type UserStatus = "active" | "disabled";
+export type Permission =
+  | "analysis:create"
+  | "analysis:read"
+  | "screener:create"
+  | "screener:read"
+  | "assets:read"
+  | "assets:write"
+  | "journal:read"
+  | "journal:write"
+  | "admin:users"
+  | "admin:settings"
+  | "admin:audit";
+
+export interface AuthTenant {
+  id: string;
+  name: string;
+  slug: string;
+  status: "active" | "disabled";
+  created_at: string;
+  updated_at: string;
+}
 
 export interface AuthUser {
   id: string;
+  tenant_id: string;
   email: string;
   display_name: string;
   role: UserRole;
@@ -27,6 +49,8 @@ export interface AuthState {
   mode: AuthMode;
   authenticated: boolean;
   user: AuthUser | null;
+  permissions: Permission[];
+  tenant: AuthTenant | null;
 }
 
 export interface LoginRequest {
@@ -429,6 +453,8 @@ export interface ProgressEvent {
 
 export interface Task {
   id: string;
+  owner_user_id?: string | null;
+  tenant_id?: string | null;
   ticker: string;
   analysis_date: string;
   analysts: string[];
@@ -525,6 +551,8 @@ export interface ScreenerTaskCreateResponse {
 
 export interface ScreenerTask {
   id: string;
+  owner_user_id?: string | null;
+  tenant_id?: string | null;
   request_payload: ScreenTaskCreateRequest | null;
   status: TaskStatus;
   latest_progress: ProgressEvent | null;

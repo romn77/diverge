@@ -56,25 +56,12 @@ def _normalize_visibility(value: str | None) -> str:
     return candidate
 
 
-def _artifact_type_for_path(relative_path: str) -> str:
-    filename = Path(relative_path).name
-    if "." not in filename:
-        return filename
-    return filename.rsplit(".", 1)[0]
-
-
-def _parse_complete_report_header(
-    report_dir: Path,
+def parse_complete_report_header_text(
+    content: str,
 ) -> tuple[str | None, str | None, str | None]:
-    complete_path = report_dir / "complete_report.md"
-    if not complete_path.is_file():
-        return None, None, None
-
-    try:
-        with complete_path.open(encoding="utf-8") as handle:
-            lines = [handle.readline() for _ in range(4)]
-    except (OSError, UnicodeDecodeError):
-        return None, None, None
+    lines = content.splitlines()[:4]
+    while len(lines) < 4:
+        lines.append("")
 
     ticker: str | None = None
     date_str: str | None = None
@@ -92,6 +79,28 @@ def _parse_complete_report_header(
             break
 
     return ticker, date_str, time_str
+
+
+def _artifact_type_for_path(relative_path: str) -> str:
+    filename = Path(relative_path).name
+    if "." not in filename:
+        return filename
+    return filename.rsplit(".", 1)[0]
+
+
+def _parse_complete_report_header(
+    report_dir: Path,
+) -> tuple[str | None, str | None, str | None]:
+    complete_path = report_dir / "complete_report.md"
+    if not complete_path.is_file():
+        return None, None, None
+
+    try:
+        content = complete_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None, None, None
+
+    return parse_complete_report_header_text(content)
 
 
 def _generated_at_from_report_id(report_id: str) -> str | None:
@@ -197,11 +206,17 @@ def split_generated_at(value: str | None) -> tuple[str | None, str | None]:
 class ReportRun(auth.Base):
     __tablename__ = "report_runs"
     __table_args__ = (
+        Index("ix_report_runs_tenant_generated_at", "tenant_id", "generated_at"),
         Index("ix_report_runs_owner_generated_at", "owner_user_id", "generated_at"),
-        Index("ix_report_runs_visibility_generated_at", "visibility", "generated_at"),
+        Index("ix_report_runs_tenant_visibility_generated_at", "tenant_id", "visibility", "generated_at"),
     )
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
+    tenant_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("tenants.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
     owner_user_id: Mapped[str] = mapped_column(
         String(32),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -292,6 +307,7 @@ def upsert_report_run(
     *,
     report_id: str,
     owner_user_id: str,
+    tenant_id: str | None = None,
     visibility: str,
     ticker: str,
     generated_at: str | None,
@@ -300,6 +316,10 @@ def upsert_report_run(
 ) -> ReportRun:
     normalized_report_id = _normalize_text(report_id, "report_id")
     normalized_owner_user_id = _normalize_text(owner_user_id, "owner_user_id")
+    normalized_tenant_id = _normalize_optional_text(tenant_id)
+    if normalized_tenant_id is None:
+        owner = db.get(auth.User, normalized_owner_user_id)
+        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
     normalized_visibility = _normalize_visibility(visibility)
     normalized_ticker = _normalize_text(ticker, "ticker").upper()
     normalized_storage_path = _normalize_text(storage_path, "storage_path")
@@ -310,6 +330,7 @@ def upsert_report_run(
     if record is None:
         record = ReportRun(
             id=normalized_report_id,
+            tenant_id=normalized_tenant_id,
             owner_user_id=normalized_owner_user_id,
             visibility=normalized_visibility,
             ticker=normalized_ticker,
@@ -320,6 +341,7 @@ def upsert_report_run(
         )
         db.add(record)
     else:
+        record.tenant_id = normalized_tenant_id
         record.owner_user_id = normalized_owner_user_id
         record.visibility = normalized_visibility
         record.ticker = normalized_ticker
@@ -348,10 +370,16 @@ def upsert_report_run(
 def list_report_runs(
     db: Session,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
     include_workspace: bool = False,
 ) -> list[ReportRun]:
     statement = select(ReportRun)
+    if tenant_id is not None:
+        normalized_tenant_id = _normalize_text(tenant_id, "tenant_id")
+        statement = statement.where(
+            or_(ReportRun.tenant_id == normalized_tenant_id, ReportRun.tenant_id.is_(None))
+        )
     if owner_user_id is not None:
         if include_workspace:
             statement = statement.where(
@@ -370,10 +398,16 @@ def get_report_run(
     db: Session,
     report_id: str,
     *,
+    tenant_id: str | None = None,
     owner_user_id: str | None = None,
     include_workspace: bool = False,
 ) -> ReportRun:
     statement = select(ReportRun).where(ReportRun.id == report_id)
+    if tenant_id is not None:
+        normalized_tenant_id = _normalize_text(tenant_id, "tenant_id")
+        statement = statement.where(
+            or_(ReportRun.tenant_id == normalized_tenant_id, ReportRun.tenant_id.is_(None))
+        )
     if owner_user_id is not None:
         if include_workspace:
             statement = statement.where(
@@ -427,5 +461,6 @@ def serialize_report_summary(record: ReportRun) -> dict[str, Any]:
         "date": date_str,
         "time": time_str,
         "visibility": record.visibility,
+        "tenant_id": record.tenant_id,
         "owner_user_id": record.owner_user_id,
     }

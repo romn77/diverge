@@ -13,6 +13,7 @@ from web.backend import (
     analysis_limits,
     app_config,
     asset_entries,
+    audit,
     auth,
     data_sources,
     screener_results,
@@ -47,6 +48,7 @@ async def _app_lifespan(_: FastAPI):
     screener_results.initialize_screener_result_runtime()
     trade_entries.initialize_trade_entries_runtime()
     asset_entries.initialize_asset_runtime()
+    audit.ensure_audit_tables()
     if not task_store.redis_task_backend_enabled():
         restore_persisted_active_tasks()
         restore_persisted_screener_tasks()

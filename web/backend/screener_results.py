@@ -1046,10 +1046,30 @@ def _recent_runs_for_user(current_user: auth.User | None) -> list[ScreenerRunMet
         raise HTTPException(status_code=401, detail="Authentication required")
 
     if access.is_admin_user(current_user):
+        tenant_id = getattr(current_user, "tenant_id", None)
+        if not tenant_id:
+            recent_runs: list[ScreenerRunMetadata] = []
+            for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json"):
+                payload = load_screener_result_state(
+                    None if state_path.parent.name == WORKSPACE_OWNER_KEY else state_path.parent.name,
+                    state_path.stem,
+                )
+                if payload is not None:
+                    recent_runs.extend(payload.recent_runs)
+            return recent_runs
+        with auth.db_session() as db:
+            tenant_owner_ids = {
+                user.id
+                for user in auth.list_users(db)
+                if user.tenant_id == tenant_id
+            }
         recent_runs: list[ScreenerRunMetadata] = []
         for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json"):
+            owner_key = state_path.parent.name
+            if owner_key == WORKSPACE_OWNER_KEY or owner_key not in tenant_owner_ids:
+                continue
             payload = load_screener_result_state(
-                None if state_path.parent.name == WORKSPACE_OWNER_KEY else state_path.parent.name,
+                owner_key,
                 state_path.stem,
             )
             if payload is not None:
@@ -1074,13 +1094,31 @@ def _snapshot_for_run_id(
     elif current_user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
     elif access.is_admin_user(current_user):
-        candidate_states = [
-            load_screener_result_state(
-                None if state_path.parent.name == WORKSPACE_OWNER_KEY else state_path.parent.name,
-                state_path.stem,
-            )
-            for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json")
-        ]
+        tenant_id = getattr(current_user, "tenant_id", None)
+        if not tenant_id:
+            candidate_states = [
+                load_screener_result_state(
+                    None if state_path.parent.name == WORKSPACE_OWNER_KEY else state_path.parent.name,
+                    state_path.stem,
+                )
+                for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json")
+            ]
+        else:
+            with auth.db_session() as db:
+                tenant_owner_ids = {
+                    user.id
+                    for user in auth.list_users(db)
+                    if user.tenant_id == tenant_id
+                }
+            candidate_states = [
+                load_screener_result_state(
+                    state_path.parent.name,
+                    state_path.stem,
+                )
+                for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json")
+                if state_path.parent.name != WORKSPACE_OWNER_KEY
+                and state_path.parent.name in tenant_owner_ids
+            ]
     else:
         candidate_states = [load_screener_result_state(current_user.id)]
 
@@ -1199,6 +1237,7 @@ def persist_screener_run(
     source_run_id: str | None = None,
 ) -> ScreenerResultState:
     owner_user_id = getattr(task, "owner_user_id", None)
+    tenant_id = getattr(task, "tenant_id", None)
     if auth.get_auth_settings().enabled and not owner_user_id:
         raise RuntimeError("Screener task owner is required when auth is enabled")
 
@@ -1260,6 +1299,7 @@ def persist_screener_run(
                 db,
                 run_id=candidate.source_run_id,
                 owner_user_id=owner_user_id,
+                tenant_id=tenant_id,
                 as_of_date=candidate.as_of_date,
                 markets=candidate.markets,
                 candidate_count=candidate.match_count,

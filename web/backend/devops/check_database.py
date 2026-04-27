@@ -23,8 +23,11 @@ ALEMBIC_INI = BACKEND_DIR / "alembic.ini"
 DEFAULT_ENV_FILE = PROJECT_ROOT / ".env"
 
 REQUIRED_TABLES = (
+    "tenants",
     "users",
     "auth_sessions",
+    "user_permissions",
+    "audit_events",
     "trade_entries",
     "screener_runs",
     "report_runs",

@@ -38,7 +38,7 @@ class TradingAgentsGraph:
 
     def __init__(
         self,
-        selected_analysts=["market", "social", "news", "fundamentals"],
+        selected_analysts: Optional[List[str]] = None,
         debug=False,
         config: Optional[Dict[str, Any]] = None,
         callbacks: Optional[List] = None,
@@ -51,6 +51,8 @@ class TradingAgentsGraph:
             config: Configuration dictionary. If None, uses default config
             callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
         """
+        if selected_analysts is None:
+            selected_analysts = ["market", "social", "news", "fundamentals"]
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
@@ -253,7 +255,7 @@ class TradingAgentsGraph:
                     "judge_decision"
                 ],
             },
-            "trader_investment_decision": final_state["trader_investment_plan"],
+            "trader_investment_plan": final_state["trader_investment_plan"],
             "risk_debate_state": {
                 "aggressive_history": final_state["risk_debate_state"][
                     "aggressive_history"

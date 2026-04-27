@@ -673,12 +673,16 @@ def _load_snapshot_context(reference: dict[str, Any]) -> dict[str, Any]:
             "news_report",
             "fundamentals_report",
             "investment_plan",
-            "trader_investment_decision",
             "final_trade_decision",
         ):
             value = selected_state.get(key)
             if value:
                 state_excerpt[key] = value
+        trader_plan = selected_state.get("trader_investment_plan") or selected_state.get(
+            "trader_investment_decision"
+        )
+        if trader_plan:
+            state_excerpt["trader_investment_plan"] = trader_plan
     else:
         state_excerpt["raw_value"] = selected_state
 

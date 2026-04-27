@@ -187,7 +187,10 @@ export default function AdminUsersPage() {
   const shouldRedirectToLogin =
     authStatus === "ready" && authEnabled && !authState?.authenticated;
   const canLoadUsers =
-    authStatus === "ready" && authEnabled && Boolean(authState?.authenticated);
+    authStatus === "ready" &&
+    authEnabled &&
+    Boolean(authState?.authenticated) &&
+    Boolean(authState?.permissions.includes("admin:users"));
 
   const selectedUser = useMemo(
     () => users.find((user) => user.id === selectedUserId) ?? null,
