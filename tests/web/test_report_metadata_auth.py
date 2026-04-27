@@ -328,6 +328,70 @@ class ReportMetadataAuthTests(unittest.TestCase):
             file_entries = report_metadata.list_report_files(db, indexed_report_id)
             self.assertGreaterEqual(len(file_entries), 2)
 
+    def test_analysis_completion_honors_workspace_visibility_payload(self):
+        payload = {
+            "ticker": "MSFT",
+            "analysis_date": "2026-04-20",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+            "report_visibility": report_metadata.REPORT_VISIBILITY_WORKSPACE,
+        }
+
+        final_state = {"type": "final_state_stub"}
+
+        def fake_run_analysis_streaming(_request, _temp_dir, *, reports_dir=None, visible_trade_ids=None):
+            if False:  # pragma: no cover
+                yield None
+            return final_state
+
+        def fake_save_report_to_disk(_final_state, _ticker, temp_dir):
+            (temp_dir / "1_analysts").mkdir(parents=True, exist_ok=True)
+            (temp_dir / "complete_report.md").write_text(
+                "# Trading Analysis Report: MSFT\n\nGenerated: 2026-04-20 09:30:00\n\n",
+                encoding="utf-8",
+            )
+            (temp_dir / "1_analysts" / "market.md").write_text(
+                "# Market\n\nWorkspace visible.",
+                encoding="utf-8",
+            )
+            return temp_dir / "complete_report.md"
+
+        async def create_task():
+            async with app_client(app) as client:
+                login_response = await client.post(
+                    "/api/auth/login",
+                    json={"email": "operator@example.com", "password": "operator-password"},
+                )
+                self.assertEqual(login_response.status_code, 200)
+
+                with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+                    response = await client.post("/api/tasks", json=payload)
+                start_task_thread.assert_called_once()
+                self.assertEqual(response.status_code, 200)
+                return response.json()
+
+        task_body = asyncio.run(create_task())
+        task_id = task_body["task_id"]
+        with (
+            patch("web.backend.runtime.analysis_tasks.run_analysis_streaming", side_effect=fake_run_analysis_streaming),
+            patch("web.backend.runtime.analysis_tasks.save_report_to_disk", side_effect=fake_save_report_to_disk),
+        ):
+            analysis_tasks.run_task(task_id)
+
+        indexed_report_id = analysis_tasks.tasks[task_id].report_id
+        self.assertIsNotNone(indexed_report_id)
+
+        with auth.db_session() as db:
+            report_run = db.get(report_metadata.ReportRun, indexed_report_id)
+            self.assertIsNotNone(report_run)
+            self.assertEqual(report_run.visibility, report_metadata.REPORT_VISIBILITY_WORKSPACE)
+
 
 if __name__ == "__main__":
     unittest.main()

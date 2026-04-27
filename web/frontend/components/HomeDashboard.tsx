@@ -16,9 +16,56 @@ import {
   buildHomeHref,
   buildReportHref,
 } from "@/lib/workbenchRoutes";
+import type { Report } from "@/lib/api";
 
 interface HomeDashboardProps {
   initialSearchQuery: string;
+}
+
+type ReportScopeFilter = "all" | "mine" | "workspace";
+
+const REPORT_SCOPE_FILTERS: ReportScopeFilter[] = ["all", "mine", "workspace"];
+const REPORT_SCOPE_LABEL_KEYS: Record<ReportScopeFilter, string> = {
+  all: "home.scope.all",
+  mine: "home.scope.mine",
+  workspace: "home.scope.workspace",
+};
+
+function isOwnedReport(
+  report: Report,
+  currentUserId: string | null | undefined
+): boolean {
+  if (!report.owner_user_id || !currentUserId) {
+    return true;
+  }
+  return report.owner_user_id === currentUserId;
+}
+
+function matchesReportScope(
+  report: Report,
+  scope: ReportScopeFilter,
+  currentUserId: string | null | undefined
+): boolean {
+  if (scope === "workspace") {
+    return report.visibility === "workspace";
+  }
+
+  if (scope === "mine") {
+    return isOwnedReport(report, currentUserId);
+  }
+
+  return true;
+}
+
+function matchesReportQuery(report: Report, normalizedQuery: string): boolean {
+  if (!normalizedQuery) {
+    return true;
+  }
+
+  return (
+    report.ticker.toLowerCase().includes(normalizedQuery) ||
+    report.id.toLowerCase().includes(normalizedQuery)
+  );
 }
 
 export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
@@ -27,14 +74,39 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   const { openAnalysisDialog } = useWorkbenchChrome();
   const {
     activeTasks,
+    authState,
     loadingReports,
     newAnalysisDisabled,
-    recentReports,
     reports,
     reportsError,
   } = useWorkbench();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [scopeFilter, setScopeFilter] = useState<ReportScopeFilter>("all");
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
+  const currentUserId = authState?.user?.id ?? null;
+
+  const searchMatchedReports = useMemo(() => {
+    return reports.filter((report) => matchesReportQuery(report, deferredSearchQuery));
+  }, [deferredSearchQuery, reports]);
+
+  const reportScopeCounts = useMemo(() => {
+    return {
+      all: searchMatchedReports.length,
+      mine: searchMatchedReports.filter((report) =>
+        matchesReportScope(report, "mine", currentUserId)
+      ).length,
+      workspace: searchMatchedReports.filter((report) =>
+        matchesReportScope(report, "workspace", currentUserId)
+      ).length,
+    };
+  }, [currentUserId, searchMatchedReports]);
+
+  const scopedReports = useMemo(() => {
+    return searchMatchedReports.filter((report) =>
+      matchesReportScope(report, scopeFilter, currentUserId)
+    );
+  }, [currentUserId, scopeFilter, searchMatchedReports]);
+  const latestScopedReport = scopedReports[0] ?? null;
 
   useEffect(() => {
     setSearchQuery(initialSearchQuery);
@@ -52,33 +124,17 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
     };
   }, [router, searchQuery]);
 
-  const matchingReports = useMemo(() => {
-    if (!deferredSearchQuery) {
-      return recentReports;
-    }
-
-    return reports.filter(
-      (report) =>
-        report.ticker.toLowerCase().includes(deferredSearchQuery) ||
-        report.id.toLowerCase().includes(deferredSearchQuery)
-    );
-  }, [deferredSearchQuery, recentReports, reports]);
+  const matchingReports = scopedReports;
 
   const trackedTickers = useMemo(() => {
     const values = new Set<string>();
 
-    for (const report of reports) {
+    for (const report of scopedReports) {
       values.add(report.ticker);
     }
 
     return Array.from(values).sort((left, right) => left.localeCompare(right));
-  }, [reports]);
-
-  const heroTitle = deferredSearchQuery
-    ? t("home.searchResultsTitle", ({ query }) => `Analysis results for ${query}`, {
-        query: searchQuery.trim(),
-      })
-    : t("home.analysisWorkspace", "Analysis workspace");
+  }, [scopedReports]);
 
   return (
     <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
@@ -91,7 +147,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 {t("sidebar.nav.analysis", "Analysis")}
               </p>
               <h1 className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 md:text-[3.2rem]">
-                {heroTitle}
+                {t("home.analysisWorkspace", "Analysis workspace")}
               </h1>
               <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
                 {t(
@@ -116,8 +172,12 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
           <div className="mt-8 grid gap-4 md:grid-cols-3">
             <MetricCard
               label={t("home.metric.reportLibrary", "Report Library")}
-              value={`${reports.length}`}
-              meta={t("home.metric.reportLibraryMeta", "Total indexed reports")}
+              value={`${scopedReports.length}`}
+              meta={
+                scopeFilter === "all"
+                  ? t("home.metric.reportLibraryMeta", "Total indexed reports")
+                  : t("home.metric.scopedReportLibraryMeta", "Reports in current scope")
+              }
             />
             <MetricCard
               label={t("home.recentTickers", "Tracked Tickers")}
@@ -183,6 +243,28 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               ) : null}
             </div>
 
+            <div
+              className="mt-5 flex flex-wrap gap-2"
+              role="group"
+              aria-label={t("home.scope.label", "Report scope")}
+            >
+              {REPORT_SCOPE_FILTERS.map((scope) => (
+                <Button
+                  key={scope}
+                  type="button"
+                  variant={scopeFilter === scope ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => setScopeFilter(scope)}
+                  className={scopeFilter === scope ? "shadow-none" : "text-slate-700"}
+                >
+                  {t(REPORT_SCOPE_LABEL_KEYS[scope], scope)}
+                  <span className="ml-2 rounded-full bg-white/55 px-2 py-0.5 text-[10px]">
+                    {reportScopeCounts[scope]}
+                  </span>
+                </Button>
+              ))}
+            </div>
+
             {reportsError ? (
               <div className="mt-5 rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
                 {reportsError}
@@ -204,7 +286,17 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                     className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
                   >
                     <div className="min-w-0">
-                      <p className="text-lg font-semibold text-slate-900">{report.ticker}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-lg font-semibold text-slate-900">{report.ticker}</p>
+                        <Badge
+                          variant={report.visibility === "workspace" ? "success" : "secondary"}
+                          className="px-2 py-1 text-[10px]"
+                        >
+                          {report.visibility === "workspace"
+                            ? t("home.visibility.workspace", "Workspace")
+                            : t("home.visibility.private", "Private")}
+                        </Badge>
+                      </div>
                       <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
                         {report.id}
                       </p>
@@ -280,22 +372,22 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                         "home.snapshotSearchBody",
                         ({ reports: reportCount, tickers }) =>
                           `The current query is filtering against ${reportCount} indexed reports across ${tickers} tickers.`,
-                        { reports: reports.length, tickers: trackedTickers.length }
+                        { reports: scopedReports.length, tickers: trackedTickers.length }
                       )
                     : t(
                         "home.snapshotLibraryBody",
                         ({ reports: reportCount, tickers }) =>
                           `The library currently tracks ${reportCount} reports across ${tickers} tickers, with new research work routed through the unified sidebar action.`,
-                        { reports: reports.length, tickers: trackedTickers.length }
+                        { reports: scopedReports.length, tickers: trackedTickers.length }
                       )}
                 </p>
-                {recentReports[0] ? (
+                {latestScopedReport ? (
                   <div className="mt-4">
                     <Badge variant="secondary">
                       {t(
                         "home.latestIndexedReport",
                         ({ ticker }) => `Latest indexed report · ${ticker}`,
-                        { ticker: recentReports[0].ticker }
+                        { ticker: latestScopedReport.ticker }
                       )}
                     </Badge>
                   </div>

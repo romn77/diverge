@@ -88,7 +88,9 @@ def _enforce_task_submission_capacity(current_user) -> None:
 @router.post("/api/tasks")
 def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
     try:
-        analysis_request = AnalysisRequest(**payload.model_dump())
+        analysis_request = AnalysisRequest(
+            **payload.model_dump(exclude={"report_visibility"})
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     current_user = _current_user(request, permission=auth.PERMISSION_ANALYSIS_CREATE)
@@ -124,6 +126,7 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
         analysis_request,
         owner_user_id=owner_user_id,
         tenant_id=tenant_id,
+        report_visibility=payload.report_visibility,
     )
     if current_user is not None and tenant_id is not None:
         with auth.db_session() as db:
@@ -134,7 +137,10 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
                 action="analysis.task.created",
                 resource_type="analysis_task",
                 resource_id=str(result.get("task_id")),
-                metadata={"ticker": analysis_request.ticker},
+                metadata={
+                    "ticker": analysis_request.ticker,
+                    "report_visibility": payload.report_visibility,
+                },
                 request=request,
             )
     return result

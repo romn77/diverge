@@ -22,6 +22,7 @@ import {
   createTask,
   getConfigOptions,
   type ConfigOptions,
+  type ReportVisibility,
   type TaskCreateRequest,
 } from "@/lib/api";
 import { getLocalDateInputValue } from "@/lib/localDate";
@@ -288,6 +289,30 @@ export function NewAnalysisForm({
                   className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
                 />
               </label>
+            </section>
+
+            <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
+              <AnalysisSelectField
+                label={t("analysis.reportVisibility", "Report Visibility")}
+                value={formState.report_visibility}
+                onChange={(value) =>
+                  setFormState({
+                    ...formState,
+                    report_visibility: value as ReportVisibility,
+                  })
+                }
+                hint={t(
+                  "analysis.reportVisibilityHint",
+                  "Private reports stay visible only to you. Workspace reports are visible to users in this tenant."
+                )}
+              >
+                <SelectItem value="private">
+                  {t("analysis.visibility.private", "Private")}
+                </SelectItem>
+                <SelectItem value="workspace">
+                  {t("analysis.visibility.workspace", "Workspace")}
+                </SelectItem>
+              </AnalysisSelectField>
             </section>
 
             <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
@@ -574,6 +599,7 @@ function buildInitialFormState(
     analysts: configOptions.analysts.map((option) => option.value),
     research_depth: Number(firstDepth),
     output_language: firstLanguage,
+    report_visibility: "private",
     ...buildProviderSelection(configOptions, provider),
   };
 }

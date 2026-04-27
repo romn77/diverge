@@ -64,6 +64,23 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('Task backend: $TASK_BACKEND', source)
         self.assertIn('Running limits: global=$TASK_GLOBAL_RUNNING_LIMIT user=$TASK_USER_RUNNING_LIMIT', source)
 
+    def test_start_script_exposes_and_streams_runtime_logs(self):
+        script = PROJECT_ROOT / "web" / "start.sh"
+        source = script.read_text(encoding="utf-8")
+
+        self.assertIn('BACKEND_LOG_LEVEL="${BACKEND_LOG_LEVEL:-${LOG_LEVEL:-info}}"', source)
+        self.assertIn('TAIL_LOGS="${TAIL_LOGS:-true}"', source)
+        self.assertIn('TAIL_LOG_LINES="${TAIL_LOG_LINES:-80}"', source)
+        self.assertIn('TAIL_PID=""', source)
+        self.assertIn('uvicorn web.backend.main:app --port "$BACKEND_PORT" --log-level "$BACKEND_LOG_LEVEL"', source)
+        self.assertIn('export LOG_LEVEL="$BACKEND_LOG_LEVEL"', source)
+        self.assertIn('LOG_FILES=("$BACKEND_LOG" "$FRONTEND_LOG")', source)
+        self.assertIn('LOG_FILES+=("$WORKER_LOG")', source)
+        self.assertIn('tail -n "$TAIL_LOG_LINES" -F "${LOG_FILES[@]}"', source)
+        self.assertIn('Backend log: $BACKEND_LOG', source)
+        self.assertIn('Frontend log: $FRONTEND_LOG', source)
+        self.assertIn('TAIL_LOGS=false ./start.sh', source)
+
     def test_start_script_cleans_up_when_auth_bootstrap_fails_before_backend_pid_exists(self):
         script = PROJECT_ROOT / "web" / "start.sh"
 

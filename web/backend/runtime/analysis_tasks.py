@@ -34,6 +34,7 @@ class Task:
     request: AnalysisRequest
     owner_user_id: Optional[str] = None
     tenant_id: Optional[str] = None
+    report_visibility: str = report_metadata.REPORT_VISIBILITY_PRIVATE
     status: str = "pending"
     latest_progress: Optional[dict] = None
     progress_events: list[dict] = field(default_factory=list)
@@ -58,6 +59,7 @@ class Task:
             "request_payload": asdict(self.request),
             "owner_user_id": self.owner_user_id,
             "tenant_id": self.tenant_id,
+            "report_visibility": self.report_visibility,
             "status": self.status,
             "latest_progress": self.latest_progress,
             "report_id": self.report_id,
@@ -156,6 +158,12 @@ def task_from_snapshot(payload: dict) -> Task:
         request=AnalysisRequest(**request_payload),
         owner_user_id=payload.get("owner_user_id"),
         tenant_id=payload.get("tenant_id"),
+        report_visibility=str(
+            payload.get(
+                "report_visibility",
+                report_metadata.REPORT_VISIBILITY_PRIVATE,
+            )
+        ),
         status=status,
         latest_progress=payload.get("latest_progress"),
         report_id=payload.get("report_id"),
@@ -442,7 +450,7 @@ def run_task(task_id: str) -> None:
                     report_id=report_id,
                     owner_user_id=task.owner_user_id,
                     tenant_id=task.tenant_id,
-                    visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
+                    visibility=task.report_visibility,
                     ticker=str(metadata_payload["ticker"] or task.request.ticker),
                     generated_at=metadata_payload["generated_at"],
                     storage_path=str(metadata_payload["storage_path"] or report_id),
@@ -479,6 +487,7 @@ def create_task(
     *,
     owner_user_id: str | None = None,
     tenant_id: str | None = None,
+    report_visibility: str = report_metadata.REPORT_VISIBILITY_PRIVATE,
 ) -> dict:
     task_id = uuid.uuid4().hex
     now_iso = _utc_iso()
@@ -487,6 +496,7 @@ def create_task(
         request=analysis_request,
         owner_user_id=owner_user_id,
         tenant_id=tenant_id,
+        report_visibility=report_visibility,
         created_at=now_iso,
     )
 

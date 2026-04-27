@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
-import { parseHighlights, type SignalConfidence, type TradeSignal } from "@/lib/highlights";
 import { MarkdownContent } from "./MarkdownContent";
 import { TickerPricePanel } from "./TickerPricePanel";
 
@@ -228,19 +227,6 @@ function formatGeneratedLabel(
   return fallback;
 }
 
-function signalClass(signal: TradeSignal | null): string {
-  switch (signal) {
-    case "BUY":
-      return "signal-buy";
-    case "HOLD":
-      return "signal-hold";
-    case "SELL":
-      return "signal-sell";
-    default:
-      return "";
-  }
-}
-
 export function ReportViewer({
   reportId,
   reportMeta = null,
@@ -254,8 +240,7 @@ export function ReportViewer({
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [finalSignal, setFinalSignal] = useState<TradeSignal | null>(null);
-  const [finalConfidence, setFinalConfidence] = useState<SignalConfidence | null>(null);
+  const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(false);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -277,6 +262,7 @@ export function ReportViewer({
         setSelectedTab(SUMMARY_TAB_KEY);
         setSelectedFile(null);
         setContent("");
+        setIsOverviewCollapsed(false);
       } catch (err) {
         if (!isActive) {
           return;
@@ -301,40 +287,6 @@ export function ReportViewer({
       isActive = false;
     };
   }, [reportId, t]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    const loadFinalSignal = async () => {
-      if (!structure?.categories.portfolio?.includes("decision")) {
-        setFinalSignal(null);
-        setFinalConfidence(null);
-        return;
-      }
-
-      try {
-        const decisionMarkdown = await getContent(reportId, "5_portfolio/decision.md");
-        if (!isActive) {
-          return;
-        }
-
-        const parsed = parseHighlights(decisionMarkdown).highlights;
-        setFinalSignal(parsed?.signal ?? null);
-        setFinalConfidence(parsed?.signal_confidence ?? null);
-      } catch {
-        if (isActive) {
-          setFinalSignal(null);
-          setFinalConfidence(null);
-        }
-      }
-    };
-
-    loadFinalSignal();
-
-    return () => {
-      isActive = false;
-    };
-  }, [reportId, structure]);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -432,6 +384,20 @@ export function ReportViewer({
   const selectedFileLabel = selectedFile
     ? t(`report.file.${selectedFile}`, FILE_LABELS[selectedFile] || selectedFile)
     : null;
+  const generatedLabel = formatGeneratedLabel(
+    reportMeta,
+    locale,
+    t("report.generatedUnavailable", "Generated time unavailable")
+  );
+  const overviewToggleLabel = isOverviewCollapsed
+    ? t("report.expandOverview", "Expand overview")
+    : t("report.collapseOverview", "Collapse overview");
+  const collapsedOverviewSummary = [
+    generatedLabel,
+    selectedFileLabel ??
+      selectedCategoryLabel ??
+      t("report.completeReport", "Complete Report"),
+  ].join(" / ");
   const summaryArtifact = useMemo(
     () =>
       structure?.artifacts.find(
@@ -493,8 +459,45 @@ export function ReportViewer({
         <div>
           <div className="px-4 pt-6 md:px-8 md:pt-8">
             <div className="w-full">
-              <section className="report-panel rounded-[30px] border px-4 py-5 md:px-6 md:py-6">
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start">
+              <section className="report-panel rounded-[30px] border px-4 py-4 md:px-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="viewer-meta-label">
+                      {t("report.overviewPanel", "Report overview")}
+                    </p>
+                    {isOverviewCollapsed && (
+                      <p className="mt-2 truncate text-sm text-slate-600 md:text-base">
+                        <span className="font-heading font-semibold text-slate-900">
+                          {structure.ticker}
+                        </span>
+                        <span className="mx-2 text-[var(--border-strong)]">/</span>
+                        {collapsedOverviewSummary}
+                      </p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setIsOverviewCollapsed((current) => !current)}
+                    aria-expanded={!isOverviewCollapsed}
+                    aria-controls="report-overview-panel"
+                    title={overviewToggleLabel}
+                    className="min-h-10 rounded-full px-3"
+                  >
+                    {isOverviewCollapsed ? (
+                      <ChevronDown className="size-4" aria-hidden />
+                    ) : (
+                      <ChevronUp className="size-4" aria-hidden />
+                    )}
+                    <span>{overviewToggleLabel}</span>
+                  </Button>
+                </div>
+                {!isOverviewCollapsed && (
+                <div
+                  id="report-overview-panel"
+                  className="mt-4 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start"
+                >
                   <div className="min-w-0 space-y-5">
                     <header>
                       <div className="space-y-5">
@@ -534,13 +537,7 @@ export function ReportViewer({
                               {structure.ticker}
                             </h2>
                             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
-                              <span>
-                                {formatGeneratedLabel(
-                                  reportMeta,
-                                  locale,
-                                  t("report.generatedUnavailable", "Generated time unavailable")
-                                )}
-                              </span>
+                              <span>{generatedLabel}</span>
                               <span className="hidden text-[var(--border-strong)] sm:inline">
                                 /
                               </span>
@@ -629,6 +626,7 @@ export function ReportViewer({
                     />
                   </div>
                 </div>
+                )}
               </section>
             </div>
           </div>
@@ -713,8 +711,6 @@ export function ReportViewer({
                 </div>
               ) : selectedTab === SUMMARY_TAB_KEY ? (
                 <SummaryPanel
-                  finalSignal={finalSignal}
-                  finalConfidence={finalConfidence}
                   summaryText={summaryText}
                   t={t}
                 />
@@ -766,13 +762,9 @@ function SummaryMetric({
 }
 
 function SummaryPanel({
-  finalSignal,
-  finalConfidence,
   summaryText,
   t,
 }: {
-  finalSignal: TradeSignal | null;
-  finalConfidence: SignalConfidence | null;
   summaryText: string;
   t: ReturnType<typeof usePreferences>["t"];
 }) {
@@ -781,24 +773,6 @@ function SummaryPanel({
       <Card className="report-summary-card rounded-[28px] border">
         <CardContent className="px-5 py-5 md:px-6">
         <p className="viewer-meta-label">{t("report.summary", "Summary")}</p>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <Badge
-            className={`signal-badge viewer-signal-badge min-h-11 ${
-              finalSignal
-                ? signalClass(finalSignal)
-                : "border-[var(--border)] bg-white/70 text-slate-600"
-            }`}
-          >
-            {finalSignal ?? t("report.pending", "Pending")}
-          </Badge>
-          {finalConfidence ? (
-            <Badge variant="secondary" className="px-3 py-2 text-slate-600">
-              {t("report.confidence", ({ value }) => `Confidence ${value}`, {
-                value: finalConfidence,
-              })}
-            </Badge>
-          ) : null}
-        </div>
         {summaryText ? (
           <p className="mt-4 text-sm leading-7 text-slate-700 md:text-[15px]">
             {summaryText}

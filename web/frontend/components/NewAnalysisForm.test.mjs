@@ -48,6 +48,18 @@ test("NewAnalysisForm defaults to the full analyst set instead of truncating to 
   assert.match(source, /analysts:\s*configOptions\.analysts\.map\(\(option\)\s*=>\s*option\.value\)/);
 });
 
+test("NewAnalysisForm lets users choose private or workspace report visibility", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /report_visibility:\s*"private"/);
+  assert.match(source, /analysis\.reportVisibility/);
+  assert.match(source, /analysis\.reportVisibilityHint/);
+  assert.match(source, /analysis\.visibility\.private/);
+  assert.match(source, /analysis\.visibility\.workspace/);
+  assert.match(source, /value=\{formState\.report_visibility\}/);
+  assert.match(source, /report_visibility:\s*value as ReportVisibility/);
+});
+
 test("NewAnalysisForm uses the shared local date helper for the initial analysis date", () => {
   const source = readFileSync(formPath, "utf8");
 

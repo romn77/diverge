@@ -36,9 +36,44 @@ test("HomeDashboard hero actions share a unified CTA base style across button an
   assert.match(source, /home\.searchLabel/);
 });
 
+test("HomeDashboard keeps the page title stable while search changes the results section", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /t\("home\.analysisWorkspace", "Analysis workspace"\)/);
+  assert.match(source, /t\("home\.matchingReportCount"/);
+  assert.doesNotMatch(source, /home\.searchResultsTitle/);
+  assert.doesNotMatch(source, /const heroTitle/);
+});
+
 test("HomeDashboard uses the shared responsive workbench width frame", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /className="workbench-content-frame space-y-6"/);
   assert.doesNotMatch(source, /max-w-6xl/);
+});
+
+test("HomeDashboard distinguishes private and workspace shared reports", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /type ReportScopeFilter = "all" \| "mine" \| "workspace"/);
+  assert.match(source, /isOwnedReport/);
+  assert.match(source, /return report\.owner_user_id === currentUserId/);
+  assert.match(source, /return report\.visibility === "workspace"/);
+  assert.match(source, /home\.scope\.all/);
+  assert.match(source, /home\.scope\.mine/);
+  assert.match(source, /home\.scope\.workspace/);
+  assert.match(source, /home\.visibility\.private/);
+  assert.match(source, /home\.visibility\.workspace/);
+  assert.doesNotMatch(source, /isWorkspaceSharedReport/);
+  assert.doesNotMatch(source, /home\.visibility\.workspaceOwned/);
+});
+
+test("HomeDashboard scopes counts and coverage map to the current search query", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /function matchesReportQuery/);
+  assert.match(source, /const searchMatchedReports = useMemo/);
+  assert.match(source, /reportScopeCounts[\s\S]*searchMatchedReports/);
+  assert.match(source, /for \(const report of scopedReports\)/);
+  assert.match(source, /reports: scopedReports\.length/);
 });

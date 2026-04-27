@@ -36,9 +36,19 @@ test("screener API types include US market data source selection", () => {
 test("task APIs rely on automatic analysis data routing and expose failed task deletion", () => {
   assert.doesNotMatch(source, /market_data_sources:\s*SelectOption\[\]/);
   assert.doesNotMatch(source, /market_data_source:\s*string/);
+  assert.match(source, /export type ReportVisibility = "private" \| "workspace"/);
+  assert.match(source, /visibility\?:\s*ReportVisibility/);
+  assert.match(source, /owner_user_id\?:\s*string \| null/);
+  assert.match(source, /report_visibility:\s*ReportVisibility/);
   assert.match(source, /export async function deleteTask/);
   assert.match(source, /export async function deleteScreenerTask/);
   assert.match(source, /method:\s*"DELETE"/);
+});
+
+test("screener run summaries carry owner scope for workspace list badges", () => {
+  assert.match(source, /interface ScreenerRunSummary/);
+  assert.match(source, /owner_user_id\?:\s*string \| null/);
+  assert.match(source, /tenant_id\?:\s*string \| null/);
 });
 
 test("task APIs expose Redis queue statuses, scheduling metadata, and cancel endpoints", () => {

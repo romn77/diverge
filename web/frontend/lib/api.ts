@@ -231,11 +231,16 @@ export class ApiError extends Error {
   }
 }
 
+export type ReportVisibility = "private" | "workspace";
+
 export interface Report {
   id: string;
   ticker: string;
   date: string;
   time: string;
+  visibility?: ReportVisibility;
+  tenant_id?: string | null;
+  owner_user_id?: string | null;
 }
 
 export interface ReportStructure {
@@ -415,6 +420,7 @@ export interface TaskCreateRequest {
   output_language: string;
   google_thinking_level: string | null;
   openai_reasoning_effort: string | null;
+  report_visibility: ReportVisibility;
 }
 
 export interface TaskCreateResponse {
@@ -576,6 +582,8 @@ export interface ScreenerRunSummary {
   markets: string[];
   candidate_count: number;
   generated_at: string;
+  owner_user_id?: string | null;
+  tenant_id?: string | null;
   status?: string;
   snapshot_slot?: "current" | "previous" | null;
   snapshot_available?: boolean;

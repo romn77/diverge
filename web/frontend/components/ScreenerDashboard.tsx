@@ -26,12 +26,26 @@ function buildScreenerRunListKey(run: ScreenerRunSummary, index: number): string
   ].join(":");
 }
 
+function getScreenerRunScopeLabel(
+  run: ScreenerRunSummary,
+  currentUserId: string | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  if (!run.owner_user_id || run.owner_user_id === currentUserId) {
+    return t("screenerDashboard.scope.mine", "Mine");
+  }
+
+  return t("screenerDashboard.scope.team", "Team");
+}
+
 export function ScreenerDashboard() {
   const { locale, t } = usePreferences();
   const { openScreenerDialog } = useWorkbenchChrome();
-  const { activeScreenerTasks, newScreenerDisabled, screenerRuns } = useWorkbench();
+  const { activeScreenerTasks, authState, newScreenerDisabled, screenerRuns } =
+    useWorkbench();
   const recentRuns = screenerRuns.slice(0, 8);
   const firstActiveScreenerTask = activeScreenerTasks[0];
+  const currentUserId = authState?.user?.id ?? null;
   const recentMarkets = useMemo(() => {
     const values = new Set<string>();
 
@@ -155,6 +169,9 @@ export function ScreenerDashboard() {
                             { markets: run.markets.join(", "), count: run.candidate_count }
                           )}
                         </p>
+                        <Badge variant="secondary" className="mt-2 px-2 py-1 text-[10px]">
+                          {getScreenerRunScopeLabel(run, currentUserId, t)}
+                        </Badge>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
@@ -181,6 +198,9 @@ export function ScreenerDashboard() {
                             { markets: run.markets.join(", "), count: run.candidate_count }
                           )}
                         </p>
+                        <Badge variant="secondary" className="mt-2 px-2 py-1 text-[10px]">
+                          {getScreenerRunScopeLabel(run, currentUserId, t)}
+                        </Badge>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">

@@ -8,13 +8,11 @@ const reportViewerPath = path.join(import.meta.dirname, "ReportViewer.tsx");
 test("ReportViewer uses sticky headers with pressed-state navigation buttons", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
-  assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/card"/);
   assert.match(source, /from "@\/components\/ui\/tabs"/);
   assert.match(source, /<Tabs/);
   assert.match(source, /<Card/);
-  assert.match(source, /<Badge/);
   assert.match(source, /sticky top-0/);
   assert.match(source, /overflow-x-auto/);
   assert.match(source, /onValueChange=\{handleTabChange\}/);
@@ -79,6 +77,32 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
     panelIndex < stickyIndex,
     "price panel should render beside the header before the sticky tab rail"
   );
+});
+
+test("ReportViewer lets the top overview panel collapse above the report body", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /isOverviewCollapsed/);
+  assert.match(source, /setIsOverviewCollapsed/);
+  assert.match(source, /report\.collapseOverview/);
+  assert.match(source, /report\.expandOverview/);
+  assert.match(source, /aria-expanded=\{!isOverviewCollapsed\}/);
+  assert.match(source, /title=\{overviewToggleLabel\}/);
+  assert.match(source, /ChevronUp/);
+  assert.match(source, /ChevronDown/);
+  assert.match(source, /collapsedOverviewSummary/);
+  assert.match(source, /!\s*isOverviewCollapsed && \(/);
+});
+
+test("ReportViewer keeps the summary body free of unresolved signal badges", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.doesNotMatch(source, /viewer-signal-badge/);
+  assert.doesNotMatch(source, /finalSignal/);
+  assert.doesNotMatch(source, /finalConfidence/);
+  assert.doesNotMatch(source, /report\.pending/);
+  assert.doesNotMatch(source, /parseHighlights/);
+  assert.doesNotMatch(source, /<Badge/);
 });
 
 test("ReportViewer promotes a dedicated summary tab instead of a right-side summary rail", () => {

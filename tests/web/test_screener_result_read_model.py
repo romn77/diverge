@@ -230,6 +230,7 @@ class ScreenerResultReadModelTests(unittest.TestCase):
             runs = screener_service.list_screener_runs(admin_user)
 
         self.assertEqual([run["id"] for run in runs], [duplicate_run_id])
+        self.assertEqual(runs[0]["owner_user_id"], "admin-user")
 
     def test_record_screener_run_metadata_handles_no_change_then_rotation(self):
         _write_legacy_run(

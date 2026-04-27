@@ -22,6 +22,9 @@ NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${BACKEND
 BACKEND_LOG="${BACKEND_LOG:-/tmp/tradingagents-backend.log}"
 FRONTEND_LOG="${FRONTEND_LOG:-/tmp/tradingagents-frontend.log}"
 WORKER_LOG="${WORKER_LOG:-/tmp/tradingagents-worker.log}"
+BACKEND_LOG_LEVEL="${BACKEND_LOG_LEVEL:-${LOG_LEVEL:-info}}"
+TAIL_LOGS="${TAIL_LOGS:-true}"
+TAIL_LOG_LINES="${TAIL_LOG_LINES:-80}"
 AUTH_ENABLED="${AUTH_ENABLED:-false}"
 AUTH_MODE="${AUTH_MODE:-required}"
 TASK_BACKEND="${TASK_BACKEND:-local}"
@@ -47,6 +50,7 @@ NC='\033[0m' # No Color
 BACKEND_PID=""
 FRONTEND_PID=""
 WORKER_PID=""
+TAIL_PID=""
 
 kill_port() {
     local port="$1"
@@ -102,19 +106,58 @@ ensure_redis_available() {
     exit 1
 }
 
+tail_logs_enabled() {
+    case "$TAIL_LOGS" in
+        true|TRUE|1|yes|YES|on|ON)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+start_log_tail() {
+    if ! tail_logs_enabled; then
+        echo "Log streaming disabled. To follow logs manually:"
+        echo "  tail -f \"$BACKEND_LOG\" \"$FRONTEND_LOG\""
+        if [ "$TASK_BACKEND" = "redis" ]; then
+            echo "  tail -f \"$WORKER_LOG\""
+        fi
+        return 0
+    fi
+
+    LOG_FILES=("$BACKEND_LOG" "$FRONTEND_LOG")
+    if [ "$TASK_BACKEND" = "redis" ]; then
+        LOG_FILES+=("$WORKER_LOG")
+    fi
+
+    echo -e "${BLUE}Streaming logs from ${#LOG_FILES[@]} file(s). Set TAIL_LOGS=false ./start.sh to only print paths.${NC}"
+    echo -e "${BLUE}Showing the last $TAIL_LOG_LINES lines; press Ctrl+C to stop all services.${NC}"
+    echo
+    tail -n "$TAIL_LOG_LINES" -F "${LOG_FILES[@]}" &
+    TAIL_PID=$!
+}
+
 echo -e "${BLUE}Starting TradingAgents Report Viewer...${NC}"
 echo
 
 # Ensure runtime data directories exist
 mkdir -p "$REPORTS_DIR" "$SCREENER_RUNS_DIR" "$SCREENER_TASKS_DIR" "$SCREENER_CACHE_DIR" "$STOCK_HISTORY_DIR"
+mkdir -p "$(dirname "$BACKEND_LOG")" "$(dirname "$FRONTEND_LOG")" "$(dirname "$WORKER_LOG")"
 
 # Kill any lingering processes on ports 8000, 3000
 cleanup() {
     local backend_pid="${BACKEND_PID:-}"
     local frontend_pid="${FRONTEND_PID:-}"
     local worker_pid="${WORKER_PID:-}"
+    local tail_pid="${TAIL_PID:-}"
     echo
     echo -e "${BLUE}Shutting down...${NC}"
+    if [ -n "$tail_pid" ] && kill -0 "$tail_pid" 2>/dev/null; then
+        kill "$tail_pid" 2>/dev/null || true
+        wait "$tail_pid" 2>/dev/null || true
+    fi
     if [ -n "$worker_pid" ] && kill -0 "$worker_pid" 2>/dev/null; then
         kill "$worker_pid" 2>/dev/null || true
         wait "$worker_pid" 2>/dev/null || true
@@ -160,6 +203,7 @@ export TASK_USER_PENDING_LIMIT_VIEWER="$TASK_USER_PENDING_LIMIT_VIEWER"
 export REDIS_URL="$REDIS_URL"
 export STORAGE_BACKEND="$STORAGE_BACKEND"
 export STORAGE_LOCAL_ROOT="$STORAGE_LOCAL_ROOT"
+export LOG_LEVEL="$BACKEND_LOG_LEVEL"
 ensure_redis_available
 if [ "$AUTH_ENABLED" = "true" ]; then
     if ! migration_output=$(alembic -c alembic.ini upgrade head 2>&1); then
@@ -182,7 +226,7 @@ if [ "$AUTH_ENABLED" = "true" ]; then
 fi
 (
     cd "$ROOT_DIR"
-    uvicorn web.backend.main:app --port "$BACKEND_PORT" --log-level critical
+    uvicorn web.backend.main:app --port "$BACKEND_PORT" --log-level "$BACKEND_LOG_LEVEL"
 ) > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
@@ -238,14 +282,19 @@ echo "Reports found: $(find "$REPORTS_DIR" -mindepth 1 -maxdepth 1 -type d | wc 
 echo "Frontend origin: $FRONTEND_ORIGIN"
 echo "Frontend API target: $NEXT_PUBLIC_API_BASE_URL"
 echo "Task backend: $TASK_BACKEND"
+echo "Backend log level: $BACKEND_LOG_LEVEL"
+echo "Backend log: $BACKEND_LOG"
+echo "Frontend log: $FRONTEND_LOG"
 if [ "$TASK_BACKEND" = "redis" ]; then
     echo "Redis URL: $REDIS_URL"
     echo "Running limits: global=$TASK_GLOBAL_RUNNING_LIMIT user=$TASK_USER_RUNNING_LIMIT"
     echo "Queue limits: global=$TASK_GLOBAL_PENDING_LIMIT admin=$TASK_USER_PENDING_LIMIT_ADMIN operator=$TASK_USER_PENDING_LIMIT_OPERATOR viewer=$TASK_USER_PENDING_LIMIT_VIEWER"
+    echo "Worker log: $WORKER_LOG"
 fi
 echo
 echo -e "${BLUE}Press Ctrl+C to stop${NC}"
 echo
+start_log_tail
 
 # Wait for all child processes
 wait

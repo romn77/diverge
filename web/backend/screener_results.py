@@ -1143,6 +1143,7 @@ class ScreenerResultReadService:
                 "markets": list(run_metadata.markets),
                 "candidate_count": run_metadata.candidate_count,
                 "generated_at": run_metadata.generated_at,
+                "owner_user_id": run_metadata.owner_user_id,
                 "status": run_metadata.status,
                 "snapshot_slot": run_metadata.snapshot_slot,
                 "snapshot_available": run_metadata.snapshot_available,

@@ -34,3 +34,12 @@ test("ScreenerDashboard uses the shared responsive workbench width frame", () =>
   assert.match(source, /className="workbench-content-frame space-y-6"/);
   assert.doesNotMatch(source, /max-w-6xl/);
 });
+
+test("ScreenerDashboard labels owner scope without claiming workspace visibility", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /getScreenerRunScopeLabel/);
+  assert.match(source, /screenerDashboard\.scope\.mine/);
+  assert.match(source, /screenerDashboard\.scope\.team/);
+  assert.doesNotMatch(source, /screenerDashboard\.scope\.workspace/);
+});
