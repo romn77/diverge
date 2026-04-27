@@ -106,6 +106,33 @@ test("globals.css maps every in-use white alpha surface to a dark surface", () =
   }
 });
 
+test("globals.css maps every in-use slate text shade to theme text in dark surfaces", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+  const requiredTextClasses = [
+    "950",
+    "900",
+    "800",
+    "700",
+    "600",
+    "500",
+    "400",
+    "300",
+  ];
+
+  for (const shade of requiredTextClasses) {
+    assert.match(
+      source,
+      new RegExp(`html\\[data-theme="dark"\\] \\.text-slate-${shade}`),
+      `expected text-slate-${shade} to be covered in dark mode`
+    );
+    assert.match(
+      source,
+      new RegExp(`html\\[data-theme="everforest"\\] \\.text-slate-${shade}`),
+      `expected text-slate-${shade} to be covered in everforest mode`
+    );
+  }
+});
+
 test("globals.css keeps report, chart, and form surfaces theme-token driven", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 

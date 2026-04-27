@@ -1511,6 +1511,7 @@ html[data-theme="dark"] .bg-slate-200 {
   background-color: rgba(29, 42, 57, 0.88) !important;
 }
 
+html[data-theme="dark"] .text-slate-950,
 html[data-theme="dark"] .text-slate-900,
 html[data-theme="dark"] .text-slate-800,
 html[data-theme="dark"] .text-slate-700,
@@ -1695,6 +1696,7 @@ html[data-theme="everforest"] .bg-slate-200 {
   background-color: rgba(61, 72, 77, 0.88) !important;
 }
 
+html[data-theme="everforest"] .text-slate-950,
 html[data-theme="everforest"] .text-slate-900,
 html[data-theme="everforest"] .text-slate-800,
 html[data-theme="everforest"] .text-slate-700,
