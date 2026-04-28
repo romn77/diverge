@@ -1,5 +1,6 @@
 import pytest
 
+from tradingagents.screener.presets import list_filter_preset_groups
 from tradingagents.screener.schema import ScreenRunConfig
 
 
@@ -26,6 +27,15 @@ def test_screen_run_config_accepts_valid_dual_market_input():
     assert config.cn_manifest_path == "/tmp/cn_manifest.csv"
     assert config.us_manifest_path == "/tmp/us_manifest.csv"
     assert config.history_cache_policy == "refresh_missing"
+
+
+def test_screen_run_config_rejects_top_k_above_warmup_limit():
+    with pytest.raises(ValueError, match="top_k"):
+        ScreenRunConfig(
+            markets=["cn"],
+            as_of_date="2026-03-24",
+            top_k=101,
+        )
 
 
 def test_screen_run_config_rejects_future_dates():
@@ -123,6 +133,154 @@ def test_screen_run_config_accepts_filter_presets_and_ranking_profile():
     assert config.filter_preset_selections["rsi"] == "strength_60"
     assert config.filter_preset_selections["pattern"] == "any"
     assert config.ranking_profile_id == "technical_pattern_balanced"
+
+
+def test_filter_presets_split_composite_groups_into_dedicated_dropdowns():
+    groups = {group["id"]: group for group in list_filter_preset_groups()}
+
+    assert not {
+        "moving_average",
+        "performance",
+        "valuation",
+        "quality",
+        "growth",
+        "balance_sheet",
+    } & set(groups)
+    assert groups["ma20_position"]["label"] == "MA20"
+    assert groups["ma60_position"]["label"] == "MA60"
+    assert groups["ma_alignment"]["label"] == "MA Alignment"
+    assert groups["ret_20"]["label"] == "20D Return"
+    assert groups["ret_60"]["label"] == "60D Return"
+    assert groups["pe_ttm"]["label"] == "P/E"
+    assert groups["ps_ttm"]["label"] == "P/S"
+    assert groups["pb"]["label"] == "P/B"
+    assert groups["peg"]["label"] == "PEG"
+    assert groups["roe"]["label"] == "ROE"
+    assert groups["gross_margin"]["label"] == "Gross Margin"
+    assert groups["net_margin"]["label"] == "Net Margin"
+    assert groups["revenue_growth_yoy"]["label"] == "Revenue Growth"
+    assert groups["net_income_growth_yoy"]["label"] == "Net Income Growth"
+    assert groups["current_ratio"]["label"] == "Current Ratio"
+    assert groups["debt_to_assets"]["label"] == "Debt / Assets"
+    assert {option["value"] for option in groups["ma20_position"]["options"]} >= {
+        "any",
+        "price_above_ma20",
+        "near_ma20_3pct",
+        "below_ma20",
+    }
+    assert {option["value"] for option in groups["ma60_position"]["options"]} >= {
+        "any",
+        "price_above_ma60",
+        "below_ma60",
+    }
+    assert {option["value"] for option in groups["ret_20"]["options"]} >= {
+        "any",
+        "ret20_positive",
+        "ret20_5",
+        "ret20_negative",
+    }
+    assert {option["value"] for option in groups["pe_ttm"]["options"]} >= {
+        "any",
+        "pe_lte_20",
+        "pe_lte_40",
+    }
+    assert {option["value"] for option in groups["ps_ttm"]["options"]} >= {
+        "any",
+        "ps_lte_5",
+        "ps_lte_10",
+    }
+    assert {option["value"] for option in groups["pb"]["options"]} >= {
+        "any",
+        "pb_lte_3",
+        "pb_lte_5",
+    }
+    assert {option["value"] for option in groups["peg"]["options"]} >= {
+        "any",
+        "peg_lte_1_5",
+        "peg_lte_2",
+    }
+
+
+def test_screen_run_config_accepts_split_filter_presets():
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        filter_preset_selections={
+            "ma20_position": "near_ma20_3pct",
+            "ma60_position": "price_above_ma60",
+            "ma_alignment": "bullish_alignment",
+            "ret_20": "ret20_5",
+            "ret_60": "ret60_10",
+            "pe_ttm": "pe_lte_20",
+            "ps_ttm": "ps_lte_5",
+            "pb": "pb_lte_3",
+            "peg": "peg_lte_1_5",
+            "roe": "roe_gte_20",
+            "gross_margin": "gross_margin_gte_30",
+            "net_margin": "net_margin_gte_10",
+            "revenue_growth_yoy": "revenue_growth_gte_20",
+            "net_income_growth_yoy": "income_growth_gte_10",
+            "current_ratio": "current_ratio_gte_1_5",
+            "debt_to_assets": "debt_assets_lte_60",
+        },
+    )
+
+    assert config.filter_preset_selections["ma20_position"] == "near_ma20_3pct"
+    assert config.filter_preset_selections["ma60_position"] == "price_above_ma60"
+    assert config.filter_preset_selections["ma_alignment"] == "bullish_alignment"
+    assert config.filter_preset_selections["ret_20"] == "ret20_5"
+    assert config.filter_preset_selections["ret_60"] == "ret60_10"
+    assert config.filter_preset_selections["pe_ttm"] == "pe_lte_20"
+    assert config.filter_preset_selections["ps_ttm"] == "ps_lte_5"
+    assert config.filter_preset_selections["pb"] == "pb_lte_3"
+    assert config.filter_preset_selections["peg"] == "peg_lte_1_5"
+    assert config.filter_preset_selections["roe"] == "roe_gte_20"
+    assert config.filter_preset_selections["gross_margin"] == "gross_margin_gte_30"
+    assert config.filter_preset_selections["net_margin"] == "net_margin_gte_10"
+    assert config.filter_preset_selections["revenue_growth_yoy"] == "revenue_growth_gte_20"
+    assert config.filter_preset_selections["net_income_growth_yoy"] == "income_growth_gte_10"
+    assert config.filter_preset_selections["current_ratio"] == "current_ratio_gte_1_5"
+    assert config.filter_preset_selections["debt_to_assets"] == "debt_assets_lte_60"
+    assert not {
+        "moving_average",
+        "performance",
+        "valuation",
+        "quality",
+        "growth",
+        "balance_sheet",
+    } & set(config.filter_preset_selections)
+
+
+def test_screen_run_config_migrates_legacy_valuation_preset_selection():
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        filter_preset_selections={
+            "moving_average": "bullish_alignment",
+            "performance": "ret60_10",
+            "valuation": "ps_lte_10",
+            "quality": "gross_margin_gte_30",
+            "growth": "income_growth_gte_10",
+            "balance_sheet": "debt_assets_lte_60",
+        },
+    )
+
+    assert config.filter_preset_selections["ma_alignment"] == "bullish_alignment"
+    assert config.filter_preset_selections["ret_60"] == "ret60_10"
+    assert config.filter_preset_selections["ps_ttm"] == "ps_lte_10"
+    assert config.filter_preset_selections["gross_margin"] == "gross_margin_gte_30"
+    assert config.filter_preset_selections["net_income_growth_yoy"] == "income_growth_gte_10"
+    assert config.filter_preset_selections["debt_to_assets"] == "debt_assets_lte_60"
+    assert not {
+        "moving_average",
+        "performance",
+        "valuation",
+        "quality",
+        "growth",
+        "balance_sheet",
+    } & set(config.filter_preset_selections)
 
 
 def test_screen_run_config_rejects_unknown_filter_preset():

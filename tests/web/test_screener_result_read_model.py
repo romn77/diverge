@@ -391,6 +391,81 @@ class ScreenerResultReadModelTests(unittest.TestCase):
             screener_results.result_hash(rows_b),
         )
 
+    def test_screener_result_snapshots_are_shared_across_authenticated_users(self):
+        task = SimpleNamespace(
+            request_payload={"as_of_date": "2026-03-24", "markets": ["us"]},
+            config_payload={
+                "as_of_date": "2026-03-24",
+                "markets": ["us"],
+                "top_k": 20,
+                "us_data_source": "yfinance",
+                "us_manifest_path": "/tmp/us.csv",
+            },
+            owner_user_id="user-a",
+            tenant_id="tenant-1",
+        )
+        candidate = screener_results.ScreenerResultCandidate(
+            source_run_id="shared-run-001",
+            generated_at="20260324_214530",
+            as_of_date="2026-03-24",
+            markets=["us"],
+            universe_count=24,
+            match_count=1,
+            filtered_count_by_reason={},
+            artifact_paths={"candidates": "runs/shared-run-001/candidates.csv"},
+            rows=[
+                {"symbol": "AAPL", "market": "us", "global_rank": 1, "total_score": 0.91},
+            ],
+            manifest_version="manifest-v1",
+            logic_version="logic-v1",
+            duration_ms=1234,
+        )
+
+        screener_results.persist_screener_run(task, candidate)
+
+        with patch.dict(os.environ, {"AUTH_ENABLED": "true", "AUTH_MODE": "required"}, clear=False):
+            auth.reset_runtime_state()
+            detail = screener_service.get_screener_run(
+                "shared-run-001",
+                SimpleNamespace(id="user-b", role=auth.UserRole.OPERATOR.value),
+            )
+            rows = screener_service.get_screener_run_candidates(
+                "shared-run-001",
+                SimpleNamespace(id="user-b", role=auth.UserRole.OPERATOR.value),
+            )
+
+        self.assertEqual(detail["id"], "shared-run-001")
+        self.assertEqual(rows[0]["symbol"], "AAPL")
+        self.assertIsNone(screener_results.load_screener_result_state("user-a"))
+
+    def test_authenticated_users_see_shared_workspace_recent_runs(self):
+        workspace_state = screener_results.ScreenerResultState(
+            owner_user_id=None,
+            recent_runs=[
+                screener_results.ScreenerRunMetadata(
+                    id="prewarm-cn-001",
+                    generated_at="20260428_153000",
+                    as_of_date="2026-04-28",
+                    markets=["cn"],
+                    candidate_count=100,
+                    owner_user_id=None,
+                    snapshot_slot=screener_results.CURRENT_SNAPSHOT_SLOT,
+                    snapshot_available=True,
+                    result_hash="prewarm-result",
+                )
+            ],
+        )
+        screener_results.save_screener_result_state(workspace_state)
+
+        with patch.dict(os.environ, {"AUTH_ENABLED": "true", "AUTH_MODE": "required"}, clear=False):
+            auth.reset_runtime_state()
+            runs = screener_service.list_screener_runs(
+                SimpleNamespace(id="user-b", role=auth.UserRole.OPERATOR.value)
+            )
+
+        self.assertEqual([run["id"] for run in runs], ["prewarm-cn-001"])
+        self.assertIsNone(runs[0]["owner_user_id"])
+
     def test_persist_screener_run_first_success_and_failed_metadata(self):
         first_candidate = screener_results.ScreenerResultCandidate(
             source_run_id="20260324_214530",

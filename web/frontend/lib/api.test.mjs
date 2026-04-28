@@ -49,6 +49,10 @@ test("screener run summaries carry owner scope for workspace list badges", () =>
   assert.match(source, /interface ScreenerRunSummary/);
   assert.match(source, /owner_user_id\?:\s*string \| null/);
   assert.match(source, /tenant_id\?:\s*string \| null/);
+  assert.match(source, /interface ScreenerPresetRecord/);
+  assert.match(source, /export async function listScreenerPresets/);
+  assert.match(source, /export async function replaceScreenerPresets/);
+  assert.match(source, /\/api\/screener\/presets/);
 });
 
 test("task APIs expose Redis queue statuses, scheduling metadata, and cancel endpoints", () => {

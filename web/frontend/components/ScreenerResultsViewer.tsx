@@ -25,6 +25,7 @@ import { TickerSparkline } from "./TickerPricePanel";
 
 interface ScreenerResultsViewerProps {
   runId: string;
+  embedded?: boolean;
 }
 
 type SortKey =
@@ -45,7 +46,7 @@ const BREAKOUT_FILTER_OPTIONS = [
   { value: "wedge_breakout", label: "Wedge Breakout" },
 ] as const;
 
-export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
+export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResultsViewerProps) {
   const { locale, t } = usePreferences();
   const [run, setRun] = useState<ScreenerRunDetail | null>(null);
   const [rows, setRows] = useState<ScreenerCandidateRow[]>([]);
@@ -195,12 +196,20 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
     () => Object.entries(run?.filtered_count_by_reason ?? {}).filter(([, count]) => count > 0),
     [run?.filtered_count_by_reason]
   );
+  const RootTag = embedded ? "section" : "main";
+  const rootClassName = embedded
+    ? "flex flex-col"
+    : "flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4";
+  const cardClassName = embedded
+    ? "viewer-frame fade-in"
+    : "fade-in rounded-[30px] bg-white/95";
+  const contentClassName = embedded ? "p-3 md:p-4" : "p-6 md:p-8";
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
+    <RootTag className={rootClassName}>
       <div className="w-full space-y-6">
-        <Card className="fade-in rounded-[30px] bg-white/95">
-          <CardContent className="p-6 md:p-8">
+        <Card className={cardClassName}>
+          <CardContent className={contentClassName}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
@@ -387,7 +396,7 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
             </div>
           ) : null}
 
-          <div className="mt-8">
+          <div className="mt-8 overflow-x-auto">
             <Table className="min-w-full text-sm">
               <TableHeader className="sticky top-0 bg-slate-50">
                 <TableRow>
@@ -565,7 +574,7 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
           </CardContent>
         </Card>
       </div>
-    </main>
+    </RootTag>
   );
 }
 

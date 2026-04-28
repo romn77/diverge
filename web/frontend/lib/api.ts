@@ -663,7 +663,7 @@ export interface ScreenerConfigOptions {
 
 export interface ScreenTaskCreateRequest {
   markets: string[];
-  as_of_date: string;
+  as_of_date?: string | null;
   top_k: number;
   cn_data_source: string;
   us_data_source: string;
@@ -679,6 +679,17 @@ export interface ScreenTaskCreateRequest {
 export interface ScreenerTaskCreateResponse {
   task_id: string;
   status: string;
+  run_id?: string;
+  cached?: boolean;
+}
+
+export interface ScreenerPresetRecord {
+  id: string;
+  name: string;
+  fingerprint?: string;
+  config: ScreenTaskCreateRequest;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DataSyncOhlcvRequest {
@@ -1212,6 +1223,21 @@ export async function createScreenerTask(
   return requestJson<ScreenerTaskCreateResponse>(
     "/api/screener/tasks",
     createJsonRequestInit("POST", payload)
+  );
+}
+
+export async function listScreenerPresets(): Promise<ScreenerPresetRecord[]> {
+  return requestJson<ScreenerPresetRecord[]>("/api/screener/presets", {
+    cache: "no-store",
+  });
+}
+
+export async function replaceScreenerPresets(
+  presets: ScreenerPresetRecord[]
+): Promise<ScreenerPresetRecord[]> {
+  return requestJson<ScreenerPresetRecord[]>(
+    "/api/screener/presets",
+    createJsonRequestInit("PUT", presets)
   );
 }
 

@@ -23,6 +23,8 @@ test("workbench route helpers cover the route-driven destinations", () => {
   assert.match(source, /return `\/tasks\/\$\{encodeURIComponent\(taskId\)\}`;/);
   assert.match(source, /export function buildScreenerHref/);
   assert.match(source, /return "\/screeners";/);
-  assert.match(source, /return `\/screeners\/\$\{encodeURIComponent\(runId\)\}`;/);
+  assert.match(source, /new URLSearchParams\(\{ runId \}\)/);
+  assert.match(source, /return `\/screeners\?\$\{searchParams\.toString\(\)\}`;/);
+  assert.match(source, /return buildScreenerHref\(runId\);/);
   assert.match(source, /return `\/screener-tasks\/\$\{encodeURIComponent\(taskId\)\}`;/);
 });

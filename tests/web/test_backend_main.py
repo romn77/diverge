@@ -1036,15 +1036,18 @@ class BackendMainTests(unittest.TestCase):
         )
         self.assertNotIn("boom", task_status["latest_progress"]["message"])
 
-        state = screener_results.load_screener_result_state()
-        self.assertEqual(state.current_result.source_run_id, "20260324_214530")
-        self.assertIsNone(state.previous_result)
-        self.assertEqual(state.recent_runs[0].status, "failed")
+        config_state = screener_results.load_screener_result_state(
+            None,
+            screener_results.screener_key_for_config(task.config_payload),
+        )
+        self.assertIsNone(config_state.current_result)
+        self.assertIsNone(config_state.previous_result)
+        self.assertEqual(config_state.recent_runs[0].status, "failed")
         self.assertEqual(
-            state.recent_runs[0].error_summary,
+            config_state.recent_runs[0].error_summary,
             screener_tasks.GENERIC_SCREENER_TASK_ERROR,
         )
-        self.assertFalse(state.recent_runs[0].snapshot_available)
+        self.assertFalse(config_state.recent_runs[0].snapshot_available)
 
     def test_run_screener_task_accepts_extended_progress_callback_signature(self):
         task = screener_tasks.ScreenerTask(
@@ -1161,6 +1164,23 @@ class BackendMainTests(unittest.TestCase):
             "markets": ["cn"],
             "as_of_date": "2026-03-24",
             "top_k": 0,
+        }
+
+        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+            with self.assertRaises(HTTPException) as context:
+                screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("top_k", context.exception.detail.lower())
+        start_task_thread.assert_not_called()
+
+    def test_post_screener_tasks_rejects_top_k_above_warmup_limit_before_queueing(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 101,
         }
 
         with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:

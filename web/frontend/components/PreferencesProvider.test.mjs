@@ -58,5 +58,7 @@ test("uiPreferences defines persisted preference cookie keys with zh translation
   assert.match(source, /"activity\.title": "后台任务"/);
   assert.match(source, /"assets\.title": "组合资产台账"/);
   assert.match(source, /"screenerDashboard\.queueSnapshot": "队列快照"/);
+  assert.match(source, /"screenerDashboard\.staleResultTitle": "筛选条件已变更"/);
+  assert.match(source, /"screenerDashboard\.placeholderReadyTitle": "等待运行"/);
   assert.match(source, /"trade\.status\.closed": "已平仓"/);
 });

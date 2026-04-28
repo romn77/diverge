@@ -72,5 +72,9 @@ test("NewScreenerForm performs submit-time validation before posting", () => {
 
   assert.match(source, /Select at least one market/i);
   assert.match(source, /Top K must be positive/i);
-  assert.match(source, /as_of_date must use YYYY-MM-DD format/i);
+  assert.match(source, /Top K must be 100 or less/i);
+  assert.match(source, /max=\{100\}/);
+  assert.doesNotMatch(source, /as_of_date must use YYYY-MM-DD format/i);
+  assert.doesNotMatch(source, /screener\.asOfDate/);
+  assert.doesNotMatch(source, /getLocalDateInputValue/);
 });

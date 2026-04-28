@@ -106,7 +106,6 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
       matchesReportScope(report, scopeFilter, currentUserId)
     );
   }, [currentUserId, scopeFilter, searchMatchedReports]);
-  const latestScopedReport = scopedReports[0] ?? null;
 
   useEffect(() => {
     setSearchQuery(initialSearchQuery);
@@ -216,8 +215,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
           </CardContent>
         </Card>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-          <section className="viewer-frame px-6 py-6 md:px-8">
+        <section className="viewer-frame px-6 py-6 md:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -308,94 +306,6 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 ))}
               </div>
             )}
-          </section>
-
-          <div className="space-y-6">
-            <Card className="card-surface rounded-[28px]">
-              <CardContent className="px-6 py-6">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                    {t("home.recentTickers", "Tracked Tickers")}
-                  </p>
-                  <h2 className="workbench-section-title mt-2 text-2xl">
-                    {t("home.coverageMap", "Coverage map")}
-                  </h2>
-                </div>
-                <Badge variant="secondary" className="text-slate-500">
-                  {trackedTickers.length}
-                </Badge>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {trackedTickers.length === 0 ? (
-                  <Badge variant="secondary" className="px-3 py-2 normal-case tracking-normal text-slate-500">
-                    {t("home.waitingForReports", "Waiting for reports")}
-                  </Badge>
-                ) : (
-                  trackedTickers.slice(0, 18).map((ticker) => (
-                    <Button
-                      key={ticker}
-                      asChild
-                      variant={
-                        deferredSearchQuery === ticker.toLowerCase() ? "default" : "secondary"
-                      }
-                      size="sm"
-                      className={
-                        deferredSearchQuery === ticker.toLowerCase()
-                          ? "shadow-none"
-                          : "text-slate-700 hover:text-[var(--primary)]"
-                      }
-                    >
-                      <Link href={buildHomeHref(ticker)}>{ticker}</Link>
-                    </Button>
-                  ))
-                )}
-              </div>
-              </CardContent>
-            </Card>
-
-            <Card className="card-surface rounded-[28px]">
-              <CardContent className="px-6 py-6">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                {t("home.coverageSnapshot", "Coverage Snapshot")}
-              </p>
-              <div className="mt-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4">
-                <p className="text-sm font-semibold text-slate-900">
-                  {deferredSearchQuery
-                    ? t("home.snapshotSearchFocus", "Search is focused on one slice of the library.")
-                    : t("home.snapshotHomeBase", "Use the analysis rail as the reports home base.")}
-                </p>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  {deferredSearchQuery
-                    ? t(
-                        "home.snapshotSearchBody",
-                        ({ reports: reportCount, tickers }) =>
-                          `The current query is filtering against ${reportCount} indexed reports across ${tickers} tickers.`,
-                        { reports: scopedReports.length, tickers: trackedTickers.length }
-                      )
-                    : t(
-                        "home.snapshotLibraryBody",
-                        ({ reports: reportCount, tickers }) =>
-                          `The library currently tracks ${reportCount} reports across ${tickers} tickers, with new research work routed through the unified sidebar action.`,
-                        { reports: scopedReports.length, tickers: trackedTickers.length }
-                      )}
-                </p>
-                {latestScopedReport ? (
-                  <div className="mt-4">
-                    <Badge variant="secondary">
-                      {t(
-                        "home.latestIndexedReport",
-                        ({ ticker }) => `Latest indexed report · ${ticker}`,
-                        { ticker: latestScopedReport.ticker }
-                      )}
-                    </Badge>
-                  </div>
-                ) : null}
-              </div>
-              </CardContent>
-            </Card>
-          </div>
         </section>
       </div>
     </main>

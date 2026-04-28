@@ -15,6 +15,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from tradingagents.screener.presets import normalize_filter_preset_selections
 from web.backend import access, app_config, auth, screener_runs
 
 DEFAULT_SCREENER_KEY = "default"
@@ -341,6 +342,80 @@ def _manifest_version(config_payload: dict[str, Any]) -> str | None:
     if not digest_parts:
         return None
     return "|".join(digest_parts)
+
+
+def canonicalize_screener_config(config_payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = deepcopy(config_payload)
+    for path_key in (
+        "output_dir",
+        "cache_dir",
+        "history_dir",
+        "fundamental_dir",
+    ):
+        normalized.pop(path_key, None)
+
+    normalized["markets"] = sorted(_normalize_markets(normalized.get("markets")))
+    normalized["breakout_types"] = sorted(
+        {
+            str(value).strip().lower()
+            for value in normalized.get("breakout_types") or []
+            if str(value).strip()
+        }
+    )
+    normalized["cn_data_source_fallbacks"] = sorted(
+        {
+            str(value).strip().lower()
+            for value in normalized.get("cn_data_source_fallbacks") or []
+            if str(value).strip()
+        }
+    )
+    normalized["us_data_source_fallbacks"] = sorted(
+        {
+            str(value).strip().lower()
+            for value in normalized.get("us_data_source_fallbacks") or []
+            if str(value).strip()
+        }
+    )
+
+    preset_selections = {}
+    normalized_preset_selections = normalize_filter_preset_selections(
+        normalized.get("filter_preset_selections")
+    )
+    for key, value in normalized_preset_selections.items():
+        normalized_key = str(key).strip()
+        normalized_value = str(value).strip()
+        if normalized_key and normalized_value and normalized_value != "any":
+            preset_selections[normalized_key] = normalized_value
+    normalized["filter_preset_selections"] = {
+        key: preset_selections[key] for key in sorted(preset_selections)
+    }
+
+    normalized["manifest_version"] = _manifest_version(config_payload)
+    normalized["logic_version"] = _resolve_logic_version()
+    return {
+        key: normalized[key]
+        for key in sorted(normalized)
+        if normalized[key] not in (None, "", [], {})
+    }
+
+
+def screener_key_for_config(config_payload: dict[str, Any]) -> str:
+    payload = json.dumps(
+        canonicalize_screener_config(config_payload),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return f"screen_{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:32]}"
+
+
+def get_cached_screener_result(
+    config_payload: dict[str, Any],
+) -> ScreenerResultSnapshot | None:
+    state = load_screener_result_state(None, screener_key_for_config(config_payload))
+    if state is None:
+        return None
+    return state.current_result
 
 
 def _build_summary(
@@ -1038,20 +1113,27 @@ def initialize_screener_result_runtime() -> None:
 
 
 def _recent_runs_for_user(current_user: auth.User | None) -> list[ScreenerRunMetadata]:
+    def shared_recent_runs() -> list[ScreenerRunMetadata]:
+        recent_runs: list[ScreenerRunMetadata] = []
+        for state in _load_shared_result_states():
+            recent_runs.extend(state.recent_runs)
+        return recent_runs
+
     if not auth.get_auth_settings().enabled:
-        state = load_screener_result_state()
-        return list(state.recent_runs) if state is not None else []
+        return shared_recent_runs()
 
     if current_user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
 
     if access.is_admin_user(current_user):
         tenant_id = getattr(current_user, "tenant_id", None)
+        recent_runs = shared_recent_runs()
         if not tenant_id:
-            recent_runs: list[ScreenerRunMetadata] = []
             for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json"):
+                if state_path.parent.name == WORKSPACE_OWNER_KEY:
+                    continue
                 payload = load_screener_result_state(
-                    None if state_path.parent.name == WORKSPACE_OWNER_KEY else state_path.parent.name,
+                    state_path.parent.name,
                     state_path.stem,
                 )
                 if payload is not None:
@@ -1063,7 +1145,6 @@ def _recent_runs_for_user(current_user: auth.User | None) -> list[ScreenerRunMet
                 for user in auth.list_users(db)
                 if user.tenant_id == tenant_id
             }
-        recent_runs: list[ScreenerRunMetadata] = []
         for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json"):
             owner_key = state_path.parent.name
             if owner_key == WORKSPACE_OWNER_KEY or owner_key not in tenant_owner_ids:
@@ -1076,10 +1157,28 @@ def _recent_runs_for_user(current_user: auth.User | None) -> list[ScreenerRunMet
                 recent_runs.extend(payload.recent_runs)
         return recent_runs
 
+    recent_runs = shared_recent_runs()
     state = load_screener_result_state(current_user.id)
-    if state is None:
-        return []
-    return list(state.recent_runs)
+    if state is not None:
+        recent_runs.extend(state.recent_runs)
+    return recent_runs
+
+
+def _load_shared_result_states() -> list[ScreenerResultState]:
+    states: list[ScreenerResultState] = []
+    workspace_state_dir = app_config.SCREENER_STATE_DIR / WORKSPACE_OWNER_KEY
+    if workspace_state_dir.is_dir():
+        for state_path in sorted(workspace_state_dir.glob("*.json")):
+            state = load_screener_result_state(None, state_path.stem)
+            if state is not None:
+                states.append(state)
+
+    default_state = load_screener_result_state()
+    if default_state is not None and all(
+        state.screener_key != default_state.screener_key for state in states
+    ):
+        states.append(default_state)
+    return states
 
 
 def _snapshot_for_run_id(
@@ -1089,38 +1188,10 @@ def _snapshot_for_run_id(
     if not run_id or "/" in run_id or "\\" in run_id or ".." in run_id:
         raise HTTPException(status_code=404, detail="Screener run not found")
 
-    if not auth.get_auth_settings().enabled:
-        candidate_states = [load_screener_result_state()]
-    elif current_user is None:
+    if auth.get_auth_settings().enabled and current_user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
-    elif access.is_admin_user(current_user):
-        tenant_id = getattr(current_user, "tenant_id", None)
-        if not tenant_id:
-            candidate_states = [
-                load_screener_result_state(
-                    None if state_path.parent.name == WORKSPACE_OWNER_KEY else state_path.parent.name,
-                    state_path.stem,
-                )
-                for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json")
-            ]
-        else:
-            with auth.db_session() as db:
-                tenant_owner_ids = {
-                    user.id
-                    for user in auth.list_users(db)
-                    if user.tenant_id == tenant_id
-                }
-            candidate_states = [
-                load_screener_result_state(
-                    state_path.parent.name,
-                    state_path.stem,
-                )
-                for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json")
-                if state_path.parent.name != WORKSPACE_OWNER_KEY
-                and state_path.parent.name in tenant_owner_ids
-            ]
-    else:
-        candidate_states = [load_screener_result_state(current_user.id)]
+
+    candidate_states = _load_shared_result_states()
 
     for state in candidate_states:
         if state is None:
@@ -1206,8 +1277,6 @@ def record_screener_run_metadata(task: Any, result: Any) -> ScreenerResultState:
 
 def run_screener(task: Any, result: Any) -> ScreenerResultCandidate:
     owner_user_id = getattr(task, "owner_user_id", None)
-    if auth.get_auth_settings().enabled and not owner_user_id:
-        raise RuntimeError("Screener task owner is required when auth is enabled")
 
     run_dir = Path(result.run_dir).resolve()
     legacy_run = _read_legacy_run(run_dir, owner_user_id=owner_user_id)
@@ -1249,17 +1318,19 @@ def persist_screener_run(
 ) -> ScreenerResultState:
     owner_user_id = getattr(task, "owner_user_id", None)
     tenant_id = getattr(task, "tenant_id", None)
-    if auth.get_auth_settings().enabled and not owner_user_id:
-        raise RuntimeError("Screener task owner is required when auth is enabled")
-
-    state = load_screener_result_state(owner_user_id) or ScreenerResultState(owner_user_id=owner_user_id)
+    config_payload = dict(getattr(task, "config_payload", {}) or {})
+    screener_key = screener_key_for_config(config_payload) if config_payload else DEFAULT_SCREENER_KEY
+    state = load_screener_result_state(None, screener_key) or ScreenerResultState(
+        screener_key=screener_key,
+        owner_user_id=None,
+    )
     existing_current = state.current_result
     existing_previous = state.previous_result
     if candidate is None:
         failed_run_id = source_run_id or getattr(task, "run_id", None) or getattr(task, "id", "")
         run_metadata = _failed_run_metadata(
             task=task,
-            owner_user_id=owner_user_id,
+            owner_user_id=None,
             error_summary=error_summary or "Screener run failed",
             source_run_id=failed_run_id or _serialize_run_timestamp(),
         )
@@ -1297,7 +1368,7 @@ def persist_screener_run(
         status = "success"
 
     recent_runs = [
-        _recent_run_from_candidate(candidate, owner_user_id=owner_user_id, status=status),
+        _recent_run_from_candidate(candidate, owner_user_id=None, status=status),
         *[run for run in state.recent_runs if run.id != candidate.source_run_id],
     ]
     state.recent_runs = _sort_recent_runs(recent_runs)

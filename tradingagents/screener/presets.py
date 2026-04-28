@@ -6,16 +6,26 @@ from typing import Any
 
 DEFAULT_FILTER_PRESET_SELECTIONS: dict[str, str] = {
     "rsi": "any",
-    "moving_average": "any",
-    "performance": "any",
+    "ma20_position": "any",
+    "ma60_position": "any",
+    "ma_alignment": "any",
+    "ret_20": "any",
+    "ret_60": "any",
     "volatility": "any",
     "liquidity": "any",
     "pattern": "any",
     "volume": "any",
-    "valuation": "any",
-    "quality": "any",
-    "growth": "any",
-    "balance_sheet": "any",
+    "pe_ttm": "any",
+    "ps_ttm": "any",
+    "pb": "any",
+    "peg": "any",
+    "roe": "any",
+    "gross_margin": "any",
+    "net_margin": "any",
+    "revenue_growth_yoy": "any",
+    "net_income_growth_yoy": "any",
+    "current_ratio": "any",
+    "debt_to_assets": "any",
 }
 
 DEFAULT_RANKING_PROFILE_ID = "technical_pattern_balanced"
@@ -39,12 +49,29 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         ],
     },
     {
-        "id": "moving_average",
-        "label": "Moving Average",
+        "id": "ma20_position",
+        "label": "MA20",
         "options": [
             {"label": "Any", "value": "any"},
             {"label": "Price > MA20", "value": "price_above_ma20", "condition": {"field": "close", "op": ">", "compare_field": "ma20"}},
+            {"label": "Near MA20 within +/-3%", "value": "near_ma20_3pct", "condition": {"field": "close", "op": "within_pct", "compare_field": "ma20", "value": 0.03}},
+            {"label": "Below MA20", "value": "below_ma20", "condition": {"field": "close", "op": "<", "compare_field": "ma20"}},
+        ],
+    },
+    {
+        "id": "ma60_position",
+        "label": "MA60",
+        "options": [
+            {"label": "Any", "value": "any"},
             {"label": "Price > MA60", "value": "price_above_ma60", "condition": {"field": "close", "op": ">", "compare_field": "ma60"}},
+            {"label": "Below MA60", "value": "below_ma60", "condition": {"field": "close", "op": "<", "compare_field": "ma60"}},
+        ],
+    },
+    {
+        "id": "ma_alignment",
+        "label": "MA Alignment",
+        "options": [
+            {"label": "Any", "value": "any"},
             {
                 "label": "Bullish Alignment: Price > MA20 > MA60",
                 "value": "bullish_alignment",
@@ -53,20 +80,25 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
                     {"field": "ma20", "op": ">", "compare_field": "ma60"},
                 ],
             },
-            {"label": "Near MA20 within +/-3%", "value": "near_ma20_3pct", "condition": {"field": "close", "op": "within_pct", "compare_field": "ma20", "value": 0.03}},
-            {"label": "Below MA20", "value": "below_ma20", "condition": {"field": "close", "op": "<", "compare_field": "ma20"}},
-            {"label": "Below MA60", "value": "below_ma60", "condition": {"field": "close", "op": "<", "compare_field": "ma60"}},
         ],
     },
     {
-        "id": "performance",
-        "label": "Performance",
+        "id": "ret_20",
+        "label": "20D Return",
         "options": [
             {"label": "Any", "value": "any"},
             {"label": "20D Return > 0%", "value": "ret20_positive", "condition": {"field": "ret_20", "op": ">", "value": 0}},
             {"label": "20D Return >= 5%", "value": "ret20_5", "condition": {"field": "ret_20", "op": ">=", "value": 0.05}},
-            {"label": "60D Return >= 10%", "value": "ret60_10", "condition": {"field": "ret_60", "op": ">=", "value": 0.10}},
             {"label": "20D Return < 0%", "value": "ret20_negative", "condition": {"field": "ret_20", "op": "<", "value": 0}},
+        ],
+    },
+    {
+        "id": "ret_60",
+        "label": "60D Return",
+        "options": [
+            {"label": "Any", "value": "any"},
+            {"label": "60D Return > 0%", "value": "ret60_positive", "condition": {"field": "ret_60", "op": ">", "value": 0}},
+            {"label": "60D Return >= 10%", "value": "ret60_10", "condition": {"field": "ret_60", "op": ">=", "value": 0.10}},
         ],
     },
     {
@@ -109,45 +141,101 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         ],
     },
     {
-        "id": "valuation",
-        "label": "Valuation",
+        "id": "pe_ttm",
+        "label": "P/E",
         "options": [
             {"label": "Any", "value": "any"},
+            {"label": "P/E > 0 and <= 10", "value": "pe_lte_10", "conditions": [{"field": "pe_ttm", "op": ">", "value": 0}, {"field": "pe_ttm", "op": "<=", "value": 10}]},
             {"label": "P/E > 0 and <= 20", "value": "pe_lte_20", "conditions": [{"field": "pe_ttm", "op": ">", "value": 0}, {"field": "pe_ttm", "op": "<=", "value": 20}]},
             {"label": "P/E > 0 and <= 40", "value": "pe_lte_40", "conditions": [{"field": "pe_ttm", "op": ">", "value": 0}, {"field": "pe_ttm", "op": "<=", "value": 40}]},
+        ],
+    },
+    {
+        "id": "ps_ttm",
+        "label": "P/S",
+        "options": [
+            {"label": "Any", "value": "any"},
+            {"label": "P/S <= 3", "value": "ps_lte_3", "condition": {"field": "ps_ttm", "op": "<=", "value": 3}},
+            {"label": "P/S <= 5", "value": "ps_lte_5", "condition": {"field": "ps_ttm", "op": "<=", "value": 5}},
             {"label": "P/S <= 10", "value": "ps_lte_10", "condition": {"field": "ps_ttm", "op": "<=", "value": 10}},
+        ],
+    },
+    {
+        "id": "pb",
+        "label": "P/B",
+        "options": [
+            {"label": "Any", "value": "any"},
+            {"label": "P/B <= 1", "value": "pb_lte_1", "condition": {"field": "pb", "op": "<=", "value": 1}},
+            {"label": "P/B <= 3", "value": "pb_lte_3", "condition": {"field": "pb", "op": "<=", "value": 3}},
             {"label": "P/B <= 5", "value": "pb_lte_5", "condition": {"field": "pb", "op": "<=", "value": 5}},
+        ],
+    },
+    {
+        "id": "peg",
+        "label": "PEG",
+        "options": [
+            {"label": "Any", "value": "any"},
+            {"label": "PEG <= 1", "value": "peg_lte_1", "condition": {"field": "peg", "op": "<=", "value": 1}},
+            {"label": "PEG <= 1.5", "value": "peg_lte_1_5", "condition": {"field": "peg", "op": "<=", "value": 1.5}},
             {"label": "PEG <= 2", "value": "peg_lte_2", "condition": {"field": "peg", "op": "<=", "value": 2}},
         ],
     },
     {
-        "id": "quality",
-        "label": "Quality",
+        "id": "roe",
+        "label": "ROE",
         "options": [
             {"label": "Any", "value": "any"},
             {"label": "ROE >= 10%", "value": "roe_gte_10", "condition": {"field": "roe", "op": ">=", "value": 0.10}},
             {"label": "ROE >= 20%", "value": "roe_gte_20", "condition": {"field": "roe", "op": ">=", "value": 0.20}},
+        ],
+    },
+    {
+        "id": "gross_margin",
+        "label": "Gross Margin",
+        "options": [
+            {"label": "Any", "value": "any"},
             {"label": "Gross Margin >= 30%", "value": "gross_margin_gte_30", "condition": {"field": "gross_margin", "op": ">=", "value": 0.30}},
+        ],
+    },
+    {
+        "id": "net_margin",
+        "label": "Net Margin",
+        "options": [
+            {"label": "Any", "value": "any"},
             {"label": "Net Margin >= 10%", "value": "net_margin_gte_10", "condition": {"field": "net_margin", "op": ">=", "value": 0.10}},
         ],
     },
     {
-        "id": "growth",
-        "label": "Growth",
+        "id": "revenue_growth_yoy",
+        "label": "Revenue Growth",
         "options": [
             {"label": "Any", "value": "any"},
             {"label": "Revenue Growth >= 10%", "value": "revenue_growth_gte_10", "condition": {"field": "revenue_growth_yoy", "op": ">=", "value": 0.10}},
             {"label": "Revenue Growth >= 20%", "value": "revenue_growth_gte_20", "condition": {"field": "revenue_growth_yoy", "op": ">=", "value": 0.20}},
+        ],
+    },
+    {
+        "id": "net_income_growth_yoy",
+        "label": "Net Income Growth",
+        "options": [
+            {"label": "Any", "value": "any"},
             {"label": "Net Income Growth >= 10%", "value": "income_growth_gte_10", "condition": {"field": "net_income_growth_yoy", "op": ">=", "value": 0.10}},
         ],
     },
     {
-        "id": "balance_sheet",
-        "label": "Balance Sheet",
+        "id": "current_ratio",
+        "label": "Current Ratio",
         "options": [
             {"label": "Any", "value": "any"},
             {"label": "Current Ratio >= 1", "value": "current_ratio_gte_1", "condition": {"field": "current_ratio", "op": ">=", "value": 1.0}},
             {"label": "Current Ratio >= 1.5", "value": "current_ratio_gte_1_5", "condition": {"field": "current_ratio", "op": ">=", "value": 1.5}},
+        ],
+    },
+    {
+        "id": "debt_to_assets",
+        "label": "Debt / Assets",
+        "options": [
+            {"label": "Any", "value": "any"},
             {"label": "Debt / Assets <= 60%", "value": "debt_assets_lte_60", "condition": {"field": "debt_to_assets", "op": "<=", "value": 0.60}},
         ],
     },
@@ -221,6 +309,54 @@ RANKING_PROFILES: dict[str, dict[str, Any]] = {
     },
 }
 
+LEGACY_FILTER_OPTION_GROUPS: dict[str, dict[str, str]] = {
+    "moving_average": {
+        "price_above_ma20": "ma20_position",
+        "near_ma20_3pct": "ma20_position",
+        "below_ma20": "ma20_position",
+        "price_above_ma60": "ma60_position",
+        "below_ma60": "ma60_position",
+        "bullish_alignment": "ma_alignment",
+    },
+    "performance": {
+        "ret20_positive": "ret_20",
+        "ret20_5": "ret_20",
+        "ret20_negative": "ret_20",
+        "ret60_positive": "ret_60",
+        "ret60_10": "ret_60",
+    },
+    "valuation": {
+        "pe_lte_10": "pe_ttm",
+        "pe_lte_20": "pe_ttm",
+        "pe_lte_40": "pe_ttm",
+        "ps_lte_3": "ps_ttm",
+        "ps_lte_5": "ps_ttm",
+        "ps_lte_10": "ps_ttm",
+        "pb_lte_1": "pb",
+        "pb_lte_3": "pb",
+        "pb_lte_5": "pb",
+        "peg_lte_1": "peg",
+        "peg_lte_1_5": "peg",
+        "peg_lte_2": "peg",
+    },
+    "quality": {
+        "roe_gte_10": "roe",
+        "roe_gte_20": "roe",
+        "gross_margin_gte_30": "gross_margin",
+        "net_margin_gte_10": "net_margin",
+    },
+    "growth": {
+        "revenue_growth_gte_10": "revenue_growth_yoy",
+        "revenue_growth_gte_20": "revenue_growth_yoy",
+        "income_growth_gte_10": "net_income_growth_yoy",
+    },
+    "balance_sheet": {
+        "current_ratio_gte_1": "current_ratio",
+        "current_ratio_gte_1_5": "current_ratio",
+        "debt_assets_lte_60": "debt_to_assets",
+    },
+}
+
 
 def _option_by_group() -> dict[str, dict[str, dict[str, Any]]]:
     return {
@@ -248,6 +384,13 @@ def normalize_filter_preset_selections(
     for raw_group, raw_value in selections.items():
         group = str(raw_group).strip()
         value = str(raw_value).strip()
+        if group in LEGACY_FILTER_OPTION_GROUPS:
+            if value == "any":
+                continue
+            mapped_group = LEGACY_FILTER_OPTION_GROUPS[group].get(value)
+            if mapped_group is None:
+                raise ValueError(f"unknown screener filter preset option for {group}: {value}")
+            group = mapped_group
         if group not in options_by_group:
             raise ValueError(f"unknown screener filter preset group: {group}")
         if value not in options_by_group[group]:

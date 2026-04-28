@@ -37,7 +37,7 @@ from web.backend.routers import (
 )
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
-from web.backend.runtime import task_store
+from web.backend.runtime import screener_prewarm, task_store
 
 
 @asynccontextmanager
@@ -55,7 +55,11 @@ async def _app_lifespan(_: FastAPI):
     if not task_store.redis_task_backend_enabled():
         restore_persisted_active_tasks()
         restore_persisted_screener_tasks()
-    yield
+    screener_prewarm.start_screener_prewarm_scheduler()
+    try:
+        yield
+    finally:
+        screener_prewarm.stop_screener_prewarm_scheduler()
 
 
 app = FastAPI(

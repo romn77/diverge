@@ -19,6 +19,11 @@ test("ScreenerResultsViewer loads candidate rows and renders sortable score colu
   assert.match(source, /listScreenerRunCandidates/);
   assert.match(source, /getTickerHistoryBatch/);
   assert.match(source, /TickerSparkline/);
+  assert.match(source, /embedded = false/);
+  assert.match(source, /const RootTag = embedded \? "section" : "main"/);
+  assert.match(source, /viewer-frame fade-in/);
+  assert.doesNotMatch(source, /#[0-9A-Fa-f]{3,8}/);
+  assert.match(source, /overflow-x-auto/);
   assert.match(source, /global_rank/);
   assert.match(source, /total_score/);
   assert.match(source, /trend_score/);

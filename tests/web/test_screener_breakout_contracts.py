@@ -15,8 +15,18 @@ from web.backend.services import screeners as screener_service
 
 
 class ScreenerBreakoutContractTests(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.original_state_dir = app_config.SCREENER_STATE_DIR
+        self.original_results_dir = app_config.SCREENER_RESULTS_DIR
+        app_config.SCREENER_STATE_DIR = Path(self.temp_dir.name) / "state"
+        app_config.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "runs"
+
     def tearDown(self):
+        app_config.SCREENER_STATE_DIR = self.original_state_dir
+        app_config.SCREENER_RESULTS_DIR = self.original_results_dir
         screener_tasks.screener_tasks.clear()
+        self.temp_dir.cleanup()
 
     def test_screener_config_options_expose_breakout_choices_and_default_selection(self):
         payload = config_service.get_screener_config_options_payload()
@@ -26,11 +36,11 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
             ["platform_breakout", "box_breakout", "wedge_breakout"],
         )
         self.assertEqual(payload["defaults"]["breakout_types"], [])
+        self.assertEqual(payload["defaults"]["top_k"], 100)
 
     def test_create_screener_task_preserves_breakout_type_selection(self):
         payload = {
             "markets": ["cn"],
-            "as_of_date": "2026-03-24",
             "top_k": 20,
             "cn_data_source": "akshare",
             "breakout_types": ["platform_breakout", "wedge_breakout"],
@@ -39,7 +49,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         with (
             patch("web.backend.access.require_screener_user", return_value=None),
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread"),
+            patch("web.backend.routers.screeners.date") as date_module,
         ):
+            date_module.today.return_value = __import__("datetime").date(2026, 3, 24)
             body = screeners_router.create_screener_task(
                 ScreenTaskCreatePayload(**payload)
             )
@@ -53,6 +65,57 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
             task.config_payload["breakout_types"],
             ["platform_breakout", "wedge_breakout"],
         )
+        self.assertEqual(task.request_payload["as_of_date"], "2026-03-24")
+
+    def test_create_screener_task_reuses_shared_cached_result_for_same_screen(self):
+        payload = {
+            "markets": ["cn"],
+            "top_k": 20,
+            "cn_data_source": "akshare",
+            "breakout_types": ["platform_breakout"],
+        }
+
+        with (
+            patch("web.backend.access.require_screener_user", return_value=None),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_thread,
+            patch("web.backend.routers.screeners.date") as date_module,
+        ):
+            date_module.today.return_value = __import__("datetime").date(2026, 3, 24)
+            first = screeners_router.create_screener_task(ScreenTaskCreatePayload(**payload))
+            first_task = screener_tasks.screener_tasks[first["task_id"]]
+            key = first_task.request_payload["screener_key"]
+            cached_state = screener_results.ScreenerResultState(
+                screener_key=key,
+                owner_user_id=None,
+                current_result=screener_results.ScreenerResultSnapshot(
+                    slot=screener_results.CURRENT_SNAPSHOT_SLOT,
+                    source_run_id="cached-run-001",
+                    generated_at="20260324_214530",
+                    updated_at="2026-03-24T21:45:30Z",
+                    as_of_date="2026-03-24",
+                    markets=["cn"],
+                    candidate_count=1,
+                    rows=[
+                        {
+                            "symbol": "600519.SH",
+                            "market": "cn",
+                            "global_rank": 1,
+                            "total_score": 0.91,
+                        }
+                    ],
+                ),
+            )
+            screener_results.save_screener_result_state(cached_state)
+
+            second = screeners_router.create_screener_task(ScreenTaskCreatePayload(**payload))
+
+        self.assertEqual(second["status"], "completed")
+        self.assertEqual(second["run_id"], "cached-run-001")
+        self.assertTrue(second["cached"])
+        self.assertEqual(start_thread.call_count, 1)
+        second_task = screener_tasks.screener_tasks[second["task_id"]]
+        self.assertEqual(second_task.status, "completed")
+        self.assertEqual(second_task.run_id, "cached-run-001")
 
 
     def test_legacy_candidate_rows_fill_missing_columns_with_safe_defaults(self):

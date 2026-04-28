@@ -329,6 +329,21 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "screenerDashboard.metadataOnly": "仅元数据",
   "screenerDashboard.scope.mine": "我的",
   "screenerDashboard.scope.team": "团队",
+  "screenerDashboard.staleResultTitle": "筛选条件已变更",
+  "screenerDashboard.staleResultBody":
+    "下方仍是上一轮结果。点击运行，用当前筛选条件生成新的候选池。",
+  "screenerDashboard.staleResultDismiss": "隐藏上一轮结果",
+  "screenerDashboard.resultSlot": "筛选结果",
+  "screenerDashboard.placeholderReadyTitle": "等待运行",
+  "screenerDashboard.placeholderReadyBody":
+    "第一次运行完成后，排序候选会固定显示在这里。",
+  "screenerDashboard.placeholderRunningTitle": "候选池构建中",
+  "screenerDashboard.placeholderRunningBody":
+    "当前筛选任务完成后，结果会自动显示在这里。",
+  "screenerDashboard.placeholderOpenTask": "查看任务",
+  "screenerDashboard.placeholderMarket": "市场",
+  "screenerDashboard.placeholderFilters": "已选条件",
+  "screenerDashboard.placeholderTopK": "Top K",
   "screenerDashboard.marketCoverage": "市场覆盖",
   "screenerDashboard.waitingHistory": "等待筛选历史",
   "screenerDashboard.queueSnapshot": "队列快照",

@@ -24,7 +24,6 @@ import {
   type ScreenTaskCreateRequest,
   type ScreenerConfigOptions,
 } from "@/lib/api";
-import { getLocalDateInputValue } from "@/lib/localDate";
 import { optionKey } from "@/lib/uiPreferences";
 
 interface NewScreenerFormProps {
@@ -55,12 +54,8 @@ function validateScreenerRequest(
   if (!Number.isFinite(topK) || topK <= 0) {
     return t("screener.topKPositive", "Top K must be positive.");
   }
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(formState.as_of_date)) {
-    return t(
-      "screener.dateFormat",
-      "as_of_date must use YYYY-MM-DD format."
-    );
+  if (topK > 100) {
+    return t("screener.topKMax", "Top K must be 100 or less.");
   }
 
   return null;
@@ -104,7 +99,6 @@ export function NewScreenerForm({
         setConfigOptions(nextOptions);
         setFormState({
           markets: nextOptions.markets.filter((market) => market.enabled).slice(0, 1).map((market) => market.value),
-          as_of_date: getLocalDateInputValue(),
           cn_data_source: nextOptions.defaults.cn_data_source,
           us_data_source: nextOptions.defaults.us_data_source,
           history_cache_policy: nextOptions.defaults.history_cache_policy,
@@ -346,24 +340,12 @@ export function NewScreenerForm({
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  {t("screener.asOfDate", "As Of Date")}
-                </span>
-                <Input
-                  type="date"
-                  value={formState.as_of_date}
-                  onChange={(event) =>
-                    setFormState({ ...formState, as_of_date: event.target.value })
-                  }
-                  className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
-                />
-              </label>
-
-              <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-                <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("screener.topK", "Top K")}
                 </span>
                 <Input
                   type="number"
+                  min={1}
+                  max={100}
                   value={formState.top_k}
                   onChange={(event) =>
                     setFormState({ ...formState, top_k: event.target.value })

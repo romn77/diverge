@@ -46,12 +46,17 @@ export function buildTaskHref(taskId: string): string {
   return `/tasks/${encodeURIComponent(taskId)}`;
 }
 
-export function buildScreenerHref(): string {
-  return "/screeners";
+export function buildScreenerHref(runId?: string | null): string {
+  if (!runId) {
+    return "/screeners";
+  }
+
+  const searchParams = new URLSearchParams({ runId });
+  return `/screeners?${searchParams.toString()}`;
 }
 
 export function buildScreenerRunHref(runId: string): string {
-  return `/screeners/${encodeURIComponent(runId)}`;
+  return buildScreenerHref(runId);
 }
 
 export function buildScreenerTaskHref(taskId: string): string {

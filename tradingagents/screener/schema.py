@@ -29,6 +29,7 @@ VALID_BREAKOUT_TYPES = {
     "box_breakout",
     "wedge_breakout",
 }
+MAX_TOP_K = 100
 
 
 def build_cn_source_chain(
@@ -142,6 +143,8 @@ class ScreenRunConfig:
 
         if self.top_k <= 0:
             raise ValueError("top_k must be positive")
+        if self.top_k > MAX_TOP_K:
+            raise ValueError(f"top_k must be less than or equal to {MAX_TOP_K}")
         if len(set(self.breakout_types)) != len(self.breakout_types):
             raise ValueError("breakout_types must not contain duplicates")
         if self.min_listing_days <= 0:

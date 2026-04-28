@@ -164,7 +164,7 @@ def get_screener_config_options_payload() -> dict:
         "defaults": {
             "cn_data_source": "tushare",
             "us_data_source": "massive",
-            "top_k": 500,
+            "top_k": 100,
             "history_cache_policy": "cache_only",
             "breakout_types": [],
             "filter_preset_selections": DEFAULT_FILTER_PRESET_SELECTIONS,

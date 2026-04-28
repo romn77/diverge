@@ -3,13 +3,23 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from tradingagents.dataflows import vendor_usage
+from tradingagents.screener.market_calendar import latest_trading_day_on_or_before
 from tradingagents.screener.schema import ScreenRunConfig
-from web.backend import access, analysis_limits, app_config, audit, auth
+from web.backend import (
+    access,
+    analysis_limits,
+    app_config,
+    audit,
+    auth,
+    screener_presets,
+    screener_results,
+)
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.services import screeners as screener_service
@@ -61,6 +71,18 @@ def resolve_screener_data_sources(markets: list[str]) -> dict:
     return sources
 
 
+def resolve_screener_as_of_date(markets: list[str]) -> str:
+    today = date.today()
+    trading_days = [
+        latest_trading_day_on_or_before(market, today)
+        for market in markets
+    ]
+    resolved_days = [day for day in trading_days if day is not None]
+    if not resolved_days:
+        raise HTTPException(status_code=400, detail="Unable to resolve screener trading date.")
+    return min(resolved_days).isoformat()
+
+
 def _enforce_screener_submission_capacity(current_user) -> None:
     if not task_store.redis_task_backend_enabled():
         if (
@@ -102,9 +124,12 @@ def create_screener_task(
         request,
         permission=auth.PERMISSION_SCREENER_CREATE,
     )
-    _enforce_screener_submission_capacity(current_user)
 
     request_payload = payload.model_dump()
+    if not request_payload.get("as_of_date"):
+        request_payload["as_of_date"] = resolve_screener_as_of_date(
+            request_payload["markets"]
+        )
     request_payload.update(resolve_screener_data_sources(request_payload["markets"]))
     config_payload = dict(request_payload)
     config_payload["output_dir"] = str(app_config.SCREENER_RESULTS_DIR)
@@ -128,6 +153,20 @@ def create_screener_task(
         ScreenRunConfig(**config_payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    screener_key = screener_results.screener_key_for_config(config_payload)
+    request_payload["screener_key"] = screener_key
+    cached_snapshot = screener_results.get_cached_screener_result(config_payload)
+    if cached_snapshot is not None:
+        return screener_tasks.create_cached_screener_task(
+            request_payload=request_payload,
+            config_payload=config_payload,
+            run_id=cached_snapshot.source_run_id,
+            owner_user_id=current_user.id if current_user is not None else None,
+            tenant_id=getattr(current_user, "tenant_id", None),
+        )
+
+    _enforce_screener_submission_capacity(current_user)
 
     if current_user is not None:
         try:
@@ -163,6 +202,33 @@ def create_screener_task(
                 request=request,
             )
     return result
+
+
+@router.get("/api/screener/presets")
+def list_screener_presets_endpoint(request: Request = None) -> list[dict]:
+    current_user = access.require_screener_user(request)
+    return screener_presets.load_screener_presets(
+        current_user.id if current_user is not None else None
+    )
+
+
+@router.put("/api/screener/presets")
+def replace_screener_presets_endpoint(
+    payload: list[dict] | None = Body(default=None),
+    request: Request = None,
+) -> list[dict]:
+    current_user = access.require_screener_user(
+        request,
+        permission=auth.PERMISSION_SCREENER_CREATE,
+    )
+    try:
+        return screener_presets.save_screener_presets(
+            current_user.id if current_user is not None else None,
+            payload or [],
+            tenant_id=getattr(current_user, "tenant_id", None),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/api/screener/tasks")

@@ -2701,6 +2701,21 @@ wheels = [
 ]
 
 [[package]]
+name = "simfin"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "numpy", version = "2.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "pandas" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/30/22/f187f230f42c96ae7508abccb11532f5342a1000480d552cc3744f212dff/simfin-1.0.1.tar.gz", hash = "sha256:24e921daff7f938e714ccc7543fd8e75d267f2844dcb0cee8e203259f1a17673", size = 54815, upload-time = "2024-04-03T11:31:11.879Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/45/43/e84640f5692b24d354001b2c635f09f6f5ddc3b89b1399ecff84dfd79a11/simfin-1.0.1-py3-none-any.whl", hash = "sha256:e2e6d9404d75f30e919f50f84dc576c0d833514a3ded1e38745365da150e5bf2", size = 61599, upload-time = "2024-04-03T11:31:04.995Z" },
+]
+
+[[package]]
 name = "simplejson"
 version = "3.20.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3011,6 +3026,7 @@ dependencies = [
     { name = "requests" },
     { name = "rich" },
     { name = "setuptools" },
+    { name = "simfin" },
     { name = "stockstats" },
     { name = "tqdm" },
     { name = "tushare" },
@@ -3066,6 +3082,7 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.4" },
     { name = "rich", specifier = ">=14.0.0" },
     { name = "setuptools", specifier = ">=80.9.0" },
+    { name = "simfin", specifier = ">=1.0.1" },
     { name = "sqlalchemy", marker = "extra == 'web'", specifier = ">=2.0.41" },
     { name = "stockstats", specifier = ">=0.6.5" },
     { name = "tqdm", specifier = ">=4.67.1" },

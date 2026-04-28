@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 
 class ScreenTaskCreatePayload(BaseModel):
     markets: list[str]
-    as_of_date: str
+    as_of_date: str | None = None
     top_k: int
     cn_data_source: str = "tushare"
     us_data_source: str = "massive"

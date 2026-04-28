@@ -19,7 +19,9 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
   assert.match(source, /buildActivityHref/);
   assert.match(source, /t\("home\.searchLabel", "Search reports"\)/);
   assert.match(source, /t\("home\.recentTickers", "Tracked Tickers"\)/);
-  assert.match(source, /t\("home\.coverageSnapshot", "Coverage Snapshot"\)/);
+  assert.match(source, /home\.metric\.trackedTickersMeta/);
+  assert.doesNotMatch(source, /home\.coverageSnapshot/);
+  assert.doesNotMatch(source, /home\.coverageMap/);
   assert.match(source, /t\("home\.launchAnalysis", "New Analysis"\)/);
   assert.doesNotMatch(source, /Launch Screener/);
   assert.doesNotMatch(source, /Open Trade Journal/);
@@ -68,12 +70,16 @@ test("HomeDashboard distinguishes private and workspace shared reports", () => {
   assert.doesNotMatch(source, /home\.visibility\.workspaceOwned/);
 });
 
-test("HomeDashboard scopes counts and coverage map to the current search query", () => {
+test("HomeDashboard scopes counts and report results to the current search query", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /function matchesReportQuery/);
   assert.match(source, /const searchMatchedReports = useMemo/);
   assert.match(source, /reportScopeCounts[\s\S]*searchMatchedReports/);
+  assert.match(source, /const scopedReports = useMemo/);
+  assert.match(source, /const trackedTickers = useMemo/);
   assert.match(source, /for \(const report of scopedReports\)/);
-  assert.match(source, /reports: scopedReports\.length/);
+  assert.match(source, /const matchingReports = scopedReports/);
+  assert.doesNotMatch(source, /latestScopedReport/);
+  assert.doesNotMatch(source, /snapshotSearchBody/);
 });

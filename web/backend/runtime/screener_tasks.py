@@ -518,6 +518,52 @@ def create_screener_task(
     return {"task_id": task_id, "status": "pending"}
 
 
+def create_cached_screener_task(
+    *,
+    request_payload: dict,
+    config_payload: dict,
+    run_id: str,
+    owner_user_id: str | None = None,
+    tenant_id: str | None = None,
+) -> dict:
+    task_id = uuid.uuid4().hex
+    now_iso = _utc_iso()
+    progress = build_screener_progress(
+        status="completed",
+        stage="Export",
+        current=1,
+        total=1,
+        message=f"Cache hit 1/1 {run_id}",
+    )
+    task = ScreenerTask(
+        id=task_id,
+        request_payload=request_payload,
+        config_payload=config_payload,
+        owner_user_id=owner_user_id,
+        tenant_id=tenant_id,
+        status="completed",
+        latest_progress=progress,
+        progress_events=[progress],
+        run_id=run_id,
+        created_at=now_iso,
+        started_at=now_iso,
+        finished_at=now_iso,
+    )
+
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().save_task("screener", task_id, task.to_dict())
+        task_store.get_task_store().append_event("screener", task_id, progress)
+    else:
+        with screener_tasks_lock:
+            screener_tasks[task_id] = task
+    return {
+        "task_id": task_id,
+        "status": "completed",
+        "run_id": run_id,
+        "cached": True,
+    }
+
+
 def screener_task_from_payload(payload: dict) -> ScreenerTask:
     status = str(payload.get("status") or "pending")
     if task_store.redis_task_backend_enabled() and status == "pending":
