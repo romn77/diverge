@@ -7,15 +7,13 @@ import {
   type TickerHistoryPoint,
   type TickerHistorySeries,
 } from "@/lib/api";
+import { TickerFinancialChart } from "./TickerFinancialChart";
 
-const CHART_WIDTH = 1240;
-const CHART_HEIGHT = 460;
-const CHART_PADDING_LEFT = 30;
-const CHART_PADDING_RIGHT = 76;
-const CHART_PADDING_TOP = 28;
-const CHART_PADDING_BOTTOM = 54;
 const SPARKLINE_WIDTH = 112;
 const SPARKLINE_HEIGHT = 34;
+const SPARKLINE_PADDING = 4;
+const SPARKLINE_LOOKBACK_POINTS = 30;
+const PRICE_PANEL_LOOKBACK_DAYS = 1000;
 
 interface TickerPricePanelProps {
   symbol: string;
@@ -44,12 +42,18 @@ interface ChartDomain {
   step: number;
 }
 
+interface SparklineMarker {
+  x: number;
+  y: number;
+  index: number;
+}
+
 export function TickerPricePanel({
   symbol,
   market,
   asOfDate,
   title = "Price Trend",
-  subtitle = "400-day vendor-backed history for the active ticker.",
+  subtitle = "1000-day vendor-backed history for the active ticker.",
   embedded = false,
 }: TickerPricePanelProps) {
   const { locale, t } = usePreferences();
@@ -69,6 +73,7 @@ export function TickerPricePanel({
           symbol,
           market,
           asOfDate,
+          days: PRICE_PANEL_LOOKBACK_DAYS,
         });
         if (!isActive) {
           return;
@@ -181,7 +186,7 @@ export function TickerPricePanel({
       ) : (
         <>
           <ChartShell embedded={embedded}>
-            <PriceLineChart points={validPoints} locale={locale} />
+            <TickerFinancialChart points={validPoints} locale={locale} />
           </ChartShell>
 
           {embedded ? (
@@ -209,20 +214,23 @@ export function TickerSparkline({
   loading = false,
   className = "",
 }: TickerSparklineProps) {
-  const validPoints = filterValidPoints(points);
+  const validPoints = filterValidPoints(points).slice(-SPARKLINE_LOOKBACK_POINTS);
+  const sparklineDomain = buildSparklineDomain(validPoints);
   const sparklinePath = buildLinePath(
     validPoints,
     SPARKLINE_WIDTH,
     SPARKLINE_HEIGHT,
-    4,
-    4,
-    4,
-    4,
-    buildChartDomain(validPoints)
+    SPARKLINE_PADDING,
+    SPARKLINE_PADDING,
+    SPARKLINE_PADDING,
+    SPARKLINE_PADDING,
+    sparklineDomain
   );
+  const markers = buildSparklineMarkers(validPoints, sparklineDomain);
   const trendUp =
     validPoints.length >= 2 &&
     validPoints[validPoints.length - 1].close >= validPoints[0].close;
+  const lineColor = trendUp ? "rgb(18 106 70)" : "rgb(161 68 68)";
 
   if (loading) {
     return (
@@ -251,11 +259,32 @@ export function TickerSparkline({
       <path
         d={sparklinePath}
         fill="none"
-        stroke={trendUp ? "rgb(18 106 70)" : "rgb(161 68 68)"}
+        stroke={lineColor}
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+      {markers.extremes.map((marker) => (
+        <circle
+          key={`${marker.kind}-${marker.index}`}
+          cx={marker.x}
+          cy={marker.y}
+          r="2"
+          fill="var(--surface-strong)"
+          stroke={marker.kind === "high" ? "rgb(18 106 70)" : "rgb(161 68 68)"}
+          strokeWidth="1.4"
+        />
+      ))}
+      {markers.latest ? (
+        <circle
+          cx={markers.latest.x}
+          cy={markers.latest.y}
+          r="2.8"
+          fill={lineColor}
+          stroke="var(--surface-strong)"
+          strokeWidth="1.6"
+        />
+      ) : null}
     </svg>
   );
 }
@@ -277,124 +306,6 @@ function ChartShell({
     >
       {children}
     </div>
-  );
-}
-
-function PriceLineChart({
-  points,
-  locale,
-}: {
-  points: Array<TickerHistoryPoint & { close: number }>;
-  locale: string;
-}) {
-  const domain = buildChartDomain(points);
-  const path = buildLinePath(
-    points,
-    CHART_WIDTH,
-    CHART_HEIGHT,
-    CHART_PADDING_LEFT,
-    CHART_PADDING_RIGHT,
-    CHART_PADDING_TOP,
-    CHART_PADDING_BOTTOM,
-    domain
-  );
-  const yAxisTicks = buildYAxisTicks(domain, CHART_HEIGHT, CHART_PADDING_TOP, CHART_PADDING_BOTTOM);
-  const monthTicks = buildMonthTicks(
-    points,
-    CHART_WIDTH,
-    CHART_PADDING_LEFT,
-    CHART_PADDING_RIGHT,
-    locale
-  );
-  const plotLeft = CHART_PADDING_LEFT;
-  const plotRight = CHART_WIDTH - CHART_PADDING_RIGHT;
-  const plotBottom = CHART_HEIGHT - CHART_PADDING_BOTTOM;
-
-  return (
-    <svg
-      viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-      className="h-[20rem] w-full md:h-[22rem]"
-      aria-hidden
-    >
-      <rect
-        x="0"
-        y="0"
-        width={CHART_WIDTH}
-        height={CHART_HEIGHT}
-        rx="24"
-        fill="var(--chart-svg-bg)"
-      />
-
-      {yAxisTicks.map((tick) => (
-        <line
-          key={`y-${tick.value}`}
-          x1={plotLeft}
-          y1={tick.y}
-          x2={plotRight}
-          y2={tick.y}
-          stroke="var(--chart-grid)"
-          strokeDasharray="10 10"
-          strokeWidth="1.2"
-        />
-      ))}
-
-      {monthTicks.map((tick) => (
-        <line
-          key={`x-${tick.label}`}
-          x1={tick.x}
-          y1={CHART_PADDING_TOP}
-          x2={tick.x}
-          y2={plotBottom}
-          stroke="var(--chart-grid-soft)"
-          strokeWidth="1"
-        />
-      ))}
-
-      <path
-        d={path}
-        fill="none"
-        stroke="var(--chart-line)"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      <line
-        x1={plotLeft}
-        y1={plotBottom}
-        x2={plotRight}
-        y2={plotBottom}
-        stroke="var(--chart-axis)"
-        strokeWidth="1.2"
-      />
-
-      {yAxisTicks.map((tick) => (
-        <text
-          key={`y-label-${tick.value}`}
-          x={CHART_WIDTH - CHART_PADDING_RIGHT + 18}
-          y={tick.y + 5}
-          fill="var(--chart-label)"
-          fontSize="16"
-          fontWeight="600"
-        >
-          {formatAxisPrice(tick.value, locale)}
-        </text>
-      ))}
-
-      {monthTicks.map((tick) => (
-        <text
-          key={`x-label-${tick.label}`}
-          x={tick.x}
-          y={CHART_HEIGHT - 14}
-          textAnchor="middle"
-          fill="var(--chart-label)"
-          fontSize="16"
-          fontWeight="600"
-        >
-          {tick.label}
-        </text>
-      ))}
-    </svg>
   );
 }
 
@@ -565,102 +476,23 @@ function hasNumericClose(
   return typeof point.close === "number";
 }
 
-function buildChartDomain(points: Array<TickerHistoryPoint & { close: number }>): ChartDomain {
+function buildSparklineDomain(points: Array<TickerHistoryPoint & { close: number }>): ChartDomain {
   if (points.length === 0) {
     return { min: 0, max: 1, step: 1 };
   }
 
-  const lows = points.map((point) => point.low ?? point.close);
-  const highs = points.map((point) => point.high ?? point.close);
-  const rawMin = Math.min(...lows);
-  const rawMax = Math.max(...highs);
+  const closes = points.map((point) => point.close);
+  const rawMin = Math.min(...closes);
+  const rawMax = Math.max(...closes);
   const range = rawMax - rawMin || Math.max(Math.abs(rawMax) * 0.12, 1);
-  const paddedMin = rawMin - range * 0.08;
-  const paddedMax = rawMax + range * 0.08;
-  const step = getNiceStep((paddedMax - paddedMin) / 4);
+  const paddedMin = rawMin - range * 0.14;
+  const paddedMax = rawMax + range * 0.14;
 
   return {
-    min: Math.floor(paddedMin / step) * step,
-    max: Math.ceil(paddedMax / step) * step,
-    step,
+    min: paddedMin,
+    max: paddedMax,
+    step: (paddedMax - paddedMin) / 4,
   };
-}
-
-function getNiceStep(roughStep: number): number {
-  const safeStep = roughStep > 0 ? roughStep : 1;
-  const power = 10 ** Math.floor(Math.log10(safeStep));
-  const scaled = safeStep / power;
-
-  if (scaled <= 1) {
-    return power;
-  }
-  if (scaled <= 2) {
-    return 2 * power;
-  }
-  if (scaled <= 5) {
-    return 5 * power;
-  }
-  return 10 * power;
-}
-
-function buildYAxisTicks(
-  domain: ChartDomain,
-  height: number,
-  paddingTop: number,
-  paddingBottom: number
-) {
-  const ticks: Array<{ value: number; y: number }> = [];
-  const usableHeight = height - paddingTop - paddingBottom;
-
-  for (let value = domain.min; value <= domain.max + domain.step * 0.5; value += domain.step) {
-    const ratio = (value - domain.min) / (domain.max - domain.min || 1);
-    const y = height - paddingBottom - ratio * usableHeight;
-    ticks.push({ value, y });
-  }
-
-  return ticks;
-}
-
-function buildMonthTicks(
-  points: Array<TickerHistoryPoint & { close: number }>,
-  width: number,
-  paddingLeft: number,
-  paddingRight: number,
-  locale: string
-) {
-  const uniqueMonths: Array<{ index: number; date: Date }> = [];
-  const seen = new Set<string>();
-  const usableWidth = width - paddingLeft - paddingRight;
-
-  points.forEach((point, index) => {
-    const parsed = parseIsoDate(point.date);
-    if (!parsed) {
-      return;
-    }
-    const key = `${parsed.getUTCFullYear()}-${parsed.getUTCMonth()}`;
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    uniqueMonths.push({ index, date: parsed });
-  });
-
-  if (uniqueMonths.length === 0) {
-    return [];
-  }
-
-  const maxLabels = 8;
-  const interval = Math.max(1, Math.ceil(uniqueMonths.length / maxLabels));
-  const sampled = uniqueMonths.filter((_, index) => index % interval === 0);
-  const last = uniqueMonths[uniqueMonths.length - 1];
-  if (!sampled.some((tick) => tick.index === last.index)) {
-    sampled.push(last);
-  }
-
-  return sampled.map((tick) => ({
-    x: paddingLeft + (usableWidth * tick.index) / Math.max(points.length - 1, 1),
-    label: formatMonthTick(tick.date, locale),
-  }));
 }
 
 function buildLinePath(
@@ -697,6 +529,76 @@ function buildLinePath(
     .join(" ");
 }
 
+function buildSparklineMarkers(
+  points: Array<TickerHistoryPoint & { close: number }>,
+  domain: ChartDomain
+): {
+  latest: SparklineMarker | null;
+  extremes: Array<SparklineMarker & { kind: "high" | "low" }>;
+} {
+  if (points.length === 0) {
+    return { latest: null, extremes: [] };
+  }
+
+  const latest = toSparklineMarker(points, points.length - 1, domain);
+  const lowIndex = findCloseExtremeIndex(points, "low");
+  const highIndex = findCloseExtremeIndex(points, "high");
+  const extremes: Array<SparklineMarker & { kind: "high" | "low" }> = [];
+
+  if (lowIndex !== null && lowIndex !== latest.index) {
+    extremes.push({ ...toSparklineMarker(points, lowIndex, domain), kind: "low" });
+  }
+  if (highIndex !== null && highIndex !== latest.index && highIndex !== lowIndex) {
+    extremes.push({ ...toSparklineMarker(points, highIndex, domain), kind: "high" });
+  }
+
+  return { latest, extremes };
+}
+
+function findCloseExtremeIndex(
+  points: Array<TickerHistoryPoint & { close: number }>,
+  kind: "high" | "low"
+): number | null {
+  if (points.length === 0) {
+    return null;
+  }
+
+  return points.reduce((selectedIndex, point, index) => {
+    const selected = points[selectedIndex];
+    return kind === "high"
+      ? point.close > selected.close
+        ? index
+        : selectedIndex
+      : point.close < selected.close
+        ? index
+        : selectedIndex;
+  }, 0);
+}
+
+function toSparklineMarker(
+  points: Array<TickerHistoryPoint & { close: number }>,
+  index: number,
+  domain: ChartDomain
+): SparklineMarker {
+  const point = points[index];
+  const usableWidth = SPARKLINE_WIDTH - SPARKLINE_PADDING * 2;
+  const usableHeight = SPARKLINE_HEIGHT - SPARKLINE_PADDING * 2;
+  const x =
+    points.length === 1
+      ? SPARKLINE_WIDTH - SPARKLINE_PADDING
+      : SPARKLINE_PADDING + (usableWidth * index) / (points.length - 1);
+  const y =
+    SPARKLINE_HEIGHT -
+    SPARKLINE_PADDING -
+    ((point.close - domain.min) / (domain.max - domain.min || 1)) * usableHeight;
+
+  return {
+    x,
+    y,
+    index,
+  };
+}
+
 function formatPrice(value: number | null, locale: string): string {
   if (typeof value !== "number") {
     return "—";
@@ -704,12 +606,6 @@ function formatPrice(value: number | null, locale: string): string {
 
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: 2,
-  }).format(value);
-}
-
-function formatAxisPrice(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 0,
   }).format(value);
 }
 
@@ -735,23 +631,4 @@ function formatMetricDateCompact(value: string, locale: string): string {
     month: "2-digit",
     day: "2-digit",
   }).format(parsed);
-}
-
-function formatMonthTick(value: Date, locale: string): string {
-  const formatted = new Intl.DateTimeFormat(locale, {
-    month: "short",
-    year: "2-digit",
-    timeZone: "UTC",
-  }).format(value);
-
-  const parts = formatted.split(" ");
-  if (parts.length === 2 && /^[A-Za-z]{3,}$/.test(parts[0])) {
-    return `${parts[0]} '${parts[1]}`;
-  }
-  return formatted;
-}
-
-function parseIsoDate(value: string): Date | null {
-  const parsed = new Date(`${value}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }

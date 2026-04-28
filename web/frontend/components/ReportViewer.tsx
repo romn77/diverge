@@ -765,7 +765,7 @@ const ReportOverviewCompanion = memo(function ReportOverviewCompanion({
         title={t("report.priceTrend", "Price Trend")}
         subtitle={t(
           "report.priceTrendHint",
-          "400-day vendor-backed history aligned to this report date."
+          "1000-day vendor-backed history aligned to this report date."
         )}
         embedded
       />

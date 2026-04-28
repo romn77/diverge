@@ -652,7 +652,7 @@ export function TradeJournal({
                       title={t("journal.priceTrend", "Price Trend")}
                       subtitle={t(
                         "journal.priceTrendHint",
-                        "400-day vendor-backed history for the selected trade ticker."
+                        "1000-day vendor-backed history for the selected trade ticker."
                       )}
                     />
 
