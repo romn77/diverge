@@ -631,11 +631,33 @@ export interface ScreenerConfigOptions {
     label: string;
     value: string;
   }>;
+  filter_preset_groups: Array<{
+    id: string;
+    label: string;
+    options: Array<{
+      label: string;
+      value: string;
+      condition?: Record<string, unknown>;
+      conditions?: Array<Record<string, unknown>>;
+    }>;
+  }>;
+  ranking_profiles: Array<{
+    id: string;
+    label: string;
+    description: string;
+    weights: Record<string, number>;
+  }>;
   defaults: {
     cn_data_source: string;
     us_data_source: string;
     top_k: number;
+    history_cache_policy: string;
     breakout_types: string[];
+    filter_preset_selections: Record<string, string>;
+    ranking_profile_id: string;
+    include_fundamentals: boolean;
+    cn_fundamental_source: string;
+    us_fundamental_source: string;
   };
 }
 
@@ -645,12 +667,54 @@ export interface ScreenTaskCreateRequest {
   top_k: number;
   cn_data_source: string;
   us_data_source: string;
+  history_cache_policy?: string;
   breakout_types: string[];
+  filter_preset_selections?: Record<string, string>;
+  ranking_profile_id?: string | null;
+  include_fundamentals?: boolean;
+  cn_fundamental_source?: string;
+  us_fundamental_source?: string;
 }
 
 export interface ScreenerTaskCreateResponse {
   task_id: string;
   status: string;
+}
+
+export interface DataSyncOhlcvRequest {
+  markets: string[];
+  as_of_date: string;
+  top_k?: number;
+  cn_data_source?: string;
+  cn_data_source_fallbacks?: string[];
+  us_data_source?: string;
+  us_data_source_fallbacks?: string[];
+  cn_manifest_path?: string | null;
+  us_manifest_path?: string | null;
+}
+
+export interface DataSyncFundamentalsRequest {
+  market: string;
+  source: string;
+  symbols?: string[];
+  as_of_date?: string | null;
+  data_dir?: string | null;
+}
+
+export interface DataSyncTask {
+  id: string;
+  sync_type: "ohlcv" | "fundamentals" | string;
+  request_payload: Record<string, unknown>;
+  owner_user_id?: string | null;
+  tenant_id?: string | null;
+  status: TaskStatus;
+  latest_progress: ProgressEvent | null;
+  progress_events: ProgressEvent[];
+  result?: Record<string, unknown> | null;
+  error?: string | null;
+  created_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
 }
 
 export interface ScreenerTask {
@@ -705,10 +769,17 @@ export interface ScreenerCandidateRow {
   market_rank?: number;
   total_score: number;
   base_total_score?: number;
+  technical_score?: number | null;
   trend_score: number;
   momentum_score: number;
+  pattern_score?: number | null;
   risk_score: number;
   liquidity_score: number;
+  fundamental_score?: number | null;
+  ranking_profile_id?: string | null;
+  score_contributions?: string | null;
+  matched_conditions?: string | null;
+  matched_condition_details?: string | null;
   breakout_hit?: boolean;
   breakout_type?: string | null;
   breakout_with_volume?: boolean;
@@ -1142,6 +1213,36 @@ export async function createScreenerTask(
     "/api/screener/tasks",
     createJsonRequestInit("POST", payload)
   );
+}
+
+export async function createOhlcvSyncTask(
+  payload: DataSyncOhlcvRequest
+): Promise<ScreenerTaskCreateResponse> {
+  return requestJson<ScreenerTaskCreateResponse>(
+    "/api/admin/data-sync/ohlcv",
+    createJsonRequestInit("POST", payload)
+  );
+}
+
+export async function createFundamentalSyncTask(
+  payload: DataSyncFundamentalsRequest
+): Promise<ScreenerTaskCreateResponse> {
+  return requestJson<ScreenerTaskCreateResponse>(
+    "/api/admin/data-sync/fundamentals",
+    createJsonRequestInit("POST", payload)
+  );
+}
+
+export async function listDataSyncJobs(): Promise<DataSyncTask[]> {
+  return requestJson<DataSyncTask[]>("/api/admin/data-sync/jobs", {
+    cache: "no-store",
+  });
+}
+
+export async function getDataSyncJob(taskId: string): Promise<DataSyncTask> {
+  return requestJson<DataSyncTask>(`/api/admin/data-sync/jobs/${taskId}`, {
+    cache: "no-store",
+  });
 }
 
 export async function listScreenerTasks(): Promise<ScreenerTask[]> {

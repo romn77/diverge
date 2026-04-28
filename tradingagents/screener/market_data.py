@@ -484,10 +484,31 @@ def _process_history_symbol(
     *,
     executor: _HistoryFetchExecutor,
     checkpoint_state: _HistoryCheckpointState,
+    cache_only: bool = False,
 ) -> _HistoryStepResult:
     cache_hit = _cache_hit_result(context)
     if cache_hit is not None:
         return cache_hit
+
+    if cache_only:
+        cached_window = slice_history_window(
+            context.cached_frame,
+            context.start_date,
+            context.as_of_date,
+        )
+        if not cached_window.empty:
+            return _HistoryStepResult(
+                history_frame=cached_window,
+                should_store_history=True,
+                processed_increment=1,
+                status="cache_partial",
+                detail=f"cache={context.cached_span}" if context.cached_span else None,
+            )
+        return _HistoryStepResult(
+            failure=_history_failure_row(context, "history_cache_miss"),
+            status="history_cache_miss",
+            detail=f"cache={context.cached_span}" if context.cached_span else None,
+        )
 
     checkpoint_skip = checkpoint_state.checkpoint_skip_result(context)
     if checkpoint_skip is not None:
@@ -661,6 +682,7 @@ def fetch_history_for_universe(
     cache_dir: str | Path | None = None,
     checkpoint_dir: str | Path | None = None,
     checkpoint_batch_size: int = 100,
+    cache_only: bool = False,
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
     as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
     start_date = (as_of_dt - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
@@ -720,6 +742,7 @@ def fetch_history_for_universe(
                 context,
                 executor=executor,
                 checkpoint_state=checkpoint_state,
+                cache_only=cache_only,
             )
             if result.should_store_history and result.history_frame is not None:
                 histories[context.symbol] = result.history_frame

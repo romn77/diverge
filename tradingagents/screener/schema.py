@@ -5,15 +5,25 @@ from datetime import date, datetime
 from pathlib import Path
 
 from tradingagents.data_layout import (
+    DEFAULT_FUNDAMENTALS_DIR,
     DEFAULT_HISTORY_DIR,
     DEFAULT_SCREENER_CACHE_DIR,
     DEFAULT_SCREENER_RUNS_DIR,
+)
+from tradingagents.screener.presets import (
+    normalize_filter_preset_selections,
+    resolve_ranking_profile,
 )
 
 
 VALID_MARKETS = {"cn", "us"}
 VALID_CN_DATA_SOURCES = {"akshare", "tushare"}
 VALID_US_DATA_SOURCES = {"akshare", "alpha_vantage", "massive", "tushare", "yfinance"}
+VALID_HISTORY_CACHE_POLICIES = {"refresh_missing", "cache_only"}
+VALID_FUNDAMENTAL_SOURCES = {
+    "cn": {"tushare"},
+    "us": {"simfin"},
+}
 VALID_BREAKOUT_TYPES = {
     "platform_breakout",
     "box_breakout",
@@ -63,12 +73,19 @@ class ScreenRunConfig:
     output_dir: str = DEFAULT_SCREENER_RUNS_DIR
     cache_dir: str = DEFAULT_SCREENER_CACHE_DIR
     history_dir: str = DEFAULT_HISTORY_DIR
+    history_cache_policy: str = "refresh_missing"
     cn_data_source: str = "tushare"
     cn_data_source_fallbacks: list[str] = field(default_factory=list)
     us_data_source: str = "yfinance"
     us_data_source_fallbacks: list[str] = field(default_factory=list)
     cn_manifest_path: str | None = None
     us_manifest_path: str | None = None
+    filter_preset_selections: dict[str, str] = field(default_factory=dict)
+    ranking_profile_id: str | None = None
+    include_fundamentals: bool = False
+    fundamental_dir: str = DEFAULT_FUNDAMENTALS_DIR
+    cn_fundamental_source: str = "tushare"
+    us_fundamental_source: str = "simfin"
 
     def __post_init__(self) -> None:
         normalized_markets = [market.strip().lower() for market in self.markets]
@@ -91,6 +108,16 @@ class ScreenRunConfig:
         self.us_data_source_fallbacks = [
             source.strip().lower() for source in self.us_data_source_fallbacks
         ]
+        self.filter_preset_selections = normalize_filter_preset_selections(
+            self.filter_preset_selections
+        )
+        self.ranking_profile_id = (
+            self.ranking_profile_id.strip()
+            if isinstance(self.ranking_profile_id, str)
+            else self.ranking_profile_id
+        )
+        if self.ranking_profile_id == "":
+            self.ranking_profile_id = None
         if self.cn_manifest_path is not None:
             normalized_cn_manifest_path = self.cn_manifest_path.strip()
             self.cn_manifest_path = normalized_cn_manifest_path or None
@@ -100,6 +127,10 @@ class ScreenRunConfig:
         self.output_dir = self.output_dir.strip()
         self.cache_dir = self.cache_dir.strip()
         self.history_dir = self.history_dir.strip()
+        self.history_cache_policy = self.history_cache_policy.strip().lower()
+        self.fundamental_dir = self.fundamental_dir.strip()
+        self.cn_fundamental_source = self.cn_fundamental_source.strip().lower()
+        self.us_fundamental_source = self.us_fundamental_source.strip().lower()
 
         try:
             parsed_date = datetime.strptime(self.as_of_date, "%Y-%m-%d").date()
@@ -133,11 +164,19 @@ class ScreenRunConfig:
             raise ValueError("cache_dir is required")
         if not self.history_dir:
             raise ValueError("history_dir is required")
+        if self.history_cache_policy not in VALID_HISTORY_CACHE_POLICIES:
+            raise ValueError("history_cache_policy must be one of {'cache_only', 'refresh_missing'}")
+        if not self.fundamental_dir:
+            raise ValueError("fundamental_dir is required")
 
         if self.cn_data_source not in VALID_CN_DATA_SOURCES:
             raise ValueError("cn_data_source must be one of {'akshare', 'tushare'}")
         if self.us_data_source not in VALID_US_DATA_SOURCES:
             raise ValueError("us_data_source must be one of {'akshare', 'alpha_vantage', 'massive', 'tushare', 'yfinance'}")
+        if self.cn_fundamental_source not in VALID_FUNDAMENTAL_SOURCES["cn"]:
+            raise ValueError("cn_fundamental_source must be one of {'tushare'}")
+        if self.us_fundamental_source not in VALID_FUNDAMENTAL_SOURCES["us"]:
+            raise ValueError("us_fundamental_source must be one of {'simfin'}")
         if any(
             source not in VALID_US_DATA_SOURCES
             for source in self.us_data_source_fallbacks
@@ -160,6 +199,8 @@ class ScreenRunConfig:
             raise ValueError(
                 "cn_data_source_fallbacks must only include values from {'akshare', 'tushare'}"
             )
+
+        resolve_ranking_profile(self.ranking_profile_id)
 
         self.cn_data_source_fallbacks = [
             source

@@ -108,6 +108,9 @@ def create_screener_task(
     request_payload.update(resolve_screener_data_sources(request_payload["markets"]))
     config_payload = dict(request_payload)
     config_payload["output_dir"] = str(app_config.SCREENER_RESULTS_DIR)
+    config_payload["cache_dir"] = str(app_config.SCREENER_CACHE_DIR)
+    config_payload["history_dir"] = str(app_config.STOCK_HISTORY_DIR)
+    config_payload["fundamental_dir"] = str(app_config.FUNDAMENTALS_DIR)
     if "cn" in request_payload["markets"]:
         manifest_path = os.environ.get("SCREEN_CN_MANIFEST_PATH")
         if manifest_path:

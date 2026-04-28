@@ -225,3 +225,121 @@ def test_score_candidates_applies_selected_breakout_bonus_with_cap_and_tags():
     assert ignored["breakout_bonus"] == 0
     assert "platform_breakout" in top["strategy_tags"]
     assert "breakout_with_volume" in top["strategy_tags"]
+
+
+def test_score_candidates_supports_pattern_ranking_profile_contributions():
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=10,
+        ranking_profile_id="pattern_breakout",
+    )
+    features = pd.DataFrame(
+        [
+            {
+                "symbol": "AAA",
+                "market": "cn",
+                "close": 105.0,
+                "ma20": 100.0,
+                "ma60": 95.0,
+                "ret_20": 0.05,
+                "ret_60": 0.08,
+                "macdh": 0.2,
+                "rsi": 58.0,
+                "atr_pct": 0.03,
+                "avg_amount_20d": 80_000_000.0,
+                "vwma": 101.0,
+                "breakout_hit": True,
+                "breakout_type": "platform_breakout",
+                "breakout_with_volume": True,
+            },
+            {
+                "symbol": "BBB",
+                "market": "cn",
+                "close": 100.0,
+                "ma20": 99.0,
+                "ma60": 98.0,
+                "ret_20": 0.04,
+                "ret_60": 0.07,
+                "macdh": 0.1,
+                "rsi": 55.0,
+                "atr_pct": 0.03,
+                "avg_amount_20d": 80_000_000.0,
+                "vwma": 100.0,
+                "breakout_hit": False,
+                "breakout_type": None,
+                "breakout_with_volume": False,
+            },
+        ]
+    )
+
+    ranked = score_candidates(features, config)
+
+    top = ranked.iloc[0]
+    assert top["symbol"] == "AAA"
+    assert top["ranking_profile_id"] == "pattern_breakout"
+    assert "pattern:" in top["score_contributions"]
+    assert "fundamental:" not in top["score_contributions"]
+    assert "pattern_score" in ranked.columns
+    assert "technical_score" in ranked.columns
+
+
+def test_score_candidates_can_rank_with_fundamental_profile():
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=10,
+        us_manifest_path="/tmp/us.csv",
+        ranking_profile_id="quality_growth_value",
+        include_fundamentals=True,
+    )
+    common = {
+        "market": "us",
+        "close": 100.0,
+        "ma20": 99.0,
+        "ma60": 98.0,
+        "ret_20": 0.04,
+        "ret_60": 0.07,
+        "macdh": 0.1,
+        "rsi": 55.0,
+        "atr_pct": 0.03,
+        "avg_amount_20d": 80_000_000.0,
+        "vwma": 100.0,
+        "breakout_hit": False,
+        "breakout_type": None,
+        "breakout_with_volume": False,
+    }
+    features = pd.DataFrame(
+        [
+            {
+                **common,
+                "symbol": "GOOD",
+                "pe_ttm": 20.0,
+                "roe": 0.25,
+                "gross_margin": 0.70,
+                "net_margin": 0.25,
+                "revenue_growth_yoy": 0.30,
+                "net_income_growth_yoy": 0.25,
+                "current_ratio": 2.0,
+                "debt_to_assets": 0.20,
+            },
+            {
+                **common,
+                "symbol": "WEAK",
+                "pe_ttm": 80.0,
+                "roe": 0.05,
+                "gross_margin": 0.20,
+                "net_margin": 0.02,
+                "revenue_growth_yoy": -0.05,
+                "net_income_growth_yoy": -0.10,
+                "current_ratio": 0.8,
+                "debt_to_assets": 0.90,
+            },
+        ]
+    )
+
+    ranked = score_candidates(features, config)
+
+    assert ranked["symbol"].tolist()[0] == "GOOD"
+    assert ranked.loc[ranked["symbol"] == "GOOD", "fundamental_score"].item() > 0
+    assert "fundamental:" in ranked.iloc[0]["score_contributions"]

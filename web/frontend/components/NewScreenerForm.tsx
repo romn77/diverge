@@ -12,6 +12,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   createScreenerTask,
   getScreenerConfigOptions,
   type ScreenTaskCreateRequest,
@@ -100,8 +107,14 @@ export function NewScreenerForm({
           as_of_date: getLocalDateInputValue(),
           cn_data_source: nextOptions.defaults.cn_data_source,
           us_data_source: nextOptions.defaults.us_data_source,
+          history_cache_policy: nextOptions.defaults.history_cache_policy,
           top_k: String(nextOptions.defaults.top_k),
           breakout_types: nextOptions.defaults.breakout_types,
+          filter_preset_selections: nextOptions.defaults.filter_preset_selections,
+          ranking_profile_id: nextOptions.defaults.ranking_profile_id,
+          include_fundamentals: nextOptions.defaults.include_fundamentals,
+          cn_fundamental_source: nextOptions.defaults.cn_fundamental_source,
+          us_fundamental_source: nextOptions.defaults.us_fundamental_source,
         });
       } catch (nextError) {
         if (isActive) {
@@ -146,6 +159,19 @@ export function NewScreenerForm({
       ? formState.breakout_types.filter((breakoutType) => breakoutType !== value)
       : [...formState.breakout_types, value];
     setFormState({ ...formState, breakout_types });
+  };
+
+  const updateFilterPreset = (groupId: string, value: string) => {
+    if (!formState) {
+      return;
+    }
+    setFormState({
+      ...formState,
+      filter_preset_selections: {
+        ...(formState.filter_preset_selections ?? {}),
+        [groupId]: value,
+      },
+    });
   };
 
   const submitTask = async () => {
@@ -232,6 +258,61 @@ export function NewScreenerForm({
             </section>
 
             <section className="grid gap-4 md:grid-cols-2">
+              <section className="field-shell rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
+                <p className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {t("screener.rankingProfile", "Ranking Profile")}
+                </p>
+                <Select
+                  value={formState.ranking_profile_id ?? ""}
+                  onValueChange={(value) =>
+                    setFormState({ ...formState, ranking_profile_id: value })
+                  }
+                >
+                  <SelectTrigger className="mt-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {configOptions.ranking_profiles.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </section>
+
+              <section className="field-shell rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
+                <p className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  {t("screener.presetFilters", "Preset Filters")}
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  {configOptions.filter_preset_groups.map((group) => (
+                    <label key={group.id} className="block">
+                      <span className="text-xs font-semibold text-slate-500">
+                        {group.label}
+                      </span>
+                      <Select
+                        value={
+                          formState.filter_preset_selections?.[group.id] ?? "any"
+                        }
+                        onValueChange={(value) => updateFilterPreset(group.id, value)}
+                      >
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {group.options.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
               <section className="field-shell rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:col-span-2">
                 <p className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("screener.breakouts", "Breakout Signals")}

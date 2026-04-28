@@ -25,6 +25,7 @@ def test_screen_run_config_accepts_valid_dual_market_input():
     assert config.us_data_source_fallbacks == ["massive"]
     assert config.cn_manifest_path == "/tmp/cn_manifest.csv"
     assert config.us_manifest_path == "/tmp/us_manifest.csv"
+    assert config.history_cache_policy == "refresh_missing"
 
 
 def test_screen_run_config_rejects_future_dates():
@@ -108,3 +109,64 @@ def test_screen_run_config_accepts_massive_us_data_source():
     )
 
     assert config.us_data_source == "massive"
+
+
+def test_screen_run_config_accepts_filter_presets_and_ranking_profile():
+    config = ScreenRunConfig(
+        markets=["cn"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        filter_preset_selections={"rsi": "strength_60"},
+        ranking_profile_id="technical_pattern_balanced",
+    )
+
+    assert config.filter_preset_selections["rsi"] == "strength_60"
+    assert config.filter_preset_selections["pattern"] == "any"
+    assert config.ranking_profile_id == "technical_pattern_balanced"
+
+
+def test_screen_run_config_rejects_unknown_filter_preset():
+    with pytest.raises(ValueError, match="unknown screener filter preset"):
+        ScreenRunConfig(
+            markets=["cn"],
+            as_of_date="2026-03-24",
+            top_k=20,
+            filter_preset_selections={"rsi": "mystery"},
+        )
+
+
+def test_screen_run_config_rejects_unknown_ranking_profile():
+    with pytest.raises(ValueError, match="ranking profile"):
+        ScreenRunConfig(
+            markets=["cn"],
+            as_of_date="2026-03-24",
+            top_k=20,
+            ranking_profile_id="mystery",
+        )
+
+
+def test_screen_run_config_accepts_cache_only_and_fundamental_sources(tmp_path):
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+        history_cache_policy="cache_only",
+        include_fundamentals=True,
+        fundamental_dir=str(tmp_path),
+        us_fundamental_source="simfin",
+    )
+
+    assert config.history_cache_policy == "cache_only"
+    assert config.include_fundamentals is True
+    assert config.fundamental_dir == str(tmp_path)
+
+
+def test_screen_run_config_rejects_unknown_history_cache_policy():
+    with pytest.raises(ValueError, match="history_cache_policy"):
+        ScreenRunConfig(
+            markets=["cn"],
+            as_of_date="2026-03-24",
+            top_k=20,
+            history_cache_policy="online_only",
+        )

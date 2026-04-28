@@ -90,10 +90,15 @@ def evaluate_screen_stage(
         history_dir=history_root,
         cache_dir=cache_root,
         checkpoint_dir=cache_root / "checkpoints",
+        cache_only=config.history_cache_policy == "cache_only",
     )
 
     _emit(progress_callback, "features", 0, 1)
     features_df = build_features_table(source_universe_df, histories, config.as_of_date)
+    if config.include_fundamentals:
+        from .fundamentals import enrich_features_with_fundamentals
+
+        features_df = enrich_features_with_fundamentals(features_df, config)
     _emit(progress_callback, "features", 1, 1)
 
     _emit(progress_callback, "filters", 0, 1)

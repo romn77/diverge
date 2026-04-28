@@ -6,3 +6,4 @@ psycopg[binary]>=3.2.6
 argon2-cffi>=23.1.0
 redis>=6.2.0
 cos-python-sdk-v5>=1.9.37
+simfin>=1.0.1

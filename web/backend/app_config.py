@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from tradingagents.data_layout import (
     resolve_history_dir,
+    resolve_fundamentals_dir,
     resolve_reports_dir,
     resolve_screener_cache_dir,
     resolve_screener_runs_dir,
@@ -28,6 +29,7 @@ SCREENER_STATE_DIR = resolve_screener_state_dir(PROJECT_ROOT)
 SCREENER_TASKS_DIR = resolve_screener_tasks_dir(PROJECT_ROOT)
 SCREENER_CACHE_DIR = resolve_screener_cache_dir(PROJECT_ROOT)
 STOCK_HISTORY_DIR = resolve_history_dir(PROJECT_ROOT)
+FUNDAMENTALS_DIR = resolve_fundamentals_dir(PROJECT_ROOT)
 TMP_REPORTS_DIR = REPORTS_DIR / ".tmp"
 
 TASKS_STATE_DIRNAME = ".tasks"

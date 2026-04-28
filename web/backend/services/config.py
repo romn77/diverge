@@ -5,6 +5,12 @@ import os
 from dotenv import dotenv_values
 
 from cli.utils import ANALYST_ORDER
+from tradingagents.screener.presets import (
+    DEFAULT_FILTER_PRESET_SELECTIONS,
+    DEFAULT_RANKING_PROFILE_ID,
+    list_filter_preset_groups,
+    list_ranking_profiles,
+)
 from tradingagents.llm_clients.model_config import (
     DEEP_MODEL_OPTIONS,
     PROVIDER_OPTIONS,
@@ -153,10 +159,18 @@ def get_screener_config_options_payload() -> dict:
             {"label": "Box Breakout", "value": "box_breakout"},
             {"label": "Wedge Breakout", "value": "wedge_breakout"},
         ],
+        "filter_preset_groups": list_filter_preset_groups(),
+        "ranking_profiles": list_ranking_profiles(),
         "defaults": {
             "cn_data_source": "tushare",
             "us_data_source": "massive",
             "top_k": 500,
+            "history_cache_policy": "cache_only",
             "breakout_types": [],
+            "filter_preset_selections": DEFAULT_FILTER_PRESET_SELECTIONS,
+            "ranking_profile_id": DEFAULT_RANKING_PROFILE_ID,
+            "include_fundamentals": False,
+            "cn_fundamental_source": "tushare",
+            "us_fundamental_source": "simfin",
         },
     }

@@ -30,9 +30,11 @@ interface ScreenerResultsViewerProps {
 type SortKey =
   | "global_rank"
   | "total_score"
+  | "technical_score"
   | "breakout_bonus"
   | "trend_score"
   | "momentum_score"
+  | "pattern_score"
   | "risk_score"
   | "liquidity_score";
 
@@ -169,12 +171,14 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
   const columns: Array<{ key: SortKey; label: string }> = [
     { key: "global_rank", label: t("screenerResults.column.rank", "Rank") },
     { key: "total_score", label: t("screenerResults.column.total", "Total") },
+    { key: "technical_score", label: t("screenerResults.column.technical", "Technical") },
     { key: "breakout_bonus", label: t("screenerResults.column.breakout", "Breakout") },
     { key: "trend_score", label: t("screenerResults.column.trend", "Trend") },
     {
       key: "momentum_score",
       label: t("screenerResults.column.momentum", "Momentum"),
     },
+    { key: "pattern_score", label: t("screenerResults.column.pattern", "Pattern") },
     { key: "risk_score", label: t("screenerResults.column.risk", "Risk") },
     {
       key: "liquidity_score",
@@ -241,6 +245,11 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                 filteredReasons.reduce((sum, [, count]) => sum + count, 0)
               )}
               hint="Candidates removed before the final export"
+            />
+            <SummaryCard
+              label={t("screenerResults.summary.profile", "Profile")}
+              value={strongestSignal?.ranking_profile_id ?? "Legacy"}
+              hint="Ranking model used for this result"
             />
           </div>
 
@@ -335,6 +344,10 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                       label="Momentum"
                       value={formatScore(row.momentum_score, locale)}
                     />
+                    <Metric
+                      label="Pattern"
+                      value={formatScore(row.pattern_score ?? 0, locale)}
+                    />
                     <Metric label="Risk" value={formatScore(row.risk_score, locale)} />
                     <Metric
                       label="Liquidity"
@@ -363,6 +376,11 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                       value={row.risk_flags}
                       tone="bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
                     />
+                    <TagStrip
+                      label="Matched"
+                      value={row.matched_conditions}
+                      tone="bg-[rgba(49,104,142,0.1)] text-sky-700"
+                    />
                   </div>
                 </article>
               ))}
@@ -387,6 +405,12 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   </TableHead>
                   <TableHead className="text-right tabular-nums">
                     {t("screenerResults.header.total_score", "total_score")}
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
+                    {t("screenerResults.header.technical_score", "technical_score")}
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
+                    {t("screenerResults.header.pattern_score", "pattern_score")}
                   </TableHead>
                   <TableHead className="text-left">
                     {t("screenerResults.header.breakout_type", "breakout_type")}
@@ -421,18 +445,24 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                   <TableHead className="text-left">
                     {t("screenerResults.header.risk_flags", "risk_flags")}
                   </TableHead>
+                  <TableHead className="text-left">
+                    {t("screenerResults.header.matched_conditions", "matched_conditions")}
+                  </TableHead>
+                  <TableHead className="text-left">
+                    {t("screenerResults.header.score_contributions", "score_contributions")}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="bg-white">
                 {isLoading ? (
                   <TableRow>
-                    <TableCell className="py-6 text-slate-500" colSpan={14}>
+                    <TableCell className="py-6 text-slate-500" colSpan={18}>
                       Loading screener candidates...
                     </TableCell>
                   </TableRow>
                 ) : sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell className="py-6 text-slate-500" colSpan={14}>
+                    <TableCell className="py-6 text-slate-500" colSpan={18}>
                       {t("screenerResults.empty", "No screener candidates available.")}
                     </TableCell>
                   </TableRow>
@@ -456,6 +486,12 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                       <TableCell className="text-right tabular-nums">{row.global_rank}</TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatScore(row.total_score, locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatScore(row.technical_score, locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatScore(row.pattern_score, locale)}
                       </TableCell>
                       <TableCell>
                         <TagStrip
@@ -501,6 +537,22 @@ export function ScreenerResultsViewer({ runId }: ScreenerResultsViewerProps) {
                           label="Risk"
                           value={row.risk_flags}
                           tone="bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
+                          compact
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TagStrip
+                          label="Matched"
+                          value={row.matched_conditions}
+                          tone="bg-[rgba(49,104,142,0.1)] text-sky-700"
+                          compact
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <TagStrip
+                          label="Contrib"
+                          value={row.score_contributions}
+                          tone="bg-[rgba(22,101,52,0.08)] text-emerald-700"
                           compact
                         />
                       </TableCell>

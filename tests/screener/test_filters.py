@@ -198,3 +198,48 @@ def test_apply_hard_filters_uses_us_dollar_volume_threshold():
 
     assert kept.empty
     assert dropped["drop_reason"].tolist() == ["illiquid_us"]
+
+
+def test_apply_hard_filters_applies_semantic_filter_presets():
+    features = pd.DataFrame(
+        [
+            _base_feature_row(symbol="AAPL", rsi=62.0),
+            _base_feature_row(symbol="MSFT", rsi=55.0),
+        ]
+    )
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+        filter_preset_selections={"rsi": "strength_60"},
+    )
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept["symbol"].tolist() == ["AAPL"]
+    assert kept["matched_conditions"].tolist() == ["Strength >= 60"]
+    assert dropped["symbol"].tolist() == ["MSFT"]
+    assert dropped["drop_reason"].tolist() == ["preset_rsi_strength_60"]
+
+
+def test_apply_hard_filters_applies_market_default_liquidity_preset():
+    features = pd.DataFrame(
+        [
+            _base_feature_row(symbol="AAPL", avg_amount_20d=25_000_000.0),
+            _base_feature_row(symbol="MSFT", avg_amount_20d=15_000_000.0),
+        ]
+    )
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+        filter_preset_selections={"liquidity": "market_default_2x"},
+    )
+
+    kept, dropped = apply_hard_filters(features, config)
+
+    assert kept["symbol"].tolist() == ["AAPL"]
+    assert dropped["symbol"].tolist() == ["MSFT"]
+    assert dropped["drop_reason"].tolist() == ["preset_liquidity_market_default_2x"]

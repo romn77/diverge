@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from .presets import resolve_filter_preset_conditions
 from .market_calendar import trading_day_lag
 from .schema import ScreenRunConfig
 
@@ -28,6 +29,7 @@ HARD_FILTER_DROP_REASONS = frozenset(
         "insufficient_trading_days_20d",
         "illiquid_cn",
         "illiquid_us",
+        "preset_condition",
     }
 )
 
@@ -61,6 +63,95 @@ def _price_floor_drop_reason(row: pd.Series, config: ScreenRunConfig) -> str | N
 def _has_insufficient_trading_continuity(row: pd.Series, config: ScreenRunConfig) -> bool:
     trading_days_20d = pd.to_numeric(row.get("trading_days_20d"), errors="coerce")
     return pd.isna(trading_days_20d) or float(trading_days_20d) < config.min_trading_days_20d
+
+
+def _market_liquidity_threshold(row: pd.Series, config: ScreenRunConfig, name: str) -> float | None:
+    market = str(row.get("market") or "").strip().lower()
+    if market == "cn":
+        threshold = config.cn_min_avg_amount_20d
+    elif market == "us":
+        threshold = config.us_min_avg_dollar_volume_20d
+    else:
+        return None
+    if name == "double_liquidity":
+        return float(threshold) * 2
+    return float(threshold)
+
+
+def _condition_value(row: pd.Series, condition: dict, config: ScreenRunConfig) -> object:
+    if "compare_field" in condition:
+        return row.get(condition["compare_field"])
+    if "market_threshold" in condition:
+        return _market_liquidity_threshold(row, config, str(condition["market_threshold"]))
+    return condition.get("value")
+
+
+def _numeric_pair(row: pd.Series, condition: dict, config: ScreenRunConfig) -> tuple[float | None, float | None]:
+    left = pd.to_numeric(row.get(condition["field"]), errors="coerce")
+    right = pd.to_numeric(_condition_value(row, condition, config), errors="coerce")
+    if pd.isna(left) or pd.isna(right):
+        return None, None
+    return float(left), float(right)
+
+
+def _condition_matches(row: pd.Series, condition: dict, config: ScreenRunConfig) -> bool:
+    op = str(condition.get("op") or "")
+    if op == "is_true":
+        return bool(row.get(condition["field"])) is True
+    if op == "==":
+        return str(row.get(condition["field"]) or "") == str(condition.get("value") or "")
+
+    left, right = _numeric_pair(row, condition, config)
+    if left is None or right is None:
+        return False
+    if op == ">":
+        return left > right
+    if op == ">=":
+        return left >= right
+    if op == "<":
+        return left < right
+    if op == "<=":
+        return left <= right
+    if op == "within_pct":
+        if right == 0:
+            return False
+        return abs(left / right - 1) <= abs(float(condition.get("value") or 0))
+    return False
+
+
+def _resolved_condition_detail(row: pd.Series, condition: dict, config: ScreenRunConfig) -> str:
+    field = str(condition.get("field") or "")
+    op = str(condition.get("op") or "")
+    value = _condition_value(row, condition, config)
+    if op == "is_true":
+        return f"{field} is true"
+    if "compare_field" in condition:
+        return f"{field} {op} {condition['compare_field']}"
+    return f"{field} {op} {value}"
+
+
+def _preset_filter_drop(
+    row: pd.Series,
+    config: ScreenRunConfig,
+) -> tuple[str | None, str, str]:
+    matched_labels: list[str] = []
+    matched_details: list[str] = []
+    for preset in resolve_filter_preset_conditions(config.filter_preset_selections):
+        raw_conditions = preset.get("conditions") or [preset.get("condition")]
+        conditions = [condition for condition in raw_conditions if condition]
+        if all(_condition_matches(row, condition, config) for condition in conditions):
+            matched_labels.append(str(preset["label"]))
+            matched_details.extend(
+                _resolved_condition_detail(row, condition, config)
+                for condition in conditions
+            )
+            continue
+        return (
+            f"preset_{preset['group']}_{preset['value']}",
+            ";".join(matched_labels),
+            ";".join(matched_details),
+        )
+    return None, ";".join(matched_labels), ";".join(matched_details)
 
 
 def apply_hard_filters(
@@ -105,11 +196,40 @@ def apply_hard_filters(
             dropped_rows.append({**row.to_dict(), "drop_reason": "illiquid_us"})
             continue
 
-        kept_rows.append(row.to_dict())
+        preset_drop_reason, matched_conditions, matched_condition_details = _preset_filter_drop(row, config)
+        if preset_drop_reason is not None:
+            dropped_rows.append(
+                {
+                    **row.to_dict(),
+                    "drop_reason": preset_drop_reason,
+                    "matched_conditions": matched_conditions,
+                    "matched_condition_details": matched_condition_details,
+                    "failed_condition": preset_drop_reason,
+                }
+            )
+            continue
 
-    kept = pd.DataFrame(kept_rows, columns=features_df.columns)
+        kept_rows.append(
+            {
+                **row.to_dict(),
+                "matched_conditions": matched_conditions,
+                "matched_condition_details": matched_condition_details,
+            }
+        )
+
+    kept_columns = list(features_df.columns)
+    for column in ("matched_conditions", "matched_condition_details"):
+        if column not in kept_columns:
+            kept_columns.append(column)
+    kept = pd.DataFrame(kept_rows, columns=kept_columns)
     dropped_columns = list(features_df.columns)
-    if "drop_reason" not in dropped_columns:
-        dropped_columns.append("drop_reason")
+    for column in (
+        "drop_reason",
+        "matched_conditions",
+        "matched_condition_details",
+        "failed_condition",
+    ):
+        if column not in dropped_columns:
+            dropped_columns.append(column)
     dropped = pd.DataFrame(dropped_rows, columns=dropped_columns)
     return kept, dropped

@@ -92,7 +92,11 @@ def _load_config(run_meta: dict) -> ScreenRunConfig:
 def _hard_filter_rows(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty or "drop_reason" not in df.columns:
         return pd.DataFrame(columns=list(df.columns))
-    return df[df["drop_reason"].isin(HARD_FILTER_DROP_REASONS)].copy()
+    reasons = df["drop_reason"].fillna("").astype(str)
+    return df[
+        reasons.isin(HARD_FILTER_DROP_REASONS)
+        | reasons.str.startswith("preset_")
+    ].copy()
 
 
 def _comparison_records(df: pd.DataFrame) -> list[dict]:

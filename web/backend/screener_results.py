@@ -1179,11 +1179,21 @@ class ScreenerResultReadService:
                 "breakout_base_bonus": None,
                 "breakout_volume_bonus": None,
                 "breakout_bonus": None,
+                "technical_score": None,
+                "pattern_score": None,
+                "fundamental_score": None,
+                "ranking_profile_id": None,
+                "score_contributions": "",
+                "matched_conditions": "",
+                "matched_condition_details": "",
                 "strategy_tags": "",
                 "risk_flags": "",
                 **dict(row),
                 "strategy_tags": row.get("strategy_tags") or "",
                 "risk_flags": row.get("risk_flags") or "",
+                "score_contributions": row.get("score_contributions") or "",
+                "matched_conditions": row.get("matched_conditions") or "",
+                "matched_condition_details": row.get("matched_condition_details") or "",
             }
             for row in snapshot.rows
         ]
