@@ -10,9 +10,10 @@ class TaskCreatePayload(BaseModel):
     analysis_date: str
     analysts: list[str]
     research_depth: int
-    llm_provider: str
-    quick_think_llm: str
-    deep_think_llm: str
+    model_profile: Optional[str] = None
+    llm_provider: Optional[str] = None
+    quick_think_llm: Optional[str] = None
+    deep_think_llm: Optional[str] = None
     output_language: str
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None

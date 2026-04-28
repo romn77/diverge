@@ -11,9 +11,9 @@ from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.llm_clients.model_config import (
     PROVIDER_OPTIONS,
-    get_model_ids_for_provider,
     get_provider_base_url,
 )
+from tradingagents.llm_clients.validators import validate_model
 from tradingagents.dataflows.cn_market_utils import detect_market
 from tradingagents.research.thesis_tracker import build_thesis_artifact
 from tradingagents.screener.market_calendar import latest_trading_day_on_or_before
@@ -142,6 +142,7 @@ class AnalysisRequest:
     quick_think_llm: str
     deep_think_llm: str
     output_language: str
+    model_profile: Optional[str] = None
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
@@ -181,10 +182,9 @@ class AnalysisRequest:
         if self.llm_provider not in VALID_PROVIDERS:
             raise ValueError("Unsupported llm_provider")
 
-        available_models = set(get_model_ids_for_provider(self.llm_provider))
-        if self.quick_think_llm not in available_models:
+        if not validate_model(self.llm_provider, self.quick_think_llm):
             raise ValueError("Unsupported quick_think_llm for provider")
-        if self.deep_think_llm not in available_models:
+        if not validate_model(self.llm_provider, self.deep_think_llm):
             raise ValueError("Unsupported deep_think_llm for provider")
 
         self.output_language = self.output_language.strip().lower()
@@ -501,6 +501,7 @@ def build_analysis_config(request: AnalysisRequest) -> dict:
     config["deep_think_llm"] = request.deep_think_llm
     config["backend_url"] = get_provider_base_url(request.llm_provider)
     config["llm_provider"] = request.llm_provider
+    config["model_profile"] = request.model_profile
     config["output_language"] = request.output_language
     config["google_thinking_level"] = request.google_thinking_level
     config["openai_reasoning_effort"] = request.openai_reasoning_effort

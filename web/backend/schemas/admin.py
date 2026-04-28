@@ -45,3 +45,33 @@ class AdminDataSourceUpdatePayload(BaseModel):
 
 class AdminDataSourceRouteUpdatePayload(BaseModel):
     vendor_chain: list[str] = Field(min_length=1)
+
+
+class AdminLLMProviderUpdatePayload(BaseModel):
+    enabled: bool
+    base_url: str
+    daily_limit: Optional[int] = Field(default=None, ge=0)
+    hourly_limit: Optional[int] = Field(default=None, ge=0)
+
+
+class AdminLLMModelUpdatePayload(BaseModel):
+    enabled: bool
+    cost_tier: str
+    visible_to_roles: list[auth.UserRole]
+    daily_limit: Optional[int] = Field(default=None, ge=0)
+    weekly_limit: Optional[int] = Field(default=None, ge=0)
+
+
+class AdminLLMProfileUpdatePayload(BaseModel):
+    enabled: bool
+    default_for_roles: list[auth.UserRole] = Field(default_factory=list)
+
+
+class AdminLLMProfileRoutePayload(BaseModel):
+    provider: str
+    quick_model: str
+    deep_model: str
+
+
+class AdminLLMProfileRoutesUpdatePayload(BaseModel):
+    routes: list[AdminLLMProfileRoutePayload] = Field(min_length=1)

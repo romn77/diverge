@@ -20,6 +20,7 @@ test("NewAnalysisForm is driven by backend config options and task creation call
   assert.match(source, /DialogContent/);
   assert.match(source, /Ticker/);
   assert.match(source, /Research Depth/i);
+  assert.match(source, /Model Profile/i);
   assert.match(source, /LLM Provider/i);
   assert.match(source, /Output Language/i);
   assert.match(source, /aria-label=\{t\("analysis\.dialog", "New analysis"\)\}/);
@@ -39,6 +40,16 @@ test("NewAnalysisForm hides providers without configured credentials", () => {
   assert.match(source, /providerUnavailableLabel/);
   assert.match(source, /analysis\.providerHint/);
   assert.match(source, /API key/i);
+});
+
+test("NewAnalysisForm defaults to model profiles and keeps provider selection in custom mode", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /model_profiles/);
+  assert.match(source, /buildModelProfileSelection/);
+  assert.match(source, /model_profile:\s*"custom"/);
+  assert.match(source, /isCustomModelProfile/);
+  assert.match(source, /selectedProvider === "openai"/);
 });
 
 test("NewAnalysisForm defaults to the full analyst set instead of truncating to two", () => {

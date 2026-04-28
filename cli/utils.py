@@ -8,6 +8,10 @@ from tradingagents.llm_clients.model_config import (
     get_deep_model_options,
     get_quick_model_options,
 )
+from tradingagents.llm_clients.model_profiles import (
+    list_model_profile_options,
+    resolve_model_profile,
+)
 from tradingagents.ticker_symbols import normalize_ticker_symbol as _normalize_ticker_symbol
 
 console = Console()
@@ -223,6 +227,47 @@ def select_llm_provider() -> tuple[str, str]:
     print(f"You selected: {display_name}\tURL: {url}")
 
     return provider, url
+
+
+def select_model_profile() -> str:
+    """Select a model profile before exposing provider-level choices."""
+    options = list_model_profile_options()
+    choice = questionary.select(
+        "Select your Model Profile:",
+        choices=[
+            questionary.Choice(
+                f"{option['label']} - {option['description']}",
+                value=str(option["value"]),
+                disabled=None if option["enabled"] else str(option["disabled_reason"]),
+            )
+            for option in options
+        ],
+        instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
+        style=questionary.Style(
+            [
+                ("selected", "fg:magenta noinherit"),
+                ("highlighted", "fg:magenta noinherit"),
+                ("pointer", "fg:magenta noinherit"),
+            ]
+        ),
+    ).ask()
+
+    if choice is None:
+        console.print("\n[red]No model profile selected. Exiting...[/red]")
+        exit(1)
+
+    return choice
+
+
+def resolve_cli_model_profile(profile: str) -> tuple[str, str, str, str]:
+    """Resolve a non-custom profile to provider, URL, quick model, and deep model."""
+    resolved = resolve_model_profile(profile)
+    return (
+        resolved.llm_provider,
+        resolved.backend_url,
+        resolved.quick_think_llm,
+        resolved.deep_think_llm,
+    )
 
 
 def select_output_language() -> str:

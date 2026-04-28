@@ -579,6 +579,9 @@ export default function AdminUsersPage() {
                     <Link href="/admin/data-sources">Data Sources</Link>
                   </Button>
                   <Button asChild type="button" size="sm" variant="secondary">
+                    <Link href="/admin/llm-models">LLM Models</Link>
+                  </Button>
+                  <Button asChild type="button" size="sm" variant="secondary">
                     <Link href="/admin/task-queue">Task Queue</Link>
                   </Button>
                 </div>

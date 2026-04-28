@@ -480,6 +480,9 @@ function TaskRequestDetails({ task }: { task: Task }) {
   const details = request
     ? {
         ...request,
+        llm_provider: request.llm_provider ?? notSetLabel,
+        quick_think_llm: request.quick_think_llm ?? notSetLabel,
+        deep_think_llm: request.deep_think_llm ?? notSetLabel,
         research_depth: formatResearchDepth(request.research_depth, t),
       }
     : {

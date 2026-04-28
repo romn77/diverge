@@ -10,7 +10,12 @@ from tradingagents.llm_clients.model_config import (
     PROVIDER_OPTIONS,
     QUICK_MODEL_OPTIONS,
 )
+from tradingagents.llm_clients.model_profiles import (
+    PROVIDER_API_KEY_ENV_VARS,
+    list_model_profile_options,
+)
 from web.backend import app_config
+from web.backend import llm_models
 
 RESEARCH_DEPTH_OPTIONS = [
     {
@@ -42,20 +47,6 @@ GOOGLE_THINKING_OPTIONS = [
     {"label": "Enable Thinking", "value": "high"},
     {"label": "Minimal Thinking", "value": "minimal"},
 ]
-PROVIDER_API_KEY_ENV_VARS: dict[str, str | None] = {
-    "openai": "OPENAI_API_KEY",
-    "google": "GOOGLE_API_KEY",
-    "anthropic": "ANTHROPIC_API_KEY",
-    "xai": "XAI_API_KEY",
-    "openrouter": "OPENROUTER_API_KEY",
-    "deepseek": "DEEPSEEK_API_KEY",
-    "siliconflow": "SILICONFLOW_API_KEY",
-    "ollama": None,
-    "xiaohumini": "XIAOHUMINI_API_KEY",
-    "sub2api": "SUB2API_API_KEY",
-}
-
-
 def read_project_env_values() -> dict[str, str]:
     if not app_config.PROJECT_ENV_FILE.is_file():
         return {}
@@ -85,7 +76,7 @@ def get_provider_availability(provider: str) -> dict[str, str | bool | None]:
     if api_key_env is None:
         return {"enabled": True, "disabled_reason": None}
 
-    if get_project_secret(api_key_env):
+    if os.environ.get(api_key_env) or get_project_secret(api_key_env):
         return {"enabled": True, "disabled_reason": None}
 
     return {
@@ -123,6 +114,9 @@ def get_config_options_payload() -> dict:
 
     return {
         "providers": provider_options,
+        "model_profiles": llm_models.list_config_model_profiles()
+        if llm_models.database_backed_llm_models_enabled()
+        else list_model_profile_options(get_provider_availability),
         "models": model_options,
         "analysts": analyst_options,
         "research_depth": RESEARCH_DEPTH_OPTIONS,

@@ -22,6 +22,7 @@ import {
   createTask,
   getConfigOptions,
   type ConfigOptions,
+  type ModelProfileOption,
   type ReportVisibility,
   type TaskCreateRequest,
 } from "@/lib/api";
@@ -125,11 +126,18 @@ export function NewAnalysisForm({
   }, [configOptions, formState, isOpen]);
 
   const providerOptions = configOptions?.providers ?? [];
+  const profileOptions = configOptions?.model_profiles ?? [];
+  const selectedProfileOption =
+    profileOptions.find((profile) => profile.value === formState?.model_profile) ??
+    null;
+  const isCustomModelProfile = formState?.model_profile === "custom";
   const enabledProviderOptions = providerOptions.filter((provider) => provider.enabled);
   const selectedProviderOption =
     enabledProviderOptions.find((provider) => provider.value === formState?.llm_provider) ??
     null;
-  const selectedProvider = selectedProviderOption?.value ?? "";
+  const selectedProvider = isCustomModelProfile
+    ? selectedProviderOption?.value ?? ""
+    : selectedProfileOption?.default_provider ?? formState?.llm_provider ?? "";
   const selectedModels = useMemo(() => {
     if (!configOptions || !selectedProvider) {
       return { quick: [], deep: [] };
@@ -139,7 +147,7 @@ export function NewAnalysisForm({
   }, [configOptions, selectedProvider]);
 
   useEffect(() => {
-    if (!configOptions || !formState) {
+    if (!configOptions || !formState || formState.model_profile !== "custom") {
       return;
     }
     if (configOptions.providers.some(
@@ -181,6 +189,34 @@ export function NewAnalysisForm({
     });
   };
 
+  const onProfileChange = (profileValue: string) => {
+    if (!configOptions || !formState) {
+      return;
+    }
+    const profile = configOptions.model_profiles.find(
+      (option) => option.value === profileValue
+    );
+    if (!profile?.enabled) {
+      return;
+    }
+    if (profile.value === "custom") {
+      const fallbackProvider =
+        formState.llm_provider ??
+        configOptions.providers.find((provider) => provider.enabled)?.value ??
+        "";
+      setFormState({
+        ...formState,
+        model_profile: "custom",
+        ...buildProviderSelection(configOptions, fallbackProvider),
+      });
+      return;
+    }
+    setFormState({
+      ...formState,
+      ...buildModelProfileSelection(profile),
+    });
+  };
+
   const toggleAnalyst = (analyst: string) => {
     if (!formState) {
       return;
@@ -201,7 +237,7 @@ export function NewAnalysisForm({
     if (!formState) {
       return;
     }
-    if (!selectedProviderOption?.enabled) {
+    if (isCustomModelProfile && !selectedProviderOption?.enabled) {
       setError(
         providerUnavailableLabel
       );
@@ -385,10 +421,51 @@ export function NewAnalysisForm({
               </div>
             </section>
 
+            <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
+                {t("analysis.modelProfile", "Model Profile")}
+              </p>
+              <div className="mt-3 grid gap-3 md:grid-cols-4">
+                {profileOptions.map((profile) => {
+                  const active = formState.model_profile === profile.value;
+                  return (
+                    <Button
+                      key={profile.value}
+                      type="button"
+                      variant={active ? "default" : "secondary"}
+                      disabled={!profile.enabled}
+                      className={`h-auto min-h-[116px] w-full flex-col items-stretch justify-start overflow-hidden rounded-[20px] p-4 text-left whitespace-normal ${
+                        active
+                          ? "bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
+                          : "text-slate-600"
+                      }`}
+                      onClick={() => onProfileChange(profile.value)}
+                    >
+                      <span className="min-w-0 text-sm font-semibold">
+                        {t(`analysis.modelProfile.${optionKey(profile.value)}`, profile.label)}
+                      </span>
+                      <span className="mt-2 min-w-0 break-words text-xs leading-5">
+                        {t(
+                          `analysis.modelProfile.${optionKey(profile.value)}.description`,
+                          profile.description
+                        )}
+                      </span>
+                      {!profile.enabled && profile.disabled_reason ? (
+                        <span className="mt-2 min-w-0 break-words text-xs leading-5">
+                          {profile.disabled_reason}
+                        </span>
+                      ) : null}
+                    </Button>
+                  );
+                })}
+              </div>
+            </section>
+
             <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:grid-cols-2">
+              {isCustomModelProfile ? (
               <AnalysisSelectField
                 label={t("analysis.provider", "LLM Provider")}
-                value={formState.llm_provider}
+                value={formState.llm_provider ?? ""}
                 onChange={onProviderChange}
                 hint={
                   enabledProviderOptions.length > 0
@@ -414,6 +491,7 @@ export function NewAnalysisForm({
                   );
                 })}
               </AnalysisSelectField>
+              ) : null}
 
               <AnalysisSelectField
                 label={t("analysis.outputLanguage", "Output Language")}
@@ -435,9 +513,10 @@ export function NewAnalysisForm({
                 ))}
               </AnalysisSelectField>
 
+              {isCustomModelProfile ? (
               <AnalysisSelectField
                 label={t("analysis.quickModel", "Quick Model")}
-                value={formState.quick_think_llm}
+                value={formState.quick_think_llm ?? ""}
                 onChange={(value) =>
                   setFormState({
                     ...formState,
@@ -451,10 +530,12 @@ export function NewAnalysisForm({
                   </SelectItem>
                 ))}
               </AnalysisSelectField>
+              ) : null}
 
+              {isCustomModelProfile ? (
               <AnalysisSelectField
                 label={t("analysis.deepModel", "Deep Model")}
-                value={formState.deep_think_llm}
+                value={formState.deep_think_llm ?? ""}
                 onChange={(value) =>
                   setFormState({
                     ...formState,
@@ -468,9 +549,10 @@ export function NewAnalysisForm({
                   </SelectItem>
                 ))}
               </AnalysisSelectField>
+              ) : null}
             </section>
 
-            {formState.llm_provider === "openai" ? (
+            {selectedProvider === "openai" ? (
               <AnalysisSelectField
                 label={t("analysis.openaiReasoning", "OpenAI Reasoning Effort")}
                 value={formState.openai_reasoning_effort ?? ""}
@@ -495,7 +577,7 @@ export function NewAnalysisForm({
               </AnalysisSelectField>
             ) : null}
 
-            {formState.llm_provider === "google" ? (
+            {selectedProvider === "google" ? (
               <AnalysisSelectField
                 label={t("analysis.googleThinking", "Google Thinking Level")}
                 value={formState.google_thinking_level ?? ""}
@@ -532,7 +614,12 @@ export function NewAnalysisForm({
               </Button>
               <Button
                 type="button"
-                disabled={loading || !selectedProviderOption?.enabled}
+                disabled={
+                  loading ||
+                  (isCustomModelProfile
+                    ? !selectedProviderOption?.enabled
+                    : !selectedProfileOption?.enabled)
+                }
                 onClick={() => void submitTask()}
               >
                 {loading
@@ -582,6 +669,12 @@ function buildInitialFormState(
   configOptions: ConfigOptions,
   defaultOutputLanguage: string | null
 ): FormState {
+  const profile =
+    configOptions.model_profiles.find(
+      (option) => option.enabled && option.value === "balanced"
+    ) ??
+    configOptions.model_profiles.find((option) => option.enabled) ??
+    null;
   const provider =
     configOptions.providers.find((option) => option.enabled)?.value ??
     "";
@@ -600,7 +693,33 @@ function buildInitialFormState(
     research_depth: Number(firstDepth),
     output_language: firstLanguage,
     report_visibility: "private",
-    ...buildProviderSelection(configOptions, provider),
+    ...(profile && profile.value !== "custom"
+      ? buildModelProfileSelection(profile)
+      : {
+          model_profile: "custom",
+          ...buildProviderSelection(configOptions, provider),
+        }),
+  };
+}
+
+function buildModelProfileSelection(
+  profile: ModelProfileOption
+): Pick<
+  FormState,
+  | "model_profile"
+  | "llm_provider"
+  | "quick_think_llm"
+  | "deep_think_llm"
+  | "openai_reasoning_effort"
+  | "google_thinking_level"
+> {
+  return {
+    model_profile: profile.value,
+    llm_provider: profile.default_provider ?? null,
+    quick_think_llm: profile.default_quick_model ?? null,
+    deep_think_llm: profile.default_deep_model ?? null,
+    openai_reasoning_effort: profile.default_provider === "openai" ? "medium" : null,
+    google_thinking_level: profile.default_provider === "google" ? "high" : null,
   };
 }
 
@@ -609,6 +728,7 @@ function buildProviderSelection(
   provider: string
 ): Pick<
   FormState,
+  | "model_profile"
   | "llm_provider"
   | "quick_think_llm"
   | "deep_think_llm"
@@ -618,6 +738,7 @@ function buildProviderSelection(
   const providerModels = configOptions.models[provider] ?? { quick: [], deep: [] };
 
   return {
+    model_profile: "custom",
     llm_provider: provider,
     quick_think_llm: providerModels.quick[0]?.value ?? "",
     deep_think_llm: providerModels.deep[0]?.value ?? "",

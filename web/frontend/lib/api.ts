@@ -159,6 +159,90 @@ export interface AdminDataSourceRouteUpdateResponse {
   route: AdminDataSourceRoute;
 }
 
+export interface AdminLLMProvider {
+  provider: string;
+  label: string;
+  enabled: boolean;
+  base_url: string;
+  api_key_env: string | null;
+  key_status: "configured" | "missing";
+  daily_limit: number | null;
+  hourly_limit: number | null;
+}
+
+export interface AdminLLMModel {
+  id: string;
+  provider: string;
+  model_id: string;
+  label: string;
+  enabled: boolean;
+  supports_quick: boolean;
+  supports_deep: boolean;
+  cost_tier: string;
+  visible_to_roles: string;
+  daily_limit: number | null;
+  weekly_limit: number | null;
+  used_today: number;
+  used_this_hour: number;
+  remaining_today: number | null;
+  success_count: number;
+  failure_count: number;
+  last_called_at: string | null;
+}
+
+export interface AdminLLMProfileRoute {
+  route_order: number;
+  provider: string;
+  quick_model: string;
+  deep_model: string;
+  available: boolean;
+}
+
+export interface AdminLLMProfile {
+  profile_id: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+  default_for_roles: string;
+  sort_order: number;
+  routes: AdminLLMProfileRoute[];
+}
+
+export interface AdminLLMModelsResponse {
+  date: string;
+  providers: AdminLLMProvider[];
+  models: AdminLLMModel[];
+  profiles: AdminLLMProfile[];
+}
+
+export interface AdminLLMProviderUpdateRequest {
+  enabled: boolean;
+  base_url: string;
+  daily_limit: number | null;
+  hourly_limit: number | null;
+}
+
+export interface AdminLLMModelUpdateRequest {
+  enabled: boolean;
+  cost_tier: string;
+  visible_to_roles: UserRole[];
+  daily_limit: number | null;
+  weekly_limit: number | null;
+}
+
+export interface AdminLLMProfileUpdateRequest {
+  enabled: boolean;
+  default_for_roles: UserRole[];
+}
+
+export interface AdminLLMProfileRoutesUpdateRequest {
+  routes: Array<{
+    provider: string;
+    quick_model: string;
+    deep_model: string;
+  }>;
+}
+
 export interface AdminTaskQueueOwner {
   id: string;
   email: string;
@@ -414,9 +498,10 @@ export interface TaskCreateRequest {
   analysis_date: string;
   analysts: string[];
   research_depth: number;
-  llm_provider: string;
-  quick_think_llm: string;
-  deep_think_llm: string;
+  model_profile?: string | null;
+  llm_provider?: string | null;
+  quick_think_llm?: string | null;
+  deep_think_llm?: string | null;
   output_language: string;
   google_thinking_level: string | null;
   openai_reasoning_effort: string | null;
@@ -490,6 +575,18 @@ export interface ProviderOption extends SelectOption {
   disabled_reason?: string | null;
 }
 
+export interface ModelProfileOption extends SelectOption {
+  description: string;
+  cost_tier: string;
+  enabled: boolean;
+  disabled_reason?: string | null;
+  default_provider?: string | null;
+  default_quick_model?: string | null;
+  default_deep_model?: string | null;
+  default_quick_label?: string | null;
+  default_deep_label?: string | null;
+}
+
 export interface ResearchDepthOption {
   label: string;
   value: number;
@@ -503,6 +600,7 @@ export interface ModelOptions {
 
 export interface ConfigOptions {
   providers: ProviderOption[];
+  model_profiles: ModelProfileOption[];
   models: Record<string, ModelOptions>;
   analysts: SelectOption[];
   research_depth: ResearchDepthOption[];
@@ -784,6 +882,53 @@ export async function updateAdminDataSourceRoute(
 ): Promise<AdminDataSourceRouteUpdateResponse> {
   return requestJson<AdminDataSourceRouteUpdateResponse>(
     `/api/admin/data-source-routes/${route.module}/${route.market}/${route.category}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function listAdminLLMModels(): Promise<AdminLLMModelsResponse> {
+  return requestJson<AdminLLMModelsResponse>("/api/admin/llm-models", {
+    cache: "no-store",
+  });
+}
+
+export async function updateAdminLLMProvider(
+  provider: string,
+  payload: AdminLLMProviderUpdateRequest
+): Promise<{ provider: AdminLLMProvider }> {
+  return requestJson<{ provider: AdminLLMProvider }>(
+    `/api/admin/llm-models/providers/${provider}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function updateAdminLLMModel(
+  provider: string,
+  modelId: string,
+  payload: AdminLLMModelUpdateRequest
+): Promise<{ model: AdminLLMModel }> {
+  return requestJson<{ model: AdminLLMModel }>(
+    `/api/admin/llm-models/models/${provider}/${encodeURIComponent(modelId)}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function updateAdminLLMProfile(
+  profileId: string,
+  payload: AdminLLMProfileUpdateRequest
+): Promise<{ profile: AdminLLMProfile }> {
+  return requestJson<{ profile: AdminLLMProfile }>(
+    `/api/admin/llm-models/profiles/${profileId}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function updateAdminLLMProfileRoutes(
+  profileId: string,
+  payload: AdminLLMProfileRoutesUpdateRequest
+): Promise<{ routes: AdminLLMProfileRoute[] }> {
+  return requestJson<{ routes: AdminLLMProfileRoute[] }>(
+    `/api/admin/llm-models/profiles/${profileId}/routes`,
     createJsonRequestInit("PUT", payload)
   );
 }

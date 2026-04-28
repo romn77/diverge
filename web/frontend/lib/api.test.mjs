@@ -75,6 +75,18 @@ test("admin APIs expose data-source usage and configuration controls", () => {
   assert.match(source, /\/api\/admin\/data-source-routes\/\$\{route\.module\}/);
 });
 
+test("admin APIs expose LLM model configuration controls without key values", () => {
+  assert.match(source, /AdminLLMModelsResponse/);
+  assert.match(source, /AdminLLMProvider/);
+  assert.match(source, /key_status:\s*"configured" \| "missing"/);
+  assert.match(source, /api_key_env:\s*string \| null/);
+  assert.match(source, /listAdminLLMModels/);
+  assert.match(source, /updateAdminLLMProvider/);
+  assert.match(source, /updateAdminLLMModel/);
+  assert.match(source, /updateAdminLLMProfileRoutes/);
+  assert.match(source, /\/api\/admin\/llm-models/);
+});
+
 test("admin APIs expose the read-only task queue snapshot", () => {
   assert.match(source, /AdminTaskQueueResponse/);
   assert.match(source, /AdminTaskQueueItem/);

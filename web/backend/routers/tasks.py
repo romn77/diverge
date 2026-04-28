@@ -6,8 +6,9 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from tradingagents.llm_clients.model_profiles import resolve_model_profile as resolve_static_model_profile
 from tradingagents.runner import AnalysisRequest
-from web.backend import access, analysis_limits, app_config, audit, auth
+from web.backend import access, analysis_limits, app_config, audit, auth, llm_models
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
@@ -85,12 +86,51 @@ def _enforce_task_submission_capacity(current_user) -> None:
         )
 
 
+def _analysis_request_payload(payload: TaskCreatePayload) -> dict:
+    request_payload = payload.model_dump(exclude={"report_visibility"})
+    profile = (payload.model_profile or "").strip().lower()
+    if profile and profile != "custom":
+        try:
+            resolved = (
+                llm_models.resolve_model_profile_from_db(profile)
+                if llm_models.database_backed_llm_models_enabled()
+                else resolve_static_model_profile(profile, get_provider_availability)
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        request_payload.update(
+            {
+                "model_profile": resolved.model_profile,
+                "llm_provider": resolved.llm_provider,
+                "quick_think_llm": resolved.quick_think_llm,
+                "deep_think_llm": resolved.deep_think_llm,
+            }
+        )
+        if resolved.llm_provider == "openai" and not request_payload.get("openai_reasoning_effort"):
+            request_payload["openai_reasoning_effort"] = "medium"
+        if resolved.llm_provider == "google" and not request_payload.get("google_thinking_level"):
+            request_payload["google_thinking_level"] = "high"
+    else:
+        request_payload["model_profile"] = profile or None
+
+    missing = [
+        field
+        for field in ("llm_provider", "quick_think_llm", "deep_think_llm")
+        if not request_payload.get(field)
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Missing model selection fields: {', '.join(missing)}",
+        )
+
+    return request_payload
+
+
 @router.post("/api/tasks")
 def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
     try:
-        analysis_request = AnalysisRequest(
-            **payload.model_dump(exclude={"report_visibility"})
-        )
+        analysis_request = AnalysisRequest(**_analysis_request_payload(payload))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     current_user = _current_user(request, permission=auth.PERMISSION_ANALYSIS_CREATE)
@@ -101,6 +141,14 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             status_code=400,
             detail=str(provider_availability["disabled_reason"]),
         )
+    try:
+        llm_models.ensure_model_selection_available(
+            analysis_request.llm_provider,
+            analysis_request.quick_think_llm,
+            analysis_request.deep_think_llm,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
 
     _enforce_task_submission_capacity(current_user)
     owner_user_id = current_user.id if current_user is not None else None
@@ -110,6 +158,16 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             with auth.db_session() as db:
                 persisted_user = auth.get_user_by_id(db, current_user.id)
                 analysis_limits.record_analysis_task_creation(db, persisted_user)
+                llm_models.record_model_usage(
+                    analysis_request.llm_provider,
+                    analysis_request.quick_think_llm,
+                    module="analysis",
+                )
+                llm_models.record_model_usage(
+                    analysis_request.llm_provider,
+                    analysis_request.deep_think_llm,
+                    module="analysis",
+                )
         except analysis_limits.WeeklyUsageLimitExceeded as exc:
             raise HTTPException(status_code=429, detail=str(exc)) from exc
         except Exception as exc:

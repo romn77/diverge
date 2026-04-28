@@ -7,12 +7,16 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from tradingagents.dataflows import vendor_usage
-from web.backend import access, analysis_limits, audit, auth, data_sources
+from web.backend import access, analysis_limits, audit, auth, data_sources, llm_models
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
     AdminDataSourceRouteUpdatePayload,
     AdminDataSourceUpdatePayload,
+    AdminLLMModelUpdatePayload,
+    AdminLLMProfileRoutesUpdatePayload,
+    AdminLLMProfileUpdatePayload,
+    AdminLLMProviderUpdatePayload,
     AdminUserCreatePayload,
     AdminUserResetPasswordPayload,
     AdminUserUpdatePayload,
@@ -378,6 +382,138 @@ def update_admin_data_source_route(
                 request=request,
             )
     return {"route": route}
+
+
+@router.get("/api/admin/llm-models")
+def list_admin_llm_models(request: Request = None) -> dict:
+    _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    return llm_models.list_llm_model_summary()
+
+
+@router.put("/api/admin/llm-models/providers/{provider}")
+def update_admin_llm_provider(
+    provider: str,
+    payload: AdminLLMProviderUpdatePayload,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    try:
+        source = llm_models.update_provider_config(
+            provider,
+            enabled=payload.enabled,
+            base_url=payload.base_url,
+            daily_limit=payload.daily_limit,
+            hourly_limit=payload.hourly_limit,
+        )
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.llm_provider.updated",
+                resource_type="llm_provider",
+                resource_id=source["provider"],
+                metadata={"enabled": source["enabled"], "api_key_env": source["api_key_env"]},
+                request=request,
+            )
+    return {"provider": source}
+
+
+@router.put("/api/admin/llm-models/models/{provider}/{model_id:path}")
+def update_admin_llm_model(
+    provider: str,
+    model_id: str,
+    payload: AdminLLMModelUpdatePayload,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    try:
+        model = llm_models.update_model_config(
+            provider,
+            model_id,
+            enabled=payload.enabled,
+            cost_tier=payload.cost_tier,
+            visible_to_roles=[role.value for role in payload.visible_to_roles],
+            daily_limit=payload.daily_limit,
+            weekly_limit=payload.weekly_limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.llm_model.updated",
+                resource_type="llm_model",
+                resource_id=model["id"],
+                metadata={"enabled": model["enabled"], "cost_tier": model["cost_tier"]},
+                request=request,
+            )
+    return {"model": model}
+
+
+@router.put("/api/admin/llm-models/profiles/{profile_id}")
+def update_admin_llm_profile(
+    profile_id: str,
+    payload: AdminLLMProfileUpdatePayload,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    try:
+        profile = llm_models.update_profile_config(
+            profile_id,
+            enabled=payload.enabled,
+            default_for_roles=[role.value for role in payload.default_for_roles],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.llm_profile.updated",
+                resource_type="llm_model_profile",
+                resource_id=profile["profile_id"],
+                metadata={"enabled": profile["enabled"]},
+                request=request,
+            )
+    return {"profile": profile}
+
+
+@router.put("/api/admin/llm-models/profiles/{profile_id}/routes")
+def update_admin_llm_profile_routes(
+    profile_id: str,
+    payload: AdminLLMProfileRoutesUpdatePayload,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    try:
+        routes = llm_models.update_profile_routes(
+            profile_id,
+            [item.model_dump() for item in payload.routes],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.llm_profile_routes.updated",
+                resource_type="llm_model_profile",
+                resource_id=profile_id,
+                metadata={"route_count": len(routes)},
+                request=request,
+            )
+    return {"routes": routes}
 
 
 @router.get("/api/admin/users/{user_id}")

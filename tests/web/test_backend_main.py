@@ -1223,6 +1223,8 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("google", provider_values)
         self.assertIn("siliconflow", provider_values)
         self.assertIn("sub2api", provider_values)
+        self.assertIn("balanced", {option["value"] for option in payload["model_profiles"]})
+        self.assertIn("custom", {option["value"] for option in payload["model_profiles"]})
         self.assertIn("market", {option["value"] for option in payload["analysts"]})
         self.assertIn("gpt-5-mini", {option["value"] for option in payload["models"]["openai"]["quick"]})
         self.assertIn("gpt-5.4", {option["value"] for option in payload["models"]["sub2api"]["deep"]})
@@ -1242,6 +1244,30 @@ class BackendMainTests(unittest.TestCase):
             "deepseek-v4-pro",
             {option["value"] for option in payload["models"]["deepseek"]["deep"]},
         )
+
+    def test_create_task_accepts_model_profile_payload(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2024-03-15",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "model_profile": "balanced",
+            "output_language": "en",
+            "report_visibility": "private",
+        }
+
+        with (
+            patch.dict(os.environ, {"OPENAI_API_KEY": "test-openai-key"}, clear=False),
+            patch.object(tasks_router.analysis_tasks, "create_task") as create_task,
+        ):
+            create_task.return_value = {"task_id": "task-profile", "status": "pending"}
+            response = tasks_router.create_task(TaskCreatePayload(**payload))
+
+        self.assertEqual(response["task_id"], "task-profile")
+        analysis_request = create_task.call_args.args[0]
+        self.assertEqual(analysis_request.model_profile, "balanced")
+        self.assertEqual(analysis_request.llm_provider, "openai")
+        self.assertEqual(analysis_request.quick_think_llm, "gpt-5.4-mini")
 
     def test_config_options_mark_provider_availability_from_project_env_file(self):
         self.empty_project_env.write_text(
@@ -1308,7 +1334,7 @@ class BackendMainTests(unittest.TestCase):
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertTrue(providers["sub2api"]["enabled"])
 
-    def test_config_options_ignore_process_env_without_project_env_value(self):
+    def test_config_options_accept_process_env_without_project_env_value(self):
         with (
             patch.dict(os.environ, {"OPENAI_API_KEY": "test-openai-key"}, clear=True),
             patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
@@ -1317,7 +1343,7 @@ class BackendMainTests(unittest.TestCase):
             payload = config_service.get_config_options_payload()
 
         providers = {provider["value"]: provider for provider in payload["providers"]}
-        self.assertFalse(providers["openai"]["enabled"])
+        self.assertTrue(providers["openai"]["enabled"])
 
     def test_config_options_treat_blank_project_env_value_as_unavailable(self):
         self.empty_project_env.write_text(

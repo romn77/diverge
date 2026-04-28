@@ -690,8 +690,10 @@ def get_user_selections():
         select_analysts,
         select_deep_thinking_agent,
         select_llm_provider,
+        select_model_profile,
         select_output_language,
         select_research_depth,
+        resolve_cli_model_profile,
         select_shallow_thinking_agent,
     )
 
@@ -772,22 +774,35 @@ def get_user_selections():
     )
     selected_research_depth = select_research_depth()
 
-    # Step 5: LLM Provider
+    # Step 5: Model Profile
     console.print(
         create_question_box(
-            "Step 5: LLM Provider", "Select your LLM provider"
+            "Step 5: Model Profile", "Select your model and cost profile"
         )
     )
-    selected_llm_provider, backend_url = select_llm_provider()
+    selected_model_profile = select_model_profile()
+    if selected_model_profile == "custom":
+        console.print(
+            create_question_box(
+                "Step 6: LLM Provider", "Select your LLM provider"
+            )
+        )
+        selected_llm_provider, backend_url = select_llm_provider()
 
-    # Step 6: Thinking agents
-    console.print(
-        create_question_box(
-            "Step 6: Thinking Agents", "Select your thinking agents for analysis"
+        console.print(
+            create_question_box(
+                "Step 7: Thinking Agents", "Select your thinking agents for analysis"
+            )
         )
-    )
-    selected_shallow_thinker = select_shallow_thinking_agent(selected_llm_provider)
-    selected_deep_thinker = select_deep_thinking_agent(selected_llm_provider)
+        selected_shallow_thinker = select_shallow_thinking_agent(selected_llm_provider)
+        selected_deep_thinker = select_deep_thinking_agent(selected_llm_provider)
+    else:
+        (
+            selected_llm_provider,
+            backend_url,
+            selected_shallow_thinker,
+            selected_deep_thinker,
+        ) = resolve_cli_model_profile(selected_model_profile)
 
     # Step 7: Provider-specific thinking configuration
     thinking_level = None
@@ -833,6 +848,7 @@ def get_user_selections():
         "analysis_date": analysis_date,
         "analysts": selected_analysts,
         "research_depth": selected_research_depth,
+        "model_profile": selected_model_profile,
         "llm_provider": selected_llm_provider.lower(),
         "backend_url": backend_url,
         "shallow_thinker": selected_shallow_thinker,
@@ -1133,6 +1149,7 @@ def run_analysis():
     config["quick_think_llm"] = selections["shallow_thinker"]
     config["deep_think_llm"] = selections["deep_thinker"]
     config["backend_url"] = selections["backend_url"]
+    config["model_profile"] = selections.get("model_profile")
     config["llm_provider"] = selections["llm_provider"].lower()
     config["output_language"] = selections["output_language"]
     # Provider-specific thinking configuration
