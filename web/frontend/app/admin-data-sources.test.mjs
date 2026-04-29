@@ -14,9 +14,14 @@ test("admin data sources page exposes vendor usage and enablement controls", () 
   const source = readFileSync(adminDataSourcesPagePath, "utf8");
 
   assert.match(source, /listAdminDataSources/);
+  assert.doesNotMatch(source, /listDataSyncJobs/);
+  assert.doesNotMatch(source, /getDataSyncJob/);
   assert.match(source, /updateAdminDataSource/);
   assert.match(source, /updateAdminDataSourceRoute/);
   assert.match(source, /Data Source Usage/);
+  assert.doesNotMatch(source, /Data Sync Jobs/);
+  assert.doesNotMatch(source, /latest_progress/);
+  assert.doesNotMatch(source, /progress_events/);
   assert.match(source, /Routing Policies/);
   assert.match(source, /href="\/admin\/users"/);
   assert.match(source, /User Management/);

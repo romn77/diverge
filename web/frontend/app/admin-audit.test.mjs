@@ -36,6 +36,9 @@ test("admin audit page renders filterable tenant audit events", () => {
   assert.match(source, /createdFromFilter/);
   assert.match(source, /createdToFilter/);
   assert.match(source, /limitFilter/);
+  assert.match(source, /AuditEventTable/);
+  assert.match(source, /<Table/);
+  assert.match(source, /Metadata/);
   assert.match(source, /metadata/);
   assert.match(source, /ip_address/);
   assert.match(source, /user_agent/);

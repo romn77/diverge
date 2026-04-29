@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
+import Script from "next/script";
 import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
@@ -25,6 +26,10 @@ import {
 } from "@/lib/uiPreferences";
 import "./globals.css";
 import "./stylful.css";
+
+const ENABLE_REACT_GRAB =
+  process.env.NODE_ENV === "development" &&
+  process.env.NEXT_PUBLIC_ENABLE_REACT_GRAB !== "false";
 
 export const metadata: Metadata = {
   title: "Diverge Research Workbench",
@@ -69,6 +74,14 @@ export default async function RootLayout({
         />
       </head>
       <body className="antialiased">
+        {ENABLE_REACT_GRAB ? (
+          <Script
+            id="react-grab"
+            src="https://unpkg.com/react-grab/dist/index.global.js"
+            crossOrigin="anonymous"
+            strategy="beforeInteractive"
+          />
+        ) : null}
         <PreferencesProvider
           initialLanguage={initialLanguage}
           initialTheme={initialTheme}

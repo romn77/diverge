@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  createTradeReview,
   getTickerTradeFeedback,
   getTrade,
   listTrades,
@@ -23,6 +24,7 @@ import {
   type TradeFeedbackPayload,
   type TradeRecord,
   type TradeReview,
+  type TradeReviewCreateRequest,
   type TradeReviewType,
 } from "@/lib/api";
 import { TickerPricePanel } from "./TickerPricePanel";
@@ -36,6 +38,18 @@ interface TradeJournalProps {
 }
 
 type TimeWindow = "all" | "30d" | "90d" | "365d";
+
+interface PendingReviewGeneration {
+  tradeId: string;
+  reviewType: TradeReviewType;
+  startedAt: string;
+}
+
+interface ReviewGenerationError {
+  tradeId: string;
+  reviewType: TradeReviewType;
+  message: string;
+}
 
 export function TradeJournal({
   reports,
@@ -62,6 +76,10 @@ export function TradeJournal({
   const [editingReviewType, setEditingReviewType] = useState<TradeReviewType | null>(
     null
   );
+  const [pendingReviewGeneration, setPendingReviewGeneration] =
+    useState<PendingReviewGeneration | null>(null);
+  const [reviewGenerationError, setReviewGenerationError] =
+    useState<ReviewGenerationError | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -303,6 +321,18 @@ export function TradeJournal({
 
   const selectedReview =
     tradeDetail?.reviews.find((review) => review.review_type === reviewTab) ?? null;
+  const activeReviewGeneration =
+    pendingReviewGeneration &&
+    tradeDetail?.record.trade_id === pendingReviewGeneration.tradeId &&
+    reviewTab === pendingReviewGeneration.reviewType
+      ? pendingReviewGeneration
+      : null;
+  const activeReviewGenerationError =
+    reviewGenerationError &&
+    tradeDetail?.record.trade_id === reviewGenerationError.tradeId &&
+    reviewTab === reviewGenerationError.reviewType
+      ? reviewGenerationError
+      : null;
   const openTrades = trades.filter((trade) => trade.status.toLowerCase() === "open");
   const reviewCoverageLabel = tradeDetail
     ? `${tradeDetail.reviews.length}/2 reviews`
@@ -349,9 +379,51 @@ export function TradeJournal({
   const handleReviewSaved = (review: TradeReview) => {
     setEditingReviewType(null);
     setReviewTab(review.review_type);
+    setPendingReviewGeneration((current) =>
+      current?.tradeId === review.trade_id && current.reviewType === review.review_type
+        ? null
+        : current
+    );
+    setReviewGenerationError(null);
     void refreshTrades(review.trade_id);
     void refreshTradeDetail(review.trade_id);
     void refreshFeedback(review.ticker);
+  };
+
+  const handleGenerateReviewRequested = (
+    record: TradeRecord,
+    payload: TradeReviewCreateRequest
+  ) => {
+    const reviewType = payload.review_type;
+    setEditingReviewType(null);
+    setReviewTab(reviewType);
+    setSelectedTradeId(record.trade_id);
+    setReviewGenerationError(null);
+    setPendingReviewGeneration({
+      tradeId: record.trade_id,
+      reviewType,
+      startedAt: new Date().toISOString(),
+    });
+
+    void createTradeReview(record.trade_id, payload)
+      .then((review) => {
+        handleReviewSaved(review);
+      })
+      .catch((error) => {
+        setPendingReviewGeneration((current) =>
+          current?.tradeId === record.trade_id && current.reviewType === reviewType
+            ? null
+            : current
+        );
+        setReviewGenerationError({
+          tradeId: record.trade_id,
+          reviewType,
+          message:
+            error instanceof Error
+              ? error.message
+              : t("tradeReview.error.generate", "Unable to generate the AI review"),
+        });
+      });
   };
 
   return (
@@ -801,7 +873,13 @@ export function TradeJournal({
                             )}
                           </h3>
                         </div>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setEditingReviewType(reviewTab)}>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => setEditingReviewType(reviewTab)}
+                          disabled={Boolean(activeReviewGeneration)}
+                        >
                           {selectedReview
                             ? t("journal.editReview", "Edit Review")
                             : t("journal.createReview", "Create Review")}
@@ -832,7 +910,28 @@ export function TradeJournal({
                         </TabsList>
                       </Tabs>
 
-                      {!selectedReview ? (
+                      {activeReviewGeneration ? (
+                        <div className="mt-5 rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-600">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <span className="h-3 w-3 animate-pulse rounded-full bg-[var(--primary)]" aria-hidden />
+                            <div>
+                              <p className="font-semibold text-slate-800">
+                                {t("tradeReview.generating", "Generating AI review...")}
+                              </p>
+                              <p className="mt-1 leading-6">
+                                {t(
+                                  "journal.reviewGenerationPending",
+                                  "This review is being generated in the background. You can keep working here; the panel will refresh when it finishes."
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : activeReviewGenerationError ? (
+                        <div className="mt-5 rounded-3xl border border-rose-200 bg-rose-50 px-5 py-5 text-sm text-rose-700">
+                          {activeReviewGenerationError.message}
+                        </div>
+                      ) : !selectedReview ? (
                         <div className="mt-5 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
                           {t(
                             "journal.noReview",
@@ -1028,6 +1127,9 @@ export function TradeJournal({
             ) ?? null
           }
           onClose={() => setEditingReviewType(null)}
+          onGenerateReview={(payload) =>
+            handleGenerateReviewRequested(tradeDetail.record, payload)
+          }
           onSaved={handleReviewSaved}
         />
       ) : null}

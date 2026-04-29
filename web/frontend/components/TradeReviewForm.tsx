@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  createTradeReview,
   getConfigOptions,
   saveTradeReview,
   type ConfigOptions,
@@ -37,6 +36,7 @@ interface TradeReviewFormProps {
   tradeRecord: TradeRecord;
   existingReview?: TradeReview | null;
   onClose: () => void;
+  onGenerateReview: (payload: TradeReviewCreateRequest) => void;
   onSaved: (review: TradeReview) => void;
 }
 
@@ -67,6 +67,7 @@ export function TradeReviewForm({
   tradeRecord,
   existingReview = null,
   onClose,
+  onGenerateReview,
   onSaved,
 }: TradeReviewFormProps) {
   const { language, t } = usePreferences();
@@ -77,9 +78,7 @@ export function TradeReviewForm({
   const [generationState, setGenerationState] =
     useState<ReviewGenerationState | null>(null);
   const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
   const [loadingOptions, setLoadingOptions] = useState(false);
-  const [generatedReview, setGeneratedReview] = useState<TradeReview | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -89,8 +88,6 @@ export function TradeReviewForm({
 
     setFormState(buildInitialState(existingReview, tradeRecord));
     setSaving(false);
-    setGenerating(false);
-    setGeneratedReview(null);
     setError(null);
   }, [existingReview, isOpen, tradeRecord]);
 
@@ -260,7 +257,7 @@ export function TradeReviewForm({
     }
   };
 
-  const generateReview = async () => {
+  const generateReview = () => {
     if (!generationState?.llm_provider || !generationState.model) {
       setError(
         t(
@@ -271,12 +268,10 @@ export function TradeReviewForm({
       return;
     }
 
-    setGenerating(true);
-    setGeneratedReview(null);
     setError(null);
 
     try {
-      const review = await createTradeReview(tradeRecord.trade_id, {
+      onGenerateReview({
         ...generationState,
         review_type: reviewType,
         analysis_date: requireText(
@@ -285,16 +280,12 @@ export function TradeReviewForm({
         ),
         analysis_references: referenceSummary.length > 0 ? referenceSummary : undefined,
       });
-      setGeneratedReview(review);
-      setFormState(buildInitialState(review, tradeRecord));
     } catch (generateError) {
       setError(
         generateError instanceof Error
           ? generateError.message
           : t("tradeReview.error.generate", "Unable to generate the AI review")
       );
-    } finally {
-      setGenerating(false);
     }
   };
 
@@ -338,15 +329,6 @@ export function TradeReviewForm({
                   )}
                 </h3>
               </div>
-              {generatedReview ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => onSaved(generatedReview)}
-                >
-                  {t("tradeReview.applyGenerated", "Apply generated review")}
-                </Button>
-              ) : null}
             </div>
 
             {loadingOptions || !generationState || !configOptions ? (
@@ -448,17 +430,14 @@ export function TradeReviewForm({
                     type="button"
                     variant="secondary"
                     className="w-full"
-                    onClick={() => void generateReview()}
+                    onClick={generateReview}
                     disabled={
-                      generating ||
                       loadingOptions ||
                       !generationState.llm_provider ||
                       !generationState.model
                     }
                   >
-                    {generating
-                      ? t("tradeReview.generating", "Generating AI review...")
-                      : t("tradeReview.generateReview", "Generate and Save AI Review")}
+                    {t("tradeReview.generateReview", "Generate and Save AI Review")}
                   </Button>
                 </div>
               </div>

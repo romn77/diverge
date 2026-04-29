@@ -158,13 +158,13 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
 
   return (
     <WorkbenchChromeContext.Provider value={chromeValue}>
-      <div className="app-shell relative min-h-screen overflow-x-hidden bg-[var(--bg)] md:flex md:items-stretch">
+      <div className="app-shell relative min-h-dvh overflow-x-hidden bg-transparent md:flex md:items-stretch">
         <div
-          className="min-h-screen min-w-0 flex-1 overflow-x-hidden"
+          className="min-h-dvh min-w-0 flex-1 overflow-x-hidden"
           inert={activeDialog !== null ? true : undefined}
           aria-hidden={activeDialog !== null}
         >
-          <div className="flex min-h-screen min-w-0 max-w-full md:items-stretch">
+          <div className="flex min-h-dvh min-w-0 max-w-full md:items-stretch">
             <Sidebar
               isOpen={isSidebarOpen}
               onClose={() => setIsSidebarOpen(false)}
@@ -204,11 +204,11 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
           onClose={() => setActiveDialog(null)}
           onTaskCreated={(taskId) => {
             setActiveDialog(null);
-            void refreshScreenerRuns();
-            void refreshScreenerTasks();
             startTransition(() => {
               router.push(buildScreenerTaskHref(taskId));
             });
+            void refreshScreenerTasks();
+            void refreshScreenerRuns();
           }}
         />
       </div>

@@ -14,6 +14,7 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /from "@\/components\/ui\/select"/);
   assert.match(source, /usePreferences/);
   assert.match(source, /useSearchParams/);
+  assert.match(source, /SlidersHorizontal/);
   assert.match(source, /<Button/);
   assert.match(source, /<Input/);
   assert.match(source, /<Select/);
@@ -90,6 +91,17 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /filterPresetSelections\.pattern/);
   assert.match(source, /selectedPattern && SPECIFIC_BREAKOUT_PATTERNS\.has\(selectedPattern\)/);
   assert.match(source, /filterTabs/);
+  assert.match(source, /\[isConfigCollapsed,\s*setIsConfigCollapsed\]/);
+  assert.match(source, /buildSelectedFilterSummaries/);
+  assert.match(source, /selectedRankingProfileLabel/);
+  assert.match(source, /visibleSelectedFilterSummaries/);
+  assert.match(source, /screenerDashboard\.configPanel/);
+  assert.match(source, /screenerDashboard\.collapseConfig/);
+  assert.match(source, /screenerDashboard\.expandConfig/);
+  assert.match(source, /screenerDashboard\.noConfigFilters/);
+  assert.match(source, /aria-expanded=\{!isConfigCollapsed\}/);
+  assert.match(source, /className="screener-config-panel viewer-frame"/);
+  assert.match(source, /className="screener-config-summary/);
   assert.match(source, /Technical/);
   assert.match(source, /Pattern/);
   assert.match(source, /Fundamental/);
@@ -172,4 +184,23 @@ test("ScreenerDashboard does not expose result ownership labels", () => {
   assert.doesNotMatch(source, /screenerDashboard\.scope\.mine/);
   assert.doesNotMatch(source, /screenerDashboard\.scope\.team/);
   assert.doesNotMatch(source, /screenerDashboard\.scope\.workspace/);
+});
+
+test("ScreenerDashboard navigates to task progress before refreshing workspace lists", () => {
+  const source = readFileSync(componentPath, "utf8");
+  const runCurrentBarSource = source.slice(
+    source.indexOf("const runCurrentBar = async"),
+    source.indexOf("const controlsDisabled")
+  );
+  const pushIndex = runCurrentBarSource.indexOf("router.push(buildScreenerTaskHref(response.task_id))");
+  const refreshTasksIndex = runCurrentBarSource.indexOf("void refreshScreenerTasks()");
+  const refreshRunsIndex = runCurrentBarSource.indexOf("void refreshScreenerRuns()");
+
+  assert.match(runCurrentBarSource, /let didNavigate = false/);
+  assert.match(runCurrentBarSource, /if \(!didNavigate\) \{\s*setRunning\(false\);/);
+  assert.ok(pushIndex > -1, "expected run flow to push the task route");
+  assert.ok(refreshTasksIndex > -1, "expected run flow to refresh tasks");
+  assert.ok(refreshRunsIndex > -1, "expected run flow to refresh runs");
+  assert.ok(pushIndex < refreshTasksIndex, "task route push should happen before task refresh");
+  assert.ok(pushIndex < refreshRunsIndex, "task route push should happen before run refresh");
 });

@@ -60,6 +60,29 @@ test("globals.css provides a responsive capped workbench content frame", () => {
   assert.match(source, /margin-inline:\s*auto;/);
 });
 
+test("globals.css keeps the page background stable across long scrolling pages", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  assert.match(source, /html,\s*body\s*\{\s*min-height:\s*100%;/);
+  assert.doesNotMatch(source, /html,\s*body\s*\{\s*height:\s*100%;/);
+  assert.match(source, /body\s*\{[\s\S]*?background-color:\s*var\(--body-gradient-end\);/);
+  assert.match(source, /body\s*\{[\s\S]*?background-image:\s*linear-gradient\(180deg, var\(--body-gradient-start\) 0%, var\(--body-gradient-end\) 100%\);/);
+  assert.match(source, /body\s*\{[\s\S]*?background-attachment:\s*fixed;/);
+  assert.match(source, /body\s*\{[\s\S]*?background-repeat:\s*no-repeat;/);
+  assert.match(source, /html\[data-visual-style="stylful"\] body\s*\{[\s\S]*?background-attachment:\s*fixed, fixed, fixed;/);
+  assert.match(source, /html\[data-theme="dark"\]\[data-visual-style="stylful"\] body\s*\{[\s\S]*?background-attachment:\s*fixed, fixed, fixed;/);
+});
+
+test("globals.css scopes denser analysis page sizing without changing every workbench page", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  assert.match(source, /\.analysis-density-page \.workbench-content-frame\s*\{/);
+  assert.match(source, /width:\s*min\(100%, clamp\(68rem, 90vw, 90rem\)\);/);
+  assert.match(source, /\.analysis-overview-title\s*\{[\s\S]*?font-size:\s*2rem;/);
+  assert.match(source, /\.analysis-overview-metric \.metric-card-value\s*\{[\s\S]*?font-size:\s*1\.55rem;/);
+  assert.match(source, /\.analysis-report-row\s*\{[\s\S]*?padding:\s*0\.8rem 1rem;/);
+});
+
 test("globals.css preserves selected pill controls in dark mode", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 

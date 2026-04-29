@@ -29,12 +29,16 @@ test("layout seeds server preferences and bootstraps the client before hydration
   assert.match(source, /preferSystemTheme:\s*!isTheme\(themeCookie\)/);
 });
 
-test("layout does not inject development component inspector overlays", () => {
+test("layout injects React Grab only as a development-time test overlay", () => {
   const layoutSource = readFileSync(layoutPath, "utf8");
   const packageSource = readFileSync(packageJsonPath, "utf8");
 
-  assert.doesNotMatch(layoutSource, /react-grab/);
-  assert.doesNotMatch(layoutSource, /unpkg\.com/);
-  assert.doesNotMatch(layoutSource, /next\/script/);
+  assert.match(layoutSource, /import Script from "next\/script"/);
+  assert.match(layoutSource, /const ENABLE_REACT_GRAB/);
+  assert.match(layoutSource, /process\.env\.NODE_ENV === "development"/);
+  assert.match(layoutSource, /NEXT_PUBLIC_ENABLE_REACT_GRAB/);
+  assert.match(layoutSource, /id="react-grab"/);
+  assert.match(layoutSource, /https:\/\/unpkg\.com\/react-grab\/dist\/index\.global\.js/);
+  assert.match(layoutSource, /strategy="beforeInteractive"/);
   assert.doesNotMatch(packageSource, /react-grab/);
 });

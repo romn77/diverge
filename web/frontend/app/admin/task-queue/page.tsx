@@ -12,9 +12,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ApiError,
+  getDataSyncJob,
   listAdminTaskQueue,
   type AdminTaskQueueItem,
   type AdminTaskQueueResponse,
+  type DataSyncTask,
   type TaskStatus,
 } from "@/lib/api";
 
@@ -46,10 +48,15 @@ const QUEUE_SECTIONS = [
   },
 ] as const;
 
+const ACTIVE_DATA_SYNC_STATUSES = new Set<TaskStatus>(["pending", "queued", "running"]);
+const DATA_SYNC_REFRESH_INTERVAL_MS = 3000;
+
 export default function AdminTaskQueuePage() {
   const router = useRouter();
   const { authState, authStatus, refreshSession } = useAuth();
   const [snapshot, setSnapshot] = useState<AdminTaskQueueResponse | null>(null);
+  const [selectedDataSyncJob, setSelectedDataSyncJob] = useState<DataSyncTask | null>(null);
+  const [loadingDataSyncJob, setLoadingDataSyncJob] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -109,6 +116,40 @@ export default function AdminTaskQueuePage() {
     }
   }, [handleAuthBoundary]);
 
+  const refreshSelectedDataSyncJob = useCallback(
+    async (taskId: string, options: { silent?: boolean } = {}) => {
+      if (!options.silent) {
+        setLoadingDataSyncJob(taskId);
+      }
+      setPageError(null);
+      try {
+        setSelectedDataSyncJob(await getDataSyncJob(taskId));
+      } catch (error) {
+        if (!handleAuthBoundary(error)) {
+          setPageError(
+            error instanceof Error ? error.message : "Unable to load data sync job"
+          );
+        }
+      } finally {
+        if (!options.silent) {
+          setLoadingDataSyncJob(null);
+        }
+      }
+    },
+    [handleAuthBoundary]
+  );
+
+  const inspectDataSyncJob = async (taskId: string) => {
+    await refreshSelectedDataSyncJob(taskId);
+  };
+
+  const handleRefreshAll = async () => {
+    await loadTaskQueue();
+    if (selectedDataSyncJob) {
+      await refreshSelectedDataSyncJob(selectedDataSyncJob.id, { silent: true });
+    }
+  };
+
   useEffect(() => {
     if (shouldRedirectToLogin) {
       router.replace("/login?next=/admin/task-queue");
@@ -122,6 +163,16 @@ export default function AdminTaskQueuePage() {
     }
     void loadTaskQueue();
   }, [canLoad, canManage, loadTaskQueue]);
+
+  useEffect(() => {
+    if (!selectedDataSyncJob || !ACTIVE_DATA_SYNC_STATUSES.has(selectedDataSyncJob.status)) {
+      return;
+    }
+    const intervalId = window.setInterval(() => {
+      void refreshSelectedDataSyncJob(selectedDataSyncJob.id, { silent: true });
+    }, DATA_SYNC_REFRESH_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [refreshSelectedDataSyncJob, selectedDataSyncJob]);
 
   if (authStatus === "loading" || loading) {
     return (
@@ -160,19 +211,19 @@ export default function AdminTaskQueuePage() {
   }
 
   return (
-    <main className="px-4 py-6 md:px-7 lg:px-9">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <Card className="rounded-[30px]">
-          <CardContent className="px-6 py-7 md:px-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+    <main className="px-4 py-5 md:px-7 lg:px-9">
+      <div className="mx-auto max-w-7xl space-y-4">
+        <Card className="rounded-[18px]">
+          <CardContent className="px-5 py-5 md:px-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-3xl">
                 <Link
                   href="/"
-                  className="text-[12px] font-semibold uppercase tracking-[0.32em] text-[var(--primary)]"
+                  className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--primary)]"
                 >
                   Back to Workbench
                 </Link>
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <Button type="button" size="sm">
                     Task Queue
                   </Button>
@@ -186,13 +237,13 @@ export default function AdminTaskQueuePage() {
                     <Link href="/admin/audit">Audit Log</Link>
                   </Button>
                 </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <h1 className="font-heading text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
                     Task Queue
                   </h1>
                   <Badge variant="secondary">Read-only</Badge>
                 </div>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
+                <p className="mt-2 text-sm leading-6 text-slate-600">
                   Inspect active background jobs by status, owner, queue position, and quota block.
                 </p>
               </div>
@@ -200,7 +251,7 @@ export default function AdminTaskQueuePage() {
                 <Badge variant="secondary">
                   Backend: {snapshot?.task_backend ?? "unknown"}
                 </Badge>
-                <Button type="button" variant="secondary" onClick={() => void loadTaskQueue()}>
+                <Button type="button" variant="secondary" onClick={() => void handleRefreshAll()}>
                   <RefreshCw className="size-4" />
                   Refresh
                 </Button>
@@ -215,7 +266,7 @@ export default function AdminTaskQueuePage() {
           </div>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-4">
           <QueueMetric label="Active" value={snapshot?.totals.active ?? 0} />
           <QueueMetric label="Running" value={snapshot?.totals.running ?? 0} />
           <QueueMetric label="Queued" value={snapshot?.totals.queued ?? 0} />
@@ -225,16 +276,21 @@ export default function AdminTaskQueuePage() {
           />
         </section>
 
-        <section className="grid gap-5 xl:grid-cols-3">
+        <section className="grid gap-4 xl:grid-cols-3">
           {QUEUE_SECTIONS.map((section) => (
             <QueueSection
               key={section.key}
               title={section.title}
               emptyLabel={section.emptyLabel}
               tasks={groupedTasks[section.key]}
+              selectedDataSyncTaskId={selectedDataSyncJob?.id ?? null}
+              loadingDataSyncTaskId={loadingDataSyncJob}
+              onInspectDataSync={inspectDataSyncJob}
             />
           ))}
         </section>
+
+        <DataSyncDetails job={selectedDataSyncJob} loadingTaskId={loadingDataSyncJob} />
       </div>
     </main>
   );
@@ -242,12 +298,12 @@ export default function AdminTaskQueuePage() {
 
 function QueueMetric({ label, value }: { label: string; value: number }) {
   return (
-    <Card className="rounded-[24px] bg-white/88">
-      <CardContent className="px-4 py-4">
+    <Card className="rounded-[16px] bg-white/88">
+      <CardContent className="px-4 py-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           {label}
         </p>
-        <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+        <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
           {value}
         </p>
       </CardContent>
@@ -259,14 +315,20 @@ function QueueSection({
   title,
   emptyLabel,
   tasks,
+  selectedDataSyncTaskId,
+  loadingDataSyncTaskId,
+  onInspectDataSync,
 }: {
   title: string;
   emptyLabel: string;
   tasks: AdminTaskQueueItem[];
+  selectedDataSyncTaskId: string | null;
+  loadingDataSyncTaskId: string | null;
+  onInspectDataSync: (taskId: string) => void;
 }) {
   return (
-    <Card className="rounded-[28px]">
-      <CardContent className="px-5 py-5">
+    <Card className="rounded-[18px]">
+      <CardContent className="px-4 py-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
             {title}
@@ -274,19 +336,23 @@ function QueueSection({
           <Badge variant="secondary">{tasks.length}</Badge>
         </div>
         {tasks.length === 0 ? (
-          <div className="mt-4 rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-slate-500">
+          <div className="mt-3 rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-5 text-sm text-slate-500">
             {emptyLabel}
           </div>
         ) : (
-          <div className="mt-4 space-y-3">
+          <div className="mt-3 space-y-2">
             {tasks.map((task) => (
               <div
                 key={`${task.kind}:${task.task_id}`}
-                className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4"
+                className={`rounded-[14px] border px-3 py-3 ${
+                  task.kind === "data_sync" && selectedDataSyncTaskId === task.task_id
+                    ? "border-[rgba(47,111,78,0.28)] bg-[rgba(47,111,78,0.08)]"
+                    : "border-[var(--border)] bg-[var(--surface-strong)]"
+                }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="truncate text-base font-semibold text-slate-900">
+                    <p className="truncate text-sm font-semibold text-slate-900">
                       {task.label}
                     </p>
                     <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
@@ -295,7 +361,7 @@ function QueueSection({
                   </div>
                   <Badge variant="secondary">{STATUS_LABELS[task.status]}</Badge>
                 </div>
-                <div className="mt-3 grid gap-2 text-sm text-slate-600">
+                <div className="mt-2 grid gap-1.5 text-sm text-slate-600">
                   <QueueDetail label="Owner" value={formatOwner(task)} />
                   <QueueDetail label="Queue" value={formatQueuePosition(task)} />
                   <QueueDetail label="Started" value={formatDateTime(task.started_at)} />
@@ -304,9 +370,21 @@ function QueueSection({
                     value={formatQuotaBlock(task.blocked_vendor, task.blocked_until)}
                   />
                 </div>
-                <Button asChild type="button" size="sm" variant="secondary" className="mt-4">
-                  <Link href={task.detail_path}>View task</Link>
-                </Button>
+                {task.kind === "data_sync" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="mt-3"
+                    onClick={() => onInspectDataSync(task.task_id)}
+                  >
+                    {loadingDataSyncTaskId === task.task_id ? "Loading..." : "Inspect sync"}
+                  </Button>
+                ) : (
+                  <Button asChild type="button" size="sm" variant="secondary" className="mt-3">
+                    <Link href={task.detail_path}>View task</Link>
+                  </Button>
+                )}
               </div>
             ))}
           </div>
@@ -314,6 +392,90 @@ function QueueSection({
       </CardContent>
     </Card>
   );
+}
+
+function DataSyncDetails({
+  job,
+  loadingTaskId,
+}: {
+  job: DataSyncTask | null;
+  loadingTaskId: string | null;
+}) {
+  return (
+    <Card className="rounded-[18px]">
+      <CardContent className="grid gap-4 px-4 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+              Data Sync Details
+            </h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Detail endpoint payload for data_sync tasks: latest_progress, progress_events, result, and error.
+            </p>
+          </div>
+          {job ? <Badge variant={dataSyncStatusVariant(job.status)}>{job.status}</Badge> : null}
+        </div>
+
+        {job ? (
+          <div className="grid gap-4">
+            <div className="grid gap-2 rounded-[14px] border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-3 text-xs text-slate-600 md:grid-cols-4">
+              <QueueDetail label="Task" value={job.id} />
+              <QueueDetail label="Type" value={job.sync_type} />
+              <QueueDetail label="Started" value={formatDateTime(job.started_at ?? null)} />
+              <QueueDetail label="Events" value={`${job.progress_events.length}`} />
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <PayloadBlock label="latest_progress" value={job.latest_progress} />
+              <PayloadBlock label="progress_events" value={job.progress_events.slice(-8)} />
+              <PayloadBlock label="result" value={job.result} />
+              <PayloadBlock label="error" value={job.error} />
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-slate-500">
+            {loadingTaskId
+              ? "Loading data sync details..."
+              : "Select a data_sync task from the queue to inspect progress, result, or failure details."}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function PayloadBlock({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </p>
+      <pre className="mt-2 max-h-44 overflow-auto rounded-[12px] border border-[var(--border)] bg-white p-3 text-[11px] leading-5 text-slate-700">
+        {formatJsonPayload(value)}
+      </pre>
+    </div>
+  );
+}
+
+function formatJsonPayload(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return JSON.stringify(value, null, 2);
+}
+
+function dataSyncStatusVariant(
+  status: string
+): "secondary" | "success" | "destructive" | "outline" {
+  if (status === "completed") {
+    return "success";
+  }
+  if (status === "failed" || status === "canceled") {
+    return "destructive";
+  }
+  if (status === "running" || status === "queued" || status === "pending") {
+    return "secondary";
+  }
+  return "outline";
 }
 
 function QueueDetail({ label, value }: { label: string; value: string }) {

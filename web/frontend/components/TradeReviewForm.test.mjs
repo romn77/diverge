@@ -41,10 +41,11 @@ test("TradeReviewForm keeps manual entry and exit reviews focused on price-actio
 test("TradeReviewForm can request an AI-generated review before manual editing", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /createTradeReview/);
+  assert.doesNotMatch(source, /createTradeReview/);
   assert.match(source, /generateReview/);
-  assert.match(source, /Generating AI review/);
-  assert.match(source, /Apply generated review/);
+  assert.match(source, /onGenerateReview/);
+  assert.match(source, /review_type: reviewType/);
+  assert.doesNotMatch(source, /Apply generated review/);
   assert.match(source, /llm_provider/);
   assert.match(source, /model/);
 });

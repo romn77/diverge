@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -30,14 +29,15 @@ interface ScreenerResultsViewerProps {
 
 type SortKey =
   | "global_rank"
-  | "total_score"
-  | "technical_score"
-  | "breakout_bonus"
-  | "trend_score"
-  | "momentum_score"
-  | "pattern_score"
-  | "risk_score"
-  | "liquidity_score";
+  | "close"
+  | "ret_20"
+  | "ret_60"
+  | "rsi"
+  | "atr_pct"
+  | "avg_amount_20d"
+  | "breakout_volume_ratio";
+
+type SortDirection = "asc" | "desc";
 
 const BREAKOUT_FILTER_OPTIONS = [
   { value: "all", label: "All Results" },
@@ -160,38 +160,50 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
     };
   }, [filteredRows, run?.as_of_date]);
 
+  const sortOptions = useMemo<Array<{ key: SortKey; label: string; direction?: SortDirection }>>(
+    () => [
+      { key: "global_rank", label: t("screenerResults.column.rank", "Rank"), direction: "asc" },
+      { key: "close", label: t("screenerResults.column.close", "Close") },
+      { key: "ret_20", label: t("screenerResults.column.ret20", "20D Return") },
+      {
+        key: "ret_60",
+        label: t("screenerResults.column.ret60", "60D Return"),
+      },
+      { key: "rsi", label: t("screenerResults.column.rsi", "RSI") },
+      { key: "atr_pct", label: t("screenerResults.column.atr", "ATR%"), direction: "asc" },
+      {
+        key: "avg_amount_20d",
+        label: t("screenerResults.column.amount20d", "20D Amount"),
+      },
+      {
+        key: "breakout_volume_ratio",
+        label: t("screenerResults.column.volumeRatio", "Volume Ratio"),
+      },
+    ],
+    [t]
+  );
   const sortedRows = useMemo(() => {
+    const sortOption = sortOptions.find((option) => option.key === sortKey);
+    const direction = sortOption?.direction ?? "desc";
     return [...filteredRows].sort((a, b) => {
       if (sortKey === "global_rank") {
         return a.global_rank - b.global_rank;
       }
-      return (b[sortKey] ?? 0) - (a[sortKey] ?? 0);
+      const aValue = numericValue(a[sortKey]);
+      const bValue = numericValue(b[sortKey]);
+      if (aValue === null && bValue === null) {
+        return a.global_rank - b.global_rank;
+      }
+      if (aValue === null) {
+        return 1;
+      }
+      if (bValue === null) {
+        return -1;
+      }
+      return direction === "asc" ? aValue - bValue : bValue - aValue;
     });
-  }, [filteredRows, sortKey]);
-
-  const columns: Array<{ key: SortKey; label: string }> = [
-    { key: "global_rank", label: t("screenerResults.column.rank", "Rank") },
-    { key: "total_score", label: t("screenerResults.column.total", "Total") },
-    { key: "technical_score", label: t("screenerResults.column.technical", "Technical") },
-    { key: "breakout_bonus", label: t("screenerResults.column.breakout", "Breakout") },
-    { key: "trend_score", label: t("screenerResults.column.trend", "Trend") },
-    {
-      key: "momentum_score",
-      label: t("screenerResults.column.momentum", "Momentum"),
-    },
-    { key: "pattern_score", label: t("screenerResults.column.pattern", "Pattern") },
-    { key: "risk_score", label: t("screenerResults.column.risk", "Risk") },
-    {
-      key: "liquidity_score",
-      label: t("screenerResults.column.liquidity", "Liquidity"),
-    },
-  ];
+  }, [filteredRows, sortKey, sortOptions]);
   const highlightedRows = useMemo(() => sortedRows.slice(0, 3), [sortedRows]);
-  const marketCount = useMemo(
-    () => new Set(filteredRows.map((row) => row.market)).size,
-    [filteredRows]
-  );
-  const strongestSignal = highlightedRows[0] ?? null;
   const filteredReasons = useMemo(
     () => Object.entries(run?.filtered_count_by_reason ?? {}).filter(([, count]) => count > 0),
     [run?.filtered_count_by_reason]
@@ -218,10 +230,6 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
               <h1 className="font-heading mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-[1.7rem]">
                 {run?.id ?? runId}
               </h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                Compare the ranked pool, inspect the strongest candidates first, and
-                use the score mix to decide which symbols deserve deeper research.
-              </p>
             </div>
             <div className="text-right text-sm text-slate-600">
               <p>{formatAsOfDate(run?.as_of_date ?? null, locale)}</p>
@@ -233,71 +241,33 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
             </div>
           </div>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <SummaryCard
-              label={t("screenerResults.summary.topPick", "Top pick")}
-              value={strongestSignal?.symbol ?? "—"}
-              hint={
-                strongestSignal
-                  ? `${strongestSignal.market} · total ${formatScore(strongestSignal.total_score, locale)}`
-                  : "Waiting for screener candidates"
-              }
-            />
-            <SummaryCard
-              label={t("screenerResults.summary.coverage", "Markets")}
-              value={String(marketCount || 0)}
-              hint="Distinct markets represented in this run"
-            />
-            <SummaryCard
-              label={t("screenerResults.summary.filtered", "Filtered Out")}
-              value={String(
-                filteredReasons.reduce((sum, [, count]) => sum + count, 0)
-              )}
-              hint="Candidates removed before the final export"
-            />
-            <SummaryCard
-              label={t("screenerResults.summary.profile", "Profile")}
-              value={strongestSignal?.ranking_profile_id ?? "Legacy"}
-              hint="Ranking model used for this result"
-            />
-          </div>
-
           <div className="mt-5 flex flex-wrap gap-2">
             {BREAKOUT_FILTER_OPTIONS.map((option) => (
-              <Button
+              <SelectionChip
                 key={option.value}
-                type="button"
-                aria-pressed={breakoutFilter === option.value}
-                variant={breakoutFilter === option.value ? "default" : "secondary"}
-                size="sm"
+                pressed={breakoutFilter === option.value}
                 onClick={() => setBreakoutFilter(option.value)}
               >
                 {option.label}
-              </Button>
+              </SelectionChip>
             ))}
-            <Button
-              type="button"
-              aria-pressed={volumeConfirmedOnly}
-              variant={volumeConfirmedOnly ? "default" : "secondary"}
-              size="sm"
+            <SelectionChip
+              pressed={volumeConfirmedOnly}
               onClick={() => setVolumeConfirmedOnly((value) => !value)}
             >
               {t("screenerResults.filter.volume", "Volume Confirmed")}
-            </Button>
+            </SelectionChip>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {columns.map((column) => (
-              <Button
+            {sortOptions.map((column) => (
+              <SelectionChip
                 key={column.key}
-                type="button"
-                aria-pressed={sortKey === column.key}
-                variant={sortKey === column.key ? "default" : "secondary"}
-                size="sm"
+                pressed={sortKey === column.key}
                 onClick={() => setSortKey(column.key)}
               >
                 {column.label}
-              </Button>
+              </SelectionChip>
             ))}
           </div>
 
@@ -339,28 +309,19 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                       <p className="text-xs text-slate-500">{row.market}</p>
                     </div>
                     <Badge variant="secondary" className="text-slate-700">
-                      {formatScore(row.total_score, locale)}
+                      #{row.global_rank}
                     </Badge>
                   </div>
 
                   <dl className="mt-3 grid grid-cols-3 gap-2">
-                    <Metric label="Trend" value={formatScore(row.trend_score, locale)} />
+                    <Metric label="Close" value={formatNumber(row.close, locale)} />
+                    <Metric label="MA20 Gap" value={formatMovingAverageGap(row, "ma20", locale)} />
+                    <Metric label="20D" value={formatPercent(row.ret_20, locale)} />
+                    <Metric label="RSI" value={formatNumber(row.rsi, locale)} />
+                    <Metric label="ATR%" value={formatPercent(row.atr_pct, locale)} />
                     <Metric
-                      label="Breakout"
-                      value={formatScore(row.breakout_bonus ?? 0, locale)}
-                    />
-                    <Metric
-                      label="Momentum"
-                      value={formatScore(row.momentum_score, locale)}
-                    />
-                    <Metric
-                      label="Pattern"
-                      value={formatScore(row.pattern_score ?? 0, locale)}
-                    />
-                    <Metric label="Risk" value={formatScore(row.risk_score, locale)} />
-                    <Metric
-                      label="Liquidity"
-                      value={formatScore(row.liquidity_score, locale)}
+                      label="Volume"
+                      value={formatRatio(row.breakout_volume_ratio, locale)}
                     />
                   </dl>
 
@@ -413,39 +374,36 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                     {t("screenerResults.header.global_rank", "global_rank")}
                   </TableHead>
                   <TableHead className="text-right tabular-nums">
-                    {t("screenerResults.header.total_score", "total_score")}
+                    {t("screenerResults.header.close", "close")}
                   </TableHead>
                   <TableHead className="text-right tabular-nums">
-                    {t("screenerResults.header.technical_score", "technical_score")}
+                    {t("screenerResults.header.ma20_gap", "ma20_gap")}
                   </TableHead>
                   <TableHead className="text-right tabular-nums">
-                    {t("screenerResults.header.pattern_score", "pattern_score")}
+                    {t("screenerResults.header.ma60_gap", "ma60_gap")}
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
+                    {t("screenerResults.header.ret_20", "ret_20")}
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
+                    {t("screenerResults.header.ret_60", "ret_60")}
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
+                    {t("screenerResults.header.rsi", "rsi")}
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
+                    {t("screenerResults.header.atr_pct", "atr_pct")}
+                  </TableHead>
+                  <TableHead className="text-right tabular-nums">
+                    {t("screenerResults.header.avg_amount_20d", "avg_amount_20d")}
                   </TableHead>
                   <TableHead className="text-left">
                     {t("screenerResults.header.breakout_type", "breakout_type")}
                   </TableHead>
-                  <TableHead className="text-left">
-                    {t(
-                      "screenerResults.header.breakout_with_volume",
-                      "breakout_with_volume"
-                    )}
-                  </TableHead>
-                  <TableHead className="text-right tabular-nums">
-                    {t("screenerResults.header.breakout_bonus", "breakout_bonus")}
-                  </TableHead>
-                  <TableHead className="text-right tabular-nums">
-                    {t("screenerResults.header.trend_score", "trend_score")}
-                  </TableHead>
-                  <TableHead className="text-right tabular-nums">
-                    {t("screenerResults.header.momentum_score", "momentum_score")}
-                  </TableHead>
-                  <TableHead className="text-right tabular-nums">
-                    {t("screenerResults.header.risk_score", "risk_score")}
-                  </TableHead>
                   <TableHead className="text-right tabular-nums">
                     {t(
-                      "screenerResults.header.liquidity_score",
-                      "liquidity_score"
+                      "screenerResults.header.breakout_volume_ratio",
+                      "breakout_volume_ratio"
                     )}
                   </TableHead>
                   <TableHead className="text-left">
@@ -457,21 +415,18 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                   <TableHead className="text-left">
                     {t("screenerResults.header.matched_conditions", "matched_conditions")}
                   </TableHead>
-                  <TableHead className="text-left">
-                    {t("screenerResults.header.score_contributions", "score_contributions")}
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="bg-white">
                 {isLoading ? (
                   <TableRow>
-                    <TableCell className="py-6 text-slate-500" colSpan={18}>
+                    <TableCell className="py-6 text-slate-500" colSpan={17}>
                       Loading screener candidates...
                     </TableCell>
                   </TableRow>
                 ) : sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell className="py-6 text-slate-500" colSpan={18}>
+                    <TableCell className="py-6 text-slate-500" colSpan={17}>
                       {t("screenerResults.empty", "No screener candidates available.")}
                     </TableCell>
                   </TableRow>
@@ -495,13 +450,28 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                       <TableCell>{row.market}</TableCell>
                       <TableCell className="text-right tabular-nums">{row.global_rank}</TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatScore(row.total_score, locale)}
+                        {formatNumber(row.close, locale)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatScore(row.technical_score, locale)}
+                        {formatMovingAverageGap(row, "ma20", locale)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatScore(row.pattern_score, locale)}
+                        {formatMovingAverageGap(row, "ma60", locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatPercent(row.ret_20, locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatPercent(row.ret_60, locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatNumber(row.rsi, locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatPercent(row.atr_pct, locale)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {formatCompactNumber(row.avg_amount_20d, locale)}
                       </TableCell>
                       <TableCell>
                         <TagStrip
@@ -511,28 +481,8 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                           compact
                         />
                       </TableCell>
-                      <TableCell>
-                        <TagStrip
-                          label="Volume"
-                          value={formatVolumeFlag(row.breakout_with_volume)}
-                          tone="bg-[rgba(22,101,52,0.08)] text-emerald-700"
-                          compact
-                        />
-                      </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {formatScore(row.breakout_bonus ?? 0, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatScore(row.trend_score, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatScore(row.momentum_score, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatScore(row.risk_score, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatScore(row.liquidity_score, locale)}
+                        {formatRatio(row.breakout_volume_ratio, locale)}
                       </TableCell>
                       <TableCell>
                         <TagStrip
@@ -555,14 +505,6 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                           label="Matched"
                           value={row.matched_conditions}
                           tone="bg-[rgba(49,104,142,0.1)] text-sky-700"
-                          compact
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TagStrip
-                          label="Contrib"
-                          value={row.score_contributions}
-                          tone="bg-[rgba(22,101,52,0.08)] text-emerald-700"
                           compact
                         />
                       </TableCell>
@@ -606,25 +548,28 @@ function formatVolumeFlag(value: boolean | undefined): string {
   return value ? "confirmed" : "standard";
 }
 
-function SummaryCard({
-  label,
-  value,
-  hint,
+function SelectionChip({
+  pressed,
+  onClick,
+  children,
 }: {
-  label: string;
-  value: string;
-  hint: string;
+  pressed: boolean;
+  onClick: () => void;
+  children: ReactNode;
 }) {
+  const tone = pressed
+    ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--button-primary-shadow)]"
+    : "border-border bg-[var(--surface)] text-slate-700 shadow-[var(--button-secondary-shadow)] hover:bg-[color:var(--surface-hover)]";
+
   return (
-    <Card className="rounded-[20px] bg-[var(--surface-strong)] shadow-none">
-      <CardContent className="p-3.5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-600">{hint}</p>
-      </CardContent>
-    </Card>
+    <button
+      type="button"
+      aria-pressed={pressed}
+      className={`inline-flex h-7 items-center justify-center rounded-full border px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-background ${tone}`}
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -677,15 +622,73 @@ function TagStrip({
   );
 }
 
-function formatScore(value: number | null | undefined, locale: string): string {
+function numericValue(value: number | null | undefined): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
+  }
+  return value;
+}
+
+function formatNumber(value: number | null | undefined, locale: string): string {
+  const numeric = numericValue(value);
+  if (numeric === null) {
     return "—";
   }
 
   return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(numeric);
+}
+
+function formatCompactNumber(value: number | null | undefined, locale: string): string {
+  const numeric = numericValue(value);
+  if (numeric === null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(locale, {
+    notation: "compact",
+    maximumFractionDigits: 2,
+  }).format(numeric);
+}
+
+function formatPercent(value: number | null | undefined, locale: string): string {
+  const numeric = numericValue(value);
+  if (numeric === null) {
+    return "—";
+  }
+
+  return new Intl.NumberFormat(locale, {
+    style: "percent",
     minimumFractionDigits: 1,
     maximumFractionDigits: 1,
-  }).format(value);
+  }).format(numeric);
+}
+
+function formatMovingAverageGap(
+  row: ScreenerCandidateRow,
+  field: "ma20" | "ma60",
+  locale: string
+): string {
+  const close = numericValue(row.close);
+  const average = numericValue(row[field]);
+  if (close === null || average === null || average === 0) {
+    return "—";
+  }
+  return formatPercent(close / average - 1, locale);
+}
+
+function formatRatio(value: number | null | undefined, locale: string): string {
+  const numeric = numericValue(value);
+  if (numeric === null) {
+    return "—";
+  }
+
+  return `${new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(numeric)}x`;
 }
 
 function formatAsOfDate(value: string | null, locale: string) {

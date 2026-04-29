@@ -12,6 +12,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   ApiError,
   listAdminAuditEvents,
   type AdminAuditEvent,
@@ -73,6 +81,28 @@ function formatMetadata(metadata: Record<string, unknown>): string {
     return "{}";
   }
   return JSON.stringify(metadata, null, 2);
+}
+
+function formatMetadataSummary(metadata: Record<string, unknown>): string {
+  const entries = Object.entries(metadata);
+  if (!entries.length) {
+    return "{}";
+  }
+  const summary = entries
+    .slice(0, 3)
+    .map(([key, value]) => {
+      const rendered =
+        typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+          ? String(value)
+          : JSON.stringify(value);
+      return `${key}: ${rendered}`;
+    })
+    .join(" | ");
+  return entries.length > 3 ? `${summary} | +${entries.length - 3}` : summary;
+}
+
+function compactValue(value: string | null | undefined, fallback = "-"): string {
+  return value && value.trim() ? value : fallback;
 }
 
 export default function AdminAuditPage() {
@@ -343,7 +373,7 @@ export default function AdminAuditPage() {
           </CardContent>
         </Card>
 
-        <section className="space-y-4">
+        <section>
           {events.length === 0 ? (
             <Card className="rounded-[28px] border-dashed">
               <CardContent className="px-6 py-10 text-center">
@@ -357,7 +387,7 @@ export default function AdminAuditPage() {
               </CardContent>
             </Card>
           ) : (
-            events.map((event) => <AuditEventCard key={event.id} event={event} />)
+            <AuditEventTable events={events} />
           )}
         </section>
       </div>
@@ -409,31 +439,79 @@ function AuditFilterField({
   );
 }
 
-function AuditEventCard({ event }: { event: AdminAuditEvent }) {
+function AuditEventTable({ events }: { events: AdminAuditEvent[] }) {
   return (
-    <Card className="rounded-[26px] bg-white/90">
-      <CardContent className="px-5 py-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge>{event.action}</Badge>
-              <Badge variant="secondary">{event.resource_type}</Badge>
-              {event.resource_id ? <Badge variant="outline">{event.resource_id}</Badge> : null}
-            </div>
-            <p className="mt-3 text-sm font-semibold text-slate-900">
-              {formatDateTime(event.created_at)}
-            </p>
-            <div className="mt-2 grid gap-2 text-xs text-slate-500 md:grid-cols-2">
-              <span>Actor: {event.actor_user_id ?? "system"}</span>
-              <span>Tenant: {event.tenant_id ?? "none"}</span>
-              <span>IP: {event.ip_address ?? "unknown"}</span>
-              <span>User agent: {event.user_agent ?? "unknown"}</span>
-            </div>
-          </div>
-          <pre className="max-h-48 w-full overflow-auto rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] p-3 text-xs leading-5 text-slate-700 lg:max-w-xl">
-            <span className="sr-only">metadata</span>
-            {formatMetadata(event.metadata)}
-          </pre>
+    <Card className="overflow-hidden rounded-[18px] bg-white/95">
+      <CardContent className="p-0">
+        <div className="max-h-[620px] overflow-auto">
+          <Table className="min-w-[1120px] text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:h-9 [&_th]:px-3 [&_th]:tracking-[0.12em]">
+            <TableHeader className="sticky top-0 z-10 bg-[var(--surface-strong)]">
+              <TableRow className="border-b border-[var(--border)]">
+                <TableHead className="w-[150px] text-left">Time</TableHead>
+                <TableHead className="w-[190px] text-left">Action</TableHead>
+                <TableHead className="w-[180px] text-left">Resource</TableHead>
+                <TableHead className="w-[210px] text-left">Actor</TableHead>
+                <TableHead className="w-[130px] text-left">IP</TableHead>
+                <TableHead className="text-left">Metadata</TableHead>
+                <TableHead className="w-[220px] text-left">User Agent</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {events.map((event) => {
+                const metadata = formatMetadata(event.metadata);
+                const metadataSummary = formatMetadataSummary(event.metadata);
+                const resource = [
+                  compactValue(event.resource_type),
+                  event.resource_id ? `#${event.resource_id}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <TableRow
+                    key={event.id}
+                    className="border-b border-[rgba(15,23,42,0.06)] align-top hover:bg-[rgba(47,111,78,0.06)]"
+                  >
+                    <TableCell className="whitespace-nowrap font-medium text-slate-800">
+                      {formatDateTime(event.created_at)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className="max-w-[170px] truncate align-middle" title={event.action}>
+                        {event.action}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[180px] truncate text-slate-700" title={resource}>
+                      {resource}
+                    </TableCell>
+                    <TableCell
+                      className="max-w-[210px] truncate font-mono text-[11px] text-slate-600"
+                      title={compactValue(event.actor_user_id, "system")}
+                    >
+                      {compactValue(event.actor_user_id, "system")}
+                    </TableCell>
+                    <TableCell
+                      className="whitespace-nowrap font-mono text-[11px] text-slate-600"
+                      title={compactValue(event.ip_address, "unknown")}
+                    >
+                      {compactValue(event.ip_address, "unknown")}
+                    </TableCell>
+                    <TableCell
+                      className="max-w-[340px] truncate font-mono text-[11px] leading-5 text-slate-600"
+                      title={metadata}
+                    >
+                      <span className="sr-only">Metadata</span>
+                      {metadataSummary}
+                    </TableCell>
+                    <TableCell
+                      className="max-w-[220px] truncate text-[11px] text-slate-500"
+                      title={compactValue(event.user_agent, "unknown")}
+                    >
+                      {compactValue(event.user_agent, "unknown")}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       </CardContent>
     </Card>

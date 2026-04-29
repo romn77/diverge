@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Play, RefreshCw, Save } from "lucide-react";
+import { ChevronDown, Play, RefreshCw, Save, SlidersHorizontal } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { ScreenerResultsViewer } from "@/components/ScreenerResultsViewer";
 import { useWorkbench } from "@/components/WorkbenchProvider";
@@ -45,6 +45,12 @@ interface SavedScreenerBar {
   config: ScreenTaskCreateRequest;
   created_at: string;
   updated_at: string;
+}
+
+interface SelectedFilterSummary {
+  id: string;
+  label: string;
+  value: string;
 }
 
 const SAVED_SCREENER_BARS_KEY = "diverge.screener.savedBars";
@@ -360,6 +366,30 @@ function savedBarFromPresetRecord(record: ScreenerPresetRecord): SavedScreenerBa
   };
 }
 
+function buildSelectedFilterSummaries(
+  options: ScreenerConfigOptions | null,
+  selections: Record<string, string> | undefined
+): SelectedFilterSummary[] {
+  if (!options || !selections) {
+    return [];
+  }
+
+  return options.filter_preset_groups
+    .map((group) => {
+      const selectedValue = selections[group.id];
+      if (!selectedValue || selectedValue === "any") {
+        return null;
+      }
+      const selectedOption = group.options.find((option) => option.value === selectedValue);
+      return {
+        id: group.id,
+        label: group.label,
+        value: selectedOption?.label ?? selectedValue,
+      };
+    })
+    .filter((item): item is SelectedFilterSummary => item !== null);
+}
+
 export function ScreenerDashboard() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -383,6 +413,7 @@ export function ScreenerDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [resultStale, setResultStale] = useState(false);
   const [hideLatestRun, setHideLatestRun] = useState(false);
+  const [isConfigCollapsed, setIsConfigCollapsed] = useState(false);
   const firstActiveScreenerTask = activeScreenerTasks[0];
   const selectedRunId = searchParams.get("runId");
   const latestScreenerRunId = useMemo(
@@ -524,6 +555,25 @@ export function ScreenerDashboard() {
       (value) => value !== "any"
     ).length;
   }, [formState?.filter_preset_selections]);
+  const selectedRankingProfileLabel =
+    configOptions?.ranking_profiles.find(
+      (profile) => profile.id === formState?.ranking_profile_id
+    )?.label ??
+    formState?.ranking_profile_id ??
+    "—";
+  const selectedFilterSummaries = useMemo(
+    () =>
+      buildSelectedFilterSummaries(
+        configOptions,
+        formState?.filter_preset_selections
+      ),
+    [configOptions, formState?.filter_preset_selections]
+  );
+  const visibleSelectedFilterSummaries = selectedFilterSummaries.slice(0, 3);
+  const hiddenSelectedFilterCount = Math.max(
+    selectedFilterSummaries.length - visibleSelectedFilterSummaries.length,
+    0
+  );
 
   const updateFilterPreset = (groupId: string, value: string) => {
     if (!formState) {
@@ -629,15 +679,17 @@ export function ScreenerDashboard() {
     setRunning(true);
     setError(null);
     setFeedback(null);
+    let didNavigate = false;
     try {
       const payload = buildScreenerPayload(formState);
       writeLastScreenerBar(payload);
       const response = await createScreenerTask(payload);
-      void refreshScreenerRuns();
-      void refreshScreenerTasks();
       startTransition(() => {
         router.push(buildScreenerTaskHref(response.task_id));
       });
+      didNavigate = true;
+      void refreshScreenerTasks();
+      void refreshScreenerRuns();
     } catch (submitError) {
       setError(
         submitError instanceof Error
@@ -645,7 +697,9 @@ export function ScreenerDashboard() {
           : t("screener.error.createTask", "Unable to create screener task")
       );
     } finally {
-      setRunning(false);
+      if (!didNavigate) {
+        setRunning(false);
+      }
     }
   };
 
@@ -694,7 +748,98 @@ export function ScreenerDashboard() {
           </CardContent>
         </Card>
 
-        <section className="viewer-frame">
+        <section className="screener-config-panel viewer-frame">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3 md:px-5">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-strong)] text-[var(--primary)]">
+                <SlidersHorizontal className="size-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--primary)]">
+                  {t("screenerDashboard.configPanel", "Screen Config")}
+                </p>
+                <div className="mt-1 flex flex-wrap gap-2 text-xs font-semibold text-slate-600">
+                  <span>{selectedMarketLabel || "—"}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="truncate">{selectedRankingProfileLabel}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>Top K {formState?.top_k ?? "—"}</span>
+                  <span aria-hidden="true">·</span>
+                  <span>
+                    {selectedFilterCount}{" "}
+                    {t("screenerDashboard.configSelectedSuffix", "selected")}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              aria-expanded={!isConfigCollapsed}
+              onClick={() => setIsConfigCollapsed((current) => !current)}
+              className="rounded-full"
+            >
+              <ChevronDown
+                className={`size-4 transition-transform ${
+                  isConfigCollapsed ? "" : "rotate-180"
+                }`}
+              />
+              {isConfigCollapsed
+                ? t("screenerDashboard.expandConfig", "Expand")
+                : t("screenerDashboard.collapseConfig", "Collapse")}
+            </Button>
+          </div>
+
+          {isConfigCollapsed ? (
+            <div className="screener-config-summary grid gap-3 px-4 py-3 md:px-5 lg:grid-cols-[1fr_auto] lg:items-center">
+              <div className="flex min-w-0 flex-wrap gap-2">
+                {visibleSelectedFilterSummaries.length > 0 ? (
+                  visibleSelectedFilterSummaries.map((item) => (
+                    <span
+                      key={item.id}
+                      className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--text)]"
+                    >
+                      {item.label}: {item.value}
+                    </span>
+                  ))
+                ) : (
+                  <span className="rounded-full border border-dashed border-[var(--border)] px-3 py-1 text-xs font-semibold text-slate-500">
+                    {t("screenerDashboard.noConfigFilters", "No active filters")}
+                  </span>
+                )}
+                {hiddenSelectedFilterCount > 0 ? (
+                  <span className="rounded-full border border-[var(--border)] bg-[var(--primary-soft)] px-3 py-1 text-xs font-semibold text-[var(--primary)]">
+                    +{hiddenSelectedFilterCount}
+                  </span>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={controlsDisabled}
+                  onClick={saveCurrentBar}
+                  size="sm"
+                  className="rounded-full"
+                >
+                  <Save className="mr-2 size-4" />
+                  Save
+                </Button>
+                <Button
+                  type="button"
+                  disabled={controlsDisabled || newScreenerDisabled || running}
+                  onClick={() => void runCurrentBar()}
+                  size="sm"
+                  className="rounded-full"
+                >
+                  <Play className="mr-2 size-4" />
+                  {running ? "Running..." : "Run"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="grid gap-3 border-b border-[var(--border)] px-4 py-4 lg:grid-cols-4 xl:grid-cols-[220px_230px_170px_minmax(240px,1fr)_100px_auto_auto]">
             <label>
               <span className="mb-1 block text-xs font-semibold text-slate-600">Preset</span>
@@ -898,6 +1043,9 @@ export function ScreenerDashboard() {
               ))}
             </div>
           </div>
+
+            </>
+          )}
 
           {error || feedback || firstActiveScreenerTask ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 text-sm">

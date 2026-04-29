@@ -50,8 +50,19 @@ test("HomeDashboard keeps the page title stable while search changes the results
 test("HomeDashboard uses the shared responsive workbench width frame", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /className="workbench-content-frame space-y-6"/);
+  assert.match(source, /className="workbench-content-frame space-y-5"/);
   assert.doesNotMatch(source, /max-w-6xl/);
+});
+
+test("HomeDashboard applies denser analysis-only spacing", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /analysis-density-page/);
+  assert.match(source, /analysis-overview-card/);
+  assert.match(source, /analysis-overview-title/);
+  assert.match(source, /analysis-overview-metric/);
+  assert.match(source, /analysis-report-section/);
+  assert.match(source, /analysis-report-row/);
 });
 
 test("HomeDashboard distinguishes private and workspace shared reports", () => {

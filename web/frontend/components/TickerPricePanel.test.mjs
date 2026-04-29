@@ -21,8 +21,8 @@ test("TickerPricePanel renders a trading-focused chart surface with range and ex
   assert.match(source, /toSparklineMarker/);
   assert.match(source, /r="2\.8"/);
   assert.match(source, /kind: "high" \| "low"/);
-  assert.match(source, /Window High/);
-  assert.match(source, /Window Low/);
+  assert.match(source, /tickerHistory\.windowHigh", "High"/);
+  assert.match(source, /tickerHistory\.windowLow", "Low"/);
   assert.doesNotMatch(source, /Window Change/);
   assert.match(source, /buildLinePath/);
   assert.match(source, /ChartShell/);

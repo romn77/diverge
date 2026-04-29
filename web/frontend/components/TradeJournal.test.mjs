@@ -25,6 +25,7 @@ test("TradeJournal wires the manual trade history and review workflow to backend
   assert.match(source, /listTrades/);
   assert.match(source, /getTrade/);
   assert.match(source, /getTickerTradeFeedback/);
+  assert.match(source, /createTradeReview/);
   assert.match(source, /\[selectedTradeId,\s*setSelectedTradeId\]/);
   assert.match(source, /\[tradeDetail,\s*setTradeDetail\]/);
   assert.match(source, /\[feedback,\s*setFeedback\]/);
@@ -39,6 +40,19 @@ test("TradeJournal wires the manual trade history and review workflow to backend
   assert.match(source, /Prompt Preview/);
   assert.match(source, /<TradeRecordForm/);
   assert.match(source, /<TradeReviewForm/);
+  assert.match(source, /onGenerateReview/);
+});
+
+test("TradeJournal runs AI review generation outside the modal and shows pending state in the review panel", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /\[pendingReviewGeneration,\s*setPendingReviewGeneration\]/);
+  assert.match(source, /handleGenerateReviewRequested/);
+  assert.match(source, /setEditingReviewType\(null\);/);
+  assert.match(source, /void createTradeReview\(record\.trade_id, payload\)/);
+  assert.match(source, /activeReviewGeneration/);
+  assert.match(source, /Generating AI review/);
+  assert.match(source, /This review is being generated in the background/);
 });
 
 test("TradeJournal exposes history filters and manual-only language rather than account automation", () => {

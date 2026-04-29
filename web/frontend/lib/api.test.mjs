@@ -94,6 +94,7 @@ test("admin APIs expose LLM model configuration controls without key values", ()
 test("admin APIs expose the read-only task queue snapshot", () => {
   assert.match(source, /AdminTaskQueueResponse/);
   assert.match(source, /AdminTaskQueueItem/);
+  assert.match(source, /kind:\s*"analysis" \| "screener" \| "data_sync"/);
   assert.match(source, /listAdminTaskQueue/);
   assert.match(source, /\/api\/admin\/task-queue/);
 });

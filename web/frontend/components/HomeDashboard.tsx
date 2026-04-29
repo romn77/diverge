@@ -136,19 +136,19 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   }, [scopedReports]);
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
-      <div className="workbench-content-frame space-y-6">
-        <Card className="card-surface rounded-[30px]">
-          <CardContent className="px-6 py-8 md:px-8">
+    <main className="analysis-density-page flex min-h-[100vh] flex-1 flex-col px-4 py-5 md:px-6 lg:px-8">
+      <div className="workbench-content-frame space-y-5">
+        <Card className="analysis-overview-card card-surface rounded-[30px]">
+          <CardContent className="analysis-overview-content px-6 py-8 md:px-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
                 {t("sidebar.nav.analysis", "Analysis")}
               </p>
-              <h1 className="workbench-page-title mt-3">
+              <h1 className="analysis-overview-title workbench-page-title mt-3">
                 {t("home.analysisWorkspace", "Analysis workspace")}
               </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+              <p className="analysis-overview-description mt-4 max-w-2xl text-sm leading-7 text-slate-600">
                 {t(
                   "home.workspaceDescription",
                   "Search reports and continue existing coverage."
@@ -156,8 +156,12 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Button type="button" disabled={newAnalysisDisabled} onClick={openAnalysisDialog}>
+            <div className="analysis-overview-actions flex flex-wrap gap-3">
+              <Button
+                type="button"
+                disabled={newAnalysisDisabled}
+                onClick={openAnalysisDialog}
+              >
                 {t("home.launchAnalysis", "New Analysis")}
               </Button>
               <Button asChild variant="secondary">
@@ -168,8 +172,9 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="analysis-overview-metrics mt-8 grid gap-4 md:grid-cols-3">
             <MetricCard
+              className="analysis-overview-metric"
               label={t("home.metric.reportLibrary", "Report Library")}
               value={`${scopedReports.length}`}
               meta={
@@ -179,18 +184,20 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               }
             />
             <MetricCard
+              className="analysis-overview-metric"
               label={t("home.recentTickers", "Tracked Tickers")}
               value={`${trackedTickers.length}`}
               meta={t("home.metric.trackedTickersMeta", "Coverage names in the library")}
             />
             <MetricCard
+              className="analysis-overview-metric"
               label={t("home.metric.activeResearch", "Active Research")}
               value={`${activeTasks.length}`}
               meta={t("home.metric.activeResearchMeta", "In-flight analysis jobs")}
             />
           </div>
 
-          <div className="mt-8 rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
+          <div className="analysis-overview-search mt-8 rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
             <label
               htmlFor="home-report-search"
               className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
@@ -215,7 +222,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
           </CardContent>
         </Card>
 
-        <section className="viewer-frame px-6 py-6 md:px-8">
+        <section className="analysis-report-section viewer-frame px-6 py-6 md:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
@@ -223,7 +230,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                     ? t("home.matchingReports", "Matching Reports")
                     : t("home.recentReports", "Recent Reports")}
                 </p>
-                <h2 className="workbench-section-title mt-2 text-2xl">
+                <h2 className="analysis-reports-title workbench-section-title mt-2 text-2xl">
                   {deferredSearchQuery
                     ? t("home.matchingReportCount", ({ count }) => `${count} matching reports`, {
                         count: matchingReports.length,
@@ -276,16 +283,18 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 {t("home.noReportMatches", "No reports match this search yet.")}
               </div>
             ) : (
-              <div className="mt-5 space-y-3">
+              <div className="analysis-report-list mt-5 space-y-3">
                 {matchingReports.slice(0, 8).map((report) => (
                   <Link
                     key={report.id}
                     href={buildReportHref(report.id)}
-                    className="group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
+                    className="analysis-report-row group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-lg font-semibold text-slate-900">{report.ticker}</p>
+                        <p className="analysis-report-ticker text-lg font-semibold text-slate-900">
+                          {report.ticker}
+                        </p>
                         <Badge
                           variant={report.visibility === "workspace" ? "success" : "secondary"}
                           className="px-2 py-1 text-[10px]"

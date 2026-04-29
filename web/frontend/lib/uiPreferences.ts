@@ -320,6 +320,11 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "screenerDashboard.marketsMeta": "最近覆盖市场",
   "screenerDashboard.rankedPools": "排序候选池",
   "screenerDashboard.activeBuild": "进行中构建",
+  "screenerDashboard.configPanel": "筛选配置",
+  "screenerDashboard.collapseConfig": "收起配置",
+  "screenerDashboard.expandConfig": "展开配置",
+  "screenerDashboard.configSelectedSuffix": "已选",
+  "screenerDashboard.noConfigFilters": "无启用条件",
   "screenerDashboard.emptyRuns":
     "还没有筛选运行记录。发起一个新筛选来生成第一个排序候选池。",
   "screenerDashboard.runMeta":

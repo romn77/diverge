@@ -251,7 +251,7 @@ export interface AdminTaskQueueOwner {
 }
 
 export interface AdminTaskQueueItem {
-  kind: "analysis" | "screener";
+  kind: "analysis" | "screener" | "data_sync";
   task_id: string;
   label: string;
   status: TaskStatus;
@@ -753,8 +753,10 @@ export interface DataSyncTask {
   result?: Record<string, unknown> | null;
   error?: string | null;
   created_at?: string | null;
+  queued_at?: string | null;
   started_at?: string | null;
   finished_at?: string | null;
+  queue_position?: number | null;
 }
 
 export interface ScreenerTask {
@@ -807,6 +809,14 @@ export interface ScreenerCandidateRow {
   market: string;
   global_rank: number;
   market_rank?: number;
+  close?: number | null;
+  ma20?: number | null;
+  ma60?: number | null;
+  ret_20?: number | null;
+  ret_60?: number | null;
+  rsi?: number | null;
+  atr_pct?: number | null;
+  avg_amount_20d?: number | null;
   total_score: number;
   base_total_score?: number;
   technical_score?: number | null;
@@ -824,6 +834,7 @@ export interface ScreenerCandidateRow {
   breakout_type?: string | null;
   breakout_with_volume?: boolean;
   breakout_reason?: string | null;
+  breakout_volume_ratio?: number | null;
   breakout_base_bonus?: number;
   breakout_volume_bonus?: number;
   breakout_bonus?: number;
