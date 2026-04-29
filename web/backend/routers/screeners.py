@@ -183,7 +183,6 @@ def create_screener_task(
         )
 
     _enforce_screener_submission_capacity(current_user)
-    screener_service.ensure_screener_cache_coverage(config)
 
     if current_user is not None:
         try:

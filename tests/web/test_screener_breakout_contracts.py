@@ -175,7 +175,7 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         self.assertEqual(task.request_payload["history_cache_policy"], "cache_only")
         self.assertEqual(task.config_payload["history_cache_policy"], "cache_only")
 
-    def test_create_screener_task_rejects_when_cache_coverage_is_missing(self):
+    def test_create_screener_task_records_cache_coverage_failure_in_task(self):
         payload = {
             "markets": ["cn"],
             "as_of_date": "2026-03-24",
@@ -204,18 +204,21 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
                 "web.backend.services.screeners.ensure_screener_cache_coverage",
                 side_effect=HTTPException(status_code=409, detail=detail),
                 create=True,
-            ),
+            ) as ensure_cache,
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_thread,
         ):
-            with self.assertRaises(HTTPException) as context:
-                screeners_router.create_screener_task(
-                    ScreenTaskCreatePayload(**payload)
-                )
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
+            screener_tasks.run_screener_task(body["task_id"])
 
-        self.assertEqual(context.exception.status_code, 409)
-        self.assertEqual(context.exception.detail["code"], "screener_data_not_ready")
-        self.assertEqual(context.exception.detail["symbols_missing"], 1)
-        start_thread.assert_not_called()
+        self.assertEqual(body["status"], "pending")
+        start_thread.assert_called_once()
+        ensure_cache.assert_called_once()
+        task = screener_tasks.get_screener_task(body["task_id"])
+        self.assertEqual(task.status, "failed")
+        self.assertEqual(task.error, "Screener data is not ready for 2026-03-24.")
+        self.assertIn("Screener data is not ready", task.latest_progress["message"])
 
     def test_create_screener_task_reuses_shared_cached_result_for_same_screen(self):
         payload = {

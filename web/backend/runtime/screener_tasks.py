@@ -283,6 +283,18 @@ def build_screener_failure_progress(task: ScreenerTask, error: str) -> dict:
     }
 
 
+def format_screener_http_error(exc: HTTPException) -> str:
+    detail = exc.detail
+    if isinstance(detail, dict):
+        message = detail.get("message")
+        if message:
+            return str(message)
+        code = detail.get("code")
+        if code:
+            return str(code)
+    return str(detail)
+
+
 def build_screener_waiting_for_quota_progress(
     task: ScreenerTask,
     exc: vendor_usage.QuotaWaitRequired,
@@ -450,9 +462,19 @@ def run_screener_task(task_id: str) -> None:
             append_screener_progress(task_id, progress)
 
         current_task = get_screener_task(task_id)
+        config = ScreenRunConfig(**current_task.config_payload)
+        preflight_progress = build_screener_progress(
+            status="running",
+            stage="Features",
+            current=0,
+            total=1,
+            message="Checking cached screener data.",
+        )
+        append_screener_progress(task_id, preflight_progress)
+        screener_service.ensure_screener_cache_coverage(config)
         with vendor_usage.data_source_usage_context("screener"):
             result = run_screen(
-                ScreenRunConfig(**current_task.config_payload),
+                config,
                 progress_callback=progress_callback,
             )
         if storage_backend_is_remote():
@@ -487,6 +509,8 @@ def run_screener_task(task_id: str) -> None:
             wait_screener_for_quota(task_id, exc)
             return
         _fail_screener_task(task_id, str(exc))
+    except HTTPException as exc:
+        _fail_screener_task(task_id, format_screener_http_error(exc))
     except Exception:  # pragma: no cover
         logger.exception("screener task failed task_id=%s", task_id)
         _fail_screener_task(task_id, GENERIC_SCREENER_TASK_ERROR)

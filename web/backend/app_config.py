@@ -45,11 +45,15 @@ SCREENER_ARTIFACT_FILENAMES = {
     "llm_pool": "llm_pool.json",
 }
 
+DEFAULT_FRONTEND_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
 
 def get_frontend_origins() -> list[str]:
-    raw_value = os.environ.get("FRONTEND_ORIGIN", "http://localhost:3000")
+    raw_value = os.environ.get("FRONTEND_ORIGIN")
+    if raw_value is None:
+        return list(DEFAULT_FRONTEND_ORIGINS)
     origins = [origin.strip() for origin in raw_value.split(",") if origin.strip()]
-    return origins or ["http://localhost:3000"]
+    return origins or list(DEFAULT_FRONTEND_ORIGINS)
 
 
 def tmp_reports_dir() -> Path:

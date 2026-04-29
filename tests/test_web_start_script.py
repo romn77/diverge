@@ -19,7 +19,10 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"', source)
         self.assertIn('BACKEND_PORT="${BACKEND_PORT:-8000}"', source)
         self.assertIn('FRONTEND_PORT="${FRONTEND_PORT:-3000}"', source)
-        self.assertIn('FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"', source)
+        self.assertIn(
+            'FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}}"',
+            source,
+        )
         self.assertIn('NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${BACKEND_PORT}}"', source)
         self.assertIn('AUTH_ENABLED="${AUTH_ENABLED:-false}"', source)
         self.assertIn('AUTH_MODE="${AUTH_MODE:-required}"', source)

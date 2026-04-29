@@ -237,6 +237,60 @@ class BackendMainTests(unittest.TestCase):
         task_status = tasks_router.get_task_status(body["task_id"])
         self.assertEqual(task_status["request_payload"]["analysis_date"], "2024-03-15")
 
+    def test_post_tasks_normalizes_plain_cn_ticker_before_queueing(self):
+        payload = {
+            "ticker": "000830",
+            "ticker_exchange": "auto",
+            "analysis_date": "2026-04-29",
+            "analysts": ["market", "news"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+        self.empty_project_env.write_text(
+            "OPENAI_API_KEY=test-openai-key\n",
+            encoding="utf-8",
+        )
+
+        with (
+            patch("web.backend.runtime.analysis_tasks.start_task_thread"),
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
+        ):
+            body = tasks_router.create_task(TaskCreatePayload(**payload))
+
+        task_status = tasks_router.get_task_status(body["task_id"])
+        self.assertEqual(task_status["request_payload"]["ticker"], "000830.SZ")
+
+    def test_post_tasks_rejects_beijing_exchange_before_queueing(self):
+        payload = {
+            "ticker": "920000",
+            "ticker_exchange": "auto",
+            "analysis_date": "2026-04-29",
+            "analysts": ["market", "news"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+
+        with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+            with self.assertRaises(HTTPException) as context:
+                tasks_router.create_task(TaskCreatePayload(**payload))
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("BJ", context.exception.detail)
+        self.assertIn("not supported", context.exception.detail)
+        start_task_thread.assert_not_called()
+
     def test_post_tasks_rejects_path_ticker_before_queueing(self):
         payload = {
             "ticker": "../../ESCAPE",
@@ -1022,7 +1076,10 @@ class BackendMainTests(unittest.TestCase):
         )
         screener_tasks.screener_tasks[task.id] = task
 
-        with patch("web.backend.runtime.screener_tasks.run_screen", side_effect=ValueError("boom")):
+        with (
+            patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
+            patch("web.backend.runtime.screener_tasks.run_screen", side_effect=ValueError("boom")),
+        ):
             screener_tasks.run_screener_task(task.id)
 
         task_status = screeners_router.get_screener_task_status(task.id)
@@ -1097,13 +1154,17 @@ class BackendMainTests(unittest.TestCase):
             rows=[{"symbol": "600519.SH", "market": "cn", "global_rank": 1, "total_score": 0.91}],
             markets=["cn"],
         )
-        with patch("web.backend.runtime.screener_tasks.run_screen", side_effect=fake_run_screen):
+        with (
+            patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
+            patch("web.backend.runtime.screener_tasks.run_screen", side_effect=fake_run_screen),
+        ):
             screener_tasks.run_screener_task(task.id)
 
         task_status = screeners_router.get_screener_task_status(task.id)
         self.assertEqual(task_status["status"], "completed")
-        self.assertIn("cache_hit", task_status["progress_events"][0]["message"])
-        self.assertIn("600519.SH", task_status["progress_events"][0]["message"])
+        messages = [event["message"] for event in task_status["progress_events"]]
+        self.assertTrue(any("cache_hit" in message for message in messages))
+        self.assertTrue(any("600519.SH" in message for message in messages))
 
     def test_screener_task_stream_starts_from_cursor(self):
         task = screener_tasks.ScreenerTask(
@@ -1387,11 +1448,11 @@ class BackendMainTests(unittest.TestCase):
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertFalse(providers["xiaohumini"]["enabled"])
 
-    def test_frontend_origins_default_to_localhost_3000(self):
+    def test_frontend_origins_default_to_local_loopback_hosts(self):
         with patch.dict(os.environ, {}, clear=True):
             self.assertEqual(
                 backend_config.get_frontend_origins(),
-                ["http://localhost:3000"],
+                ["http://localhost:3000", "http://127.0.0.1:3000"],
             )
 
     def test_frontend_origins_use_frontend_origin_env(self):
