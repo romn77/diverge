@@ -101,15 +101,19 @@ export function Sidebar({
   }, [isMobileDrawerOpen, onClose]);
 
   const desktopDrawerClasses = [
-    "sidebar-surface hidden flex-col overflow-y-auto border-r border-[var(--border)] py-5 transition-[width,padding] duration-300 md:flex",
+    "sidebar-surface hidden flex-col overflow-y-auto border-r border-[var(--border)] py-5 transition-[width,padding] duration-300 md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-[100svh]",
     isDesktopCollapsed
       ? "md:w-[5.5rem] md:max-w-none md:px-3"
       : "md:w-[18rem] md:max-w-none md:px-4",
-    "md:relative md:h-full md:border-r-0",
+    "md:border-r-0",
   ].join(" ");
   const desktopShellClasses = [
-    "md:sticky md:top-0 md:flex md:h-[100svh] md:self-start md:shrink-0 md:overflow-visible",
+    "hidden md:block md:shrink-0",
     isDesktopCollapsed ? "md:w-[5.5rem]" : "md:w-[18rem]",
+  ].join(" ");
+  const desktopToggleWrapperClasses = [
+    "pointer-events-none fixed top-1/2 z-[60] hidden -translate-y-1/2 md:flex",
+    isDesktopCollapsed ? "left-[5.5rem]" : "left-[18rem]",
   ].join(" ");
   const headerClasses = [
     "border-b border-[var(--border)] pb-4",
@@ -321,7 +325,7 @@ export function Sidebar({
           {sidebarBody}
         </aside>
 
-        <div className="pointer-events-none absolute left-full top-1/2 z-[60] hidden -translate-y-1/2 md:flex">
+        <div className={desktopToggleWrapperClasses}>
           <div className="pointer-events-auto -translate-x-[64%]">
             <DesktopUtilityControl
               isDesktopRail={isDesktopRail}

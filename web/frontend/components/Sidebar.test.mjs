@@ -68,8 +68,11 @@ test("Sidebar preserves grouped structure in collapsed rail and keeps the floati
   const source = readFileSync(sidebarPath, "utf8");
 
   assert.match(source, /const desktopShellClasses = \[/);
-  assert.match(source, /md:sticky md:top-0 md:flex md:h-\[100svh\] md:self-start md:shrink-0 md:overflow-visible/);
-  assert.match(source, /pointer-events-none absolute left-full top-1\/2 z-\[60\] hidden -translate-y-1\/2 md:flex/);
+  assert.match(source, /hidden md:block md:shrink-0/);
+  assert.match(source, /md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-\[100svh\]/);
+  assert.match(source, /const desktopToggleWrapperClasses = \[/);
+  assert.match(source, /pointer-events-none fixed top-1\/2 z-\[60\] hidden -translate-y-1\/2 md:flex/);
+  assert.match(source, /isDesktopCollapsed \? "left-\[5\.5rem\]" : "left-\[18rem\]"/);
   assert.match(source, /pointer-events-auto -translate-x-\[64%\]/);
   assert.match(source, /<DesktopUtilityControl/);
   assert.match(source, /h-14 w-6 items-center justify-center rounded-full/);
