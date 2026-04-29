@@ -858,16 +858,14 @@ def _normalize_status(value: UserStatus | str | None, field_name: str = "status"
         raise AuthValidationError(f"{field_name} must be one of active or disabled") from exc
 
 
-def _active_admin_count(db: Session) -> int:
-    return int(
-        db.scalar(
-            select(func.count(User.id)).where(
-                User.role == UserRole.ADMIN.value,
-                User.status == UserStatus.ACTIVE.value,
-            )
-        )
-        or 0
+def _active_admin_count(db: Session, *, tenant_id: str | None = None) -> int:
+    statement = select(func.count(User.id)).where(
+        User.role == UserRole.ADMIN.value,
+        User.status == UserStatus.ACTIVE.value,
     )
+    if tenant_id is not None:
+        statement = statement.where(User.tenant_id == tenant_id)
+    return int(db.scalar(statement) or 0)
 
 
 def _ensure_not_last_active_admin(
@@ -894,7 +892,7 @@ def _ensure_not_last_active_admin(
     if remains_active_admin:
         return
 
-    if _active_admin_count(db) <= 1:
+    if _active_admin_count(db, tenant_id=user.tenant_id) <= 1:
         raise AuthConflictError("Cannot remove the last active admin user")
 
 

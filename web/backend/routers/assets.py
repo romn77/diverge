@@ -40,10 +40,12 @@ def list_assets(request: Request = None) -> list[dict]:
 @router.get("/api/assets/summary")
 def get_asset_summary(
     base_currency: str = "USD",
-    refresh_if_stale: bool = True,
+    refresh_if_stale: bool = False,
     request: Request = None,
 ) -> dict:
     _require_asset_permission(request, auth.PERMISSION_ASSETS_READ)
+    if refresh_if_stale:
+        _require_asset_permission(request, auth.PERMISSION_ASSETS_WRITE)
     return _run_asset_route(
         lambda: asset_service.get_asset_summary(
             base_currency=base_currency,

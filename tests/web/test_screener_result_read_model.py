@@ -188,7 +188,7 @@ class ScreenerResultReadModelTests(unittest.TestCase):
             1,
         )
 
-    def test_admin_recent_runs_deduplicates_workspace_and_owner_state(self):
+    def test_authenticated_recent_runs_use_shared_workspace_state(self):
         duplicate_run_id = "20260418_171313"
         workspace_state = screener_results.ScreenerResultState(
             owner_user_id=None,
@@ -230,7 +230,7 @@ class ScreenerResultReadModelTests(unittest.TestCase):
             runs = screener_service.list_screener_runs(admin_user)
 
         self.assertEqual([run["id"] for run in runs], [duplicate_run_id])
-        self.assertEqual(runs[0]["owner_user_id"], "admin-user")
+        self.assertIsNone(runs[0]["owner_user_id"])
 
     def test_record_screener_run_metadata_handles_no_change_then_rotation(self):
         _write_legacy_run(

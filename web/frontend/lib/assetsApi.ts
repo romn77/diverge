@@ -171,7 +171,7 @@ export async function getAssetSummary(options: {
 }): Promise<AssetSummaryPayload> {
   const url = new URL(buildApiUrl("/api/assets/summary"));
   url.searchParams.set("base_currency", options.baseCurrency ?? "USD");
-  url.searchParams.set("refresh_if_stale", String(options.refreshIfStale ?? true));
+  url.searchParams.set("refresh_if_stale", String(options.refreshIfStale ?? false));
 
   const response = await fetch(url.toString(), {
     credentials: "include",

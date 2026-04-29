@@ -182,6 +182,61 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
 
         asyncio.run(scenario())
 
+    def test_asset_summary_default_is_read_only_for_write_denied_user(self):
+        async def scenario():
+            async with self._client() as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                owner_id = await self._create_user(
+                    admin_client,
+                    email="readonly-assets@example.com",
+                    password="OwnerPass123",
+                )
+
+            async with self._client() as owner_client:
+                await self._login(owner_client, "readonly-assets@example.com", "OwnerPass123")
+                create_response = await owner_client.post(
+                    "/api/assets",
+                    json=self._manual_asset_payload(asset_name="Cash Reserve"),
+                )
+                self.assertEqual(create_response.status_code, 200, create_response.text)
+
+            with patch.dict(
+                "os.environ",
+                {
+                    "AUTH_ENABLED": "true",
+                    "AUTH_MODE": "required",
+                    "DATABASE_URL": self.database_url,
+                },
+                clear=False,
+            ):
+                auth.reset_runtime_state()
+                with auth.db_session() as db:
+                    auth.set_user_permission(
+                        db,
+                        owner_id,
+                        auth.PERMISSION_ASSETS_WRITE,
+                        effect=auth.PERMISSION_EFFECT_DENY,
+                    )
+
+            async with self._client() as owner_client:
+                await self._login(owner_client, "readonly-assets@example.com", "OwnerPass123")
+                summary_response = await owner_client.get("/api/assets/summary")
+                self.assertEqual(summary_response.status_code, 200, summary_response.text)
+                self.assertEqual(summary_response.json()["totals"]["position_count"], 1)
+
+                refresh_response = await owner_client.get(
+                    "/api/assets/summary",
+                    params={"refresh_if_stale": "true"},
+                )
+                self.assertEqual(refresh_response.status_code, 403, refresh_response.text)
+
+        asyncio.run(scenario())
+
     def test_task_creation_injects_owner_portfolio_context(self):
         async def scenario():
             async with self._client() as admin_client:
@@ -217,6 +272,7 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                         "web.backend.routers.tasks.get_provider_availability",
                         return_value={"enabled": True, "disabled_reason": None},
                     ),
+                    patch("web.backend.routers.tasks.llm_models.ensure_model_selection_available"),
                     patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
                 ):
                     task_response = await owner_client.post(

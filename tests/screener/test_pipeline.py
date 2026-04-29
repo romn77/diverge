@@ -11,6 +11,7 @@ import pandas as pd
 from tradingagents.screener.pipeline import run_screen
 from tradingagents.screener.schema import ScreenRunConfig
 from tradingagents.screener.stages import evaluate_screen_stage
+from tradingagents.screener.storage import prepare_run_dir
 
 
 class _FixedDateTime(datetime):
@@ -57,6 +58,16 @@ def _evaluation_stage(
         dropped_df=pd.DataFrame(columns=["drop_reason"]) if dropped_df is None else dropped_df,
         ranked_df=pd.DataFrame() if ranked_df is None else ranked_df,
     )
+
+
+def test_prepare_run_dir_avoids_same_second_collisions(tmp_path):
+    with patch("tradingagents.screener.storage.datetime", _FixedDateTime):
+        first_run_dir = prepare_run_dir(str(tmp_path), "2026-03-24")
+        second_run_dir = prepare_run_dir(str(tmp_path), "2026-03-24")
+
+    assert first_run_dir.name == "20260324_214530"
+    assert second_run_dir.name.startswith("20260324_214530_")
+    assert first_run_dir != second_run_dir
 
 
 def test_evaluate_screen_stage_passes_us_data_source_fallbacks(tmp_path):

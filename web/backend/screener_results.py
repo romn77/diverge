@@ -16,7 +16,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from tradingagents.screener.presets import normalize_filter_preset_selections
-from web.backend import access, app_config, auth, screener_runs
+from web.backend import app_config, auth, screener_runs
 
 DEFAULT_SCREENER_KEY = "default"
 WORKSPACE_OWNER_KEY = "_workspace"
@@ -1052,16 +1052,16 @@ def _load_workspace_legacy_runs() -> list[LegacyScreenerRun]:
     return legacy_runs
 
 
-def _load_owner_legacy_runs(owner_user_id: str) -> list[LegacyScreenerRun]:
+def _load_indexed_legacy_runs() -> list[LegacyScreenerRun]:
     with auth.db_session() as db:
-        records = screener_runs.list_screener_run_records(db, owner_user_id=owner_user_id)
+        records = screener_runs.list_screener_run_records(db)
 
     legacy_runs: list[LegacyScreenerRun] = []
     for record in records:
         run_dir = app_config.SCREENER_RESULTS_DIR / record.storage_path
         if not run_dir.is_dir():
             continue
-        legacy_run = _read_legacy_run(run_dir, owner_user_id=record.owner_user_id)
+        legacy_run = _read_legacy_run(run_dir, owner_user_id=None)
         if legacy_run is not None:
             legacy_runs.append(legacy_run)
     return legacy_runs
@@ -1073,17 +1073,22 @@ def migrate_legacy_screener_results(
     screener_key: str = DEFAULT_SCREENER_KEY,
     force: bool = False,
 ) -> ScreenerResultState | None:
+    # Results are shared by canonical screener config. User isolation applies to
+    # saved presets, not to generated result snapshots.
+    state_owner_user_id = None
     if not force:
-        existing = load_screener_result_state(owner_user_id, screener_key)
+        existing = load_screener_result_state(state_owner_user_id, screener_key)
         if existing is not None:
             return existing
 
-    if auth.get_auth_settings().enabled and owner_user_id:
-        legacy_runs = _load_owner_legacy_runs(owner_user_id)
+    if auth.get_auth_settings().enabled:
+        legacy_runs = _load_indexed_legacy_runs()
+        if not legacy_runs:
+            legacy_runs = _load_workspace_legacy_runs()
     else:
         legacy_runs = _load_workspace_legacy_runs()
 
-    state = _build_state_from_legacy_runs(legacy_runs, owner_user_id=owner_user_id)
+    state = _build_state_from_legacy_runs(legacy_runs, owner_user_id=state_owner_user_id)
     if state is not None:
         save_screener_result_state(state)
     return state
@@ -1091,20 +1096,7 @@ def migrate_legacy_screener_results(
 
 def migrate_all_legacy_screener_results(force: bool = False) -> int:
     app_config.SCREENER_STATE_DIR.mkdir(parents=True, exist_ok=True)
-    migrated = 0
-    if not auth.get_auth_settings().enabled:
-        if migrate_legacy_screener_results(force=force) is not None:
-            migrated += 1
-        return migrated
-
-    with auth.db_session() as db:
-        records = screener_runs.list_screener_run_records(db)
-
-    owner_user_ids = sorted({record.owner_user_id for record in records if record.owner_user_id})
-    for owner_user_id in owner_user_ids:
-        if migrate_legacy_screener_results(owner_user_id, force=force) is not None:
-            migrated += 1
-    return migrated
+    return 1 if migrate_legacy_screener_results(force=force) is not None else 0
 
 
 def initialize_screener_result_runtime() -> None:
@@ -1125,43 +1117,7 @@ def _recent_runs_for_user(current_user: auth.User | None) -> list[ScreenerRunMet
     if current_user is None:
         raise HTTPException(status_code=401, detail="Authentication required")
 
-    if access.is_admin_user(current_user):
-        tenant_id = getattr(current_user, "tenant_id", None)
-        recent_runs = shared_recent_runs()
-        if not tenant_id:
-            for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json"):
-                if state_path.parent.name == WORKSPACE_OWNER_KEY:
-                    continue
-                payload = load_screener_result_state(
-                    state_path.parent.name,
-                    state_path.stem,
-                )
-                if payload is not None:
-                    recent_runs.extend(payload.recent_runs)
-            return recent_runs
-        with auth.db_session() as db:
-            tenant_owner_ids = {
-                user.id
-                for user in auth.list_users(db)
-                if user.tenant_id == tenant_id
-            }
-        for state_path in app_config.SCREENER_STATE_DIR.glob("*/*.json"):
-            owner_key = state_path.parent.name
-            if owner_key == WORKSPACE_OWNER_KEY or owner_key not in tenant_owner_ids:
-                continue
-            payload = load_screener_result_state(
-                owner_key,
-                state_path.stem,
-            )
-            if payload is not None:
-                recent_runs.extend(payload.recent_runs)
-        return recent_runs
-
-    recent_runs = shared_recent_runs()
-    state = load_screener_result_state(current_user.id)
-    if state is not None:
-        recent_runs.extend(state.recent_runs)
-    return recent_runs
+    return shared_recent_runs()
 
 
 def _load_shared_result_states() -> list[ScreenerResultState]:
@@ -1375,7 +1331,7 @@ def persist_screener_run(
     _annotate_recent_runs(state)
     save_screener_result_state(state)
 
-    if auth.get_auth_settings().enabled and candidate.run_dir is not None:
+    if auth.get_auth_settings().enabled and candidate.run_dir is not None and owner_user_id:
         with auth.db_session() as db:
             screener_runs.upsert_screener_run(
                 db,

@@ -167,7 +167,7 @@ export function AssetsWorkspace() {
   const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AssetDraft>(buildEmptyDraft());
 
-  const loadSummary = useCallback(async (refreshIfStale = true) => {
+  const loadSummary = useCallback(async (refreshIfStale = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -189,7 +189,7 @@ export function AssetsWorkspace() {
   }, [baseCurrency, t]);
 
   useEffect(() => {
-    void loadSummary(true);
+    void loadSummary(false);
   }, [loadSummary]);
 
   const flatPositions = useMemo(() => flattenPositions(summary), [summary]);
@@ -233,7 +233,7 @@ export function AssetsWorkspace() {
       setDialogOpen(false);
       setEditingPositionId(null);
       setDraft(buildEmptyDraft());
-      await loadSummary(true);
+      await loadSummary(false);
     } catch (nextError) {
       setError(
         nextError instanceof Error

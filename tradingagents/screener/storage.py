@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
@@ -19,8 +20,17 @@ def _json_ready_records(df: pd.DataFrame) -> list[dict]:
 
 def prepare_run_dir(base_output_dir: str, as_of_date: str) -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = Path(base_output_dir) / timestamp
-    run_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = Path(base_output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for candidate_name in (timestamp, f"{timestamp}_{uuid.uuid4().hex[:8]}"):
+        run_dir = output_dir / candidate_name
+        try:
+            run_dir.mkdir()
+            return run_dir
+        except FileExistsError:
+            continue
+    run_dir = output_dir / f"{timestamp}_{uuid.uuid4().hex}"
+    run_dir.mkdir()
     return run_dir
 
 

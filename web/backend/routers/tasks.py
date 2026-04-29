@@ -158,18 +158,21 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             with auth.db_session() as db:
                 persisted_user = auth.get_user_by_id(db, current_user.id)
                 analysis_limits.record_analysis_task_creation(db, persisted_user)
-                llm_models.record_model_usage(
-                    analysis_request.llm_provider,
-                    analysis_request.quick_think_llm,
-                    module="analysis",
-                )
-                llm_models.record_model_usage(
-                    analysis_request.llm_provider,
-                    analysis_request.deep_think_llm,
-                    module="analysis",
-                )
         except analysis_limits.WeeklyUsageLimitExceeded as exc:
             raise HTTPException(status_code=429, detail=str(exc)) from exc
+        except Exception as exc:
+            raise access.translate_auth_error(exc) from exc
+        try:
+            llm_models.record_model_usage(
+                analysis_request.llm_provider,
+                analysis_request.quick_think_llm,
+                module="analysis",
+            )
+            llm_models.record_model_usage(
+                analysis_request.llm_provider,
+                analysis_request.deep_think_llm,
+                module="analysis",
+            )
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
 

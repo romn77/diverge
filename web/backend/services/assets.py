@@ -698,7 +698,7 @@ def refresh_due_asset_positions(
 def get_asset_summary(
     *,
     base_currency: str = "USD",
-    refresh_if_stale: bool = True,
+    refresh_if_stale: bool = False,
     request: Request | None,
 ) -> dict[str, Any]:
     _require_asset_runtime()

@@ -124,6 +124,10 @@ def upsert_screener_run(
             owner_user_id=normalized_owner_user_id,
         )
         db.add(record)
+    elif record.storage_path and record.storage_path != normalized_storage_path:
+        raise auth.AuthConflictError(
+            f"Screener run '{normalized_run_id}' already exists with a different storage path"
+        )
 
     record.tenant_id = normalized_tenant_id
     record.owner_user_id = normalized_owner_user_id

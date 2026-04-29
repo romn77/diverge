@@ -79,6 +79,53 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
             self.assertNotIn(auth.PERMISSION_ADMIN_USERS, permissions)
             self.assertNotIn(auth.PERMISSION_ADMIN_SETTINGS, permissions)
 
+    def test_last_active_admin_guard_is_tenant_scoped(self):
+        env = {
+            "AUTH_ENABLED": "true",
+            "AUTH_MODE": "required",
+            "DATABASE_URL": self.database_url,
+        }
+        with patch.dict(os.environ, env, clear=False):
+            auth.reset_runtime_state()
+            auth.create_all_for_testing()
+            with auth.db_session() as db:
+                default_tenant = auth.ensure_default_tenant(db)
+                external_tenant = auth.create_tenant(
+                    db,
+                    name="External Workspace",
+                    slug="external",
+                )
+                default_admin = auth.create_user(
+                    db,
+                    email="default.admin@example.com",
+                    display_name="Default Admin",
+                    password="AdminPass123",
+                    role=auth.UserRole.ADMIN.value,
+                    tenant_id=default_tenant.id,
+                )
+                auth.create_user(
+                    db,
+                    email="external.admin@example.com",
+                    display_name="External Admin",
+                    password="AdminPass123",
+                    role=auth.UserRole.ADMIN.value,
+                    tenant_id=external_tenant.id,
+                )
+
+                with self.assertRaises(auth.AuthConflictError):
+                    auth.delete_user(db, default_admin.id)
+
+                auth.create_user(
+                    db,
+                    email="default.backup@example.com",
+                    display_name="Default Backup",
+                    password="AdminPass123",
+                    role=auth.UserRole.ADMIN.value,
+                    tenant_id=default_tenant.id,
+                )
+                auth.delete_user(db, default_admin.id)
+                self.assertIsNone(db.get(auth.User, default_admin.id))
+
     def _write_report(self, report_id: str = "SPY_20260305_155836") -> None:
         report_dir = app_config.REPORTS_DIR / report_id
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -681,6 +728,7 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                         "web.backend.routers.tasks.get_provider_availability",
                         return_value={"enabled": True, "disabled_reason": None},
                     ),
+                    patch("web.backend.routers.tasks.llm_models.ensure_model_selection_available"),
                     patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
                 ):
                     first_response = await operator_client.post("/api/tasks", json=task_payload)
@@ -852,7 +900,7 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
         asyncio.run(scenario())
 
-    def test_screener_runs_require_operator_role_and_scope_to_owner(self):
+    def test_screener_runs_are_shared_across_screener_read_users(self):
         async def scenario():
             async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
                 await self._login(
@@ -919,7 +967,10 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 await self._login(operator_client, "operator.one@example.com", "OperatorPass123")
                 list_response = await operator_client.get("/api/screener/runs")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
-                self.assertEqual([row["id"] for row in list_response.json()], ["20260324_214530"])
+                self.assertEqual(
+                    [row["id"] for row in list_response.json()],
+                    ["20260325_214530", "20260324_214530"],
+                )
 
                 detail_response = await operator_client.get("/api/screener/runs/20260324_214530")
                 self.assertEqual(detail_response.status_code, 200, detail_response.text)
@@ -934,10 +985,8 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertEqual(candidates_response.status_code, 200, candidates_response.text)
                 self.assertEqual(candidates_response.json()[0]["symbol"], "600519.SH")
 
-                self.assertEqual(
-                    (await operator_client.get("/api/screener/runs/20260325_214530")).status_code,
-                    404,
-                )
+                shared_detail_response = await operator_client.get("/api/screener/runs/20260325_214530")
+                self.assertEqual(shared_detail_response.status_code, 200, shared_detail_response.text)
 
             async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
                 await self._login(admin_client, "admin@example.com", "AdminPass456")
@@ -952,7 +1001,10 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 await self._login(viewer_client, "viewer@example.com", "ViewerPass123")
                 list_response = await viewer_client.get("/api/screener/runs")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
-                self.assertEqual(list_response.json(), [])
+                self.assertEqual(
+                    {row["id"] for row in list_response.json()},
+                    {"20260324_214530", "20260325_214530"},
+                )
 
         asyncio.run(scenario())
 
