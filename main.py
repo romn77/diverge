@@ -7,8 +7,8 @@ load_dotenv()
 
 
 def run_demo() -> None:
-    from tradingagents.default_config import DEFAULT_CONFIG
-    from tradingagents.graph.trading_graph import TradingAgentsGraph
+    from diverge.default_config import DEFAULT_CONFIG
+    from diverge.graph.trading_graph import DivergeGraph
 
     # Create a custom config
     config = DEFAULT_CONFIG.copy()
@@ -25,7 +25,7 @@ def run_demo() -> None:
     }
 
     # Initialize with custom config
-    ta = TradingAgentsGraph(debug=True, config=config)
+    ta = DivergeGraph(debug=True, config=config)
 
     # forward propagate
     _, decision = ta.propagate("NVDA", "2024-05-10")

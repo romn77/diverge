@@ -73,7 +73,7 @@ Each trade record or review can carry one or more `analysis_references` objects:
 {
   "analysis_date": "2026-04-01",
   "report_path": "reports/MSFT_20260401_120000/complete_report.md",
-  "full_state_log_path": "eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json"
+  "full_state_log_path": "eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json"
 }
 ```
 

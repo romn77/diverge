@@ -109,7 +109,7 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("TASK_USER_PENDING_LIMIT_VIEWER: ${TASK_USER_PENDING_LIMIT_VIEWER:-2}", source)
 
     def test_nginx_production_config_routes_frontend_api_and_sse(self):
-        nginx_config = PROJECT_ROOT / "deploy" / "nginx" / "tradingagents.conf"
+        nginx_config = PROJECT_ROOT / "deploy" / "nginx" / "diverge.conf"
         self.assertTrue(nginx_config.is_file())
 
         source = nginx_config.read_text(encoding="utf-8")
@@ -126,7 +126,7 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("FRONTEND_PORT=3000", source)
         self.assertIn("FRONTEND_ORIGIN=http://localhost:3000", source)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL=http://localhost:8000", source)
-        self.assertIn("TRADINGAGENTS_EVAL_RESULTS_DIR=./data/eval_results", source)
+        self.assertIn("DIVERGE_EVAL_RESULTS_DIR=./data/eval_results", source)
         self.assertIn("POSTGRES_PASSWORD=", source)
         self.assertIn("AUTH_ENABLED=true", source)
         self.assertIn("AUTH_MODE=required", source)
@@ -156,8 +156,8 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
 
         source = script.read_text(encoding="utf-8")
         self.assertIn('PLATFORM="${PLATFORM:-linux/amd64}"', source)
-        self.assertIn('BACKEND_IMAGE="${BACKEND_IMAGE:-tradingagents-backend}"', source)
-        self.assertIn('FRONTEND_IMAGE="${FRONTEND_IMAGE:-tradingagents-frontend}"', source)
+        self.assertIn('BACKEND_IMAGE="${BACKEND_IMAGE:-diverge-backend}"', source)
+        self.assertIn('FRONTEND_IMAGE="${FRONTEND_IMAGE:-diverge-frontend}"', source)
         self.assertIn("docker buildx build", source)
         self.assertIn("--load", source)
         self.assertIn("docker save", source)

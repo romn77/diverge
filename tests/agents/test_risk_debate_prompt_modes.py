@@ -1,10 +1,10 @@
 import unittest
 
-from tradingagents.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
-from tradingagents.agents.risk_mgmt.conservative_debator import (
+from diverge.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
+from diverge.agents.risk_mgmt.conservative_debator import (
     create_conservative_debator,
 )
-from tradingagents.agents.risk_mgmt.neutral_debator import create_neutral_debator
+from diverge.agents.risk_mgmt.neutral_debator import create_neutral_debator
 
 
 class _FakeResponse:

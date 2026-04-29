@@ -4,7 +4,7 @@ import math
 
 import pandas as pd
 
-from tradingagents.screener.indicators import build_feature_row, build_features_table
+from diverge.screener.indicators import build_feature_row, build_features_table
 
 
 def _make_price_frame(periods: int = 80) -> pd.DataFrame:

@@ -1,7 +1,7 @@
 import unittest
 
 from cli.utils import normalize_ticker_symbol
-from tradingagents.agents.utils.agent_utils import build_instrument_context
+from diverge.agents.utils.agent_utils import build_instrument_context
 
 
 class TickerSymbolHandlingTests(unittest.TestCase):

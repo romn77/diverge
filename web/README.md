@@ -1,4 +1,4 @@
-# TradingAgents Web Workbench
+# Diverge Web Workbench
 
 A web UI for browsing trading analysis reports, launching background analysis tasks, launching screener tasks, and reviewing screener candidate lists.
 
@@ -38,9 +38,9 @@ BACKEND_PORT=8010 FRONTEND_PORT=3010 ./start.sh
 The start script writes process logs to files and streams them in the current terminal by default:
 
 ```bash
-/tmp/tradingagents-backend.log
-/tmp/tradingagents-frontend.log
-/tmp/tradingagents-worker.log  # only when TASK_BACKEND=redis
+/tmp/diverge-backend.log
+/tmp/diverge-frontend.log
+/tmp/diverge-worker.log  # only when TASK_BACKEND=redis
 ```
 
 Use `TAIL_LOGS=false ./start.sh` to print only the paths without streaming, or set `BACKEND_LOG_LEVEL=debug` when you need more backend detail.

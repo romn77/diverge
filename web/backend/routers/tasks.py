@@ -6,8 +6,8 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from tradingagents.llm_clients.model_profiles import resolve_model_profile as resolve_static_model_profile
-from tradingagents.runner import AnalysisRequest
+from diverge.llm_clients.model_profiles import resolve_model_profile as resolve_static_model_profile
+from diverge.runner import AnalysisRequest
 from web.backend import access, analysis_limits, app_config, audit, auth, llm_models
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
 from web.backend.schemas.tasks import TaskCreatePayload

@@ -3,7 +3,9 @@ from __future__ import annotations
 import csv
 import hashlib
 import json
+import logging
 import os
+import shutil
 import subprocess
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
@@ -15,8 +17,10 @@ from typing import Any
 
 from fastapi import HTTPException
 
-from tradingagents.screener.presets import normalize_filter_preset_selections
+from diverge.screener.presets import normalize_filter_preset_selections
 from web.backend import app_config, auth, screener_runs
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SCREENER_KEY = "default"
 WORKSPACE_OWNER_KEY = "_workspace"
@@ -715,6 +719,65 @@ def save_screener_result_state(state: ScreenerResultState) -> None:
     )
 
 
+def _old_run_cleanup_enabled() -> bool:
+    raw_value = os.environ.get("SCREENER_CLEANUP_OLD_RUNS_ENABLED", "true")
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _snapshot_run_ids(state: ScreenerResultState) -> set[str]:
+    run_ids: set[str] = set()
+    for snapshot in (state.current_result, state.previous_result):
+        if snapshot is not None and snapshot.source_run_id:
+            run_ids.add(snapshot.source_run_id)
+    return run_ids
+
+
+def _protected_screener_run_ids(seed_state: ScreenerResultState) -> set[str]:
+    protected = _snapshot_run_ids(seed_state)
+    state_root = app_config.SCREENER_STATE_DIR
+    if not state_root.is_dir():
+        return protected
+
+    for state_path in state_root.glob("*/*.json"):
+        try:
+            payload = json.loads(state_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        for slot in ("current_result", "previous_result"):
+            source_run_id = _normalize_text((payload.get(slot) or {}).get("source_run_id"))
+            if source_run_id:
+                protected.add(source_run_id)
+    return protected
+
+
+def cleanup_obsolete_screener_run_artifacts(state: ScreenerResultState) -> list[str]:
+    if not _old_run_cleanup_enabled():
+        return []
+
+    protected_run_ids = _protected_screener_run_ids(state)
+    removed: list[str] = []
+    results_root = app_config.SCREENER_RESULTS_DIR.resolve()
+    for run_metadata in state.recent_runs:
+        run_id = _normalize_text(run_metadata.id)
+        if not run_id or run_id in protected_run_ids:
+            continue
+        if "/" in run_id or "\\" in run_id or ".." in run_id:
+            continue
+        run_dir = (results_root / run_id).resolve()
+        try:
+            run_dir.relative_to(results_root)
+        except ValueError:
+            continue
+        if not run_dir.is_dir():
+            continue
+        try:
+            shutil.rmtree(run_dir)
+            removed.append(run_id)
+        except OSError:
+            logger.exception("failed to remove obsolete screener run artifacts run_id=%s", run_id)
+    return removed
+
+
 def _relative_screener_storage_path(path: Path) -> str:
     resolved_root = app_config.SCREENER_RESULTS_DIR.resolve()
     resolved_path = path.resolve()
@@ -1346,4 +1409,5 @@ def persist_screener_run(
                 artifact_manifest=_build_screener_artifact_manifest(candidate.run_dir),
             )
 
+    cleanup_obsolete_screener_run_artifacts(state)
     return state

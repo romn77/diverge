@@ -7,7 +7,7 @@ from typing import Iterable
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, inspect, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from tradingagents.trade_feedback import TRADE_RECORD_FILENAME
+from diverge.trade_feedback import TRADE_RECORD_FILENAME
 from web.backend import auth
 
 

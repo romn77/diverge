@@ -4,7 +4,7 @@
 
 **Goal:** Replace the current static single-period DCF path with a market-routed valuation pipeline that uses `yfinance` for non-CN symbols and `AkShare` for CN symbols, while preserving the existing markdown-first `fundamentals_report` contract.
 
-**Architecture:** Keep valuation calculations pure inside `tradingagents/valuation`, but move provider-specific retrieval into a new internal valuation-input route under `tradingagents/dataflows`. The new route should build a richer `ValuationInput` with multi-period financial history, provider-derived assumptions, and explicit provenance. `ERP` remains an internal market-level configuration; `MarketContext.beta` stores the resolved numeric beta used by the model, while `assumptions["beta"]` stores the source and fallback metadata. Short-term growth and `risk_free` are sourced per market from the selected provider with explicit fallback rules.
+**Architecture:** Keep valuation calculations pure inside `diverge/valuation`, but move provider-specific retrieval into a new internal valuation-input route under `diverge/dataflows`. The new route should build a richer `ValuationInput` with multi-period financial history, provider-derived assumptions, and explicit provenance. `ERP` remains an internal market-level configuration; `MarketContext.beta` stores the resolved numeric beta used by the model, while `assumptions["beta"]` stores the source and fallback metadata. Short-term growth and `risk_free` are sourced per market from the selected provider with explicit fallback rules.
 
 **Tech Stack:** Python 3.13, LangGraph, pytest, yfinance, AkShare, existing `route_to_vendor` market detection, markdown/json-highlights report pipeline
 
@@ -13,16 +13,16 @@
 ### Task 1: Add a market-routed internal valuation input path
 
 **Files:**
-- Create: `tradingagents/dataflows/valuation_inputs.py`
-- Modify: `tradingagents/dataflows/interface.py`
-- Modify: `tradingagents/agents/utils/fundamental_data_tools.py`
+- Create: `diverge/dataflows/valuation_inputs.py`
+- Modify: `diverge/dataflows/interface.py`
+- Modify: `diverge/agents/utils/fundamental_data_tools.py`
 - Test: `tests/dataflows/test_valuation_inputs.py`
 - Modify: `tests/integration/test_skill_adoption_flow.py`
 
 **Step 1: Write the failing test**
 
 ```python
-from tradingagents.dataflows.valuation_inputs import route_to_valuation_input
+from diverge.dataflows.valuation_inputs import route_to_valuation_input
 
 
 def test_route_to_valuation_input_uses_yfinance_for_us(monkeypatch):
@@ -37,11 +37,11 @@ def test_route_to_valuation_input_uses_yfinance_for_us(monkeypatch):
         return "bad"
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.valuation_inputs.build_yfinance_valuation_input",
+        "diverge.dataflows.valuation_inputs.build_yfinance_valuation_input",
         fake_yf,
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.valuation_inputs.build_akshare_valuation_input",
+        "diverge.dataflows.valuation_inputs.build_akshare_valuation_input",
         fake_ak,
     )
 
@@ -53,13 +53,13 @@ def test_route_to_valuation_input_uses_yfinance_for_us(monkeypatch):
 
 Run: `pytest tests/dataflows/test_valuation_inputs.py::test_route_to_valuation_input_uses_yfinance_for_us -q`
 
-Expected: FAIL because `tradingagents.dataflows.valuation_inputs` and `route_to_valuation_input()` do not exist yet.
+Expected: FAIL because `diverge.dataflows.valuation_inputs` and `route_to_valuation_input()` do not exist yet.
 
 **Step 3: Write minimal implementation**
 
 ```python
-# tradingagents/dataflows/valuation_inputs.py
-from tradingagents.dataflows.interface import resolve_market_and_symbol
+# diverge/dataflows/valuation_inputs.py
+from diverge.dataflows.interface import resolve_market_and_symbol
 
 from .akshare_valuation import build_akshare_valuation_input
 from .yfinance_valuation import build_yfinance_valuation_input
@@ -80,7 +80,7 @@ Update `get_valuation_ready_fundamentals()` to call `route_to_valuation_input()`
 
 In the same task, update `tests/integration/test_skill_adoption_flow.py` to patch `route_to_valuation_input()` or `get_valuation_ready_fundamentals()` directly. Do not leave the integration test waiting until Task 8 to stop patching `route_to_vendor()`.
 
-Add a note in `tradingagents/dataflows/fundamentals_normalizer.py` that `normalize_fundamentals_payload()` remains a legacy compatibility normalizer and does not produce a fully populated market-routed `ValuationInput` for the new DCF path. Its newer schema fields may stay intentionally `None`.
+Add a note in `diverge/dataflows/fundamentals_normalizer.py` that `normalize_fundamentals_payload()` remains a legacy compatibility normalizer and does not produce a fully populated market-routed `ValuationInput` for the new DCF path. Its newer schema fields may stay intentionally `None`.
 
 **Step 4: Run test to verify it passes**
 
@@ -91,14 +91,14 @@ Expected: PASS for US and CN routing cases.
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/dataflows/valuation_inputs.py tradingagents/dataflows/interface.py tradingagents/agents/utils/fundamental_data_tools.py tests/dataflows/test_valuation_inputs.py
+git add diverge/dataflows/valuation_inputs.py diverge/dataflows/interface.py diverge/agents/utils/fundamental_data_tools.py tests/dataflows/test_valuation_inputs.py
 git commit -m "feat: add market-routed valuation input path"
 ```
 
 ### Task 2: Extend valuation schemas for multi-period history and assumption provenance
 
 **Files:**
-- Modify: `tradingagents/valuation/schemas.py`
+- Modify: `diverge/valuation/schemas.py`
 - Test: `tests/valuation/test_schemas.py`
 
 **Step 1: Write the failing test**
@@ -106,7 +106,7 @@ git commit -m "feat: add market-routed valuation input path"
 ```python
 from datetime import date
 
-from tradingagents.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext, ValuationInput
+from diverge.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext, ValuationInput
 
 
 def test_latest_financial_prefers_newest_report_date():
@@ -183,21 +183,21 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/valuation/schemas.py tests/valuation/test_schemas.py
+git add diverge/valuation/schemas.py tests/valuation/test_schemas.py
 git commit -m "feat: extend valuation schemas for assumption provenance"
 ```
 
 ### Task 3: Build non-CN valuation inputs from yfinance
 
 **Files:**
-- Create: `tradingagents/dataflows/yfinance_valuation.py`
-- Modify: `tradingagents/dataflows/y_finance.py`
+- Create: `diverge/dataflows/yfinance_valuation.py`
+- Modify: `diverge/dataflows/y_finance.py`
 - Test: `tests/dataflows/test_yfinance_valuation.py`
 
 **Step 1: Write the failing test**
 
 ```python
-from tradingagents.dataflows.yfinance_valuation import build_yfinance_valuation_input
+from diverge.dataflows.yfinance_valuation import build_yfinance_valuation_input
 
 
 def test_build_yfinance_valuation_input_collects_growth_beta_and_treasury(monkeypatch):
@@ -226,9 +226,9 @@ def test_build_yfinance_valuation_input_collects_growth_beta_and_treasury(monkey
             import pandas as pd
             return pd.DataFrame({"Close": [4.2]})
 
-    monkeypatch.setattr("tradingagents.dataflows.yfinance_valuation.yf.Ticker", lambda symbol: FakeTicker())
+    monkeypatch.setattr("diverge.dataflows.yfinance_valuation.yf.Ticker", lambda symbol: FakeTicker())
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation._get_us_risk_free_rate",
+        "diverge.dataflows.yfinance_valuation._get_us_risk_free_rate",
         lambda: AssumptionValue(value=0.042, source="yfinance:^TNX", confidence="medium"),
     )
 
@@ -251,7 +251,7 @@ Expected: FAIL because the module does not exist.
 ```python
 import yfinance as yf
 
-from tradingagents.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext, ValuationInput
+from diverge.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext, ValuationInput
 
 
 def _get_us_risk_free_rate() -> AssumptionValue:
@@ -302,21 +302,21 @@ Expected: PASS for happy-path and fallback-path cases.
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/dataflows/yfinance_valuation.py tradingagents/dataflows/y_finance.py tests/dataflows/test_yfinance_valuation.py
+git add diverge/dataflows/yfinance_valuation.py diverge/dataflows/y_finance.py tests/dataflows/test_yfinance_valuation.py
 git commit -m "feat: add yfinance valuation input builder"
 ```
 
 ### Task 4: Build CN valuation inputs from AkShare
 
 **Files:**
-- Create: `tradingagents/dataflows/akshare_valuation.py`
-- Modify: `tradingagents/dataflows/akshare_fundamentals.py`
+- Create: `diverge/dataflows/akshare_valuation.py`
+- Modify: `diverge/dataflows/akshare_fundamentals.py`
 - Test: `tests/dataflows/test_akshare_valuation.py`
 
 **Step 1: Write the failing test**
 
 ```python
-from tradingagents.dataflows.akshare_valuation import build_akshare_valuation_input
+from diverge.dataflows.akshare_valuation import build_akshare_valuation_input
 
 
 def test_build_akshare_valuation_input_uses_bond_and_research_sources(monkeypatch):
@@ -336,9 +336,9 @@ def test_build_akshare_valuation_input_uses_bond_and_research_sources(monkeypatc
     def fake_bond_rate():
         return pd.DataFrame([{"日期": "2026-03-24", "中国国债收益率10年": 2.3}])
 
-    monkeypatch.setattr("tradingagents.dataflows.akshare_valuation.ak.stock_financial_report_sina", fake_financial_report)
-    monkeypatch.setattr("tradingagents.dataflows.akshare_valuation.ak.stock_research_report_em", fake_research_report)
-    monkeypatch.setattr("tradingagents.dataflows.akshare_valuation.ak.bond_zh_us_rate", fake_bond_rate)
+    monkeypatch.setattr("diverge.dataflows.akshare_valuation.ak.stock_financial_report_sina", fake_financial_report)
+    monkeypatch.setattr("diverge.dataflows.akshare_valuation.ak.stock_research_report_em", fake_research_report)
+    monkeypatch.setattr("diverge.dataflows.akshare_valuation.ak.bond_zh_us_rate", fake_bond_rate)
 
     valuation_input = build_akshare_valuation_input("600519", curr_date="2026-03-24", freq="annual")
 
@@ -356,8 +356,8 @@ Expected: FAIL because the module does not exist.
 **Step 3: Write minimal implementation**
 
 ```python
-from tradingagents.valuation.schemas import AssumptionValue, MarketContext, ValuationInput
-from tradingagents.dataflows.vendor_errors import VendorRetryableError
+from diverge.valuation.schemas import AssumptionValue, MarketContext, ValuationInput
+from diverge.dataflows.vendor_errors import VendorRetryableError
 
 
 def _import_akshare():
@@ -412,24 +412,24 @@ Expected: PASS for source-selection and fallback tests.
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/dataflows/akshare_valuation.py tradingagents/dataflows/akshare_fundamentals.py tests/dataflows/test_akshare_valuation.py
+git add diverge/dataflows/akshare_valuation.py diverge/dataflows/akshare_fundamentals.py tests/dataflows/test_akshare_valuation.py
 git commit -m "feat: add akshare valuation input builder for cn market"
 ```
 
 ### Task 5: Add assumption resolution and normalized FCFF
 
 **Files:**
-- Create: `tradingagents/valuation/assumptions.py`
-- Create: `tradingagents/valuation/fcff.py`
+- Create: `diverge/valuation/assumptions.py`
+- Create: `diverge/valuation/fcff.py`
 - Test: `tests/valuation/test_assumptions.py`
 - Test: `tests/valuation/test_fcff.py`
 
 **Step 1: Write the failing tests**
 
 ```python
-from tradingagents.valuation.assumptions import resolve_short_term_growth
-from tradingagents.valuation.fcff import normalize_fcff
-from tradingagents.valuation.schemas import AssumptionValue, FinancialSnapshot
+from diverge.valuation.assumptions import resolve_short_term_growth
+from diverge.valuation.fcff import normalize_fcff
+from diverge.valuation.schemas import AssumptionValue, FinancialSnapshot
 
 
 def test_resolve_short_term_growth_prefers_provider_estimate():
@@ -527,14 +527,14 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/valuation/assumptions.py tradingagents/valuation/fcff.py tests/valuation/test_assumptions.py tests/valuation/test_fcff.py
+git add diverge/valuation/assumptions.py diverge/valuation/fcff.py tests/valuation/test_assumptions.py tests/valuation/test_fcff.py
 git commit -m "feat: add assumption resolver and normalized fcff helper"
 ```
 
 ### Task 5a: Add CN beta calculation as a bounded follow-up helper
 
 **Files:**
-- Modify: `tradingagents/dataflows/akshare_valuation.py`
+- Modify: `diverge/dataflows/akshare_valuation.py`
 - Test: `tests/dataflows/test_akshare_valuation.py`
 
 **Step 1: Write the failing test**
@@ -571,14 +571,14 @@ Expected: PASS for both short-history fallback and happy-path regression cases.
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/dataflows/akshare_valuation.py tests/dataflows/test_akshare_valuation.py
+git add diverge/dataflows/akshare_valuation.py tests/dataflows/test_akshare_valuation.py
 git commit -m "feat: add bounded cn beta regression helper"
 ```
 
 ### Task 6: Replace the DCF core with a multi-stage market-routed model with compatibility shim
 
 **Files:**
-- Modify: `tradingagents/valuation/dcf.py`
+- Modify: `diverge/valuation/dcf.py`
 - Test: `tests/valuation/test_dcf.py`
 
 **Step 1: Write the failing test**
@@ -588,8 +588,8 @@ from datetime import date
 
 import pytest
 
-from tradingagents.valuation.dcf import calculate_dcf
-from tradingagents.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext, ValuationInput
+from diverge.valuation.dcf import calculate_dcf
+from diverge.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext, ValuationInput
 
 
 def test_calculate_dcf_uses_multi_stage_growth_and_dynamic_cost_of_equity():
@@ -714,7 +714,7 @@ def _calculate_legacy_dcf(
 
 Keep the existing validation that `wacc > terminal_growth_rate`, and move the legacy single-stage logic into `_calculate_legacy_dcf()` so existing callers and tests continue to work during the migration window. In Phase 1, `format_valuation_sections()` intentionally stays on the legacy kwarg path for calculation while the new market-routed assumptions are surfaced in reporting; switching formatter-driven calculation to the new path is a separate Phase 2 migration.
 
-Leave `tradingagents/valuation/sensitivity.py` unchanged in Phase 1. It can continue calling `calculate_dcf()` with explicit legacy kwargs through the compatibility shim. If that is the intended behavior, do not list `sensitivity.py` as a modified file in this task.
+Leave `diverge/valuation/sensitivity.py` unchanged in Phase 1. It can continue calling `calculate_dcf()` with explicit legacy kwargs through the compatibility shim. If that is the intended behavior, do not list `sensitivity.py` as a modified file in this task.
 
 **Step 4: Run tests to verify they pass**
 
@@ -725,15 +725,15 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/valuation/dcf.py tests/valuation/test_dcf.py
+git add diverge/valuation/dcf.py tests/valuation/test_dcf.py
 git commit -m "feat: add multi-stage market-routed dcf core"
 ```
 
 ### Task 7: Update report formatting and fundamentals analyst integration
 
 **Files:**
-- Modify: `tradingagents/valuation/formatter.py`
-- Modify: `tradingagents/agents/analysts/fundamentals_analyst.py`
+- Modify: `diverge/valuation/formatter.py`
+- Modify: `diverge/agents/analysts/fundamentals_analyst.py`
 - Modify: `web/frontend/components/ReportViewer.tsx`
 - Test: `tests/valuation/test_formatter.py`
 - Test: `tests/agents/test_fundamentals_prompt_highlights.py`
@@ -742,7 +742,7 @@ git commit -m "feat: add multi-stage market-routed dcf core"
 **Step 1: Write the failing test**
 
 ```python
-from tradingagents.valuation.formatter import format_valuation_sections
+from diverge.valuation.formatter import format_valuation_sections
 
 
 def test_format_valuation_sections_renders_assumption_provenance():
@@ -811,7 +811,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/valuation/formatter.py tradingagents/agents/analysts/fundamentals_analyst.py web/frontend/components/ReportViewer.tsx tests/valuation/test_formatter.py tests/agents/test_fundamentals_prompt_highlights.py web/frontend/components/ReportViewer.test.mjs
+git add diverge/valuation/formatter.py diverge/agents/analysts/fundamentals_analyst.py web/frontend/components/ReportViewer.tsx tests/valuation/test_formatter.py tests/agents/test_fundamentals_prompt_highlights.py web/frontend/components/ReportViewer.test.mjs
 git commit -m "feat: surface valuation assumption provenance in reports"
 ```
 
@@ -857,7 +857,7 @@ Implement:
 - explicit low-confidence fallback markers
 - provider-specific error messages
 - `instrument_type -> valuation_applicability` rules for `reit`, `bank`, `insurance`, `etf`, `fund`, `index`
-- update `tests/integration/test_skill_adoption_flow.py` to patch `tradingagents.dataflows.valuation_inputs.route_to_valuation_input` or `tradingagents.agents.utils.fundamental_data_tools.get_valuation_ready_fundamentals`, not `tradingagents.dataflows.interface.route_to_vendor`
+- update `tests/integration/test_skill_adoption_flow.py` to patch `diverge.dataflows.valuation_inputs.route_to_valuation_input` or `diverge.agents.utils.fundamental_data_tools.get_valuation_ready_fundamentals`, not `diverge.dataflows.interface.route_to_vendor`
 - validation smoke helper for manual compare runs
 
 **Step 4: Run verification**
@@ -874,10 +874,10 @@ Manual smoke matrix:
 
 ```bash
 python - <<'PY'
-from tradingagents.graph.trading_graph import TradingAgentsGraph
-from tradingagents.default_config import DEFAULT_CONFIG
+from diverge.graph.trading_graph import DivergeGraph
+from diverge.default_config import DEFAULT_CONFIG
 
-graph = TradingAgentsGraph(debug=False, config=DEFAULT_CONFIG.copy())
+graph = DivergeGraph(debug=False, config=DEFAULT_CONFIG.copy())
 for ticker in ("NVDA", "SPY", "600519", "000001.SZ"):
     _, decision = graph.propagate(ticker, "2026-03-24")
     print(ticker, (decision or "")[:200])
@@ -899,7 +899,7 @@ git commit -m "test: add market-routed valuation edge case coverage"
 ## Notes for the Implementer
 
 - Do not break the existing `fundamentals_report: str` contract.
-- Keep all provider-specific parsing out of `tradingagents/valuation/dcf.py`.
+- Keep all provider-specific parsing out of `diverge/valuation/dcf.py`.
 - Treat `ERP` as internal configuration, not provider truth.
 - For non-CN markets, use `yfinance` only in this phase.
 - For CN markets, use `AkShare` only in this phase, even though the general fundamentals vendor order currently prefers `tushare`.

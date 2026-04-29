@@ -6,11 +6,11 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-from tradingagents.agents.analysts.fundamentals_analyst import (
+from diverge.agents.analysts.fundamentals_analyst import (
     create_fundamentals_analyst,
 )
-from tradingagents.runner import save_report_to_disk
-from tradingagents.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
+from diverge.runner import save_report_to_disk
+from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
 
 class _FakeLLM:
@@ -62,7 +62,7 @@ def _valuation_input() -> ValuationInput:
     )
 
 
-@patch("tradingagents.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
 def test_skill_adoption_flow_generates_valuation_report_and_artifacts(
     mock_get_valuation_ready_fundamentals,
 ):

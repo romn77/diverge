@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from tradingagents.data.us_manifest import build_us_manifest, write_us_manifest
+from diverge.data.us_manifest import build_us_manifest, write_us_manifest
 
 
 def test_write_us_manifest_maps_akshare_us_spot_to_manifest_csv(tmp_path):
@@ -198,8 +198,8 @@ def test_write_us_manifest_uses_akshare_rate_limiter_when_loading_source(tmp_pat
     akshare_client = type("AkshareClient", (), {"stock_us_spot": object()})()
 
     with (
-        patch("tradingagents.data.us_manifest._import_akshare", return_value=akshare_client),
-        patch("tradingagents.data.us_manifest.call_akshare_api", return_value=source_df) as mock_rate_limit,
+        patch("diverge.data.us_manifest._import_akshare", return_value=akshare_client),
+        patch("diverge.data.us_manifest.call_akshare_api", return_value=source_df) as mock_rate_limit,
     ):
         manifest_df = write_us_manifest(output_path=output_path, limit=1)
 

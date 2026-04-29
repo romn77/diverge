@@ -28,6 +28,7 @@ class MassiveApiIntegrationTests(unittest.TestCase):
             timeout=30,
         )
 
+        print(response.text)
         self.assertEqual(response.status_code, 200, response.text)
         self.assertIsInstance(response.json(), dict)
 

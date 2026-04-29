@@ -6,8 +6,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from unittest.mock import patch
 
-from tradingagents import trade_feedback
-from tradingagents.runner import AnalysisRequest
+from diverge import trade_feedback
+from diverge.runner import AnalysisRequest
 from tests.web.auth_helpers import AuthClientMixin
 from tests.web.http_harness import app_client
 from web.backend import app_config, auth
@@ -66,7 +66,7 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
             / "data"
             / "eval_results"
             / "MSFT"
-            / "TradingAgentsStrategy_logs"
+            / "DivergeStrategy_logs"
         )
         report_dir.mkdir(parents=True, exist_ok=True)
         eval_dir.mkdir(parents=True, exist_ok=True)
@@ -149,7 +149,7 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
                 {
                     "analysis_date": "2026-04-01",
                     "report_path": "data/reports/MSFT_20260401_120000/complete_report.md",
-                    "full_state_log_path": "data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                    "full_state_log_path": "data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
                 }
             ],
         }

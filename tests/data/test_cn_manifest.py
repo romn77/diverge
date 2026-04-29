@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from tradingagents.data.cn_manifest import (
+from diverge.data.cn_manifest import (
     DEFAULT_FALLBACK_DATA_SOURCES,
     build_cn_manifest,
     main,
@@ -115,7 +115,7 @@ def test_write_cn_manifest_loads_cn_universe_with_defaults(tmp_path):
     )
 
     with patch(
-        "tradingagents.data.cn_manifest.load_cn_universe",
+        "diverge.data.cn_manifest.load_cn_universe",
         return_value=source_df,
     ) as mock_load:
         manifest_df = write_cn_manifest(output_path=tmp_path / "cn_manifest.csv")
@@ -154,7 +154,7 @@ def test_main_uses_cli_defaults_and_writes_requested_path(tmp_path, capsys):
 
     with (
         patch(
-            "tradingagents.data.cn_manifest.load_cn_universe",
+            "diverge.data.cn_manifest.load_cn_universe",
             return_value=source_df,
         ) as mock_load,
         patch(

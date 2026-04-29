@@ -36,7 +36,7 @@ class StorageBackendTests(unittest.TestCase):
             storage.os.environ,
             {
                 "STORAGE_BACKEND": "local",
-                "STORAGE_LOCAL_ROOT": "/tmp/tradingagents-storage",
+                "STORAGE_LOCAL_ROOT": "/tmp/diverge-storage",
             },
             clear=True,
         ):

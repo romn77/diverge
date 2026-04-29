@@ -1,4 +1,4 @@
-from tradingagents.agents.managers.summary_agent import create_summary_agent
+from diverge.agents.managers.summary_agent import create_summary_agent
 
 
 class _FakeResponse:

@@ -20,9 +20,9 @@ BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT}}"
 NEXT_PUBLIC_API_BASE_URL="${NEXT_PUBLIC_API_BASE_URL:-http://localhost:${BACKEND_PORT}}"
-BACKEND_LOG="${BACKEND_LOG:-/tmp/tradingagents-backend.log}"
-FRONTEND_LOG="${FRONTEND_LOG:-/tmp/tradingagents-frontend.log}"
-WORKER_LOG="${WORKER_LOG:-/tmp/tradingagents-worker.log}"
+BACKEND_LOG="${BACKEND_LOG:-/tmp/diverge-backend.log}"
+FRONTEND_LOG="${FRONTEND_LOG:-/tmp/diverge-frontend.log}"
+WORKER_LOG="${WORKER_LOG:-/tmp/diverge-worker.log}"
 BACKEND_LOG_LEVEL="${BACKEND_LOG_LEVEL:-${LOG_LEVEL:-info}}"
 TAIL_LOGS="${TAIL_LOGS:-true}"
 TAIL_LOG_LINES="${TAIL_LOG_LINES:-80}"
@@ -38,7 +38,7 @@ TASK_USER_PENDING_LIMIT_OPERATOR="${TASK_USER_PENDING_LIMIT_OPERATOR:-5}"
 TASK_USER_PENDING_LIMIT_VIEWER="${TASK_USER_PENDING_LIMIT_VIEWER:-2}"
 REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"
 START_REDIS_DOCKER="${START_REDIS_DOCKER:-false}"
-REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-tradingagents-redis}"
+REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-diverge-redis}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 STORAGE_BACKEND="${STORAGE_BACKEND:-local}"
 STORAGE_LOCAL_ROOT="${STORAGE_LOCAL_ROOT:-$DATA_DIR}"
@@ -140,7 +140,7 @@ start_log_tail() {
     TAIL_PID=$!
 }
 
-echo -e "${BLUE}Starting TradingAgents Report Viewer...${NC}"
+echo -e "${BLUE}Starting Diverge Report Viewer...${NC}"
 echo
 
 # Ensure runtime data directories exist
@@ -276,7 +276,7 @@ echo -e "${GREEN}✓ Frontend started (PID $FRONTEND_PID)${NC}"
 
 # Print access info
 echo
-echo -e "${GREEN}=== TradingAgents Report Viewer ===${NC}"
+echo -e "${GREEN}=== Diverge Report Viewer ===${NC}"
 echo -e "Backend:  ${BLUE}http://localhost:${BACKEND_PORT}${NC}"
 echo -e "Frontend: ${BLUE}http://localhost:${FRONTEND_PORT}${NC}"
 echo

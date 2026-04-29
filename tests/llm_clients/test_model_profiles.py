@@ -1,11 +1,11 @@
 import unittest
 
-from tradingagents.llm_clients.model_profiles import (
+from diverge.llm_clients.model_profiles import (
     STATIC_MODEL_PROFILES,
     list_model_profile_options,
     resolve_model_profile,
 )
-from tradingagents.llm_clients.validators import validate_model
+from diverge.llm_clients.validators import validate_model
 
 
 def _available(_provider: str) -> dict[str, object]:

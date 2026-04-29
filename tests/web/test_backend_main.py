@@ -10,9 +10,9 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from tradingagents.dataflows import vendor_usage
-from tradingagents.runner import AnalysisRequest
-from tradingagents.screener.schema import ScreenRunResult
+from diverge.dataflows import vendor_usage
+from diverge.runner import AnalysisRequest
+from diverge.screener.schema import ScreenRunResult
 from web.backend import app_config as backend_config, auth, main as backend_main, screener_results
 from web.backend.routers import admin as admin_router
 from web.backend.routers import config as config_router

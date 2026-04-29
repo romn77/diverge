@@ -4,19 +4,19 @@
 
 **Goal:** Add a CLI-first asset tracking module with local persistence, symbol resolution, 15-minute valuation refresh support, and grouped summary views without introducing a separate web app.
 
-**Architecture:** Add a new `tradingagents.assets` package for ledger models, SQLite persistence, symbol resolution, valuation refresh, and summary aggregation. Extend the existing Typer CLI with an `asset` command group that writes to `~/.tradingagents/assets.db`, reuses `tradingagents.dataflows` for price fetches, and keeps unresolved/manual-only assets explicit instead of silently valuing them at zero.
+**Architecture:** Add a new `diverge.assets` package for ledger models, SQLite persistence, symbol resolution, valuation refresh, and summary aggregation. Extend the existing Typer CLI with an `asset` command group that writes to `~/.diverge/assets.db`, reuses `diverge.dataflows` for price fetches, and keeps unresolved/manual-only assets explicit instead of silently valuing them at zero.
 
-**Tech Stack:** Python 3.10+, Typer, Rich, Questionary, sqlite3, pytest/unittest, yfinance-backed search, existing `tradingagents.dataflows` routing.
+**Tech Stack:** Python 3.10+, Typer, Rich, Questionary, sqlite3, pytest/unittest, yfinance-backed search, existing `diverge.dataflows` routing.
 
 ---
 
 ### Task 1: Asset Persistence Foundation
 
 **Files:**
-- Create: `tradingagents/assets/__init__.py`
-- Create: `tradingagents/assets/models.py`
-- Create: `tradingagents/assets/paths.py`
-- Create: `tradingagents/assets/storage.py`
+- Create: `diverge/assets/__init__.py`
+- Create: `diverge/assets/models.py`
+- Create: `diverge/assets/paths.py`
+- Create: `diverge/assets/storage.py`
 - Test: `tests/test_asset_storage.py`
 
 - [ ] **Step 1: Write the failing storage tests**
@@ -104,10 +104,10 @@ def _row_to_asset(self, row: sqlite3.Row) -> AssetRecord:
 ### Task 2: Symbol Resolution and Valuation Refresh
 
 **Files:**
-- Create: `tradingagents/assets/market_data.py`
-- Create: `tradingagents/assets/service.py`
-- Modify: `tradingagents/dataflows/interface.py`
-- Modify: `tradingagents/dataflows/y_finance.py`
+- Create: `diverge/assets/market_data.py`
+- Create: `diverge/assets/service.py`
+- Modify: `diverge/dataflows/interface.py`
+- Modify: `diverge/dataflows/y_finance.py`
 - Test: `tests/test_asset_market_data.py`
 
 - [ ] **Step 1: Write the failing resolver and refresh tests**
@@ -210,7 +210,7 @@ def run_refresh_loop(self, *, base_currency: str = "USD", interval_minutes: int 
 
 ```python
 def test_asset_add_and_summary_commands(tmp_path, monkeypatch):
-    monkeypatch.setenv("TRADINGAGENTS_ASSETS_DB", str(tmp_path / "assets.db"))
+    monkeypatch.setenv("DIVERGE_ASSETS_DB", str(tmp_path / "assets.db"))
     runner = CliRunner()
 
     add = runner.invoke(

@@ -1,5 +1,5 @@
 """
-TradingAgents Report Viewer backend composition root and ASGI entrypoint.
+Diverge Report Viewer backend composition root and ASGI entrypoint.
 """
 
 from __future__ import annotations
@@ -63,7 +63,7 @@ async def _app_lifespan(_: FastAPI):
 
 
 app = FastAPI(
-    title="TradingAgents Report Viewer",
+    title="Diverge Report Viewer",
     version="1.1.0",
     lifespan=_app_lifespan,
 )

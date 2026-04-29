@@ -4,8 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from tradingagents.dataflows.vendor_usage import QuotaWaitRequired
-from tradingagents.runner import AnalysisRequest
+from diverge.dataflows.vendor_usage import QuotaWaitRequired
+from diverge.runner import AnalysisRequest
 from web.backend.runtime import analysis_tasks, screener_tasks, task_scheduler, task_store
 
 

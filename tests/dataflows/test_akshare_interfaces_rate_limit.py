@@ -22,10 +22,10 @@ def test_fetch_akshare_stock_df_uses_rate_limiter():
     )
 
     with (
-        patch("tradingagents.dataflows.akshare_stock._import_akshare", return_value=akshare_client),
-        patch("tradingagents.dataflows.akshare_stock.call_akshare_api", return_value=raw_df) as mock_rate_limit,
+        patch("diverge.dataflows.akshare_stock._import_akshare", return_value=akshare_client),
+        patch("diverge.dataflows.akshare_stock.call_akshare_api", return_value=raw_df) as mock_rate_limit,
     ):
-        from tradingagents.dataflows.akshare_stock import _fetch_akshare_stock_df
+        from diverge.dataflows.akshare_stock import _fetch_akshare_stock_df
 
         result = _fetch_akshare_stock_df("600519", "2025-01-01", "2026-03-24")
 
@@ -45,10 +45,10 @@ def test_fetch_akshare_fundamentals_report_uses_rate_limiter():
     raw_df = pd.DataFrame([{"报告日": "2025-12-31", "营业总收入": 1000.0}])
 
     with (
-        patch("tradingagents.dataflows.akshare_fundamentals._import_akshare", return_value=akshare_client),
-        patch("tradingagents.dataflows.akshare_fundamentals.call_akshare_api", return_value=raw_df) as mock_rate_limit,
+        patch("diverge.dataflows.akshare_fundamentals._import_akshare", return_value=akshare_client),
+        patch("diverge.dataflows.akshare_fundamentals.call_akshare_api", return_value=raw_df) as mock_rate_limit,
     ):
-        from tradingagents.dataflows.akshare_fundamentals import _fetch_report
+        from diverge.dataflows.akshare_fundamentals import _fetch_report
 
         result = _fetch_report("600519", "利润表")
 
@@ -61,10 +61,10 @@ def test_akshare_news_uses_rate_limiter():
     raw_df = pd.DataFrame([{"日期": "2026-03-24", "标题": "Example"}])
 
     with (
-        patch("tradingagents.dataflows.akshare_news._import_akshare", return_value=akshare_client),
-        patch("tradingagents.dataflows.akshare_news.call_akshare_api", return_value=raw_df) as mock_rate_limit,
+        patch("diverge.dataflows.akshare_news._import_akshare", return_value=akshare_client),
+        patch("diverge.dataflows.akshare_news.call_akshare_api", return_value=raw_df) as mock_rate_limit,
     ):
-        from tradingagents.dataflows.akshare_news import get_news
+        from diverge.dataflows.akshare_news import get_news
 
         result = get_news("600519", "2026-03-01", "2026-03-31")
 
@@ -84,10 +84,10 @@ def test_akshare_valuation_risk_free_rate_uses_rate_limiter():
     )
 
     with (
-        patch("tradingagents.dataflows.akshare_valuation._import_akshare", return_value=akshare_client),
-        patch("tradingagents.dataflows.akshare_valuation.call_akshare_api", return_value=raw_df) as mock_rate_limit,
+        patch("diverge.dataflows.akshare_valuation._import_akshare", return_value=akshare_client),
+        patch("diverge.dataflows.akshare_valuation.call_akshare_api", return_value=raw_df) as mock_rate_limit,
     ):
-        from tradingagents.dataflows.akshare_valuation import _get_cn_risk_free_rate
+        from diverge.dataflows.akshare_valuation import _get_cn_risk_free_rate
 
         result = _get_cn_risk_free_rate()
 

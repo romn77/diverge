@@ -3,7 +3,7 @@ const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ||
   "http://localhost:8000";
 
-export const AUTH_REQUIRED_EVENT = "tradingagents:auth-required";
+export const AUTH_REQUIRED_EVENT = "diverge:auth-required";
 
 export type AuthMode = "disabled" | "optional" | "required";
 export type UserRole = "admin" | "operator" | "viewer";

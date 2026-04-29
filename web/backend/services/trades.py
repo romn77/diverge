@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request
 
-from tradingagents.dataflows import vendor_usage
-from tradingagents.trade_feedback import (
+from diverge.dataflows import vendor_usage
+from diverge.trade_feedback import (
     create_trade_record as create_trade_record_file,
     generate_trade_review as generate_trade_review_file,
     get_trade_feedback_payload as get_trade_feedback_payload_file,

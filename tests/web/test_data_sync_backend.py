@@ -3,7 +3,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
+from diverge.screener.sync import SyncResult
+from web.backend import worker
 from web.backend.routers import data_sync as data_sync_router
+from web.backend.runtime import data_sync_tasks, task_store
 from web.backend.schemas.data_sync import (
     DataSyncFundamentalsPayload,
     DataSyncOhlcvPayload,
@@ -24,6 +29,7 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
                 markets=["us"],
                 as_of_date="2026-04-28",
                 us_manifest_path="/tmp/us.csv",
+                run_screener_prewarm=True,
             )
         )
 
@@ -34,6 +40,8 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
     assert kwargs["owner_user_id"] == "admin-user"
     assert kwargs["tenant_id"] == "tenant-a"
     assert kwargs["request_payload"]["markets"] == ["us"]
+    assert kwargs["request_payload"]["top_k"] == 100
+    assert kwargs["request_payload"]["run_screener_prewarm"] is True
 
 
 def test_create_fundamental_sync_task_routes_to_runtime():
@@ -73,3 +81,116 @@ def test_list_data_sync_jobs_is_tenant_scoped():
         response = data_sync_router.list_data_sync_jobs()
 
     assert response == [{"id": "a"}]
+
+
+def test_create_data_sync_task_uses_unified_queue_when_redis_enabled(monkeypatch):
+    store = task_store.InMemoryTaskStore()
+    monkeypatch.setenv("TASK_BACKEND", "redis")
+    monkeypatch.setattr(task_store, "_TASK_STORE", store)
+
+    with patch("web.backend.runtime.data_sync_tasks.threading.Thread") as thread:
+        response = data_sync_tasks.create_data_sync_task(
+            sync_type="ohlcv",
+            request_payload={"markets": ["us"], "as_of_date": "2026-04-28"},
+            owner_user_id="admin-user",
+            tenant_id="tenant-a",
+        )
+
+    assert response["status"] == "queued"
+    assert store.queue_ids("data_sync") == [response["task_id"]]
+    payload = store.get_task("data_sync", response["task_id"])
+    assert payload is not None
+    assert payload["status"] == "queued"
+    assert payload["owner_user_id"] == "admin-user"
+    assert payload["queued_at"] is not None
+    thread.assert_not_called()
+
+
+def test_worker_dispatches_data_sync_tasks_from_unified_queue(monkeypatch):
+    store = task_store.InMemoryTaskStore()
+    monkeypatch.setenv("TASK_BACKEND", "redis")
+    monkeypatch.setattr(task_store, "_TASK_STORE", store)
+    response = data_sync_tasks.create_data_sync_task(
+        sync_type="ohlcv",
+        request_payload={"markets": ["us"], "as_of_date": "2026-04-28"},
+    )
+
+    with patch("web.backend.worker.data_sync_tasks.run_data_sync_task") as run_task:
+        did_work = worker.run_once(timeout=0)
+
+    assert did_work is True
+    run_task.assert_called_once_with(response["task_id"])
+    assert store.processing_ids("data_sync") == []
+
+
+def test_fundamental_sync_can_build_symbols_from_us_manifest(tmp_path, monkeypatch):
+    manifest_path = tmp_path / "us.csv"
+    manifest_path.write_text(
+        "symbol,name,exchange,sector,list_date,mktcap\n"
+        "AAPL,Apple,NASDAQ,Technology,19801212,100\n"
+        "MSFT,Microsoft,NASDAQ,Technology,19860313,90\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SIMFIN_API_KEY", "test-key")
+    captured = {}
+
+    def fake_sync(**kwargs):
+        captured.update(kwargs)
+        return SyncResult(
+            sync_type="fundamentals",
+            markets=["us"],
+            source="simfin",
+            status="completed",
+            symbols_total=2,
+            symbols_success=2,
+            symbols_failed=0,
+            rows_written=2,
+            snapshot_path=None,
+            meta_path=None,
+            field_coverage=None,
+            missing_fields=[],
+            failed_symbols=[],
+            updated_at="",
+        )
+
+    monkeypatch.setattr(data_sync_tasks, "sync_us_simfin_fundamentals", fake_sync)
+
+    result = data_sync_tasks.run_fundamental_sync_payload(
+        {
+            "market": "us",
+            "source": "simfin",
+            "symbols": [],
+            "manifest_path": str(manifest_path),
+            "as_of_date": "2026-04-28",
+        }
+    )
+
+    assert result["status"] == "completed"
+    assert captured["tickers"] == ["AAPL", "MSFT"]
+
+
+def test_us_simfin_fundamental_sync_rejects_empty_symbol_list(monkeypatch):
+    monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    with pytest.raises(RuntimeError, match="symbols are required"):
+        data_sync_tasks.run_fundamental_sync_payload(
+            {
+                "market": "us",
+                "source": "simfin",
+                "symbols": [],
+                "as_of_date": "2026-04-28",
+            }
+        )
+
+
+def test_us_simfin_fundamental_sync_rejects_symbols_over_daily_limit(monkeypatch):
+    monkeypatch.setenv("SIMFIN_DAILY_TICKER_LIMIT", "2")
+
+    with pytest.raises(RuntimeError, match="exceeds SIMFIN_DAILY_TICKER_LIMIT=2"):
+        data_sync_tasks.run_fundamental_sync_payload(
+            {
+                "market": "us",
+                "source": "simfin",
+                "symbols": ["AAPL", "MSFT", "NVDA"],
+                "as_of_date": "2026-04-28",
+            }
+        )

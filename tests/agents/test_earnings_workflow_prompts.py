@@ -4,10 +4,10 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-from tradingagents.agents.analysts.fundamentals_analyst import (
+from diverge.agents.analysts.fundamentals_analyst import (
     create_fundamentals_analyst,
 )
-from tradingagents.agents.analysts.news_analyst import create_news_analyst
+from diverge.agents.analysts.news_analyst import create_news_analyst
 
 
 class _FakeLLM:
@@ -61,7 +61,7 @@ def test_news_analyst_uses_preview_mode_prompt_when_future_earnings_event_exists
     assert "Consensus revenue: 95B" in prompt
 
 
-@patch("tradingagents.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
 def test_fundamentals_analyst_uses_post_earnings_mode_prompt_when_event_has_passed(
     mock_get_valuation_ready_fundamentals,
 ):

@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Add module-scoped permissions, tenant-level data isolation, and durable audit logging for the authenticated TradingAgents workbench.
+**Goal:** Add module-scoped permissions, tenant-level data isolation, and durable audit logging for the authenticated Diverge workbench.
 
 **Architecture:** Keep the existing `admin/operator/viewer` roles as presets, but route authorization through explicit module permissions. Introduce a `tenants` table and `tenant_id` columns so ownership queries are scoped by organization before user. Record security-relevant actions in append-only audit events without blocking the primary workflow when audit writes fail.
 

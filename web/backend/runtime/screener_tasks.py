@@ -13,9 +13,9 @@ from typing import Optional
 
 from fastapi import HTTPException
 
-from tradingagents.dataflows import vendor_usage
-from tradingagents.screener.pipeline import run_screen
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.dataflows import vendor_usage
+from diverge.screener.pipeline import run_screen
+from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, storage
 from web.backend.runtime import task_store
 from web.backend.services import screeners as screener_service

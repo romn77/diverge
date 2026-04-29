@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tradingagents.screener.ranker import score_candidates
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.screener.ranker import score_candidates
+from diverge.screener.schema import ScreenRunConfig
 
 
 def test_score_candidates_assigns_market_and_global_ranks_with_market_level_standardization():

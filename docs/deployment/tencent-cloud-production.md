@@ -21,7 +21,7 @@ Create `.env` from `.env.example` and set at least:
 PUBLIC_HOSTNAME=your-domain.example
 FRONTEND_ORIGIN=https://your-domain.example
 NEXT_PUBLIC_API_BASE_URL=https://your-domain.example
-DATABASE_URL=postgresql://postgres:<password>@postgres:5432/tradingagents
+DATABASE_URL=postgresql://postgres:<password>@postgres:5432/diverge
 POSTGRES_PASSWORD=<password>
 AUTH_BOOTSTRAP_ADMIN_EMAIL=<admin-email>
 AUTH_BOOTSTRAP_ADMIN_PASSWORD=<admin-password>
@@ -32,7 +32,7 @@ COS_SECRET_ID=<secret-id>
 COS_SECRET_KEY=<secret-key>
 COS_REGION=<same-region-as-server>
 COS_BUCKET=<private-bucket-name>
-COS_PREFIX=tradingagents/prod
+COS_PREFIX=diverge/prod
 ```
 
 Put TLS files at:

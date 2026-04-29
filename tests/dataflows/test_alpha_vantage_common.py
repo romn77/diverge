@@ -3,11 +3,11 @@ from unittest.mock import patch
 
 import requests
 
-from tradingagents.dataflows.alpha_vantage_common import (
+from diverge.dataflows.alpha_vantage_common import (
     ALPHA_VANTAGE_TIMEOUT_SECONDS,
     _make_api_request,
 )
-from tradingagents.dataflows.vendor_errors import VendorRetryableError
+from diverge.dataflows.vendor_errors import VendorRetryableError
 
 
 class AlphaVantageCommonTests(unittest.TestCase):
@@ -20,7 +20,7 @@ class AlphaVantageCommonTests(unittest.TestCase):
 
         with patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test-key"}):
             with patch(
-                "tradingagents.dataflows.alpha_vantage_common.requests.get",
+                "diverge.dataflows.alpha_vantage_common.requests.get",
                 return_value=Response(),
             ) as get:
                 payload = _make_api_request("TIME_SERIES_INTRADAY", {"symbol": "MSFT"})
@@ -31,7 +31,7 @@ class AlphaVantageCommonTests(unittest.TestCase):
     def test_make_api_request_maps_request_failures_to_retryable_error(self):
         with patch.dict("os.environ", {"ALPHA_VANTAGE_API_KEY": "test-key"}):
             with patch(
-                "tradingagents.dataflows.alpha_vantage_common.requests.get",
+                "diverge.dataflows.alpha_vantage_common.requests.get",
                 side_effect=requests.Timeout("slow"),
             ):
                 with self.assertRaises(VendorRetryableError):

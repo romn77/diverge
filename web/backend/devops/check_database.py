@@ -155,7 +155,7 @@ def run_database_check(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Check the TradingAgents auth database and optionally apply migrations."
+        description="Check the Diverge auth database and optionally apply migrations."
     )
     parser.add_argument(
         "--upgrade",

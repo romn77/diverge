@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from tradingagents.agents.utils.core_stock_tools import get_stock_data
-from tradingagents.agents.utils.technical_indicators_tools import get_indicators
-from tradingagents.screener.history_cache import save_history_cache
+from diverge.agents.utils.core_stock_tools import get_stock_data
+from diverge.agents.utils.technical_indicators_tools import get_indicators
+from diverge.screener.history_cache import save_history_cache
 
 
 def _history_rows(start: str, periods: int) -> pd.DataFrame:
@@ -59,7 +59,7 @@ def test_analysis_stock_data_uses_shared_history_cache_before_vendor_route(tmp_p
     )
 
     with patch(
-        "tradingagents.dataflows.interface.execute_vendor_chain",
+        "diverge.dataflows.interface.execute_vendor_chain",
         side_effect=AssertionError("analysis stock data should hit cache first"),
     ):
         result = get_stock_data.func("AAPL", "2026-01-02", "2026-01-05")
@@ -74,7 +74,7 @@ def test_analysis_indicators_are_computed_locally_from_shared_history_cache(tmp_
     save_history_cache(tmp_path, "us", "AAPL", _history_rows("2025-01-01", 380))
 
     with patch(
-        "tradingagents.dataflows.interface.execute_vendor_chain",
+        "diverge.dataflows.interface.execute_vendor_chain",
         side_effect=AssertionError("analysis indicators should be local"),
     ):
         result = get_indicators.func(

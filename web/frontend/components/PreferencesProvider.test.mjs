@@ -36,9 +36,9 @@ test("PreferencesProvider syncs theme, language, and visual style state to docum
 test("uiPreferences defines persisted preference cookie keys with zh translations", () => {
   const source = readFileSync(preferencesPath, "utf8");
 
-  assert.match(source, /THEME_STORAGE_KEY = "tradingagents\.ui\.theme"/);
-  assert.match(source, /LANGUAGE_STORAGE_KEY = "tradingagents\.ui\.language"/);
-  assert.match(source, /VISUAL_STYLE_STORAGE_KEY = "tradingagents\.ui\.visualStyle"/);
+  assert.match(source, /THEME_STORAGE_KEY = "diverge\.ui\.theme"/);
+  assert.match(source, /LANGUAGE_STORAGE_KEY = "diverge\.ui\.language"/);
+  assert.match(source, /VISUAL_STYLE_STORAGE_KEY = "diverge\.ui\.visualStyle"/);
   assert.match(source, /THEME_COOKIE_NAME = THEME_STORAGE_KEY/);
   assert.match(source, /LANGUAGE_COOKIE_NAME = LANGUAGE_STORAGE_KEY/);
   assert.match(source, /VISUAL_STYLE_COOKIE_NAME = VISUAL_STYLE_STORAGE_KEY/);

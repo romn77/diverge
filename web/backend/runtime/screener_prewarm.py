@@ -9,11 +9,15 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from tradingagents.dataflows import vendor_usage
-from tradingagents.screener.market_calendar import latest_trading_day_on_or_before
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.dataflows import vendor_usage
+from diverge.screener.market_calendar import latest_trading_day_on_or_before
+from diverge.screener.presets import (
+    normalize_filter_preset_selections,
+    resolve_ranking_profile,
+)
+from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, screener_presets, screener_results
-from web.backend.runtime import screener_tasks
+from web.backend.runtime import data_sync_tasks, screener_tasks
 from web.backend.services.config import get_screener_config_options_payload
 
 logger = logging.getLogger(__name__)
@@ -25,6 +29,19 @@ MARKET_CLOSE_RULES: dict[str, tuple[str, day_time]] = {
 PREWARM_STATE_FILENAME = "prewarm_state.json"
 _SCHEDULER_THREAD: threading.Thread | None = None
 _SCHEDULER_STOP = threading.Event()
+FUNDAMENTAL_FILTER_GROUPS = {
+    "pe_ttm",
+    "ps_ttm",
+    "pb",
+    "peg",
+    "roe",
+    "gross_margin",
+    "net_margin",
+    "revenue_growth_yoy",
+    "net_income_growth_yoy",
+    "current_ratio",
+    "debt_to_assets",
+}
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -154,6 +171,25 @@ def collect_screener_prewarm_payloads(market: str, as_of_date: str) -> list[dict
     return payloads
 
 
+def payload_requires_fundamentals(payload: dict[str, Any]) -> bool:
+    if bool(payload.get("include_fundamentals")):
+        return True
+    try:
+        ranking_profile = resolve_ranking_profile(payload.get("ranking_profile_id"))
+    except ValueError:
+        ranking_profile = None
+    if ranking_profile and float(ranking_profile["weights"].get("fundamental", 0.0)) > 0:
+        return True
+    try:
+        selections = normalize_filter_preset_selections(payload.get("filter_preset_selections"))
+    except ValueError:
+        return False
+    return any(
+        selections.get(group_id, "any") != "any"
+        for group_id in FUNDAMENTAL_FILTER_GROUPS
+    )
+
+
 def build_screener_config_payload(request_payload: dict[str, Any]) -> dict[str, Any]:
     config_payload = dict(request_payload)
     config_payload.update(_resolve_screener_data_sources())
@@ -172,6 +208,62 @@ def build_screener_config_payload(request_payload: dict[str, Any]) -> dict[str, 
         config_payload["us_manifest_path"] = manifest_path
     ScreenRunConfig(**config_payload)
     return config_payload
+
+
+def build_ohlcv_sync_payload(market: str, as_of_date: str) -> dict[str, Any]:
+    defaults = get_screener_config_options_payload()["defaults"]
+    payload: dict[str, Any] = {
+        "markets": [market],
+        "as_of_date": as_of_date,
+        "top_k": min(int(defaults["top_k"]), 100),
+    }
+    payload.update(_resolve_screener_data_sources())
+    if market == "cn":
+        payload["cn_manifest_path"] = os.environ.get("SCREEN_CN_MANIFEST_PATH")
+    if market == "us":
+        payload["us_manifest_path"] = os.environ.get("SCREEN_US_MANIFEST_PATH")
+    return payload
+
+
+def build_fundamental_sync_payload(
+    market: str,
+    as_of_date: str,
+    *,
+    symbols: list[str],
+) -> dict[str, Any]:
+    defaults = get_screener_config_options_payload()["defaults"]
+    if market == "cn":
+        return {
+            "market": "cn",
+            "source": defaults["cn_fundamental_source"],
+            "symbols": symbols,
+            "as_of_date": as_of_date,
+        }
+    return {
+        "market": "us",
+        "source": defaults["us_fundamental_source"],
+        "symbols": symbols,
+        "as_of_date": as_of_date,
+    }
+
+
+def run_fundamental_prewarm_sync(
+    market: str,
+    as_of_date: str,
+    *,
+    ohlcv_payload: dict[str, Any],
+) -> dict[str, Any]:
+    symbols_by_market = data_sync_tasks.resolve_universe_symbols(ohlcv_payload)
+    symbols = symbols_by_market.get(market, [])
+    if not symbols:
+        return {
+            "market": market,
+            "as_of_date": as_of_date,
+            "status": "skipped",
+            "reason": "no_universe_symbols",
+        }
+    payload = build_fundamental_sync_payload(market, as_of_date, symbols=symbols)
+    return data_sync_tasks.run_fundamental_sync_payload(payload)
 
 
 def enqueue_screener_prewarm_tasks(market: str, as_of_date: str) -> int:
@@ -198,6 +290,76 @@ def enqueue_screener_prewarm_tasks(market: str, as_of_date: str) -> int:
     return enqueued
 
 
+def enqueue_screener_prewarm_for_markets(
+    markets: list[str],
+    as_of_date: str,
+) -> dict[str, int]:
+    enqueued_by_market: dict[str, int] = {}
+    for market in markets:
+        normalized_market = str(market).strip().lower()
+        if not normalized_market:
+            continue
+        enqueued_by_market[normalized_market] = enqueue_screener_prewarm_tasks(
+            normalized_market,
+            as_of_date,
+        )
+    return enqueued_by_market
+
+
+def run_screener_prewarm_after_ohlcv(
+    markets: list[str],
+    as_of_date: str,
+    *,
+    ohlcv_payload: dict[str, Any],
+) -> dict[str, Any]:
+    fundamentals_by_market: dict[str, Any] = {}
+    enqueued_by_market: dict[str, int] = {}
+    for market in markets:
+        normalized_market = str(market).strip().lower()
+        if not normalized_market:
+            continue
+        fundamentals_by_market[normalized_market] = run_fundamental_prewarm_sync(
+            normalized_market,
+            as_of_date,
+            ohlcv_payload=ohlcv_payload,
+        )
+        enqueued_by_market[normalized_market] = enqueue_screener_prewarm_tasks(
+            normalized_market,
+            as_of_date,
+        )
+    return {
+        "fundamentals_sync": fundamentals_by_market,
+        "screener_tasks_enqueued": enqueued_by_market,
+    }
+
+
+def run_market_prewarm_workflow(market: str, as_of_date: str) -> dict[str, Any]:
+    sync_payload = build_ohlcv_sync_payload(market, as_of_date)
+    sync_result = data_sync_tasks.run_ohlcv_sync_payload(sync_payload)
+    prewarm_result = run_screener_prewarm_after_ohlcv(
+        [market],
+        as_of_date,
+        ohlcv_payload=sync_payload,
+    )
+    return {
+        "as_of_date": as_of_date,
+        "market": market,
+        "ohlcv_sync": sync_result,
+        **prewarm_result,
+    }
+
+
+def enqueue_market_prewarm_workflow(market: str, as_of_date: str) -> dict[str, str]:
+    sync_payload = build_ohlcv_sync_payload(market, as_of_date)
+    sync_payload["run_screener_prewarm"] = True
+    return data_sync_tasks.create_data_sync_task(
+        sync_type="ohlcv",
+        request_payload=sync_payload,
+        owner_user_id=None,
+        tenant_id=None,
+    )
+
+
 def run_due_screener_prewarm_once(now_utc: datetime | None = None) -> dict[str, int]:
     state = _load_prewarm_state()
     enqueued_by_market: dict[str, int] = {}
@@ -205,7 +367,16 @@ def run_due_screener_prewarm_once(now_utc: datetime | None = None) -> dict[str, 
         trading_day = due_market_trading_day(market, now_utc)
         if trading_day is None or state.get(market) == trading_day:
             continue
-        enqueued_by_market[market] = enqueue_screener_prewarm_tasks(market, trading_day)
+        try:
+            enqueue_market_prewarm_workflow(market, trading_day)
+        except Exception:
+            logger.exception(
+                "screener prewarm workflow failed market=%s trading_day=%s",
+                market,
+                trading_day,
+            )
+            continue
+        enqueued_by_market[market] = 1
         state[market] = trading_day
     if enqueued_by_market:
         _save_prewarm_state(state)

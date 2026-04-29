@@ -4,10 +4,10 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-from tradingagents.agents.analysts.fundamentals_analyst import (
+from diverge.agents.analysts.fundamentals_analyst import (
     create_fundamentals_analyst,
 )
-from tradingagents.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
+from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
 
 class _FakeLLM:
@@ -59,7 +59,7 @@ def _state():
     }
 
 
-@patch("tradingagents.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
 def test_fundamentals_report_includes_valuation_sections_before_highlights(
     mock_get_valuation_ready_fundamentals,
 ):
@@ -91,7 +91,7 @@ def test_fundamentals_report_includes_valuation_sections_before_highlights(
     assert result["valuation_applicability"] == "applicable"
 
 
-@patch("tradingagents.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
 def test_fundamentals_report_surfaces_valuation_preparation_failures(
     mock_get_valuation_ready_fundamentals,
 ):

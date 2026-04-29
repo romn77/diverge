@@ -3,16 +3,16 @@ from typing import List
 from rich.console import Console
 
 from cli.models import AnalystType
-from tradingagents.llm_clients.model_config import (
+from diverge.llm_clients.model_config import (
     PROVIDER_OPTIONS,
     get_deep_model_options,
     get_quick_model_options,
 )
-from tradingagents.llm_clients.model_profiles import (
+from diverge.llm_clients.model_profiles import (
     list_model_profile_options,
     resolve_model_profile,
 )
-from tradingagents.ticker_symbols import normalize_ticker_symbol as _normalize_ticker_symbol
+from diverge.ticker_symbols import normalize_ticker_symbol as _normalize_ticker_symbol
 
 console = Console()
 

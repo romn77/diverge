@@ -8,7 +8,7 @@ from typing import Iterator
 
 from web.backend.runtime import task_store
 
-TASK_KINDS = ("analysis", "screener")
+TASK_KINDS = task_store.TASK_KINDS
 
 
 def _utc_iso() -> str:
@@ -18,7 +18,7 @@ def _utc_iso() -> str:
 @contextmanager
 def _scheduler_lock(store) -> Iterator[bool]:
     client = getattr(store, "client", None)
-    prefix = getattr(store, "prefix", "tradingagents")
+    prefix = getattr(store, "prefix", "diverge")
     if client is None:
         yield True
         return
@@ -96,21 +96,21 @@ def _claim_next_locked(store) -> tuple[str, str] | None:
 
     slots_remaining = global_running_limit - running_total
     analysis_running = store.count_running("analysis")
-    analysis_candidate = _first_eligible_task(store, "analysis")
-    screener_candidate = _first_eligible_task(store, "screener")
-    if analysis_candidate is None and screener_candidate is None:
+    candidates = {
+        kind: candidate
+        for kind in TASK_KINDS
+        if (candidate := _first_eligible_task(store, kind)) is not None
+    }
+    if not candidates:
         return None
-    if analysis_candidate is not None and screener_candidate is None:
+    analysis_candidate = candidates.get("analysis")
+    if slots_remaining <= 1 and analysis_running == 0 and analysis_candidate is not None:
         return _mark_claimed(store, "analysis", analysis_candidate)
-    if screener_candidate is not None and analysis_candidate is None:
-        return _mark_claimed(store, "screener", screener_candidate)
-    if slots_remaining <= 1 and analysis_running == 0:
-        return _mark_claimed(store, "analysis", analysis_candidate)
-    if _task_sort_key(store, "analysis", analysis_candidate) <= _task_sort_key(
-        store, "screener", screener_candidate
-    ):
-        return _mark_claimed(store, "analysis", analysis_candidate)
-    return _mark_claimed(store, "screener", screener_candidate)
+    kind, task_id = min(
+        candidates.items(),
+        key=lambda item: _task_sort_key(store, item[0], item[1]),
+    )
+    return _mark_claimed(store, kind, task_id)
 
 
 def claim_next_kind(kind: str, *, timeout: int = 5) -> str | None:
@@ -126,7 +126,7 @@ def claim_next_kind(kind: str, *, timeout: int = 5) -> str | None:
             return None
         if store.count_running() >= task_store.get_global_running_limit():
             return None
-        if kind == "screener":
+        if kind != "analysis":
             slots_remaining = task_store.get_global_running_limit() - store.count_running()
             analysis_candidate = _first_eligible_task(store, "analysis")
             if (

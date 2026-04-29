@@ -8,10 +8,10 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from tradingagents.screener.pipeline import run_screen
-from tradingagents.screener.schema import ScreenRunConfig
-from tradingagents.screener.stages import evaluate_screen_stage
-from tradingagents.screener.storage import prepare_run_dir
+from diverge.screener.pipeline import run_screen
+from diverge.screener.schema import ScreenRunConfig
+from diverge.screener.stages import evaluate_screen_stage
+from diverge.screener.storage import prepare_run_dir
 
 
 class _FixedDateTime(datetime):
@@ -61,7 +61,7 @@ def _evaluation_stage(
 
 
 def test_prepare_run_dir_avoids_same_second_collisions(tmp_path):
-    with patch("tradingagents.screener.storage.datetime", _FixedDateTime):
+    with patch("diverge.screener.storage.datetime", _FixedDateTime):
         first_run_dir = prepare_run_dir(str(tmp_path), "2026-03-24")
         second_run_dir = prepare_run_dir(str(tmp_path), "2026-03-24")
 
@@ -105,21 +105,21 @@ def test_evaluate_screen_stage_passes_us_data_source_fallbacks(tmp_path):
 
     with (
         patch(
-            "tradingagents.screener.stages.fetch_history_for_universe",
+            "diverge.screener.stages.fetch_history_for_universe",
             return_value=(
                 {"AAPL": pd.DataFrame()},
                 pd.DataFrame(columns=["symbol", "market", "drop_reason"]),
             ),
         ) as fetch_history,
         patch(
-            "tradingagents.screener.stages.build_features_table",
+            "diverge.screener.stages.build_features_table",
             return_value=features_df,
         ),
         patch(
-            "tradingagents.screener.stages.apply_hard_filters",
+            "diverge.screener.stages.apply_hard_filters",
             return_value=(features_df, pd.DataFrame(columns=["drop_reason"])),
         ),
-        patch("tradingagents.screener.stages.score_candidates", return_value=features_df),
+        patch("diverge.screener.stages.score_candidates", return_value=features_df),
     ):
         evaluate_screen_stage(
             config,
@@ -221,9 +221,9 @@ def test_run_screen_uses_shared_stage_helpers(tmp_path):
     )
 
     with (
-        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=universe_stage),
-        patch("tradingagents.screener.pipeline.evaluate_screen_stage", return_value=evaluation_stage),
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=universe_stage),
+        patch("diverge.screener.pipeline.evaluate_screen_stage", return_value=evaluation_stage),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
@@ -305,9 +305,9 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
     )
 
     with (
-        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 histories=histories,
                 fetch_failures=fetch_failures,
@@ -317,7 +317,7 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
                 ranked_df=scored_df,
             ),
         ),
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
@@ -388,7 +388,7 @@ def test_run_screen_prefilters_too_new_symbols_before_history(tmp_path):
 
     with (
         patch(
-            "tradingagents.screener.pipeline.prepare_universe_stage",
+            "diverge.screener.pipeline.prepare_universe_stage",
             return_value=_universe_stage(
                 universe_df,
                 prefiltered_df=filtered_universe_df,
@@ -396,13 +396,13 @@ def test_run_screen_prefilters_too_new_symbols_before_history(tmp_path):
             ),
         ),
         patch(
-            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 histories=histories,
                 features_df=features_df,
             ),
         ) as mock_evaluate,
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
@@ -471,9 +471,9 @@ def test_run_screen_writes_stale_data_rows_with_as_of_and_data_end_dates(tmp_pat
     )
 
     with (
-        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 histories={"AAPL": pd.DataFrame()},
                 features_df=stale_features_df,
@@ -482,7 +482,7 @@ def test_run_screen_writes_stale_data_rows_with_as_of_and_data_end_dates(tmp_pat
                 ranked_df=pd.DataFrame(),
             ),
         ),
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
@@ -518,15 +518,15 @@ def test_run_screen_allocates_dual_market_candidates_with_floor_and_global_backf
     )
 
     with (
-        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 kept_df=ranked_df,
                 ranked_df=ranked_df,
             ),
         ),
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
@@ -560,15 +560,15 @@ def test_run_screen_backfills_from_global_ranking_when_one_market_cannot_fill_fl
     )
 
     with (
-        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 kept_df=ranked_df,
                 ranked_df=ranked_df,
             ),
         ),
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
@@ -599,15 +599,15 @@ def test_run_screen_keeps_single_market_selection_as_plain_top_k(tmp_path):
     )
 
     with (
-        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 kept_df=ranked_df,
                 ranked_df=ranked_df,
             ),
         ),
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 
@@ -677,15 +677,15 @@ def test_run_screen_requires_selected_breakout_type_in_final_candidates(tmp_path
     )
 
     with (
-        patch("tradingagents.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
         patch(
-            "tradingagents.screener.pipeline.evaluate_screen_stage",
+            "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 kept_df=ranked_df,
                 ranked_df=ranked_df,
             ),
         ),
-        patch("tradingagents.screener.storage.datetime", _FixedDateTime),
+        patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
 

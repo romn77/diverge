@@ -1,6 +1,6 @@
 import unittest
 
-from tradingagents.dataflows.cn_market_utils import (
+from diverge.dataflows.cn_market_utils import (
     detect_market,
     parse_and_normalize_cn_ticker,
 )

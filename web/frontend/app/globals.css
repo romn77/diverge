@@ -611,9 +611,9 @@ input {
 
 .workbench-page-title {
   font-family: var(--font-heading);
-  font-size: 2.75rem;
+  font-size: 2.35rem;
   font-weight: 600;
-  line-height: 1.02;
+  line-height: 1.04;
   letter-spacing: 0;
   color: var(--text);
 }
@@ -628,7 +628,7 @@ input {
 
 @media (min-width: 768px) {
   .workbench-page-title {
-    font-size: 3.25rem;
+    font-size: 2.8rem;
   }
 }
 

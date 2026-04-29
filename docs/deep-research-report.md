@@ -1,8 +1,8 @@
-# romn77/TradingAgents dev 分支代码与业务评审
+# romn77/Diverge dev 分支代码与业务评审
 
 ## 审查快照
 
-- 审查对象：`romn77/TradingAgents dev`
+- 审查对象：`romn77/Diverge dev`
 - 固定版本：`f822c0108b0377e16c7eccffb4d96a2dded33bb6`
 - 审查日期：`2026-04-27`
 - 报告定位：内部代码与业务风险评审，不是正式第三方安全审计。
@@ -11,7 +11,7 @@
 
 ## 执行摘要
 
-基于固定版本 `f822c0108b0377e16c7eccffb4d96a2dded33bb6` 的源码，我的总体判断是：这个仓库已经从原始 TradingAgents fork 成一个“研究分析 + 选股筛选 + 资产台账 + 交易日志 + Web Workbench + 基础权限/部署”的内部研究台 MVP。方向是对的，工程骨架也已经搭起来了；README 已经明确列出多数据源路由、CN/US screener、Web Workbench、认证/管理和生产式部署能力。[R1]
+基于固定版本 `f822c0108b0377e16c7eccffb4d96a2dded33bb6` 的源码，我的总体判断是：这个仓库已经从原始 Diverge fork 成一个“研究分析 + 选股筛选 + 资产台账 + 交易日志 + Web Workbench + 基础权限/部署”的内部研究台 MVP。方向是对的，工程骨架也已经搭起来了；README 已经明确列出多数据源路由、CN/US screener、Web Workbench、认证/管理和生产式部署能力。[R1]
 
 报告主线建议收敛到四个模块：代码整洁度、业务链路与模块边界、权限与隔离、报告公开/私有与筛选结果公开路线。主要优点是顶层目录分层清楚、数据模型已经覆盖报告/筛选/资产/交易日志四类对象，并且主干流程有 focused checks。主要短板集中在 orchestrator/service 层过胖、权限仍是粗粒度角色 + owner scope、迁移模式下存在 optional auth 匿名读取报告的条件风险，以及 Massive 市场数据默认走明文 HTTP IP。[R3][R5][R9][R12][R17]
 
@@ -19,17 +19,17 @@
 
 ## 代码整洁度
 
-从“目录级模块化”看，这个仓库是过关的；核心 agent/graph/dataflows 在 `tradingagents/`，筛选管线在 `tradingagents/screener/`，Web 前后端在 `web/`，部署与运维脚本在 `scripts/` 和 `compose.prod.yml`。从“函数级复杂度与职责收敛”看，问题已经开始显性化：核心问题不是命名混乱，而是**职责堆叠**、**跨模块粘连**和**工程入口不够单一**。[R1][R5][R20][R21]
+从“目录级模块化”看，这个仓库是过关的；核心 agent/graph/dataflows 在 `diverge/`，筛选管线在 `diverge/screener/`，Web 前后端在 `web/`，部署与运维脚本在 `scripts/` 和 `compose.prod.yml`。从“函数级复杂度与职责收敛”看，问题已经开始显性化：核心问题不是命名混乱，而是**职责堆叠**、**跨模块粘连**和**工程入口不够单一**。[R1][R5][R20][R21]
 
 测试并非没有，反而已经覆盖了任务队列、筛选、配置、路径安全等主干流程；但测试策略仍然是 focused checks，没有演进成 coverage gate、lint gate 或 type-check gate。依赖治理也不是“没有 lockfile”，而是存在 `uv.lock` 的同时还有多个安装入口和浮动约束，生产安装入口与 CI 审计门禁需要明确。[R15][R16][R17]
 
 | 问题 | 位置 | 严重性 | 影响 | 修复建议 |
 |---|---|---:|---|---|
-| 可变默认参数 | `tradingagents/graph/trading_graph.py:41`，`__init__(selected_analysts=[...])`。[R18] | 中 | 典型 Python 可维护性隐患；今天没副作用，不代表未来不会被修改触发共享状态。 | 改为 `None`，在函数体内赋默认值。 |
+| 可变默认参数 | `diverge/graph/trading_graph.py:41`，`__init__(selected_analysts=[...])`。[R18] | 中 | 典型 Python 可维护性隐患；今天没副作用，不代表未来不会被修改触发共享状态。 | 改为 `None`，在函数体内赋默认值。 |
 | 队列容量判断与 SSE 序列化重复 | `web/backend/routers/tasks.py` 与 `web/backend/routers/screeners.py` 有相似的任务创建、限流和事件流逻辑。[R20] | 中 | 同一套规则要改两处，容易出现分析/筛选行为漂移。 | 抽出 `queue_guard.py` 和 `sse.py`，统一 active/pending/user-limit 逻辑。 |
 | 报告头解析重复 | `web/backend/services/reports.py` 与 `web/backend/report_metadata.py` 各自实现了标题/生成时间解析。[R10][R11] | 低 | 报告格式一旦调整，要双改；容易出现索引结果和实际展示不一致。 | 抽成共享 parser，并以单元测试锁定格式。 |
-| orchestrator/service 过胖 | `web/backend/runtime/analysis_tasks.py`、`tradingagents/runner.py`、`web/backend/services/assets.py` 都同时承担多项职责。[R21][R22][R23] | 高 | 测试难、复用差，也让权限与审计很难精准下沉。 | 分出 `report_publisher`、`portfolio_context_builder`、`analysis_task_orchestrator` 等更窄的应用服务。 |
-| 状态 schema 命名漂移 | `TradingAgentsGraph` 持久化日志时写入 `trader_investment_decision`，主流程普遍使用 `trader_investment_plan`，`trade_feedback` 又读取前者。[R18][R19] | 中 | 下游消费方要记两套 key；后续做搜索、索引、公开副本时容易踩坑。 | 统一 schema 名称；为旧日志提供一次性迁移脚本。 |
+| orchestrator/service 过胖 | `web/backend/runtime/analysis_tasks.py`、`diverge/runner.py`、`web/backend/services/assets.py` 都同时承担多项职责。[R21][R22][R23] | 高 | 测试难、复用差，也让权限与审计很难精准下沉。 | 分出 `report_publisher`、`portfolio_context_builder`、`analysis_task_orchestrator` 等更窄的应用服务。 |
+| 状态 schema 命名漂移 | `DivergeGraph` 持久化日志时写入 `trader_investment_decision`，主流程普遍使用 `trader_investment_plan`，`trade_feedback` 又读取前者。[R18][R19] | 中 | 下游消费方要记两套 key；后续做搜索、索引、公开副本时容易踩坑。 | 统一 schema 名称；为旧日志提供一次性迁移脚本。 |
 | 依赖与配置源不够单一 | `pyproject.toml` 和后端 requirements 使用浮动约束；仓库有 `uv.lock`，但生产安装入口和 CI 审计门禁仍需明确。[R15][R16] | 中 | 多入口安装容易造成环境漂移；仅存在 lockfile 不等于生产路径一定使用 lockfile。 | 明确生产安装以 `uv.lock` 或等效锁定产物为准；清理重复依赖和重复 env key；在 CI 中校验一致性。 |
 | 测试覆盖“不均衡”而非“没有” | README 列出 focused checks，但没有 coverage/lint/type-check 门禁说明。[R17] | 中 | 主干流程回归能力不错，但资产、交易日志、多租户权限矩阵、公开/私有可见性切换仍缺专测。 | 补 permission matrix、assets/trades、public/private visibility、migration/backfill 专项测试。 |
 
@@ -53,7 +53,7 @@ flowchart LR
     A --> JNL[组合-日志]
 
     ANA --> Q[task_store/Redis或本地队列]
-    ANA --> RUN[runner + TradingAgentsGraph]
+    ANA --> RUN[runner + DivergeGraph]
     ANA --> RM[(report_runs/report_files)]
     ANA --> REP[reports目录]
 
@@ -78,7 +78,7 @@ flowchart LR
 
 | 模块 | 当前职责 | 上下游依赖 | 边界评价 |
 |---|---|---|---|
-| 研究-分析 | 创建任务、排队、调用 `TradingAgentsGraph`、写报告、写报告元数据 | 依赖资产模块生成 `portfolio_context`；依赖日志模块回放 `visible_trade_ids`/historical feedback；依赖共享队列与数据源治理。[R21][R22][R23][R24] | 业务价值最高，但边界最不干净；属于“个性化研究输出”。 |
+| 研究-分析 | 创建任务、排队、调用 `DivergeGraph`、写报告、写报告元数据 | 依赖资产模块生成 `portfolio_context`；依赖日志模块回放 `visible_trade_ids`/historical feedback；依赖共享队列与数据源治理。[R21][R22][R23][R24] | 业务价值最高，但边界最不干净；属于“个性化研究输出”。 |
 | 研究-筛选 | 创建筛选任务、解析 markets/manifest、运行 `run_screen`、保存候选与运行元数据 | 与分析共享任务队列和 vendor routing；通过 `screener_runs.owner_user_id` 做 owner scope。[R20][R26] | 边界比分析清晰，但与分析共享资源池；当前没有筛选项设置，也没有 visibility 维度。 |
 | 组合-资产 | 账户/仓位/估值快照管理，并把持仓摘要拼成 prompt context | DB 原生存储；调用 `MarketDataClient`；直接服务分析模块。[R23] | 域模型是清楚的，但暴露给分析的接口是“字符串 prompt”，不是稳定 DTO。 |
 | 组合-日志 | 交易记录/复盘生成/反馈回放；文件与 DB 索引混合持久化 | 依赖报告目录中的分析快照；反向喂给分析模块。[R22][R24] | 边界最模糊：既是日志，又是 research memory，还依赖文件系统路径。 |
@@ -111,7 +111,7 @@ flowchart LR
 | 风险 | 定位与复现/定位路径 | 优先级 | 修复建议 |
 |---|---|---:|---|
 | 可选认证下的报告匿名可读 | 生产 compose 默认 `AUTH_MODE=required`，但 `AUTH_MODE=optional` 会让 `enforce_authenticated_api_access` 放行；报告服务在未登录时会回退到磁盘枚举和文件读取。复现：非本地或迁移窗口外设置 `AUTH_ENABLED=true, AUTH_MODE=optional`，生成任意报告后，不登录请求 `/api/reports` 和 `/api/reports/{id}/content?path=complete_report.md`。[R3][R5][R7][R8][R9] | 条件 P0 | 非本地环境和迁移窗口外禁用 `optional`；把“迁移过渡可读”改为一次性后台回填任务，不要留在线匿名回退。 |
-| 默认 Massive 数据源走明文 HTTP + 裸 IP | `.env.example:101` 和 `tradingagents/dataflows/vendors/massive/common.py:14,28-29,64-82` 显示，未配置 `MASSIVE_BASE_URL` 时会指向 `http://35.209.101.63/api/v1` 并发起请求。[R12][R13] | 高 P0 | 删除默认值；强制显式配置 HTTPS 域名；启动时校验 scheme 与 host。 |
+| 默认 Massive 数据源走明文 HTTP + 裸 IP | `.env.example:101` 和 `diverge/dataflows/vendors/massive/common.py:14,28-29,64-82` 显示，未配置 `MASSIVE_BASE_URL` 时会指向 `http://35.209.101.63/api/v1` 并发起请求。[R12][R13] | 高 P0 | 删除默认值；强制显式配置 HTTPS 域名；启动时校验 scheme 与 host。 |
 | 内部错误直接返回给客户端/SSE | `web/backend/access.py` 直接 `detail=str(exc)`；报告读取失败会回传底层异常；分析/筛选任务也会把 `str(exc)` 写入任务错误和进度事件。[R9][R14][R21] | 高 P1 | 对外返回稳定错误码和通用消息；详细异常只写结构化日志。 |
 | 依赖漏洞治理缺口 | 项目有 `uv.lock`，但 `pyproject.toml`、根 `requirements.txt`、`web/backend/requirements.txt` 形成多个安装入口，且源码内未体现自动审计门禁。[R15][R16] | 中 P1 | 明确生产安装真相源；在 CI 加 `pip-audit`/SBOM/Dependabot 或等效管线。 |
 | 会话防护对“工作区公开/后续广场/分享链接/多子域”场景不够 | 后端使用 cookie session，CORS 允许 credentials；当前主要依赖 SameSite 和 origin 配置，没有显式 anti-CSRF token / Origin-Referer 校验。对单一前端域名尚可，但一旦引入分享页、嵌入页或多子域，会放大风险。[R29][R31] | 中 P2 | 若计划做广场、分享链接或多子域，补充 CSRF token / Origin 校验，并限制 cookie Domain/Path。 |
@@ -150,36 +150,36 @@ flowchart LR
 
 ## 证据索引
 
-- [R1] README fork capabilities: [README.md#L41-L51](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L41-L51)
-- [R2] Repository layout: [README.md#L53-L65](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L53-L65)
-- [R3] Auth rollout modes: [README.md#L238-L242](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L238-L242), [web/README.md#L96-L100](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/README.md#L96-L100)
-- [R4] Metadata backfill defaults: [web/README.md#L125-L141](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/README.md#L125-L141)
-- [R5] Production compose auth defaults: [compose.prod.yml#L63-L70](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/compose.prod.yml#L63-L70), [compose.prod.yml#L115-L118](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/compose.prod.yml#L115-L118)
-- [R6] Auth settings and modes: [web/backend/auth.py#L34-L40](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L34-L40), [web/backend/auth.py#L388-L420](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L388-L420)
-- [R7] Required-mode API guard: [web/backend/auth.py#L950-L956](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L950-L956)
-- [R8] Reports router guard: [web/backend/routers/reports.py#L8-L23](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/routers/reports.py#L8-L23)
-- [R9] Reports filesystem fallback and content read: [web/backend/services/reports.py#L229-L357](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/reports.py#L229-L357)
-- [R10] Report header parser in reports service: [web/backend/services/reports.py#L12-L44](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/reports.py#L12-L44)
-- [R11] Report header parser in metadata service: [web/backend/report_metadata.py#L56-L84](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L56-L84)
-- [R12] Massive default URL and request path: [tradingagents/dataflows/vendors/massive/common.py#L14-L30](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/tradingagents/dataflows/vendors/massive/common.py#L14-L30), [tradingagents/dataflows/vendors/massive/common.py#L64-L82](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/tradingagents/dataflows/vendors/massive/common.py#L64-L82)
-- [R13] `.env.example` provider variables: [.env.example#L88-L101](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/.env.example#L88-L101)
-- [R14] Auth error translation: [web/backend/access.py#L10-L21](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/access.py#L10-L21)
-- [R15] Python dependency declarations: [pyproject.toml#L11-L58](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/pyproject.toml#L11-L58)
-- [R16] Install entrypoints and lockfile: [requirements.txt#L1-L1](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/requirements.txt#L1-L1), [web/backend/requirements.txt#L1-L8](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/requirements.txt#L1-L8), [uv.lock#L1-L20](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/uv.lock#L1-L20)
-- [R17] Focused checks: [README.md#L273-L278](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L273-L278)
-- [R18] Graph defaults and persisted decision key: [tradingagents/graph/trading_graph.py#L36-L44](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/tradingagents/graph/trading_graph.py#L36-L44), [tradingagents/graph/trading_graph.py#L250-L258](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/tradingagents/graph/trading_graph.py#L250-L258)
-- [R19] Trade feedback snapshot key use: [tradingagents/trade_feedback.py#L670-L680](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/tradingagents/trade_feedback.py#L670-L680)
-- [R20] Analysis and screener routers: [web/backend/routers/tasks.py#L19-L102](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/routers/tasks.py#L19-L102), [web/backend/routers/screeners.py#L17-L132](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/routers/screeners.py#L17-L132)
-- [R21] Analysis task runtime: [web/backend/runtime/analysis_tasks.py#L1-L220](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/runtime/analysis_tasks.py#L1-L220)
-- [R22] Runner prompt feedback and report artifacts: [tradingagents/runner.py#L529-L546](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/tradingagents/runner.py#L529-L546), [tradingagents/runner.py#L692-L722](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/tradingagents/runner.py#L692-L722)
-- [R23] Portfolio prompt context builder: [web/backend/services/assets.py#L728-L760](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/assets.py#L728-L760)
-- [R24] Trade feedback service path: [web/backend/services/trades.py#L287-L314](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/trades.py#L287-L314)
-- [R25] Report visibility and owner scope: [web/backend/report_metadata.py#L14-L18](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L14-L18), [web/backend/report_metadata.py#L197-L212](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L197-L212), [web/backend/report_metadata.py#L356-L386](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L356-L386)
-- [R26] Screener owner scope: [web/backend/screener_runs.py#L19-L31](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/screener_runs.py#L19-L31), [web/backend/screener_runs.py#L128-L146](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/screener_runs.py#L128-L146)
-- [R27] Weekly module usage limits: [web/backend/analysis_limits.py#L25-L33](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/analysis_limits.py#L25-L33), [web/backend/analysis_limits.py#L86-L99](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/analysis_limits.py#L86-L99), [web/backend/analysis_limits.py#L260-L300](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/analysis_limits.py#L260-L300)
+- [R1] README fork capabilities: [README.md#L41-L51](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L41-L51)
+- [R2] Repository layout: [README.md#L53-L65](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L53-L65)
+- [R3] Auth rollout modes: [README.md#L238-L242](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L238-L242), [web/README.md#L96-L100](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/README.md#L96-L100)
+- [R4] Metadata backfill defaults: [web/README.md#L125-L141](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/README.md#L125-L141)
+- [R5] Production compose auth defaults: [compose.prod.yml#L63-L70](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/compose.prod.yml#L63-L70), [compose.prod.yml#L115-L118](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/compose.prod.yml#L115-L118)
+- [R6] Auth settings and modes: [web/backend/auth.py#L34-L40](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L34-L40), [web/backend/auth.py#L388-L420](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L388-L420)
+- [R7] Required-mode API guard: [web/backend/auth.py#L950-L956](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L950-L956)
+- [R8] Reports router guard: [web/backend/routers/reports.py#L8-L23](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/routers/reports.py#L8-L23)
+- [R9] Reports filesystem fallback and content read: [web/backend/services/reports.py#L229-L357](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/reports.py#L229-L357)
+- [R10] Report header parser in reports service: [web/backend/services/reports.py#L12-L44](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/reports.py#L12-L44)
+- [R11] Report header parser in metadata service: [web/backend/report_metadata.py#L56-L84](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L56-L84)
+- [R12] Massive default URL and request path: [diverge/dataflows/vendors/massive/common.py#L14-L30](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/diverge/dataflows/vendors/massive/common.py#L14-L30), [diverge/dataflows/vendors/massive/common.py#L64-L82](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/diverge/dataflows/vendors/massive/common.py#L64-L82)
+- [R13] `.env.example` provider variables: [.env.example#L88-L101](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/.env.example#L88-L101)
+- [R14] Auth error translation: [web/backend/access.py#L10-L21](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/access.py#L10-L21)
+- [R15] Python dependency declarations: [pyproject.toml#L11-L58](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/pyproject.toml#L11-L58)
+- [R16] Install entrypoints and lockfile: [requirements.txt#L1-L1](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/requirements.txt#L1-L1), [web/backend/requirements.txt#L1-L8](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/requirements.txt#L1-L8), [uv.lock#L1-L20](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/uv.lock#L1-L20)
+- [R17] Focused checks: [README.md#L273-L278](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/README.md#L273-L278)
+- [R18] Graph defaults and persisted decision key: [diverge/graph/trading_graph.py#L36-L44](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/diverge/graph/trading_graph.py#L36-L44), [diverge/graph/trading_graph.py#L250-L258](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/diverge/graph/trading_graph.py#L250-L258)
+- [R19] Trade feedback snapshot key use: [diverge/trade_feedback.py#L670-L680](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/diverge/trade_feedback.py#L670-L680)
+- [R20] Analysis and screener routers: [web/backend/routers/tasks.py#L19-L102](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/routers/tasks.py#L19-L102), [web/backend/routers/screeners.py#L17-L132](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/routers/screeners.py#L17-L132)
+- [R21] Analysis task runtime: [web/backend/runtime/analysis_tasks.py#L1-L220](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/runtime/analysis_tasks.py#L1-L220)
+- [R22] Runner prompt feedback and report artifacts: [diverge/runner.py#L529-L546](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/diverge/runner.py#L529-L546), [diverge/runner.py#L692-L722](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/diverge/runner.py#L692-L722)
+- [R23] Portfolio prompt context builder: [web/backend/services/assets.py#L728-L760](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/assets.py#L728-L760)
+- [R24] Trade feedback service path: [web/backend/services/trades.py#L287-L314](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/trades.py#L287-L314)
+- [R25] Report visibility and owner scope: [web/backend/report_metadata.py#L14-L18](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L14-L18), [web/backend/report_metadata.py#L197-L212](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L197-L212), [web/backend/report_metadata.py#L356-L386](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/report_metadata.py#L356-L386)
+- [R26] Screener owner scope: [web/backend/screener_runs.py#L19-L31](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/screener_runs.py#L19-L31), [web/backend/screener_runs.py#L128-L146](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/screener_runs.py#L128-L146)
+- [R27] Weekly module usage limits: [web/backend/analysis_limits.py#L25-L33](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/analysis_limits.py#L25-L33), [web/backend/analysis_limits.py#L86-L99](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/analysis_limits.py#L86-L99), [web/backend/analysis_limits.py#L260-L300](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/analysis_limits.py#L260-L300)
 - [R28] NIST RBAC model: [NIST model for role-based access control](https://www.nist.gov/publications/nist-model-role-based-access-control-towards-unified-standard)
 - [R29] OWASP session guidance: [OWASP Session Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html)
 - [R30] OWASP error handling guidance: [OWASP Error Handling Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html)
-- [R31] CORS credentials: [web/backend/main.py#L50-L56](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/main.py#L50-L56)
-- [R32] dotenv loading: [web/backend/app_config.py#L1-L20](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/app_config.py#L1-L20), [web/backend/auth.py#L1-L28](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L1-L28)
-- [R33] Provider key environment injection: [web/backend/services/config.py#L37-L58](https://github.com/romn77/TradingAgents/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/config.py#L37-L58)
+- [R31] CORS credentials: [web/backend/main.py#L50-L56](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/main.py#L50-L56)
+- [R32] dotenv loading: [web/backend/app_config.py#L1-L20](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/app_config.py#L1-L20), [web/backend/auth.py#L1-L28](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/auth.py#L1-L28)
+- [R33] Provider key environment injection: [web/backend/services/config.py#L37-L58](https://github.com/romn77/Diverge/blob/f822c0108b0377e16c7eccffb4d96a2dded33bb6/web/backend/services/config.py#L37-L58)

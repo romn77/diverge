@@ -2,8 +2,8 @@ import json
 import tempfile
 from pathlib import Path
 
-from tradingagents.research.thesis_tracker import build_thesis_artifact
-from tradingagents.runner import save_report_to_disk
+from diverge.research.thesis_tracker import build_thesis_artifact
+from diverge.runner import save_report_to_disk
 
 
 def _final_state():

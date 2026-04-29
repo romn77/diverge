@@ -1,13 +1,13 @@
 import unittest
 from unittest.mock import patch
 
-from tradingagents.llm_clients.google_client import GoogleClient
+from diverge.llm_clients.google_client import GoogleClient
 
 
 class TestGoogleApiKeyStandardization(unittest.TestCase):
     """Verify GoogleClient accepts unified api_key parameter."""
 
-    @patch("tradingagents.llm_clients.google_client.NormalizedChatGoogleGenerativeAI")
+    @patch("diverge.llm_clients.google_client.NormalizedChatGoogleGenerativeAI")
     def test_api_key_handling(self, mock_chat):
         test_cases = [
             ("unified api_key is mapped", {"api_key": "test-key-123"}, "test-key-123"),

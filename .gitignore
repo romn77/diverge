@@ -220,7 +220,7 @@ cython_debug/
 .ruff_cache/
 
 # Local runtime data
-data/
+/data/
 reports/
 results/
 
@@ -245,7 +245,7 @@ reports/
 !web/frontend/app/(workbench)/reports/\[reportId\]/
 !web/frontend/app/(workbench)/reports/\[reportId\]/page.tsx
 results/
-data/
+/data/
 # Vscode
 .vscode/
 .sisyphus/

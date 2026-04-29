@@ -14,7 +14,7 @@
 
 **Files:**
 - Modify: `tests/screener/test_filters.py`
-- Modify: `tradingagents/screener/filters.py`
+- Modify: `diverge/screener/filters.py`
 
 **Step 1: Write the failing test**
 
@@ -30,7 +30,7 @@ Expected: FAIL because stale-data handling does not exist yet.
 
 **Step 3: Write minimal implementation**
 
-Add a helper in `tradingagents/screener/filters.py` to:
+Add a helper in `diverge/screener/filters.py` to:
 - parse `as_of_date` / `data_end_date`
 - compute business-day lag
 - return `True` when lag is greater than 3
@@ -47,8 +47,8 @@ Expected: PASS
 
 **Files:**
 - Modify: `tests/screener/test_pipeline.py`
-- Reuse: `tradingagents/screener/pipeline.py`
-- Reuse: `tradingagents/screener/storage.py`
+- Reuse: `diverge/screener/pipeline.py`
+- Reuse: `diverge/screener/storage.py`
 
 **Step 1: Write the failing test**
 

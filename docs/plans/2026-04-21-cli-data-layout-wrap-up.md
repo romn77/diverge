@@ -19,7 +19,7 @@
 
 **Step 1: Write the failing tests**
 - Assert the shared data-layout helper/default config uses `./data/eval_results` for legacy analyze runtime outputs.
-- Assert the trade-record form builds `data/eval_results/<ticker>/TradingAgentsStrategy_logs/full_states_log_<date>.json`.
+- Assert the trade-record form builds `data/eval_results/<ticker>/DivergeStrategy_logs/full_states_log_<date>.json`.
 - Assert trade-feedback tests reference `data/eval_results/...` instead of `eval_results/...`.
 
 **Step 2: Run tests to verify they fail**
@@ -36,10 +36,10 @@ Run the same commands and expect PASS.
 ### Task 2: Move the legacy analyze CLI runtime implementation to the new path root
 
 **Files:**
-- Modify: `tradingagents/data_layout.py`
-- Modify: `tradingagents/default_config.py`
+- Modify: `diverge/data_layout.py`
+- Modify: `diverge/default_config.py`
 - Modify: `cli/main.py`
-- Modify: `tradingagents/graph/trading_graph.py`
+- Modify: `diverge/graph/trading_graph.py`
 - Modify: `tests/test_single_host_deployment_files.py` only if deployment/config expectations need updating
 
 **Step 1: Write the failing test**

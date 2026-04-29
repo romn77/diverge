@@ -8,9 +8,9 @@ export type TranslationTemplate =
   | string
   | ((params: TranslationParams) => string);
 
-export const THEME_STORAGE_KEY = "tradingagents.ui.theme";
-export const LANGUAGE_STORAGE_KEY = "tradingagents.ui.language";
-export const VISUAL_STYLE_STORAGE_KEY = "tradingagents.ui.visualStyle";
+export const THEME_STORAGE_KEY = "diverge.ui.theme";
+export const LANGUAGE_STORAGE_KEY = "diverge.ui.language";
+export const VISUAL_STYLE_STORAGE_KEY = "diverge.ui.visualStyle";
 export const THEME_COOKIE_NAME = THEME_STORAGE_KEY;
 export const LANGUAGE_COOKIE_NAME = LANGUAGE_STORAGE_KEY;
 export const VISUAL_STYLE_COOKIE_NAME = VISUAL_STYLE_STORAGE_KEY;

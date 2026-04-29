@@ -1,6 +1,6 @@
 from datetime import date
 
-from tradingagents.screener.market_calendar import latest_trading_day_on_or_before
+from diverge.screener.market_calendar import latest_trading_day_on_or_before
 
 
 def test_latest_trading_day_on_or_before_keeps_open_session():

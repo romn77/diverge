@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tradingagents import trade_feedback
+from diverge import trade_feedback
 
 
 class _FakeLLM:
@@ -28,7 +28,7 @@ class TradeFeedbackServiceTests(unittest.TestCase):
             / "data"
             / "eval_results"
             / "MSFT"
-            / "TradingAgentsStrategy_logs"
+            / "DivergeStrategy_logs"
         )
         self.report_dir.mkdir(parents=True)
         self.eval_dir.mkdir(parents=True)
@@ -85,7 +85,7 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                     {
                         "analysis_date": "2026-04-01",
                         "report_path": "data/reports/MSFT_20260401_120000/complete_report.md",
-                        "full_state_log_path": "data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        "full_state_log_path": "data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
                     }
                 ],
             },
@@ -126,7 +126,7 @@ class TradeFeedbackServiceTests(unittest.TestCase):
             )
         )
         with patch(
-            "tradingagents.trade_feedback._now_iso",
+            "diverge.trade_feedback._now_iso",
             return_value="2026-04-04T16:00:00",
         ):
             review = trade_feedback.generate_trade_review(
@@ -180,7 +180,7 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                     {
                         "analysis_date": "2026-04-01",
                         "report_path": "data/reports/MSFT_20260401_120000/complete_report.md",
-                        "full_state_log_path": "data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        "full_state_log_path": "data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
                     }
                 ],
             },
@@ -188,7 +188,7 @@ class TradeFeedbackServiceTests(unittest.TestCase):
         )
 
         with patch(
-            "tradingagents.trade_feedback._now_iso",
+            "diverge.trade_feedback._now_iso",
             return_value="2026-04-13T09:15:00",
         ):
             review = trade_feedback.save_trade_review(

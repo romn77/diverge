@@ -2,7 +2,7 @@ from datetime import date
 
 import pytest
 
-from tradingagents.dataflows.fundamentals_normalizer import (
+from diverge.dataflows.fundamentals_normalizer import (
     normalize_fundamentals_payload,
 )
 

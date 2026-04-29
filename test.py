@@ -1,5 +1,5 @@
 import time
-from tradingagents.dataflows.y_finance import get_stock_stats_indicators_window
+from diverge.dataflows.y_finance import get_stock_stats_indicators_window
 
 print("Testing optimized implementation with 30-day lookback:")
 start_time = time.time()

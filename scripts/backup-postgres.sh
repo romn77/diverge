@@ -14,7 +14,7 @@ run_backup() {
     --host "${POSTGRES_HOST:-postgres}" \
     --port "${POSTGRES_PORT:-5432}" \
     --username "${POSTGRES_USER:-postgres}" \
-    --dbname "${POSTGRES_DB:-tradingagents}" \
+    --dbname "${POSTGRES_DB:-diverge}" \
     --no-owner \
     --no-privileges \
     | gzip > "$output"

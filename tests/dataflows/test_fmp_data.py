@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tradingagents.dataflows.vendor_errors import VendorDataEmptyError
+from diverge.dataflows.vendor_errors import VendorDataEmptyError
 
 
 class _Response:
@@ -23,7 +23,7 @@ class _Response:
 
 
 def test_fmp_income_statement_uses_stable_endpoint_and_filters_future_reports(monkeypatch):
-    from tradingagents.dataflows.fmp_fundamentals import get_income_statement
+    from diverge.dataflows.fmp_fundamentals import get_income_statement
 
     monkeypatch.setenv("FMP_API_KEY", "demo")
     payload = [
@@ -32,7 +32,7 @@ def test_fmp_income_statement_uses_stable_endpoint_and_filters_future_reports(mo
     ]
 
     with patch(
-        "tradingagents.dataflows.fmp_common.requests.get",
+        "diverge.dataflows.fmp_common.requests.get",
         return_value=_Response(payload),
     ) as mock_get:
         result = get_income_statement("AAPL", "annual", "2026-04-26")
@@ -47,12 +47,12 @@ def test_fmp_income_statement_uses_stable_endpoint_and_filters_future_reports(mo
 
 
 def test_fmp_news_and_insider_transactions_use_stable_search_endpoints(monkeypatch):
-    from tradingagents.dataflows.fmp_news import get_insider_transactions, get_news
+    from diverge.dataflows.fmp_news import get_insider_transactions, get_news
 
     monkeypatch.setenv("FMP_API_KEY", "demo")
 
     with patch(
-        "tradingagents.dataflows.fmp_common.requests.get",
+        "diverge.dataflows.fmp_common.requests.get",
         side_effect=[
             _Response([{"symbol": "AAPL", "title": "Apple news"}]),
             _Response([{"symbol": "AAPL", "transactionType": "S-Sale"}]),
@@ -72,12 +72,12 @@ def test_fmp_news_and_insider_transactions_use_stable_search_endpoints(monkeypat
 
 
 def test_fmp_empty_payload_raises_empty_data_for_vendor_fallback(monkeypatch):
-    from tradingagents.dataflows.fmp_fundamentals import get_fundamentals
+    from diverge.dataflows.fmp_fundamentals import get_fundamentals
 
     monkeypatch.setenv("FMP_API_KEY", "demo")
 
     with patch(
-        "tradingagents.dataflows.fmp_common.requests.get",
+        "diverge.dataflows.fmp_common.requests.get",
         return_value=_Response([]),
     ):
         with pytest.raises(VendorDataEmptyError):

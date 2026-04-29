@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a read-only web UI that lets users browse and read TradingAgents analysis reports from the `reports/` directory.
+**Goal:** Build a read-only web UI that lets users browse and read Diverge analysis reports from the `reports/` directory.
 
 **Architecture:** FastAPI backend scans `reports/` and exposes 3 read-only REST endpoints (list, structure, content). Next.js frontend renders a sidebar + tabbed markdown viewer. No database, no auth, no write operations.
 
@@ -238,7 +238,7 @@ A working local web UI where users can browse and read all existing analysis rep
 
   **CORS**: Allow `http://localhost:3000` origin.
 
-  **Must NOT do**: No write endpoints. No SSE endpoints. No job management. Don't import tradingagents package.
+  **Must NOT do**: No write endpoints. No SSE endpoints. No job management. Don't import diverge package.
 
   **Recommended Agent Profile**:
   - Category: `unspecified-low` — Reason: Single-file Python with clear spec
@@ -504,7 +504,7 @@ A working local web UI where users can browse and read all existing analysis rep
      set -e
      SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
      
-     echo "Starting TradingAgents Report Viewer..."
+     echo "Starting Diverge Report Viewer..."
      
      cd "$SCRIPT_DIR/backend"
      pip install -r requirements.txt -q

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from tradingagents.data_layout import (
+from diverge.data_layout import (
     resolve_history_dir,
     resolve_fundamentals_dir,
     resolve_reports_dir,

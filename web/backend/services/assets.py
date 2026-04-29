@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
-from tradingagents.assets.market_data import MarketDataClient, SymbolCandidate
+from diverge.assets.market_data import MarketDataClient, SymbolCandidate
 from web.backend import access, analysis_limits, asset_entries, audit, auth
 from web.backend.schemas.assets import AssetPositionCreatePayload, AssetPositionUpdatePayload
 

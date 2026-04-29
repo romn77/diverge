@@ -5,8 +5,8 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from tradingagents.screener.market_data import LOOKBACK_DAYS, fetch_ticker_history
-from tradingagents.screener.history_cache import history_cache_path
+from diverge.screener.market_data import LOOKBACK_DAYS, fetch_ticker_history
+from diverge.screener.history_cache import history_cache_path
 from web.backend import app_config, storage
 from web.backend.schemas.ticker_history import TickerHistoryBatchPayload
 

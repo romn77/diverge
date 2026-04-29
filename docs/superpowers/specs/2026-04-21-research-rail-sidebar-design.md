@@ -65,7 +65,7 @@ The sidebar is reduced to four zones.
 
 Top of the rail:
 
-- `TradingAgents`
+- `Diverge`
 - `Research Workbench`
 
 This area should be compact and stable. It is not a hero and should not consume vertical space unnecessarily.

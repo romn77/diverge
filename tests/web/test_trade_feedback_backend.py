@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from tradingagents import trade_feedback
+from diverge import trade_feedback
 from web.backend import app_config, auth
 from web.backend.schemas.trades import (
     AnalysisReferencePayload,
@@ -66,7 +66,7 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             / "data"
             / "eval_results"
             / "MSFT"
-            / "TradingAgentsStrategy_logs"
+            / "DivergeStrategy_logs"
         )
         report_dir.mkdir(parents=True)
         eval_dir.mkdir(parents=True)
@@ -120,7 +120,7 @@ class TradeFeedbackBackendTests(unittest.TestCase):
                     AnalysisReferencePayload(
                         analysis_date="2026-04-01",
                         report_path="data/reports/MSFT_20260401_120000/complete_report.md",
-                        full_state_log_path="data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        full_state_log_path="data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
                     )
                 ],
             )
@@ -151,10 +151,10 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             }
         )
         with patch(
-            "tradingagents.trade_feedback.create_llm_client",
+            "diverge.trade_feedback.create_llm_client",
             return_value=_FakeClient(review_payload),
         ), patch(
-            "tradingagents.trade_feedback._now_iso",
+            "diverge.trade_feedback._now_iso",
             return_value="2026-04-03T16:00:00",
         ):
             review = create_trade_review(
@@ -232,14 +232,14 @@ class TradeFeedbackBackendTests(unittest.TestCase):
                     AnalysisReferencePayload(
                         analysis_date="2026-04-01",
                         report_path="data/reports/MSFT_20260401_120000/complete_report.md",
-                        full_state_log_path="data/eval_results/MSFT/TradingAgentsStrategy_logs/full_states_log_2026-04-01.json",
+                        full_state_log_path="data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
                     )
                 ],
             )
         )
 
         with patch(
-            "tradingagents.trade_feedback._now_iso",
+            "diverge.trade_feedback._now_iso",
             return_value="2026-04-13T09:15:00",
         ):
             review = save_trade_review(

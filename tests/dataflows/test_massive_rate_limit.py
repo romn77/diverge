@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import deque
 from unittest.mock import Mock, patch
 
-from tradingagents.dataflows.massive_common import (
+from diverge.dataflows.massive_common import (
     _MASSIVE_MAX_CALLS_PER_MINUTE,
     _apply_massive_rate_limit,
     reset_massive_rate_limit_state,
@@ -13,7 +13,7 @@ from tradingagents.dataflows.massive_common import (
 def test_apply_massive_rate_limit_allows_requests_below_window_limit():
     reset_massive_rate_limit_state()
 
-    with patch("tradingagents.dataflows.massive_common.time.monotonic", return_value=100.0):
+    with patch("diverge.dataflows.massive_common.time.monotonic", return_value=100.0):
         _apply_massive_rate_limit()
 
 
@@ -23,9 +23,9 @@ def test_apply_massive_rate_limit_sleeps_when_window_limit_reached():
     sleeper = Mock()
 
     with (
-        patch("tradingagents.dataflows.massive_common._massive_call_timestamps", fake_window),
-        patch("tradingagents.dataflows.massive_common.time.monotonic", return_value=120.0),
-        patch("tradingagents.dataflows.massive_common.time.sleep", sleeper),
+        patch("diverge.dataflows.massive_common._massive_call_timestamps", fake_window),
+        patch("diverge.dataflows.massive_common.time.monotonic", return_value=120.0),
+        patch("diverge.dataflows.massive_common.time.sleep", sleeper),
     ):
         _apply_massive_rate_limit()
 

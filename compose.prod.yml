@@ -4,13 +4,13 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-tradingagents}
+      POSTGRES_DB: ${POSTGRES_DB:-diverge}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-tradingagents}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-diverge}"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -59,13 +59,13 @@ services:
       COS_SECRET_KEY: ${COS_SECRET_KEY:?Set COS_SECRET_KEY in .env}
       COS_REGION: ${COS_REGION:?Set COS_REGION in .env}
       COS_BUCKET: ${COS_BUCKET:?Set COS_BUCKET in .env}
-      COS_PREFIX: ${COS_PREFIX:-tradingagents/prod}
+      COS_PREFIX: ${COS_PREFIX:-diverge/prod}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env}
       TRUSTED_PROXY_CIDRS: ${TRUSTED_PROXY_CIDRS:-172.16.0.0/12,127.0.0.1/32,::1/128}
       AUTH_ENABLED: ${AUTH_ENABLED:-true}
       AUTH_MODE: ${AUTH_MODE:-required}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
-      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-tradingagents_session}
+      SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-diverge_session}
       SESSION_TTL_HOURS: ${SESSION_TTL_HOURS:-168}
       SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-lax}
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
@@ -113,7 +113,7 @@ services:
       COS_SECRET_KEY: ${COS_SECRET_KEY:?Set COS_SECRET_KEY in .env}
       COS_REGION: ${COS_REGION:?Set COS_REGION in .env}
       COS_BUCKET: ${COS_BUCKET:?Set COS_BUCKET in .env}
-      COS_PREFIX: ${COS_PREFIX:-tradingagents/prod}
+      COS_PREFIX: ${COS_PREFIX:-diverge/prod}
       AUTH_ENABLED: ${AUTH_ENABLED:-true}
       AUTH_MODE: ${AUTH_MODE:-required}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
@@ -145,7 +145,7 @@ services:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"
     volumes:
-      - ./deploy/nginx/tradingagents.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/nginx/diverge.conf:/etc/nginx/conf.d/default.conf:ro
       - ./deploy/certs:/etc/nginx/certs:ro
       - nginx-logs:/var/log/nginx
     depends_on:
@@ -162,7 +162,7 @@ services:
       - ./.env:/app/.env:ro
     environment:
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-tradingagents}
+      POSTGRES_DB: ${POSTGRES_DB:-diverge}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_HOST: postgres
@@ -172,7 +172,7 @@ services:
       COS_SECRET_KEY: ${COS_SECRET_KEY:?Set COS_SECRET_KEY in .env}
       COS_REGION: ${COS_REGION:?Set COS_REGION in .env}
       COS_BUCKET: ${COS_BUCKET:?Set COS_BUCKET in .env}
-      COS_PREFIX: ${COS_PREFIX:-tradingagents/prod}
+      COS_PREFIX: ${COS_PREFIX:-diverge/prod}
       BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
     depends_on:
       postgres:

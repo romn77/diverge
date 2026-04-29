@@ -13,9 +13,9 @@
 ### Task 1: Extract shared screener stage helpers and move debug onto them
 
 **Files:**
-- Create: `tradingagents/screener/stages.py`
-- Modify: `tradingagents/screener/pipeline.py`
-- Modify: `tradingagents/screener/debug.py`
+- Create: `diverge/screener/stages.py`
+- Modify: `diverge/screener/pipeline.py`
+- Modify: `diverge/screener/debug.py`
 - Test: `tests/screener/test_pipeline.py`
 - Test: `tests/screener/test_debug.py`
 
@@ -40,7 +40,7 @@ def test_run_screen_uses_shared_stage_helpers(tmp_path):
         ranked_df=pd.DataFrame([{"symbol": "AAPL", "market": "us", "global_rank": 1, "total_score": 0.71}]),
     )
 
-    with patch("tradingagents.screener.pipeline.run_screen_stages", return_value=stage_bundle):
+    with patch("diverge.screener.pipeline.run_screen_stages", return_value=stage_bundle):
         result = run_screen(config)
 
     assert result.candidate_count == 1
@@ -64,8 +64,8 @@ def test_debug_screen_symbol_uses_shared_stage_helpers_for_target_symbol():
     )
 
     with (
-        patch("tradingagents.screener.debug.prepare_universe_stage", return_value=prefilter_bundle),
-        patch("tradingagents.screener.debug.evaluate_screen_stage", return_value=eval_bundle),
+        patch("diverge.screener.debug.prepare_universe_stage", return_value=prefilter_bundle),
+        patch("diverge.screener.debug.evaluate_screen_stage", return_value=eval_bundle),
     ):
         result = debug_screen_symbol(config, symbol="AAPL", market="us")
 
@@ -85,7 +85,7 @@ Expected:
 
 **Step 3: Write the minimal implementation**
 
-Create `tradingagents/screener/stages.py` with shared dataclasses and helpers:
+Create `diverge/screener/stages.py` with shared dataclasses and helpers:
 
 ```python
 @dataclass(slots=True)
@@ -121,8 +121,8 @@ def evaluate_screen_stage(
 ```
 
 Refactor:
-- `tradingagents/screener/pipeline.py` to call the shared helpers and only keep candidate selection + export orchestration.
-- `tradingagents/screener/debug.py` to call the same helpers, then select the target symbol from the returned stage bundles instead of maintaining an independent stage sequence.
+- `diverge/screener/pipeline.py` to call the shared helpers and only keep candidate selection + export orchestration.
+- `diverge/screener/debug.py` to call the same helpers, then select the target symbol from the returned stage bundles instead of maintaining an independent stage sequence.
 - Remove the pure forwarder helpers at the top of `debug.py` if the new shared helpers make them unnecessary.
 
 **Step 4: Run tests to verify they pass**
@@ -139,15 +139,15 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/stages.py tradingagents/screener/pipeline.py tradingagents/screener/debug.py tests/screener/test_pipeline.py tests/screener/test_debug.py
+git add diverge/screener/stages.py diverge/screener/pipeline.py diverge/screener/debug.py tests/screener/test_pipeline.py tests/screener/test_debug.py
 git commit -m "refactor: share screener stage orchestration"
 ```
 
 ### Task 2: Remove history failure cache from runtime and filesystem writes
 
 **Files:**
-- Modify: `tradingagents/screener/history_cache.py`
-- Modify: `tradingagents/screener/market_data.py`
+- Modify: `diverge/screener/history_cache.py`
+- Modify: `diverge/screener/market_data.py`
 - Test: `tests/screener/test_market_data.py`
 
 **Step 1: Write the failing tests**
@@ -161,7 +161,7 @@ def test_fetch_history_for_universe_does_not_write_history_failure_cache_files(t
     universe = pd.DataFrame([{"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "", "list_date": ""}])
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=VendorRetryableError("boom"),
     ):
         histories, failures = fetch_history_for_universe(
@@ -192,7 +192,7 @@ Expected:
 Delete the runtime failure-cache subsystem:
 - Remove `HISTORY_FAILURE_CACHE_DIRNAME`.
 - Remove `history_failure_cache_path`, `load_history_failure_cache`, `save_history_failure_cache`, and `delete_history_failure_cache`.
-- Remove all call sites in `tradingagents/screener/market_data.py`.
+- Remove all call sites in `diverge/screener/market_data.py`.
 - Keep failure outcomes only in the in-memory `failures` rows and exported `filtered_out.csv`.
 
 Minimal target shape:
@@ -223,15 +223,15 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/history_cache.py tradingagents/screener/market_data.py tests/screener/test_market_data.py
+git add diverge/screener/history_cache.py diverge/screener/market_data.py tests/screener/test_market_data.py
 git commit -m "refactor: remove unused history failure cache"
 ```
 
 ### Task 3: Shrink checkpoint payload to recovery-driving fields only
 
 **Files:**
-- Modify: `tradingagents/screener/history_cache.py`
-- Modify: `tradingagents/screener/market_data.py`
+- Modify: `diverge/screener/history_cache.py`
+- Modify: `diverge/screener/market_data.py`
 - Test: `tests/screener/test_market_data.py`
 
 **Step 1: Write the failing tests**
@@ -298,7 +298,7 @@ Expected:
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/history_cache.py tradingagents/screener/market_data.py tests/screener/test_market_data.py
+git add diverge/screener/history_cache.py diverge/screener/market_data.py tests/screener/test_market_data.py
 git commit -m "refactor: simplify screener checkpoint state"
 ```
 
@@ -414,7 +414,7 @@ Expected:
 Run:
 
 ```bash
-git diff -- tradingagents/screener cli/main.py tests/screener tests/cli/test_screen_command.py
+git diff -- diverge/screener cli/main.py tests/screener tests/cli/test_screen_command.py
 ```
 
 Expected:
@@ -432,6 +432,6 @@ Check manually:
 If the work was split across the task commits above, no extra commit is needed. If not, use:
 
 ```bash
-git add tradingagents/screener cli/main.py tests/screener tests/cli/test_screen_command.py
+git add diverge/screener cli/main.py tests/screener tests/cli/test_screen_command.py
 git commit -m "refactor: streamline screener orchestration and recovery state"
 ```

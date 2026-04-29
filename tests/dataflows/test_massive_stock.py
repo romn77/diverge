@@ -6,8 +6,8 @@ from unittest.mock import Mock, patch
 import pandas as pd
 import pytest
 
-from tradingagents.dataflows.vendor_errors import VendorAuthError
-from tradingagents.dataflows.massive_stock import _fetch_massive_stock_df, get_stock
+from diverge.dataflows.vendor_errors import VendorAuthError
+from diverge.dataflows.massive_stock import _fetch_massive_stock_df, get_stock
 
 
 class _FakeResponse:
@@ -59,7 +59,7 @@ def test_fetch_massive_stock_df_paginates_and_normalizes_response():
     get_mock = Mock(side_effect=responses)
 
     with (
-        patch("tradingagents.dataflows.massive_common.requests.get", get_mock),
+        patch("diverge.dataflows.massive_common.requests.get", get_mock),
         patch.dict(
             "os.environ",
             {"MASSIVE_API_KEY": "test-token"},
@@ -102,7 +102,7 @@ def test_fetch_massive_stock_df_parses_wrapper_bars_dict_shape():
     get_mock = Mock(side_effect=responses)
 
     with (
-        patch("tradingagents.dataflows.massive_common.requests.get", get_mock),
+        patch("diverge.dataflows.massive_common.requests.get", get_mock),
         patch.dict("os.environ", {"MASSIVE_API_KEY": "test-token"}, clear=False),
     ):
         df = _fetch_massive_stock_df("GOOG", "2026-03-24", "2026-03-24")
@@ -146,8 +146,8 @@ def test_fetch_massive_stock_df_uses_massive_rate_limiter_for_each_page():
     get_mock = Mock(side_effect=responses)
 
     with (
-        patch("tradingagents.dataflows.massive_common.requests.get", get_mock),
-        patch("tradingagents.dataflows.massive_common._apply_massive_rate_limit") as mock_rate_limit,
+        patch("diverge.dataflows.massive_common.requests.get", get_mock),
+        patch("diverge.dataflows.massive_common._apply_massive_rate_limit") as mock_rate_limit,
         patch.dict("os.environ", {"MASSIVE_API_KEY": "test-token"}, clear=False),
     ):
         _fetch_massive_stock_df("AAPL", "2026-03-24", "2026-03-25")
@@ -169,7 +169,7 @@ def test_get_stock_formats_massive_dataframe_as_string():
         ]
     )
 
-    with patch("tradingagents.dataflows.massive_stock._fetch_massive_stock_df", return_value=df):
+    with patch("diverge.dataflows.massive_stock._fetch_massive_stock_df", return_value=df):
         result = get_stock("AAPL", "2026-03-24", "2026-03-24")
 
     assert "Stock data for AAPL" in result

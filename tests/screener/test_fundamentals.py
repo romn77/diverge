@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tradingagents.screener.fundamentals import enrich_features_with_fundamentals
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.screener.fundamentals import enrich_features_with_fundamentals
+from diverge.screener.schema import ScreenRunConfig
 
 
 def test_enrich_features_with_fundamentals_reads_cached_snapshot(tmp_path):

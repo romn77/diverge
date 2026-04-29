@@ -47,8 +47,8 @@ interface SavedScreenerBar {
   updated_at: string;
 }
 
-const SAVED_SCREENER_BARS_KEY = "tradingagents.screener.savedBars";
-const LAST_SCREENER_BAR_KEY = "tradingagents.screener.lastRunBar";
+const SAVED_SCREENER_BARS_KEY = "diverge.screener.savedBars";
+const LAST_SCREENER_BAR_KEY = "diverge.screener.lastRunBar";
 const CURRENT_SCREEN_VALUE = "__current__";
 const TOP_K_LIMIT = 100;
 const CONTROL_INPUT_CLASS =

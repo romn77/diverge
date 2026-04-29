@@ -73,14 +73,14 @@ class _FakeAkshare:
 
 
 def test_build_akshare_valuation_input_uses_bond_and_research_sources(monkeypatch):
-    from tradingagents.dataflows.akshare_valuation import build_akshare_valuation_input
+    from diverge.dataflows.akshare_valuation import build_akshare_valuation_input
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.akshare_valuation._import_akshare",
+        "diverge.dataflows.akshare_valuation._import_akshare",
         lambda: _FakeAkshare(),
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.akshare_valuation.call_akshare_api",
+        "diverge.dataflows.akshare_valuation.call_akshare_api",
         lambda func, *args, **kwargs: func(*args, **kwargs),
     )
 
@@ -99,18 +99,18 @@ def test_build_akshare_valuation_input_uses_bond_and_research_sources(monkeypatc
 
 
 def test_compute_cn_beta_returns_none_when_price_history_is_too_short(monkeypatch):
-    from tradingagents.dataflows.akshare_valuation import _compute_cn_beta
+    from diverge.dataflows.akshare_valuation import _compute_cn_beta
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.akshare_valuation.call_akshare_api",
+        "diverge.dataflows.akshare_valuation.call_akshare_api",
         lambda func, *args, **kwargs: func(*args, **kwargs),
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.akshare_valuation._load_stock_returns",
+        "diverge.dataflows.akshare_valuation._load_stock_returns",
         lambda ticker: [0.01] * 10,
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.akshare_valuation._load_index_returns",
+        "diverge.dataflows.akshare_valuation._load_index_returns",
         lambda ticker: [0.01] * 10,
     )
 

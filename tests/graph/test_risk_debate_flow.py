@@ -1,9 +1,9 @@
 import unittest
 from unittest.mock import patch
 
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.graph.conditional_logic import ConditionalLogic
-from tradingagents.graph.trading_graph import TradingAgentsGraph
+from diverge.default_config import DEFAULT_CONFIG
+from diverge.graph.conditional_logic import ConditionalLogic
+from diverge.graph.trading_graph import DivergeGraph
 
 
 class RiskDebateFlowTests(unittest.TestCase):
@@ -25,15 +25,15 @@ class RiskDebateFlowTests(unittest.TestCase):
 
         self.assertEqual(next_step, "Portfolio Manager")
 
-    @patch("tradingagents.graph.trading_graph.GraphSetup")
-    @patch("tradingagents.graph.trading_graph.SignalProcessor")
-    @patch("tradingagents.graph.trading_graph.Reflector")
-    @patch("tradingagents.graph.trading_graph.Propagator")
-    @patch("tradingagents.graph.trading_graph.FinancialSituationMemory")
-    @patch("tradingagents.graph.trading_graph.create_llm_client")
-    @patch("tradingagents.graph.trading_graph.set_config")
-    @patch.object(TradingAgentsGraph, "_create_tool_nodes", return_value={})
-    @patch("tradingagents.graph.trading_graph.ConditionalLogic")
+    @patch("diverge.graph.trading_graph.GraphSetup")
+    @patch("diverge.graph.trading_graph.SignalProcessor")
+    @patch("diverge.graph.trading_graph.Reflector")
+    @patch("diverge.graph.trading_graph.Propagator")
+    @patch("diverge.graph.trading_graph.FinancialSituationMemory")
+    @patch("diverge.graph.trading_graph.create_llm_client")
+    @patch("diverge.graph.trading_graph.set_config")
+    @patch.object(DivergeGraph, "_create_tool_nodes", return_value={})
+    @patch("diverge.graph.trading_graph.ConditionalLogic")
     def test_trading_graph_passes_round_limits_to_conditional_logic(
         self,
         conditional_logic_cls,
@@ -53,7 +53,7 @@ class RiskDebateFlowTests(unittest.TestCase):
         config["max_debate_rounds"] = 2
         config["max_risk_discuss_rounds"] = 4
 
-        TradingAgentsGraph(selected_analysts=["market"], config=config)
+        DivergeGraph(selected_analysts=["market"], config=config)
 
         conditional_logic_cls.assert_called_once_with(
             max_debate_rounds=2,

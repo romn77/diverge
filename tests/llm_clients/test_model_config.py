@@ -1,8 +1,8 @@
 import unittest
 
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.llm_clients import model_config
-from tradingagents.llm_clients.model_config import (
+from diverge.default_config import DEFAULT_CONFIG
+from diverge.llm_clients import model_config
+from diverge.llm_clients.model_config import (
     DEEP_MODEL_OPTIONS,
     DEFAULT_DEEP_MODEL,
     DEFAULT_LLM_PROVIDER,
@@ -11,7 +11,7 @@ from tradingagents.llm_clients.model_config import (
     QUICK_MODEL_OPTIONS,
     get_model_ids_for_provider,
 )
-from tradingagents.llm_clients.validators import validate_model
+from diverge.llm_clients.validators import validate_model
 
 
 STRICT_VALIDATION_PROVIDERS = ("openai", "anthropic", "google", "xai", "siliconflow")

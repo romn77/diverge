@@ -14,7 +14,7 @@
 
 **Files:**
 - Modify: `tests/screener/test_pipeline.py`
-- Modify: `tradingagents/screener/pipeline.py`
+- Modify: `diverge/screener/pipeline.py`
 
 **Step 1: Write the failing tests**
 
@@ -31,7 +31,7 @@ Expected: FAIL because pipeline currently uses plain `head(config.top_k)`.
 
 **Step 3: Write minimal implementation**
 
-Implement a small selection helper in `tradingagents/screener/pipeline.py` that:
+Implement a small selection helper in `diverge/screener/pipeline.py` that:
 - no-ops for single-market runs
 - allocates by per-market floor for `cn` + `us`
 - backfills remaining slots from unselected rows in original ranked order

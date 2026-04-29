@@ -1,7 +1,7 @@
 from datetime import date
 
-from tradingagents.valuation.multiples import calculate_multiples
-from tradingagents.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext
+from diverge.valuation.multiples import calculate_multiples
+from diverge.valuation.schemas import AssumptionValue, FinancialSnapshot, MarketContext
 
 
 def test_calculate_multiples_returns_none_for_missing_or_zero_denominators():

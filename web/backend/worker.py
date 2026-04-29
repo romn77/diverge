@@ -4,7 +4,13 @@ import logging
 import os
 import time
 
-from web.backend.runtime import analysis_tasks, screener_tasks, task_scheduler, task_store
+from web.backend.runtime import (
+    analysis_tasks,
+    data_sync_tasks,
+    screener_tasks,
+    task_scheduler,
+    task_store,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +35,14 @@ def run_once(*, timeout: int = 5) -> bool:
             screener_tasks.run_screener_task(task_id)
         finally:
             task_store.get_task_store().ack("screener", task_id)
+        return True
+
+    if kind == "data_sync":
+        logger.info("Running data sync task %s", task_id)
+        try:
+            data_sync_tasks.run_data_sync_task(task_id)
+        finally:
+            task_store.get_task_store().ack("data_sync", task_id)
         return True
 
     return False

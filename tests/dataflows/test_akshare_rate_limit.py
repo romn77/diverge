@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 
-from tradingagents.dataflows.akshare_rate_limit import (
+from diverge.dataflows.akshare_rate_limit import (
     call_akshare_api,
     reset_akshare_rate_limit_state,
 )
@@ -15,8 +15,8 @@ def test_call_akshare_api_sleeps_with_random_delay_after_each_request():
     sleeper = Mock()
 
     with (
-        patch("tradingagents.dataflows.akshare_rate_limit.random.uniform", return_value=4.2),
-        patch("tradingagents.dataflows.akshare_rate_limit.time.sleep", sleeper),
+        patch("diverge.dataflows.akshare_rate_limit.random.uniform", return_value=4.2),
+        patch("diverge.dataflows.akshare_rate_limit.time.sleep", sleeper),
     ):
         result = call_akshare_api(lambda: "ok")
 
@@ -29,8 +29,8 @@ def test_call_akshare_api_adds_block_pause_every_tenth_request():
     sleeper = Mock()
 
     with (
-        patch("tradingagents.dataflows.akshare_rate_limit.random.uniform", return_value=3.5),
-        patch("tradingagents.dataflows.akshare_rate_limit.time.sleep", sleeper),
+        patch("diverge.dataflows.akshare_rate_limit.random.uniform", return_value=3.5),
+        patch("diverge.dataflows.akshare_rate_limit.time.sleep", sleeper),
     ):
         for _ in range(10):
             call_akshare_api(lambda: "ok")
@@ -45,8 +45,8 @@ def test_call_akshare_api_still_sleeps_when_request_raises():
     sleeper = Mock()
 
     with (
-        patch("tradingagents.dataflows.akshare_rate_limit.random.uniform", return_value=5.0),
-        patch("tradingagents.dataflows.akshare_rate_limit.time.sleep", sleeper),
+        patch("diverge.dataflows.akshare_rate_limit.random.uniform", return_value=5.0),
+        patch("diverge.dataflows.akshare_rate_limit.time.sleep", sleeper),
     ):
         try:
             call_akshare_api(lambda: (_ for _ in ()).throw(RuntimeError("boom")))

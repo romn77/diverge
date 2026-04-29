@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from tradingagents.screener.market_data import LOOKBACK_DAYS
+from diverge.screener.market_data import LOOKBACK_DAYS
 
 
 class TickerHistoryBatchItemPayload(BaseModel):

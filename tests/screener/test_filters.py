@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tradingagents.screener.filters import apply_hard_filters
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.screener.filters import apply_hard_filters
+from diverge.screener.schema import ScreenRunConfig
 
 
 def _base_feature_row(**overrides):

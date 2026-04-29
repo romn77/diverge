@@ -2,7 +2,7 @@
 
 ## Context
 
-当前 TradingAgents 主要围绕美股数据源（yfinance/alpha_vantage）设计。  
+当前 Diverge 主要围绕美股数据源（yfinance/alpha_vantage）设计。
 目标是新增 A 股能力，并且不破坏现有工具接口与路由逻辑。
 
 本版本聚焦三项关键修正：
@@ -15,8 +15,8 @@
 
 ## 现有架构要点（修正版）
 
-- **路由中心**：`tradingagents/dataflows/interface.py` 的 `route_to_vendor()`
-- **配置中心**：`tradingagents/default_config.py` 的 `data_vendors` + `tool_vendors`
+- **路由中心**：`diverge/dataflows/interface.py` 的 `route_to_vendor()`
+- **配置中心**：`diverge/default_config.py` 的 `data_vendors` + `tool_vendors`
 - **工具分类**：固定 4 类 `core_stock_apis / technical_indicators / fundamental_data / news_data`
 - **返回类型约束**：现有接口约束是“返回 `str`”，不要求统一为 CSV
 - **现有方法签名保持不变**：
@@ -221,4 +221,4 @@ def dataframe_to_standard_string(df: pd.DataFrame, title: str) -> str:
 
 5. **端到端**
    - CLI 跑 A 股样例并检查报告是否完整：
-   - `tradingagents analyze --ticker 600519 --date 2024-06-01`
+   - `diverge analyze --ticker 600519 --date 2024-06-01`

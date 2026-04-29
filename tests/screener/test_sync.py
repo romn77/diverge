@@ -4,7 +4,7 @@ import json
 
 import pandas as pd
 
-from tradingagents.screener import sync
+from diverge.screener import sync
 
 
 def test_normalize_simfin_snapshot_keeps_latest_values_and_optional_missing_fields():

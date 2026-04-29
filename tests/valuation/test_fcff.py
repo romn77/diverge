@@ -1,5 +1,5 @@
-from tradingagents.valuation.fcff import normalize_fcff
-from tradingagents.valuation.schemas import FinancialSnapshot
+from diverge.valuation.fcff import normalize_fcff
+from diverge.valuation.schemas import FinancialSnapshot
 
 
 def test_normalize_fcff_uses_multi_year_median_for_outlier_case():

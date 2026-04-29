@@ -593,6 +593,48 @@ class ScreenerResultReadModelTests(unittest.TestCase):
             1,
         )
 
+    def test_persist_screener_run_removes_obsolete_local_run_dirs(self):
+        for run_id in ("run-1", "run-2", "run-3"):
+            run_dir = self.runs_dir / run_id
+            run_dir.mkdir(parents=True)
+            (run_dir / "candidates.csv").write_text("symbol\nAAPL\n", encoding="utf-8")
+
+        task = SimpleNamespace(config_payload={"markets": ["us"], "as_of_date": "2026-04-28"})
+        screener_results.persist_screener_run(
+            task,
+            screener_results.ScreenerResultCandidate(
+                source_run_id="run-1",
+                generated_at="run-1",
+                as_of_date="2026-04-26",
+                markets=["us"],
+                rows=[{"symbol": "AAPL", "market": "us", "global_rank": 1}],
+            ),
+        )
+        screener_results.persist_screener_run(
+            task,
+            screener_results.ScreenerResultCandidate(
+                source_run_id="run-2",
+                generated_at="run-2",
+                as_of_date="2026-04-27",
+                markets=["us"],
+                rows=[{"symbol": "MSFT", "market": "us", "global_rank": 1}],
+            ),
+        )
+        screener_results.persist_screener_run(
+            task,
+            screener_results.ScreenerResultCandidate(
+                source_run_id="run-3",
+                generated_at="run-3",
+                as_of_date="2026-04-28",
+                markets=["us"],
+                rows=[{"symbol": "NVDA", "market": "us", "global_rank": 1}],
+            ),
+        )
+
+        self.assertFalse((self.runs_dir / "run-1").exists())
+        self.assertTrue((self.runs_dir / "run-2").is_dir())
+        self.assertTrue((self.runs_dir / "run-3").is_dir())
+
 
 if __name__ == "__main__":
     unittest.main()

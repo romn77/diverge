@@ -471,7 +471,7 @@ export function TradeRecordForm({
                     data/reports/&lt;report_id&gt;/complete_report.md
                   </code>
                   <code className="ml-1 rounded bg-slate-100 px-2 py-1 text-[12px]">
-                    data/eval_results/&lt;ticker&gt;/TradingAgentsStrategy_logs/full_states_log_&lt;date&gt;.json
+                    data/eval_results/&lt;ticker&gt;/DivergeStrategy_logs/full_states_log_&lt;date&gt;.json
                   </code>
                 </p>
               </div>
@@ -840,7 +840,7 @@ function buildReferenceFromReport(report: Report): AnalysisReference | null {
   return {
     analysis_date: analysisDate,
     report_path: `data/reports/${report.id}/complete_report.md`,
-    full_state_log_path: `data/eval_results/${report.ticker}/TradingAgentsStrategy_logs/full_states_log_${analysisDate}.json`,
+    full_state_log_path: `data/eval_results/${report.ticker}/DivergeStrategy_logs/full_states_log_${analysisDate}.json`,
   };
 }
 

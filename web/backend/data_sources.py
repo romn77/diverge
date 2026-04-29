@@ -6,7 +6,7 @@ from typing import Any
 from sqlalchemy import Boolean, DateTime, Index, Integer, String, delete, func, inspect, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from tradingagents.dataflows import vendor_usage as vendor_defaults
+from diverge.dataflows import vendor_usage as vendor_defaults
 from web.backend import auth
 
 

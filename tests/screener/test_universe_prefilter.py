@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tradingagents.screener.schema import ScreenRunConfig
-from tradingagents.screener.universe_prefilter import apply_universe_prefilters
+from diverge.screener.schema import ScreenRunConfig
+from diverge.screener.universe_prefilter import apply_universe_prefilters
 
 
 def test_apply_universe_prefilters_drops_recent_listings_before_history():

@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 
 import pandas as pd
 
-from tradingagents.screener.universe import load_cn_universe
+from diverge.screener.universe import load_cn_universe
 
 
 class SpecialTreatmentUniverseTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class SpecialTreatmentUniverseTests(unittest.TestCase):
         )
 
         with patch(
-            "tradingagents.screener.universe.get_tushare_pro_client",
+            "diverge.screener.universe.get_tushare_pro_client",
             return_value=mock_client,
         ):
             result = load_cn_universe()
@@ -63,7 +63,7 @@ class SpecialTreatmentUniverseTests(unittest.TestCase):
         )
 
         with patch(
-            "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+            "diverge.screener.universe._load_akshare_cn_universe_rows",
             return_value=akshare_df,
         ):
             result = load_cn_universe(data_source="akshare")

@@ -1,7 +1,7 @@
 import pytest
 
-from tradingagents.screener.presets import list_filter_preset_groups
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.screener.presets import list_filter_preset_groups
+from diverge.screener.schema import ScreenRunConfig
 
 
 def test_screen_run_config_accepts_valid_dual_market_input():

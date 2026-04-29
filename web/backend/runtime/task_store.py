@@ -12,6 +12,7 @@ ACTIVE_STATUSES = {"pending", "queued", "waiting_for_quota", "running"}
 RUNNING_STATUSES = {"running"}
 TERMINAL_STATUSES = {"completed", "failed", "canceled"}
 DEFAULT_TERMINAL_TTL_SECONDS = 7 * 24 * 60 * 60
+TASK_KINDS = ("analysis", "screener", "data_sync")
 
 
 def _dumps(payload: dict) -> str:
@@ -30,12 +31,12 @@ def _loads(value: Any) -> dict:
 
 class InMemoryTaskStore:
     def __init__(self):
-        self.tasks: dict[str, dict[str, dict]] = {"analysis": {}, "screener": {}}
-        self.events: dict[str, dict[str, list[dict]]] = {"analysis": {}, "screener": {}}
-        self.queue_names: dict[str, list[str]] = {"analysis": [], "screener": []}
-        self.processing_names: dict[str, list[str]] = {"analysis": [], "screener": []}
-        self.delayed_names: dict[str, dict[str, float]] = {"analysis": {}, "screener": {}}
-        self.ids: dict[str, list[str]] = {"analysis": [], "screener": []}
+        self.tasks: dict[str, dict[str, dict]] = {kind: {} for kind in TASK_KINDS}
+        self.events: dict[str, dict[str, list[dict]]] = {kind: {} for kind in TASK_KINDS}
+        self.queue_names: dict[str, list[str]] = {kind: [] for kind in TASK_KINDS}
+        self.processing_names: dict[str, list[str]] = {kind: [] for kind in TASK_KINDS}
+        self.delayed_names: dict[str, dict[str, float]] = {kind: {} for kind in TASK_KINDS}
+        self.ids: dict[str, list[str]] = {kind: [] for kind in TASK_KINDS}
 
     def save_task(self, kind: str, task_id: str, payload: dict, *, enqueue: bool = False) -> None:
         self.tasks.setdefault(kind, {})[task_id] = dict(payload)
@@ -180,7 +181,7 @@ class InMemoryTaskStore:
 
 
 class RedisTaskStore:
-    def __init__(self, client, *, prefix: str = "tradingagents"):
+    def __init__(self, client, *, prefix: str = "diverge"):
         self.client = client
         self.prefix = prefix.strip(":")
 
@@ -233,14 +234,19 @@ class RedisTaskStore:
         if kind is not None:
             tasks = self.list_tasks(kind)
         else:
-            tasks = self.list_tasks("analysis") + self.list_tasks("screener")
+            tasks = [
+                task
+                for task_kind in TASK_KINDS
+                for task in self.list_tasks(task_kind)
+            ]
         return sum(1 for task in tasks if task.get("status") in RUNNING_STATUSES)
 
     def count_active_by_owner(self, owner_user_id: str | None) -> int:
         owner_key = owner_user_id or None
         return sum(
             1
-            for task in self.list_tasks("analysis") + self.list_tasks("screener")
+            for task_kind in TASK_KINDS
+            for task in self.list_tasks(task_kind)
             if task.get("owner_user_id") == owner_key
             and task.get("status") in ACTIVE_STATUSES
         )
@@ -249,7 +255,8 @@ class RedisTaskStore:
         owner_key = owner_user_id or None
         return sum(
             1
-            for task in self.list_tasks("analysis") + self.list_tasks("screener")
+            for task_kind in TASK_KINDS
+            for task in self.list_tasks(task_kind)
             if task.get("owner_user_id") == owner_key
             and task.get("status") in RUNNING_STATUSES
         )
@@ -451,6 +458,6 @@ def get_task_store():
     redis_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
     _TASK_STORE = RedisTaskStore(
         redis.Redis.from_url(redis_url, decode_responses=False),
-        prefix=os.environ.get("TASK_STORE_PREFIX", "tradingagents"),
+        prefix=os.environ.get("TASK_STORE_PREFIX", "diverge"),
     )
     return _TASK_STORE

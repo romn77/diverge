@@ -7,11 +7,11 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from tradingagents.trade_feedback import (
+from diverge.trade_feedback import (
     list_trade_records as list_trade_records_file,
     list_trade_reviews as list_trade_reviews_file,
 )
-from tradingagents.data_layout import resolve_reports_dir, resolve_screener_runs_dir
+from diverge.data_layout import resolve_reports_dir, resolve_screener_runs_dir
 from web.backend import auth, report_metadata, screener_results, screener_runs, trade_entries
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]

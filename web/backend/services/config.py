@@ -5,18 +5,18 @@ import os
 from dotenv import dotenv_values
 
 from cli.utils import ANALYST_ORDER
-from tradingagents.screener.presets import (
+from diverge.screener.presets import (
     DEFAULT_FILTER_PRESET_SELECTIONS,
     DEFAULT_RANKING_PROFILE_ID,
     list_filter_preset_groups,
     list_ranking_profiles,
 )
-from tradingagents.llm_clients.model_config import (
+from diverge.llm_clients.model_config import (
     DEEP_MODEL_OPTIONS,
     PROVIDER_OPTIONS,
     QUICK_MODEL_OPTIONS,
 )
-from tradingagents.llm_clients.model_profiles import (
+from diverge.llm_clients.model_profiles import (
     PROVIDER_API_KEY_ENV_VARS,
     list_model_profile_options,
 )

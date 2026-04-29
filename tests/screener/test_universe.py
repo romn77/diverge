@@ -7,9 +7,9 @@ import pandas as pd
 import pytest
 from requests.exceptions import ConnectionError
 
-from tradingagents.dataflows.vendor_errors import VendorAuthError, VendorRetryableError
-from tradingagents.screener.schema import ScreenRunConfig
-from tradingagents.screener.universe import (
+from diverge.dataflows.vendor_errors import VendorAuthError, VendorRetryableError
+from diverge.screener.schema import ScreenRunConfig
+from diverge.screener.universe import (
     load_cn_universe,
     load_universe,
     load_us_universe,
@@ -38,7 +38,7 @@ def test_load_cn_universe_maps_tushare_stock_basic_to_shared_shape():
     )
 
     with patch(
-        "tradingagents.screener.universe.get_tushare_pro_client",
+        "diverge.screener.universe.get_tushare_pro_client",
         return_value=mock_client,
     ):
         result = load_cn_universe()
@@ -70,7 +70,7 @@ def test_load_cn_universe_maps_akshare_stock_list_to_shared_shape():
     )
 
     with patch(
-        "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+        "diverge.screener.universe._load_akshare_cn_universe_rows",
         return_value=akshare_df,
     ):
         result = load_cn_universe(data_source="akshare")
@@ -103,10 +103,10 @@ def test_load_cn_universe_retries_akshare_universe_fetch_before_succeeding():
 
     with (
         patch(
-            "tradingagents.screener.universe._import_akshare",
+            "diverge.screener.universe._import_akshare",
             return_value=akshare_client,
         ),
-        patch("tradingagents.screener.universe.time.sleep") as mock_sleep,
+        patch("diverge.screener.universe.time.sleep") as mock_sleep,
     ):
         result = load_cn_universe(data_source="akshare")
 
@@ -128,8 +128,8 @@ def test_load_akshare_cn_universe_rows_uses_rate_limiter():
     )
 
     with (
-        patch("tradingagents.screener.universe._import_akshare", return_value=akshare_client),
-        patch("tradingagents.screener.universe.call_akshare_api", return_value=akshare_df) as mock_rate_limit,
+        patch("diverge.screener.universe._import_akshare", return_value=akshare_client),
+        patch("diverge.screener.universe.call_akshare_api", return_value=akshare_df) as mock_rate_limit,
     ):
         result = load_cn_universe(data_source="akshare")
 
@@ -143,10 +143,10 @@ def test_load_cn_universe_reraises_raw_akshare_error_after_retries_exhausted():
 
     with (
         patch(
-            "tradingagents.screener.universe._import_akshare",
+            "diverge.screener.universe._import_akshare",
             return_value=akshare_client,
         ),
-        patch("tradingagents.screener.universe.time.sleep"),
+        patch("diverge.screener.universe.time.sleep"),
     ):
         with pytest.raises(RuntimeError, match="akshare boom"):
             load_cn_universe(data_source="akshare")
@@ -164,7 +164,7 @@ def test_load_cn_universe_reuses_fresh_akshare_cache_without_refetch(tmp_path):
     )
 
     with patch(
-        "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+        "diverge.screener.universe._load_akshare_cn_universe_rows",
         return_value=akshare_df,
     ) as mock_fetch:
         first_result = load_cn_universe(data_source="akshare", cache_dir=cache_dir)
@@ -173,7 +173,7 @@ def test_load_cn_universe_reuses_fresh_akshare_cache_without_refetch(tmp_path):
     assert first_result["symbol"].tolist() == ["600519.SH"]
 
     with patch(
-        "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+        "diverge.screener.universe._load_akshare_cn_universe_rows",
         side_effect=AssertionError("fresh universe cache should avoid refetch"),
     ):
         second_result = load_cn_universe(data_source="akshare", cache_dir=cache_dir)
@@ -193,7 +193,7 @@ def test_load_cn_universe_falls_back_to_stale_akshare_cache_on_retryable_failure
     )
 
     with patch(
-        "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+        "diverge.screener.universe._load_akshare_cn_universe_rows",
         return_value=akshare_df,
     ):
         cached_result = load_cn_universe(data_source="akshare", cache_dir=cache_dir)
@@ -204,7 +204,7 @@ def test_load_cn_universe_falls_back_to_stale_akshare_cache_on_retryable_failure
     os.utime(cache_file, (stale_timestamp, stale_timestamp))
 
     with patch(
-        "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+        "diverge.screener.universe._load_akshare_cn_universe_rows",
         side_effect=VendorRetryableError("akshare down"),
     ):
         fallback_result = load_cn_universe(data_source="akshare", cache_dir=cache_dir)
@@ -228,11 +228,11 @@ def test_load_cn_universe_falls_back_to_secondary_source_when_primary_retries_fa
 
     with (
         patch(
-            "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+            "diverge.screener.universe._load_akshare_cn_universe_rows",
             side_effect=VendorRetryableError("akshare down"),
         ),
         patch(
-            "tradingagents.screener.universe.get_tushare_pro_client",
+            "diverge.screener.universe.get_tushare_pro_client",
             return_value=mock_client,
         ),
     ):
@@ -265,11 +265,11 @@ def test_load_cn_universe_falls_back_to_secondary_source_when_primary_auth_fails
 
     with (
         patch(
-            "tradingagents.screener.universe.get_tushare_pro_client",
+            "diverge.screener.universe.get_tushare_pro_client",
             side_effect=VendorAuthError("TUSHARE_TOKEN is not configured."),
         ),
         patch(
-            "tradingagents.screener.universe._load_akshare_cn_universe_rows",
+            "diverge.screener.universe._load_akshare_cn_universe_rows",
             return_value=akshare_df,
         ),
     ):
@@ -395,7 +395,7 @@ def test_load_cn_universe_from_manifest_requires_generated_schema_columns(tmp_pa
 
 def test_load_cn_universe_surfaces_clear_tushare_auth_errors():
     with patch(
-        "tradingagents.screener.universe.get_tushare_pro_client",
+        "diverge.screener.universe.get_tushare_pro_client",
         side_effect=VendorAuthError("TUSHARE_TOKEN is not configured."),
     ):
         with pytest.raises(VendorAuthError, match="TUSHARE_TOKEN"):
@@ -453,7 +453,7 @@ def test_load_universe_concatenates_sources_without_truncation(tmp_path):
     )
 
     with patch(
-        "tradingagents.screener.universe.get_tushare_pro_client",
+        "diverge.screener.universe.get_tushare_pro_client",
         return_value=mock_client,
     ):
         result = load_universe(config)
@@ -485,7 +485,7 @@ def test_load_universe_uses_cn_manifest_when_configured(tmp_path):
     )
 
     with patch(
-        "tradingagents.screener.universe.get_tushare_pro_client",
+        "diverge.screener.universe.get_tushare_pro_client",
         side_effect=AssertionError("CN manifest path should bypass live universe loading"),
     ):
         result = load_universe(config)

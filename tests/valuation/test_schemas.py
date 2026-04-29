@@ -1,6 +1,6 @@
 from datetime import date
 
-from tradingagents.valuation.schemas import (
+from diverge.valuation.schemas import (
     AssumptionValue,
     FinancialSnapshot,
     MarketContext,

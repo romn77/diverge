@@ -66,7 +66,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 1. `cd web/frontend && npm run lint` exits 0
 2. `cd web/frontend && npm run build` exits 0 (Next.js production build succeeds)
 3. All 12 modified Python prompt files import successfully
-4. `grep -rl "json-highlights" tradingagents/agents/ | wc -l` returns 12
+4. `grep -rl "json-highlights" diverge/agents/ | wc -l` returns 12
 5. Individual report views render highlight cards for reports with a valid JSON block
 6. Complete report view renders no highlight cards and no raw `json-highlights` blocks
 7. Frontend renders original markdown unchanged for reports without JSON block (old reports)
@@ -340,7 +340,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 2. Modify Market Analyst Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/analysts/market_analyst.py` line 49 to append instructions for the structured JSON highlights block after the existing "Markdown table" instruction.
+  Edit `diverge/agents/analysts/market_analyst.py` line 49 to append instructions for the structured JSON highlights block after the existing "Markdown table" instruction.
 
   Add this text after the existing `Make sure to append a Markdown table...` line:
 
@@ -375,19 +375,19 @@ Add structured highlight cards above markdown narrative in the report viewer for
   **Parallelization**: Can Parallel: YES | Wave 2 | Blocks: none | Blocked By: 1
 
   **References**:
-  - Pattern: `tradingagents/agents/analysts/market_analyst.py:23-50` — current prompt structure
+  - Pattern: `diverge/agents/analysts/market_analyst.py:23-50` — current prompt structure
 
   **Acceptance Criteria**:
   - [ ] `market_analyst.py` contains `json-highlights` fence instruction text
   - [ ] `market_analyst.py` still contains original "Markdown table" instruction
-  - [ ] `python -c "from tradingagents.agents.analysts.market_analyst import create_market_analyst"` exits 0
+  - [ ] `python -c "from diverge.agents.analysts.market_analyst import create_market_analyst"` exits 0
 
-  **Commit**: YES | Message: `feat(prompts): add structured highlights schema to market analyst prompt` | Files: [`tradingagents/agents/analysts/market_analyst.py`]
+  **Commit**: YES | Message: `feat(prompts): add structured highlights schema to market analyst prompt` | Files: [`diverge/agents/analysts/market_analyst.py`]
 
 - [x] 3. Modify Fundamentals Analyst Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/analysts/fundamentals_analyst.py` line 28.
+  Edit `diverge/agents/analysts/fundamentals_analyst.py` line 28.
 
   Add after the existing "Markdown table" instruction:
 
@@ -412,14 +412,14 @@ Add structured highlight cards above markdown narrative in the report viewer for
 
   **Acceptance Criteria**:
   - [ ] `fundamentals_analyst.py` contains `json-highlights` fence
-  - [ ] `python -c "from tradingagents.agents.analysts.fundamentals_analyst import create_fundamentals_analyst"` exits 0
+  - [ ] `python -c "from diverge.agents.analysts.fundamentals_analyst import create_fundamentals_analyst"` exits 0
 
   **Commit**: YES | Message: `feat(prompts): add structured highlights schema to fundamentals analyst prompt`
 
 - [x] 4. Modify Social Media Analyst Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/analysts/social_media_analyst.py` line 19.
+  Edit `diverge/agents/analysts/social_media_analyst.py` line 19.
 
   Add after the existing "Markdown table" instruction:
 
@@ -447,7 +447,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 5. Modify News Analyst Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/analysts/news_analyst.py` line 23.
+  Edit `diverge/agents/analysts/news_analyst.py` line 23.
 
   ```
   \`\`\`json-highlights
@@ -472,7 +472,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 6. Modify Bull Researcher Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/researchers/bull_researcher.py`. In the f-string prompt (line 25-44), insert the following block before `{language_instruction}` (line 43):
+  Edit `diverge/agents/researchers/bull_researcher.py`. In the f-string prompt (line 25-44), insert the following block before `{language_instruction}` (line 43):
 
   ```
   After your complete analysis, append a structured highlights block in the following exact format:
@@ -500,18 +500,18 @@ Add structured highlight cards above markdown narrative in the report viewer for
   **Parallelization**: Can Parallel: YES | Wave 2 | Blocked By: 1
 
   **References**:
-  - Pattern: `tradingagents/agents/researchers/bull_researcher.py:25-44` — f-string prompt
+  - Pattern: `diverge/agents/researchers/bull_researcher.py:25-44` — f-string prompt
 
   **Acceptance Criteria**:
   - [ ] `bull_researcher.py` contains `json-highlights` fence
-  - [ ] `python -c "from tradingagents.agents.researchers.bull_researcher import create_bull_researcher"` exits 0
+  - [ ] `python -c "from diverge.agents.researchers.bull_researcher import create_bull_researcher"` exits 0
 
   **Commit**: YES | Message: `feat(prompts): add structured highlights schema to bull researcher prompt`
 
 - [x] 7. Modify Bear Researcher Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/researchers/bear_researcher.py`. Same pattern as Task 6, but with `category: "bear_case"` and `stance: "bearish"`.
+  Edit `diverge/agents/researchers/bear_researcher.py`. Same pattern as Task 6, but with `category: "bear_case"` and `stance: "bearish"`.
 
   Insert before `{language_instruction}` (line 45):
 
@@ -540,7 +540,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 8. Modify Research Manager Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/managers/research_manager.py`. Replace the existing "without special formatting" wording so it explicitly allows one trailing `json-highlights` block, then insert the block before `{language_instruction}` in the prompt (line 40):
+  Edit `diverge/agents/managers/research_manager.py`. Replace the existing "without special formatting" wording so it explicitly allows one trailing `json-highlights` block, then insert the block before `{language_instruction}` in the prompt (line 40):
 
   ```
   After your complete decision, append a structured highlights block:
@@ -574,7 +574,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 9. Modify Trader Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/trader/trader.py`. Revise the system message so that:
+  Edit `diverge/agents/trader/trader.py`. Revise the system message so that:
   - the report still includes `FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**`
   - that line remains the **final narrative line**
   - one trailing `json-highlights` block is appended after that line
@@ -618,7 +618,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 10. Modify Aggressive Debator Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/risk_mgmt/aggressive_debator.py`. Replace the existing "without special formatting" wording so it allows one trailing `json-highlights` block, then insert the block before `{language_instruction}` (line 37):
+  Edit `diverge/agents/risk_mgmt/aggressive_debator.py`. Replace the existing "without special formatting" wording so it allows one trailing `json-highlights` block, then insert the block before `{language_instruction}` (line 37):
 
   ```
   After your complete argument, append a structured highlights block:
@@ -652,7 +652,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 11. Modify Conservative Debator Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/risk_mgmt/conservative_debator.py`. Same pattern as Task 10 with `category: "risk_conservative"` and `stance_label: "Conservative"`, including replacement of any wording that would forbid a trailing structured block.
+  Edit `diverge/agents/risk_mgmt/conservative_debator.py`. Same pattern as Task 10 with `category: "risk_conservative"` and `stance_label: "Conservative"`, including replacement of any wording that would forbid a trailing structured block.
 
   **Parallelization**: Can Parallel: YES | Wave 2 | Blocked By: 1
 
@@ -661,7 +661,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 12. Modify Neutral Debator Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/risk_mgmt/neutral_debator.py`. Same pattern as Task 10 with `category: "risk_neutral"` and `stance_label: "Neutral"`, including replacement of any wording that would forbid a trailing structured block.
+  Edit `diverge/agents/risk_mgmt/neutral_debator.py`. Same pattern as Task 10 with `category: "risk_neutral"` and `stance_label: "Neutral"`, including replacement of any wording that would forbid a trailing structured block.
 
   **Parallelization**: Can Parallel: YES | Wave 2 | Blocked By: 1
 
@@ -670,7 +670,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 - [x] 13. Modify Risk Manager (Portfolio Decision) Prompt
 
   **What to do**:
-  Edit `tradingagents/agents/managers/risk_manager.py`. Insert before `{language_instruction}` (line 46):
+  Edit `diverge/agents/managers/risk_manager.py`. Insert before `{language_instruction}` (line 46):
 
   ```
   After your complete decision, append a structured highlights block:
@@ -787,7 +787,7 @@ Add structured highlight cards above markdown narrative in the report viewer for
 ## Final Verification Wave (4 parallel agents, ALL must APPROVE)
 > **Status update (2026-03-13):**
 > - Static verification completed locally: `npm run lint`, `npm run build`, prompt-file `py_compile`, `json-highlights` grep count = 12, and a runtime regression unittest covering the f-string prompt nodes with embedded JSON blocks.
-> - Fresh runtime generation was verified locally with a minimal real pipeline run: `TradingAgentsGraph(selected_analysts=['market'])` generated a new report set under `/tmp/report-highlights-e2e`.
+> - Fresh runtime generation was verified locally with a minimal real pipeline run: `DivergeGraph(selected_analysts=['market'])` generated a new report set under `/tmp/report-highlights-e2e`.
 > - Generated output evidence: 9/9 subreports contained `json-highlights`; `complete_report.md` also contained the blocks as expected from raw concatenation.
 > - Frontend parser evidence: `parseHighlights()` successfully parsed and stripped the generated `market.md` block; `stripHighlightsBlocks()` removed all highlight blocks from the generated `complete_report.md`.
 > - Browser navigation / viewport-specific QA was not executed in this environment, so the final-wave checkboxes remain intentionally unchecked.

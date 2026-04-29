@@ -11,9 +11,9 @@ import pandas as pd
 from typer.testing import CliRunner
 
 from cli.main import app
-from tradingagents.screener.debug import ScreenDebugResult
-from tradingagents.screener.replay import HardFilterReplayResult
-from tradingagents.screener.schema import ScreenRunResult
+from diverge.screener.debug import ScreenDebugResult
+from diverge.screener.replay import HardFilterReplayResult
+from diverge.screener.schema import ScreenRunResult
 
 
 runner = CliRunner()

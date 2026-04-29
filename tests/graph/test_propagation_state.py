@@ -1,4 +1,4 @@
-from tradingagents.graph.propagation import Propagator
+from diverge.graph.propagation import Propagator
 
 
 def test_create_initial_state_initializes_v3_metadata_fields():

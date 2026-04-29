@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from tradingagents.valuation.schemas import AssumptionValue
+from diverge.valuation.schemas import AssumptionValue
 
 
 class _FakeTicker:
@@ -83,14 +83,14 @@ class _FakeTicker:
 def test_build_yfinance_valuation_input_collects_growth_beta_and_treasury(
     monkeypatch,
 ):
-    from tradingagents.dataflows.yfinance_valuation import build_yfinance_valuation_input
+    from diverge.dataflows.yfinance_valuation import build_yfinance_valuation_input
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation.yf.Ticker",
+        "diverge.dataflows.yfinance_valuation.yf.Ticker",
         lambda symbol: _FakeTicker(),
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation._get_us_risk_free_rate",
+        "diverge.dataflows.yfinance_valuation._get_us_risk_free_rate",
         lambda: AssumptionValue(
             value=0.042,
             source="yfinance:^TNX",
@@ -119,17 +119,17 @@ def test_build_yfinance_valuation_input_collects_growth_beta_and_treasury(
 def test_build_yfinance_valuation_input_marks_missing_beta_as_low_confidence(
     monkeypatch,
 ):
-    from tradingagents.dataflows.yfinance_valuation import build_yfinance_valuation_input
+    from diverge.dataflows.yfinance_valuation import build_yfinance_valuation_input
 
     ticker = _FakeTicker()
     ticker.info["beta"] = None
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation.yf.Ticker",
+        "diverge.dataflows.yfinance_valuation.yf.Ticker",
         lambda symbol: ticker,
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation._get_us_risk_free_rate",
+        "diverge.dataflows.yfinance_valuation._get_us_risk_free_rate",
         lambda: AssumptionValue(
             value=0.042,
             source="yfinance:^TNX",
@@ -144,17 +144,17 @@ def test_build_yfinance_valuation_input_marks_missing_beta_as_low_confidence(
 
 
 def test_build_yfinance_valuation_input_marks_etf_as_not_applicable(monkeypatch):
-    from tradingagents.dataflows.yfinance_valuation import build_yfinance_valuation_input
+    from diverge.dataflows.yfinance_valuation import build_yfinance_valuation_input
 
     ticker = _FakeTicker()
     ticker.info["quoteType"] = "ETF"
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation.yf.Ticker",
+        "diverge.dataflows.yfinance_valuation.yf.Ticker",
         lambda symbol: ticker,
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation._get_us_risk_free_rate",
+        "diverge.dataflows.yfinance_valuation._get_us_risk_free_rate",
         lambda: AssumptionValue(
             value=0.042,
             source="yfinance:^TNX",
@@ -169,17 +169,17 @@ def test_build_yfinance_valuation_input_marks_etf_as_not_applicable(monkeypatch)
 
 
 def test_build_yfinance_valuation_input_marks_reit_as_not_applicable(monkeypatch):
-    from tradingagents.dataflows.yfinance_valuation import build_yfinance_valuation_input
+    from diverge.dataflows.yfinance_valuation import build_yfinance_valuation_input
 
     ticker = _FakeTicker()
     ticker.info["industry"] = "REIT - Industrial"
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation.yf.Ticker",
+        "diverge.dataflows.yfinance_valuation.yf.Ticker",
         lambda symbol: ticker,
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation._get_us_risk_free_rate",
+        "diverge.dataflows.yfinance_valuation._get_us_risk_free_rate",
         lambda: AssumptionValue(
             value=0.042,
             source="yfinance:^TNX",
@@ -194,17 +194,17 @@ def test_build_yfinance_valuation_input_marks_reit_as_not_applicable(monkeypatch
 
 
 def test_build_yfinance_valuation_input_marks_insurance_as_not_applicable(monkeypatch):
-    from tradingagents.dataflows.yfinance_valuation import build_yfinance_valuation_input
+    from diverge.dataflows.yfinance_valuation import build_yfinance_valuation_input
 
     ticker = _FakeTicker()
     ticker.info["industry"] = "Insurance - Diversified"
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation.yf.Ticker",
+        "diverge.dataflows.yfinance_valuation.yf.Ticker",
         lambda symbol: ticker,
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation._get_us_risk_free_rate",
+        "diverge.dataflows.yfinance_valuation._get_us_risk_free_rate",
         lambda: AssumptionValue(
             value=0.042,
             source="yfinance:^TNX",
@@ -219,17 +219,17 @@ def test_build_yfinance_valuation_input_marks_insurance_as_not_applicable(monkey
 
 
 def test_build_yfinance_valuation_input_marks_bank_as_not_applicable(monkeypatch):
-    from tradingagents.dataflows.yfinance_valuation import build_yfinance_valuation_input
+    from diverge.dataflows.yfinance_valuation import build_yfinance_valuation_input
 
     ticker = _FakeTicker()
     ticker.info["industry"] = "Banks - Regional"
 
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation.yf.Ticker",
+        "diverge.dataflows.yfinance_valuation.yf.Ticker",
         lambda symbol: ticker,
     )
     monkeypatch.setattr(
-        "tradingagents.dataflows.yfinance_valuation._get_us_risk_free_rate",
+        "diverge.dataflows.yfinance_valuation._get_us_risk_free_rate",
         lambda: AssumptionValue(
             value=0.042,
             source="yfinance:^TNX",

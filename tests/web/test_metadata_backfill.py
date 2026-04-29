@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from tradingagents.trade_feedback import create_trade_record as create_trade_record_file
+from diverge.trade_feedback import create_trade_record as create_trade_record_file
 from web.backend import app_config, auth, backfill_metadata, report_metadata
 from web.backend.main import app
 from tests.web.http_harness import app_client

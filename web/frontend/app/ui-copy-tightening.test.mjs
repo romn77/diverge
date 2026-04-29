@@ -29,11 +29,11 @@ test("top-level workbench copy stays short and action-oriented", () => {
 
   assert.doesNotMatch(
     shellSource,
-    /TradingAgents is checking the current session before loading reports, tasks, and screeners\./
+    /Diverge is checking the current session before loading reports, tasks, and screeners\./
   );
   assert.doesNotMatch(
     shellSource,
-    /This workbench is protected in the current environment, so TradingAgents is routing this session through the login page\./
+    /This workbench is protected in the current environment, so Diverge is routing this session through the login page\./
   );
   assert.match(shellSource, /Checking your session\./);
   assert.match(shellSource, /Sign in to continue\./);
@@ -51,7 +51,7 @@ test("top-level workbench copy stays short and action-oriented", () => {
 
   assert.doesNotMatch(
     preferencesSource,
-    /TradingAgents 正在检查当前会话，然后加载报告、任务和筛选结果。/
+    /Diverge 正在检查当前会话，然后加载报告、任务和筛选结果。/
   );
   assert.doesNotMatch(
     preferencesSource,

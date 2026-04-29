@@ -1,7 +1,7 @@
 from datetime import date
 
-from tradingagents.valuation.formatter import format_valuation_sections
-from tradingagents.valuation.schemas import (
+from diverge.valuation.formatter import format_valuation_sections
+from diverge.valuation.schemas import (
     AssumptionValue,
     FinancialSnapshot,
     MarketContext,

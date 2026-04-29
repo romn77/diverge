@@ -2,13 +2,13 @@ from datetime import date
 
 import pytest
 
-from tradingagents.valuation.schemas import (
+from diverge.valuation.schemas import (
     AssumptionValue,
     FinancialSnapshot,
     MarketContext,
     ValuationInput,
 )
-from tradingagents.valuation.dcf import calculate_dcf, calculate_dcf_cases
+from diverge.valuation.dcf import calculate_dcf, calculate_dcf_cases
 
 
 def _build_input(shares_outstanding: float | None = 100.0) -> ValuationInput:

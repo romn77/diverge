@@ -12,11 +12,11 @@ fi
 OUTPUT_DIR="${OUTPUT_DIR:-$PROJECT_ROOT/dist}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 TAG="${TAG:-$(date +%Y%m%d%H%M%S)}"
-BACKEND_IMAGE="${BACKEND_IMAGE:-tradingagents-backend}"
-FRONTEND_IMAGE="${FRONTEND_IMAGE:-tradingagents-frontend}"
+BACKEND_IMAGE="${BACKEND_IMAGE:-diverge-backend}"
+FRONTEND_IMAGE="${FRONTEND_IMAGE:-diverge-frontend}"
 INCLUDE_RUNTIME_IMAGES="${INCLUDE_RUNTIME_IMAGES:-false}"
 
-IMAGE_ARCHIVE="$OUTPUT_DIR/tradingagents-images-${TAG}.tar.gz"
+IMAGE_ARCHIVE="$OUTPUT_DIR/diverge-images-${TAG}.tar.gz"
 COMPOSE_OVERRIDE="$OUTPUT_DIR/compose.images-${TAG}.yml"
 
 usage() {
@@ -33,10 +33,10 @@ Common environment variables:
   NEXT_PUBLIC_API_BASE_URL=https://your-domain.example
   NPM_CONFIG_REGISTRY=https://registry.npmmirror.com
   INCLUDE_RUNTIME_IMAGES=true
-  OUTPUT_DIR=/tmp/tradingagents-release
+  OUTPUT_DIR=/tmp/diverge-release
 
 Server usage after copying the generated files:
-  gunzip -c tradingagents-images-<TAG>.tar.gz | docker load
+  gunzip -c diverge-images-<TAG>.tar.gz | docker load
   docker compose -f compose.prod.yml -f compose.images-<TAG>.yml up -d
 
 No-nginx public IP usage:

@@ -4,8 +4,8 @@ import pandas as pd
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from tradingagents.screener.debug import debug_screen_symbol
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.screener.debug import debug_screen_symbol
+from diverge.screener.schema import ScreenRunConfig
 
 
 def test_debug_screen_symbol_uses_shared_stage_helpers_for_target_symbol():
@@ -94,8 +94,8 @@ def test_debug_screen_symbol_uses_shared_stage_helpers_for_target_symbol():
     )
 
     with (
-        patch("tradingagents.screener.debug.prepare_universe_stage", return_value=universe_stage),
-        patch("tradingagents.screener.debug.evaluate_screen_stage", return_value=evaluation_stage),
+        patch("diverge.screener.debug.prepare_universe_stage", return_value=universe_stage),
+        patch("diverge.screener.debug.evaluate_screen_stage", return_value=evaluation_stage),
     ):
         result = debug_screen_symbol(config, symbol="AAPL", market="us")
 
@@ -202,8 +202,8 @@ def test_debug_screen_symbol_returns_stage_outputs_for_ranked_symbol():
     )
 
     with (
-        patch("tradingagents.screener.debug.prepare_universe_stage", return_value=universe_stage),
-        patch("tradingagents.screener.debug.evaluate_screen_stage", return_value=evaluation_stage),
+        patch("diverge.screener.debug.prepare_universe_stage", return_value=universe_stage),
+        patch("diverge.screener.debug.evaluate_screen_stage", return_value=evaluation_stage),
     ):
         result = debug_screen_symbol(config, symbol="AAPL", market="us")
 

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from tradingagents.runner import (
+from diverge.runner import (
     AnalysisRequest,
     AnalysisTracker,
     build_analysis_config,
@@ -21,7 +21,7 @@ class _FakePropagator:
         return {}
 
 
-class _FakeTradingAgentsGraph:
+class _FakeDivergeGraph:
     def __init__(self, *_args, **_kwargs):
         self.propagator = _FakePropagator()
 
@@ -190,12 +190,12 @@ class AnalysisTrackerTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             with patch(
-                "tradingagents.runner.get_trade_feedback_payload",
+                "diverge.runner.get_trade_feedback_payload",
                 return_value={"prompt": "", "reviews": []},
             ) as mock_feedback:
                 with patch(
-                    "tradingagents.runner.TradingAgentsGraph",
-                    _FakeTradingAgentsGraph,
+                    "diverge.runner.DivergeGraph",
+                    _FakeDivergeGraph,
                 ):
                     generator = run_analysis_streaming(request, Path(temp_dir))
                     next(generator)

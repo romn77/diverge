@@ -3,7 +3,7 @@ from unittest.mock import ANY, patch
 
 import pandas as pd
 
-from tradingagents.dataflows import y_finance
+from diverge.dataflows import y_finance
 
 
 class IndicatorSourceDecouplingTests(unittest.TestCase):

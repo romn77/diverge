@@ -1,8 +1,8 @@
-from tradingagents.valuation.assumptions import (
+from diverge.valuation.assumptions import (
     resolve_assumption,
     resolve_short_term_growth,
 )
-from tradingagents.valuation.schemas import AssumptionValue
+from diverge.valuation.schemas import AssumptionValue
 
 
 def test_resolve_short_term_growth_prefers_provider_estimate():

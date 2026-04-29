@@ -24,10 +24,10 @@ from rich import box
 from rich.align import Align
 from rich.rule import Rule
 
-from tradingagents.data_layout import DEFAULT_SCREENER_RUNS_DIR
-from tradingagents.screener.debug import debug_screen_symbol
-from tradingagents.screener.market_calendar import is_market_trading_day, last_n_trading_days
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.data_layout import DEFAULT_SCREENER_RUNS_DIR
+from diverge.screener.debug import debug_screen_symbol
+from diverge.screener.market_calendar import is_market_trading_day, last_n_trading_days
+from diverge.screener.schema import ScreenRunConfig
 from cli.announcements import fetch_announcements, display_announcements
 
 console = Console()
@@ -44,8 +44,8 @@ MARKET_CLOSE_CONFIG = {
 }
 
 app = typer.Typer(
-    name="TradingAgents",
-    help="TradingAgents CLI: Multi-Agents LLM Financial Trading Framework",
+    name="Diverge",
+    help="Diverge CLI: Multi-Agents LLM Financial Trading Framework",
     add_completion=True,  # Enable shell completion
 )
 
@@ -233,13 +233,13 @@ def _build_screener_config(
 
 
 def run_screen(*args, **kwargs):
-    from tradingagents.screener.pipeline import run_screen as _run_screen
+    from diverge.screener.pipeline import run_screen as _run_screen
 
     return _run_screen(*args, **kwargs)
 
 
 def replay_screen_hard_filters(*args, **kwargs):
-    from tradingagents.screener.replay import (
+    from diverge.screener.replay import (
         replay_screen_hard_filters as _replay_screen_hard_filters,
     )
 
@@ -473,9 +473,9 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
     # Header with welcome message
     layout["header"].update(
         Panel(
-            "[bold green]Welcome to TradingAgents CLI[/bold green]\n"
+            "[bold green]Welcome to Diverge CLI[/bold green]\n"
             "[dim]© [Tauric Research](https://github.com/TauricResearch)[/dim]",
-            title="Welcome to TradingAgents",
+            title="Welcome to Diverge",
             border_style="green",
             padding=(1, 2),
             expand=True,
@@ -703,7 +703,7 @@ def get_user_selections():
 
     # Create welcome box content
     welcome_content = f"{welcome_ascii}\n"
-    welcome_content += "[bold green]TradingAgents: Multi-Agents LLM Financial Trading Framework - CLI[/bold green]\n\n"
+    welcome_content += "[bold green]Diverge: Multi-Agents LLM Financial Trading Framework - CLI[/bold green]\n\n"
     welcome_content += "[bold]Workflow Steps:[/bold]\n"
     welcome_content += "I. Analyst Team → II. Research Team → III. Trader → IV. Risk Management → V. Portfolio Management\n\n"
     welcome_content += (
@@ -715,7 +715,7 @@ def get_user_selections():
         welcome_content,
         border_style="green",
         padding=(1, 2),
-        title="Welcome to TradingAgents",
+        title="Welcome to Diverge",
         subtitle="Multi-Agents LLM Financial Trading Framework",
     )
     console.print(Align.center(welcome_box))
@@ -1134,9 +1134,9 @@ def format_tool_args(args, max_length=80) -> str:
 
 
 def run_analysis():
-    from tradingagents.default_config import DEFAULT_CONFIG
-    from tradingagents.graph.trading_graph import TradingAgentsGraph
-    from tradingagents.runner import save_report_to_disk
+    from diverge.default_config import DEFAULT_CONFIG
+    from diverge.graph.trading_graph import DivergeGraph
+    from diverge.runner import save_report_to_disk
     from cli.stats_handler import StatsCallbackHandler
 
     # First get all user selections
@@ -1166,7 +1166,7 @@ def run_analysis():
     selected_analyst_keys = [a for a in ANALYST_ORDER if a in selected_set]
 
     # Initialize the graph with callbacks bound to LLMs
-    graph = TradingAgentsGraph(
+    graph = DivergeGraph(
         selected_analyst_keys,
         config=config,
         debug=True,

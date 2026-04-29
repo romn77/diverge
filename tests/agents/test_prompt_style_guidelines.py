@@ -1,22 +1,22 @@
 import unittest
 from pathlib import Path
 
-from tradingagents.agents.utils.agent_utils import get_research_note_style_instruction
+from diverge.agents.utils.agent_utils import get_research_note_style_instruction
 
 
 PROMPT_FILES = [
-    Path("tradingagents/agents/analysts/market_analyst.py"),
-    Path("tradingagents/agents/analysts/social_media_analyst.py"),
-    Path("tradingagents/agents/analysts/news_analyst.py"),
-    Path("tradingagents/agents/analysts/fundamentals_analyst.py"),
-    Path("tradingagents/agents/researchers/bull_researcher.py"),
-    Path("tradingagents/agents/researchers/bear_researcher.py"),
-    Path("tradingagents/agents/managers/research_manager.py"),
-    Path("tradingagents/agents/managers/portfolio_manager.py"),
-    Path("tradingagents/agents/risk_mgmt/aggressive_debator.py"),
-    Path("tradingagents/agents/risk_mgmt/conservative_debator.py"),
-    Path("tradingagents/agents/risk_mgmt/neutral_debator.py"),
-    Path("tradingagents/agents/trader/trader.py"),
+    Path("diverge/agents/analysts/market_analyst.py"),
+    Path("diverge/agents/analysts/social_media_analyst.py"),
+    Path("diverge/agents/analysts/news_analyst.py"),
+    Path("diverge/agents/analysts/fundamentals_analyst.py"),
+    Path("diverge/agents/researchers/bull_researcher.py"),
+    Path("diverge/agents/researchers/bear_researcher.py"),
+    Path("diverge/agents/managers/research_manager.py"),
+    Path("diverge/agents/managers/portfolio_manager.py"),
+    Path("diverge/agents/risk_mgmt/aggressive_debator.py"),
+    Path("diverge/agents/risk_mgmt/conservative_debator.py"),
+    Path("diverge/agents/risk_mgmt/neutral_debator.py"),
+    Path("diverge/agents/trader/trader.py"),
 ]
 
 

@@ -8,9 +8,9 @@ from datetime import date
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from tradingagents.dataflows import vendor_usage
-from tradingagents.screener.market_calendar import latest_trading_day_on_or_before
-from tradingagents.screener.schema import ScreenRunConfig
+from diverge.dataflows import vendor_usage
+from diverge.screener.market_calendar import latest_trading_day_on_or_before
+from diverge.screener.schema import ScreenRunConfig
 from web.backend import (
     access,
     analysis_limits,

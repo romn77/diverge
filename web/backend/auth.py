@@ -33,7 +33,7 @@ load_dotenv(PROJECT_ENV_FILE)
 
 AuthMode = Literal["disabled", "optional", "required"]
 
-DEFAULT_SESSION_COOKIE_NAME = "tradingagents_session"
+DEFAULT_SESSION_COOKIE_NAME = "diverge_session"
 DEFAULT_SESSION_TTL_HOURS = 24 * 7
 DEFAULT_BOOTSTRAP_ADMIN_DISPLAY_NAME = "Administrator"
 DEFAULT_TENANT_ID = "default"
@@ -215,7 +215,7 @@ def ensure_login_allowed(email: str | None, ip_address: str | None) -> None:
     redis_client = _login_failure_redis_client()
     if redis_client is not None:
         for key in keys:
-            redis_key = f"tradingagents:auth:failures:{key}"
+            redis_key = f"diverge:auth:failures:{key}"
             redis_client.zremrangebyscore(redis_key, 0, cutoff)
             if int(redis_client.zcard(redis_key) or 0) >= LOGIN_FAILURE_LIMIT:
                 raise HTTPException(
@@ -241,7 +241,7 @@ def record_login_failure(email: str | None, ip_address: str | None) -> None:
     redis_client = _login_failure_redis_client()
     if redis_client is not None:
         for key in keys:
-            redis_key = f"tradingagents:auth:failures:{key}"
+            redis_key = f"diverge:auth:failures:{key}"
             redis_client.zremrangebyscore(redis_key, 0, cutoff)
             redis_client.zadd(redis_key, {str(now): now})
             redis_client.expire(redis_key, LOGIN_FAILURE_WINDOW_SECONDS)
@@ -258,8 +258,8 @@ def clear_login_failures(email: str | None, ip_address: str | None) -> None:
     redis_client = _login_failure_redis_client()
     if redis_client is not None:
         redis_client.delete(
-            f"tradingagents:auth:failures:{email_key}",
-            f"tradingagents:auth:failures:{pair_key}",
+            f"diverge:auth:failures:{email_key}",
+            f"diverge:auth:failures:{pair_key}",
         )
         return
     with _LOGIN_FAILURE_LOCK:

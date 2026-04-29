@@ -4,10 +4,10 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-from tradingagents.data_layout import DEFAULT_EVAL_RESULTS_DIR
-from tradingagents.default_config import DEFAULT_CONFIG
-from tradingagents.screener.schema import ScreenRunConfig
-from tradingagents import trade_feedback
+from diverge.data_layout import DEFAULT_EVAL_RESULTS_DIR
+from diverge.default_config import DEFAULT_CONFIG
+from diverge.screener.schema import ScreenRunConfig
+from diverge import trade_feedback
 
 
 def test_screen_run_config_defaults_to_data_storage_layout():

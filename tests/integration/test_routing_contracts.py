@@ -1,10 +1,10 @@
 import inspect
 import unittest
 
-from tradingagents.agents.utils.core_stock_tools import get_stock_data
-from tradingagents.agents.utils.fundamental_data_tools import get_fundamentals
-from tradingagents.agents.utils.news_data_tools import get_news
-from tradingagents.agents.utils.technical_indicators_tools import get_indicators
+from diverge.agents.utils.core_stock_tools import get_stock_data
+from diverge.agents.utils.fundamental_data_tools import get_fundamentals
+from diverge.agents.utils.news_data_tools import get_news
+from diverge.agents.utils.technical_indicators_tools import get_indicators
 
 
 class RoutingContractTests(unittest.TestCase):

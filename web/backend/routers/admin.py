@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from tradingagents.dataflows import vendor_usage
+from diverge.dataflows import vendor_usage
 from web.backend import access, analysis_limits, audit, auth, data_sources, llm_models
-from web.backend.runtime import analysis_tasks, screener_tasks, task_store
+from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks, task_store
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
     AdminDataSourceRouteUpdatePayload,
@@ -97,12 +97,27 @@ def _screener_label(payload: dict) -> str:
     return str(payload.get("id") or "Screener task")
 
 
+def _data_sync_label(payload: dict) -> str:
+    sync_type = str(payload.get("sync_type") or "data sync")
+    request_payload = payload.get("request_payload")
+    if isinstance(request_payload, dict):
+        markets = request_payload.get("markets")
+        if isinstance(markets, list) and markets:
+            return f"{sync_type}: {', '.join(str(market) for market in markets)}"
+        market = request_payload.get("market")
+        if market:
+            return f"{sync_type}: {market}"
+    return str(payload.get("id") or "Data sync task")
+
+
 def _active_task_payloads(kind: str) -> list[dict]:
     if task_store.redis_task_backend_enabled():
         return task_store.get_task_store().list_tasks(kind)
     if kind == "analysis":
         return [task.to_dict() for task in analysis_tasks.list_tasks()]
-    return [task.to_dict() for task in screener_tasks.list_screener_tasks()]
+    if kind == "screener":
+        return [task.to_dict() for task in screener_tasks.list_screener_tasks()]
+    return [task.to_dict() for task in data_sync_tasks.list_data_sync_tasks()]
 
 
 def _queue_position(kind: str, task_id: str, payload: dict) -> int | None:
@@ -122,7 +137,15 @@ def _serialize_queue_item(
     status = _normalize_queue_status(payload.get("status"))
     owner_user_id = payload.get("owner_user_id")
     owner = user_lookup.get(str(owner_user_id)) if owner_user_id else None
-    label = _analysis_label(payload) if kind == "analysis" else _screener_label(payload)
+    if kind == "analysis":
+        label = _analysis_label(payload)
+        detail_path = f"/tasks/{task_id}"
+    elif kind == "screener":
+        label = _screener_label(payload)
+        detail_path = f"/screener-tasks/{task_id}"
+    else:
+        label = _data_sync_label(payload)
+        detail_path = "/admin/data-sources"
     return {
         "kind": kind,
         "task_id": task_id,
@@ -138,7 +161,7 @@ def _serialize_queue_item(
         "blocked_reason": payload.get("blocked_reason"),
         "blocked_vendor": payload.get("blocked_vendor"),
         "blocked_until": payload.get("blocked_until"),
-        "detail_path": f"/tasks/{task_id}" if kind == "analysis" else f"/screener-tasks/{task_id}",
+        "detail_path": detail_path,
     }
 
 
@@ -170,7 +193,7 @@ def list_admin_task_queue(request: Request = None) -> dict:
         raise access.translate_auth_error(exc) from exc
 
     items: list[dict] = []
-    for kind in ("analysis", "screener"):
+    for kind in task_store.TASK_KINDS:
         for payload in _active_task_payloads(kind):
             if actor is not None and payload.get("tenant_id") != actor.tenant_id:
                 continue

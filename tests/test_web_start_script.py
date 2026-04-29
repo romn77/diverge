@@ -53,7 +53,7 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('TASK_GLOBAL_PENDING_LIMIT="${TASK_GLOBAL_PENDING_LIMIT:-100}"', source)
         self.assertIn('TASK_USER_PENDING_LIMIT_OPERATOR="${TASK_USER_PENDING_LIMIT_OPERATOR:-5}"', source)
         self.assertIn('REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"', source)
-        self.assertIn('WORKER_LOG="${WORKER_LOG:-/tmp/tradingagents-worker.log}"', source)
+        self.assertIn('WORKER_LOG="${WORKER_LOG:-/tmp/diverge-worker.log}"', source)
         self.assertIn('WORKER_PID=""', source)
         self.assertIn('ensure_redis_available() {', source)
         self.assertIn('if [ "$TASK_BACKEND" != "redis" ]; then', source)
@@ -106,7 +106,7 @@ class WebStartScriptTests(unittest.TestCase):
                     [
                         "AUTH_ENABLED=true",
                         "AUTH_MODE=required",
-                        "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/tradingagents",
+                        "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/diverge",
                     ]
                 )
                 + "\n",

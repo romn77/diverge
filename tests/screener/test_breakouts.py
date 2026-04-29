@@ -3,11 +3,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from tradingagents.screener.breakouts import (
+from diverge.screener.breakouts import (
     BREAKOUT_HISTORY_MIN_BARS,
     detect_breakout_signal,
 )
-from tradingagents.screener.indicators import build_feature_row
+from diverge.screener.indicators import build_feature_row
 
 
 def _history_frame(

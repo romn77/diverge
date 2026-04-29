@@ -1,9 +1,9 @@
 import copy
 import unittest
 
-import tradingagents.default_config as default_config
-import tradingagents.dataflows.config as config_module
-import tradingagents.dataflows.interface as interface
+import diverge.default_config as default_config
+import diverge.dataflows.config as config_module
+import diverge.dataflows.interface as interface
 
 
 class VendorRegistryTests(unittest.TestCase):

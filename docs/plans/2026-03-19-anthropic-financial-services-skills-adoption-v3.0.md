@@ -4,7 +4,7 @@
 
 > **Supersedes:** `docs/plans/002-fundamental-analysis-dcf.md`
 
-**Goal:** Adapt the highest-fit skills from Anthropic's `financial-services-plugins` repository into TradingAgents as native Python tools, prompts, and report outputs without introducing a Claude plugin runtime dependency.
+**Goal:** Adapt the highest-fit skills from Anthropic's `financial-services-plugins` repository into Diverge as native Python tools, prompts, and report outputs without introducing a Claude plugin runtime dependency.
 
 **Architecture:** Implement this in three waves. Wave 1 ports `dcf-model` and `comps-analysis` into a native valuation package and the existing fundamentals analyst. Wave 2 ports equity-research workflows such as `earnings-analysis` and `earnings-preview` into the existing research/report flow. Wave 3 adds persistent research artifacts inspired by `thesis-tracker` and `catalyst-calendar`, while preserving the current LangGraph graph shape and markdown-first report contract.
 
@@ -53,7 +53,7 @@ This plan explicitly does **not** try to import Anthropic's plugin runtime, MCP 
 
 - Keep the existing `market`, `social`, `news`, and `fundamentals` analyst graph topology intact for the first milestone.
 - Preserve `fundamentals_report`, `news_report`, and other markdown report fields consumed downstream.
-- Reuse `tradingagents.dataflows.interface` instead of adding direct provider calls inside analysts.
+- Reuse `diverge.dataflows.interface` instead of adding direct provider calls inside analysts.
 - Prefer structured calculation modules plus markdown formatters over adding new agent roles immediately.
 - Add tests before introducing each calculation or output contract change.
 
@@ -63,8 +63,8 @@ This section folds in the key decisions from the previous standalone DCF plan so
 
 ### Current repository baseline
 
-- TradingAgents already has a `fundamentals` analyst and should not add a parallel analyst role for valuation.
-- Existing fundamental data enters through `tradingagents.dataflows.interface` and its vendor routing layer.
+- Diverge already has a `fundamentals` analyst and should not add a parallel analyst role for valuation.
+- Existing fundamental data enters through `diverge.dataflows.interface` and its vendor routing layer.
 - Existing downstream consumers expect markdown report fields such as `fundamentals_report`.
 - The current web product is a report/task UI, not a dedicated interactive valuation workbench.
 
@@ -81,7 +81,7 @@ This section folds in the key decisions from the previous standalone DCF plan so
 The first Wave 1 implementation should converge on this internal package:
 
 ```text
-tradingagents/
+diverge/
 ├── valuation/
 │   ├── __init__.py
 │   ├── schemas.py
@@ -148,11 +148,11 @@ Wave 1 must keep the current markdown report contract intact:
 ## Task 1: Create the native valuation package for Anthropic financial-analysis skill adoption
 
 **Files:**
-- Create: `tradingagents/valuation/__init__.py`
-- Create: `tradingagents/valuation/schemas.py`
-- Create: `tradingagents/valuation/dcf.py`
-- Create: `tradingagents/valuation/multiples.py`
-- Create: `tradingagents/valuation/sensitivity.py`
+- Create: `diverge/valuation/__init__.py`
+- Create: `diverge/valuation/schemas.py`
+- Create: `diverge/valuation/dcf.py`
+- Create: `diverge/valuation/multiples.py`
+- Create: `diverge/valuation/sensitivity.py`
 - Create: `tests/valuation/test_dcf.py`
 - Create: `tests/valuation/test_multiples.py`
 
@@ -190,15 +190,15 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/valuation tests/valuation
+git add diverge/valuation tests/valuation
 git commit -m "feat: add native valuation package for skill adoption"
 ```
 
 ## Task 2: Add a normalization layer that converts current vendor outputs into valuation-ready inputs
 
 **Files:**
-- Create: `tradingagents/dataflows/fundamentals_normalizer.py`
-- Modify: `tradingagents/dataflows/interface.py`
+- Create: `diverge/dataflows/fundamentals_normalizer.py`
+- Modify: `diverge/dataflows/interface.py`
 - Create: `tests/dataflows/test_fundamentals_normalizer.py`
 - Modify: `tests/dataflows/test_interface_routing.py`
 
@@ -237,16 +237,16 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/dataflows tests/dataflows
+git add diverge/dataflows tests/dataflows
 git commit -m "feat: add fundamentals normalization for valuation workflows"
 ```
 
 ## Task 3: Integrate `dcf-model` and `comps-analysis` into the existing fundamentals analyst
 
 **Files:**
-- Modify: `tradingagents/agents/analysts/fundamentals_analyst.py`
-- Create: `tradingagents/valuation/formatter.py`
-- Modify: `tradingagents/agents/utils/fundamental_data_tools.py`
+- Modify: `diverge/agents/analysts/fundamentals_analyst.py`
+- Create: `diverge/valuation/formatter.py`
+- Modify: `diverge/agents/utils/fundamental_data_tools.py`
 - Create: `tests/agents/test_fundamentals_prompt_highlights.py`
 - Modify: `tests/agents/test_prompt_highlights_runtime.py`
 
@@ -280,17 +280,17 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/agents tradingagents/valuation tests/agents
+git add diverge/agents diverge/valuation tests/agents
 git commit -m "feat: integrate valuation skills into fundamentals analyst"
 ```
 
 ## Task 4: Port `earnings-analysis` and `earnings-preview` into the current research flow without adding a new graph branch
 
 **Files:**
-- Create: `tradingagents/research/__init__.py`
-- Create: `tradingagents/research/earnings.py`
-- Modify: `tradingagents/agents/analysts/news_analyst.py`
-- Modify: `tradingagents/agents/analysts/fundamentals_analyst.py`
+- Create: `diverge/research/__init__.py`
+- Create: `diverge/research/earnings.py`
+- Modify: `diverge/agents/analysts/news_analyst.py`
+- Modify: `diverge/agents/analysts/fundamentals_analyst.py`
 - Create: `tests/agents/test_earnings_workflow_prompts.py`
 
 **Step 1: Write the failing test**
@@ -326,15 +326,15 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/research tradingagents/agents tests/agents
+git add diverge/research diverge/agents tests/agents
 git commit -m "feat: add earnings preview and analysis workflows"
 ```
 
 ## Task 5: Add thesis tracking inspired by Anthropic's `thesis-tracker`
 
 **Files:**
-- Create: `tradingagents/research/thesis_tracker.py`
-- Modify: `tradingagents/runner.py`
+- Create: `diverge/research/thesis_tracker.py`
+- Modify: `diverge/runner.py`
 - Modify: `web/backend/main.py`
 - Create: `tests/agents/test_thesis_tracker.py`
 - Create: `tests/web/test_thesis_artifact_listing.py`
@@ -373,7 +373,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/research tradingagents/runner.py web/backend/main.py tests/agents tests/web
+git add diverge/research diverge/runner.py web/backend/main.py tests/agents tests/web
 git commit -m "feat: add thesis tracking artifacts for research flows"
 ```
 
@@ -474,7 +474,7 @@ git commit -m "test: verify anthropic skill adoption flow end-to-end"
 
 ## Definition of done
 
-- `dcf-model` and `comps-analysis` ideas exist as native TradingAgents valuation modules.
+- `dcf-model` and `comps-analysis` ideas exist as native Diverge valuation modules.
 - fundamentals reports contain structured valuation summaries without breaking downstream consumers.
 - earnings preview and post-earnings analysis have reusable prompt/workflow helpers.
 - thesis tracking exists as an optional report artifact.

@@ -7,13 +7,13 @@ from typing import Any
 from sqlalchemy import Boolean, DateTime, Index, Integer, String, func, inspect, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
-from tradingagents.llm_clients.model_config import (
+from diverge.llm_clients.model_config import (
     DEEP_MODEL_OPTIONS,
     PROVIDER_OPTIONS,
     QUICK_MODEL_OPTIONS,
     get_provider_base_url,
 )
-from tradingagents.llm_clients.model_profiles import (
+from diverge.llm_clients.model_profiles import (
     PROVIDER_API_KEY_ENV_VARS,
     STATIC_MODEL_PROFILES,
     ModelRoute,

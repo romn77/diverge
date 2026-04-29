@@ -2,7 +2,7 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** 为当前 TradingAgents 项目提供一套贴合现状的单机部署方式，使用 Dockerfile 打包前后端运行环境，并通过 Docker Compose 在一台机器上稳定启动 Web 界面和后台分析任务。
+**Goal:** 为当前 Diverge 项目提供一套贴合现状的单机部署方式，使用 Dockerfile 打包前后端运行环境，并通过 Docker Compose 在一台机器上稳定启动 Web 界面和后台分析任务。
 
 **Architecture:** 当前项目的 Web 任务流依赖本地 `reports/` 目录、`reports/.tmp/` 临时写入、以及后端进程内的任务状态，因此最合适的部署方式是单机部署。采用“两容器 + 主机挂载目录”的方式：一个容器运行 FastAPI backend，一个容器运行 Next.js frontend，二者由 root 级 `docker-compose.yml` 编排，主机目录负责持久化报告和提供 `.env` 配置。
 
@@ -169,7 +169,7 @@
 ├── web/
 │   ├── backend/
 │   └── frontend/
-├── tradingagents/
+├── diverge/
 ├── reports/
 ├── requirements.txt
 ├── pyproject.toml
@@ -181,7 +181,7 @@
 1. backend 镜像
    - **Dockerfile 放在**: `web/backend/Dockerfile`
    - **build context 用仓库根目录**: `.`
-   - 原因：backend 运行时需要导入 `tradingagents`、`cli`、`requirements.txt`、`pyproject.toml`
+   - 原因：backend 运行时需要导入 `diverge`、`cli`、`requirements.txt`、`pyproject.toml`
 
 2. frontend 镜像
    - **Dockerfile 放在**: `web/frontend/Dockerfile`

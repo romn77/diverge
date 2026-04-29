@@ -8,7 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from tradingagents.runner import AnalysisRequest
+from diverge.runner import AnalysisRequest
 from tests.web.auth_helpers import AuthClientMixin
 from tests.web.http_harness import app_client
 from web.backend import analysis_limits, app_config, auth, screener_results, screener_runs

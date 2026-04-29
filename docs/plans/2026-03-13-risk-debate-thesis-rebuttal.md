@@ -24,7 +24,7 @@ actual analysis.
 4. Leave bull/bear debate unchanged for now because only the first bull turn has
    an empty opponent response, while the risk debate has a stronger three-party
    mismatch
-5. Fix config propagation so `TradingAgentsGraph` passes configured round limits
+5. Fix config propagation so `DivergeGraph` passes configured round limits
    into `ConditionalLogic`
 
 ## Intended Behavior
@@ -45,17 +45,17 @@ Examples:
 
 ## Implementation Scope
 
-- `tradingagents/graph/conditional_logic.py`
-- `tradingagents/graph/trading_graph.py`
-- `tradingagents/agents/risk_mgmt/aggressive_debator.py`
-- `tradingagents/agents/risk_mgmt/conservative_debator.py`
-- `tradingagents/agents/risk_mgmt/neutral_debator.py`
+- `diverge/graph/conditional_logic.py`
+- `diverge/graph/trading_graph.py`
+- `diverge/agents/risk_mgmt/aggressive_debator.py`
+- `diverge/agents/risk_mgmt/conservative_debator.py`
+- `diverge/agents/risk_mgmt/neutral_debator.py`
 - tests covering phase semantics, prompt mode switching, and config propagation
 
 ## Verification Plan
 
 - unit tests for risk debate phase semantics
 - unit tests for risk prompt mode switching
-- unit test proving `TradingAgentsGraph` passes configured round limits to
+- unit test proving `DivergeGraph` passes configured round limits to
   `ConditionalLogic`
 - `py_compile` on modified Python modules

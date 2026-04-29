@@ -32,11 +32,11 @@
 
 对应代码：
 
-- `tradingagents/graph/trading_graph.py`
-- `tradingagents/dataflows/interface.py`
-- `tradingagents/agents/utils/core_stock_tools.py`
-- `tradingagents/agents/utils/fundamental_data_tools.py`
-- `tradingagents/agents/utils/news_data_tools.py`
+- `diverge/graph/trading_graph.py`
+- `diverge/dataflows/interface.py`
+- `diverge/agents/utils/core_stock_tools.py`
+- `diverge/agents/utils/fundamental_data_tools.py`
+- `diverge/agents/utils/news_data_tools.py`
 
 ### 2.2 当前 CN 市场默认 vendor 路由
 

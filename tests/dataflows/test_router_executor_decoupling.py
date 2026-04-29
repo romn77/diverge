@@ -1,8 +1,8 @@
 import copy
 import unittest
 
-import tradingagents.dataflows.interface as interface
-from tradingagents.dataflows.vendor_errors import VendorRetryableError
+import diverge.dataflows.interface as interface
+from diverge.dataflows.vendor_errors import VendorRetryableError
 
 
 class RouterExecutorDecouplingTests(unittest.TestCase):

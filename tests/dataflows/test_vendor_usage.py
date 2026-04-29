@@ -4,9 +4,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from tradingagents.dataflows import vendor_usage
-from tradingagents.dataflows.vendor_usage import QuotaWaitRequired
-from tradingagents.dataflows.interface import execute_vendor_chain
+from diverge.dataflows import vendor_usage
+from diverge.dataflows.vendor_usage import QuotaWaitRequired
+from diverge.dataflows.interface import execute_vendor_chain
 from web.backend import auth
 from web.backend.schemas.admin import AdminDataSourceRouteUpdatePayload
 
@@ -289,7 +289,7 @@ class VendorUsageDatabaseTests(unittest.TestCase):
                 vendor_usage.is_data_source_available("alpha_vantage")
 
     def test_database_route_policy_overrides_analysis_vendor_chain(self):
-        from tradingagents.dataflows.interface import build_vendor_chain
+        from diverge.dataflows.interface import build_vendor_chain
         from web.backend.routers import admin as admin_router
         from web.backend import data_sources
 

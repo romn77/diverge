@@ -3,10 +3,10 @@ import unittest
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langchain_core.runnables import RunnableLambda
 
-from tradingagents.agents.analysts.market_analyst import create_market_analyst
-from tradingagents.agents.trader.trader import create_trader
-from tradingagents.agents.utils.agent_utils import create_msg_delete
-from tradingagents.graph.propagation import Propagator
+from diverge.agents.analysts.market_analyst import create_market_analyst
+from diverge.agents.trader.trader import create_trader
+from diverge.agents.utils.agent_utils import create_msg_delete
+from diverge.graph.propagation import Propagator
 
 
 class _FakeLLM:

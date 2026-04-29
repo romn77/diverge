@@ -4,7 +4,7 @@
 
 **Goal:** Build a dual-market daily screener MVP that generates a ranked candidate pool for CN and US stocks without invoking LLM analysis.
 
-**Architecture:** Add a new `tradingagents.screener` subsystem that reads a market universe, fetches DataFrame-level OHLCV data through internal vendor helpers, computes daily indicators and derived factors, applies hard filters, ranks survivors within each market, and writes standardized artifacts for downstream human review or LLM research selection. Keep the existing `analyze` workflow unchanged; expose the screener only through a new CLI command and file outputs under `results/screener/`. The implementation must normalize vendor unit differences, use sequential rate-limited Tushare fetching with retry/backoff, and surface progress updates while long-running fetches are in flight.
+**Architecture:** Add a new `diverge.screener` subsystem that reads a market universe, fetches DataFrame-level OHLCV data through internal vendor helpers, computes daily indicators and derived factors, applies hard filters, ranks survivors within each market, and writes standardized artifacts for downstream human review or LLM research selection. Keep the existing `analyze` workflow unchanged; expose the screener only through a new CLI command and file outputs under `results/screener/`. The implementation must normalize vendor unit differences, use sequential rate-limited Tushare fetching with retry/backoff, and surface progress updates while long-running fetches are in flight.
 
 **Tech Stack:** Python 3.10+, pandas, stockstats, typer, existing `tushare` / `yfinance` internal helpers, pytest/unittest.
 
@@ -29,8 +29,8 @@
 
 ## Public Interfaces And Artifacts
 
-- New Python entrypoint: `tradingagents.screener.pipeline.run_screen(config: ScreenRunConfig, progress_callback: Callable | None = None) -> ScreenRunResult`
-- New CLI command: `tradingagents screen --date YYYY-MM-DD --markets cn,us --top-k 100 --limit-per-market 500 --us-manifest /abs/path.csv --output-dir ./results/screener`
+- New Python entrypoint: `diverge.screener.pipeline.run_screen(config: ScreenRunConfig, progress_callback: Callable | None = None) -> ScreenRunResult`
+- New CLI command: `diverge screen --date YYYY-MM-DD --markets cn,us --top-k 100 --limit-per-market 500 --us-manifest /abs/path.csv --output-dir ./results/screener`
 - New web endpoints:
   - `GET /api/screener/config/options`
   - `POST /api/screener/tasks`
@@ -77,7 +77,7 @@
 
 ### `ScreenRunConfig`
 
-Implement as a dataclass in `tradingagents/screener/schema.py` with these fields and defaults:
+Implement as a dataclass in `diverge/screener/schema.py` with these fields and defaults:
 
 - `markets: list[str]`
 - `as_of_date: str`
@@ -217,8 +217,8 @@ Each row in `candidates.csv` and each object in `llm_pool.json` must contain:
 ### Task 1: Create screener package scaffolding and config schema
 
 **Files:**
-- Create: `tradingagents/screener/__init__.py`
-- Create: `tradingagents/screener/schema.py`
+- Create: `diverge/screener/__init__.py`
+- Create: `diverge/screener/schema.py`
 - Create: `tests/screener/__init__.py`
 - Test: `tests/screener/test_schema.py`
 
@@ -234,7 +234,7 @@ Add tests for:
 **Step 2: Run test to verify it fails**
 
 Run: `pytest tests/screener/test_schema.py -q`
-Expected: FAIL because `tradingagents.screener.schema` does not exist yet.
+Expected: FAIL because `diverge.screener.schema` does not exist yet.
 
 **Step 3: Write minimal implementation**
 
@@ -263,17 +263,17 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/__init__.py tradingagents/screener/schema.py tests/screener/__init__.py tests/screener/test_schema.py
+git add diverge/screener/__init__.py diverge/screener/schema.py tests/screener/__init__.py tests/screener/test_schema.py
 git commit -m "feat(screener): add screener config schema"
 ```
 
 ### Task 2: Implement universe loading for CN and US
 
 **Files:**
-- Create: `tradingagents/screener/universe.py`
+- Create: `diverge/screener/universe.py`
 - Test: `tests/screener/test_universe.py`
-- Reference: `tradingagents/dataflows/tushare_fundamentals.py`
-- Reference: `tradingagents/dataflows/tushare_common.py`
+- Reference: `diverge/dataflows/tushare_fundamentals.py`
+- Reference: `diverge/dataflows/tushare_common.py`
 
 **Step 1: Write the failing test**
 
@@ -314,18 +314,18 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/universe.py tests/screener/test_universe.py
+git add diverge/screener/universe.py tests/screener/test_universe.py
 git commit -m "feat(screener): add dual-market universe loaders"
 ```
 
 ### Task 3: Add DataFrame-level market data adapters
 
 **Files:**
-- Create: `tradingagents/screener/market_data.py`
+- Create: `diverge/screener/market_data.py`
 - Test: `tests/screener/test_market_data.py`
-- Reference: `tradingagents/dataflows/tushare_stock.py`
-- Reference: `tradingagents/dataflows/y_finance.py`
-- Reference: `tradingagents/dataflows/vendor_errors.py`
+- Reference: `diverge/dataflows/tushare_stock.py`
+- Reference: `diverge/dataflows/y_finance.py`
+- Reference: `diverge/dataflows/vendor_errors.py`
 
 **Step 1: Write the failing test**
 
@@ -372,17 +372,17 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/market_data.py tests/screener/test_market_data.py
+git add diverge/screener/market_data.py tests/screener/test_market_data.py
 git commit -m "feat(screener): add dataframe-level market data adapters"
 ```
 
 ### Task 4: Compute derived features and technical indicators
 
 **Files:**
-- Create: `tradingagents/screener/indicators.py`
+- Create: `diverge/screener/indicators.py`
 - Test: `tests/screener/test_indicators.py`
-- Reference: `tradingagents/dataflows/cn_market_utils.py`
-- Reference: `tradingagents/dataflows/stockstats_utils.py`
+- Reference: `diverge/dataflows/cn_market_utils.py`
+- Reference: `diverge/dataflows/stockstats_utils.py`
 
 **Step 1: Write the failing test**
 
@@ -422,15 +422,15 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/indicators.py tests/screener/test_indicators.py
+git add diverge/screener/indicators.py tests/screener/test_indicators.py
 git commit -m "feat(screener): add feature and indicator computation"
 ```
 
 ### Task 5: Apply hard filters and compute scores
 
 **Files:**
-- Create: `tradingagents/screener/filters.py`
-- Create: `tradingagents/screener/ranker.py`
+- Create: `diverge/screener/filters.py`
+- Create: `diverge/screener/ranker.py`
 - Test: `tests/screener/test_filters.py`
 - Test: `tests/screener/test_ranker.py`
 
@@ -508,15 +508,15 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/filters.py tradingagents/screener/ranker.py tests/screener/test_filters.py tests/screener/test_ranker.py
+git add diverge/screener/filters.py diverge/screener/ranker.py tests/screener/test_filters.py tests/screener/test_ranker.py
 git commit -m "feat(screener): add filtering and ranking"
 ```
 
 ### Task 6: Persist artifacts and orchestrate the end-to-end pipeline
 
 **Files:**
-- Create: `tradingagents/screener/storage.py`
-- Create: `tradingagents/screener/pipeline.py`
+- Create: `diverge/screener/storage.py`
+- Create: `diverge/screener/pipeline.py`
 - Test: `tests/screener/test_pipeline.py`
 
 **Step 1: Write the failing test**
@@ -569,7 +569,7 @@ Expected: PASS
 **Step 5: Commit**
 
 ```bash
-git add tradingagents/screener/storage.py tradingagents/screener/pipeline.py tests/screener/test_pipeline.py
+git add diverge/screener/storage.py diverge/screener/pipeline.py tests/screener/test_pipeline.py
 git commit -m "feat(screener): add artifact writer and pipeline orchestration"
 ```
 
@@ -579,8 +579,8 @@ git commit -m "feat(screener): add artifact writer and pipeline orchestration"
 - Modify: `cli/main.py`
 - Create: `tests/cli/__init__.py`
 - Create: `tests/cli/test_screen_command.py`
-- Reference: `tradingagents/screener/schema.py`
-- Reference: `tradingagents/screener/pipeline.py`
+- Reference: `diverge/screener/schema.py`
+- Reference: `diverge/screener/pipeline.py`
 
 **Step 1: Write the failing test**
 
@@ -614,7 +614,7 @@ CLI behavior:
   - run directory path
 - render progress for long-running fetches with `rich.progress` so the command does not appear hung
 
-Do not call `TradingAgentsGraph` or any existing agent workflow from this command.
+Do not call `DivergeGraph` or any existing agent workflow from this command.
 
 **Step 4: Run test to verify it passes**
 
@@ -633,8 +633,8 @@ git commit -m "feat(cli): add screener command"
 **Files:**
 - Modify: `web/backend/main.py`
 - Modify: `tests/web/test_backend_main.py`
-- Reference: `tradingagents/screener/schema.py`
-- Reference: `tradingagents/screener/pipeline.py`
+- Reference: `diverge/screener/schema.py`
+- Reference: `diverge/screener/pipeline.py`
 
 **Step 1: Write the failing test**
 
@@ -828,7 +828,7 @@ Expected: PASS
 
 Optional smoke run if credentials and manifest are available:
 
-Run: `tradingagents screen --date 2026-03-21 --markets cn,us --top-k 20 --limit-per-market 20 --us-manifest /abs/path/to/us_manifest.csv --output-dir ./results/screener`
+Run: `diverge screen --date 2026-03-21 --markets cn,us --top-k 20 --limit-per-market 20 --us-manifest /abs/path/to/us_manifest.csv --output-dir ./results/screener`
 Expected: command exits successfully and writes all artifacts under a new timestamped directory.
 
 Optional web smoke:
@@ -849,7 +849,7 @@ git commit -m "docs: add screener cli and web usage notes"
 
 ## Acceptance Criteria
 
-- `tradingagents screen` exists and runs independently of the existing `analyze` workflow.
+- `diverge screen` exists and runs independently of the existing `analyze` workflow.
 - Web UI includes a `New Screener` launch button separate from `New Analysis`.
 - Web list page includes a visible screener launch action without requiring the user to first open a report.
 - Web UI can start a screener task, show screener progress, and open a screener results list after completion.

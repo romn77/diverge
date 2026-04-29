@@ -3,9 +3,9 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tradingagents"
+name = "diverge"
 version = "0.2.3"
-description = "TradingAgents: Multi-Agents LLM Financial Trading Framework"
+description = "Diverge: Multi-Agents LLM Financial Trading Framework"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -59,10 +59,10 @@ dev = [
 ]
 
 [project.scripts]
-tradingagents = "cli.main:app"
+diverge = "cli.main:app"
 
 [tool.setuptools.packages.find]
-include = ["tradingagents*", "cli*"]
+include = ["diverge*", "cli*"]
 
 [tool.setuptools.package-data]
 cli = ["static/*"]

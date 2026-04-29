@@ -14,8 +14,8 @@ from typing import Optional
 
 from fastapi import HTTPException
 
-from tradingagents.dataflows import vendor_usage
-from tradingagents.runner import (
+from diverge.dataflows import vendor_usage
+from diverge.runner import (
     AnalysisProgress,
     AnalysisRequest,
     run_analysis_streaming,

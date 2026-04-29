@@ -7,9 +7,9 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from tradingagents.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
-from tradingagents.screener.history_cache import checkpoint_path, save_checkpoint
-from tradingagents.screener.market_data import (
+from diverge.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
+from diverge.screener.history_cache import checkpoint_path, save_checkpoint
+from diverge.screener.market_data import (
     fetch_history_for_universe,
     fetch_price_history,
 )
@@ -54,7 +54,7 @@ def test_fetch_price_history_uses_tushare_for_cn_and_normalizes_amount():
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_tushare_stock_df",
+        "diverge.screener.market_data._fetch_tushare_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history("600519.SH", "cn", "2025-01-01", "2026-03-24")
@@ -79,7 +79,7 @@ def test_fetch_price_history_uses_akshare_for_cn_and_normalizes_symbol():
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_akshare_stock_df",
+        "diverge.screener.market_data._fetch_akshare_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -109,7 +109,7 @@ def test_fetch_price_history_uses_yfinance_for_us_and_computes_amount_when_missi
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history("AAPL", "us", "2025-01-01", "2026-03-24")
@@ -139,7 +139,7 @@ def test_fetch_price_history_uses_alpha_vantage_for_us_and_computes_amount_when_
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_alpha_vantage_stock_df",
+        "diverge.screener.market_data._fetch_alpha_vantage_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -170,7 +170,7 @@ def test_fetch_price_history_uses_tushare_for_us_and_keeps_amount():
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_tushare_us_stock_df",
+        "diverge.screener.market_data._fetch_tushare_us_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -200,7 +200,7 @@ def test_fetch_price_history_uses_akshare_for_us_and_computes_amount_when_missin
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_akshare_us_stock_df",
+        "diverge.screener.market_data._fetch_akshare_us_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -230,7 +230,7 @@ def test_fetch_price_history_uses_massive_for_us_and_computes_amount_when_missin
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_massive_stock_df",
+        "diverge.screener.market_data._fetch_massive_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -247,7 +247,7 @@ def test_fetch_price_history_uses_massive_for_us_and_computes_amount_when_missin
 
 def test_fetch_price_history_handles_empty_us_frame_without_columns():
     with patch(
-        "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
         return_value=pd.DataFrame(),
     ) as mock_fetch:
         result = fetch_price_history("NVDA", "us", "2026-03-26", "2026-03-26")
@@ -302,7 +302,7 @@ def test_fetch_price_history_enforces_canonical_history_contract():
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
         return_value=frame,
     ):
         result = fetch_price_history("AAPL", "us", "2025-01-01", "2026-03-25")
@@ -328,7 +328,7 @@ def test_fetch_price_history_normalizes_us_share_class_symbol_for_yfinance():
     )
 
     with patch(
-        "tradingagents.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history("BRK.B", "us", "2025-01-01", "2026-03-24")
@@ -352,7 +352,7 @@ def test_fetch_history_for_universe_records_empty_results_as_history_empty(tmp_p
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=pd.DataFrame(),
     ):
         histories, failures = fetch_history_for_universe(
@@ -396,14 +396,14 @@ def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding(t
 
     with (
         patch(
-            "tradingagents.screener.market_data.fetch_price_history",
+            "diverge.screener.market_data.fetch_price_history",
             side_effect=[
                 VendorRetryableError("retry 1"),
                 VendorRetryableError("retry 2"),
                 success_frame,
             ],
         ) as mock_fetch,
-        patch("tradingagents.screener.market_data.time.sleep") as mock_sleep,
+        patch("diverge.screener.market_data.time.sleep") as mock_sleep,
     ):
         histories, failures = fetch_history_for_universe(
             universe,
@@ -432,7 +432,7 @@ def test_fetch_history_for_universe_uses_configured_us_data_source(tmp_path):
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=success_frame,
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -466,7 +466,7 @@ def test_fetch_history_for_universe_uses_configured_tushare_us_data_source(tmp_p
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=success_frame,
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -500,7 +500,7 @@ def test_fetch_history_for_universe_uses_configured_akshare_us_data_source(tmp_p
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=success_frame,
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -534,7 +534,7 @@ def test_fetch_history_for_universe_uses_configured_massive_us_data_source(tmp_p
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=success_frame,
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -573,8 +573,8 @@ def test_fetch_history_for_universe_reraises_raw_cn_error_after_retries_exhauste
         )
 
     with (
-        patch("tradingagents.screener.market_data.fetch_price_history", side_effect=raise_wrapped),
-        patch("tradingagents.screener.market_data.time.sleep"),
+        patch("diverge.screener.market_data.fetch_price_history", side_effect=raise_wrapped),
+        patch("diverge.screener.market_data.time.sleep"),
     ):
         with pytest.raises(RuntimeError, match="boom"):
             fetch_history_for_universe(
@@ -597,7 +597,7 @@ def test_fetch_history_for_universe_falls_back_cn_source_after_primary_retryable
     success_frame = _price_frame("2026-03-24")
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=[
             VendorRetryableError("akshare down"),
             VendorRetryableError("akshare down"),
@@ -654,10 +654,10 @@ def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols(tmp_
 
     with (
         patch(
-            "tradingagents.screener.market_data.fetch_price_history",
+            "diverge.screener.market_data.fetch_price_history",
             return_value=frame,
         ),
-        patch("tradingagents.screener.market_data.time.sleep") as mock_sleep,
+        patch("diverge.screener.market_data.time.sleep") as mock_sleep,
     ):
         fetch_history_for_universe(
             universe,
@@ -686,10 +686,10 @@ def test_fetch_history_for_universe_rate_limits_us_requests_between_symbols(tmp_
 
     with (
         patch(
-            "tradingagents.screener.market_data.fetch_price_history",
+            "diverge.screener.market_data.fetch_price_history",
             return_value=frame,
         ),
-        patch("tradingagents.screener.market_data.time.sleep") as mock_sleep,
+        patch("diverge.screener.market_data.time.sleep") as mock_sleep,
     ):
         fetch_history_for_universe(
             universe,
@@ -713,7 +713,7 @@ def test_fetch_history_for_universe_persists_empty_failures_and_retries_refetch_
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=VendorDataEmptyError("empty"),
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -736,7 +736,7 @@ def test_fetch_history_for_universe_persists_empty_failures_and_retries_refetch_
     assert mock_fetch.call_count == 1
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-24"),
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -768,7 +768,7 @@ def test_fetch_history_for_universe_does_not_write_history_failure_cache_files(t
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=VendorRetryableError("boom"),
     ):
         histories, failures = fetch_history_for_universe(
@@ -836,7 +836,7 @@ def test_fetch_history_for_universe_skips_symbols_recorded_as_failed_in_checkpoi
     )
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=AssertionError("checkpoint failures should skip refetch"),
     ):
         histories, failures = fetch_history_for_universe(
@@ -912,7 +912,7 @@ def test_fetch_history_for_universe_reports_checkpoint_source_in_progress_detail
         )
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=AssertionError("checkpoint failures should skip refetch"),
     ):
         histories, failures = fetch_history_for_universe(
@@ -978,7 +978,7 @@ def test_fetch_history_for_universe_ignores_expired_checkpoint_and_refetches(tmp
     )
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-24"),
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -1035,7 +1035,7 @@ def test_fetch_history_for_universe_uses_us_data_source_in_checkpoint_key(tmp_pa
     )
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-24"),
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -1070,7 +1070,7 @@ def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_re
     cached_frame = _price_frame("2025-02-17", "2026-03-21", "2026-03-24")
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=cached_frame,
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -1088,7 +1088,7 @@ def test_fetch_history_for_universe_writes_symbol_cache_and_reuses_it_without_re
     assert (history_dir / "us" / "AAPL.csv").is_file()
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=AssertionError("cache hit should avoid refetch"),
     ):
         histories, failures = fetch_history_for_universe(
@@ -1169,7 +1169,7 @@ def test_fetch_history_for_universe_fetches_only_missing_tail_when_cache_is_stal
     _price_frame("2025-02-17", "2026-03-20", "2026-03-21").to_csv(symbol_cache_path, index=False)
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-22", "2026-03-24"),
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -1230,7 +1230,7 @@ def test_fetch_history_for_universe_reports_tail_fetch_progress(tmp_path):
         )
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-22", "2026-03-24"),
     ):
         fetch_history_for_universe(
@@ -1287,7 +1287,7 @@ def test_fetch_history_for_universe_reports_tail_fetch_progress_for_akshare_us(t
         )
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-22", "2026-03-24"),
     ):
         fetch_history_for_universe(
@@ -1325,7 +1325,7 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=[_price_frame("2025-02-17", "2026-03-24"), RuntimeError("boom")],
     ):
         try:
@@ -1347,7 +1347,7 @@ def test_fetch_history_for_universe_recovers_from_checkpoint_and_symbol_cache_af
     assert (history_dir / "cn" / "600519.SH.csv").is_file()
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-24"),
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(
@@ -1382,7 +1382,7 @@ def test_fetch_history_for_universe_persists_checkpoint_on_keyboard_interrupt(tm
     checkpoint_dir = tmp_path / "checkpoints"
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         side_effect=[_price_frame("2025-02-17", "2026-03-24"), KeyboardInterrupt()],
     ):
         with pytest.raises(KeyboardInterrupt):
@@ -1400,7 +1400,7 @@ def test_fetch_history_for_universe_persists_checkpoint_on_keyboard_interrupt(tm
     assert (history_dir / "cn" / "600519.SH.csv").is_file()
 
     with patch(
-        "tradingagents.screener.market_data.fetch_price_history",
+        "diverge.screener.market_data.fetch_price_history",
         return_value=_price_frame("2026-03-24"),
     ) as mock_fetch:
         histories, failures = fetch_history_for_universe(

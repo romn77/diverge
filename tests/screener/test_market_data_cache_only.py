@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from tradingagents.screener.market_data import fetch_history_for_universe
+from diverge.screener.market_data import fetch_history_for_universe
 
 
 def test_fetch_history_for_universe_cache_only_does_not_call_external_vendor(tmp_path):
@@ -21,7 +21,7 @@ def test_fetch_history_for_universe_cache_only_does_not_call_external_vendor(tmp
         ]
     )
 
-    with patch("tradingagents.screener.market_data.fetch_price_history") as fetch_price_history:
+    with patch("diverge.screener.market_data.fetch_price_history") as fetch_price_history:
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-04-28",

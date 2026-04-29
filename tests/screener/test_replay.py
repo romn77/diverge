@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from tradingagents.screener.replay import replay_screen_hard_filters
+from diverge.screener.replay import replay_screen_hard_filters
 
 
 def _base_feature_row(symbol: str) -> dict:

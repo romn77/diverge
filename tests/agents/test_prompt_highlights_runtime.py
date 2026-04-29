@@ -4,18 +4,18 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-from tradingagents.agents.analysts.fundamentals_analyst import create_fundamentals_analyst
-from tradingagents.agents.managers.portfolio_manager import create_portfolio_manager
-from tradingagents.agents.managers.research_manager import create_research_manager
-from tradingagents.agents.researchers.bear_researcher import create_bear_researcher
-from tradingagents.agents.researchers.bull_researcher import create_bull_researcher
-from tradingagents.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
-from tradingagents.agents.risk_mgmt.conservative_debator import (
+from diverge.agents.analysts.fundamentals_analyst import create_fundamentals_analyst
+from diverge.agents.managers.portfolio_manager import create_portfolio_manager
+from diverge.agents.managers.research_manager import create_research_manager
+from diverge.agents.researchers.bear_researcher import create_bear_researcher
+from diverge.agents.researchers.bull_researcher import create_bull_researcher
+from diverge.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
+from diverge.agents.risk_mgmt.conservative_debator import (
     create_conservative_debator,
 )
-from tradingagents.agents.risk_mgmt.neutral_debator import create_neutral_debator
-from tradingagents.agents.trader.trader import create_trader
-from tradingagents.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
+from diverge.agents.risk_mgmt.neutral_debator import create_neutral_debator
+from diverge.agents.trader.trader import create_trader
+from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
 
 class _FakeResponse:
@@ -126,7 +126,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 result = node(state)
                 self.assertIsInstance(result, dict)
 
-    @patch("tradingagents.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+    @patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
     def test_fundamentals_analyst_runtime_supports_valuation_sections(
         self,
         mock_get_valuation_ready_fundamentals,

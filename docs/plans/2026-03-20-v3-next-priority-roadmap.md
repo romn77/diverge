@@ -1,7 +1,7 @@
-# TradingAgents v3 Next-Priority Roadmap
+# Diverge v3 Next-Priority Roadmap
 
 **Date:** 2026-03-20  
-**Supersedes:** This document does not replace [2026-03-19-anthropic-financial-services-skills-adoption-v3.0.md](/home/ron/TradingAgents/docs/plans/2026-03-19-anthropic-financial-services-skills-adoption-v3.0.md). It defines the next execution order after the first v3 adoption tranche was completed.
+**Supersedes:** This document does not replace [2026-03-19-anthropic-financial-services-skills-adoption-v3.0.md](/home/ron/Diverge/docs/plans/2026-03-19-anthropic-financial-services-skills-adoption-v3.0.md). It defines the next execution order after the first v3 adoption tranche was completed.
 
 ## Current Baseline
 
@@ -48,7 +48,7 @@ The next phase should prioritize **productizing and stabilizing the embedded cap
   Reason: they would expand operational scope and reintroduce external runtime complexity that v3 intentionally avoided.
 
 - **Investment banking and wealth management skill families**
-  Reason: they are outside the current TradingAgents core product loop and would dilute focus away from the report/research workflow already in progress.
+  Reason: they are outside the current Diverge core product loop and would dilute focus away from the report/research workflow already in progress.
 
 - **Full 3-statement or model-update port**
   Reason: those require a richer and more reliable financial schema than the current first-pass valuation core. Doing them now would compound normalization complexity too early.
@@ -69,8 +69,8 @@ The next phase should prioritize **productizing and stabilizing the embedded cap
   - `valuation_applicability_reason`
   - earnings context fields or a structured `earnings_context`
   - Explicitly formalize the currently implicit `earnings_event` path by updating:
-    - `tradingagents/agents/utils/agent_states.py`
-    - `tradingagents/graph/propagation.py`
+    - `diverge/agents/utils/agent_states.py`
+    - `diverge/graph/propagation.py`
     - backend task/request flow that feeds graph execution
 - Add instrument classification to normalized fundamentals inputs, including a first-pass distinction between operating companies and fund/ETF-style instruments.
   - Recommended classification strategy: ticker-pattern heuristics plus vendor metadata, with `yfinance` `quoteType` or equivalent vendor fields used when available.
@@ -78,7 +78,7 @@ The next phase should prioritize **productizing and stabilizing the embedded cap
   - `instrument_type` should live on `ValuationInput` rather than on per-period financial snapshots.
 - Gate DCF by valuation eligibility and render a deliberate “DCF not applicable” section for ETFs/funds instead of showing the current technical missing-FCF message.
   - Also remove the current silent-omission risk in the higher-level valuation injection path so non-DCF valuation failures do not disappear without explanation.
-  - Replace the current bare `except Exception` valuation fallback in `tradingagents/agents/analysts/fundamentals_analyst.py` with classification-aware handling:
+  - Replace the current bare `except Exception` valuation fallback in `diverge/agents/analysts/fundamentals_analyst.py` with classification-aware handling:
     - inapplicable assets render `DCF Not Applicable`
     - applicable assets with incomplete inputs render a data-insufficiency explanation
     - unexpected failures remain observable rather than being silently swallowed
@@ -87,7 +87,7 @@ The next phase should prioritize **productizing and stabilizing the embedded cap
     - show a visible `DCF Not Applicable` badge or status treatment
     - conditionally hide raw DCF tables when DCF is not applicable
     - continue rendering multiples and non-DCF fundamentals context
-- Treat `tradingagents/agents/utils/fundamental_data_tools.py` as a critical integration target because `get_valuation_ready_fundamentals()` is the main call site that feeds the valuation pipeline from analysts.
+- Treat `diverge/agents/utils/fundamental_data_tools.py` as a critical integration target because `get_valuation_ready_fundamentals()` is the main call site that feeds the valuation pipeline from analysts.
 - Ensure task request snapshots always reflect real form selections and avoid misleading fallback values for older or partial tasks.
 - Keep the web defaults aligned with v3 validation goals, especially analyst selection and report path visibility.
 

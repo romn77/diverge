@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from tradingagents.llm_clients.factory import create_llm_client
-from tradingagents.llm_clients.openai_client import NormalizedChatOpenAI, OpenAIClient
+from diverge.llm_clients.factory import create_llm_client
+from diverge.llm_clients.openai_client import NormalizedChatOpenAI, OpenAIClient
 
 
 class OpenAICompatibleProviderTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
 
         with (
             patch.dict("os.environ", {"SILICONFLOW_API_KEY": "test-siliconflow-key"}, clear=True),
-            patch("tradingagents.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
+            patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
         ):
             client.get_llm()
 
@@ -51,7 +51,7 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
 
         with (
             patch.dict("os.environ", {"SUB2API_API_KEY": "test-sub2api-key"}, clear=True),
-            patch("tradingagents.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
+            patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
         ):
             client.get_llm()
 

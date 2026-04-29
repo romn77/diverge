@@ -203,22 +203,22 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
   const cardClassName = embedded
     ? "viewer-frame fade-in"
     : "fade-in rounded-[30px] bg-white/95";
-  const contentClassName = embedded ? "p-3 md:p-4" : "p-6 md:p-8";
+  const contentClassName = embedded ? "p-3 md:p-4" : "p-5 md:p-6";
 
   return (
     <RootTag className={rootClassName}>
       <div className="w-full space-y-6">
         <Card className={cardClassName}>
           <CardContent className={contentClassName}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
                 {t("screenerResults.kicker", "Screener Results")}
               </p>
-              <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900">
+              <h1 className="font-heading mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-[1.7rem]">
                 {run?.id ?? runId}
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
                 Compare the ranked pool, inspect the strongest candidates first, and
                 use the score mix to decide which symbols deserve deeper research.
               </p>
@@ -233,7 +233,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
             </div>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <SummaryCard
               label={t("screenerResults.summary.topPick", "Top pick")}
               value={strongestSignal?.symbol ?? "—"}
@@ -262,7 +262,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
             />
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-2">
+          <div className="mt-5 flex flex-wrap gap-2">
             {BREAKOUT_FILTER_OPTIONS.map((option) => (
               <Button
                 key={option.value}
@@ -286,7 +286,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
             </Button>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {columns.map((column) => (
               <Button
                 key={column.key}
@@ -322,28 +322,28 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
           ) : null}
 
           {highlightedRows.length > 0 ? (
-            <div className="mt-8 grid gap-4 lg:grid-cols-3">
+            <div className="mt-5 grid gap-3 lg:grid-cols-3">
               {highlightedRows.map((row) => (
                 <article
                   key={`${row.symbol}-${row.market}-hero`}
-                  className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]/92 p-5"
+                  className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)]/92 p-3.5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
                         Rank #{row.global_rank}
                       </p>
-                      <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                      <h2 className="mt-1 text-xl font-semibold text-slate-900">
                         {row.symbol}
                       </h2>
-                      <p className="mt-1 text-sm text-slate-500">{row.market}</p>
+                      <p className="text-xs text-slate-500">{row.market}</p>
                     </div>
                     <Badge variant="secondary" className="text-slate-700">
                       {formatScore(row.total_score, locale)}
                     </Badge>
                   </div>
 
-                  <dl className="mt-4 grid grid-cols-2 gap-3">
+                  <dl className="mt-3 grid grid-cols-3 gap-2">
                     <Metric label="Trend" value={formatScore(row.trend_score, locale)} />
                     <Metric
                       label="Breakout"
@@ -364,7 +364,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                     />
                   </dl>
 
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-3 space-y-1.5">
                     <TagStrip
                       label="Pattern"
                       value={formatBreakoutType(row.breakout_type)}
@@ -396,9 +396,9 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
             </div>
           ) : null}
 
-          <div className="mt-8 overflow-x-auto">
-            <Table className="min-w-full text-sm">
-              <TableHeader className="sticky top-0 bg-slate-50">
+          <div className="mt-5 overflow-x-auto">
+            <Table className="min-w-full text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:h-9 [&_th]:px-3 [&_th]:tracking-[0.12em]">
+              <TableHeader className="sticky top-0 bg-[var(--surface-strong)]">
                 <TableRow>
                   <TableHead className="text-left">
                     {t("screenerResults.header.symbol", "symbol")}
@@ -484,6 +484,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                       <TableCell className="font-semibold text-slate-900">{row.symbol}</TableCell>
                       <TableCell>
                         <TickerSparkline
+                          className="h-7 min-w-[96px]"
                           points={trendSeriesByTicker[seriesKey(row.symbol, row.market)] ?? []}
                           loading={
                             loadingTrendSeries &&
@@ -615,13 +616,13 @@ function SummaryCard({
   hint: string;
 }) {
   return (
-    <Card className="rounded-[24px] bg-[var(--surface-strong)] shadow-none">
-      <CardContent className="p-5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+    <Card className="rounded-[20px] bg-[var(--surface-strong)] shadow-none">
+      <CardContent className="p-3.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
-      <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{hint}</p>
+      <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-slate-600">{hint}</p>
       </CardContent>
     </Card>
   );
@@ -629,11 +630,11 @@ function SummaryCard({
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[18px] border border-[var(--border)] bg-white/88 px-3 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+    <div className="rounded-[16px] border border-[var(--border)] bg-white/88 px-2.5 py-2">
+      <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">
         {label}
       </p>
-      <p className="mt-2 text-lg font-semibold tabular-nums text-slate-900">{value}</p>
+      <p className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{value}</p>
     </div>
   );
 }
@@ -663,11 +664,11 @@ function TagStrip({
   }
 
   return (
-    <div className={`flex flex-wrap gap-2 ${compact ? "" : "items-start"}`}>
+    <div className={`flex flex-wrap ${compact ? "gap-1" : "gap-1.5 items-start"}`}>
       {tokens.map((token) => (
         <span
           key={`${label}-${token}`}
-          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${tone}`}
+          className={`rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] ${tone}`}
         >
           {token}
         </span>

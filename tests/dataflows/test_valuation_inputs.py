@@ -1,7 +1,7 @@
 import copy
 
-import tradingagents.default_config as default_config
-import tradingagents.dataflows.config as config_module
+import diverge.default_config as default_config
+import diverge.dataflows.config as config_module
 
 
 def setup_function():
@@ -9,7 +9,7 @@ def setup_function():
 
 
 def test_route_to_valuation_input_uses_yfinance_for_us(monkeypatch):
-    from tradingagents.dataflows import valuation_inputs
+    from diverge.dataflows import valuation_inputs
 
     calls = []
 
@@ -34,7 +34,7 @@ def test_route_to_valuation_input_uses_yfinance_for_us(monkeypatch):
 
 
 def test_route_to_valuation_input_uses_akshare_for_cn(monkeypatch):
-    from tradingagents.dataflows import valuation_inputs
+    from diverge.dataflows import valuation_inputs
 
     calls = []
 

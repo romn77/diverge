@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from tradingagents.screener.history_cache import (
+from diverge.screener.history_cache import (
     load_history_cache,
     merge_history_frames,
     normalize_history_frame,
