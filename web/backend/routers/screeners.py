@@ -20,7 +20,7 @@ from web.backend import (
     screener_presets,
     screener_results,
 )
-from web.backend.runtime import analysis_tasks, screener_tasks, task_store
+from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks, task_store
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.services import screeners as screener_service
 
@@ -71,16 +71,30 @@ def resolve_screener_data_sources(markets: list[str]) -> dict:
     return sources
 
 
-def resolve_screener_as_of_date(markets: list[str]) -> str:
+def resolve_screener_as_of_date(markets: list[str], data_sources: dict | None = None) -> str:
     today = date.today()
-    trading_days = [
-        latest_trading_day_on_or_before(market, today)
-        for market in markets
-    ]
-    resolved_days = [day for day in trading_days if day is not None]
-    if not resolved_days:
+    sources = data_sources or {}
+    trading_days = []
+    for market in markets:
+        normalized_market = str(market).strip().lower()
+        trading_day = latest_trading_day_on_or_before(normalized_market, today)
+        if trading_day is None:
+            continue
+        source = (
+            str(sources.get("cn_data_source") or "tushare")
+            if normalized_market == "cn"
+            else str(sources.get("us_data_source") or "massive")
+        )
+        trading_days.append(
+            data_sync_tasks.resolve_ready_ohlcv_as_of_date(
+                normalized_market,
+                source,
+                trading_day,
+            )
+        )
+    if not trading_days:
         raise HTTPException(status_code=400, detail="Unable to resolve screener trading date.")
-    return min(resolved_days).isoformat()
+    return min(trading_days).isoformat()
 
 
 def _enforce_screener_submission_capacity(current_user) -> None:
@@ -126,11 +140,13 @@ def create_screener_task(
     )
 
     request_payload = payload.model_dump()
+    request_payload["history_cache_policy"] = "cache_only"
+    request_payload.update(resolve_screener_data_sources(request_payload["markets"]))
     if not request_payload.get("as_of_date"):
         request_payload["as_of_date"] = resolve_screener_as_of_date(
-            request_payload["markets"]
+            request_payload["markets"],
+            request_payload,
         )
-    request_payload.update(resolve_screener_data_sources(request_payload["markets"]))
     config_payload = dict(request_payload)
     config_payload["output_dir"] = str(app_config.SCREENER_RESULTS_DIR)
     config_payload["cache_dir"] = str(app_config.SCREENER_CACHE_DIR)
@@ -150,7 +166,7 @@ def create_screener_task(
         config_payload["us_manifest_path"] = manifest_path
 
     try:
-        ScreenRunConfig(**config_payload)
+        config = ScreenRunConfig(**config_payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -167,6 +183,7 @@ def create_screener_task(
         )
 
     _enforce_screener_submission_capacity(current_user)
+    screener_service.ensure_screener_cache_coverage(config)
 
     if current_user is not None:
         try:

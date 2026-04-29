@@ -20,7 +20,7 @@ from web.backend import app_config, storage
 from web.backend.runtime import task_store
 from web.backend.services import screeners as screener_service
 
-SCREENER_STAGES = ["Universe", "History", "Features", "Filters", "Ranking", "Export"]
+SCREENER_STAGES = ["Features", "Filters", "Ranking", "Export"]
 GENERIC_SCREENER_TASK_ERROR = "Screener task failed. Check backend logs for details."
 logger = logging.getLogger(__name__)
 
@@ -213,18 +213,24 @@ def build_screener_progress(
     symbol: str | None = None,
     message: str | None = None,
 ) -> dict:
-    stage_status = {
-        key: (
-            "processing"
-            if key == stage
-            else "completed"
-            if SCREENER_STAGES.index(key) < SCREENER_STAGES.index(stage)
-            else "not_started"
-        )
-        for key in SCREENER_STAGES
-    }
+    stage = normalize_screener_stage(stage)
+    if stage in SCREENER_STAGES:
+        stage_status = {
+            key: (
+                "processing"
+                if key == stage
+                else "completed"
+                if SCREENER_STAGES.index(key) < SCREENER_STAGES.index(stage)
+                else "not_started"
+            )
+            for key in SCREENER_STAGES
+        }
+    else:
+        stage_status = {key: "not_started" for key in SCREENER_STAGES}
     if status == "completed":
         stage_status = {key: "completed" for key in SCREENER_STAGES}
+    if status in {"queued", "canceled"}:
+        stage_status = {key: "not_started" for key in SCREENER_STAGES}
     if status == "failed" and stage not in SCREENER_STAGES:
         stage_status = {key: "not_started" for key in SCREENER_STAGES}
 
@@ -240,6 +246,19 @@ def build_screener_progress(
         "current_agent": symbol,
         "message": detail,
     }
+
+
+def normalize_screener_stage(stage: str) -> str:
+    normalized = str(stage or "").strip().lower()
+    if normalized == "features":
+        return "Features"
+    if normalized == "filters":
+        return "Filters"
+    if normalized == "ranking":
+        return "Ranking"
+    if normalized == "export":
+        return "Export"
+    return str(stage or "")
 
 
 def build_screener_failure_progress(task: ScreenerTask, error: str) -> dict:
@@ -410,7 +429,9 @@ def run_screener_task(task_id: str) -> None:
             status: str | None = None,
             detail: str | None = None,
         ) -> None:
-            normalized_stage = stage.capitalize()
+            normalized_stage = normalize_screener_stage(stage)
+            if normalized_stage not in SCREENER_STAGES:
+                return
             message = f"{normalized_stage} {current}/{total}"
             if symbol:
                 message = f"{message} {symbol}"
@@ -503,7 +524,7 @@ def create_screener_task(
             task_id,
             build_screener_progress(
                 status="queued",
-                stage="Universe",
+                stage="",
                 current=0,
                 total=1,
                 message="Screener task queued.",
@@ -655,7 +676,7 @@ def cancel_screener_task(task_id: str) -> None:
             task_id,
             build_screener_progress(
                 status="canceled",
-                stage="Universe",
+                stage="",
                 current=0,
                 total=1,
                 message="Screener task canceled.",

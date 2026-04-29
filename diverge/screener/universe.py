@@ -120,11 +120,19 @@ def _retry_universe_request(loader, *, label: str) -> pd.DataFrame:
 def _load_cn_universe_from_source(
     data_source: str,
     cache_dir: str | Path | None = None,
+    *,
+    cache_only: bool = False,
 ) -> pd.DataFrame:
     if cache_dir is not None:
         cached = _load_universe_cache(cache_dir, "cn", data_source)
         if cached is not None:
             return _filter_cn_universe_rows(cached)
+
+    if cache_only:
+        raise RuntimeError(
+            f"CN universe cache is not ready for source '{data_source}'. "
+            "Run the admin OHLCV data sync before launching screeners."
+        )
 
     if data_source == "akshare":
         try:
@@ -216,6 +224,8 @@ def load_cn_universe(
     cache_dir: str | Path | None = None,
     fallback_data_sources: list[str] | None = None,
     manifest_path: str | None = None,
+    *,
+    cache_only: bool = False,
 ) -> pd.DataFrame:
     if manifest_path:
         return load_cn_universe_from_manifest(manifest_path)
@@ -228,8 +238,9 @@ def load_cn_universe(
             return _load_cn_universe_from_source(
                 data_source=source,
                 cache_dir=cache_dir,
+                cache_only=cache_only,
             )
-        except (VendorRetryableError, VendorAuthError, VendorNotSupportedError) as exc:
+        except (VendorRetryableError, VendorAuthError, VendorNotSupportedError, RuntimeError) as exc:
             last_error = exc
             continue
 
@@ -266,6 +277,7 @@ def load_universe(config: ScreenRunConfig, cache_dir: str | Path | None = None) 
                     cache_dir=cache_dir,
                     fallback_data_sources=config.cn_data_source_fallbacks,
                     manifest_path=config.cn_manifest_path,
+                    cache_only=config.history_cache_policy == "cache_only",
                 )
             )
         elif market == "us":

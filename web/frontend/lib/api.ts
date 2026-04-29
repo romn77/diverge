@@ -307,11 +307,13 @@ export interface ResetAdminUserUsageResponse {
 
 export class ApiError extends Error {
   status: number;
+  detail: unknown;
 
-  constructor(status: number, detail: string) {
-    super(detail);
+  constructor(status: number, message: string, detail?: unknown) {
+    super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -867,24 +869,68 @@ function emitAuthRequired(detail: string): void {
   );
 }
 
+function formatApiErrorDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === "string" && detail.trim()) {
+    return detail;
+  }
+  if (!detail || typeof detail !== "object") {
+    return fallback;
+  }
+
+  const payload = detail as Record<string, unknown>;
+  const message = typeof payload.message === "string" && payload.message.trim()
+    ? payload.message
+    : fallback;
+
+  if (payload.code !== "screener_data_not_ready") {
+    return message;
+  }
+
+  const symbolsMissing = Number(payload.symbols_missing ?? 0);
+  const missingPart = symbolsMissing > 0
+    ? `Missing or stale symbols: ${symbolsMissing}.`
+    : "";
+  const examples = Array.isArray(payload.examples)
+    ? payload.examples
+        .slice(0, 3)
+        .map((item) => {
+          if (!item || typeof item !== "object") {
+            return null;
+          }
+          const example = item as Record<string, unknown>;
+          const market = typeof example.market === "string" ? example.market : "";
+          const symbol = typeof example.symbol === "string" ? example.symbol : "";
+          const reason = typeof example.reason === "string" ? example.reason : "";
+          const label = [market, symbol].filter(Boolean).join(":");
+          return label ? `${label}${reason ? ` (${reason})` : ""}` : null;
+        })
+        .filter(Boolean)
+    : [];
+  const examplesPart = examples.length > 0 ? `Examples: ${examples.join(", ")}.` : "";
+  return [message, missingPart, examplesPart].filter(Boolean).join(" ");
+}
+
 async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    let detail = response.statusText || `${response.status}`;
+    const fallback = response.statusText || `${response.status}`;
+    let detail: unknown = fallback;
+    let message = fallback;
 
     try {
-      const payload = (await response.json()) as { detail?: string };
-      if (typeof payload.detail === "string" && payload.detail.trim()) {
+      const payload = (await response.json()) as { detail?: unknown };
+      if (payload.detail !== undefined) {
         detail = payload.detail;
+        message = formatApiErrorDetail(payload.detail, fallback);
       }
     } catch {
       // Ignore JSON parse errors and fall back to status text.
     }
 
     if (response.status === 401) {
-      emitAuthRequired(detail);
+      emitAuthRequired(message);
     }
 
-    throw new ApiError(response.status, detail);
+    throw new ApiError(response.status, message, detail);
   }
 
   return (await response.json()) as T;

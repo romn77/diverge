@@ -535,7 +535,10 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
             async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
                 await self._login(operator_client, "operator.one@example.com", "OperatorPass123")
-                with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+                with (
+                    patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
+                    patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+                ):
                     create_response = await operator_client.post(
                         "/api/screener/tasks",
                         json={

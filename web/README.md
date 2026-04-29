@@ -101,6 +101,9 @@ Then open http://localhost:3000 in your browser.
 - Web US screening requires backend env `SCREEN_US_MANIFEST_PATH`
 - LLM analysis happens after screener output, not during screener execution
 - Shared screener cache and recovery checkpoints live under `../data/cache/screener/`
+- Admin data-sync blocks same-day OHLCV refreshes until the vendor-local readiness cutoff:
+  `DATA_SYNC_TUSHARE_READY_TIME=18:10` for Tushare and
+  `DATA_SYNC_MASSIVE_READY_TIME=21:10` for Massive by default
 
 ## Auth Rollout
 

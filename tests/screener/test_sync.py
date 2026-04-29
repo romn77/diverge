@@ -99,3 +99,34 @@ def test_normalize_tushare_indicator_frame_maps_cn_fields():
     assert row["roe"] == 0.30
     assert row["gross_margin"] == 0.92
     assert row["current_ratio"] == 2.1
+
+
+def test_normalize_tushare_daily_basic_frame_maps_screening_fields():
+    frame = pd.DataFrame(
+        [
+            {
+                "ts_code": "600519.SH",
+                "trade_date": "20260428",
+                "turnover_rate": 0.45,
+                "pe_ttm": 24.0,
+                "pb": 8.5,
+                "ps_ttm": 12.0,
+                "total_mv": 2100000.0,
+                "circ_mv": 2000000.0,
+            }
+        ]
+    )
+
+    snapshot = sync._normalize_tushare_daily_basic_frame(
+        frame,
+        as_of_date="2026-04-28",
+    )
+
+    row = snapshot.iloc[0]
+    assert row["symbol"] == "600519.SH"
+    assert row["market"] == "cn"
+    assert row["source"] == "tushare_daily_basic"
+    assert row["pe_ttm"] == 24.0
+    assert row["pb"] == 8.5
+    assert row["ps_ttm"] == 12.0
+    assert row["market_cap"] == 21000000000.0

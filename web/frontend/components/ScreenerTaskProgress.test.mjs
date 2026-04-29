@@ -28,8 +28,9 @@ test("ScreenerTaskProgress streams screener task updates and exposes a result ac
   assert.match(source, /setEvents\(existingEvents\)/);
   assert.match(source, /existingEvents\.length/);
   assert.match(source, /onViewRun:\s*\(runId:\s*string\)/);
-  assert.match(source, /Universe/);
-  assert.match(source, /History/);
+  assert.doesNotMatch(source, /Preflight/);
+  assert.doesNotMatch(source, /Universe/);
+  assert.doesNotMatch(source, /History/);
   assert.match(source, /Features/);
   assert.match(source, /Filters/);
   assert.match(source, /Ranking/);

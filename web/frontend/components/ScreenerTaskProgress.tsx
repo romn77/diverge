@@ -21,7 +21,7 @@ interface ScreenerTaskProgressProps {
   onTaskComplete: (runId: string | null) => void;
 }
 
-const STAGES = ["Universe", "History", "Features", "Filters", "Ranking", "Export"] as const;
+const STAGES = ["Features", "Filters", "Ranking", "Export"] as const;
 
 export function ScreenerTaskProgress({
   taskId,
@@ -168,7 +168,7 @@ export function ScreenerTaskProgress({
 
             {task ? <ScreenerQueueNotice task={task} /> : null}
 
-            <div className="mt-8 grid gap-3 md:grid-cols-6">
+            <div className="mt-8 grid gap-3 md:grid-cols-4">
               {STAGES.map((stage) => {
                 const state = task?.latest_progress?.stage_status?.[stage] ?? "not_started";
                 return (

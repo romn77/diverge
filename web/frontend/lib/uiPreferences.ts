@@ -504,8 +504,6 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "screenerTask.canceledFallback": "这个筛选任务已取消。",
   "screenerTask.progressLog": "进度日志",
   "screenerTask.noUpdates": "还没有进度更新。",
-  "screenerTask.stage.Universe": "股票池",
-  "screenerTask.stage.History": "历史数据",
   "screenerTask.stage.Features": "特征",
   "screenerTask.stage.Filters": "过滤",
   "screenerTask.stage.Ranking": "排序",

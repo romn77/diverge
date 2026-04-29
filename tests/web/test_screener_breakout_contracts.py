@@ -1,11 +1,16 @@
+import json
 import tempfile
 import unittest
+from datetime import date, datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import json
+import pandas as pd
+from fastapi import HTTPException
 
+from diverge.screener.history_cache import save_history_cache
+from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, screener_results
 from web.backend.routers import screeners as screeners_router
 from web.backend.runtime import screener_tasks
@@ -28,6 +33,49 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         screener_tasks.screener_tasks.clear()
         self.temp_dir.cleanup()
 
+    def _write_cn_manifest(self) -> Path:
+        manifest_path = Path(self.temp_dir.name) / "cn_manifest.csv"
+        manifest_path.write_text(
+            "symbol,name,exchange,sector,list_date,mktcap\n"
+            "600519.SH,Kweichow Moutai,SSE,Consumer,2001-08-27,100000000\n",
+            encoding="utf-8",
+        )
+        return manifest_path
+
+    def _save_single_cn_history_bar(self, history_date: str) -> Path:
+        history_dir = Path(self.temp_dir.name) / "history"
+        save_history_cache(
+            history_dir,
+            "cn",
+            "600519.SH",
+            pd.DataFrame(
+                [
+                    {
+                        "Date": history_date,
+                        "Open": 1,
+                        "High": 1,
+                        "Low": 1,
+                        "Close": 1,
+                        "Volume": 1,
+                        "Amount": 1,
+                    }
+                ]
+            ),
+        )
+        return history_dir
+
+    def _cn_cache_only_config(self, *, manifest_path: Path, history_dir: Path) -> ScreenRunConfig:
+        return ScreenRunConfig(
+            markets=["cn"],
+            as_of_date="2026-03-24",
+            top_k=20,
+            cache_dir=str(Path(self.temp_dir.name) / "cache"),
+            history_dir=str(history_dir),
+            output_dir=str(Path(self.temp_dir.name) / "runs"),
+            history_cache_policy="cache_only",
+            cn_manifest_path=str(manifest_path),
+        )
+
     def test_screener_config_options_expose_breakout_choices_and_default_selection(self):
         payload = config_service.get_screener_config_options_payload()
 
@@ -48,10 +96,14 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
 
         with (
             patch("web.backend.access.require_screener_user", return_value=None),
+            patch(
+                "web.backend.services.screeners.ensure_screener_cache_coverage",
+                create=True,
+            ),
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread"),
             patch("web.backend.routers.screeners.date") as date_module,
         ):
-            date_module.today.return_value = __import__("datetime").date(2026, 3, 24)
+            date_module.today.return_value = date(2026, 3, 24)
             body = screeners_router.create_screener_task(
                 ScreenTaskCreatePayload(**payload)
             )
@@ -67,6 +119,104 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         )
         self.assertEqual(task.request_payload["as_of_date"], "2026-03-24")
 
+    def test_create_screener_task_defaults_to_previous_cn_trading_day_before_vendor_cutoff(self):
+        payload = {
+            "markets": ["cn"],
+            "top_k": 20,
+        }
+
+        with (
+            patch("web.backend.access.require_screener_user", return_value=None),
+            patch(
+                "web.backend.routers.screeners.resolve_screener_data_sources",
+                return_value={"cn_data_source": "tushare", "cn_data_source_fallbacks": []},
+            ),
+            patch(
+                "web.backend.runtime.data_sync_tasks._now_for_vendor_timezone",
+                return_value=datetime(2026, 4, 29, 15, 57),
+            ),
+            patch(
+                "web.backend.services.screeners.ensure_screener_cache_coverage",
+                create=True,
+            ),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread"),
+            patch("web.backend.routers.screeners.date") as date_module,
+        ):
+            date_module.today.return_value = date(2026, 4, 29)
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
+
+        task = screener_tasks.screener_tasks[body["task_id"]]
+        self.assertEqual(task.request_payload["as_of_date"], "2026-04-28")
+        self.assertEqual(task.config_payload["as_of_date"], "2026-04-28")
+
+    def test_create_screener_task_forces_cache_only_history_policy(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+            "history_cache_policy": "refresh_missing",
+        }
+
+        with (
+            patch("web.backend.access.require_screener_user", return_value=None),
+            patch(
+                "web.backend.services.screeners.ensure_screener_cache_coverage",
+                create=True,
+            ),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread"),
+        ):
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
+
+        task = screener_tasks.screener_tasks[body["task_id"]]
+        self.assertEqual(task.request_payload["history_cache_policy"], "cache_only")
+        self.assertEqual(task.config_payload["history_cache_policy"], "cache_only")
+
+    def test_create_screener_task_rejects_when_cache_coverage_is_missing(self):
+        payload = {
+            "markets": ["cn"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+        }
+        detail = {
+            "code": "screener_data_not_ready",
+            "message": "Screener data is not ready for 2026-03-24.",
+            "as_of_date": "2026-03-24",
+            "symbols_checked": 1,
+            "symbols_missing": 1,
+            "missing_markets": ["cn"],
+            "examples": [
+                {
+                    "market": "cn",
+                    "symbol": "600519.SH",
+                    "reason": "history_cache_miss",
+                    "cache_span": None,
+                }
+            ],
+        }
+
+        with (
+            patch("web.backend.access.require_screener_user", return_value=None),
+            patch(
+                "web.backend.services.screeners.ensure_screener_cache_coverage",
+                side_effect=HTTPException(status_code=409, detail=detail),
+                create=True,
+            ),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_thread,
+        ):
+            with self.assertRaises(HTTPException) as context:
+                screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(context.exception.status_code, 409)
+        self.assertEqual(context.exception.detail["code"], "screener_data_not_ready")
+        self.assertEqual(context.exception.detail["symbols_missing"], 1)
+        start_thread.assert_not_called()
+
     def test_create_screener_task_reuses_shared_cached_result_for_same_screen(self):
         payload = {
             "markets": ["cn"],
@@ -77,10 +227,14 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
 
         with (
             patch("web.backend.access.require_screener_user", return_value=None),
+            patch(
+                "web.backend.services.screeners.ensure_screener_cache_coverage",
+                create=True,
+            ),
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_thread,
             patch("web.backend.routers.screeners.date") as date_module,
         ):
-            date_module.today.return_value = __import__("datetime").date(2026, 3, 24)
+            date_module.today.return_value = date(2026, 3, 24)
             first = screeners_router.create_screener_task(ScreenTaskCreatePayload(**payload))
             first_task = screener_tasks.screener_tasks[first["task_id"]]
             key = first_task.request_payload["screener_key"]
@@ -117,6 +271,29 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         self.assertEqual(second_task.status, "completed")
         self.assertEqual(second_task.run_id, "cached-run-001")
 
+    def test_screener_cache_preflight_rejects_stale_history_cache(self):
+        config = self._cn_cache_only_config(
+            manifest_path=self._write_cn_manifest(),
+            history_dir=self._save_single_cn_history_bar("2026-03-23"),
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            screener_service.ensure_screener_cache_coverage(config)
+
+        self.assertEqual(context.exception.status_code, 409)
+        detail = context.exception.detail
+        self.assertEqual(detail["code"], "screener_data_not_ready")
+        self.assertEqual(detail["symbols_checked"], 1)
+        self.assertEqual(detail["symbols_missing"], 1)
+        self.assertEqual(detail["examples"][0]["reason"], "history_cache_stale")
+
+    def test_screener_cache_preflight_accepts_history_covering_as_of_date(self):
+        config = self._cn_cache_only_config(
+            manifest_path=self._write_cn_manifest(),
+            history_dir=self._save_single_cn_history_bar("2026-03-24"),
+        )
+
+        screener_service.ensure_screener_cache_coverage(config)
 
     def test_legacy_candidate_rows_fill_missing_columns_with_safe_defaults(self):
         with tempfile.TemporaryDirectory() as temp_dir:

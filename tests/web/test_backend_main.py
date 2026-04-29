@@ -507,7 +507,10 @@ class BackendMainTests(unittest.TestCase):
             "cn_data_source": "akshare",
         }
 
-        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+        with (
+            patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
+            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+        ):
             body = screeners_router.create_screener_task(
                 ScreenTaskCreatePayload(**payload)
             )
@@ -536,6 +539,7 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us.csv"}, clear=False),
+            patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
         ):
             body = screeners_router.create_screener_task(
@@ -786,6 +790,7 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us_manifest.csv"}, clear=True),
+            patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
         ):
             body = screeners_router.create_screener_task(
@@ -813,7 +818,10 @@ class BackendMainTests(unittest.TestCase):
             {"SCREEN_CN_MANIFEST_PATH": "/tmp/cn_manifest.csv"},
             clear=True,
         ):
-            with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+            with (
+                patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
+                patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+            ):
                 body = screeners_router.create_screener_task(
                     ScreenTaskCreatePayload(**payload)
                 )
@@ -1022,8 +1030,6 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(
             task_status["latest_progress"]["stage_status"],
             {
-                "Universe": "not_started",
-                "History": "not_started",
                 "Features": "not_started",
                 "Filters": "not_started",
                 "Ranking": "not_started",
@@ -1070,7 +1076,7 @@ class BackendMainTests(unittest.TestCase):
         def fake_run_screen(config, progress_callback=None):
             assert progress_callback is not None
             progress_callback(
-                "history",
+                "features",
                 1,
                 2,
                 "600519.SH",

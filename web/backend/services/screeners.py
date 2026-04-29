@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+from collections import Counter
+from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
 from fastapi import HTTPException
 
+from diverge.screener.history_cache import load_history_cache, normalize_history_frame, slice_history_window
+from diverge.screener.market_data import LOOKBACK_DAYS
+from diverge.screener.schema import ScreenRunConfig
+from diverge.screener.stages import prepare_universe_stage
 from web.backend import app_config, auth, screener_results, screener_runs, storage
 
 _READ_SERVICE = screener_results.ScreenerResultReadService()
+_MAX_PREFLIGHT_EXAMPLES = 10
 
 
 def relative_screener_storage_path(path: Path) -> str:
@@ -74,6 +81,135 @@ def resolve_screener_artifact_path(
 
 def storage_backend_is_remote() -> bool:
     return storage.os.environ.get("STORAGE_BACKEND", "local").strip().lower() != "local"
+
+
+def _history_span(frame) -> tuple[str | None, str | None]:
+    normalized = normalize_history_frame(frame)
+    if normalized.empty:
+        return None, None
+    return str(normalized["Date"].min()), str(normalized["Date"].max())
+
+
+def _data_not_ready_error(
+    *,
+    config: ScreenRunConfig,
+    symbols_checked: int,
+    symbols_missing: int,
+    missing_markets: list[str],
+    examples: list[dict],
+    universe_count_by_market: dict[str, int],
+    reason: str | None = None,
+) -> HTTPException:
+    message = (
+        f"Screener data is not ready for {config.as_of_date}. "
+        "Only admins can refresh OHLCV data; run the admin data-sync job first."
+    )
+    detail = {
+        "code": "screener_data_not_ready",
+        "message": message,
+        "as_of_date": config.as_of_date,
+        "symbols_checked": symbols_checked,
+        "symbols_missing": symbols_missing,
+        "missing_markets": missing_markets,
+        "examples": examples,
+        "universe_count_by_market": universe_count_by_market,
+        "required_history_start": (
+            datetime.strptime(config.as_of_date, "%Y-%m-%d")
+            - timedelta(days=LOOKBACK_DAYS)
+        ).strftime("%Y-%m-%d"),
+        "required_history_end": config.as_of_date,
+    }
+    if reason:
+        detail["reason"] = reason
+    return HTTPException(status_code=409, detail=detail)
+
+
+def ensure_screener_cache_coverage(config: ScreenRunConfig) -> None:
+    """Reject screener runs that would need live universe or OHLCV fetching."""
+    cache_root = Path(config.cache_dir)
+    history_root = Path(config.history_dir)
+
+    try:
+        universe_stage = prepare_universe_stage(config, cache_root)
+    except Exception as exc:
+        raise _data_not_ready_error(
+            config=config,
+            symbols_checked=0,
+            symbols_missing=0,
+            missing_markets=list(config.markets),
+            examples=[],
+            universe_count_by_market={},
+            reason=str(exc),
+        ) from exc
+
+    prefiltered_df = universe_stage.prefiltered_df
+    if prefiltered_df.empty:
+        raise _data_not_ready_error(
+            config=config,
+            symbols_checked=0,
+            symbols_missing=0,
+            missing_markets=list(config.markets),
+            examples=[],
+            universe_count_by_market={},
+            reason="No prefiltered universe symbols are available from the prepared cache.",
+        )
+
+    universe_count_by_market = {
+        str(market): int(len(frame.index))
+        for market, frame in prefiltered_df.groupby("market")
+    }
+    as_of_date = config.as_of_date
+    start_date = (
+        datetime.strptime(as_of_date, "%Y-%m-%d") - timedelta(days=LOOKBACK_DAYS)
+    ).strftime("%Y-%m-%d")
+    missing_count = 0
+    missing_markets: Counter[str] = Counter()
+    examples: list[dict] = []
+
+    for row in prefiltered_df.loc[:, ["market", "symbol"]].itertuples(index=False):
+        market = str(row.market).strip().lower()
+        symbol = str(row.symbol).strip()
+        cached_frame = load_history_cache(history_root, market, symbol)
+        cache_start, cache_end = _history_span(cached_frame)
+        reason: str | None = None
+
+        if cached_frame.empty:
+            reason = "history_cache_miss"
+        elif cache_end is None or cache_end < as_of_date:
+            reason = "history_cache_stale"
+        else:
+            cached_window = slice_history_window(cached_frame, start_date, as_of_date)
+            if cached_window.empty:
+                reason = "history_cache_no_window"
+
+        if reason is None:
+            continue
+
+        missing_count += 1
+        missing_markets[market] += 1
+        if len(examples) < _MAX_PREFLIGHT_EXAMPLES:
+            examples.append(
+                {
+                    "market": market,
+                    "symbol": symbol,
+                    "reason": reason,
+                    "cache_span": (
+                        f"{cache_start}..{cache_end}"
+                        if cache_start is not None and cache_end is not None
+                        else None
+                    ),
+                }
+            )
+
+    if missing_count:
+        raise _data_not_ready_error(
+            config=config,
+            symbols_checked=int(len(prefiltered_df.index)),
+            symbols_missing=missing_count,
+            missing_markets=sorted(missing_markets),
+            examples=examples,
+            universe_count_by_market=universe_count_by_market,
+        )
 
 
 def list_screener_runs_from_disk() -> list[dict]:

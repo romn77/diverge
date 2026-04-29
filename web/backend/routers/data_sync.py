@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from web.backend import access, auth
 from web.backend.runtime import data_sync_tasks
@@ -25,9 +25,14 @@ def create_ohlcv_sync_task(
     request: Request = None,
 ) -> dict:
     actor = _require_admin_permission(request)
+    request_payload = payload.model_dump()
+    try:
+        data_sync_tasks.ensure_ohlcv_vendor_ready(request_payload)
+    except data_sync_tasks.VendorDataNotReadyError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     return data_sync_tasks.create_data_sync_task(
         sync_type="ohlcv",
-        request_payload=payload.model_dump(),
+        request_payload=request_payload,
         owner_user_id=actor.id if actor is not None else None,
         tenant_id=actor.tenant_id if actor is not None else None,
     )

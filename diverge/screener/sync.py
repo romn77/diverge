@@ -66,6 +66,17 @@ TUSHARE_FIELD_MAP = {
     "ocfps": "operating_cashflow_quality",
 }
 
+TUSHARE_DAILY_BASIC_FIELD_MAP = {
+    "pe_ttm": "pe_ttm",
+    "ps_ttm": "ps_ttm",
+    "pb": "pb",
+    "total_mv": "market_cap",
+    "circ_mv": "free_float_market_cap",
+    "turnover_rate": "turnover_rate",
+    "turnover_rate_f": "free_float_turnover_rate",
+    "volume_ratio": "volume_ratio",
+}
+
 
 @dataclass(slots=True)
 class SyncResult:
@@ -104,6 +115,16 @@ def _safe_numeric(value: Any) -> float | None:
     if pd.isna(parsed):
         return None
     return float(parsed)
+
+
+def _finalize_fundamental_row(payload: dict[str, Any]) -> None:
+    missing = [
+        field_name
+        for field_name in FUNDAMENTAL_FIELDS
+        if payload.get(field_name) is None
+    ]
+    payload["missing_fields"] = ",".join(missing)
+    payload["data_status"] = "partial" if missing else "fresh"
 
 
 def _snapshot_paths(
@@ -228,13 +249,7 @@ def _normalize_simfin_snapshot(frame: pd.DataFrame, *, as_of_date: str | None = 
         for source_column, target_column in SIMFIN_FIELD_MAP.items():
             if source_column in latest.columns:
                 payload[target_column] = _safe_numeric(row.get(source_column))
-        missing = [
-            field_name
-            for field_name in FUNDAMENTAL_FIELDS
-            if payload.get(field_name) is None
-        ]
-        payload["missing_fields"] = ",".join(missing)
-        payload["data_status"] = "partial" if missing else "fresh"
+        _finalize_fundamental_row(payload)
         rows.append(payload)
     return pd.DataFrame(rows)
 
@@ -301,13 +316,47 @@ def _normalize_tushare_indicator_frame(frame: pd.DataFrame, *, as_of_date: str |
         for source_column, target_column in TUSHARE_FIELD_MAP.items():
             if source_column in working.columns:
                 payload[target_column] = _safe_numeric(row.get(source_column))
-        missing = [
-            field_name
-            for field_name in FUNDAMENTAL_FIELDS
-            if payload.get(field_name) is None
-        ]
-        payload["missing_fields"] = ",".join(missing)
-        payload["data_status"] = "partial" if missing else "fresh"
+        _finalize_fundamental_row(payload)
+        rows.append(payload)
+    return pd.DataFrame(rows)
+
+
+def _normalize_tushare_daily_basic_frame(frame: pd.DataFrame, *, as_of_date: str | None = None) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=["symbol", "market", "source", *FUNDAMENTAL_FIELDS])
+    working = frame.copy()
+    if "trade_date" in working.columns:
+        working["trade_date"] = pd.to_datetime(
+            working["trade_date"].astype(str),
+            format="%Y%m%d",
+            errors="coerce",
+        )
+        working = working.sort_values("trade_date")
+    symbol_col = "ts_code" if "ts_code" in working.columns else "symbol"
+    rows: list[dict[str, Any]] = []
+    for symbol, group in working.groupby(working[symbol_col].astype(str)):
+        row = group.iloc[-1]
+        trade_date = row.get("trade_date")
+        report_period = (
+            trade_date.strftime("%Y-%m-%d")
+            if hasattr(trade_date, "strftime") and not pd.isna(trade_date)
+            else str(trade_date or "")[:10]
+        )
+        payload: dict[str, Any] = {
+            "symbol": str(symbol),
+            "market": "cn",
+            "source": "tushare_daily_basic",
+            "as_of_date": as_of_date or report_period or _utc_iso()[:10],
+            "report_period": report_period,
+            "updated_at": _utc_iso(),
+        }
+        for source_column, target_column in TUSHARE_DAILY_BASIC_FIELD_MAP.items():
+            if source_column in working.columns:
+                value = _safe_numeric(row.get(source_column))
+                if source_column in {"total_mv", "circ_mv"} and value is not None:
+                    value *= 10_000
+                payload[target_column] = value
+        _finalize_fundamental_row(payload)
         rows.append(payload)
     return pd.DataFrame(rows)
 
@@ -320,9 +369,45 @@ def sync_cn_tushare_fundamentals(
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> SyncResult:
     pro = get_tushare_pro_client()
+    normalized_symbols = [str(symbol).strip() for symbol in symbols if str(symbol).strip()]
+    if as_of_date:
+        trade_date = as_of_date.replace("-", "")
+        try:
+            daily_basic = pro.daily_basic(
+                trade_date=trade_date,
+                fields=(
+                    "ts_code,trade_date,turnover_rate,turnover_rate_f,volume_ratio,"
+                    "pe,pe_ttm,pb,ps,ps_ttm,dv_ratio,dv_ttm,total_share,float_share,"
+                    "free_share,total_mv,circ_mv"
+                ),
+            )
+        except Exception:
+            daily_basic = pd.DataFrame()
+        if daily_basic is not None and not daily_basic.empty:
+            symbol_set = set(normalized_symbols)
+            snapshot = _normalize_tushare_daily_basic_frame(
+                daily_basic.loc[daily_basic["ts_code"].astype(str).isin(symbol_set)],
+                as_of_date=as_of_date,
+            )
+            result = SyncResult(
+                sync_type="fundamentals",
+                markets=["cn"],
+                source="tushare_daily_basic",
+                status="completed",
+                symbols_total=len(normalized_symbols),
+                symbols_success=int(len(snapshot)),
+                symbols_failed=max(len(normalized_symbols) - int(len(snapshot)), 0),
+            )
+            return _save_fundamental_snapshot(
+                snapshot,
+                base_dir=output_dir,
+                market="cn",
+                source="tushare",
+                sync_result=result,
+            )
+
     rows: list[pd.DataFrame] = []
     failed_symbols: list[dict[str, str]] = []
-    normalized_symbols = [str(symbol).strip() for symbol in symbols if str(symbol).strip()]
     for index, symbol in enumerate(normalized_symbols, start=1):
         try:
             frame = pro.fina_indicator(ts_code=symbol)
