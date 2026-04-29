@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   getScreenerRun,
   getTickerHistoryBatch,
@@ -45,6 +46,9 @@ const BREAKOUT_FILTER_OPTIONS = [
   { value: "box_breakout", label: "Box Breakout" },
   { value: "wedge_breakout", label: "Wedge Breakout" },
 ] as const;
+const TREND_HISTORY_BATCH_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+type PageSize = (typeof PAGE_SIZE_OPTIONS)[number];
 
 export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResultsViewerProps) {
   const { locale, t } = usePreferences();
@@ -59,6 +63,8 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
   const [sortKey, setSortKey] = useState<SortKey>("global_rank");
   const [breakoutFilter, setBreakoutFilter] = useState<string>("all");
   const [volumeConfirmedOnly, setVolumeConfirmedOnly] = useState(false);
+  const [pageSize, setPageSize] = useState<PageSize>(25);
+  const [pageIndex, setPageIndex] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -127,20 +133,26 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
         const uniqueTickers = Array.from(
           new Map(filteredRows.map((row) => [seriesKey(row.symbol, row.market), row])).values()
         );
-        const payload = await getTickerHistoryBatch({
-          tickers: uniqueTickers.map((row) => ({
-            symbol: row.symbol,
-            market: row.market,
-          })),
-          as_of_date: run?.as_of_date ?? null,
-        });
+        const payloads = await Promise.all(
+          chunkItems(uniqueTickers, TREND_HISTORY_BATCH_SIZE).map((tickerBatch) =>
+            getTickerHistoryBatch({
+              tickers: tickerBatch.map((row) => ({
+                symbol: row.symbol,
+                market: row.market,
+              })),
+              as_of_date: run?.as_of_date ?? null,
+            })
+          )
+        );
         if (!isActive) {
           return;
         }
 
         setTrendSeriesByTicker(
           Object.fromEntries(
-            payload.items.map((item) => [seriesKey(item.symbol, item.market), item.points])
+            payloads
+              .flatMap((payload) => payload.items)
+              .map((item) => [seriesKey(item.symbol, item.market), item.points])
           )
         );
       } catch {
@@ -203,7 +215,19 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
       return direction === "asc" ? aValue - bValue : bValue - aValue;
     });
   }, [filteredRows, sortKey, sortOptions]);
-  const highlightedRows = useMemo(() => sortedRows.slice(0, 3), [sortedRows]);
+  const pageCount = Math.max(Math.ceil(sortedRows.length / pageSize), 1);
+  const safePageIndex = Math.min(pageIndex, pageCount - 1);
+  const pageStart = safePageIndex * pageSize;
+  const pageEnd = Math.min(pageStart + pageSize, sortedRows.length);
+  const paginatedRows = useMemo(
+    () => sortedRows.slice(pageStart, pageEnd),
+    [pageEnd, pageStart, sortedRows]
+  );
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [breakoutFilter, pageSize, runId, sortKey, volumeConfirmedOnly]);
+
   const filteredReasons = useMemo(
     () => Object.entries(run?.filtered_count_by_reason ?? {}).filter(([, count]) => count > 0),
     [run?.filtered_count_by_reason]
@@ -291,73 +315,58 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
             </div>
           ) : null}
 
-          {highlightedRows.length > 0 ? (
-            <div className="mt-5 grid gap-3 lg:grid-cols-3">
-              {highlightedRows.map((row) => (
-                <article
-                  key={`${row.symbol}-${row.market}-hero`}
-                  className="rounded-[22px] border border-[var(--border)] bg-[var(--surface-strong)]/92 p-3.5"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
-                        Rank #{row.global_rank}
-                      </p>
-                      <h2 className="mt-1 text-xl font-semibold text-slate-900">
-                        {row.symbol}
-                      </h2>
-                      <p className="text-xs text-slate-500">{row.market}</p>
-                    </div>
-                    <Badge variant="secondary" className="text-slate-700">
-                      #{row.global_rank}
-                    </Badge>
-                  </div>
-
-                  <dl className="mt-3 grid grid-cols-3 gap-2">
-                    <Metric label="Close" value={formatNumber(row.close, locale)} />
-                    <Metric label="MA20 Gap" value={formatMovingAverageGap(row, "ma20", locale)} />
-                    <Metric label="20D" value={formatPercent(row.ret_20, locale)} />
-                    <Metric label="RSI" value={formatNumber(row.rsi, locale)} />
-                    <Metric label="ATR%" value={formatPercent(row.atr_pct, locale)} />
-                    <Metric
-                      label="Volume"
-                      value={formatRatio(row.breakout_volume_ratio, locale)}
-                    />
-                  </dl>
-
-                  <div className="mt-3 space-y-1.5">
-                    <TagStrip
-                      label="Pattern"
-                      value={formatBreakoutType(row.breakout_type)}
-                      tone="bg-[rgba(93,116,112,0.12)] text-[var(--primary)]"
-                    />
-                    <TagStrip
-                      label="Volume"
-                      value={formatVolumeFlag(row.breakout_with_volume)}
-                      tone="bg-[rgba(22,101,52,0.08)] text-emerald-700"
-                    />
-                    <TagStrip
-                      label="Strategy"
-                      value={row.strategy_tags}
-                      tone="bg-[rgba(28,56,83,0.08)] text-[var(--accent)]"
-                    />
-                    <TagStrip
-                      label="Risk"
-                      value={row.risk_flags}
-                      tone="bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
-                    />
-                    <TagStrip
-                      label="Matched"
-                      value={row.matched_conditions}
-                      tone="bg-[rgba(49,104,142,0.1)] text-sky-700"
-                    />
-                  </div>
-                </article>
-              ))}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-y border-[var(--border)] py-3">
+            <div className="text-xs font-medium text-slate-600">
+              {sortedRows.length > 0
+                ? t(
+                    "screenerResults.pagination.range",
+                    ({ start, end, total }) => `${start}-${end} of ${total}`,
+                    {
+                      start: pageStart + 1,
+                      end: pageEnd,
+                      total: sortedRows.length,
+                    }
+                  )
+                : t("screenerResults.pagination.empty", "0 results")}
             </div>
-          ) : null}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                {t("screenerResults.pagination.rows", "Rows")}
+              </span>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectionChip
+                  key={size}
+                  pressed={pageSize === size}
+                  onClick={() => setPageSize(size)}
+                >
+                  {size}
+                </SelectionChip>
+              ))}
+              <div className="ml-1 flex items-center gap-1">
+                <PaginationIconButton
+                  label={t("screenerResults.pagination.previous", "Previous page")}
+                  disabled={safePageIndex === 0}
+                  onClick={() => setPageIndex((value) => Math.max(value - 1, 0))}
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden />
+                </PaginationIconButton>
+                <span className="min-w-[4.5rem] text-center text-xs font-semibold text-slate-700">
+                  {safePageIndex + 1} / {pageCount}
+                </span>
+                <PaginationIconButton
+                  label={t("screenerResults.pagination.next", "Next page")}
+                  disabled={safePageIndex >= pageCount - 1}
+                  onClick={() =>
+                    setPageIndex((value) => Math.min(value + 1, pageCount - 1))
+                  }
+                >
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </PaginationIconButton>
+              </div>
+            </div>
+          </div>
 
-          <div className="mt-5 overflow-x-auto">
+          <div className="mt-4 overflow-x-auto">
             <Table className="min-w-full text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:h-9 [&_th]:px-3 [&_th]:tracking-[0.12em]">
               <TableHeader className="sticky top-0 bg-[var(--surface-strong)]">
                 <TableRow>
@@ -431,10 +440,9 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                     </TableCell>
                   </TableRow>
                 ) : (
-                  sortedRows.map((row) => (
+                  paginatedRows.map((row) => (
                     <TableRow
                       key={`${row.symbol}-${row.market}`}
-                      className={row.global_rank <= 3 ? "bg-[rgba(245,222,209,0.18)]" : ""}
                     >
                       <TableCell className="font-semibold text-slate-900">{row.symbol}</TableCell>
                       <TableCell>
@@ -544,10 +552,6 @@ function formatBreakoutType(breakoutType: string | null | undefined): string {
   }
 }
 
-function formatVolumeFlag(value: boolean | undefined): string {
-  return value ? "confirmed" : "standard";
-}
-
 function SelectionChip({
   pressed,
   onClick,
@@ -573,14 +577,27 @@ function SelectionChip({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function PaginationIconButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
   return (
-    <div className="rounded-[16px] border border-[var(--border)] bg-white/88 px-2.5 py-2">
-      <p className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-semibold tabular-nums text-slate-900">{value}</p>
-    </div>
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-slate-700 shadow-[var(--button-secondary-shadow)] transition hover:bg-[color:var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+      onClick={onClick}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -710,4 +727,12 @@ function formatAsOfDate(value: string | null, locale: string) {
 
 function seriesKey(symbol: string, market: string) {
   return `${market}:${symbol}`;
+}
+
+function chunkItems<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
 }

@@ -16,11 +16,11 @@ test("TickerPricePanel renders a trading-focused chart surface with range and ex
   assert.match(source, /days: PRICE_PANEL_LOOKBACK_DAYS/);
   assert.match(source, /slice\(-SPARKLINE_LOOKBACK_POINTS\)/);
   assert.match(source, /buildSparklineDomain/);
-  assert.match(source, /buildSparklineMarkers/);
-  assert.match(source, /findCloseExtremeIndex/);
+  assert.match(source, /buildSparklineLatestMarker/);
+  assert.doesNotMatch(source, /findCloseExtremeIndex/);
   assert.match(source, /toSparklineMarker/);
   assert.match(source, /r="2\.8"/);
-  assert.match(source, /kind: "high" \| "low"/);
+  assert.doesNotMatch(source, /kind: "high" \| "low"/);
   assert.match(source, /tickerHistory\.windowHigh", "High"/);
   assert.match(source, /tickerHistory\.windowLow", "Low"/);
   assert.doesNotMatch(source, /Window Change/);

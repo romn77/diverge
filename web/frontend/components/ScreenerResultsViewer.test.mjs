@@ -19,6 +19,10 @@ test("ScreenerResultsViewer loads candidate rows and renders observable indicato
   assert.match(source, /listScreenerRunCandidates/);
   assert.match(source, /getTickerHistoryBatch/);
   assert.match(source, /TickerSparkline/);
+  assert.match(source, /TREND_HISTORY_BATCH_SIZE = 50/);
+  assert.match(source, /PAGE_SIZE_OPTIONS = \[25, 50, 100\] as const/);
+  assert.match(source, /chunkItems\(uniqueTickers, TREND_HISTORY_BATCH_SIZE\)/);
+  assert.match(source, /\.flatMap\(\(payload\) => payload\.items\)/);
   assert.match(source, /embedded = false/);
   assert.match(source, /const RootTag = embedded \? "section" : "main"/);
   assert.match(source, /viewer-frame fade-in/);
@@ -60,11 +64,31 @@ test("ScreenerResultsViewer skips low-signal intro copy and summary cards", () =
   const source = readFileSync(componentPath, "utf8");
 
   assert.doesNotMatch(source, /Compare the ranked pool/);
+  assert.doesNotMatch(source, /highlightedRows/);
+  assert.doesNotMatch(source, /Rank #\{row\.global_rank\}/);
+  assert.doesNotMatch(source, /function Metric/);
   assert.doesNotMatch(source, /screenerResults\.summary\.topPick/);
   assert.doesNotMatch(source, /screenerResults\.summary\.coverage/);
   assert.doesNotMatch(source, /screenerResults\.summary\.filtered/);
   assert.doesNotMatch(source, /screenerResults\.summary\.profile/);
   assert.doesNotMatch(source, /function SummaryCard/);
+});
+
+test("ScreenerResultsViewer paginates candidate rows after filtering and sorting", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /const \[pageSize, setPageSize\] = useState<PageSize>\(25\)/);
+  assert.match(source, /const \[pageIndex, setPageIndex\] = useState\(0\)/);
+  assert.match(source, /const pageCount = Math\.max\(Math\.ceil\(sortedRows\.length \/ pageSize\), 1\)/);
+  assert.match(source, /const pageStart = safePageIndex \* pageSize/);
+  assert.match(source, /sortedRows\.slice\(pageStart, pageEnd\)/);
+  assert.match(source, /paginatedRows\.map/);
+  assert.match(source, /screenerResults\.pagination\.range/);
+  assert.match(source, /screenerResults\.pagination\.rows/);
+  assert.match(source, /ChevronLeft/);
+  assert.match(source, /ChevronRight/);
+  assert.match(source, /function PaginationIconButton/);
+  assert.match(source, /setPageIndex\(0\)/);
 });
 
 test("ScreenerResultsViewer includes breakout filter controls for results exploration", () => {

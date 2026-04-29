@@ -202,7 +202,7 @@ export function TickerSparkline({
     SPARKLINE_PADDING,
     sparklineDomain
   );
-  const markers = buildSparklineMarkers(validPoints, sparklineDomain);
+  const latestMarker = buildSparklineLatestMarker(validPoints, sparklineDomain);
   const trendUp =
     validPoints.length >= 2 &&
     validPoints[validPoints.length - 1].close >= validPoints[0].close;
@@ -240,21 +240,10 @@ export function TickerSparkline({
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {markers.extremes.map((marker) => (
+      {latestMarker ? (
         <circle
-          key={`${marker.kind}-${marker.index}`}
-          cx={marker.x}
-          cy={marker.y}
-          r="2"
-          fill="var(--surface-strong)"
-          stroke={marker.kind === "high" ? "rgb(18 106 70)" : "rgb(161 68 68)"}
-          strokeWidth="1.4"
-        />
-      ))}
-      {markers.latest ? (
-        <circle
-          cx={markers.latest.x}
-          cy={markers.latest.y}
+          cx={latestMarker.x}
+          cy={latestMarker.y}
           r="2.8"
           fill={lineColor}
           stroke="var(--surface-strong)"
@@ -450,50 +439,15 @@ function buildLinePath(
     .join(" ");
 }
 
-function buildSparklineMarkers(
+function buildSparklineLatestMarker(
   points: Array<TickerHistoryPoint & { close: number }>,
   domain: ChartDomain
-): {
-  latest: SparklineMarker | null;
-  extremes: Array<SparklineMarker & { kind: "high" | "low" }>;
-} {
-  if (points.length === 0) {
-    return { latest: null, extremes: [] };
-  }
-
-  const latest = toSparklineMarker(points, points.length - 1, domain);
-  const lowIndex = findCloseExtremeIndex(points, "low");
-  const highIndex = findCloseExtremeIndex(points, "high");
-  const extremes: Array<SparklineMarker & { kind: "high" | "low" }> = [];
-
-  if (lowIndex !== null && lowIndex !== latest.index) {
-    extremes.push({ ...toSparklineMarker(points, lowIndex, domain), kind: "low" });
-  }
-  if (highIndex !== null && highIndex !== latest.index && highIndex !== lowIndex) {
-    extremes.push({ ...toSparklineMarker(points, highIndex, domain), kind: "high" });
-  }
-
-  return { latest, extremes };
-}
-
-function findCloseExtremeIndex(
-  points: Array<TickerHistoryPoint & { close: number }>,
-  kind: "high" | "low"
-): number | null {
+): SparklineMarker | null {
   if (points.length === 0) {
     return null;
   }
 
-  return points.reduce((selectedIndex, point, index) => {
-    const selected = points[selectedIndex];
-    return kind === "high"
-      ? point.close > selected.close
-        ? index
-        : selectedIndex
-      : point.close < selected.close
-        ? index
-        : selectedIndex;
-  }, 0);
+  return toSparklineMarker(points, points.length - 1, domain);
 }
 
 function toSparklineMarker(
