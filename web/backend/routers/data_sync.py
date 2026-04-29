@@ -37,23 +37,26 @@ def create_ohlcv_sync_task(
         tenant_id=actor.tenant_id if actor is not None else None,
     )
     if actor is not None and auth.auth_enabled():
-        with auth.db_session() as db:
-            audit.record_audit_event_safely(
-                db,
-                tenant_id=actor.tenant_id,
-                actor_user_id=actor.id,
-                action="data_sync.ohlcv.created",
-                resource_type="data_sync_task",
-                resource_id=str(result.get("task_id")),
-                metadata={
-                    "sync_type": "ohlcv",
-                    "markets": request_payload.get("markets"),
-                    "as_of_date": request_payload.get("as_of_date"),
-                    "cn_data_source": request_payload.get("cn_data_source"),
-                    "us_data_source": request_payload.get("us_data_source"),
-                },
-                request=request,
-            )
+        try:
+            with auth.db_session() as db:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="data_sync.ohlcv.created",
+                    resource_type="data_sync_task",
+                    resource_id=str(result.get("task_id")),
+                    metadata={
+                        "sync_type": "ohlcv",
+                        "markets": request_payload.get("markets"),
+                        "as_of_date": request_payload.get("as_of_date"),
+                        "cn_data_source": request_payload.get("cn_data_source"),
+                        "us_data_source": request_payload.get("us_data_source"),
+                    },
+                    request=request,
+                )
+        except Exception:
+            pass
     return result
 
 
@@ -70,22 +73,25 @@ def create_fundamental_sync_task(
         tenant_id=actor.tenant_id if actor is not None else None,
     )
     if actor is not None and auth.auth_enabled():
-        with auth.db_session() as db:
-            audit.record_audit_event_safely(
-                db,
-                tenant_id=actor.tenant_id,
-                actor_user_id=actor.id,
-                action="data_sync.fundamentals.created",
-                resource_type="data_sync_task",
-                resource_id=str(result.get("task_id")),
-                metadata={
-                    "sync_type": "fundamentals",
-                    "market": payload.market,
-                    "source": payload.source,
-                    "as_of_date": payload.as_of_date,
-                },
-                request=request,
-            )
+        try:
+            with auth.db_session() as db:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="data_sync.fundamentals.created",
+                    resource_type="data_sync_task",
+                    resource_id=str(result.get("task_id")),
+                    metadata={
+                        "sync_type": "fundamentals",
+                        "market": payload.market,
+                        "source": payload.source,
+                        "as_of_date": payload.as_of_date,
+                    },
+                    request=request,
+                )
+        except Exception:
+            pass
     return result
 
 

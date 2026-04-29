@@ -102,22 +102,25 @@ def _record_screener_pruned_audit_event(task: ScreenerTask, run_dir: Path) -> No
     if pruned_count <= 0:
         return
     artifact_paths = run_meta.get("artifact_paths") or {}
-    with auth.db_session() as db:
-        audit.record_audit_event_safely(
-            db,
-            tenant_id=task.tenant_id,
-            actor_user_id=task.owner_user_id,
-            action="screener.universe.pruned",
-            resource_type="screener_task",
-            resource_id=task.id,
-            metadata={
-                "run_id": run_dir.name,
-                "as_of_date": run_meta.get("as_of_date"),
-                "pruned_symbol_count": pruned_count,
-                "filtered_count_by_reason": run_meta.get("filtered_count_by_reason"),
-                "pruned_symbols_path": artifact_paths.get("pruned_symbols"),
-            },
-        )
+    try:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=task.tenant_id,
+                actor_user_id=task.owner_user_id,
+                action="screener.universe.pruned",
+                resource_type="screener_task",
+                resource_id=task.id,
+                metadata={
+                    "run_id": run_dir.name,
+                    "as_of_date": run_meta.get("as_of_date"),
+                    "pruned_symbol_count": pruned_count,
+                    "filtered_count_by_reason": run_meta.get("filtered_count_by_reason"),
+                    "pruned_symbols_path": artifact_paths.get("pruned_symbols"),
+                },
+            )
+    except Exception:
+        return
 
 
 def active_screener_tasks_dir() -> Path:
