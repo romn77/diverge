@@ -72,6 +72,54 @@ class AnalysisTrackerTests(unittest.TestCase):
 
         self.assertEqual(request.analysis_date, "2025-09-30")
 
+    def test_analysis_request_infers_cn_exchange_for_plain_sz_ticker(self):
+        request = AnalysisRequest(
+            ticker="000830",
+            analysis_date="2026-04-29",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+        )
+
+        self.assertEqual(request.ticker, "000830.SZ")
+
+    def test_analysis_request_applies_explicit_cn_exchange(self):
+        request = AnalysisRequest(
+            ticker="000830",
+            ticker_exchange="SZ",
+            analysis_date="2026-04-29",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+        )
+
+        self.assertEqual(request.ticker, "000830.SZ")
+
+    def test_analysis_request_rejects_beijing_exchange_ticker(self):
+        with self.assertRaises(ValueError) as context:
+            AnalysisRequest(
+                ticker="920000",
+                analysis_date="2026-04-29",
+                analysts=["market"],
+                research_depth=1,
+                llm_provider="openai",
+                quick_think_llm="gpt-5-mini",
+                deep_think_llm="gpt-5.2",
+                output_language="en",
+                openai_reasoning_effort="medium",
+            )
+
+        self.assertIn("BJ", str(context.exception))
+        self.assertIn("not supported", str(context.exception))
+
     def test_tracker_derives_three_state_stage_progress_from_agent_status(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             tracker = AnalysisTracker(["market", "news"], Path(temp_dir))

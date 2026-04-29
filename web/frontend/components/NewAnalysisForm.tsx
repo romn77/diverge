@@ -290,7 +290,7 @@ export function NewAnalysisForm({
           </div>
         ) : (
           <div className="mt-8 grid gap-6">
-            <section className="grid gap-4 md:grid-cols-2">
+            <section className="grid gap-4 md:grid-cols-[1.15fr_0.85fr_1fr]">
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("analysis.ticker", "Ticker")}
@@ -308,6 +308,35 @@ export function NewAnalysisForm({
                   placeholder="SPY"
                 />
               </label>
+
+              <AnalysisSelectField
+                label={t("analysis.tickerExchange", "Exchange")}
+                value={formState.ticker_exchange ?? "auto"}
+                onChange={(value) =>
+                  setFormState({
+                    ...formState,
+                    ticker_exchange: value as TaskCreateRequest["ticker_exchange"],
+                  })
+                }
+                hint={t(
+                  "analysis.tickerExchangeHint",
+                  "Auto adds SH or SZ for plain 6-digit CN tickers. BJ is not supported yet."
+                )}
+                className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4"
+              >
+                <SelectItem value="auto">
+                  {t("analysis.tickerExchange.auto", "Auto")}
+                </SelectItem>
+                <SelectItem value="SH">
+                  {t("analysis.tickerExchange.sh", "SH")}
+                </SelectItem>
+                <SelectItem value="SZ">
+                  {t("analysis.tickerExchange.sz", "SZ")}
+                </SelectItem>
+                <SelectItem value="BJ">
+                  {t("analysis.tickerExchange.bj", "BJ")}
+                </SelectItem>
+              </AnalysisSelectField>
 
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -688,6 +717,7 @@ function buildInitialFormState(
 
   return {
     ticker: "SPY",
+    ticker_exchange: "auto",
     analysis_date: getLocalDateInputValue(),
     analysts: configOptions.analysts.map((option) => option.value),
     research_depth: Number(firstDepth),

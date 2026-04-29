@@ -17,7 +17,7 @@ from diverge.llm_clients.validators import validate_model
 from diverge.dataflows.cn_market_utils import detect_market
 from diverge.research.thesis_tracker import build_thesis_artifact
 from diverge.screener.market_calendar import latest_trading_day_on_or_before
-from diverge.ticker_symbols import normalize_ticker_symbol
+from diverge.ticker_symbols import normalize_analysis_ticker_symbol
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
@@ -147,9 +147,13 @@ class AnalysisRequest:
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
     market_data_source: str = "massive"
+    ticker_exchange: Optional[str] = None
 
     def __post_init__(self) -> None:
-        self.ticker = normalize_ticker_symbol(self.ticker)
+        self.ticker = normalize_analysis_ticker_symbol(
+            self.ticker,
+            ticker_exchange=self.ticker_exchange,
+        )
 
         try:
             analysis_date = datetime.datetime.strptime(self.analysis_date, "%Y-%m-%d")

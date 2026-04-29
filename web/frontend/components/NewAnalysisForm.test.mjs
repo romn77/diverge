@@ -71,6 +71,20 @@ test("NewAnalysisForm lets users choose private or workspace report visibility",
   assert.match(source, /report_visibility:\s*value as ReportVisibility/);
 });
 
+test("NewAnalysisForm lets users choose automatic or explicit CN exchange labels", () => {
+  const source = readFileSync(formPath, "utf8");
+
+  assert.match(source, /ticker_exchange:\s*"auto"/);
+  assert.match(source, /analysis\.tickerExchange/);
+  assert.match(source, /analysis\.tickerExchangeHint/);
+  assert.match(source, /value=\{formState\.ticker_exchange \?\? "auto"\}/);
+  assert.match(source, /ticker_exchange:\s*value as TaskCreateRequest\["ticker_exchange"\]/);
+  assert.match(source, /<SelectItem value="auto">/);
+  assert.match(source, /<SelectItem value="SH">/);
+  assert.match(source, /<SelectItem value="SZ">/);
+  assert.match(source, /<SelectItem value="BJ">/);
+});
+
 test("NewAnalysisForm uses the shared local date helper for the initial analysis date", () => {
   const source = readFileSync(formPath, "utf8");
 

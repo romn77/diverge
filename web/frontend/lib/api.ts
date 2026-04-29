@@ -523,6 +523,7 @@ export interface TradeFeedbackPayload {
 
 export interface TaskCreateRequest {
   ticker: string;
+  ticker_exchange?: "auto" | "SH" | "SZ" | "BJ" | null;
   analysis_date: string;
   analysts: string[];
   research_depth: number;
