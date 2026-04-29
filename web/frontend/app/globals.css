@@ -669,8 +669,7 @@ input {
 .report-summary-card,
 .ticker-price-panel,
 .ticker-chart-shell,
-.ticker-metric-card,
-.ticker-metric-strip,
+.ticker-range-summary,
 .ticker-trend-icon {
   border-color: var(--border);
 }
@@ -816,13 +815,9 @@ input {
   }
 }
 
-.ticker-metric-card {
-  background: var(--chart-metric-bg);
-  box-shadow: 0 10px 18px rgba(18, 28, 41, 0.04);
-}
-
-.ticker-metric-strip {
+.ticker-range-summary {
   background: var(--chart-metric-strip-bg);
+  box-shadow: 0 8px 16px rgba(18, 28, 41, 0.035);
 }
 
 .ticker-trend-icon {

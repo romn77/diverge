@@ -23,17 +23,22 @@ test("TickerPricePanel renders a trading-focused chart surface with range and ex
   assert.match(source, /kind: "high" \| "low"/);
   assert.match(source, /Window High/);
   assert.match(source, /Window Low/);
-  assert.match(source, /Window Change/);
+  assert.doesNotMatch(source, /Window Change/);
   assert.match(source, /buildLinePath/);
   assert.match(source, /ChartShell/);
-  assert.match(source, /TradingMetricStrip/);
+  assert.match(source, /TickerRangeSummaryBar/);
+  assert.match(source, /TickerRangeSummaryItem/);
+  assert.match(source, /filterPointsForRange/);
+  assert.match(source, /CHART_RANGE_DAYS/);
+  assert.match(source, /\[chartRange,\s*setChartRange\]/);
+  assert.match(source, /range=\{chartRange\}/);
+  assert.match(source, /onRangeChange=\{setChartRange\}/);
   assert.match(source, /text-\[12px\]/);
-  assert.match(source, /text-\[9px\]/);
-  assert.match(source, /h-7 w-7/);
-  assert.match(source, /text-\[0\.95rem\]/);
-  assert.match(source, /md:text-\[1\.05rem\]/);
+  assert.match(source, /text-\[10px\]/);
+  assert.match(source, /flex-\[1_1_14rem\]/);
   assert.match(source, /formatMetricDateCompact/);
-  assert.match(source, /whitespace-nowrap/);
+  assert.doesNotMatch(source, /TradingMetricTile/);
+  assert.doesNotMatch(source, /TradingMetricStrip/);
 });
 
 test("TickerPricePanel no longer exposes compact-only visibility toggles", () => {

@@ -7,7 +7,11 @@ import {
   type TickerHistoryPoint,
   type TickerHistorySeries,
 } from "@/lib/api";
-import { TickerFinancialChart } from "./TickerFinancialChart";
+import {
+  CHART_RANGE_DAYS,
+  TickerFinancialChart,
+  type ChartRangeKey,
+} from "./TickerFinancialChart";
 
 const SPARKLINE_WIDTH = 112;
 const SPARKLINE_HEIGHT = 34;
@@ -28,12 +32,6 @@ interface TickerSparklineProps {
   points: TickerHistoryPoint[];
   loading?: boolean;
   className?: string;
-}
-
-interface TradingMetricCard {
-  icon: "calendar" | "trend" | "high" | "low";
-  label: string;
-  value: string;
 }
 
 interface ChartDomain {
@@ -60,6 +58,7 @@ export function TickerPricePanel({
   const [history, setHistory] = useState<TickerHistorySeries | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [chartRange, setChartRange] = useState<ChartRangeKey>("1Y");
 
   useEffect(() => {
     let isActive = true;
@@ -106,48 +105,28 @@ export function TickerPricePanel({
     () => filterValidPoints(history?.points ?? []),
     [history?.points]
   );
-  const earliestClose = validPoints[0]?.close ?? null;
-  const latestClose = validPoints[validPoints.length - 1]?.close ?? null;
-  const changePercent =
-    latestClose !== null && earliestClose !== null && earliestClose !== 0
-      ? ((latestClose - earliestClose) / earliestClose) * 100
-      : null;
-  const windowHigh = validPoints.length
-    ? Math.max(...validPoints.map((point) => point.high ?? point.close))
+  const visiblePoints = useMemo(
+    () => filterPointsForRange(validPoints, chartRange),
+    [chartRange, validPoints]
+  );
+  const windowHigh = visiblePoints.length
+    ? Math.max(...visiblePoints.map((point) => point.high ?? point.close))
     : null;
-  const windowLow = validPoints.length
-    ? Math.min(...validPoints.map((point) => point.low ?? point.close))
+  const windowLow = visiblePoints.length
+    ? Math.min(...visiblePoints.map((point) => point.low ?? point.close))
     : null;
   const dateLabel =
-    history?.start_date && history?.end_date
-      ? `${formatMetricDateCompact(history.start_date, locale)} - ${formatMetricDateCompact(
-          history.end_date,
+    visiblePoints[0]?.date && visiblePoints[visiblePoints.length - 1]?.date
+      ? `${formatMetricDateCompact(visiblePoints[0].date, locale)} - ${formatMetricDateCompact(
+          visiblePoints[visiblePoints.length - 1].date,
           locale
         )}`
       : t("tickerHistory.windowUnavailable", "Window unavailable");
-
-  const metricCards: TradingMetricCard[] = [
-    {
-      icon: "calendar",
-      label: t("tickerHistory.window", "Window"),
-      value: dateLabel,
-    },
-    {
-      icon: "trend",
-      label: t("tickerHistory.periodReturn", "Window Change"),
-      value: formatPercent(changePercent, locale),
-    },
-    {
-      icon: "high",
-      label: t("tickerHistory.windowHigh", "Window High"),
-      value: formatPrice(windowHigh, locale),
-    },
-    {
-      icon: "low",
-      label: t("tickerHistory.windowLow", "Window Low"),
-      value: formatPrice(windowLow, locale),
-    },
-  ];
+  const rangeSummary = {
+    window: dateLabel,
+    high: formatPrice(windowHigh, locale),
+    low: formatPrice(windowLow, locale),
+  };
 
   return (
     <section
@@ -186,23 +165,20 @@ export function TickerPricePanel({
       ) : (
         <>
           <ChartShell embedded={embedded}>
-            <TickerFinancialChart points={validPoints} locale={locale} />
+            <TickerFinancialChart
+              points={validPoints}
+              locale={locale}
+              range={chartRange}
+              onRangeChange={setChartRange}
+            />
           </ChartShell>
 
-          {embedded ? (
-            <TradingMetricStrip metricCards={metricCards} />
-          ) : (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {metricCards.map((metric) => (
-                <TradingMetricTile
-                  key={metric.label}
-                  icon={metric.icon}
-                  label={metric.label}
-                  value={metric.value}
-                />
-              ))}
-            </div>
-          )}
+          <TickerRangeSummaryBar
+            windowLabel={t("tickerHistory.window", "")}
+            highLabel={t("tickerHistory.windowHigh", "High")}
+            lowLabel={t("tickerHistory.windowLow", "Low")}
+            summary={rangeSummary}
+          />
         </>
       )}
     </section>
@@ -309,63 +285,54 @@ function ChartShell({
   );
 }
 
-function TradingMetricTile({
-  icon,
-  label,
-  value,
+function TickerRangeSummaryBar({
+  windowLabel,
+  highLabel,
+  lowLabel,
+  summary,
 }: {
-  icon: TradingMetricCard["icon"];
-  label: string;
-  value: string;
+  windowLabel: string;
+  highLabel: string;
+  lowLabel: string;
+  summary: {
+    window: string;
+    high: string;
+    low: string;
+  };
 }) {
   return (
-    <div className="ticker-metric-card rounded-[20px] border px-3 py-3">
-      <div className="flex items-center gap-2">
-        <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]">
-          <MetricIcon icon={icon} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-            {label}
-          </p>
-          <div className="mt-1 h-px w-full bg-[var(--border)]" />
-        </div>
+    <div className="ticker-range-summary mt-3 rounded-[16px] border px-3 py-2.5 text-sm">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+        <TickerRangeSummaryItem label={windowLabel} value={summary.window} isPrimary />
+        <TickerRangeSummaryItem label={highLabel} value={summary.high} />
+        <TickerRangeSummaryItem label={lowLabel} value={summary.low} />
       </div>
-      <p className="mt-2 break-words text-[0.95rem] font-semibold leading-snug tracking-tight text-slate-900 md:text-[1.05rem] md:whitespace-nowrap">
-        {value}
-      </p>
     </div>
   );
 }
 
-function TradingMetricStrip({
-  metricCards,
+function TickerRangeSummaryItem({
+  label,
+  value,
+  isPrimary = false,
 }: {
-  metricCards: TradingMetricCard[];
+  label: string;
+  value: string;
+  isPrimary?: boolean;
 }) {
   return (
-    <div className="ticker-metric-strip mt-4 overflow-hidden rounded-[18px] border">
-      <div className="grid md:grid-cols-2 xl:grid-cols-4">
-        {metricCards.map((metric) => (
-          <div
-            key={metric.label}
-            className="flex items-center gap-2.5 border-b border-[var(--border)] px-3 py-2.5 last:border-b-0 xl:border-b-0 xl:border-l xl:first:border-l-0"
-          >
-            <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]">
-              <MetricIcon icon={metric.icon} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-600">
-                {metric.label}
-              </p>
-              <p className="mt-1 truncate text-[0.95rem] font-semibold leading-tight text-slate-900 md:text-[1rem]">
-                {metric.value}
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+    <span
+      className={
+        isPrimary
+          ? "min-w-0 flex-[1_1_14rem] text-slate-700"
+          : "inline-flex shrink-0 items-baseline gap-1.5 text-slate-700"
+      }
+    >
+      <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        {label}
+      </span>
+      <span className="font-semibold text-slate-900">{value}</span>
+    </span>
   );
 }
 
@@ -396,74 +363,6 @@ function TrendBadgeIcon() {
   );
 }
 
-function MetricIcon({ icon }: { icon: TradingMetricCard["icon"] }) {
-  switch (icon) {
-    case "calendar":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
-          <rect
-            x="4.5"
-            y="6"
-            width="15"
-            height="13.5"
-            rx="2.5"
-            stroke="currentColor"
-            strokeWidth="1.8"
-          />
-          <path
-            d="M8 4.5v3M16 4.5v3M4.5 10h15"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-        </svg>
-      );
-    case "trend":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
-          <path
-            d="m5 15 4-4 3 3 5-6"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M17 8h2v2"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
-    case "high":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
-          <path
-            d="m6 15 6-6 6 6"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
-    case "low":
-      return (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden>
-          <path
-            d="m6 9 6 6 6-6"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
-  }
-}
-
 function filterValidPoints(
   points: TickerHistoryPoint[]
 ): Array<TickerHistoryPoint & { close: number }> {
@@ -474,6 +373,28 @@ function hasNumericClose(
   point: TickerHistoryPoint
 ): point is TickerHistoryPoint & { close: number } {
   return typeof point.close === "number";
+}
+
+function filterPointsForRange(
+  points: Array<TickerHistoryPoint & { close: number }>,
+  range: ChartRangeKey
+): Array<TickerHistoryPoint & { close: number }> {
+  if (range === "All" || points.length < 2) {
+    return points;
+  }
+
+  const latest = parseIsoDate(points[points.length - 1].date);
+  if (!latest) {
+    return points;
+  }
+
+  const threshold = new Date(latest);
+  threshold.setUTCDate(threshold.getUTCDate() - CHART_RANGE_DAYS[range]);
+
+  return points.filter((point) => {
+    const parsed = parseIsoDate(point.date);
+    return parsed ? parsed >= threshold : false;
+  });
 }
 
 function buildSparklineDomain(points: Array<TickerHistoryPoint & { close: number }>): ChartDomain {
@@ -609,17 +530,6 @@ function formatPrice(value: number | null, locale: string): string {
   }).format(value);
 }
 
-function formatPercent(value: number | null, locale: string): string {
-  if (typeof value !== "number") {
-    return "—";
-  }
-
-  return `${new Intl.NumberFormat(locale, {
-    maximumFractionDigits: 2,
-    signDisplay: "always",
-  }).format(value)}%`;
-}
-
 function formatMetricDateCompact(value: string, locale: string): string {
   const parsed = new Date(`${value}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) {
@@ -631,4 +541,9 @@ function formatMetricDateCompact(value: string, locale: string): string {
     month: "2-digit",
     day: "2-digit",
   }).format(parsed);
+}
+
+function parseIsoDate(value: string): Date | null {
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }

@@ -15,11 +15,13 @@ import {
 import { type TickerHistoryPoint } from "@/lib/api";
 
 type ChartPoint = TickerHistoryPoint & { close: number };
-type RangeKey = "1M" | "3M" | "6M" | "1Y" | "All";
+export type ChartRangeKey = "1M" | "3M" | "6M" | "1Y" | "All";
 
 interface TickerFinancialChartProps {
   points: ChartPoint[];
   locale: string;
+  range: ChartRangeKey;
+  onRangeChange: (range: ChartRangeKey) => void;
 }
 
 interface HoverPoint {
@@ -29,15 +31,20 @@ interface HoverPoint {
   x: number;
 }
 
-const RANGE_OPTIONS: RangeKey[] = ["1M", "3M", "6M", "1Y", "All"];
-const RANGE_DAYS: Record<Exclude<RangeKey, "All">, number> = {
+const RANGE_OPTIONS: ChartRangeKey[] = ["1M", "3M", "6M", "1Y", "All"];
+export const CHART_RANGE_DAYS: Record<Exclude<ChartRangeKey, "All">, number> = {
   "1M": 31,
   "3M": 92,
   "6M": 183,
   "1Y": 366,
 };
 
-export function TickerFinancialChart({ points, locale }: TickerFinancialChartProps) {
+export function TickerFinancialChart({
+  points,
+  locale,
+  range,
+  onRangeChange,
+}: TickerFinancialChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Area"> | null>(null);
@@ -50,7 +57,6 @@ export function TickerFinancialChart({ points, locale }: TickerFinancialChartPro
       })),
     [points]
   );
-  const [range, setRange] = useState<RangeKey>("1Y");
   const [hoverPoint, setHoverPoint] = useState<HoverPoint | null>(null);
   const latestPoint = points[points.length - 1] ?? null;
   const firstClose = points[0]?.close ?? null;
@@ -189,7 +195,7 @@ export function TickerFinancialChart({ points, locale }: TickerFinancialChartPro
               key={option}
               type="button"
               className={option === range ? "is-active" : ""}
-              onClick={() => setRange(option)}
+              onClick={() => onRangeChange(option)}
             >
               {option}
             </button>
@@ -227,7 +233,7 @@ function buildStaticHoverPoint(point: ChartPoint, firstClose: number | null): Ho
   };
 }
 
-function applyVisibleRange(chart: IChartApi, points: ChartPoint[], range: RangeKey) {
+function applyVisibleRange(chart: IChartApi, points: ChartPoint[], range: ChartRangeKey) {
   if (range === "All" || points.length < 2) {
     chart.timeScale().fitContent();
     return;
@@ -240,7 +246,7 @@ function applyVisibleRange(chart: IChartApi, points: ChartPoint[], range: RangeK
   }
 
   const threshold = new Date(latest);
-  threshold.setUTCDate(threshold.getUTCDate() - RANGE_DAYS[range]);
+  threshold.setUTCDate(threshold.getUTCDate() - CHART_RANGE_DAYS[range]);
   const firstVisible =
     points.find((point) => {
       const parsed = parseIsoDate(point.date);
