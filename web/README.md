@@ -104,6 +104,15 @@ Then open http://localhost:3000 in your browser.
 - Admin data-sync blocks same-day OHLCV refreshes until the vendor-local readiness cutoff:
   `DATA_SYNC_TUSHARE_READY_TIME=18:10` for Tushare and
   `DATA_SYNC_MASSIVE_READY_TIME=21:10` for Massive by default
+- Admin OHLCV data-sync retries symbols that still lack the requested `as_of_date` bar
+  up to three additional sync passes. Symbols that still have no same-day bar after
+  sync are excluded only from that day's screener run; they remain eligible for the
+  next daily sync.
+- OHLCV sync writes a compact summary to the data-sync job result plus a full
+  quality artifact under `../data/cache/screener/sync/`. Screener runs also write
+  `pruned_symbols.csv` when cache-only execution excludes symbols without same-day
+  bars. Audit log events store summary counts and artifact paths rather than full
+  symbol lists.
 
 ## Auth Rollout
 

@@ -10,6 +10,10 @@ import pandas as pd
 
 REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
 NUMERIC_PRICE_COLUMNS = REQUIRED_PRICE_COLUMNS[1:]
+HISTORY_READY_STATUS = "ready"
+HISTORY_CACHE_MISS_STATUS = "history_cache_miss"
+HISTORY_MISSING_AS_OF_BAR_STATUS = "missing_as_of_bar"
+HISTORY_CACHE_NO_WINDOW_STATUS = "history_cache_no_window"
 
 
 def empty_history_frame() -> pd.DataFrame:
@@ -82,6 +86,47 @@ def slice_history_window(frame: pd.DataFrame, start_date: str, end_date: str) ->
         return normalized
     window = normalized[(normalized["Date"] >= start_date) & (normalized["Date"] <= end_date)]
     return window.reset_index(drop=True)
+
+
+def history_cache_span(frame: pd.DataFrame) -> tuple[str | None, str | None]:
+    normalized = normalize_history_frame(frame)
+    if normalized.empty:
+        return None, None
+    return str(normalized["Date"].min()), str(normalized["Date"].max())
+
+
+def classify_history_cache_coverage(
+    frame: pd.DataFrame,
+    *,
+    start_date: str,
+    as_of_date: str,
+) -> dict[str, str | None]:
+    normalized = normalize_history_frame(frame)
+    cache_start, cache_end = history_cache_span(normalized)
+    cache_span = (
+        f"{cache_start}..{cache_end}"
+        if cache_start is not None and cache_end is not None
+        else None
+    )
+
+    if normalized.empty:
+        status = HISTORY_CACHE_MISS_STATUS
+    elif cache_end is None or cache_end < as_of_date:
+        status = HISTORY_MISSING_AS_OF_BAR_STATUS
+    else:
+        cached_window = slice_history_window(normalized, start_date, as_of_date)
+        status = (
+            HISTORY_READY_STATUS
+            if not cached_window.empty
+            else HISTORY_CACHE_NO_WINDOW_STATUS
+        )
+
+    return {
+        "status": status,
+        "cache_start": cache_start,
+        "cache_end": cache_end,
+        "cache_span": cache_span,
+    }
 
 
 def merge_history_frames(existing_frame: pd.DataFrame, new_frame: pd.DataFrame) -> pd.DataFrame:

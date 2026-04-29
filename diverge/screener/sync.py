@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections import Counter
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
@@ -15,7 +16,11 @@ from diverge.data_layout import (
     resolve_screener_cache_dir,
 )
 from diverge.dataflows.vendors.tushare.common import get_tushare_pro_client
-from diverge.screener.market_data import fetch_history_for_universe
+from diverge.screener.history_cache import (
+    classify_history_cache_coverage,
+    load_history_cache,
+)
+from diverge.screener.market_data import LOOKBACK_DAYS, fetch_history_for_universe
 from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.stages import prepare_universe_stage
 
@@ -77,6 +82,9 @@ TUSHARE_DAILY_BASIC_FIELD_MAP = {
     "volume_ratio": "volume_ratio",
 }
 
+OHLCV_SYNC_RETRY_ROUNDS = 3
+OHLCV_READY_STATUS = "ready"
+
 
 @dataclass(slots=True)
 class SyncResult:
@@ -93,6 +101,11 @@ class SyncResult:
     field_coverage: float | None = None
     missing_fields: list[str] = field(default_factory=list)
     failed_symbols: list[dict[str, str]] = field(default_factory=list)
+    quality_artifact_path: str | None = None
+    quality_reason_counts: dict[str, int] = field(default_factory=dict)
+    symbols_missing_as_of_bar: int = 0
+    symbols_pruned_from_screener: int = 0
+    missing_as_of_bar_symbols: list[dict[str, str]] = field(default_factory=list)
     updated_at: str = ""
 
 
@@ -108,6 +121,164 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
         encoding="utf-8",
     )
     temp_path.replace(path)
+
+
+def _ohlcv_history_start(as_of_date: str) -> str:
+    return (
+        datetime.strptime(as_of_date, "%Y-%m-%d") - timedelta(days=LOOKBACK_DAYS)
+    ).strftime("%Y-%m-%d")
+
+
+def _quality_artifact_path(cache_root: Path, config: ScreenRunConfig) -> Path:
+    market_slug = "-".join(config.markets)
+    source_slug = f"cn-{config.cn_data_source}_us-{config.us_data_source}"
+    safe_slug = "".join(
+        char if char.isalnum() or char in {"-", "_"} else "_"
+        for char in f"{config.as_of_date}_{market_slug}_{source_slug}"
+    )
+    return cache_root / "sync" / f"ohlcv_quality_{safe_slug}.json"
+
+
+def _quality_row_for_symbol(
+    *,
+    history_root: Path,
+    market: str,
+    symbol: str,
+    start_date: str,
+    as_of_date: str,
+) -> dict[str, str | None]:
+    coverage = classify_history_cache_coverage(
+        load_history_cache(history_root, market, symbol),
+        start_date=start_date,
+        as_of_date=as_of_date,
+    )
+    return {
+        "symbol": symbol,
+        "market": market,
+        "status": coverage["status"],
+        "cache_span": coverage["cache_span"],
+        "cache_start": coverage["cache_start"],
+        "cache_end": coverage["cache_end"],
+        "as_of_date": as_of_date,
+    }
+
+
+def _build_ohlcv_quality_rows(
+    universe_df: pd.DataFrame,
+    *,
+    history_root: Path,
+    start_date: str,
+    as_of_date: str,
+) -> list[dict[str, str | None]]:
+    rows: list[dict[str, str | None]] = []
+    if universe_df.empty:
+        return rows
+    for row in universe_df.loc[:, ["market", "symbol"]].itertuples(index=False):
+        rows.append(
+            _quality_row_for_symbol(
+                history_root=history_root,
+                market=str(row.market).strip().lower(),
+                symbol=str(row.symbol).strip(),
+                start_date=start_date,
+                as_of_date=as_of_date,
+            )
+        )
+    return rows
+
+
+def _retry_universe_from_quality_rows(
+    universe_df: pd.DataFrame,
+    quality_rows: list[dict[str, str | None]],
+) -> pd.DataFrame:
+    retry_keys = {
+        (str(row["market"]), str(row["symbol"]))
+        for row in quality_rows
+        if row.get("status") != OHLCV_READY_STATUS
+    }
+    if not retry_keys or universe_df.empty:
+        return universe_df.iloc[0:0].copy()
+    mask = [
+        (str(row.market).strip().lower(), str(row.symbol).strip()) in retry_keys
+        for row in universe_df.loc[:, ["market", "symbol"]].itertuples(index=False)
+    ]
+    return universe_df.loc[mask].reset_index(drop=True)
+
+
+def _quality_reason_counts(quality_rows: list[dict[str, str | None]]) -> dict[str, int]:
+    return dict(Counter(str(row.get("status") or "unknown") for row in quality_rows))
+
+
+def _failed_symbols_from_quality_rows(
+    quality_rows: list[dict[str, str | None]],
+) -> list[dict[str, str]]:
+    return [
+        {
+            "symbol": str(row["symbol"]),
+            "market": str(row["market"]),
+            "drop_reason": str(row.get("status") or "unknown"),
+        }
+        for row in quality_rows
+        if row.get("status") != OHLCV_READY_STATUS
+    ]
+
+
+def _missing_as_of_bar_symbols(
+    quality_rows: list[dict[str, str | None]],
+    *,
+    limit: int = 20,
+) -> list[dict[str, str]]:
+    rows = []
+    for row in quality_rows:
+        if row.get("status") != "missing_as_of_bar":
+            continue
+        rows.append(
+            {
+                "symbol": str(row["symbol"]),
+                "market": str(row["market"]),
+                "cache_span": str(row.get("cache_span") or ""),
+            }
+        )
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def _ready_symbol_set(quality_rows: list[dict[str, str | None]]) -> set[str]:
+    return {
+        str(row["symbol"])
+        for row in quality_rows
+        if row.get("status") == OHLCV_READY_STATUS
+    }
+
+
+def _write_ohlcv_quality_artifact(
+    path: Path,
+    *,
+    config: ScreenRunConfig,
+    quality_rows: list[dict[str, str | None]],
+) -> None:
+    _write_json(
+        path,
+        {
+            "sync_type": "ohlcv",
+            "markets": list(config.markets),
+            "as_of_date": config.as_of_date,
+            "source": {
+                "cn": config.cn_data_source,
+                "us": config.us_data_source,
+            },
+            "reason_counts": _quality_reason_counts(quality_rows),
+            "symbols_total": len(quality_rows),
+            "symbols_ready": sum(
+                1 for row in quality_rows if row.get("status") == OHLCV_READY_STATUS
+            ),
+            "symbols_not_ready": sum(
+                1 for row in quality_rows if row.get("status") != OHLCV_READY_STATUS
+            ),
+            "rows": quality_rows,
+            "updated_at": _utc_iso(),
+        },
+    )
 
 
 def _safe_numeric(value: Any) -> float | None:
@@ -449,6 +620,7 @@ def sync_ohlcv_cache(
 ) -> SyncResult:
     cache_root = Path(config.cache_dir or resolve_screener_cache_dir())
     history_root = Path(config.history_dir or resolve_history_dir())
+    start_date = _ohlcv_history_start(config.as_of_date)
     universe_stage = prepare_universe_stage(
         config,
         cache_root,
@@ -466,7 +638,55 @@ def sync_ohlcv_cache(
         cache_dir=cache_root,
         checkpoint_dir=cache_root / "checkpoints",
     )
+    quality_rows = _build_ohlcv_quality_rows(
+        universe_stage.prefiltered_df,
+        history_root=history_root,
+        start_date=start_date,
+        as_of_date=config.as_of_date,
+    )
+    for retry_index in range(1, OHLCV_SYNC_RETRY_ROUNDS + 1):
+        retry_universe_df = _retry_universe_from_quality_rows(
+            universe_stage.prefiltered_df,
+            quality_rows,
+        )
+        if retry_universe_df.empty:
+            break
+        retry_histories, failures = fetch_history_for_universe(
+            retry_universe_df,
+            config.as_of_date,
+            cn_data_source=config.cn_data_source,
+            cn_data_source_fallbacks=config.cn_data_source_fallbacks,
+            us_data_source=config.us_data_source,
+            us_data_source_fallbacks=config.us_data_source_fallbacks,
+            progress_callback=progress_callback,
+            history_dir=history_root,
+            cache_dir=cache_root,
+            checkpoint_dir=cache_root / "checkpoints" / f"retry_{retry_index}",
+        )
+        histories.update(retry_histories)
+        quality_rows = _build_ohlcv_quality_rows(
+            universe_stage.prefiltered_df,
+            history_root=history_root,
+            start_date=start_date,
+            as_of_date=config.as_of_date,
+        )
+
     meta_path = cache_root / "sync" / "ohlcv_sync_meta.json"
+    quality_path = _quality_artifact_path(cache_root, config)
+    _write_ohlcv_quality_artifact(
+        quality_path,
+        config=config,
+        quality_rows=quality_rows,
+    )
+    ready_symbols = _ready_symbol_set(quality_rows)
+    ready_histories = {
+        symbol: frame
+        for symbol, frame in histories.items()
+        if symbol in ready_symbols
+    }
+    failed_symbols = _failed_symbols_from_quality_rows(quality_rows)
+    reason_counts = _quality_reason_counts(quality_rows)
+    missing_as_of_bar_count = int(reason_counts.get("missing_as_of_bar", 0))
     result = SyncResult(
         sync_type="ohlcv",
         markets=list(config.markets),
@@ -478,12 +698,17 @@ def sync_ohlcv_cache(
         ),
         status="completed",
         symbols_total=int(len(universe_stage.prefiltered_df)),
-        symbols_success=int(len(histories)),
-        symbols_failed=int(len(failures)),
-        rows_written=int(sum(len(frame) for frame in histories.values())),
+        symbols_success=int(len(ready_histories)),
+        symbols_failed=int(len(failed_symbols)),
+        rows_written=int(sum(len(frame) for frame in ready_histories.values())),
         snapshot_path=str(history_root),
         meta_path=str(meta_path),
-        failed_symbols=failures.to_dict("records") if not failures.empty else [],
+        failed_symbols=failed_symbols,
+        quality_artifact_path=str(quality_path),
+        quality_reason_counts=reason_counts,
+        symbols_missing_as_of_bar=missing_as_of_bar_count,
+        symbols_pruned_from_screener=int(len(failed_symbols)),
+        missing_as_of_bar_symbols=_missing_as_of_bar_symbols(quality_rows),
         updated_at=_utc_iso(),
     )
     _write_json(meta_path, asdict(result))

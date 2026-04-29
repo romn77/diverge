@@ -347,6 +347,7 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
         "universe",
         "features",
         "filtered_out",
+        "pruned_symbols",
         "candidates",
         "llm_pool",
     }

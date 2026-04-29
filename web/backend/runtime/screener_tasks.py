@@ -16,7 +16,7 @@ from fastapi import HTTPException
 from diverge.dataflows import vendor_usage
 from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
-from web.backend import app_config, storage
+from web.backend import app_config, audit, auth, storage
 from web.backend.runtime import task_store
 from web.backend.services import screeners as screener_service
 
@@ -86,6 +86,38 @@ def count_active_tasks() -> int:
 
 def _utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _record_screener_pruned_audit_event(task: ScreenerTask, run_dir: Path) -> None:
+    if task.owner_user_id is None or task.tenant_id is None or not auth.auth_enabled():
+        return
+    run_meta_path = run_dir / "run_meta.json"
+    if not run_meta_path.is_file():
+        return
+    try:
+        run_meta = json.loads(run_meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return
+    pruned_count = int(run_meta.get("pruned_symbol_count") or 0)
+    if pruned_count <= 0:
+        return
+    artifact_paths = run_meta.get("artifact_paths") or {}
+    with auth.db_session() as db:
+        audit.record_audit_event_safely(
+            db,
+            tenant_id=task.tenant_id,
+            actor_user_id=task.owner_user_id,
+            action="screener.universe.pruned",
+            resource_type="screener_task",
+            resource_id=task.id,
+            metadata={
+                "run_id": run_dir.name,
+                "as_of_date": run_meta.get("as_of_date"),
+                "pruned_symbol_count": pruned_count,
+                "filtered_count_by_reason": run_meta.get("filtered_count_by_reason"),
+                "pruned_symbols_path": artifact_paths.get("pruned_symbols"),
+            },
+        )
 
 
 def active_screener_tasks_dir() -> Path:
@@ -477,6 +509,7 @@ def run_screener_task(task_id: str) -> None:
                 config,
                 progress_callback=progress_callback,
             )
+        _record_screener_pruned_audit_event(current_task, Path(result.run_dir))
         if storage_backend_is_remote():
             storage.upload_directory(Path(result.run_dir), f"screener/runs/{Path(result.run_dir).name}")
 

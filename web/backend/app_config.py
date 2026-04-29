@@ -41,6 +41,7 @@ SCREENER_ARTIFACT_FILENAMES = {
     "universe": "universe.csv",
     "features": "features.csv",
     "filtered_out": "filtered_out.csv",
+    "pruned_symbols": "pruned_symbols.csv",
     "candidates": "candidates.csv",
     "llm_pool": "llm_pool.json",
 }
