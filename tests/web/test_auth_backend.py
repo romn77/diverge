@@ -340,6 +340,34 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
         asyncio.run(scenario())
 
+    def test_session_token_can_authenticate_api_clients_via_bearer_header(self):
+        async def scenario():
+            async with self._client(
+                auth_enabled=True,
+                auth_mode="required",
+                extra_env={"SESSION_COOKIE_NAME": "test_session"},
+            ) as client:
+                await self._login(
+                    client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                session_token = client.cookies.get("test_session")
+                self.assertIsNotNone(session_token)
+
+                client.cookies.clear()
+                headers = {"Authorization": f"Bearer {session_token}"}
+
+                me_response = await client.get("/api/auth/me", headers=headers)
+                self.assertEqual(me_response.status_code, 200, me_response.text)
+                self.assertTrue(me_response.json()["authenticated"])
+
+                users_response = await client.get("/api/admin/users", headers=headers)
+                self.assertEqual(users_response.status_code, 200, users_response.text)
+
+        asyncio.run(scenario())
+
     def test_login_throttles_repeated_failures(self):
         async def scenario():
             async with self._client(auth_enabled=True, auth_mode="required") as client:

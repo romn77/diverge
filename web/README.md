@@ -154,6 +154,7 @@ Permissions and tenant scope:
 - roles are presets over module permissions; admin receives all permissions, operator/viewer keep the current workbench access preset
 - per-user permission overrides support explicit `grant` and `deny`, with deny winning over the role preset
 - `/api/auth/me` returns `permissions` and `tenant`; frontend create/admin actions use those fields, while backend checks remain the source of truth
+- local API clients can authenticate with either the session cookie or `Authorization: Bearer <session-token>`; for Postman/curl, use the value from the login response `Set-Cookie` header, for example `Cookie: tradingagents_session=...` or `Authorization: Bearer ...`
 - workspace reports are visible only inside the same tenant; private reports, tasks, screeners, assets, trades, and usage counters stay owner-scoped within that tenant
 - there is no cross-tenant super-admin role yet; admin override is tenant-admin override
 

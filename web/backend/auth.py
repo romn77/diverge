@@ -1058,7 +1058,7 @@ def get_request_user(
     if not resolved_settings.enabled:
         return None
 
-    session_token = request.cookies.get(resolved_settings.session_cookie_name)
+    session_token = _request_session_token(request, resolved_settings)
     if not session_token:
         return None
 
@@ -1165,14 +1165,30 @@ def clear_session_cookie(response: Response) -> None:
     )
 
 
+def _authorization_bearer_token(value: str | None) -> str | None:
+    if not value:
+        return None
+    scheme, _, credentials = value.strip().partition(" ")
+    if scheme.lower() != "bearer" or not credentials.strip():
+        return None
+    return credentials.strip()
+
+
+def _request_session_token(request: Request, settings: AuthSettings) -> str | None:
+    cookie_token = request.cookies.get(settings.session_cookie_name)
+    if cookie_token:
+        return cookie_token
+    return _authorization_bearer_token(request.headers.get("authorization"))
+
+
 def current_session_token(request: Request) -> str | None:
     settings = get_auth_settings()
-    return request.cookies.get(settings.session_cookie_name)
+    return _request_session_token(request, settings)
 
 
 def current_session_record(db: Session, request: Request) -> AuthSession | None:
     settings = get_auth_settings()
-    token = request.cookies.get(settings.session_cookie_name)
+    token = _request_session_token(request, settings)
     if not token:
         return None
     return db.scalar(
