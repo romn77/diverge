@@ -28,7 +28,7 @@ from diverge.screener.universe import (
     load_universe,
     load_us_universe,
 )
-from web.backend import app_config
+from web.backend import app_config, audit, auth
 from web.backend.runtime import task_store
 
 
@@ -276,9 +276,64 @@ def _save_task(task: DataSyncTask) -> None:
         return
     with data_sync_tasks_lock:
         data_sync_tasks[task.id] = task
-    if task.status in app_config.TERMINAL_TASK_STATUSES:
-        return
     _write_json(_task_path(task.id), task.to_dict())
+
+
+def data_sync_audit_metadata(
+    task: DataSyncTask,
+    *,
+    result: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> dict[str, Any]:
+    payload = task.request_payload
+    metadata: dict[str, Any] = {
+        "sync_type": task.sync_type,
+        "markets": payload.get("markets"),
+        "market": payload.get("market"),
+        "as_of_date": payload.get("as_of_date"),
+        "cn_data_source": payload.get("cn_data_source"),
+        "us_data_source": payload.get("us_data_source"),
+    }
+    if result:
+        for key in (
+            "symbols_total",
+            "symbols_success",
+            "symbols_failed",
+            "rows_written",
+            "symbols_missing_as_of_bar",
+            "symbols_pruned_from_screener",
+            "quality_artifact_path",
+            "quality_reason_counts",
+        ):
+            if key in result:
+                metadata[key] = result.get(key)
+    if error:
+        metadata["error"] = error
+    return {key: value for key, value in metadata.items() if value is not None}
+
+
+def record_data_sync_audit_event(
+    task: DataSyncTask,
+    *,
+    action: str,
+    result: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    if task.owner_user_id is None or task.tenant_id is None or not auth.auth_enabled():
+        return
+    try:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=task.tenant_id,
+                actor_user_id=task.owner_user_id,
+                action=action,
+                resource_type="data_sync_task",
+                resource_id=task.id,
+                metadata=data_sync_audit_metadata(task, result=result, error=error),
+            )
+    except Exception:
+        return
 
 
 def _append_progress(task_id: str, message: str, **extra: Any) -> None:
@@ -617,6 +672,11 @@ def run_data_sync_task(task_id: str) -> None:
         task.result = result
         _append_progress(task_id, f"{task.sync_type} sync completed.")
         _save_task(task)
+        record_data_sync_audit_event(
+            task,
+            action=f"data_sync.{task.sync_type}.completed",
+            result=result,
+        )
     except Exception as exc:
         task = get_data_sync_task(task_id)
         task.status = "failed"
@@ -624,6 +684,11 @@ def run_data_sync_task(task_id: str) -> None:
         task.error = str(exc)
         _append_progress(task_id, f"{task.sync_type} sync failed: {exc}")
         _save_task(task)
+        record_data_sync_audit_event(
+            task,
+            action=f"data_sync.{task.sync_type}.failed",
+            error=str(exc),
+        )
 
 
 def _run_task(task_id: str) -> None:

@@ -7,10 +7,9 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from diverge.screener.history_cache import load_history_cache, normalize_history_frame, slice_history_window
 from diverge.screener.market_data import LOOKBACK_DAYS
 from diverge.screener.schema import ScreenRunConfig
-from diverge.screener.stages import prepare_universe_stage
+from diverge.screener.stages import prepare_universe_stage, prune_universe_by_history_coverage
 from web.backend import app_config, auth, screener_results, screener_runs, storage
 
 _READ_SERVICE = screener_results.ScreenerResultReadService()
@@ -83,13 +82,6 @@ def storage_backend_is_remote() -> bool:
     return storage.os.environ.get("STORAGE_BACKEND", "local").strip().lower() != "local"
 
 
-def _history_span(frame) -> tuple[str | None, str | None]:
-    normalized = normalize_history_frame(frame)
-    if normalized.empty:
-        return None, None
-    return str(normalized["Date"].min()), str(normalized["Date"].max())
-
-
 def _data_not_ready_error(
     *,
     config: ScreenRunConfig,
@@ -158,50 +150,28 @@ def ensure_screener_cache_coverage(config: ScreenRunConfig) -> None:
         str(market): int(len(frame.index))
         for market, frame in prefiltered_df.groupby("market")
     }
-    as_of_date = config.as_of_date
-    start_date = (
-        datetime.strptime(as_of_date, "%Y-%m-%d") - timedelta(days=LOOKBACK_DAYS)
-    ).strftime("%Y-%m-%d")
-    missing_count = 0
-    missing_markets: Counter[str] = Counter()
-    examples: list[dict] = []
-
-    for row in prefiltered_df.loc[:, ["market", "symbol"]].itertuples(index=False):
-        market = str(row.market).strip().lower()
-        symbol = str(row.symbol).strip()
-        cached_frame = load_history_cache(history_root, market, symbol)
-        cache_start, cache_end = _history_span(cached_frame)
-        reason: str | None = None
-
-        if cached_frame.empty:
-            reason = "history_cache_miss"
-        elif cache_end is None or cache_end < as_of_date:
-            reason = "history_cache_stale"
-        else:
-            cached_window = slice_history_window(cached_frame, start_date, as_of_date)
-            if cached_window.empty:
-                reason = "history_cache_no_window"
-
-        if reason is None:
-            continue
-
-        missing_count += 1
-        missing_markets[market] += 1
-        if len(examples) < _MAX_PREFLIGHT_EXAMPLES:
-            examples.append(
-                {
-                    "market": market,
-                    "symbol": symbol,
-                    "reason": reason,
-                    "cache_span": (
-                        f"{cache_start}..{cache_end}"
-                        if cache_start is not None and cache_end is not None
-                        else None
-                    ),
-                }
+    prune_bundle = prune_universe_by_history_coverage(
+        prefiltered_df,
+        config,
+        history_root,
+    )
+    missing_count = int(len(prune_bundle.pruned_df.index))
+    if missing_count and prune_bundle.kept_df.empty:
+        missing_markets: Counter[str] = Counter(
+            str(market).strip().lower()
+            for market in prune_bundle.pruned_df["market"].tolist()
+        )
+        examples = [
+            {
+                "market": str(row.get("market") or ""),
+                "symbol": str(row.get("symbol") or ""),
+                "reason": str(row.get("drop_reason") or ""),
+                "cache_span": row.get("cache_span"),
+            }
+            for row in prune_bundle.pruned_df.head(_MAX_PREFLIGHT_EXAMPLES).to_dict(
+                orient="records"
             )
-
-    if missing_count:
+        ]
         raise _data_not_ready_error(
             config=config,
             symbols_checked=int(len(prefiltered_df.index)),

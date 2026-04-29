@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -21,6 +22,7 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
     actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
     with (
         patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
+        patch("web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
             return_value={"task_id": "sync-1", "status": "pending"},
@@ -44,6 +46,35 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
     assert kwargs["request_payload"]["markets"] == ["us"]
     assert kwargs["request_payload"]["top_k"] == 100
     assert kwargs["request_payload"]["run_screener_prewarm"] is True
+
+
+def test_create_ohlcv_sync_task_records_audit_event_for_admin():
+    actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
+    with (
+        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
+        patch("web.backend.routers.data_sync.auth.auth_enabled", return_value=True),
+        patch("web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
+            return_value={"task_id": "sync-1", "status": "pending"},
+        ),
+        patch("web.backend.routers.data_sync.auth.db_session", return_value=nullcontext("db")),
+        patch("web.backend.routers.data_sync.audit.record_audit_event_safely") as record_audit,
+    ):
+        data_sync_router.create_ohlcv_sync_task(
+            DataSyncOhlcvPayload(
+                markets=["cn"],
+                as_of_date="2026-04-29",
+                cn_data_source="tushare",
+            )
+        )
+
+    record_audit.assert_called_once()
+    kwargs = record_audit.call_args.kwargs
+    assert kwargs["action"] == "data_sync.ohlcv.created"
+    assert kwargs["resource_type"] == "data_sync_task"
+    assert kwargs["resource_id"] == "sync-1"
+    assert kwargs["metadata"]["as_of_date"] == "2026-04-29"
 
 
 def test_create_ohlcv_sync_task_rejects_when_vendor_not_ready():
@@ -147,6 +178,59 @@ def test_worker_dispatches_data_sync_tasks_from_unified_queue(monkeypatch):
     assert did_work is True
     run_task.assert_called_once_with(response["task_id"])
     assert store.processing_ids("data_sync") == []
+
+
+def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
+    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+    data_sync_tasks.data_sync_tasks.clear()
+    task = data_sync_tasks.DataSyncTask(
+        id="sync-completed",
+        sync_type="ohlcv",
+        request_payload={"markets": ["cn"], "as_of_date": "2026-04-29"},
+        status="completed",
+        result={"status": "completed", "symbols_total": 1},
+    )
+
+    data_sync_tasks._save_task(task)
+    data_sync_tasks.data_sync_tasks.clear()
+
+    restored = data_sync_tasks.get_data_sync_task("sync-completed")
+    assert restored.status == "completed"
+    assert restored.result == {"status": "completed", "symbols_total": 1}
+
+
+def test_run_data_sync_task_records_completed_audit_event(tmp_path, monkeypatch):
+    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(data_sync_tasks.auth, "auth_enabled", lambda: True)
+    data_sync_tasks.data_sync_tasks.clear()
+    with patch("web.backend.runtime.data_sync_tasks.threading.Thread"):
+        response = data_sync_tasks.create_data_sync_task(
+            sync_type="ohlcv",
+            request_payload={"markets": ["cn"], "as_of_date": "2026-04-29"},
+            owner_user_id="admin-user",
+            tenant_id="tenant-a",
+        )
+    result = {
+        "status": "completed",
+        "symbols_total": 10,
+        "symbols_success": 8,
+        "symbols_failed": 2,
+        "symbols_missing_as_of_bar": 2,
+        "quality_artifact_path": "/tmp/quality.json",
+    }
+
+    with (
+        patch("web.backend.runtime.data_sync_tasks._run_ohlcv_task", return_value=result),
+        patch("web.backend.runtime.data_sync_tasks.auth.db_session", return_value=nullcontext("db")),
+        patch("web.backend.runtime.data_sync_tasks.audit.record_audit_event_safely") as record_audit,
+    ):
+        data_sync_tasks.run_data_sync_task(response["task_id"])
+
+    record_audit.assert_called_once()
+    kwargs = record_audit.call_args.kwargs
+    assert kwargs["action"] == "data_sync.ohlcv.completed"
+    assert kwargs["metadata"]["symbols_missing_as_of_bar"] == 2
+    assert kwargs["metadata"]["quality_artifact_path"] == "/tmp/quality.json"
 
 
 def test_fundamental_sync_can_build_symbols_from_us_manifest(tmp_path, monkeypatch):

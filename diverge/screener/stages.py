@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
 import pandas as pd
 
 from .filters import apply_hard_filters
+from .history_cache import classify_history_cache_coverage, load_history_cache
 from .indicators import build_features_table
-from .market_data import fetch_history_for_universe
+from .market_data import LOOKBACK_DAYS, fetch_history_for_universe
 from .ranker import score_candidates
 from .schema import ScreenRunConfig
 from .universe import load_universe
@@ -30,6 +32,12 @@ class EvaluationStageBundle:
     kept_df: pd.DataFrame
     dropped_df: pd.DataFrame
     ranked_df: pd.DataFrame
+
+
+@dataclass(slots=True)
+class HistoryCoveragePruneBundle:
+    kept_df: pd.DataFrame
+    pruned_df: pd.DataFrame
 
 
 def _emit(
@@ -67,6 +75,49 @@ def prepare_universe_stage(
         universe_df=universe_df,
         prefiltered_df=prefiltered_df,
         prefiltered_out_df=prefiltered_out_df,
+    )
+
+
+def prune_universe_by_history_coverage(
+    prefiltered_df: pd.DataFrame,
+    config: ScreenRunConfig,
+    history_root: Path,
+) -> HistoryCoveragePruneBundle:
+    if prefiltered_df.empty:
+        return HistoryCoveragePruneBundle(
+            kept_df=prefiltered_df.copy(),
+            pruned_df=pd.DataFrame(columns=list(prefiltered_df.columns) + ["drop_reason"]),
+        )
+
+    start_date = (
+        datetime.strptime(config.as_of_date, "%Y-%m-%d") - timedelta(days=LOOKBACK_DAYS)
+    ).strftime("%Y-%m-%d")
+    kept_rows: list[dict] = []
+    pruned_rows: list[dict] = []
+
+    for row in prefiltered_df.to_dict(orient="records"):
+        market = str(row.get("market") or "").strip().lower()
+        symbol = str(row.get("symbol") or "").strip()
+        coverage = classify_history_cache_coverage(
+            load_history_cache(history_root, market, symbol),
+            start_date=start_date,
+            as_of_date=config.as_of_date,
+        )
+        if coverage["status"] == "ready":
+            kept_rows.append(row)
+            continue
+        pruned_row = dict(row)
+        pruned_row["drop_reason"] = coverage["status"]
+        pruned_row["cache_span"] = coverage["cache_span"]
+        pruned_row["as_of_date"] = config.as_of_date
+        pruned_rows.append(pruned_row)
+
+    return HistoryCoveragePruneBundle(
+        kept_df=pd.DataFrame(kept_rows, columns=list(prefiltered_df.columns)),
+        pruned_df=pd.DataFrame(
+            pruned_rows,
+            columns=[*list(prefiltered_df.columns), "drop_reason", "cache_span", "as_of_date"],
+        ),
     )
 
 

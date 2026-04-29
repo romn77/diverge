@@ -7,7 +7,11 @@ from typing import Callable
 import pandas as pd
 
 from .schema import ScreenRunConfig, ScreenRunResult
-from .stages import evaluate_screen_stage, prepare_universe_stage
+from .stages import (
+    evaluate_screen_stage,
+    prepare_universe_stage,
+    prune_universe_by_history_coverage,
+)
 from .storage import prepare_run_dir, write_run_artifacts
 
 
@@ -90,10 +94,21 @@ def run_screen(
         cache_root,
         progress_callback=progress_callback,
     )
+    fetch_universe_df = universe_stage.prefiltered_df
+    pruned_history_df = pd.DataFrame()
+    if config.history_cache_policy == "cache_only":
+        history_prune = prune_universe_by_history_coverage(
+            universe_stage.prefiltered_df,
+            config,
+            history_root,
+        )
+        fetch_universe_df = history_prune.kept_df
+        pruned_history_df = history_prune.pruned_df
+
     evaluation_stage = evaluate_screen_stage(
         config,
         source_universe_df=universe_stage.universe_df,
-        fetch_universe_df=universe_stage.prefiltered_df,
+        fetch_universe_df=fetch_universe_df,
         cache_root=cache_root,
         history_root=history_root,
         progress_callback=progress_callback,
@@ -101,6 +116,7 @@ def run_screen(
     combined_filtered_out = pd.concat(
         [
             universe_stage.prefiltered_out_df,
+            pruned_history_df,
             evaluation_stage.fetch_failures,
             evaluation_stage.dropped_df,
         ],
@@ -119,6 +135,7 @@ def run_screen(
         filtered_out_df=combined_filtered_out,
         candidates_df=candidates_df,
         elapsed_seconds=round(time.perf_counter() - started_at, 4),
+        pruned_symbols_df=pruned_history_df,
     )
     _emit(progress_callback, "export", 1, 1)
 

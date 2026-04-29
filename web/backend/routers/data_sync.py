@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from web.backend import access, auth
+from web.backend import access, audit, auth
 from web.backend.runtime import data_sync_tasks
 from web.backend.schemas.data_sync import (
     DataSyncFundamentalsPayload,
@@ -30,12 +30,31 @@ def create_ohlcv_sync_task(
         data_sync_tasks.ensure_ohlcv_vendor_ready(request_payload)
     except data_sync_tasks.VendorDataNotReadyError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    return data_sync_tasks.create_data_sync_task(
+    result = data_sync_tasks.create_data_sync_task(
         sync_type="ohlcv",
         request_payload=request_payload,
         owner_user_id=actor.id if actor is not None else None,
         tenant_id=actor.tenant_id if actor is not None else None,
     )
+    if actor is not None and auth.auth_enabled():
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="data_sync.ohlcv.created",
+                resource_type="data_sync_task",
+                resource_id=str(result.get("task_id")),
+                metadata={
+                    "sync_type": "ohlcv",
+                    "markets": request_payload.get("markets"),
+                    "as_of_date": request_payload.get("as_of_date"),
+                    "cn_data_source": request_payload.get("cn_data_source"),
+                    "us_data_source": request_payload.get("us_data_source"),
+                },
+                request=request,
+            )
+    return result
 
 
 @router.post("/api/admin/data-sync/fundamentals")
@@ -44,12 +63,30 @@ def create_fundamental_sync_task(
     request: Request = None,
 ) -> dict:
     actor = _require_admin_permission(request)
-    return data_sync_tasks.create_data_sync_task(
+    result = data_sync_tasks.create_data_sync_task(
         sync_type="fundamentals",
         request_payload=payload.model_dump(),
         owner_user_id=actor.id if actor is not None else None,
         tenant_id=actor.tenant_id if actor is not None else None,
     )
+    if actor is not None and auth.auth_enabled():
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="data_sync.fundamentals.created",
+                resource_type="data_sync_task",
+                resource_id=str(result.get("task_id")),
+                metadata={
+                    "sync_type": "fundamentals",
+                    "market": payload.market,
+                    "source": payload.source,
+                    "as_of_date": payload.as_of_date,
+                },
+                request=request,
+            )
+    return result
 
 
 @router.get("/api/admin/data-sync/jobs")

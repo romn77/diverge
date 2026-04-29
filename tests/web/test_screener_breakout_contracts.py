@@ -64,6 +64,38 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         )
         return history_dir
 
+    def _write_cn_manifest_with_symbols(self, symbols: list[str]) -> Path:
+        manifest_path = Path(self.temp_dir.name) / "cn_manifest.csv"
+        rows = ["symbol,name,exchange,sector,list_date,mktcap"]
+        for symbol in symbols:
+            exchange = "SSE" if symbol.endswith(".SH") else "SZSE"
+            rows.append(f"{symbol},Name {symbol},{exchange},Consumer,20200101,100000000")
+        manifest_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
+        return manifest_path
+
+    def _save_cn_history_bars(self, symbol_dates: dict[str, str]) -> Path:
+        history_dir = Path(self.temp_dir.name) / "history"
+        for symbol, history_date in symbol_dates.items():
+            save_history_cache(
+                history_dir,
+                "cn",
+                symbol,
+                pd.DataFrame(
+                    [
+                        {
+                            "Date": history_date,
+                            "Open": 1,
+                            "High": 1,
+                            "Low": 1,
+                            "Close": 1,
+                            "Volume": 1,
+                            "Amount": 1,
+                        }
+                    ]
+                ),
+            )
+        return history_dir
+
     def _cn_cache_only_config(self, *, manifest_path: Path, history_dir: Path) -> ScreenRunConfig:
         return ScreenRunConfig(
             markets=["cn"],
@@ -271,7 +303,7 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         self.assertEqual(second_task.status, "completed")
         self.assertEqual(second_task.run_id, "cached-run-001")
 
-    def test_screener_cache_preflight_rejects_stale_history_cache(self):
+    def test_screener_cache_preflight_rejects_when_all_history_cache_is_missing_as_of_bar(self):
         config = self._cn_cache_only_config(
             manifest_path=self._write_cn_manifest(),
             history_dir=self._save_single_cn_history_bar("2026-03-23"),
@@ -285,7 +317,23 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         self.assertEqual(detail["code"], "screener_data_not_ready")
         self.assertEqual(detail["symbols_checked"], 1)
         self.assertEqual(detail["symbols_missing"], 1)
-        self.assertEqual(detail["examples"][0]["reason"], "history_cache_stale")
+        self.assertEqual(detail["examples"][0]["reason"], "missing_as_of_bar")
+
+    def test_screener_cache_preflight_allows_partial_missing_as_of_bars(self):
+        config = self._cn_cache_only_config(
+            manifest_path=self._write_cn_manifest_with_symbols(
+                ["600519.SH", "000001.SZ", "000002.SZ"]
+            ),
+            history_dir=self._save_cn_history_bars(
+                {
+                    "600519.SH": "2026-03-24",
+                    "000001.SZ": "2026-03-24",
+                    "000002.SZ": "2026-03-23",
+                }
+            ),
+        )
+
+        screener_service.ensure_screener_cache_coverage(config)
 
     def test_screener_cache_preflight_accepts_history_covering_as_of_date(self):
         config = self._cn_cache_only_config(

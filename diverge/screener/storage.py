@@ -42,10 +42,12 @@ def write_run_artifacts(
     filtered_out_df: pd.DataFrame,
     candidates_df: pd.DataFrame,
     elapsed_seconds: float,
+    pruned_symbols_df: pd.DataFrame | None = None,
 ) -> ScreenRunResult:
     universe_path = run_dir / "universe.csv"
     features_path = run_dir / "features.csv"
     filtered_out_path = run_dir / "filtered_out.csv"
+    pruned_symbols_path = run_dir / "pruned_symbols.csv"
     candidates_path = run_dir / "candidates.csv"
     llm_pool_path = run_dir / "llm_pool.json"
     run_meta_path = run_dir / "run_meta.json"
@@ -53,6 +55,12 @@ def write_run_artifacts(
     universe_df.to_csv(universe_path, index=False)
     features_df.to_csv(features_path, index=False)
     filtered_out_df.to_csv(filtered_out_path, index=False)
+    resolved_pruned_symbols_df = (
+        pruned_symbols_df
+        if pruned_symbols_df is not None
+        else pd.DataFrame()
+    )
+    resolved_pruned_symbols_df.to_csv(pruned_symbols_path, index=False)
     candidates_df.to_csv(candidates_path, index=False)
     llm_pool_path.write_text(
         json.dumps(_json_ready_records(candidates_df), ensure_ascii=False, indent=2),
@@ -75,6 +83,7 @@ def write_run_artifacts(
         "universe": str(universe_path),
         "features": str(features_path),
         "filtered_out": str(filtered_out_path),
+        "pruned_symbols": str(pruned_symbols_path),
         "candidates": str(candidates_path),
         "llm_pool": str(llm_pool_path),
     }
@@ -86,6 +95,7 @@ def write_run_artifacts(
         "universe_count_by_market": universe_count_by_market,
         "fetch_failed_count": fetch_failed_count,
         "filtered_count_by_reason": filtered_count_by_reason,
+        "pruned_symbol_count": int(len(resolved_pruned_symbols_df)),
         "candidate_count": candidate_count,
         "elapsed_seconds": elapsed_seconds,
         "artifact_paths": artifact_paths,
