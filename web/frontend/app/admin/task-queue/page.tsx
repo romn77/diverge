@@ -182,6 +182,9 @@ export default function AdminTaskQueuePage() {
                   <Button asChild type="button" size="sm" variant="secondary">
                     <Link href="/admin/data-sources">Data Sources</Link>
                   </Button>
+                  <Button asChild type="button" size="sm" variant="secondary">
+                    <Link href="/admin/audit">Audit Log</Link>
+                  </Button>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <h1 className="font-heading text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">

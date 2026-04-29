@@ -584,6 +584,9 @@ export default function AdminUsersPage() {
                   <Button asChild type="button" size="sm" variant="secondary">
                     <Link href="/admin/task-queue">Task Queue</Link>
                   </Button>
+                  <Button asChild type="button" size="sm" variant="secondary">
+                    <Link href="/admin/audit">Audit Log</Link>
+                  </Button>
                 </div>
                 <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
                   Manage workspace access

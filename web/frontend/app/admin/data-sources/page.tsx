@@ -335,6 +335,9 @@ export default function AdminDataSourcesPage() {
             <Button asChild type="button" variant="secondary">
               <Link href="/admin/task-queue">Task Queue</Link>
             </Button>
+            <Button asChild type="button" variant="secondary">
+              <Link href="/admin/audit">Audit Log</Link>
+            </Button>
             <Button
               type="button"
               variant="secondary"

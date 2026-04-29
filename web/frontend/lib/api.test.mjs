@@ -97,3 +97,14 @@ test("admin APIs expose the read-only task queue snapshot", () => {
   assert.match(source, /listAdminTaskQueue/);
   assert.match(source, /\/api\/admin\/task-queue/);
 });
+
+test("admin APIs expose tenant-scoped audit events with filters", () => {
+  assert.match(source, /AdminAuditEvent/);
+  assert.match(source, /AdminAuditEventsResponse/);
+  assert.match(source, /AdminAuditEventsQuery/);
+  assert.match(source, /listAdminAuditEvents/);
+  assert.match(source, /\/api\/admin\/audit-events/);
+  assert.match(source, /created_from/);
+  assert.match(source, /created_to/);
+  assert.match(source, /actor_user_id/);
+});

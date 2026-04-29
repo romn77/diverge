@@ -280,6 +280,32 @@ export interface AdminTaskQueueResponse {
   tasks: AdminTaskQueueItem[];
 }
 
+export interface AdminAuditEvent {
+  id: string;
+  tenant_id: string | null;
+  actor_user_id: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  metadata: Record<string, unknown>;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface AdminAuditEventsResponse {
+  events: AdminAuditEvent[];
+}
+
+export interface AdminAuditEventsQuery {
+  action?: string;
+  resource_type?: string;
+  actor_user_id?: string;
+  created_from?: string;
+  created_to?: string;
+  limit?: number;
+}
+
 export type UsageModule = "analysis" | "screener" | "assets" | "journal";
 
 export interface UsageModuleSummary {
@@ -1063,6 +1089,22 @@ export async function updateAdminLLMProfileRoutes(
 
 export async function listAdminTaskQueue(): Promise<AdminTaskQueueResponse> {
   return requestJson<AdminTaskQueueResponse>("/api/admin/task-queue", {
+    cache: "no-store",
+  });
+}
+
+export async function listAdminAuditEvents(
+  query: AdminAuditEventsQuery = {}
+): Promise<AdminAuditEventsResponse> {
+  const searchParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value === undefined || value === null || value === "") {
+      continue;
+    }
+    searchParams.set(key, String(value));
+  }
+  const suffix = searchParams.toString() ? `?${searchParams.toString()}` : "";
+  return requestJson<AdminAuditEventsResponse>(`/api/admin/audit-events${suffix}`, {
     cache: "no-store",
   });
 }

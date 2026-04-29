@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { RefreshCw, Save } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -184,6 +185,20 @@ export default function AdminLLMModelsPage() {
               Admin
             </p>
             <h1 className="mt-2 text-3xl font-semibold">LLM Models</h1>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button asChild type="button" size="sm" variant="secondary">
+                <Link href="/admin/users">User Management</Link>
+              </Button>
+              <Button asChild type="button" size="sm" variant="secondary">
+                <Link href="/admin/data-sources">Data Sources</Link>
+              </Button>
+              <Button asChild type="button" size="sm" variant="secondary">
+                <Link href="/admin/task-queue">Task Queue</Link>
+              </Button>
+              <Button asChild type="button" size="sm" variant="secondary">
+                <Link href="/admin/audit">Audit Log</Link>
+              </Button>
+            </div>
           </div>
           <Button type="button" variant="secondary" onClick={() => void load()}>
             <RefreshCw className="h-4 w-4" />
