@@ -414,6 +414,10 @@ body {
   min-height: 100%;
 }
 
+html {
+  scrollbar-gutter: stable both-edges;
+}
+
 body {
   margin: 0;
   color: var(--text);
@@ -622,13 +626,146 @@ input {
   width: min(100%, clamp(68rem, 90vw, 90rem));
 }
 
+.workbench-page-shell {
+  padding: 0.8rem 1rem 1.6rem;
+}
+
+.workbench-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 45;
+  display: flex;
+  min-height: 4rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.92) 0%, rgba(255, 248, 238, 0.82) 100%),
+    var(--surface-page);
+  padding: 0.7rem 1rem;
+}
+
+.workbench-topbar-menu {
+  display: inline-grid;
+  height: 2.15rem;
+  width: 2.15rem;
+  flex-shrink: 0;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.workbench-topbar-eyebrow {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.workbench-topbar-title {
+  margin-top: 0.2rem;
+  overflow: hidden;
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-size: clamp(1.15rem, 1.15vw + 0.9rem, 1.55rem);
+  font-weight: 600;
+  letter-spacing: 0;
+  line-height: 1.05;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workbench-account-menu .inline-flex {
+  box-shadow: 0 8px 18px rgba(18, 28, 41, 0.045);
+}
+
+.workbench-page-header {
+  border-radius: 20px;
+}
+
+.workbench-page-header-content {
+  padding: 1.05rem 1.1rem;
+}
+
+.workbench-page-header-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.workbench-page-header-title-group {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.workbench-page-header-back {
+  height: 2rem;
+  width: 2rem;
+  flex-shrink: 0;
+}
+
+.workbench-page-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
 .workbench-page-title {
   font-family: var(--font-heading);
-  font-size: 2.35rem;
+  font-size: 2.12rem;
   font-weight: 600;
   line-height: 1.04;
   letter-spacing: 0;
   color: var(--text);
+}
+
+.workbench-page-header-title {
+  margin-top: 0.55rem;
+}
+
+.workbench-page-header-description {
+  max-width: 42rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.workbench-page-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.workbench-page-header-actions .inline-flex {
+  height: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 16px rgba(18, 28, 41, 0.045);
+}
+
+.workbench-page-header-actions .button-primary {
+  border-color: color-mix(in srgb, var(--primary) 86%, var(--surface) 14%);
+  background-color: color-mix(in srgb, var(--primary) 92%, var(--surface) 8%);
+  box-shadow: 0 8px 16px rgba(18, 28, 41, 0.08);
+}
+
+.workbench-page-header-actions .button-primary:hover {
+  filter: var(--interactive-hover-filter);
+}
+
+.workbench-page-header-body {
+  margin-top: 0.95rem;
 }
 
 .workbench-section-title {
@@ -640,9 +777,77 @@ input {
 }
 
 @media (min-width: 768px) {
-  .workbench-page-title {
-    font-size: 2.8rem;
+  .workbench-page-shell {
+    padding-inline: 1.25rem;
+    padding-top: 0.9rem;
   }
+
+  .workbench-topbar {
+    min-height: 4.25rem;
+    padding-inline: 1.25rem;
+  }
+
+  .workbench-page-header-content {
+    padding: 1.15rem 1.35rem;
+  }
+
+  .workbench-page-title {
+    font-size: 2.55rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .workbench-page-shell {
+    padding-inline: 1.5rem;
+  }
+
+  .workbench-topbar {
+    padding-inline: 1.5rem;
+  }
+
+  .workbench-page-header-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .workbench-page-header-actions {
+    align-items: center;
+    justify-content: flex-end;
+  }
+}
+
+.workbench-content-frame.space-y-5 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 1rem;
+}
+
+.workbench-content-frame.space-y-6 > :not([hidden]) ~ :not([hidden]),
+.workbench-content-frame.gap-6 {
+  gap: 1.2rem;
+}
+
+.workbench-page-shell .grid.gap-6 {
+  gap: 1.2rem;
+}
+
+.workbench-page-shell .grid.gap-4 {
+  gap: 0.85rem;
+}
+
+.workbench-page-shell .viewer-frame {
+  border-radius: 24px;
+}
+
+.workbench-page-shell .viewer-frame.px-6,
+.workbench-page-shell .card-surface .px-6 {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+.workbench-page-shell .viewer-frame.py-6,
+.workbench-page-shell .card-surface .py-6 {
+  padding-top: 1.2rem;
+  padding-bottom: 1.2rem;
 }
 
 .analysis-overview-card {

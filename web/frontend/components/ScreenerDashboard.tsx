@@ -8,7 +8,6 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import { ScreenerResultsViewer } from "@/components/ScreenerResultsViewer";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -27,7 +26,6 @@ import {
   type ScreenerPresetRecord,
 } from "@/lib/api";
 import {
-  buildActivityHref,
   buildScreenerHref,
   buildScreenerTaskHref,
 } from "@/lib/workbenchRoutes";
@@ -706,48 +704,8 @@ export function ScreenerDashboard() {
   const controlsDisabled = loadingOptions || !configOptions || !formState;
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
       <div className="workbench-content-frame space-y-6">
-        <Card className="card-surface rounded-[30px]">
-          <CardContent className="px-6 py-8 md:px-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="flex items-start gap-3">
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="icon"
-                  className="mt-1 size-10"
-                >
-                  <Link href={buildActivityHref()} aria-label={t("common.back", "Back")}>
-                    <ChevronDown className="size-4 rotate-90" />
-                  </Link>
-                </Button>
-                <div className="max-w-3xl">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-                    {t("sidebar.nav.screener", "Screener")}
-                  </p>
-                  <h1 className="workbench-page-title mt-3">
-                    {t("screenerDashboard.title", "Candidate Workspace")}
-                  </h1>
-                  <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                    {t(
-                      "screenerDashboard.subtitle",
-                      "Reusable market screens, shared warmup cache, latest trading day."
-                    )}
-                  </p>
-                </div>
-              </div>
-              {firstActiveScreenerTask ? (
-                <Button asChild variant="secondary">
-                  <Link href={buildScreenerTaskHref(firstActiveScreenerTask.id)}>
-                    Active screener task
-                  </Link>
-                </Button>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
-
         <section className="screener-config-panel viewer-frame">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3 md:px-5">
             <div className="flex min-w-0 items-center gap-3">

@@ -28,6 +28,11 @@ interface WorkbenchChromeContextValue {
   openScreenerDialog: () => void;
 }
 
+interface WorkbenchPageChrome {
+  eyebrow: string;
+  title: string;
+}
+
 const WorkbenchChromeContext = createContext<WorkbenchChromeContextValue | null>(null);
 
 export function WorkbenchShell({ children }: { children: ReactNode }) {
@@ -80,6 +85,10 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
       },
     }),
     [newAnalysisDisabled, newScreenerDisabled]
+  );
+  const pageChrome = useMemo(
+    () => getWorkbenchPageChrome(pathname, t),
+    [pathname, t]
   );
 
   useEffect(() => {
@@ -171,16 +180,38 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
             />
 
             <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
-              <WorkspaceAccountMenu
-                authEnabled={authEnabled}
-                authUser={authState?.user ?? null}
-                canManageUsers={canManageUsers}
-                loggingOut={isLoggingOut}
-                onLogout={handleLogout}
-                onOpenSidebar={() => setIsSidebarOpen(true)}
-                selectedOutputLanguage={defaultOutputLanguage}
-                onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
-              />
+              <header className="workbench-topbar">
+                <div className="flex min-w-0 items-center gap-3">
+                  <button
+                    type="button"
+                    className="workbench-topbar-menu md:hidden"
+                    aria-label={t("common.menu", "Menu")}
+                    onClick={() => setIsSidebarOpen(true)}
+                  >
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+                      <path
+                        d="M4 6h12M4 10h12M4 14h12"
+                        stroke="currentColor"
+                        strokeWidth="1.7"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                  <div className="min-w-0">
+                    <p className="workbench-topbar-eyebrow">{pageChrome.eyebrow}</p>
+                    <h1 className="workbench-topbar-title">{pageChrome.title}</h1>
+                  </div>
+                </div>
+                <WorkspaceAccountMenu
+                  authEnabled={authEnabled}
+                  authUser={authState?.user ?? null}
+                  canManageUsers={canManageUsers}
+                  loggingOut={isLoggingOut}
+                  onLogout={handleLogout}
+                  selectedOutputLanguage={defaultOutputLanguage}
+                  onOutputLanguageChange={(value) => setDefaultOutputLanguage(value)}
+                />
+              </header>
               {children}
             </div>
           </div>
@@ -214,6 +245,58 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
       </div>
     </WorkbenchChromeContext.Provider>
   );
+}
+
+function getWorkbenchPageChrome(
+  pathname: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): WorkbenchPageChrome {
+  if (pathname.startsWith("/screeners")) {
+    return {
+      eyebrow: t("sidebar.nav.screener", "Screener"),
+      title: t("screenerDashboard.title", "Candidate Workspace"),
+    };
+  }
+
+  if (pathname.startsWith("/assets")) {
+    return {
+      eyebrow: t("sidebar.nav.assets", "Assets"),
+      title: t("assets.title", "Portfolio ledger"),
+    };
+  }
+
+  if (pathname.startsWith("/journal")) {
+    return {
+      eyebrow: t("sidebar.tradeJournal", "Trade Journal"),
+      title: t("journal.shortTitle", "Trade Journal"),
+    };
+  }
+
+  if (pathname.startsWith("/activity")) {
+    return {
+      eyebrow: t("sidebar.nav.activity", "Activity"),
+      title: t("activity.title", "Background work"),
+    };
+  }
+
+  if (pathname.startsWith("/reports")) {
+    return {
+      eyebrow: t("sidebar.nav.analysis", "Analysis"),
+      title: t("workbench.reportViewer", "Research Report"),
+    };
+  }
+
+  if (pathname.startsWith("/tasks") || pathname.startsWith("/screener-tasks")) {
+    return {
+      eyebrow: t("sidebar.nav.activity", "Activity"),
+      title: t("workbench.taskProgress", "Task Progress"),
+    };
+  }
+
+  return {
+    eyebrow: t("sidebar.nav.analysis", "Analysis"),
+    title: t("home.analysisWorkspace", "Analysis workspace"),
+  };
 }
 
 export function useWorkbenchChrome() {

@@ -5,7 +5,7 @@ import test from "node:test";
 
 const componentPath = path.join(import.meta.dirname, "WorkspaceAccountMenu.tsx");
 
-test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top-right overlay", () => {
+test("WorkspaceAccountMenu exposes a compact utility bar for the shell overlay", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /from "@\/components\/ui\/button"/);
@@ -22,7 +22,8 @@ test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top
   assert.match(source, /loggingOut:\s*boolean/);
   assert.match(source, /selectedOutputLanguage:\s*string \| null/);
   assert.match(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
-  assert.match(source, /className="flex items-start justify-between gap-3 px-4 pt-4 md:px-6"/);
+  assert.match(source, /className="workbench-account-menu pointer-events-auto relative z-\[40\] ml-auto flex shrink-0 items-center gap-2"/);
+  assert.match(source, /pointer-events-auto/);
   assert.match(source, /inline-flex items-center gap-1\.5 rounded-full/);
   assert.match(source, /h-8 w-8/);
   assert.doesNotMatch(source, /max-w-\[1600px\]/);
@@ -59,6 +60,8 @@ test("WorkspaceAccountMenu exposes an in-flow utility bar instead of a fixed top
   assert.match(source, /md:hidden/);
   assert.doesNotMatch(source, /<button/);
   assert.doesNotMatch(source, /<select/);
+  assert.doesNotMatch(source, /px-4 pt-4 md:px-6/);
+  assert.doesNotMatch(source, /<header className="pointer-events-auto/);
 
   const accountIndex = source.indexOf("DropdownMenu");
   const settingsIndex = source.indexOf("Interface Preferences");

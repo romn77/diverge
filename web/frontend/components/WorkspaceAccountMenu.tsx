@@ -162,30 +162,27 @@ export function WorkspaceAccountMenu({
   const displayName = authUser?.display_name.trim() || authUser?.email || "Diverge";
 
   return (
-    <div className="flex items-start justify-between gap-3 px-4 pt-4 md:px-6">
-      <div className="min-w-0">
-        {onOpenSidebar ? (
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            className="rounded-xl md:hidden"
-            aria-label={t("common.menu", "Menu")}
-            onClick={onOpenSidebar}
-          >
-            <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-              <path
-                d="M4 6h12M4 10h12M4 14h12"
-                stroke="currentColor"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Button>
-        ) : null}
-      </div>
+    <div className="workbench-account-menu pointer-events-auto relative z-[40] ml-auto flex shrink-0 items-center gap-2">
+      {onOpenSidebar ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="icon"
+          className="rounded-xl md:hidden"
+          aria-label={t("common.menu", "Menu")}
+          onClick={onOpenSidebar}
+        >
+          <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
+            <path
+              d="M4 6h12M4 10h12M4 14h12"
+              stroke="currentColor"
+              strokeWidth="1.7"
+              strokeLinecap="round"
+            />
+          </svg>
+        </Button>
+      ) : null}
 
-      <header className="relative z-[40] ml-auto shrink-0">
         <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--popover)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
           <DropdownMenu
             open={isAccountOpen}
@@ -458,7 +455,6 @@ export function WorkspaceAccountMenu({
             </div>
           ) : null}
         </div>
-      </header>
     </div>
   );
 }

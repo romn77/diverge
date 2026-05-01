@@ -9,9 +9,9 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /from "@\/components\/ui\/button"/);
-  assert.match(source, /from "@\/components\/ui\/card"/);
   assert.match(source, /from "@\/components\/ui\/input"/);
   assert.match(source, /from "@\/components\/ui\/select"/);
+  assert.doesNotMatch(source, /from "@\/components\/workbench\/PageHeader"/);
   assert.match(source, /usePreferences/);
   assert.match(source, /useSearchParams/);
   assert.match(source, /SlidersHorizontal/);
@@ -37,9 +37,9 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /setPresetName\(savedBar\.name\)/);
   assert.match(source, /savedBarFromPresetRecord/);
   assert.match(source, /records\.map\(savedBarFromPresetRecord\)/);
-  assert.match(source, /buildActivityHref/);
   assert.match(source, /buildScreenerHref/);
   assert.match(source, /buildScreenerTaskHref/);
+  assert.doesNotMatch(source, /buildActivityHref/);
   assert.doesNotMatch(source, /buildScreenerRunHref/);
   assert.match(source, /const selectedRunId = searchParams\.get\("runId"\)/);
   assert.match(source, /screenerRuns/);
@@ -66,7 +66,8 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /function PlaceholderMetric/);
   assert.match(source, /CONTROL_INPUT_CLASS/);
   assert.match(source, /COMPACT_SELECT_CLASS/);
-  assert.match(source, /card-surface/);
+  assert.doesNotMatch(source, /<PageHeader/);
+  assert.match(source, /workbench-page-shell/);
   assert.match(source, /viewer-frame/);
   assert.doesNotMatch(source, /clearSelectedRun/);
   assert.doesNotMatch(source, /t\("screenerDashboard\.recentRuns", "Recent Runs"\)/);
