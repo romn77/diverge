@@ -101,7 +101,7 @@ export function Sidebar({
   }, [isMobileDrawerOpen, onClose]);
 
   const desktopDrawerClasses = [
-    "sidebar-surface hidden flex-col overflow-y-auto border-r border-[var(--border)] py-5 transition-[width,padding] duration-300 md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-[100svh]",
+    "sidebar-surface hidden flex-col overflow-y-auto border-r border-[var(--border)] py-5 transition-[width,padding] duration-300 md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-[100svh] md:py-3",
     isDesktopCollapsed
       ? "md:w-[5.5rem] md:max-w-none md:px-3"
       : "md:w-[18rem] md:max-w-none md:px-4",
@@ -116,7 +116,7 @@ export function Sidebar({
     isDesktopCollapsed ? "left-[5.5rem]" : "left-[18rem]",
   ].join(" ");
   const headerClasses = [
-    "border-b border-[var(--border)] pb-4",
+    "border-b border-[var(--border)] pb-4 md:pb-3",
     isDesktopRail ? "flex justify-center" : "flex items-center",
   ].join(" ");
 

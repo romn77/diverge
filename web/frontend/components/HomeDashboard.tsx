@@ -8,9 +8,9 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { MetricCard } from "@/components/workbench/MetricCard";
+import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   buildActivityHref,
@@ -188,27 +188,17 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   }, [reportTickerGroups]);
 
   return (
-    <main className="analysis-density-page flex min-h-[100vh] flex-1 flex-col px-4 py-5 md:px-6 lg:px-8">
+    <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
       <div className="workbench-content-frame space-y-5">
-        <Card className="analysis-overview-card card-surface rounded-[30px]">
-          <CardContent className="analysis-overview-content px-6 py-8 md:px-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-                {t("sidebar.nav.analysis", "Analysis")}
-              </p>
-              <h1 className="analysis-overview-title workbench-page-title mt-3">
-                {t("home.analysisWorkspace", "Analysis workspace")}
-              </h1>
-              <p className="analysis-overview-description mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                {t(
-                  "home.workspaceDescription",
-                  "Search reports and continue existing coverage."
-                )}
-              </p>
-            </div>
-
-            <div className="analysis-overview-actions flex flex-wrap gap-3">
+        <PageHeader
+          eyebrow={t("sidebar.nav.analysis", "Analysis")}
+          title={t("home.analysisWorkspace", "Analysis workspace")}
+          description={t(
+            "home.workspaceDescription",
+            "Search reports and continue existing coverage."
+          )}
+          actions={
+            <>
               <Button
                 type="button"
                 disabled={newAnalysisDisabled}
@@ -221,10 +211,10 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                   {t("home.viewActivity", "View Activity")}
                 </Link>
               </Button>
-            </div>
-          </div>
-
-          <div className="analysis-overview-metrics mt-8 grid gap-4 md:grid-cols-3">
+            </>
+          }
+        >
+          <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
               className="analysis-overview-metric"
               label={t("home.metric.reportLibrary", "Report Library")}
@@ -249,7 +239,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             />
           </div>
 
-          <div className="analysis-overview-search mt-8 rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
+          <div className="analysis-overview-search mt-5 rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
             <label
               htmlFor="home-report-search"
               className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
@@ -271,8 +261,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               )}
             </p>
           </div>
-          </CardContent>
-        </Card>
+        </PageHeader>
 
         <section className="analysis-report-section viewer-frame px-6 py-6 md:px-8">
             <div className="flex items-center justify-between gap-4">

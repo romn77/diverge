@@ -65,24 +65,10 @@ const FALLBACK_FILTER_PRESET_SELECTIONS: Record<string, string> = {
 
 const filterTabs: Array<{
   id: ScreenerFilterTab;
-  label: string;
-  note: string;
 }> = [
-  {
-    id: "technical",
-    label: "Technical",
-    note: "RSI, trend, momentum, liquidity, and risk filters.",
-  },
-  {
-    id: "pattern",
-    label: "Pattern",
-    note: "Breakout setup and volume-confirmation filters.",
-  },
-  {
-    id: "fundamental",
-    label: "Fundamental",
-    note: "Valuation, quality, growth, and balance-sheet filters.",
-  },
+  { id: "technical" },
+  { id: "pattern" },
+  { id: "fundamental" },
 ];
 
 const FILTER_GROUP_CATEGORY: Record<string, ScreenerFilterTab> = {
@@ -366,7 +352,8 @@ function savedBarFromPresetRecord(record: ScreenerPresetRecord): SavedScreenerBa
 
 function buildSelectedFilterSummaries(
   options: ScreenerConfigOptions | null,
-  selections: Record<string, string> | undefined
+  selections: Record<string, string> | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
 ): SelectedFilterSummary[] {
   if (!options || !selections) {
     return [];
@@ -381,11 +368,63 @@ function buildSelectedFilterSummaries(
       const selectedOption = group.options.find((option) => option.value === selectedValue);
       return {
         id: group.id,
-        label: group.label,
-        value: selectedOption?.label ?? selectedValue,
+        label: localizeFilterGroupLabel(group.id, group.label, t),
+        value: localizeFilterOptionLabel(
+          group.id,
+          selectedValue,
+          selectedOption?.label ?? selectedValue,
+          t
+        ),
       };
     })
     .filter((item): item is SelectedFilterSummary => item !== null);
+}
+
+function localizeMarketLabel(
+  value: string,
+  fallback: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(`screener.market.${value}`, fallback);
+}
+
+function localizeRankingProfileLabel(
+  id: string,
+  fallback: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(`screenerDashboard.ranking.${id}`, fallback);
+}
+
+function localizeFilterTabLabel(
+  id: ScreenerFilterTab,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(`screenerDashboard.filterTab.${id}`, id);
+}
+
+function localizeFilterTabNote(
+  id: ScreenerFilterTab,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(`screenerDashboard.filterTab.${id}.note`, "");
+}
+
+function localizeFilterGroupLabel(
+  id: string,
+  fallback: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(`screenerDashboard.filterGroup.${id}`, fallback);
+}
+
+function localizeFilterOptionLabel(
+  groupId: string,
+  value: string,
+  fallback: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(`screenerDashboard.filterOption.${groupId}.${value}`, fallback);
 }
 
 export function ScreenerDashboard() {
@@ -516,7 +555,7 @@ export function ScreenerDashboard() {
   }, [configOptions]);
   const marketSelectOptions = useMemo(() => {
     const singleMarketOptions = enabledMarketOptions.map((market) => ({
-      label: market.label,
+      label: localizeMarketLabel(market.value, market.label, t),
       value: market.value,
     }));
     if (enabledMarketOptions.length > 1) {
@@ -529,7 +568,7 @@ export function ScreenerDashboard() {
       ];
     }
     return singleMarketOptions;
-  }, [enabledMarketOptions]);
+  }, [enabledMarketOptions, t]);
   const selectedMarketValue = formState?.markets.slice().sort().join(",") ?? "";
   const selectedMarketLabel =
     marketSelectOptions.find((market) => market.value === selectedMarketValue)?.label ??
@@ -546,26 +585,29 @@ export function ScreenerDashboard() {
       ) ?? []
     );
   }, [activeFilterTab, configOptions]);
-  const activeFilterTabNote =
-    filterTabs.find((tab) => tab.id === activeFilterTab)?.note ?? "";
+  const activeFilterTabNote = localizeFilterTabNote(activeFilterTab, t);
   const selectedFilterCount = useMemo(() => {
     return Object.values(formState?.filter_preset_selections ?? {}).filter(
       (value) => value !== "any"
     ).length;
   }, [formState?.filter_preset_selections]);
   const selectedRankingProfileLabel =
-    configOptions?.ranking_profiles.find(
-      (profile) => profile.id === formState?.ranking_profile_id
-    )?.label ??
+    (() => {
+      const profile = configOptions?.ranking_profiles.find(
+        (item) => item.id === formState?.ranking_profile_id
+      );
+      return profile ? localizeRankingProfileLabel(profile.id, profile.label, t) : null;
+    })() ??
     formState?.ranking_profile_id ??
     "—";
   const selectedFilterSummaries = useMemo(
     () =>
       buildSelectedFilterSummaries(
         configOptions,
-        formState?.filter_preset_selections
+        formState?.filter_preset_selections,
+        t
       ),
-    [configOptions, formState?.filter_preset_selections]
+    [configOptions, formState?.filter_preset_selections, t]
   );
   const visibleSelectedFilterSummaries = selectedFilterSummaries.slice(0, 3);
   const hiddenSelectedFilterCount = Math.max(
@@ -624,12 +666,16 @@ export function ScreenerDashboard() {
     const payload = buildScreenerPayload(formState);
     const fingerprint = fingerprintScreenerPayload(payload);
     const now = new Date().toISOString();
-    const marketLabel = payload.markets.map((market) => market.toUpperCase()).join(" + ");
-    const rankingLabel =
-      configOptions.ranking_profiles.find(
-        (profile) => profile.id === payload.ranking_profile_id
-      )?.label ?? payload.ranking_profile_id ?? "Ranking";
-    const fallbackName = `${marketLabel || "Market"} - ${rankingLabel}`;
+    const marketLabel = payload.markets
+      .map((market) => localizeMarketLabel(market, market.toUpperCase(), t))
+      .join(" + ");
+    const selectedProfile = configOptions.ranking_profiles.find(
+      (profile) => profile.id === payload.ranking_profile_id
+    );
+    const rankingLabel = selectedProfile
+      ? localizeRankingProfileLabel(selectedProfile.id, selectedProfile.label, t)
+      : payload.ranking_profile_id ?? t("screenerDashboard.rankingFallback", "Ranking");
+    const fallbackName = `${marketLabel || t("screenerDashboard.marketFallback", "Market")} - ${rankingLabel}`;
     const name = presetName.trim() || fallbackName;
     const existing = savedBars.find((item) => item.fingerprint === fingerprint);
     const nextSavedBar: SavedScreenerBar = existing
@@ -721,7 +767,7 @@ export function ScreenerDashboard() {
                   <span aria-hidden="true">·</span>
                   <span className="truncate">{selectedRankingProfileLabel}</span>
                   <span aria-hidden="true">·</span>
-                  <span>Top K {formState?.top_k ?? "—"}</span>
+                  <span>{t("screener.topK", "Top K")} {formState?.top_k ?? "—"}</span>
                   <span aria-hidden="true">·</span>
                   <span>
                     {selectedFilterCount}{" "}
@@ -782,7 +828,7 @@ export function ScreenerDashboard() {
                   className="rounded-full"
                 >
                   <Save className="mr-2 size-4" />
-                  Save
+                  {t("common.save", "Save")}
                 </Button>
                 <Button
                   type="button"
@@ -792,7 +838,9 @@ export function ScreenerDashboard() {
                   className="rounded-full"
                 >
                   <Play className="mr-2 size-4" />
-                  {running ? "Running..." : "Run"}
+                  {running
+                    ? t("screenerDashboard.running", "Running...")
+                    : t("screenerDashboard.run", "Run")}
                 </Button>
               </div>
             </div>
@@ -800,7 +848,9 @@ export function ScreenerDashboard() {
             <>
           <div className="grid gap-3 border-b border-[var(--border)] px-4 py-4 lg:grid-cols-4 xl:grid-cols-[220px_230px_170px_minmax(240px,1fr)_100px_auto_auto]">
             <label>
-              <span className="mb-1 block text-xs font-semibold text-slate-600">Preset</span>
+              <span className="mb-1 block text-xs font-semibold text-slate-600">
+                {t("screenerDashboard.preset", "Preset")}
+              </span>
               <Select
                 value={selectedSavedBarId}
                 onValueChange={loadSavedBar}
@@ -810,7 +860,9 @@ export function ScreenerDashboard() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={CURRENT_SCREEN_VALUE}>Current Screen</SelectItem>
+                  <SelectItem value={CURRENT_SCREEN_VALUE}>
+                    {t("screenerDashboard.currentScreen", "Current Screen")}
+                  </SelectItem>
                   {savedBars.map((savedBar) => (
                     <SelectItem key={savedBar.id} value={savedBar.id}>
                       {savedBar.name}
@@ -822,7 +874,7 @@ export function ScreenerDashboard() {
 
             <label>
               <span className="mb-1 block text-xs font-semibold text-slate-600">
-                Preset Name
+                {t("screenerDashboard.presetName", "Preset Name")}
               </span>
               <Input
                 value={presetName}
@@ -831,13 +883,15 @@ export function ScreenerDashboard() {
                   setFeedback(null);
                 }}
                 disabled={controlsDisabled}
-                placeholder="Name this screen"
+                placeholder={t("screenerDashboard.presetNamePlaceholder", "Name this screen")}
                 className={CONTROL_INPUT_CLASS}
               />
             </label>
 
             <label>
-              <span className="mb-1 block text-xs font-semibold text-slate-600">Market</span>
+              <span className="mb-1 block text-xs font-semibold text-slate-600">
+                {t("screenerDashboard.market", "Market")}
+              </span>
               <Select
                 value={selectedMarketValue}
                 onValueChange={(value) => {
@@ -864,7 +918,7 @@ export function ScreenerDashboard() {
 
             <label>
               <span className="mb-1 block text-xs font-semibold text-slate-600">
-                Ranking Model
+                {t("screenerDashboard.rankingModel", "Ranking Model")}
               </span>
               <Select
                 value={formState?.ranking_profile_id ?? ""}
@@ -895,7 +949,7 @@ export function ScreenerDashboard() {
                 <SelectContent>
                   {configOptions?.ranking_profiles.map((profile) => (
                     <SelectItem key={profile.id} value={profile.id}>
-                      {profile.label}
+                      {localizeRankingProfileLabel(profile.id, profile.label, t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -903,7 +957,9 @@ export function ScreenerDashboard() {
             </label>
 
             <label>
-              <span className="mb-1 block text-xs font-semibold text-slate-600">Top K</span>
+              <span className="mb-1 block text-xs font-semibold text-slate-600">
+                {t("screener.topK", "Top K")}
+              </span>
               <Input
                 type="number"
                 min={1}
@@ -929,7 +985,7 @@ export function ScreenerDashboard() {
               className="mt-5 h-9 rounded-full"
             >
               <Save className="mr-2 size-4" />
-              Save
+              {t("common.save", "Save")}
             </Button>
             <Button
               type="button"
@@ -938,7 +994,9 @@ export function ScreenerDashboard() {
               className="mt-5 h-9 rounded-full"
             >
               <Play className="mr-2 size-4" />
-              {running ? "Running..." : "Run"}
+              {running
+                ? t("screenerDashboard.running", "Running...")
+                : t("screenerDashboard.run", "Run")}
             </Button>
           </div>
 
@@ -954,7 +1012,7 @@ export function ScreenerDashboard() {
                     : "text-slate-600 hover:bg-[color:var(--surface-hover)] hover:text-[var(--text)]"
                 }`}
               >
-                {tab.label}
+                {localizeFilterTabLabel(tab.id, t)}
               </button>
             ))}
           </div>
@@ -963,7 +1021,9 @@ export function ScreenerDashboard() {
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium text-slate-600">
               <p>{activeFilterTabNote}</p>
               <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1 text-xs font-semibold text-[var(--text)]">
-                {selectedFilterCount} selected
+                {t("screenerDashboard.selectedCount", ({ count }) => `${count} selected`, {
+                  count: selectedFilterCount,
+                })}
               </span>
             </div>
             {loadingOptions ? (
@@ -979,7 +1039,7 @@ export function ScreenerDashboard() {
                   className="grid grid-cols-[minmax(76px,max-content)_minmax(0,1fr)] items-center gap-2"
                 >
                   <span className="truncate text-right text-sm font-semibold text-[var(--text)]">
-                    {group.label}
+                    {localizeFilterGroupLabel(group.id, group.label, t)}
                   </span>
                   <Select
                     value={formState?.filter_preset_selections?.[group.id] ?? "any"}
@@ -992,7 +1052,7 @@ export function ScreenerDashboard() {
                     <SelectContent>
                       {group.options.map((option) => (
                         <SelectItem key={option.value} value={option.value}>
-                          {option.label}
+                          {localizeFilterOptionLabel(group.id, option.value, option.label, t)}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1018,7 +1078,7 @@ export function ScreenerDashboard() {
                   href={buildScreenerTaskHref(firstActiveScreenerTask.id)}
                   className="font-semibold text-[var(--primary)]"
                 >
-                  Active screener task
+                  {t("screenerDashboard.activeTask", "Active screener task")}
                 </Link>
               ) : null}
             </div>

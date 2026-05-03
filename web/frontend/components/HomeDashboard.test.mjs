@@ -10,10 +10,10 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
 
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
-  assert.match(source, /from "@\/components\/ui\/card"/);
   assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /from "@\/components\/workbench\/PageHeader"/);
   assert.match(source, /usePreferences/);
-  assert.match(source, /<Card/);
+  assert.match(source, /<PageHeader/);
   assert.match(source, /<Input/);
   assert.match(source, /<Badge/);
   assert.match(source, /buildActivityHref/);
@@ -58,8 +58,8 @@ test("HomeDashboard applies denser analysis-only spacing", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /analysis-density-page/);
-  assert.match(source, /analysis-overview-card/);
-  assert.match(source, /analysis-overview-title/);
+  assert.match(source, /workbench-page-shell/);
+  assert.match(source, /<PageHeader/);
   assert.match(source, /analysis-overview-metric/);
   assert.match(source, /analysis-report-section/);
   assert.match(source, /analysis-report-row/);

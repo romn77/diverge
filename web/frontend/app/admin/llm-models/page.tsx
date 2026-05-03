@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { RefreshCw, Save } from "lucide-react";
 
+import {
+  AdminConsolePage,
+  AdminNotice,
+  AdminPanel,
+} from "@/components/admin/AdminConsolePage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   listAdminLLMModels,
@@ -177,47 +180,27 @@ export default function AdminLLMModelsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-[var(--page-bg)] px-4 py-8 text-[var(--text-primary)] sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Admin
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold">LLM Models</h1>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Button asChild type="button" size="sm" variant="secondary">
-                <Link href="/admin/users">User Management</Link>
-              </Button>
-              <Button asChild type="button" size="sm" variant="secondary">
-                <Link href="/admin/data-sources">Data Sources</Link>
-              </Button>
-              <Button asChild type="button" size="sm" variant="secondary">
-                <Link href="/admin/task-queue">Task Queue</Link>
-              </Button>
-              <Button asChild type="button" size="sm" variant="secondary">
-                <Link href="/admin/audit">Audit Log</Link>
-              </Button>
-            </div>
-          </div>
-          <Button type="button" variant="secondary" onClick={() => void load()}>
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
+    <AdminConsolePage
+      activeTab="llm-models"
+      title="LLM Models"
+      description="Manage provider availability, per-model visibility, quota limits, and profile routing."
+      actions={
+        <Button type="button" variant="secondary" size="sm" onClick={() => void load()}>
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      }
+    >
 
         {error ? (
-          <div className="rounded-2xl border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
-            {error}
-          </div>
+          <AdminNotice>{error}</AdminNotice>
         ) : null}
 
-        <section className="grid gap-4 lg:grid-cols-3">
+        <section className="grid gap-3 lg:grid-cols-3">
           {(payload?.providers ?? []).map((provider) => {
             const draft = providerDrafts[provider.provider];
             return (
-              <Card key={provider.provider}>
-                <CardContent className="space-y-4 p-5">
+              <AdminPanel key={provider.provider} contentClassName="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="font-semibold">{provider.label}</h2>
@@ -267,6 +250,7 @@ export default function AdminLLMModelsPage() {
                       </div>
                       <Button
                         type="button"
+                        size="sm"
                         disabled={saving === `provider:${provider.provider}`}
                         onClick={() => void saveProvider(provider)}
                       >
@@ -275,24 +259,22 @@ export default function AdminLLMModelsPage() {
                       </Button>
                     </>
                   ) : null}
-                </CardContent>
-              </Card>
+              </AdminPanel>
             );
           })}
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Profiles</h2>
-          <div className="grid gap-4 lg:grid-cols-3">
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Profiles</h2>
+          <div className="grid gap-3 lg:grid-cols-3">
             {(payload?.profiles ?? []).map((profile) => (
-              <Card key={profile.profile_id}>
-                <CardContent className="space-y-4 p-5">
+              <AdminPanel key={profile.profile_id} contentClassName="space-y-3 p-4">
                   <div>
                     <h3 className="font-semibold">{profile.label}</h3>
                     <p className="mt-1 text-sm text-slate-500">{profile.description}</p>
                   </div>
                   <textarea
-                    className="min-h-[120px] w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"
+                    className="min-h-[104px] w-full rounded-[12px] border border-[var(--border)] bg-white px-3 py-2 text-sm"
                     value={routeDrafts[profile.profile_id] ?? ""}
                     onChange={(event) => setRouteDrafts((current) => ({
                       ...current,
@@ -301,29 +283,28 @@ export default function AdminLLMModelsPage() {
                   />
                   <Button
                     type="button"
+                    size="sm"
                     disabled={saving === `profile:${profile.profile_id}`}
                     onClick={() => void saveRoutes(profile)}
                   >
                     <Save className="h-4 w-4" />
                     Save Routes
                   </Button>
-                </CardContent>
-              </Card>
+              </AdminPanel>
             ))}
           </div>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Models</h2>
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Models</h2>
           {Object.entries(modelsByProvider).map(([provider, models]) => (
-            <Card key={provider}>
-              <CardContent className="space-y-3 p-5">
+            <AdminPanel key={provider} contentClassName="space-y-3 p-4">
                 <h3 className="font-semibold">{provider}</h3>
                 <div className="grid gap-3">
                   {models.slice(0, 12).map((model) => {
                     const draft = modelDrafts[model.id];
                     return (
-                      <div key={model.id} className="grid gap-3 rounded-2xl border border-[var(--border)] p-3 lg:grid-cols-[1fr_120px_160px_120px_120px_auto]">
+                      <div key={model.id} className="grid gap-3 rounded-[12px] border border-[var(--border)] p-3 lg:grid-cols-[1fr_120px_160px_120px_120px_auto]">
                         <div>
                           <p className="text-sm font-semibold">{model.label}</p>
                           <p className="text-xs text-slate-500">{model.model_id}</p>
@@ -367,6 +348,7 @@ export default function AdminLLMModelsPage() {
                             />
                             <Button
                               type="button"
+                              size="sm"
                               disabled={saving === `model:${model.id}`}
                               onClick={() => void saveModel(model)}
                             >
@@ -378,13 +360,11 @@ export default function AdminLLMModelsPage() {
                     );
                   })}
                 </div>
-              </CardContent>
-            </Card>
+            </AdminPanel>
           ))}
         </section>
 
         {loading ? <p className="text-sm text-slate-500">Loading model configuration...</p> : null}
-      </div>
-    </main>
+    </AdminConsolePage>
   );
 }

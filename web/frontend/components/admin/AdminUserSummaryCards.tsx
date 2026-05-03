@@ -1,4 +1,4 @@
-import { MetricCard } from "@/components/workbench/MetricCard";
+import { AdminMetricCard, AdminMetricGrid } from "@/components/admin/AdminConsolePage";
 
 interface AdminUserSummaryCardsProps {
   totalUsers: number;
@@ -12,20 +12,20 @@ export function AdminUserSummaryCards({
   disabledCount,
 }: AdminUserSummaryCardsProps) {
   return (
-    <div className="mt-6 grid gap-4 md:grid-cols-3">
-      <MetricCard label="Total Users" value={`${totalUsers}`} className="bg-white/82" />
-      <MetricCard
+    <AdminMetricGrid>
+      <AdminMetricCard label="Total Users" value={totalUsers} />
+      <AdminMetricCard
+        label="Active Accounts"
+        value={totalUsers - disabledCount}
+      />
+      <AdminMetricCard
         label="Active Admins"
-        value={`${adminCount}`}
-        className="bg-white/82"
-        valueClassName="text-[var(--primary-strong)]"
+        value={adminCount}
       />
-      <MetricCard
+      <AdminMetricCard
         label="Disabled Accounts"
-        value={`${disabledCount}`}
-        className="bg-white/82"
-        valueClassName="text-slate-600"
+        value={disabledCount}
       />
-    </div>
+    </AdminMetricGrid>
   );
 }

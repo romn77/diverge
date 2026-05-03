@@ -199,6 +199,31 @@ def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
     assert restored.result == {"status": "completed", "symbols_total": 1}
 
 
+def test_restore_persisted_data_sync_tasks_marks_running_tasks_failed(tmp_path, monkeypatch):
+    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+    data_sync_tasks.data_sync_tasks.clear()
+    task = data_sync_tasks.DataSyncTask(
+        id="sync-recover",
+        sync_type="ohlcv",
+        request_payload={"markets": ["cn"], "as_of_date": "2026-04-29"},
+        status="running",
+        started_at="2026-04-29T13:31:45+00:00",
+        latest_progress={"timestamp": "21:31:45", "message": "history 1/10"},
+        progress_events=[{"timestamp": "21:31:45", "message": "history 1/10"}],
+    )
+    data_sync_tasks._save_task(task)
+    data_sync_tasks.data_sync_tasks.clear()
+
+    data_sync_tasks.restore_persisted_data_sync_tasks()
+
+    restored = data_sync_tasks.get_data_sync_task("sync-recover")
+    assert restored.status == "failed"
+    assert restored.error == data_sync_tasks.app_config.RECOVERED_TASK_ERROR
+    assert restored.finished_at is not None
+    assert restored.latest_progress["status"] == "failed"
+    assert "restarted" in restored.latest_progress["message"].lower()
+
+
 def test_run_data_sync_task_records_completed_audit_event(tmp_path, monkeypatch):
     monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
     monkeypatch.setattr(data_sync_tasks.auth, "auth_enabled", lambda: True)

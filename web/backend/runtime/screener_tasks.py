@@ -16,7 +16,7 @@ from fastapi import HTTPException
 from diverge.dataflows import vendor_usage
 from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
-from web.backend import app_config, audit, auth, storage
+from web.backend import app_config, audit, auth, job_records, storage
 from web.backend.runtime import task_store
 from web.backend.services import screeners as screener_service
 
@@ -157,6 +157,7 @@ def delete_screener_task_snapshot(task_id: str) -> None:
 
 def persist_screener_task_snapshot(task_id: str) -> None:
     task = get_screener_task(task_id)
+    _upsert_screener_job_record(task)
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().save_task("screener", task_id, task.to_dict())
         return
@@ -205,6 +206,7 @@ def append_screener_progress(task_id: str, progress: dict) -> None:
         task = get_screener_task(task_id)
         task.latest_progress = progress
         task.progress_events.append(progress)
+        _upsert_screener_job_record(task)
         task_store.get_task_store().save_task("screener", task_id, task.to_dict())
         task_store.get_task_store().append_event("screener", task_id, progress)
         return
@@ -225,6 +227,7 @@ def set_screener_task_status(task_id: str, status: str, error: Optional[str] = N
             task.finished_at = _utc_iso()
         if error is not None:
             task.error = error
+        _upsert_screener_job_record(task)
         task_store.get_task_store().save_task("screener", task_id, task.to_dict())
         return
     with screener_tasks_lock:
@@ -573,12 +576,8 @@ def create_screener_task(
     if task_store.redis_task_backend_enabled():
         task.status = "queued"
         task.queued_at = now_iso
-        task_store.get_task_store().save_task(
-            "screener",
-            task_id,
-            task.to_dict(),
-            enqueue=True,
-        )
+        save_screener_task(task)
+        task_store.get_task_store().enqueue("screener", task_id)
         task_store.get_task_store().append_event(
             "screener",
             task_id,
@@ -632,11 +631,12 @@ def create_cached_screener_task(
     )
 
     if task_store.redis_task_backend_enabled():
-        task_store.get_task_store().save_task("screener", task_id, task.to_dict())
+        save_screener_task(task)
         task_store.get_task_store().append_event("screener", task_id, progress)
     else:
         with screener_tasks_lock:
             screener_tasks[task_id] = task
+        _upsert_screener_job_record(task)
     return {
         "task_id": task_id,
         "status": "completed",
@@ -704,11 +704,30 @@ def get_screener_progress_events(task_id: str, start: int = 0) -> list[dict]:
 
 
 def save_screener_task(task: ScreenerTask) -> None:
+    _upsert_screener_job_record(task)
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().save_task("screener", task.id, task.to_dict())
         return
     with screener_tasks_lock:
         screener_tasks[task.id] = task
+
+
+def _upsert_screener_job_record(task: ScreenerTask) -> None:
+    job_records.upsert_job_record(
+        kind="screener",
+        task_id=task.id,
+        status=task.status,
+        request_payload=task.request_payload,
+        result_summary={"run_id": task.run_id} if task.run_id else None,
+        error=task.error,
+        owner_user_id=task.owner_user_id,
+        tenant_id=task.tenant_id,
+        created_at=task.created_at,
+        queued_at=task.queued_at,
+        started_at=task.started_at,
+        finished_at=task.finished_at,
+        heartbeat_at=_utc_iso() if task.status == "running" else None,
+    )
 
 
 def claim_next_screener_task(*, timeout: int = 5) -> str | None:

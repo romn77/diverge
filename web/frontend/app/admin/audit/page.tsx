@@ -6,6 +6,13 @@ import { useRouter } from "next/navigation";
 import { RefreshCw, Search, ShieldCheck } from "lucide-react";
 
 import { useAuth } from "@/components/AuthProvider";
+import {
+  AdminConsolePage,
+  AdminMetricCard,
+  AdminMetricGrid,
+  AdminNotice,
+  AdminPanel,
+} from "@/components/admin/AdminConsolePage";
 import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -228,77 +235,48 @@ export default function AdminAuditPage() {
   }
 
   return (
-    <main className="px-4 py-6 md:px-7 lg:px-9">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <Card className="rounded-[30px]">
-          <CardContent className="px-6 py-7 md:px-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <Link
-                  href="/"
-                  className="text-[12px] font-semibold uppercase tracking-[0.32em] text-[var(--primary)]"
-                >
-                  Back to Workbench
-                </Link>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/task-queue">Task Queue</Link>
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/users">User Management</Link>
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/data-sources">Data Sources</Link>
-                  </Button>
-                  <Button type="button" size="sm">
-                    Audit Log
-                  </Button>
-                </div>
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <h1 className="font-heading text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                    Audit Log
-                  </h1>
-                  <Badge variant="secondary">Read-only</Badge>
-                  <Badge variant="outline">{events.length} events</Badge>
-                </div>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  Review tenant-scoped auth, admin, data-source, task, asset, and journal activity.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                {lastLoadedAt ? (
-                  <Badge variant="secondary">Loaded {formatDateTime(lastLoadedAt)}</Badge>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => void loadAuditEvents(filters)}
-                >
-                  <RefreshCw className="size-4" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <AdminConsolePage
+      activeTab="audit"
+      title="Audit Log"
+      description="Review tenant-scoped auth, admin, data-source, task, asset, and journal activity."
+      badges={
+        <>
+          <Badge variant="secondary">Read-only</Badge>
+          <Badge variant="outline">{events.length} events</Badge>
+        </>
+      }
+      actions={
+        <>
+          {lastLoadedAt ? (
+            <Badge variant="secondary">Loaded {formatDateTime(lastLoadedAt)}</Badge>
+          ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => void loadAuditEvents(filters)}
+          >
+            <RefreshCw className="size-4" />
+            Refresh
+          </Button>
+        </>
+      }
+    >
 
         {pageError ? (
-          <div className="rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-5 py-4 text-sm text-[var(--danger)]">
-            {pageError}
-          </div>
+          <AdminNotice>{pageError}</AdminNotice>
         ) : null}
 
-        <section className="grid gap-4 md:grid-cols-4">
-          <AuditMetric label="Events" value={events.length} />
-          <AuditMetric label="Actions" value={metrics.actionCount} />
-          <AuditMetric label="Actors" value={metrics.actorCount} />
-          <AuditMetric label="Resources" value={metrics.resourceCount} />
-        </section>
+        <AdminMetricGrid>
+          <AdminMetricCard label="Events" value={events.length} />
+          <AdminMetricCard label="Actions" value={metrics.actionCount} />
+          <AdminMetricCard label="Actors" value={metrics.actorCount} />
+          <AdminMetricCard label="Resources" value={metrics.resourceCount} />
+        </AdminMetricGrid>
 
-        <Card className="rounded-[28px]">
-          <CardContent className="px-5 py-5">
+        <AdminPanel>
             <form
-              className="grid gap-4 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] lg:items-end"
+              className="grid gap-3 lg:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto] lg:items-end"
               onSubmit={handleFilterSubmit}
             >
               <AuditFilterField
@@ -370,15 +348,14 @@ export default function AdminAuditPage() {
                 </Button>
               </div>
             </form>
-          </CardContent>
-        </Card>
+        </AdminPanel>
 
         <section>
           {events.length === 0 ? (
-            <Card className="rounded-[28px] border-dashed">
-              <CardContent className="px-6 py-10 text-center">
+            <Card className="rounded-[14px] border-dashed">
+              <CardContent className="px-5 py-8 text-center">
                 <ShieldCheck className="mx-auto size-8 text-[var(--primary)]" />
-                <h2 className="mt-4 font-heading text-2xl font-semibold text-slate-900">
+                <h2 className="mt-3 font-heading text-xl font-semibold text-slate-900">
                   No audit events matched
                 </h2>
                 <p className="mt-2 text-sm text-slate-500">
@@ -390,23 +367,7 @@ export default function AdminAuditPage() {
             <AuditEventTable events={events} />
           )}
         </section>
-      </div>
-    </main>
-  );
-}
-
-function AuditMetric({ label, value }: { label: string; value: number }) {
-  return (
-    <Card className="rounded-[24px] bg-white/88">
-      <CardContent className="px-4 py-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          {label}
-        </p>
-        <p className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-          {value}
-        </p>
-      </CardContent>
-    </Card>
+    </AdminConsolePage>
   );
 }
 

@@ -99,10 +99,11 @@ test("ScreenerResultsViewer includes breakout filter controls for results explor
   assert.match(source, /h-7/);
   assert.match(source, /px-3/);
   assert.doesNotMatch(source, /size="sm"/);
-  assert.match(source, /Volume Confirmed/i);
-  assert.match(source, /Platform Breakout/i);
-  assert.match(source, /Box Breakout/i);
-  assert.match(source, /Wedge Breakout/i);
+  assert.match(source, /screenerResults\.filter\.volume/);
+  assert.match(source, /screenerResults\.filter\.\$\{option\.value\}/);
+  assert.match(source, /screenerResults\.breakout\.platform_breakout/);
+  assert.match(source, /screenerResults\.breakout\.box_breakout/);
+  assert.match(source, /screenerResults\.breakout\.wedge_breakout/);
 });
 
 test("ScreenerResultsViewer does not expose internal artifact paths in the report summary", () => {

@@ -28,7 +28,7 @@ from diverge.screener.universe import (
     load_universe,
     load_us_universe,
 )
-from web.backend import app_config, audit, auth
+from web.backend import app_config, audit, auth, job_records
 from web.backend.runtime import task_store
 
 
@@ -271,12 +271,79 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _save_task(task: DataSyncTask) -> None:
+    job_records.upsert_job_record(
+        kind="data_sync",
+        task_id=task.id,
+        status=task.status,
+        request_payload=task.request_payload,
+        result_summary=task.result,
+        error=task.error,
+        owner_user_id=task.owner_user_id,
+        tenant_id=task.tenant_id,
+        created_at=task.created_at,
+        queued_at=task.queued_at,
+        started_at=task.started_at,
+        finished_at=task.finished_at,
+        heartbeat_at=_utc_iso() if task.status == "running" else None,
+    )
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().save_task("data_sync", task.id, task.to_dict())
         return
     with data_sync_tasks_lock:
         data_sync_tasks[task.id] = task
     _write_json(_task_path(task.id), task.to_dict())
+
+
+def _build_recovered_progress(task: DataSyncTask) -> dict[str, Any]:
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": "failed",
+        "message": f"{task.sync_type} sync failed: {app_config.RECOVERED_TASK_ERROR}",
+    }
+
+
+def restore_persisted_data_sync_tasks() -> None:
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().recover_processing("data_sync")
+        for task in list_data_sync_tasks():
+            if task.status == "running":
+                task.status = "failed"
+                task.error = app_config.RECOVERED_TASK_ERROR
+                task.finished_at = task.finished_at or _utc_iso()
+                failure_progress = _build_recovered_progress(task)
+                task.latest_progress = failure_progress
+                task.progress_events.append(failure_progress)
+                _save_task(task)
+                task_store.get_task_store().append_event("data_sync", task.id, failure_progress)
+                task_store.get_task_store().ack("data_sync", task.id)
+        return
+
+    if not _state_dir().is_dir():
+        return
+
+    for path in sorted(_state_dir().glob("*.json")):
+        try:
+            task = data_sync_task_from_payload(json.loads(path.read_text(encoding="utf-8")))
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
+            continue
+
+        if task.status in app_config.TERMINAL_TASK_STATUSES:
+            continue
+
+        task.status = "failed"
+        task.error = app_config.RECOVERED_TASK_ERROR
+        task.finished_at = task.finished_at or _utc_iso()
+        failure_progress = _build_recovered_progress(task)
+        task.latest_progress = failure_progress
+        task.progress_events.append(failure_progress)
+        _save_task(task)
 
 
 def data_sync_audit_metadata(
@@ -715,12 +782,8 @@ def create_data_sync_task(
     if task_store.redis_task_backend_enabled():
         task.status = "queued"
         task.queued_at = now_iso
-        task_store.get_task_store().save_task(
-            "data_sync",
-            task_id,
-            task.to_dict(),
-            enqueue=True,
-        )
+        _save_task(task)
+        task_store.get_task_store().enqueue("data_sync", task_id)
         task_store.get_task_store().append_event(
             "data_sync",
             task_id,

@@ -88,14 +88,30 @@ test("frontend exposes shared workbench business primitives", () => {
 
 test("admin workspace summary cards use the shared metric primitive", () => {
   const summaryCardsPath = path.join(adminRoot, "AdminUserSummaryCards.tsx");
+  const consolePagePath = path.join(adminRoot, "AdminConsolePage.tsx");
 
   assert.ok(
     existsSync(summaryCardsPath),
     "expected AdminUserSummaryCards.tsx to exist"
   );
+  assert.ok(
+    existsSync(consolePagePath),
+    "expected AdminConsolePage.tsx to exist"
+  );
 
   const source = readFileSync(summaryCardsPath, "utf8");
-  assert.match(source, /MetricCard/);
+  const consoleSource = readFileSync(consolePagePath, "utf8");
+  assert.match(source, /AdminMetricCard/);
+  assert.match(consoleSource, /export function AdminConsolePage/);
+  assert.match(consoleSource, /export function AdminMetricCard/);
+  assert.match(consoleSource, /rounded-\[14px\]/);
+  assert.match(consoleSource, /grid min-h-\[11\.5rem\]/);
+  assert.match(consoleSource, /grid-rows-\[2rem_minmax\(6rem,1fr\)\]/);
+  assert.match(consoleSource, /flex h-8 min-w-0 flex-nowrap items-center/);
+  assert.match(consoleSource, /flex-nowrap items-center/);
+  assert.match(consoleSource, /min-w-\[9\.75rem\]/);
+  assert.match(consoleSource, /min-h-\[6rem\] flex-wrap/);
+  assert.doesNotMatch(consoleSource, /flex flex-wrap items-center gap-3/);
   assert.match(source, /totalUsers/);
   assert.match(source, /disabledCount/);
 });

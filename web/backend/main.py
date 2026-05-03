@@ -16,6 +16,7 @@ from web.backend import (
     audit,
     auth,
     data_sources,
+    job_records,
     llm_models,
     screener_results,
     report_metadata,
@@ -36,6 +37,7 @@ from web.backend.routers import (
     trades as trades_router,
 )
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
+from web.backend.runtime.data_sync_tasks import restore_persisted_data_sync_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
 from web.backend.runtime import screener_prewarm, task_store
 
@@ -52,9 +54,12 @@ async def _app_lifespan(_: FastAPI):
     trade_entries.initialize_trade_entries_runtime()
     asset_entries.initialize_asset_runtime()
     audit.ensure_audit_tables()
+    job_records.initialize_job_record_runtime()
     if not task_store.redis_task_backend_enabled():
         restore_persisted_active_tasks()
         restore_persisted_screener_tasks()
+        restore_persisted_data_sync_tasks()
+        job_records.recover_stale_running_job_records()
     screener_prewarm.start_screener_prewarm_scheduler()
     try:
         yield

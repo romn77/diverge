@@ -38,6 +38,7 @@ REQUIRED_TABLES = (
     "data_source_vendor_configs",
     "data_source_route_policies",
     "data_source_usage",
+    "job_records",
 )
 
 

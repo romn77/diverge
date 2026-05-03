@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -428,24 +429,16 @@ export function TradeJournal({
 
   return (
     <>
-      <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+      <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
         <div className="workbench-content-frame flex flex-col gap-6">
-          <Card className="viewer-frame overflow-hidden">
-            <CardContent className="px-6 py-7 md:px-8 md:py-8">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="max-w-3xl">
-                <p className="text-[12px] font-semibold uppercase tracking-[0.38em] text-[var(--primary)]">
-                  {t("sidebar.tradeJournal", "Trade Journal")}
-                </p>
-                <h1 className="font-heading mt-3 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                  {t(
-                    "journal.title",
-                    "Record trades, separate entry and exit reviews, and preview future same-ticker feedback"
-                  )}
-                </h1>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3">
+          <PageHeader
+            eyebrow={t("sidebar.tradeJournal", "Trade Journal")}
+            title={t(
+              "journal.title",
+              "Record trades, separate entry and exit reviews, and preview future same-ticker feedback"
+            )}
+            actions={
+              <>
                 {onOpenSidebar ? (
                   <Button
                     type="button"
@@ -463,10 +456,10 @@ export function TradeJournal({
                 <Button type="button" onClick={() => setShowCreateTrade(true)}>
                   {t("journal.recordTrade", "Record Trade")}
                 </Button>
-              </div>
-            </div>
-
-            <div className="mt-7 grid gap-4 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
+              </>
+            }
+          >
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("journal.filterLabel", "Filter by Ticker or Trade ID")}
@@ -548,8 +541,7 @@ export function TradeJournal({
                 )}
               />
             </div>
-            </CardContent>
-          </Card>
+          </PageHeader>
 
           <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,2.05fr)]">
             <Card className="card-surface p-4 md:p-5">

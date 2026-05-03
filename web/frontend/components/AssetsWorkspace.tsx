@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { Plus, RefreshCw } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { MetricCard } from "@/components/workbench/MetricCard";
+import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -52,11 +53,11 @@ type AssetDraft = {
 };
 
 const DEFAULT_BASE_CURRENCY = "USD";
-const HERO_ACTION_BUTTON_CLASS = "h-14 min-w-[10.5rem] px-7 text-[0.95rem]";
+const HERO_ACTION_BUTTON_CLASS = "h-10 min-w-[8.75rem] px-4 text-sm";
 const HERO_CURRENCY_CONTROL_CLASS =
-  "inline-flex h-14 min-w-[9.75rem] items-center justify-between gap-4 whitespace-nowrap rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-[var(--button-secondary-shadow)]";
+  "inline-flex h-10 min-w-[8.75rem] items-center justify-between gap-3 whitespace-nowrap rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-[var(--button-secondary-shadow)]";
 const HERO_CURRENCY_INPUT_CLASS =
-  "h-auto w-16 border-none bg-transparent px-0 py-0 text-right text-base font-semibold uppercase tracking-[0.18em] text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0";
+  "h-auto w-14 border-none bg-transparent px-0 py-0 text-right text-sm font-semibold uppercase tracking-[0.18em] text-slate-900 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0";
 
 function buildEmptyDraft(): AssetDraft {
   return {
@@ -318,32 +319,22 @@ export function AssetsWorkspace() {
   };
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
       <div className="workbench-content-frame space-y-6">
         {error ? (
           <section className="rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-5 py-4 text-sm text-[var(--danger)]">
             {error}
           </section>
         ) : null}
-        <Card className="card-surface rounded-[30px]">
-          <CardContent className="px-6 py-8 md:px-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-                {t("sidebar.nav.assets", "Assets")}
-              </p>
-              <h1 className="workbench-page-title mt-3">
-                {t("assets.title", "Portfolio ledger")}
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                {t(
-                  "assets.description",
-                  "View accounts, holdings, and asset exposure."
-                )}
-              </p>
-            </div>
-
-            <div className="flex w-full flex-wrap gap-3 sm:w-auto sm:justify-end">
+        <PageHeader
+          eyebrow={t("sidebar.nav.assets", "Assets")}
+          title={t("assets.title", "Portfolio ledger")}
+          description={t(
+            "assets.description",
+            "View accounts, holdings, and asset exposure."
+          )}
+          actions={
+            <>
               <label className={HERO_CURRENCY_CONTROL_CLASS}>
                 <span>{t("assets.base", "Base")}</span>
                 <Input
@@ -373,10 +364,10 @@ export function AssetsWorkspace() {
                 <Plus className="size-4" aria-hidden="true" />
                 {t("assets.addAsset", "Add Asset")}
               </Button>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-4">
+            </>
+          }
+        >
+          <div className="grid gap-4 md:grid-cols-4">
             <AssetMetric
               label={t("assets.metric.marketValue", "Market Value")}
               value={
@@ -406,8 +397,7 @@ export function AssetsWorkspace() {
               meta={t("assets.metric.accountsMeta", "Portfolio buckets")}
             />
           </div>
-          </CardContent>
-        </Card>
+        </PageHeader>
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
           <section className="viewer-frame px-6 py-6 md:px-8">

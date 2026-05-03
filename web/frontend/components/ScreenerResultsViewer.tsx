@@ -41,10 +41,10 @@ type SortKey =
 type SortDirection = "asc" | "desc";
 
 const BREAKOUT_FILTER_OPTIONS = [
-  { value: "all", label: "All Results" },
-  { value: "platform_breakout", label: "Platform Breakout" },
-  { value: "box_breakout", label: "Box Breakout" },
-  { value: "wedge_breakout", label: "Wedge Breakout" },
+  { value: "all" },
+  { value: "platform_breakout" },
+  { value: "box_breakout" },
+  { value: "wedge_breakout" },
 ] as const;
 const TREND_HISTORY_BATCH_SIZE = 50;
 const PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
@@ -272,7 +272,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                 pressed={breakoutFilter === option.value}
                 onClick={() => setBreakoutFilter(option.value)}
               >
-                {option.label}
+                {t(`screenerResults.filter.${option.value}`, option.value)}
               </SelectionChip>
             ))}
             <SelectionChip
@@ -430,7 +430,10 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                 {isLoading ? (
                   <TableRow>
                     <TableCell className="py-6 text-slate-500" colSpan={17}>
-                      Loading screener candidates...
+                      {t(
+                        "screenerResults.loadingCandidates",
+                        "Loading screener candidates..."
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : sortedRows.length === 0 ? (
@@ -484,7 +487,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                       <TableCell>
                         <TagStrip
                           label="Pattern"
-                          value={formatBreakoutType(row.breakout_type)}
+                          value={formatBreakoutType(row.breakout_type, t)}
                           tone="bg-[rgba(93,116,112,0.12)] text-[var(--primary)]"
                           compact
                         />
@@ -536,17 +539,20 @@ function matchesBreakoutFilter(row: ScreenerCandidateRow, breakoutFilter: string
   return row.breakout_type === breakoutFilter;
 }
 
-function formatBreakoutType(breakoutType: string | null | undefined): string {
+function formatBreakoutType(
+  breakoutType: string | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
   if (!breakoutType) {
-    return "none";
+    return t("screenerResults.breakout.none", "none");
   }
   switch (breakoutType) {
     case "platform_breakout":
-      return "Platform Breakout";
+      return t("screenerResults.breakout.platform_breakout", "Platform Breakout");
     case "box_breakout":
-      return "Box Breakout";
+      return t("screenerResults.breakout.box_breakout", "Box Breakout");
     case "wedge_breakout":
-      return "Wedge Breakout";
+      return t("screenerResults.breakout.wedge_breakout", "Wedge Breakout");
     default:
       return breakoutType;
   }

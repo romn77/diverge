@@ -11,7 +11,7 @@ import requests
 from ...vendor_errors import VendorAuthError, VendorRetryableError
 
 
-DEFAULT_MASSIVE_BASE_URL = "http://35.209.101.63/api/v1"
+DEFAULT_MASSIVE_BASE_URL = "http://bcprivateserver.site/api/v1"
 _MASSIVE_MAX_CALLS_PER_MINUTE = 200
 _MASSIVE_WINDOW_SECONDS = 60.0
 _massive_call_timestamps = deque()

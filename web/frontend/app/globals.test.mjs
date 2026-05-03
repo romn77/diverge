@@ -65,6 +65,7 @@ test("globals.css keeps the page background stable across long scrolling pages",
 
   assert.match(source, /html,\s*body\s*\{\s*min-height:\s*100%;/);
   assert.doesNotMatch(source, /html,\s*body\s*\{\s*height:\s*100%;/);
+  assert.match(source, /html\s*\{\s*scrollbar-gutter:\s*stable both-edges;/);
   assert.match(source, /body\s*\{[\s\S]*?background-color:\s*var\(--body-gradient-end\);/);
   assert.match(source, /body\s*\{[\s\S]*?background-image:\s*linear-gradient\(180deg, var\(--body-gradient-start\) 0%, var\(--body-gradient-end\) 100%\);/);
   assert.match(source, /body\s*\{[\s\S]*?background-attachment:\s*fixed;/);

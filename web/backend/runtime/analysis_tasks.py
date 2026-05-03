@@ -21,7 +21,7 @@ from diverge.runner import (
     run_analysis_streaming,
     save_report_to_disk,
 )
-from web.backend import access, app_config, auth, report_metadata, storage
+from web.backend import access, app_config, auth, job_records, report_metadata, storage
 from web.backend.runtime import task_store
 
 logger = logging.getLogger(__name__)
@@ -135,6 +135,7 @@ def delete_task_snapshot(task_id: str) -> None:
 
 def persist_task_snapshot(task_id: str) -> None:
     task = get_task(task_id)
+    _upsert_analysis_job_record(task)
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
         return
@@ -220,6 +221,7 @@ def append_progress(task_id: str, progress: AnalysisProgress) -> None:
         task = get_task(task_id)
         task.latest_progress = event_payload
         task.progress_events.append(event_payload)
+        _upsert_analysis_job_record(task)
         task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
         task_store.get_task_store().append_event("analysis", task_id, event_payload)
         return
@@ -240,6 +242,7 @@ def set_task_status(task_id: str, status: str, error: Optional[str] = None) -> N
             task.finished_at = _utc_iso()
         if error is not None:
             task.error = error
+        _upsert_analysis_job_record(task)
         task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
         return
     with tasks_lock:
@@ -503,12 +506,8 @@ def create_task(
     if task_store.redis_task_backend_enabled():
         task.status = "queued"
         task.queued_at = now_iso
-        task_store.get_task_store().save_task(
-            "analysis",
-            task_id,
-            task.to_dict(),
-            enqueue=True,
-        )
+        save_task(task)
+        task_store.get_task_store().enqueue("analysis", task_id)
         task_store.get_task_store().append_event(
             "analysis",
             task_id,
@@ -564,11 +563,30 @@ def get_progress_events(task_id: str, start: int = 0) -> list[dict]:
 
 
 def save_task(task: Task) -> None:
+    _upsert_analysis_job_record(task)
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().save_task("analysis", task.id, task.to_dict())
         return
     with tasks_lock:
         tasks[task.id] = task
+
+
+def _upsert_analysis_job_record(task: Task) -> None:
+    job_records.upsert_job_record(
+        kind="analysis",
+        task_id=task.id,
+        status=task.status,
+        request_payload=task.to_dict().get("request_payload"),
+        result_summary={"report_id": task.report_id} if task.report_id else None,
+        error=task.error,
+        owner_user_id=task.owner_user_id,
+        tenant_id=task.tenant_id,
+        created_at=task.created_at,
+        queued_at=task.queued_at,
+        started_at=task.started_at,
+        finished_at=task.finished_at,
+        heartbeat_at=_utc_iso() if task.status == "running" else None,
+    )
 
 
 def claim_next_task(*, timeout: int = 5) -> str | None:

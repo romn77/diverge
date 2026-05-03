@@ -18,12 +18,16 @@ import {
   UserPlus,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import {
+  AdminConsolePage,
+  AdminNotice,
+  AdminPanel,
+} from "@/components/admin/AdminConsolePage";
 import { AdminUserSummaryCards } from "@/components/admin/AdminUserSummaryCards";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -559,46 +563,16 @@ export default function AdminUsersPage() {
   }
 
   return (
-    <main className="px-4 py-6 md:px-7 lg:px-9">
-      <div className="mx-auto max-w-7xl space-y-6">
-        <Card className="rounded-[30px]">
-          <CardContent className="px-6 py-7 md:px-8">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <Link
-                  href="/"
-                  className="text-[12px] font-semibold uppercase tracking-[0.32em] text-[var(--primary)]"
-                >
-                  Back to Workbench
-                </Link>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button type="button" size="sm">
-                    User Management
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/data-sources">Data Sources</Link>
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/llm-models">LLM Models</Link>
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/task-queue">Task Queue</Link>
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/audit">Audit Log</Link>
-                  </Button>
-                </div>
-                <h1 className="font-heading mt-4 text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                  Manage workspace access
-                </h1>
-                <p className="mt-3 text-sm leading-7 text-slate-600">
-                  Keep the roster visible, then open focused panels for account
-                  creation, user edits, and weekly module quotas.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
+    <>
+      <AdminConsolePage
+        activeTab="users"
+        title="Manage workspace access"
+        description="Keep the roster visible, then open focused panels for account creation, user edits, and weekly module quotas."
+        actions={
+          <>
                 <Button
                   type="button"
+                  size="sm"
                   onClick={() => {
                     setCreateForm(createEmptyUserForm());
                     setNotice(null);
@@ -611,6 +585,7 @@ export default function AdminUsersPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  size="sm"
                   onClick={() => {
                     setRoleLimitDrafts(createRoleLimitDrafts(roleLimits));
                     setNotice(null);
@@ -623,43 +598,35 @@ export default function AdminUsersPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  size="sm"
                   onClick={() => void loadUsers()}
                   disabled={loadingUsers}
                 >
                   <RefreshCw className="size-4" />
                   Refresh
                 </Button>
-              </div>
-            </div>
-
-            <AdminUserSummaryCards
-              totalUsers={users.length}
-              adminCount={adminCount}
-              disabledCount={disabledCount}
-            />
-          </CardContent>
-        </Card>
+          </>
+        }
+      >
+        <AdminUserSummaryCards
+          totalUsers={users.length}
+          adminCount={adminCount}
+          disabledCount={disabledCount}
+        />
 
         {notice ? (
-          <div
-            className={`rounded-[24px] border px-4 py-3 text-sm ${
-              notice.kind === "success"
-                ? "border-[rgba(46,118,83,0.18)] bg-[rgba(46,118,83,0.08)] text-[var(--success)]"
-                : "border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
-            }`}
-          >
+          <AdminNotice tone={notice.kind === "success" ? "success" : "danger"}>
             {notice.message}
-          </div>
+          </AdminNotice>
         ) : null}
 
-        <Card className="rounded-[30px]">
-          <CardContent className="px-6 py-6 md:px-8">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <AdminPanel>
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-[12px] font-semibold uppercase tracking-[0.3em] text-slate-500">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Directory
                 </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">
                   Current access roster
                 </h2>
               </div>
@@ -677,22 +644,22 @@ export default function AdminUsersPage() {
             </div>
 
             {pageError ? (
-              <div className="mt-6 rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
+              <div className="mt-4 rounded-[12px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-3 py-2 text-xs text-[var(--danger)]">
                 {pageError}
               </div>
             ) : null}
 
             {loadingUsers ? (
-              <div className="mt-6 rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-center text-sm text-slate-600">
+              <div className="mt-4 rounded-[12px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-center text-sm text-slate-600">
                 Loading admin users...
               </div>
             ) : filteredUsers.length === 0 ? (
-              <div className="mt-6 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-center text-sm text-slate-600">
+              <div className="mt-4 rounded-[12px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-center text-sm text-slate-600">
                 No users match the current filter.
               </div>
             ) : (
-              <div className="mt-6 overflow-hidden rounded-[28px] border border-[var(--border)] bg-white">
-                <div className="hidden grid-cols-[minmax(0,1.25fr)_7rem_7rem_minmax(14rem,1fr)_9rem_11rem] gap-4 border-b border-[var(--border)] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-500 lg:grid">
+              <div className="mt-4 overflow-hidden rounded-[12px] border border-[var(--border)] bg-white">
+                <div className="hidden grid-cols-[minmax(0,1.25fr)_7rem_7rem_minmax(14rem,1fr)_9rem_11rem] gap-3 border-b border-[var(--border)] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 lg:grid">
                   <span>User</span>
                   <span>Role</span>
                   <span>Status</span>
@@ -704,11 +671,11 @@ export default function AdminUsersPage() {
                   {filteredUsers.map((user) => (
                     <div
                       key={user.id}
-                      className="grid gap-3 px-5 py-4 transition hover:bg-[var(--surface-strong)] lg:grid-cols-[minmax(0,1.25fr)_7rem_7rem_minmax(14rem,1fr)_9rem_11rem] lg:items-center"
+                      className="grid gap-3 px-4 py-3 transition hover:bg-[var(--surface-strong)] lg:grid-cols-[minmax(0,1.25fr)_7rem_7rem_minmax(14rem,1fr)_9rem_11rem] lg:items-center"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-3">
-                          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--surface-strong)] text-sm font-semibold text-[var(--primary-strong)]">
+                          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-[var(--surface-strong)] text-xs font-semibold text-[var(--primary-strong)]">
                             {getUserInitials(user.display_name, user.email)}
                           </div>
                           <div className="min-w-0">
@@ -760,10 +727,9 @@ export default function AdminUsersPage() {
                 </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+        </AdminPanel>
 
-        <section className="rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-4 text-sm text-slate-600">
+        <section className="rounded-[12px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-xs text-slate-600">
           <div className="flex flex-wrap items-center gap-4">
             <span>Active accounts: {activeCount}</span>
             <span>Admins: {adminCount}</span>
@@ -771,7 +737,7 @@ export default function AdminUsersPage() {
             <span>Session owner: {authState?.user?.email ?? "unknown"}</span>
           </div>
         </section>
-      </div>
+      </AdminConsolePage>
 
       <Dialog open={isCreateDialogOpen}
         onOpenChange={(open) => {
@@ -1104,7 +1070,7 @@ export default function AdminUsersPage() {
           ) : null}
         </SheetContent>
       </Sheet>
-    </main>
+    </>
   );
 }
 

@@ -9,21 +9,30 @@ const adminDataSourcesPagePath = path.join(
   "data-sources",
   "page.tsx"
 );
+const adminConsolePagePath = path.join(
+  import.meta.dirname,
+  "..",
+  "components",
+  "admin",
+  "AdminConsolePage.tsx"
+);
 
 test("admin data sources page exposes vendor usage and enablement controls", () => {
-  const source = readFileSync(adminDataSourcesPagePath, "utf8");
+  const source = `${readFileSync(adminDataSourcesPagePath, "utf8")}\n${readFileSync(adminConsolePagePath, "utf8")}`;
 
   assert.match(source, /listAdminDataSources/);
   assert.doesNotMatch(source, /listDataSyncJobs/);
   assert.doesNotMatch(source, /getDataSyncJob/);
   assert.match(source, /updateAdminDataSource/);
   assert.match(source, /updateAdminDataSourceRoute/);
+  assert.match(source, /AdminConsolePage/);
+  assert.match(source, /AdminMetricCard/);
+  assert.match(source, /activeTab="data-sources"/);
   assert.match(source, /Data Source Usage/);
   assert.doesNotMatch(source, /Data Sync Jobs/);
   assert.doesNotMatch(source, /latest_progress/);
   assert.doesNotMatch(source, /progress_events/);
   assert.match(source, /Routing Policies/);
-  assert.match(source, /href="\/admin\/users"/);
   assert.match(source, /User Management/);
   assert.match(source, /Alpha Vantage/);
   assert.match(source, /Daily limit/);

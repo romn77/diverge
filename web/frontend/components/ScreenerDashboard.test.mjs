@@ -31,8 +31,8 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /createFormStateFromPayload/);
   assert.match(source, /fingerprintScreenerPayload/);
   assert.match(source, /\[presetName,\s*setPresetName\]/);
-  assert.match(source, /Preset Name/);
-  assert.match(source, /Name this screen/);
+  assert.match(source, /screenerDashboard\.presetName/);
+  assert.match(source, /screenerDashboard\.presetNamePlaceholder/);
   assert.match(source, /const name = presetName\.trim\(\) \|\| fallbackName/);
   assert.match(source, /setPresetName\(savedBar\.name\)/);
   assert.match(source, /savedBarFromPresetRecord/);
@@ -83,7 +83,7 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.doesNotMatch(source, /presetRows/);
   assert.doesNotMatch(source, /previewRows/);
   assert.doesNotMatch(source, /filterGroups/);
-  assert.match(source, /Ranking Model/);
+  assert.match(source, /screenerDashboard\.rankingModel/);
   assert.match(source, /Top K/);
   assert.doesNotMatch(source, /Signal/);
   assert.doesNotMatch(source, /None \(all stocks\)/);
@@ -103,9 +103,8 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /aria-expanded=\{!isConfigCollapsed\}/);
   assert.match(source, /className="screener-config-panel viewer-frame"/);
   assert.match(source, /className="screener-config-summary/);
-  assert.match(source, /Technical/);
-  assert.match(source, /Pattern/);
-  assert.match(source, /Fundamental/);
+  assert.match(source, /localizeFilterTabLabel/);
+  assert.match(source, /localizeFilterTabNote/);
   assert.match(source, /FILTER_GROUP_CATEGORY/);
   assert.match(source, /rsi:\s*"technical"/);
   assert.match(source, /ma20_position:\s*"technical"/);
@@ -136,7 +135,7 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.match(source, /activeFilterTab/);
   assert.match(source, /visibleFilterGroups/);
   assert.match(source, /selectedFilterCount/);
-  assert.match(source, /\{selectedFilterCount\} selected/);
+  assert.match(source, /screenerDashboard\.selectedCount/);
   assert.match(source, /<Select\s+value=\{/);
   assert.match(source, /onValueChange=\{\(value\) => updateFilterPreset\(group\.id, value\)\}/);
   assert.match(source, /<SelectTrigger/);
@@ -149,8 +148,11 @@ test("ScreenerDashboard provides a stable screener workspace destination", () =>
   assert.doesNotMatch(source, /ETF/);
   assert.doesNotMatch(source, /Snapshot/);
   assert.doesNotMatch(source, /Stats/);
-  assert.match(source, /Save/);
-  assert.match(source, /Run/);
+  assert.match(source, /common\.save/);
+  assert.match(source, /screenerDashboard\.run/);
+  assert.match(source, /localizeRankingProfileLabel/);
+  assert.match(source, /localizeFilterGroupLabel/);
+  assert.match(source, /localizeFilterOptionLabel/);
   assert.doesNotMatch(source, /openScreenerDialog/);
   assert.match(source, /TOP_K_LIMIT = 100/);
   assert.doesNotMatch(source, /formatRunDate\(run\.as_of_date, locale\)/);

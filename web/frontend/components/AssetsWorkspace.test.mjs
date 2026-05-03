@@ -11,6 +11,7 @@ test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog 
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/workbench\/PageHeader"/);
   assert.match(source, /from "@\/components\/ui\/dialog"/);
   assert.match(source, /from "@\/components\/ui\/input"/);
   assert.match(source, /from "@\/components\/ui\/table"/);
@@ -38,9 +39,9 @@ test("AssetsWorkspace gives hero actions stable wide touch targets", () => {
 
   assert.match(source, /HERO_ACTION_BUTTON_CLASS/);
   assert.match(source, /HERO_CURRENCY_CONTROL_CLASS/);
-  assert.match(source, /h-14/);
-  assert.match(source, /min-w-\[9\.75rem\]/);
-  assert.match(source, /min-w-\[10\.5rem\]/);
+  assert.match(source, /h-10/);
+  assert.match(source, /min-w-\[8\.75rem\]/);
+  assert.match(source, /<PageHeader/);
 });
 
 test("AssetsWorkspace uses the shared responsive workbench width frame", () => {

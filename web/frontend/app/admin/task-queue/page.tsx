@@ -6,12 +6,19 @@ import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 
 import { useAuth } from "@/components/AuthProvider";
+import {
+  AdminConsolePage,
+  AdminMetricCard,
+  AdminMetricGrid,
+  AdminNotice,
+} from "@/components/admin/AdminConsolePage";
 import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ApiError,
+  createOhlcvSyncTask,
   getDataSyncJob,
   listAdminTaskQueue,
   type AdminTaskQueueItem,
@@ -50,6 +57,7 @@ const QUEUE_SECTIONS = [
 
 const ACTIVE_DATA_SYNC_STATUSES = new Set<TaskStatus>(["pending", "queued", "running"]);
 const DATA_SYNC_REFRESH_INTERVAL_MS = 3000;
+const DEFAULT_SYNC_DATE = new Date().toISOString().slice(0, 10);
 
 export default function AdminTaskQueuePage() {
   const router = useRouter();
@@ -57,6 +65,10 @@ export default function AdminTaskQueuePage() {
   const [snapshot, setSnapshot] = useState<AdminTaskQueueResponse | null>(null);
   const [selectedDataSyncJob, setSelectedDataSyncJob] = useState<DataSyncTask | null>(null);
   const [loadingDataSyncJob, setLoadingDataSyncJob] = useState<string | null>(null);
+  const [syncMarket, setSyncMarket] = useState<"cn" | "us">("cn");
+  const [syncAsOfDate, setSyncAsOfDate] = useState(DEFAULT_SYNC_DATE);
+  const [syncSource, setSyncSource] = useState("tushare");
+  const [creatingSync, setCreatingSync] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -150,6 +162,38 @@ export default function AdminTaskQueuePage() {
     }
   };
 
+  const handleCreateOhlcvSync = async () => {
+    setCreatingSync(true);
+    setPageError(null);
+    try {
+      const payload =
+        syncMarket === "cn"
+          ? {
+              markets: ["cn"],
+              as_of_date: syncAsOfDate,
+              cn_data_source: syncSource,
+              cn_data_source_fallbacks: [],
+              run_screener_prewarm: false,
+            }
+          : {
+              markets: ["us"],
+              as_of_date: syncAsOfDate,
+              us_data_source: syncSource,
+              us_data_source_fallbacks: [],
+              run_screener_prewarm: false,
+            };
+      const response = await createOhlcvSyncTask(payload);
+      await loadTaskQueue();
+      await refreshSelectedDataSyncJob(response.task_id, { silent: true });
+    } catch (error) {
+      if (!handleAuthBoundary(error)) {
+        setPageError(error instanceof Error ? error.message : "Unable to start data sync");
+      }
+    } finally {
+      setCreatingSync(false);
+    }
+  };
+
   useEffect(() => {
     if (shouldRedirectToLogin) {
       router.replace("/login?next=/admin/task-queue");
@@ -211,72 +255,109 @@ export default function AdminTaskQueuePage() {
   }
 
   return (
-    <main className="px-4 py-5 md:px-7 lg:px-9">
-      <div className="mx-auto max-w-7xl space-y-4">
-        <Card className="rounded-[18px]">
-          <CardContent className="px-5 py-5 md:px-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-3xl">
-                <Link
-                  href="/"
-                  className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[var(--primary)]"
-                >
-                  Back to Workbench
-                </Link>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <Button type="button" size="sm">
-                    Task Queue
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/users">User Management</Link>
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/data-sources">Data Sources</Link>
-                  </Button>
-                  <Button asChild type="button" size="sm" variant="secondary">
-                    <Link href="/admin/audit">Audit Log</Link>
-                  </Button>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
-                    Task Queue
-                  </h1>
-                  <Badge variant="secondary">Read-only</Badge>
-                </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  Inspect active background jobs by status, owner, queue position, and quota block.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="secondary">
-                  Backend: {snapshot?.task_backend ?? "unknown"}
-                </Badge>
-                <Button type="button" variant="secondary" onClick={() => void handleRefreshAll()}>
-                  <RefreshCw className="size-4" />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <AdminConsolePage
+      activeTab="task-queue"
+      title="Task Queue"
+      description="Inspect active background jobs by status, owner, queue position, and quota block."
+      badges={<Badge variant="secondary">Operations</Badge>}
+      actions={
+        <>
+          <Badge variant="secondary">Backend: {snapshot?.task_backend ?? "unknown"}</Badge>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => void handleRefreshAll()}
+          >
+            <RefreshCw className="size-4" />
+            Refresh
+          </Button>
+        </>
+      }
+    >
 
         {pageError ? (
-          <div className="rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-5 py-4 text-sm text-[var(--danger)]">
-            {pageError}
-          </div>
+          <AdminNotice>{pageError}</AdminNotice>
         ) : null}
 
-        <section className="grid gap-3 md:grid-cols-4">
-          <QueueMetric label="Active" value={snapshot?.totals.active ?? 0} />
-          <QueueMetric label="Running" value={snapshot?.totals.running ?? 0} />
-          <QueueMetric label="Queued" value={snapshot?.totals.queued ?? 0} />
-          <QueueMetric
+        <section className="rounded-[14px] border border-[var(--border)] bg-white/90 px-4 py-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Manual data sync
+              </h2>
+              <p className="mt-1 text-xs text-slate-600">
+                Start OHLCV sync from the admin queue.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-4 lg:min-w-[620px]">
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Market
+                <select
+                  value={syncMarket}
+                  onChange={(event) => {
+                    const nextMarket = event.target.value as "cn" | "us";
+                    setSyncMarket(nextMarket);
+                    setSyncSource(nextMarket === "cn" ? "tushare" : "massive");
+                  }}
+                  className="h-10 rounded-[10px] border border-[var(--border)] bg-white px-3 text-sm normal-case tracking-normal text-slate-900"
+                >
+                  <option value="cn">CN</option>
+                  <option value="us">US</option>
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Source
+                <select
+                  value={syncSource}
+                  onChange={(event) => setSyncSource(event.target.value)}
+                  className="h-10 rounded-[10px] border border-[var(--border)] bg-white px-3 text-sm normal-case tracking-normal text-slate-900"
+                >
+                  {syncMarket === "cn" ? (
+                    <>
+                      <option value="tushare">Tushare</option>
+                      <option value="akshare">AkShare</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="massive">Massive</option>
+                      <option value="yfinance">Yahoo Finance</option>
+                    </>
+                  )}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                As of
+                <input
+                  type="date"
+                  value={syncAsOfDate}
+                  onChange={(event) => setSyncAsOfDate(event.target.value)}
+                  className="h-10 rounded-[10px] border border-[var(--border)] bg-white px-3 text-sm normal-case tracking-normal text-slate-900"
+                />
+              </label>
+              <Button
+                type="button"
+                className="self-end"
+                disabled={creatingSync || !syncAsOfDate}
+                onClick={() => void handleCreateOhlcvSync()}
+              >
+                {creatingSync ? "Starting..." : "Start OHLCV sync"}
+              </Button>
+            </div>
+          </div>
+        </section>
+
+        <AdminMetricGrid>
+          <AdminMetricCard label="Active" value={snapshot?.totals.active ?? 0} />
+          <AdminMetricCard label="Running" value={snapshot?.totals.running ?? 0} />
+          <AdminMetricCard label="Queued" value={snapshot?.totals.queued ?? 0} />
+          <AdminMetricCard
             label="Waiting for quota"
             value={snapshot?.totals.waiting_for_quota ?? 0}
           />
-        </section>
+        </AdminMetricGrid>
 
-        <section className="grid gap-4 xl:grid-cols-3">
+        <section className="grid gap-3 xl:grid-cols-3">
           {QUEUE_SECTIONS.map((section) => (
             <QueueSection
               key={section.key}
@@ -291,23 +372,7 @@ export default function AdminTaskQueuePage() {
         </section>
 
         <DataSyncDetails job={selectedDataSyncJob} loadingTaskId={loadingDataSyncJob} />
-      </div>
-    </main>
-  );
-}
-
-function QueueMetric({ label, value }: { label: string; value: number }) {
-  return (
-    <Card className="rounded-[16px] bg-white/88">
-      <CardContent className="px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-          {label}
-        </p>
-        <p className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-          {value}
-        </p>
-      </CardContent>
-    </Card>
+    </AdminConsolePage>
   );
 }
 

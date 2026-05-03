@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from diverge.dataflows import vendor_usage
-from web.backend import access, analysis_limits, audit, auth, data_sources, llm_models
+from web.backend import access, analysis_limits, audit, auth, data_sources, job_records, llm_models
 from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks, task_store
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
@@ -110,7 +110,13 @@ def _data_sync_label(payload: dict) -> str:
     return str(payload.get("id") or "Data sync task")
 
 
-def _active_task_payloads(kind: str) -> list[dict]:
+def _active_task_payloads(kind: str, *, tenant_id: str | None = None) -> list[dict]:
+    if job_records.database_backed_job_records_enabled():
+        return [
+            record
+            for record in job_records.list_active_job_records(tenant_id=tenant_id)
+            if record.get("kind") == kind
+        ]
     if task_store.redis_task_backend_enabled():
         return task_store.get_task_store().list_tasks(kind)
     if kind == "analysis":
@@ -194,7 +200,10 @@ def list_admin_task_queue(request: Request = None) -> dict:
 
     items: list[dict] = []
     for kind in task_store.TASK_KINDS:
-        for payload in _active_task_payloads(kind):
+        for payload in _active_task_payloads(
+            kind,
+            tenant_id=actor.tenant_id if actor is not None else None,
+        ):
             if actor is not None and payload.get("tenant_id") != actor.tenant_id:
                 continue
             status = _normalize_queue_status(payload.get("status"))

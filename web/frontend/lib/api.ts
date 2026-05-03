@@ -731,6 +731,7 @@ export interface DataSyncOhlcvRequest {
   us_data_source_fallbacks?: string[];
   cn_manifest_path?: string | null;
   us_manifest_path?: string | null;
+  run_screener_prewarm?: boolean;
 }
 
 export interface DataSyncFundamentalsRequest {

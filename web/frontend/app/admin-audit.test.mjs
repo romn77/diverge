@@ -22,6 +22,13 @@ const adminTaskQueuePagePath = path.join(
   "task-queue",
   "page.tsx"
 );
+const adminConsolePagePath = path.join(
+  import.meta.dirname,
+  "..",
+  "components",
+  "admin",
+  "AdminConsolePage.tsx"
+);
 
 test("admin audit page renders filterable tenant audit events", () => {
   assert.equal(existsSync(adminAuditPagePath), true);
@@ -53,7 +60,14 @@ test("admin pages expose audit log navigation", () => {
     adminTaskQueuePagePath,
   ]) {
     const source = readFileSync(filePath, "utf8");
-    assert.match(source, /href="\/admin\/audit"/);
-    assert.match(source, /Audit Log/);
+    assert.match(source, /AdminConsolePage/);
   }
+
+  const shellSource = readFileSync(adminConsolePagePath, "utf8");
+  assert.match(shellSource, /Audit Log/);
+  assert.match(shellSource, /href: "\/admin\/audit"/);
+  assert.match(shellSource, /href: "\/admin\/users"/);
+  assert.match(shellSource, /href: "\/admin\/data-sources"/);
+  assert.match(shellSource, /href: "\/admin\/llm-models"/);
+  assert.match(shellSource, /href: "\/admin\/task-queue"/);
 });

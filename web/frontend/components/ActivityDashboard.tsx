@@ -5,6 +5,7 @@ import { Trash2, XCircle } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { MetricCard } from "@/components/workbench/MetricCard";
+import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -88,37 +89,27 @@ export function ActivityDashboard() {
   };
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
-        <Card className="card-surface rounded-[30px]">
-          <CardContent className="px-6 py-8 md:px-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
-                {t("sidebar.nav.activity", "Activity")}
-              </p>
-              <h1 className="workbench-page-title mt-3">
-                {t("activity.title", "Background work")}
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-                {t(
-                  "activity.description",
-                  "Monitor analysis and screener jobs in one place."
-                )}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
+    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+      <div className="workbench-content-frame space-y-6">
+        <PageHeader
+          eyebrow={t("sidebar.nav.activity", "Activity")}
+          title={t("activity.title", "Background work")}
+          description={t(
+            "activity.description",
+            "Monitor analysis and screener jobs in one place."
+          )}
+          actions={
+            <>
               <Button asChild variant="secondary">
                 <Link href={buildHomeHref()}>{t("sidebar.nav.analysis", "Analysis")}</Link>
               </Button>
               <Button asChild variant="secondary">
                 <Link href={buildScreenerHref()}>{t("sidebar.nav.screener", "Screener")}</Link>
               </Button>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-4 md:grid-cols-3">
+            </>
+          }
+        >
+          <div className="grid gap-4 md:grid-cols-3">
             <ActivityMetric
               label={t("activity.metric.total", "Total Active")}
               value={`${totalActive}`}
@@ -135,8 +126,7 @@ export function ActivityDashboard() {
               meta={t("activity.metric.screenerMeta", "Candidate builds in flight")}
             />
           </div>
-          </CardContent>
-        </Card>
+        </PageHeader>
 
         <section className="grid gap-6 xl:grid-cols-2">
           <ActivityQueueSection

@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from diverge.dataflows import vendor_usage
 from diverge.runner import AnalysisRequest
 from diverge.screener.schema import ScreenRunResult
-from web.backend import app_config as backend_config, auth, main as backend_main, screener_results
+from web.backend import app_config as backend_config, auth, job_records, main as backend_main, screener_results
 from web.backend.routers import admin as admin_router
 from web.backend.routers import config as config_router
 from web.backend.routers import screeners as screeners_router
@@ -506,11 +506,15 @@ class BackendMainTests(unittest.TestCase):
             patch("web.backend.runtime.task_store.redis_task_backend_enabled", return_value=True),
             patch("web.backend.main.restore_persisted_active_tasks") as restore_analysis,
             patch("web.backend.main.restore_persisted_screener_tasks") as restore_screener,
+            patch("web.backend.main.restore_persisted_data_sync_tasks") as restore_data_sync,
+            patch("web.backend.main.job_records.recover_stale_running_job_records") as recover_jobs,
         ):
             asyncio.run(run_lifespan())
 
         restore_analysis.assert_not_called()
         restore_screener.assert_not_called()
+        restore_data_sync.assert_not_called()
+        recover_jobs.assert_not_called()
 
     def test_post_tasks_rejects_when_two_active_tasks_already_exist(self):
         payload = {
@@ -753,6 +757,47 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(items["analysis-running"]["owner"]["role"], "viewer")
         self.assertEqual(items["screener-waiting"]["label"], "us, cn")
         self.assertEqual(items["screener-waiting"]["blocked_vendor"], "alpha_vantage")
+
+    def test_admin_task_queue_prefers_database_job_records_when_available(self):
+        database_path = Path(self.temp_dir.name) / "jobs.db"
+        self.auth_env_patch.stop()
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {
+                "AUTH_ENABLED": "true",
+                "AUTH_MODE": "required",
+                "DATABASE_URL": f"sqlite+pysqlite:///{database_path}",
+                "AUTH_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
+                "AUTH_BOOTSTRAP_ADMIN_PASSWORD": "AdminPass123",
+            },
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
+        auth.create_all_for_testing()
+        job_records.upsert_job_record(
+            kind="data_sync",
+            task_id="sync-db",
+            status="running",
+            request_payload={"markets": ["cn"], "as_of_date": "2026-04-29"},
+            owner_user_id="admin-user",
+            tenant_id="tenant-a",
+            started_at="2026-04-29T13:31:45+00:00",
+        )
+
+        with (
+            patch("web.backend.routers.admin._require_admin_permission", return_value=SimpleNamespace(tenant_id="tenant-a")),
+            patch("web.backend.routers.admin.auth.list_users", return_value=[]),
+            patch("web.backend.runtime.data_sync_tasks.list_data_sync_tasks", return_value=[]),
+            patch("web.backend.runtime.analysis_tasks.list_tasks", return_value=[]),
+            patch("web.backend.runtime.screener_tasks.list_screener_tasks", return_value=[]),
+        ):
+            payload = admin_router.list_admin_task_queue()
+
+        self.assertEqual(payload["totals"]["active"], 1)
+        self.assertEqual(payload["tasks"][0]["task_id"], "sync-db")
+        self.assertEqual(payload["tasks"][0]["kind"], "data_sync")
+        self.assertEqual(payload["tasks"][0]["status"], "running")
 
     def test_delete_failed_analysis_task_removes_local_record(self):
         payload = {

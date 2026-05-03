@@ -4,18 +4,26 @@ import path from "node:path";
 import test from "node:test";
 
 const adminUsersPagePath = path.join(import.meta.dirname, "admin", "users", "page.tsx");
+const adminConsolePagePath = path.join(
+  import.meta.dirname,
+  "..",
+  "components",
+  "admin",
+  "AdminConsolePage.tsx"
+);
 
 test("admin users page wires the backend admin APIs and explicit forbidden handling", () => {
-  const source = readFileSync(adminUsersPagePath, "utf8");
+  const source = `${readFileSync(adminUsersPagePath, "utf8")}\n${readFileSync(adminConsolePagePath, "utf8")}`;
 
   assert.match(source, /from "@\/components\/ui\/button"/);
-  assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /AdminConsolePage/);
+  assert.match(source, /AdminPanel/);
+  assert.match(source, /AdminNotice/);
   assert.match(source, /from "@\/components\/ui\/input"/);
   assert.match(source, /from "@\/components\/ui\/select"/);
   assert.match(source, /from "@\/components\/ui\/dialog"/);
   assert.match(source, /from "@\/components\/ui\/sheet"/);
   assert.match(source, /AdminUserSummaryCards/);
-  assert.match(source, /<Card/);
   assert.match(source, /<Button/);
   assert.match(source, /listAdminUsers/);
   assert.match(source, /listAdminAnalysisLimits/);
@@ -30,7 +38,7 @@ test("admin users page wires the backend admin APIs and explicit forbidden handl
   assert.match(source, /Manage workspace access/);
   assert.match(source, /User Management/);
   assert.match(source, /Data Sources/);
-  assert.match(source, /href="\/admin\/data-sources"/);
+  assert.match(source, /activeTab="users"/);
   assert.match(source, /Weekly module limits/);
   assert.match(source, /Usage this week/);
   assert.match(source, /Reset Usage/);

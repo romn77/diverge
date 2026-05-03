@@ -10,19 +10,22 @@ const adminTaskQueuePagePath = path.join(
   "page.tsx"
 );
 
-test("admin task queue page renders a read-only operations dashboard", () => {
+test("admin task queue page renders an operations dashboard", () => {
   assert.equal(existsSync(adminTaskQueuePagePath), true);
   const source = readFileSync(adminTaskQueuePagePath, "utf8");
 
   assert.match(source, /listAdminTaskQueue/);
   assert.match(source, /getDataSyncJob/);
+  assert.match(source, /createOhlcvSyncTask/);
+  assert.match(source, /handleCreateOhlcvSync/);
   assert.match(source, /refreshSelectedDataSyncJob/);
   assert.match(source, /handleRefreshAll/);
   assert.match(source, /setInterval/);
   assert.match(source, /clearInterval/);
   assert.match(source, /Task Queue/);
   assert.match(source, /Data Sync Details/);
-  assert.match(source, /Read-only/);
+  assert.match(source, /Start OHLCV sync/);
+  assert.match(source, /Manual data sync/);
   assert.match(source, /Running/);
   assert.match(source, /Queued/);
   assert.match(source, /Waiting for quota/);
@@ -32,8 +35,8 @@ test("admin task queue page renders a read-only operations dashboard", () => {
   assert.match(source, /error/);
   assert.match(source, /blocked_vendor/);
   assert.match(source, /queue_position/);
-  assert.match(source, /href="\/admin\/users"/);
-  assert.match(source, /href="\/admin\/data-sources"/);
+  assert.match(source, /AdminConsolePage/);
+  assert.match(source, /activeTab="task-queue"/);
   assert.match(source, /router\.replace\("\/login\?next=\/admin\/task-queue"\)/);
   assert.doesNotMatch(source, /cancelTask/);
   assert.doesNotMatch(source, /deleteTask/);

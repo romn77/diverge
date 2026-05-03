@@ -111,7 +111,7 @@ flowchart LR
 | 风险 | 定位与复现/定位路径 | 优先级 | 修复建议 |
 |---|---|---:|---|
 | 可选认证下的报告匿名可读 | 生产 compose 默认 `AUTH_MODE=required`，但 `AUTH_MODE=optional` 会让 `enforce_authenticated_api_access` 放行；报告服务在未登录时会回退到磁盘枚举和文件读取。复现：非本地或迁移窗口外设置 `AUTH_ENABLED=true, AUTH_MODE=optional`，生成任意报告后，不登录请求 `/api/reports` 和 `/api/reports/{id}/content?path=complete_report.md`。[R3][R5][R7][R8][R9] | 条件 P0 | 非本地环境和迁移窗口外禁用 `optional`；把“迁移过渡可读”改为一次性后台回填任务，不要留在线匿名回退。 |
-| 默认 Massive 数据源走明文 HTTP + 裸 IP | `.env.example:101` 和 `diverge/dataflows/vendors/massive/common.py:14,28-29,64-82` 显示，未配置 `MASSIVE_BASE_URL` 时会指向 `http://35.209.101.63/api/v1` 并发起请求。[R12][R13] | 高 P0 | 删除默认值；强制显式配置 HTTPS 域名；启动时校验 scheme 与 host。 |
+| Massive 数据源仍走明文 HTTP | `.env.example` 和 `diverge/dataflows/vendors/massive/common.py` 已迁移到 `http://bcprivateserver.site/api/v1`，不再回退到旧裸 IP；但默认链路仍是 HTTP。[R12][R13] | 中 P1 | 生产环境改用 HTTPS 域名；启动时校验 scheme 与 host。 |
 | 内部错误直接返回给客户端/SSE | `web/backend/access.py` 直接 `detail=str(exc)`；报告读取失败会回传底层异常；分析/筛选任务也会把 `str(exc)` 写入任务错误和进度事件。[R9][R14][R21] | 高 P1 | 对外返回稳定错误码和通用消息；详细异常只写结构化日志。 |
 | 依赖漏洞治理缺口 | 项目有 `uv.lock`，但 `pyproject.toml`、根 `requirements.txt`、`web/backend/requirements.txt` 形成多个安装入口，且源码内未体现自动审计门禁。[R15][R16] | 中 P1 | 明确生产安装真相源；在 CI 加 `pip-audit`/SBOM/Dependabot 或等效管线。 |
 | 会话防护对“工作区公开/后续广场/分享链接/多子域”场景不够 | 后端使用 cookie session，CORS 允许 credentials；当前主要依赖 SameSite 和 origin 配置，没有显式 anti-CSRF token / Origin-Referer 校验。对单一前端域名尚可，但一旦引入分享页、嵌入页或多子域，会放大风险。[R29][R31] | 中 P2 | 若计划做广场、分享链接或多子域，补充 CSRF token / Origin 校验，并限制 cookie Domain/Path。 |

@@ -1,11 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Power, PowerOff, RefreshCw, Save } from "lucide-react";
 
 import { useAuth } from "@/components/AuthProvider";
+import {
+  AdminConsolePage,
+  AdminMetricCard,
+  AdminMetricGrid,
+  AdminNotice,
+} from "@/components/admin/AdminConsolePage";
 import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -313,71 +318,47 @@ export default function AdminDataSourcesPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] md:px-8">
-      <div className="mx-auto grid w-full max-w-7xl gap-6">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[var(--primary)]">
-              Admin Console
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal text-slate-950">
-              Data Source Usage
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Monitor vendor API usage across Analysis, Screener, and Trade Journal
-              workflows. LLM calls are not counted here.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button asChild type="button" variant="secondary">
-              <Link href="/admin/users">User Management</Link>
-            </Button>
-            <Button asChild type="button" variant="secondary">
-              <Link href="/admin/task-queue">Task Queue</Link>
-            </Button>
-            <Button asChild type="button" variant="secondary">
-              <Link href="/admin/audit">Audit Log</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => void loadDataSources()}
-            >
-              <RefreshCw className="size-4" />
-              Refresh
-            </Button>
-          </div>
-        </header>
-
-        <section className="grid gap-3 md:grid-cols-4">
-          <MetricBlock label="Usage date" value={usageDate || "-"} />
-          <MetricBlock label="Used today" value={`${totals.used}`} />
-          <MetricBlock label="Exhausted" value={`${totals.exhausted}`} />
-          <MetricBlock label="Disabled" value={`${totals.disabled}`} />
-        </section>
+    <AdminConsolePage
+      activeTab="data-sources"
+      title="Data Source Usage"
+      description="Monitor vendor API usage across Analysis, Screener, and Trade Journal workflows. LLM calls are not counted here."
+      actions={
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void loadDataSources()}
+        >
+          <RefreshCw className="size-4" />
+          Refresh
+        </Button>
+      }
+    >
+        <AdminMetricGrid>
+          <AdminMetricCard label="Usage date" value={usageDate || "-"} />
+          <AdminMetricCard label="Used today" value={totals.used} />
+          <AdminMetricCard label="Exhausted" value={totals.exhausted} />
+          <AdminMetricCard label="Disabled" value={totals.disabled} />
+        </AdminMetricGrid>
 
         {pageError ? (
-          <div className="rounded-lg border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
-            {pageError}
-          </div>
+          <AdminNotice>{pageError}</AdminNotice>
         ) : null}
 
         {notice ? (
-          <div className="rounded-lg border border-[rgba(57,111,83,0.22)] bg-[rgba(57,111,83,0.08)] px-4 py-3 text-sm text-[var(--primary)]">
-            {notice}
-          </div>
+          <AdminNotice tone="success">{notice}</AdminNotice>
         ) : null}
 
-        <section className="grid gap-4">
+        <section className="grid gap-3">
           {sources.map((source) => {
             const isSaving = mutatingVendor === source.vendor;
             return (
-              <Card key={source.vendor} className="rounded-lg border-[var(--border)]">
-                <CardContent className="grid gap-5 p-5">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
+              <Card key={source.vendor} className="rounded-[14px] border-[var(--border)]">
+                <CardContent className="grid gap-4 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-lg font-semibold text-slate-950">
+                        <h2 className="text-base font-semibold text-slate-950">
                           {VENDOR_LABELS[source.vendor] ?? source.label}
                         </h2>
                         <Badge variant={source.enabled ? "secondary" : "destructive"}>
@@ -415,12 +396,12 @@ export default function AdminDataSourcesPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-7">
-                    <MetricBlock label="Used today" value={`${source.used_today}`} />
-                    <MetricBlock label="Used this hour" value={`${source.used_this_hour}`} />
-                    <MetricBlock label="Daily limit" value={formatLimit(source.daily_limit, "day")} />
-                    <MetricBlock label="Hourly limit" value={formatLimit(source.hourly_limit, "hour")} />
-                    <MetricBlock
+                  <div className="grid gap-2 md:grid-cols-4 xl:grid-cols-7">
+                    <AdminMetricCard label="Used today" value={source.used_today} />
+                    <AdminMetricCard label="Used this hour" value={source.used_this_hour} />
+                    <AdminMetricCard label="Daily limit" value={formatLimit(source.daily_limit, "day")} />
+                    <AdminMetricCard label="Hourly limit" value={formatLimit(source.hourly_limit, "hour")} />
+                    <AdminMetricCard
                       label="Daily remaining"
                       value={
                         source.remaining_today === null
@@ -428,7 +409,7 @@ export default function AdminDataSourcesPage() {
                           : `${source.remaining_today}`
                       }
                     />
-                    <MetricBlock
+                    <AdminMetricCard
                       label="Hourly remaining"
                       value={
                         source.remaining_this_hour === null
@@ -436,8 +417,8 @@ export default function AdminDataSourcesPage() {
                           : `${source.remaining_this_hour}`
                       }
                     />
-                    <MetricBlock label="Success" value={`${source.success_count}`} />
-                    <MetricBlock label="Failure" value={`${source.failure_count}`} />
+                    <AdminMetricCard label="Success" value={source.success_count} />
+                    <AdminMetricCard label="Failure" value={source.failure_count} />
                   </div>
 
                   <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -447,12 +428,12 @@ export default function AdminDataSourcesPage() {
                         return (
                           <div
                             key={module.value}
-                            className="rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3"
+                            className="rounded-[12px] border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2"
                           >
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                               {module.label}
                             </p>
-                            <p className="mt-2 text-2xl font-semibold text-slate-950">
+                            <p className="mt-1 text-xl font-semibold text-slate-950">
                               {usage?.total_calls ?? 0}
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
@@ -464,14 +445,14 @@ export default function AdminDataSourcesPage() {
                       })}
                     </div>
 
-                    <div className="field-shell rounded-lg border border-[var(--border)] bg-white/90 p-4">
+                    <div className="field-shell rounded-[12px] border border-[var(--border)] bg-white/90 p-3">
                       <div className="grid gap-3 sm:grid-cols-2">
                         <label className="block">
-                          <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                          <span className="field-label text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Daily limit
                           </span>
                           <Input
-                            className="mt-3"
+                            className="mt-2"
                             value={dailyLimitDrafts[source.vendor] ?? ""}
                             placeholder="Unlimited"
                             onChange={(event) =>
@@ -483,11 +464,11 @@ export default function AdminDataSourcesPage() {
                           />
                         </label>
                         <label className="block">
-                          <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                          <span className="field-label text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                             Hourly limit
                           </span>
                           <Input
-                            className="mt-3"
+                            className="mt-2"
                             value={hourlyLimitDrafts[source.vendor] ?? ""}
                             placeholder="Unlimited"
                             onChange={(event) =>
@@ -524,17 +505,17 @@ export default function AdminDataSourcesPage() {
           })}
         </section>
 
-        <section className="grid gap-3">
+        <section className="grid gap-2">
           <div>
-            <h2 className="text-xl font-semibold tracking-normal text-slate-950">
+            <h2 className="text-lg font-semibold tracking-normal text-slate-950">
               Routing Policies
             </h2>
-            <p className="mt-1 text-sm leading-6 text-slate-600">
+            <p className="mt-1 text-xs leading-5 text-slate-600">
               Configure the vendor chain used by each workflow and market. Changes are
               read at runtime.
             </p>
           </div>
-          <Card className="rounded-lg border-[var(--border)]">
+          <Card className="rounded-[14px] border-[var(--border)]">
             <CardContent className="grid gap-3 p-5">
               {routes.map((route) => {
                 const key = routeKey(route);
@@ -542,10 +523,10 @@ export default function AdminDataSourcesPage() {
                 return (
                   <div
                     key={key}
-                    className="grid gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 lg:grid-cols-[180px_140px_minmax(160px,1fr)_minmax(260px,1.5fr)_auto]"
+                    className="grid gap-3 rounded-[12px] border border-[var(--border)] bg-[var(--surface-strong)] px-3 py-2 lg:grid-cols-[180px_140px_minmax(160px,1fr)_minmax(260px,1.5fr)_auto]"
                   >
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                         Module
                       </p>
                       <p className="mt-1 text-sm font-semibold text-slate-950">
@@ -554,7 +535,7 @@ export default function AdminDataSourcesPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                         Market
                       </p>
                       <p className="mt-1 text-sm font-semibold text-slate-950">
@@ -562,7 +543,7 @@ export default function AdminDataSourcesPage() {
                       </p>
                     </div>
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                         Category
                       </p>
                       <p className="mt-1 text-sm font-semibold text-slate-950">
@@ -596,18 +577,6 @@ export default function AdminDataSourcesPage() {
             </CardContent>
           </Card>
         </section>
-      </div>
-    </main>
-  );
-}
-
-function MetricBlock({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-[var(--border)] bg-white/90 px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-        {label}
-      </p>
-      <p className="mt-2 text-xl font-semibold text-slate-950">{value}</p>
-    </div>
+    </AdminConsolePage>
   );
 }
