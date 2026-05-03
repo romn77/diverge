@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePreferences } from "@/components/PreferencesProvider";
@@ -23,6 +24,12 @@ interface HomeDashboardProps {
 }
 
 type ReportScopeFilter = "all" | "mine" | "workspace";
+
+interface ReportTickerGroup {
+  ticker: string;
+  reports: Report[];
+  latestReport: Report;
+}
 
 const REPORT_SCOPE_FILTERS: ReportScopeFilter[] = ["all", "mine", "workspace"];
 const REPORT_SCOPE_LABEL_KEYS: Record<ReportScopeFilter, string> = {
@@ -68,6 +75,33 @@ function matchesReportQuery(report: Report, normalizedQuery: string): boolean {
   );
 }
 
+function groupReportsByTicker(reports: Report[]): ReportTickerGroup[] {
+  const grouped = reports.reduce<Map<string, Report[]>>((acc, report) => {
+    const existing = acc.get(report.ticker) ?? [];
+    existing.push(report);
+    acc.set(report.ticker, existing);
+    return acc;
+  }, new Map());
+
+  return Array.from(grouped.entries()).map(([ticker, tickerReports]) => ({
+    ticker,
+    reports: tickerReports,
+    latestReport: tickerReports[0],
+  }));
+}
+
+function formatReportTimestamp(report: Report): string {
+  if (report.date && report.time) {
+    return `${report.date} ${report.time}`;
+  }
+
+  return report.date || report.time || report.id;
+}
+
+function buildTickerGroupPanelId(ticker: string): string {
+  return `report-ticker-group-${ticker.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+}
+
 export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   const router = useRouter();
   const { t } = usePreferences();
@@ -82,6 +116,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   } = useWorkbench();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [scopeFilter, setScopeFilter] = useState<ReportScopeFilter>("all");
+  const [expandedTickerGroups, setExpandedTickerGroups] = useState<Record<string, boolean>>({});
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
   const currentUserId = authState?.user?.id ?? null;
 
@@ -124,6 +159,11 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   }, [router, searchQuery]);
 
   const matchingReports = scopedReports;
+  const visibleReports = useMemo(() => matchingReports.slice(0, 8), [matchingReports]);
+  const reportTickerGroups = useMemo(
+    () => groupReportsByTicker(visibleReports),
+    [visibleReports]
+  );
 
   const trackedTickers = useMemo(() => {
     const values = new Set<string>();
@@ -134,6 +174,18 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
 
     return Array.from(values).sort((left, right) => left.localeCompare(right));
   }, [scopedReports]);
+
+  useEffect(() => {
+    setExpandedTickerGroups((current) => {
+      const nextState: Record<string, boolean> = {};
+
+      for (const [index, group] of reportTickerGroups.entries()) {
+        nextState[group.ticker] = current[group.ticker] ?? index === 0;
+      }
+
+      return nextState;
+    });
+  }, [reportTickerGroups]);
 
   return (
     <main className="analysis-density-page flex min-h-[100vh] flex-1 flex-col px-4 py-5 md:px-6 lg:px-8">
@@ -284,35 +336,96 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               </div>
             ) : (
               <div className="analysis-report-list mt-5 space-y-3">
-                {matchingReports.slice(0, 8).map((report) => (
-                  <Link
-                    key={report.id}
-                    href={buildReportHref(report.id)}
-                    className="analysis-report-row group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="analysis-report-ticker text-lg font-semibold text-slate-900">
-                          {report.ticker}
-                        </p>
-                        <Badge
-                          variant={report.visibility === "workspace" ? "success" : "secondary"}
-                          className="px-2 py-1 text-[10px]"
-                        >
-                          {report.visibility === "workspace"
-                            ? t("home.visibility.workspace", "Workspace")
-                            : t("home.visibility.private", "Private")}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
-                        {report.id}
-                      </p>
+                {reportTickerGroups.map((group) => {
+                  const isExpanded = expandedTickerGroups[group.ticker] ?? false;
+                  const panelId = buildTickerGroupPanelId(group.ticker);
+                  const latestTimestamp = formatReportTimestamp(group.latestReport);
+
+                  return (
+                    <div key={group.ticker} className="analysis-report-group">
+                      <button
+                        type="button"
+                        className="analysis-report-group-header"
+                        aria-expanded={isExpanded}
+                        aria-controls={panelId}
+                        onClick={() =>
+                          setExpandedTickerGroups((current) => ({
+                            ...current,
+                            [group.ticker]: !(current[group.ticker] ?? false),
+                          }))
+                        }
+                      >
+                        <span className="analysis-report-group-main">
+                          <span className="analysis-report-disclosure-icon" aria-hidden="true">
+                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </span>
+                          <span className="min-w-0">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="analysis-report-ticker text-lg font-semibold text-slate-900">
+                                {group.ticker}
+                              </span>
+                              <Badge variant="secondary" className="px-2 py-1 text-[10px]">
+                                {t(
+                                  "home.reportGroupCount",
+                                  ({ count }) => `${count} reports`,
+                                  {
+                                    count: group.reports.length,
+                                  }
+                                )}
+                              </Badge>
+                            </span>
+                            <span className="analysis-report-group-latest">
+                              {t("home.reportGroupLatest", ({ value }) => `Latest ${value}`, {
+                                value: latestTimestamp,
+                              })}
+                            </span>
+                          </span>
+                        </span>
+                        <span className="analysis-report-group-action">
+                          {isExpanded
+                            ? t("home.reportGroupCollapse", "Collapse")
+                            : t("home.reportGroupExpand", "Expand")}
+                        </span>
+                      </button>
+
+                      {isExpanded ? (
+                        <div id={panelId} className="analysis-report-children">
+                          {group.reports.map((report) => (
+                            <Link
+                              key={report.id}
+                              href={buildReportHref(report.id)}
+                              className="analysis-report-row group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-mono text-xs font-semibold text-slate-700">
+                                    {formatReportTimestamp(report)}
+                                  </p>
+                                  <Badge
+                                    variant={
+                                      report.visibility === "workspace" ? "success" : "secondary"
+                                    }
+                                    className="px-2 py-1 text-[10px]"
+                                  >
+                                    {report.visibility === "workspace"
+                                      ? t("home.visibility.workspace", "Workspace")
+                                      : t("home.visibility.private", "Private")}
+                                  </Badge>
+                                </div>
+                                <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
+                                  {report.id}
+                                </p>
+                              </div>
+                              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
+                                {t("common.open", "Open")}
+                              </span>
+                            </Link>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
-                      {t("common.open", "Open")}
-                    </span>
-                  </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
         </section>

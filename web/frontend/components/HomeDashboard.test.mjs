@@ -94,3 +94,17 @@ test("HomeDashboard scopes counts and report results to the current search query
   assert.doesNotMatch(source, /latestScopedReport/);
   assert.doesNotMatch(source, /snapshotSearchBody/);
 });
+
+test("HomeDashboard groups visible reports by ticker with collapsible children", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /interface ReportTickerGroup/);
+  assert.match(source, /function groupReportsByTicker/);
+  assert.match(source, /const visibleReports = useMemo\(\(\) => matchingReports\.slice\(0, 8\)/);
+  assert.match(source, /const reportTickerGroups = useMemo/);
+  assert.match(source, /expandedTickerGroups/);
+  assert.match(source, /aria-expanded=\{isExpanded\}/);
+  assert.match(source, /analysis-report-group-header/);
+  assert.match(source, /analysis-report-children/);
+  assert.match(source, /home\.reportGroupCount/);
+});
