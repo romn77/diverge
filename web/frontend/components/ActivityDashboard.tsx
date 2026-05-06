@@ -14,6 +14,7 @@ import {
   cancelTask,
   deleteScreenerTask,
   deleteTask,
+  type JournalReviewTask,
   type ScreenerTask,
   type Task,
 } from "@/lib/api";
@@ -27,14 +28,17 @@ import {
 export function ActivityDashboard() {
   const { t } = usePreferences();
   const {
+    activeJournalReviewTasks,
     activeScreenerTasks,
     activeTasks,
+    journalReviewTasks,
     refreshScreenerTasks,
     refreshTasks,
     screenerTasks,
     tasks,
   } = useWorkbench();
-  const totalActive = activeTasks.length + activeScreenerTasks.length;
+  const totalActive =
+    activeTasks.length + activeScreenerTasks.length + activeJournalReviewTasks.length;
   const failedTasks = tasks.filter((task) => task.status === "failed" || task.status === "canceled");
   const failedScreenerTasks = screenerTasks.filter(
     (task) => task.status === "failed" || task.status === "canceled"
@@ -109,7 +113,7 @@ export function ActivityDashboard() {
             </>
           }
         >
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <ActivityMetric
               label={t("activity.metric.total", "Total Active")}
               value={`${totalActive}`}
@@ -124,6 +128,11 @@ export function ActivityDashboard() {
               label={t("activity.metric.screener", "Screener Jobs")}
               value={`${activeScreenerTasks.length}`}
               meta={t("activity.metric.screenerMeta", "Candidate builds in flight")}
+            />
+            <ActivityMetric
+              label={t("activity.metric.journal", "Journal AI Reviews")}
+              value={`${activeJournalReviewTasks.length}`}
+              meta={t("activity.metric.journalMeta", "Trade review generation")}
             />
           </div>
         </PageHeader>
@@ -186,6 +195,25 @@ export function ActivityDashboard() {
               onCancel: canCancelTask(task)
                 ? () => void handleCancelScreenerTask(task.id)
                 : undefined,
+            }))}
+          />
+          <ActivityQueueSection
+            title={t("activity.journalReviewTasks", "Journal AI reviews")}
+            description={t(
+              "activity.journalReviewDescription",
+              "Automatic trade-review generation launched from journal submissions."
+            )}
+            emptyLabel={t(
+              "activity.noJournalReviewJobs",
+              "No journal AI review activity yet."
+            )}
+            items={journalReviewTasks.slice(0, 8).map((task) => ({
+              href: "/journal",
+              label:
+                task.request_payload?.ticker ||
+                t("activity.tradeReviewGeneration", "Trade review generation"),
+              meta: formatJournalReviewTaskMeta(task, t),
+              status: t(`task.status.${task.status}`, task.status),
             }))}
           />
           <ActivityQueueSection
@@ -365,6 +393,36 @@ function formatScreenerTaskMeta(
     task.request_payload?.as_of_date ??
     t("activity.awaitingUpdate", "Awaiting next update")
   );
+}
+
+function formatJournalReviewTaskMeta(
+  task: JournalReviewTask,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const reviewTypes = task.request_payload?.review_types ?? [];
+  const reviewLabel =
+    reviewTypes.length > 0
+      ? reviewTypes
+          .map((type) =>
+            type === "entry_review"
+              ? t("journal.entryReview", "Entry Review")
+              : t("journal.exitReview", "Exit Review")
+          )
+          .join(", ")
+      : t("activity.tradeReviewGeneration", "Trade review generation");
+  if (task.status === "completed") {
+    const generatedCount = task.result?.generated_count ?? 0;
+    return task.result?.skipped
+      ? t("activity.journalReviewSkipped", ({ reason }) => `Skipped: ${reason}`, {
+          reason: task.result.reason ?? "not enabled",
+        })
+      : t(
+          "activity.journalReviewCompleted",
+          ({ count, reviews }) => `${count} generated · ${reviews}`,
+          { count: generatedCount, reviews: reviewLabel }
+        );
+  }
+  return task.latest_progress?.message ?? reviewLabel;
 }
 
 function formatQueueMeta(

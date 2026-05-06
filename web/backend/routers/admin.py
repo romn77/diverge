@@ -14,6 +14,7 @@ from web.backend.schemas.admin import (
     AdminDataSourceRouteUpdatePayload,
     AdminDataSourceUpdatePayload,
     AdminLLMModelUpdatePayload,
+    AdminLLMModuleSettingUpdatePayload,
     AdminLLMProfileRoutesUpdatePayload,
     AdminLLMProfileUpdatePayload,
     AdminLLMProviderUpdatePayload,
@@ -546,6 +547,44 @@ def update_admin_llm_profile_routes(
                 request=request,
             )
     return {"routes": routes}
+
+
+@router.put("/api/admin/llm-models/module-settings/{module}")
+def update_admin_llm_module_setting(
+    module: str,
+    payload: AdminLLMModuleSettingUpdatePayload,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    try:
+        setting = llm_models.update_module_setting(
+            module,
+            enabled=payload.enabled,
+            model_profile=payload.model_profile,
+            output_language=payload.output_language,
+            custom_provider=payload.custom_provider,
+            custom_model=payload.custom_model,
+            openai_reasoning_effort=payload.openai_reasoning_effort,
+            google_thinking_level=payload.google_thinking_level,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.llm_module_setting.updated",
+                resource_type="llm_module_setting",
+                resource_id=setting["module"],
+                metadata={
+                    "enabled": setting["enabled"],
+                    "model_profile": setting["model_profile"],
+                },
+                request=request,
+            )
+    return {"setting": setting}
 
 
 @router.get("/api/admin/users/{user_id}")

@@ -9,16 +9,17 @@ from fastapi import HTTPException
 
 from diverge import trade_feedback
 from web.backend import app_config, auth
+from web.backend.runtime import journal_review_tasks, task_store
 from web.backend.schemas.trades import (
     AnalysisReferencePayload,
     TradeRecordCreatePayload,
     TradeRecordUpdatePayload,
-    TradeReviewCreatePayload,
+    TradeReviewGeneratePayload,
     TradeReviewSavePayload,
 )
 from web.backend.services.trades import (
     create_trade,
-    create_trade_review,
+    generate_configured_trade_review,
     get_ticker_trade_feedback,
     get_trade,
     save_trade_review,
@@ -49,6 +50,7 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         )
         self.auth_env_patch.start()
         auth.reset_runtime_state()
+        task_store.reset_task_store_cache()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.temp_dir.name) / "project"
         self.project_root.mkdir(parents=True)
@@ -98,41 +100,48 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         app_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
         self.project_patch.stop()
         auth.reset_runtime_state()
+        task_store.reset_task_store_cache()
         self.auth_env_patch.stop()
         self.temp_dir.cleanup()
 
+    def _trade_payload(self, **overrides):
+        payload = {
+            "raw_symbol": "MSFT",
+            "side": "long",
+            "entry_timestamp": "2026-04-01T09:30:00",
+            "entry_price": 420.0,
+            "size": 10,
+            "strategy_tags": ["pullback"],
+            "entry_reason": "Cloud momentum remains durable.",
+            "invalidation_condition": "Cloud demand weakens or price breaks support.",
+            "planned_horizon": "swing_1_4w",
+            "stop_loss": 408.0,
+            "take_profit": 448.0,
+            "notes": "Manual entry.",
+            "analysis_references": [
+                AnalysisReferencePayload(
+                    analysis_date="2026-04-01",
+                    report_path="data/reports/MSFT_20260401_120000/complete_report.md",
+                    full_state_log_path="data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
+                )
+            ],
+        }
+        payload.update(overrides)
+        return payload
+
     def test_trade_routes_create_update_and_generate_review(self):
         record = create_trade(
-            TradeRecordCreatePayload(
-                ticker="MSFT",
-                exchange_or_market="NASDAQ",
-                side="long",
-                status="open",
-                entry_timestamp="2026-04-01T09:30:00",
-                entry_price=420.0,
-                size=10,
-                initial_thesis="Cloud momentum remains durable.",
-                planned_horizon="swing_2w",
-                stop_loss=408.0,
-                take_profit=448.0,
-                notes="Manual entry.",
-                analysis_references=[
-                    AnalysisReferencePayload(
-                        analysis_date="2026-04-01",
-                        report_path="data/reports/MSFT_20260401_120000/complete_report.md",
-                        full_state_log_path="data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
-                    )
-                ],
-            )
+            TradeRecordCreatePayload(**self._trade_payload())
         )
 
         trade_id = record["trade_id"]
         updated = update_trade(
             trade_id,
             TradeRecordUpdatePayload(
-                status="closed",
                 exit_timestamp="2026-04-03T15:55:00",
                 exit_price=436.5,
+                exit_reason="Exited after catalyst follow-through.",
+                plan_execution="followed_plan",
             ),
         )
         self.assertEqual(updated["trade_id"], trade_id)
@@ -151,18 +160,27 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             }
         )
         with patch(
+            "web.backend.llm_models.resolve_module_model_selection",
+            return_value={
+                "module": "trade_journal_review",
+                "model_profile": "balanced",
+                "llm_provider": "ollama",
+                "model": "local-test",
+                "output_language": "en",
+                "openai_reasoning_effort": None,
+                "google_thinking_level": None,
+            },
+        ), patch(
             "diverge.trade_feedback.create_llm_client",
             return_value=_FakeClient(review_payload),
         ), patch(
             "diverge.trade_feedback._now_iso",
             return_value="2026-04-03T16:00:00",
         ):
-            review = create_trade_review(
+            review = generate_configured_trade_review(
                 trade_id,
-                TradeReviewCreatePayload(
-                    review_type="exit_review",
-                    llm_provider="ollama",
-                    model="local-test",
+                "exit_review",
+                TradeReviewGeneratePayload(
                     analysis_date="2026-04-03",
                 ),
             )
@@ -189,18 +207,17 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as context:
             create_trade(
                 TradeRecordCreatePayload(
-                    ticker="../../ESCAPE",
-                    exchange_or_market="NASDAQ",
-                    side="long",
+                    raw_symbol="../../ESCAPE",
                     status="open",
                     entry_timestamp="2026-04-01T09:30:00",
                     entry_price=420.0,
                     size=10,
-                    initial_thesis="Path ticker should not be accepted.",
-                    planned_horizon="swing_2w",
+                    strategy_tags=["pullback"],
+                    entry_reason="Path ticker should not be accepted.",
+                    invalidation_condition="Invalidation exists.",
+                    planned_horizon="swing_1_4w",
                     stop_loss=408.0,
                     take_profit=448.0,
-                    notes="Manual entry.",
                     analysis_references=[],
                 )
             )
@@ -215,27 +232,7 @@ class TradeFeedbackBackendTests(unittest.TestCase):
 
     def test_manual_review_save_accepts_list_fields(self):
         record = create_trade(
-            TradeRecordCreatePayload(
-                ticker="MSFT",
-                exchange_or_market="NASDAQ",
-                side="long",
-                status="open",
-                entry_timestamp="2026-04-01T09:30:00",
-                entry_price=420.0,
-                size=10,
-                initial_thesis="Cloud momentum remains durable.",
-                planned_horizon="swing_2w",
-                stop_loss=408.0,
-                take_profit=448.0,
-                notes="Manual entry.",
-                analysis_references=[
-                    AnalysisReferencePayload(
-                        analysis_date="2026-04-01",
-                        report_path="data/reports/MSFT_20260401_120000/complete_report.md",
-                        full_state_log_path="data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
-                    )
-                ],
-            )
+            TradeRecordCreatePayload(**self._trade_payload())
         )
 
         with patch(
@@ -285,6 +282,111 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         )
         self.assertEqual(earlier_feedback["reviews"], [])
         self.assertEqual(len(visible_feedback["reviews"]), 1)
+
+    def test_generate_configured_trade_review_uses_admin_module_setting(self):
+        record = create_trade(
+            TradeRecordCreatePayload(**self._trade_payload(analysis_references=[]))
+        )
+
+        review_payload = json.dumps(
+            {
+                "thesis_assessment": "Configured AI review: thesis was explicit.",
+                "timing_assessment": "Configured AI review: entry timing was acceptable.",
+                "sizing_assessment": "Configured AI review: size respected risk.",
+                "discipline_assessment": "Configured AI review: process stayed disciplined.",
+                "outcome_summary": "Configured AI review used the admin module model.",
+                "improvement_actions": ["Keep the invalidation rule visible."],
+                "ticker_specific_lessons": ["MSFT entries need evidence-backed cloud demand."],
+                "cross_ticker_tags": ["configured_ai_review"],
+            }
+        )
+        with patch(
+            "web.backend.llm_models.resolve_module_model_selection",
+            return_value={
+                "module": "trade_journal_review",
+                "model_profile": "balanced",
+                "llm_provider": "ollama",
+                "model": "local-test",
+                "output_language": "en",
+                "openai_reasoning_effort": None,
+                "google_thinking_level": None,
+            },
+        ), patch(
+            "diverge.trade_feedback.create_llm_client",
+            return_value=_FakeClient(review_payload),
+        ), patch(
+            "diverge.trade_feedback._now_iso",
+            return_value="2026-04-02T09:00:00",
+        ):
+            review = generate_configured_trade_review(
+                record["trade_id"],
+                "entry_review",
+                TradeReviewGeneratePayload(
+                    analysis_date="2026-04-02",
+                    analysis_references=[
+                        AnalysisReferencePayload(
+                            analysis_date="2026-04-01",
+                            report_path="data/reports/MSFT_20260401_120000/complete_report.md",
+                            full_state_log_path="data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
+                        )
+                    ],
+                ),
+            )
+
+        self.assertEqual(review["review_type"], "entry_review")
+        self.assertEqual(review["outcome_summary"], "Configured AI review used the admin module model.")
+        self.assertEqual(review["analysis_date"], "2026-04-02")
+        self.assertEqual(len(review["analysis_references"]), 1)
+
+    def test_create_trade_can_auto_generate_entry_review_from_admin_module_setting(self):
+        review_payload = json.dumps(
+            {
+                "thesis_assessment": "AI review: thesis was explicit.",
+                "timing_assessment": "AI review: entry timing was acceptable.",
+                "sizing_assessment": "AI review: size respected risk.",
+                "discipline_assessment": "AI review: process stayed disciplined.",
+                "outcome_summary": "AI review: entry review was generated automatically.",
+                "improvement_actions": ["Confirm invalidation before entry."],
+                "ticker_specific_lessons": ["MSFT entries need explicit cloud demand confirmation."],
+                "cross_ticker_tags": ["auto_entry_review"],
+            }
+        )
+        with patch(
+            "web.backend.llm_models.resolve_module_model_selection",
+            return_value={
+                "module": "trade_journal_review",
+                "model_profile": "balanced",
+                "llm_provider": "ollama",
+                "model": "local-test",
+                "output_language": "en",
+                "openai_reasoning_effort": None,
+                "google_thinking_level": None,
+            },
+        ), patch(
+            "diverge.trade_feedback.create_llm_client",
+            return_value=_FakeClient(review_payload),
+        ), patch(
+            "diverge.trade_feedback._now_iso",
+            return_value="2026-04-01T10:00:00",
+        ):
+            record = create_trade(
+                TradeRecordCreatePayload(**self._trade_payload(analysis_references=[]))
+            )
+
+        reviews = get_trade(record["trade_id"])["reviews"]
+        self.assertEqual(len(reviews), 1)
+        self.assertEqual(reviews[0]["review_type"], "entry_review")
+        self.assertEqual(reviews[0]["outcome_summary"], "AI review: entry review was generated automatically.")
+
+        activity_tasks = journal_review_tasks.list_tasks()
+        self.assertEqual(len(activity_tasks), 1)
+        self.assertEqual(activity_tasks[0]["status"], "completed")
+        self.assertEqual(activity_tasks[0]["request_payload"]["trade_id"], record["trade_id"])
+        self.assertEqual(activity_tasks[0]["result"]["generated_count"], 1)
+        self.assertEqual(
+            activity_tasks[0]["latest_progress"]["message"],
+            "Trade journal AI review generation completed (1/1 reviews).",
+        )
 
 
 if __name__ == "__main__":

@@ -133,15 +133,15 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
 
     def _trade_payload(self, notes: str) -> dict:
         return {
-            "ticker": "MSFT",
-            "exchange_or_market": "NASDAQ",
+            "raw_symbol": "MSFT",
             "side": "long",
-            "status": "open",
             "entry_timestamp": "2026-04-01T09:30:00",
             "entry_price": 420.0,
             "size": 10,
-            "initial_thesis": "Cloud momentum remains durable.",
-            "planned_horizon": "swing_2w",
+            "strategy_tags": ["pullback"],
+            "entry_reason": "Cloud momentum remains durable.",
+            "invalidation_condition": "Cloud demand weakens or price breaks support.",
+            "planned_horizon": "swing_1_4w",
             "stop_loss": 408.0,
             "take_profit": 448.0,
             "notes": notes,

@@ -75,3 +75,13 @@ class AdminLLMProfileRoutePayload(BaseModel):
 
 class AdminLLMProfileRoutesUpdatePayload(BaseModel):
     routes: list[AdminLLMProfileRoutePayload] = Field(min_length=1)
+
+
+class AdminLLMModuleSettingUpdatePayload(BaseModel):
+    enabled: bool
+    model_profile: str
+    output_language: str = "cn"
+    custom_provider: Optional[str] = None
+    custom_model: Optional[str] = None
+    openai_reasoning_effort: Optional[str] = None
+    google_thinking_level: Optional[str] = None

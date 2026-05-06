@@ -208,11 +208,25 @@ export interface AdminLLMProfile {
   routes: AdminLLMProfileRoute[];
 }
 
+export interface AdminLLMModuleSetting {
+  module: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+  model_profile: string;
+  output_language: string;
+  custom_provider: string | null;
+  custom_model: string | null;
+  openai_reasoning_effort: string | null;
+  google_thinking_level: string | null;
+}
+
 export interface AdminLLMModelsResponse {
   date: string;
   providers: AdminLLMProvider[];
   models: AdminLLMModel[];
   profiles: AdminLLMProfile[];
+  module_settings: AdminLLMModuleSetting[];
 }
 
 export interface AdminLLMProviderUpdateRequest {
@@ -241,6 +255,16 @@ export interface AdminLLMProfileRoutesUpdateRequest {
     quick_model: string;
     deep_model: string;
   }>;
+}
+
+export interface AdminLLMModuleSettingUpdateRequest {
+  enabled: boolean;
+  model_profile: string;
+  output_language: string;
+  custom_provider?: string | null;
+  custom_model?: string | null;
+  openai_reasoning_effort: string | null;
+  google_thinking_level: string | null;
 }
 
 export interface AdminTaskQueueOwner {
@@ -374,12 +398,42 @@ export interface AnalysisReference {
 }
 
 export type TradeReviewType = "entry_review" | "exit_review";
+export type MarketResolutionMarket = "cn" | "us" | "unknown";
+export type MarketResolutionAssetType = "equity" | "etf" | "unknown";
+export type MarketResolutionConfidence = "high" | "medium" | "low" | "manual";
+export type MarketResolutionSource = "manifest" | "rule" | "manual" | "unknown";
+
+export interface MarketResolution {
+  raw_symbol: string;
+  canonical_symbol: string;
+  display_symbol: string;
+  market: MarketResolutionMarket;
+  exchange: string | null;
+  asset_type: MarketResolutionAssetType;
+  confidence: MarketResolutionConfidence;
+  source: MarketResolutionSource;
+  warnings: string[];
+}
+
+export interface TradeDerivedMetrics {
+  realized_return_pct: number | null;
+  pnl_amount: number | null;
+  r_multiple: number | null;
+  holding_period_hours: number | null;
+}
 
 export interface TradeRecord {
   type: "trade_record";
   schema_version: number;
   trade_id: string;
+  raw_symbol: string;
   ticker: string;
+  canonical_symbol: string;
+  display_symbol: string;
+  market: MarketResolutionMarket;
+  exchange: string | null;
+  asset_type: MarketResolutionAssetType;
+  market_resolution: MarketResolution;
   exchange_or_market: string;
   side: string;
   status: string;
@@ -388,12 +442,18 @@ export interface TradeRecord {
   exit_timestamp: string | null;
   exit_price: number | null;
   size: number | null;
+  strategy_tags: string[];
+  entry_reason: string;
+  invalidation_condition: string;
   initial_thesis: string;
   planned_horizon: string;
   stop_loss: number | null;
   take_profit: number | null;
+  exit_reason: string;
+  plan_execution: string;
   notes: string;
   analysis_references: AnalysisReference[];
+  derived_metrics?: TradeDerivedMetrics;
   created_at: string;
   updated_at: string;
 }
@@ -425,38 +485,46 @@ export interface TradeDetail {
 }
 
 export interface TradeRecordCreateRequest {
-  ticker: string;
-  exchange_or_market: string;
-  side: string;
-  status: string;
-  entry_timestamp?: string | null;
-  entry_price?: number | null;
-  exit_timestamp?: string | null;
-  exit_price?: number | null;
-  size?: number | null;
-  initial_thesis: string;
-  planned_horizon: string;
+  raw_symbol: string;
+  side?: string;
+  entry_timestamp: string;
+  entry_price: number;
+  size: number;
+  strategy_tags: string[];
+  entry_reason: string;
+  invalidation_condition: string;
+  planned_horizon?: string;
   stop_loss?: number | null;
   take_profit?: number | null;
+  exit_timestamp?: string | null;
+  exit_price?: number | null;
+  exit_reason?: string;
+  plan_execution?: string;
+  initial_thesis?: string;
   notes?: string;
+  market_resolution?: MarketResolution | null;
   analysis_references: AnalysisReference[];
 }
 
 export interface TradeRecordUpdateRequest {
-  ticker?: string;
-  exchange_or_market?: string;
+  raw_symbol?: string;
   side?: string;
-  status?: string;
   entry_timestamp?: string | null;
   entry_price?: number | null;
-  exit_timestamp?: string | null;
-  exit_price?: number | null;
   size?: number | null;
-  initial_thesis?: string;
+  strategy_tags?: string[];
+  entry_reason?: string;
+  invalidation_condition?: string;
   planned_horizon?: string;
   stop_loss?: number | null;
   take_profit?: number | null;
+  exit_timestamp?: string | null;
+  exit_price?: number | null;
+  exit_reason?: string;
+  plan_execution?: string;
+  initial_thesis?: string;
   notes?: string;
+  market_resolution?: MarketResolution | null;
   analysis_references?: AnalysisReference[];
 }
 
@@ -473,21 +541,23 @@ export interface TradeReviewSaveRequest {
   analysis_references?: AnalysisReference[];
 }
 
-export interface TradeReviewCreateRequest {
-  review_type: TradeReviewType;
-  llm_provider: string;
-  model: string;
-  output_language: string;
-  google_thinking_level: string | null;
-  openai_reasoning_effort: string | null;
+export interface TradeReviewGenerateRequest {
   analysis_date?: string | null;
   analysis_references?: AnalysisReference[];
+  output_language?: string;
 }
 
 export interface TradeFeedbackEntry {
   trade_id: string;
   ticker: string;
   exchange_or_market: string;
+  raw_symbol: string | null;
+  canonical_symbol: string | null;
+  display_symbol: string | null;
+  market: MarketResolutionMarket | null;
+  exchange: string | null;
+  asset_type: MarketResolutionAssetType | null;
+  market_resolution: MarketResolution | null;
   side: string;
   status: string;
   entry_timestamp: string | null;
@@ -495,10 +565,16 @@ export interface TradeFeedbackEntry {
   exit_timestamp: string | null;
   exit_price: number | null;
   size: number | null;
+  strategy_tags: string[];
+  entry_reason: string | null;
+  invalidation_condition: string | null;
+  exit_reason: string | null;
+  plan_execution: string | null;
   initial_thesis: string;
   planned_horizon: string;
   stop_loss: number | null;
   take_profit: number | null;
+  derived_metrics?: TradeDerivedMetrics;
   review_id: string;
   review_type: TradeReviewType;
   analysis_date: string | null;
@@ -779,6 +855,38 @@ export interface ScreenerTask {
   blocked_vendor?: string | null;
   blocked_until?: string | null;
   canceled_at?: string | null;
+}
+
+export interface JournalReviewTask {
+  id: string;
+  kind: "journal_review" | string;
+  owner_user_id?: string | null;
+  tenant_id?: string | null;
+  request_payload: {
+    trigger?: string;
+    trade_id?: string | null;
+    ticker?: string | null;
+    review_types?: TradeReviewType[];
+  } | null;
+  status: TaskStatus;
+  latest_progress: ProgressEvent | null;
+  progress_events: ProgressEvent[];
+  result?: {
+    trade_id?: string | null;
+    ticker?: string | null;
+    review_types?: TradeReviewType[];
+    generated_count?: number;
+    generated_review_types?: Array<string | null>;
+    skipped?: boolean;
+    reason?: string;
+    failures?: Array<{ review_type?: string; error?: string }>;
+  } | null;
+  error?: string | null;
+  created_at?: string | null;
+  queued_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  updated_at?: string | null;
 }
 
 export interface ScreenerRunSummary {
@@ -1100,6 +1208,16 @@ export async function updateAdminLLMProfileRoutes(
   );
 }
 
+export async function updateAdminLLMModuleSetting(
+  module: string,
+  payload: AdminLLMModuleSettingUpdateRequest
+): Promise<{ setting: AdminLLMModuleSetting }> {
+  return requestJson<{ setting: AdminLLMModuleSetting }>(
+    `/api/admin/llm-models/module-settings/${module}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
 export async function listAdminTaskQueue(): Promise<AdminTaskQueueResponse> {
   return requestJson<AdminTaskQueueResponse>("/api/admin/task-queue", {
     cache: "no-store",
@@ -1212,6 +1330,33 @@ export async function listTrades(ticker?: string): Promise<TradeRecord[]> {
   return parseJsonResponse<TradeRecord[]>(response);
 }
 
+export async function resolveMarketSymbol(
+  symbol: string,
+  overrides?: {
+    manual_market?: MarketResolutionMarket | null;
+    manual_exchange?: string | null;
+    manual_asset_type?: MarketResolutionAssetType | null;
+  }
+): Promise<MarketResolution> {
+  const url = new URL(buildApiUrl("/api/market-resolution"));
+  url.searchParams.set("symbol", symbol);
+  if (overrides?.manual_market) {
+    url.searchParams.set("manual_market", overrides.manual_market);
+  }
+  if (overrides?.manual_exchange) {
+    url.searchParams.set("manual_exchange", overrides.manual_exchange);
+  }
+  if (overrides?.manual_asset_type) {
+    url.searchParams.set("manual_asset_type", overrides.manual_asset_type);
+  }
+
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    cache: "no-store",
+  });
+  return parseJsonResponse<MarketResolution>(response);
+}
+
 export async function createTrade(
   payload: TradeRecordCreateRequest
 ): Promise<TradeRecord> {
@@ -1234,12 +1379,13 @@ export async function updateTrade(
   );
 }
 
-export async function createTradeReview(
+export async function generateTradeReview(
   tradeId: string,
-  payload: TradeReviewCreateRequest
+  reviewType: TradeReviewType,
+  payload: TradeReviewGenerateRequest
 ): Promise<TradeReview> {
   return requestJson<TradeReview>(
-    `/api/trades/${tradeId}/reviews`,
+    `/api/trades/${tradeId}/reviews/${reviewType}/generate`,
     createJsonRequestInit("POST", payload)
   );
 }
@@ -1374,6 +1520,12 @@ export async function getDataSyncJob(taskId: string): Promise<DataSyncTask> {
 
 export async function listScreenerTasks(): Promise<ScreenerTask[]> {
   return requestJson<ScreenerTask[]>("/api/screener/tasks", {
+    cache: "no-store",
+  });
+}
+
+export async function listJournalReviewTasks(): Promise<JournalReviewTask[]> {
+  return requestJson<JournalReviewTask[]>("/api/journal/review-tasks", {
     cache: "no-store",
   });
 }

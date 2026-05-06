@@ -19,6 +19,9 @@ test("ActivityDashboard centralizes in-flight analysis and screener monitoring",
   assert.match(source, /t\("activity\.title", "Background work"\)/);
   assert.match(source, /t\("activity\.analysisTasks", "Analysis tasks"\)/);
   assert.match(source, /t\("activity\.screenerTasks", "Screener tasks"\)/);
+  assert.match(source, /t\("activity\.journalReviewTasks", "Journal AI reviews"\)/);
+  assert.match(source, /journalReviewTasks/);
+  assert.match(source, /formatJournalReviewTaskMeta/);
   assert.match(source, /t\("activity\.metric\.totalMeta", "Combined background jobs"\)/);
 });
 

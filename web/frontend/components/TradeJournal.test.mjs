@@ -25,7 +25,7 @@ test("TradeJournal wires the manual trade history and review workflow to backend
   assert.match(source, /listTrades/);
   assert.match(source, /getTrade/);
   assert.match(source, /getTickerTradeFeedback/);
-  assert.match(source, /createTradeReview/);
+  assert.match(source, /generateTradeReview/);
   assert.match(source, /\[selectedTradeId,\s*setSelectedTradeId\]/);
   assert.match(source, /\[tradeDetail,\s*setTradeDetail\]/);
   assert.match(source, /\[feedback,\s*setFeedback\]/);
@@ -36,8 +36,12 @@ test("TradeJournal wires the manual trade history and review workflow to backend
   assert.match(source, /Trade Journal/);
   assert.match(source, /Snapshot references only, not copied report content/);
   assert.match(source, /Distinguish entry_review and exit_review on the same trade_id/);
-  assert.match(source, /Future analyses will read this saved review context/);
-  assert.match(source, /Prompt Preview/);
+  assert.match(source, /tradeTickerGroups/);
+  assert.match(source, /expandedTickerGroups/);
+  assert.match(source, /Collapse trade history/);
+  assert.match(source, /sameTickerFeedbackReviews/);
+  assert.doesNotMatch(source, /Same-Ticker Feedback/);
+  assert.doesNotMatch(source, /Prompt Preview/);
   assert.match(source, /<TradeRecordForm/);
   assert.match(source, /<TradeReviewForm/);
   assert.match(source, /onGenerateReview/);
@@ -49,7 +53,7 @@ test("TradeJournal runs AI review generation outside the modal and shows pending
   assert.match(source, /\[pendingReviewGeneration,\s*setPendingReviewGeneration\]/);
   assert.match(source, /handleGenerateReviewRequested/);
   assert.match(source, /setEditingReviewType\(null\);/);
-  assert.match(source, /void createTradeReview\(record\.trade_id, payload\)/);
+  assert.match(source, /void generateTradeReview\(record\.trade_id, reviewType, payload\)/);
   assert.match(source, /activeReviewGeneration/);
   assert.match(source, /Generating AI review/);
   assert.match(source, /This review is being generated in the background/);
@@ -84,16 +88,31 @@ test("TradeJournal keeps trade history metadata inside each record card", () => 
 
   assert.match(
     source,
-    /className=\{`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[26px\] p-4 text-left whitespace-normal/
+    /h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[24px\] p-4 text-left whitespace-normal/
   );
   assert.match(source, /<div className="mt-4 grid w-full gap-3 sm:grid-cols-2">/);
+});
+
+test("TradeJournal groups history by ticker and supports a collapsed ticker rail", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /interface TradeTickerGroup/);
+  assert.match(source, /compareTradesNewestFirst/);
+  assert.match(source, /activityDateValue\(group\.latestTrade\)/);
+  assert.match(source, /PanelLeftClose/);
+  assert.match(source, /PanelLeftOpen/);
+  assert.match(source, /compactTickerLabel/);
+  assert.match(source, /journal\.tradeCount/);
+  assert.match(source, /\[historyPaneWidth,\s*setHistoryPaneWidth\]/);
+  assert.match(source, /journal\.resizeHistory/);
 });
 
 test("TradeJournal lets the journal workspace fill the available browser width", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /<div className="workbench-content-frame flex flex-col gap-6">/);
-  assert.match(source, /xl:grid-cols-\[minmax\(0,0\.95fr\)_minmax\(0,2\.05fr\)\]/);
+  assert.match(source, /--journal-history-width/);
+  assert.match(source, /xl:\[grid-template-columns:minmax\(5\.5rem,var\(--journal-history-width\)\)_minmax\(0,1fr\)\]/);
   assert.doesNotMatch(source, /mx-auto flex w-full max-w-7xl/);
   assert.doesNotMatch(source, /max-w-none/);
   assert.doesNotMatch(source, /minmax\(320px,360px\)/);
@@ -105,4 +124,40 @@ test("TradeJournal localizes open and closed trade status labels", () => {
   assert.match(source, /normalized === "open" \|\| normalized === "closed" \|\| normalized === "close"/);
   assert.match(source, /const statusKey = normalized === "close" \? "closed" : normalized/);
   assert.match(source, /t\(`trade\.status\.\$\{statusKey\}`, value\)/);
+});
+
+test("TradeJournal formats generated review text into readable assessment lines", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /function formatReviewTextSegments/);
+  assert.match(source, /const REVIEW_TEXT_LABELS/);
+  assert.match(source, /const REVIEW_TEXT_MARKER_ALIASES/);
+  assert.match(source, /Verdict: \{ zh: "判断", en: "Verdict" \}/);
+  assert.match(source, /Evidence: \["Evidence", "依据", "证据"\]/);
+  assert.match(source, /Remediation: \["Remediation", "修复要求", "改进要求"\]/);
+  assert.match(source, /function prettifyReviewText/);
+  assert.match(source, /take_profit_or_reward_target: \{/);
+  assert.match(source, /\[\^A-Za-z0-9_\]/);
+  assert.match(source, /function getReviewTextLanguage/);
+  assert.match(source, /function getReviewTextMarker/);
+  assert.match(source, /\.split\(\/\\s\*\\\|\\s\*\//);
+  assert.match(source, /function splitReviewTextByMarkers/);
+  assert.match(source, /\[:：\]/);
+  assert.match(source, /"Cannot conclude"/);
+  assert.match(source, /marker === "Cannot conclude"/);
+  assert.match(source, /segments\.map\(\(segment, index\) =>/);
+  assert.doesNotMatch(source, /segment\.label[\s\S]{0,260}rounded-full/);
+  assert.doesNotMatch(source, /"Cannot conclude": "待确认"/);
+  assert.doesNotMatch(source, /待确认/);
+});
+
+test("TradeJournal presents review follow-ups as action-first notes instead of three equal tag columns", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /<ReviewFollowupPanel/);
+  assert.match(source, /function ReviewFollowupPanel/);
+  assert.match(source, /lg:grid-cols-\[minmax\(0,1\.25fr\)_minmax\(0,0\.75fr\)\]/);
+  assert.match(source, /function ReviewListItems/);
+  assert.doesNotMatch(source.slice(0, source.indexOf("import { usePreferences }")), /CheckCircle2|Lightbulb|Tags/);
+  assert.doesNotMatch(source, /md:grid-cols-3">\s*<TagCard/s);
 });

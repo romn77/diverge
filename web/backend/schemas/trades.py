@@ -1,61 +1,66 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
+
+from web.backend.schemas.market_resolution import MarketResolutionPayload
 
 
 class AnalysisReferencePayload(BaseModel):
     analysis_date: str
     report_path: str
-    full_state_log_path: str
+    full_state_log_path: Optional[str] = ""
 
 
 class TradeRecordCreatePayload(BaseModel):
-    ticker: str
-    exchange_or_market: str
-    side: str
-    status: str
-    entry_timestamp: Optional[str] = None
-    entry_price: Optional[float] = None
-    exit_timestamp: Optional[str] = None
-    exit_price: Optional[float] = None
-    size: Optional[float] = None
-    initial_thesis: str
-    planned_horizon: str
+    raw_symbol: str
+    side: str = "long"
+    entry_timestamp: str
+    entry_price: float
+    size: float
+    strategy_tags: list[str] = Field(min_length=1)
+    entry_reason: str
+    invalidation_condition: str
+    planned_horizon: str = "unknown"
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
+    exit_timestamp: Optional[str] = None
+    exit_price: Optional[float] = None
+    exit_reason: str = ""
+    plan_execution: str = "unknown"
+    initial_thesis: str = ""
     notes: str = ""
+    market_resolution: Optional[MarketResolutionPayload] = None
     analysis_references: list[AnalysisReferencePayload] = Field(default_factory=list)
 
 
 class TradeRecordUpdatePayload(BaseModel):
-    ticker: Optional[str] = None
-    exchange_or_market: Optional[str] = None
+    raw_symbol: Optional[str] = None
     side: Optional[str] = None
-    status: Optional[str] = None
     entry_timestamp: Optional[str] = None
     entry_price: Optional[float] = None
-    exit_timestamp: Optional[str] = None
-    exit_price: Optional[float] = None
     size: Optional[float] = None
-    initial_thesis: Optional[str] = None
+    strategy_tags: Optional[list[str]] = None
+    entry_reason: Optional[str] = None
+    invalidation_condition: Optional[str] = None
     planned_horizon: Optional[str] = None
     stop_loss: Optional[float] = None
     take_profit: Optional[float] = None
+    exit_timestamp: Optional[str] = None
+    exit_price: Optional[float] = None
+    exit_reason: Optional[str] = None
+    plan_execution: Optional[str] = None
+    initial_thesis: Optional[str] = None
     notes: Optional[str] = None
+    market_resolution: Optional[MarketResolutionPayload] = None
     analysis_references: Optional[list[AnalysisReferencePayload]] = None
 
 
-class TradeReviewCreatePayload(BaseModel):
-    review_type: str
-    llm_provider: str
-    model: str
-    output_language: str = "en"
-    google_thinking_level: Optional[str] = None
-    openai_reasoning_effort: Optional[str] = None
+class TradeReviewGeneratePayload(BaseModel):
     analysis_date: Optional[str] = None
     analysis_references: Optional[list[AnalysisReferencePayload]] = None
+    output_language: Literal["en", "cn"] = "cn"
 
 
 class TradeReviewSavePayload(BaseModel):

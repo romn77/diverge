@@ -12,10 +12,12 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import {
   ApiError,
+  listJournalReviewTasks,
   listReports,
   listScreenerRuns,
   listScreenerTasks,
   listTasks,
+  type JournalReviewTask,
   type Report,
   type Permission,
   type ScreenerRunSummary,
@@ -37,15 +39,18 @@ interface WorkbenchContextValue {
   recentReports: Report[];
   recentTickers: string[];
   refreshReports: () => Promise<void>;
+  refreshJournalReviewTasks: () => Promise<void>;
   refreshScreenerRuns: () => Promise<void>;
   refreshScreenerTasks: () => Promise<void>;
   refreshSession: ReturnType<typeof useAuth>["refreshSession"];
   refreshTasks: () => Promise<void>;
   reportsByTicker: Array<{ ticker: string; reports: Report[] }>;
+  journalReviewTasks: JournalReviewTask[];
   screenerRuns: ScreenerRunSummary[];
   screenerTasks: ScreenerTask[];
   tasks: Task[];
   activeTasks: Task[];
+  activeJournalReviewTasks: JournalReviewTask[];
   activeScreenerTasks: ScreenerTask[];
   newAnalysisDisabled: boolean;
   newScreenerDisabled: boolean;
@@ -94,6 +99,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const [screenerRuns, setScreenerRuns] = useState<ScreenerRunSummary[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [screenerTasks, setScreenerTasks] = useState<ScreenerTask[]>([]);
+  const [journalReviewTasks, setJournalReviewTasks] = useState<JournalReviewTask[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [reportsError, setReportsError] = useState<string | null>(null);
 
@@ -178,6 +184,20 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }
   }, [canAccessWorkbench, handleProtectedError]);
 
+  const refreshJournalReviewTasks = useCallback(async () => {
+    if (!canAccessWorkbench) {
+      return;
+    }
+
+    try {
+      setJournalReviewTasks(await listJournalReviewTasks());
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+    }
+  }, [canAccessWorkbench, handleProtectedError]);
+
   useEffect(() => {
     if (canAccessWorkbench) {
       void refreshReports();
@@ -230,6 +250,22 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     };
   }, [canAccessWorkbench, refreshScreenerTasks]);
 
+  useEffect(() => {
+    if (!canAccessWorkbench) {
+      setJournalReviewTasks([]);
+      return;
+    }
+
+    void refreshJournalReviewTasks();
+    const intervalId = window.setInterval(() => {
+      void refreshJournalReviewTasks();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [canAccessWorkbench, refreshJournalReviewTasks]);
+
   const sortedReports = useMemo(() => {
     return [...reports].sort(
       (left, right) => parseReportTimestamp(right) - parseReportTimestamp(left)
@@ -275,6 +311,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     () => tasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
     [tasks]
   );
+  const activeJournalReviewTasks = useMemo(
+    () => journalReviewTasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
+    [journalReviewTasks]
+  );
   const activeScreenerTasks = useMemo(
     () => screenerTasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
     [screenerTasks]
@@ -282,6 +322,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<WorkbenchContextValue>(
     () => ({
+      activeJournalReviewTasks,
       activeScreenerTasks,
       activeTasks,
       authEnabled,
@@ -292,10 +333,12 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       canManageUsers,
       loadingReports,
       logout,
+      journalReviewTasks,
       newAnalysisDisabled: !canCreateAnalysis,
       newScreenerDisabled: !canCreateScreener,
       recentReports,
       recentTickers,
+      refreshJournalReviewTasks,
       refreshReports,
       refreshScreenerRuns,
       refreshScreenerTasks,
@@ -310,6 +353,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }),
     [
       activeScreenerTasks,
+      activeJournalReviewTasks,
       activeTasks,
       authEnabled,
       authError,
@@ -321,8 +365,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       canManageUsers,
       loadingReports,
       logout,
+      journalReviewTasks,
       recentReports,
       recentTickers,
+      refreshJournalReviewTasks,
       refreshReports,
       refreshScreenerRuns,
       refreshScreenerTasks,

@@ -70,6 +70,46 @@ class LLMModelConfigTests(unittest.TestCase):
 
         self.assertEqual(resolved.llm_provider, "sub2api")
 
+    def test_admin_module_setting_resolves_trade_journal_review_model(self):
+        with self._env({"OPENAI_API_KEY": "secret-value"}):
+            auth.create_all_for_testing()
+            setting = llm_models.update_module_setting(
+                "trade_journal_review",
+                enabled=True,
+                model_profile="balanced",
+                output_language="cn",
+                openai_reasoning_effort="high",
+                google_thinking_level="minimal",
+            )
+            resolved = llm_models.resolve_module_model_selection("trade_journal_review")
+
+        self.assertTrue(setting["enabled"])
+        self.assertEqual(resolved["llm_provider"], "openai")
+        self.assertEqual(resolved["model"], "gpt-5.2")
+        self.assertEqual(resolved["output_language"], "cn")
+        self.assertEqual(resolved["openai_reasoning_effort"], "high")
+
+    def test_admin_module_setting_accepts_custom_review_model(self):
+        with self._env({"OPENAI_API_KEY": "secret-value"}):
+            auth.create_all_for_testing()
+            setting = llm_models.update_module_setting(
+                "trade_journal_review",
+                enabled=True,
+                model_profile="custom",
+                output_language="cn",
+                custom_provider="openai",
+                custom_model="gpt-5.5",
+                openai_reasoning_effort="high",
+                google_thinking_level=None,
+            )
+            resolved = llm_models.resolve_module_model_selection("trade_journal_review")
+
+        self.assertEqual(setting["model_profile"], "custom")
+        self.assertEqual(setting["custom_provider"], "openai")
+        self.assertEqual(setting["custom_model"], "gpt-5.5")
+        self.assertEqual(resolved["llm_provider"], "openai")
+        self.assertEqual(resolved["model"], "gpt-5.5")
+
 
 if __name__ == "__main__":
     unittest.main()

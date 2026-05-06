@@ -768,9 +768,9 @@ const zhTranslations: Record<string, TranslationTemplate> = {
     ({ reviewType }) =>
       `这笔交易还没有保存 ${reviewType ?? ""}。使用手动复盘编辑器补充后端 schema 需要的结构化字段。`,
   "journal.thesisAssessment": "逻辑评估",
-  "journal.timingAssessment": "时点评估",
-  "journal.sizingAssessment": "仓位评估",
-  "journal.disciplineAssessment": "纪律评估",
+  "journal.timingAssessment": "技术评估",
+  "journal.sizingAssessment": "风控评估",
+  "journal.disciplineAssessment": "执行评估",
   "journal.outcomeSummary": "结果总结",
   "journal.improvementActions": "改进行动",
   "journal.tickerSpecificLessons": "Ticker 专属经验",

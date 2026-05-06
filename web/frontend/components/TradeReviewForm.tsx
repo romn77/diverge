@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,13 +20,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  getConfigOptions,
   saveTradeReview,
-  type ConfigOptions,
-  type SelectOption,
   type TradeRecord,
   type TradeReview,
-  type TradeReviewCreateRequest,
+  type TradeReviewGenerateRequest,
   type TradeReviewType,
 } from "@/lib/api";
 
@@ -36,12 +33,13 @@ interface TradeReviewFormProps {
   tradeRecord: TradeRecord;
   existingReview?: TradeReview | null;
   onClose: () => void;
-  onGenerateReview: (payload: TradeReviewCreateRequest) => void;
+  onGenerateReview: (payload: TradeReviewGenerateRequest) => void;
   onSaved: (review: TradeReview) => void;
 }
 
 interface TradeReviewFormState {
   analysis_date: string;
+  output_language: string;
   thesis_assessment: string;
   timing_assessment: string;
   sizing_assessment: string;
@@ -52,15 +50,6 @@ interface TradeReviewFormState {
   cross_ticker_tags: string;
 }
 
-type ReviewGenerationState = Pick<
-  TradeReviewCreateRequest,
-  | "llm_provider"
-  | "model"
-  | "output_language"
-  | "google_thinking_level"
-  | "openai_reasoning_effort"
->;
-
 export function TradeReviewForm({
   isOpen,
   reviewType,
@@ -70,15 +59,11 @@ export function TradeReviewForm({
   onGenerateReview,
   onSaved,
 }: TradeReviewFormProps) {
-  const { language, t } = usePreferences();
+  const { t } = usePreferences();
   const [formState, setFormState] = useState<TradeReviewFormState>(() =>
     buildInitialState(existingReview, tradeRecord)
   );
-  const [configOptions, setConfigOptions] = useState<ConfigOptions | null>(null);
-  const [generationState, setGenerationState] =
-    useState<ReviewGenerationState | null>(null);
   const [saving, setSaving] = useState(false);
-  const [loadingOptions, setLoadingOptions] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -90,50 +75,6 @@ export function TradeReviewForm({
     setSaving(false);
     setError(null);
   }, [existingReview, isOpen, tradeRecord]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    let isActive = true;
-
-    const loadOptions = async () => {
-      if (configOptions) {
-        return;
-      }
-
-      setLoadingOptions(true);
-      setError(null);
-
-      try {
-        const nextOptions = await getConfigOptions();
-        if (!isActive) {
-          return;
-        }
-        setConfigOptions(nextOptions);
-        setGenerationState(buildInitialGenerationState(nextOptions, language));
-      } catch (optionsError) {
-        if (isActive) {
-          setError(
-            optionsError instanceof Error
-              ? optionsError.message
-              : t("tradeReview.error.loadOptions", "Unable to load AI review options")
-          );
-        }
-      } finally {
-        if (isActive) {
-          setLoadingOptions(false);
-        }
-      }
-    };
-
-    void loadOptions();
-
-    return () => {
-      isActive = false;
-    };
-  }, [configOptions, isOpen, language, t]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -159,30 +100,6 @@ export function TradeReviewForm({
         : tradeRecord.analysis_references,
     [existingReview, tradeRecord.analysis_references]
   );
-  const enabledProviderOptions = configOptions?.providers.filter(
-    (provider) => provider.enabled
-  ) ?? [];
-  const reviewModelOptions =
-    configOptions && generationState
-      ? getReviewModelOptions(configOptions, generationState.llm_provider)
-      : [];
-
-  const onProviderChange = (provider: string) => {
-    if (!configOptions) {
-      return;
-    }
-    const providerOption = configOptions.providers.find(
-      (option) => option.value === provider
-    );
-    if (!providerOption?.enabled) {
-      return;
-    }
-    const nextSelection = buildGenerationProviderSelection(configOptions, provider);
-    setGenerationState({
-      ...nextSelection,
-      output_language: generationState?.output_language ?? nextSelection.output_language,
-    });
-  };
 
   if (!isOpen) {
     return null;
@@ -258,27 +175,16 @@ export function TradeReviewForm({
   };
 
   const generateReview = () => {
-    if (!generationState?.llm_provider || !generationState.model) {
-      setError(
-        t(
-          "tradeReview.providerUnavailable",
-          "No configured LLM provider is available for AI review generation."
-        )
-      );
-      return;
-    }
-
     setError(null);
 
     try {
       onGenerateReview({
-        ...generationState,
-        review_type: reviewType,
         analysis_date: requireText(
           formState.analysis_date,
           t("tradeReview.analysisDate", "Analysis date")
         ),
         analysis_references: referenceSummary.length > 0 ? referenceSummary : undefined,
+        output_language: formState.output_language,
       });
     } catch (generateError) {
       setError(
@@ -302,7 +208,7 @@ export function TradeReviewForm({
           </p>
           <DialogTitle>{reviewTitle}</DialogTitle>
           <DialogDescription className="max-w-3xl">
-            {reviewFocus} Use the saved trade thesis, notes, and linked snapshots to draft the structured review for trade
+            {reviewFocus} Use the saved trade plan, reasons, and linked snapshots to draft the structured review for trade
             <span className="mx-1 rounded bg-slate-100 px-2 py-1 font-mono text-[12px] text-slate-700">
               {tradeRecord.trade_id}
             </span>
@@ -331,117 +237,43 @@ export function TradeReviewForm({
               </div>
             </div>
 
-            {loadingOptions || !generationState || !configOptions ? (
-              <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-6 text-sm text-slate-500">
-                {t("tradeReview.loadingOptions", "Loading AI review options...")}
-              </div>
-            ) : (
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <ReviewSelectField
-                  label={t("analysis.provider", "LLM Provider")}
-                  value={generationState.llm_provider}
-                  onChange={onProviderChange}
-                >
-                  {enabledProviderOptions.map((provider) => (
-                    <SelectItem key={provider.value} value={provider.value}>
-                      {provider.label}
-                    </SelectItem>
-                  ))}
-                </ReviewSelectField>
-
-                <ReviewSelectField
-                  label={t("analysis.deepModel", "Deep Model")}
-                  value={generationState.model}
-                  onChange={(value) =>
-                    setGenerationState({
-                      ...generationState,
-                      model: value,
-                    })
-                  }
-                >
-                  {reviewModelOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </ReviewSelectField>
-
-                <ReviewSelectField
-                  label={t("analysis.outputLanguage", "Output Language")}
-                  value={generationState.output_language}
-                  onChange={(value) =>
-                    setGenerationState({
-                      ...generationState,
+            <div className="mt-5 grid gap-3 rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)] px-5 py-4 md:grid-cols-[minmax(0,1fr)_190px_auto] md:items-center">
+              <p className="max-w-2xl text-sm leading-6 text-slate-600">
+                {t(
+                  "tradeReview.adminConfiguredModel",
+                  "AI review generation uses the admin-configured trade journal review model. Choose the output language here for this journal review."
+                )}
+              </p>
+              <label className="grid gap-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                {t("analysis.outputLanguage", "Output Language")}
+                <Select
+                  value={formState.output_language}
+                  onValueChange={(value) =>
+                    setFormState((current) => ({
+                      ...current,
                       output_language: value,
-                    })
+                    }))
                   }
                 >
-                  {configOptions.output_languages.map((languageOption) => (
-                    <SelectItem key={languageOption.value} value={languageOption.value}>
-                      {languageOption.label}
-                    </SelectItem>
-                  ))}
-                </ReviewSelectField>
-
-                {generationState.llm_provider === "openai" ? (
-                  <ReviewSelectField
-                    label={t("analysis.openaiReasoning", "OpenAI Reasoning Effort")}
-                    value={generationState.openai_reasoning_effort ?? ""}
-                    onChange={(value) =>
-                      setGenerationState({
-                        ...generationState,
-                        openai_reasoning_effort: value,
-                      })
-                    }
-                  >
-                    {configOptions.provider_settings.openai?.openai_reasoning_effort?.map(
-                      (option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      )
-                    )}
-                  </ReviewSelectField>
-                ) : null}
-
-                {generationState.llm_provider === "google" ? (
-                  <ReviewSelectField
-                    label={t("analysis.googleThinking", "Google Thinking Level")}
-                    value={generationState.google_thinking_level ?? ""}
-                    onChange={(value) =>
-                      setGenerationState({
-                        ...generationState,
-                        google_thinking_level: value,
-                      })
-                    }
-                  >
-                    {configOptions.provider_settings.google?.google_thinking_level?.map(
-                      (option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      )
-                    )}
-                  </ReviewSelectField>
-                ) : null}
-
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-full"
-                    onClick={generateReview}
-                    disabled={
-                      loadingOptions ||
-                      !generationState.llm_provider ||
-                      !generationState.model
-                    }
-                  >
-                    {t("tradeReview.generateReview", "Generate and Save AI Review")}
-                  </Button>
-                </div>
-              </div>
-            )}
+                  <SelectTrigger className="h-11 border-[var(--border)] bg-white text-slate-800">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cn">简体中文</SelectItem>
+                    <SelectItem value="en">English</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={generateReview}
+              >
+                {existingReview
+                  ? t("tradeReview.regenerateReview", "Regenerate AI Review")
+                  : t("tradeReview.generateReview", "Generate and Save AI Review")}
+              </Button>
+            </div>
           </section>
 
           <section className="rounded-[28px] border border-[var(--border)] bg-white/85 p-5">
@@ -524,7 +356,7 @@ export function TradeReviewForm({
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
                   {t(
                     "tradeReview.recordContextHint",
-                    "The original thesis and notes are already part of the trade record, so this section is only for optional corrections or lessons."
+                    "The original trade plan and reasons are already part of the trade record, so this section is only for optional corrections or lessons."
                   )}
                 </p>
               </div>
@@ -620,6 +452,7 @@ function buildInitialState(
 
   return {
     analysis_date: defaultAnalysisDate,
+    output_language: "cn",
     thesis_assessment: review?.thesis_assessment ?? "",
     timing_assessment: review?.timing_assessment ?? "",
     sizing_assessment: review?.sizing_assessment ?? "",
@@ -629,54 +462,6 @@ function buildInitialState(
     ticker_specific_lessons: joinList(review?.ticker_specific_lessons ?? []),
     cross_ticker_tags: joinList(review?.cross_ticker_tags ?? []),
   };
-}
-
-function buildInitialGenerationState(
-  configOptions: ConfigOptions,
-  language: string
-): ReviewGenerationState {
-  const provider =
-    configOptions.providers.find((option) => option.enabled)?.value ?? "";
-  const preferredLanguage = language === "zh" ? "cn" : "en";
-  const outputLanguage =
-    configOptions.output_languages.find((option) => option.value === preferredLanguage)
-      ?.value ??
-    configOptions.output_languages[0]?.value ??
-    "en";
-
-  return {
-    ...buildGenerationProviderSelection(configOptions, provider),
-    output_language: outputLanguage,
-  };
-}
-
-function buildGenerationProviderSelection(
-  configOptions: ConfigOptions,
-  provider: string
-): ReviewGenerationState {
-  return {
-    llm_provider: provider,
-    model: getReviewModelOptions(configOptions, provider)[0]?.value ?? "",
-    output_language: configOptions.output_languages[0]?.value ?? "en",
-    openai_reasoning_effort:
-      provider === "openai"
-        ? configOptions.provider_settings.openai?.openai_reasoning_effort?.[0]
-            ?.value ?? "medium"
-        : null,
-    google_thinking_level:
-      provider === "google"
-        ? configOptions.provider_settings.google?.google_thinking_level?.[0]
-            ?.value ?? "high"
-        : null,
-  };
-}
-
-function getReviewModelOptions(
-  configOptions: ConfigOptions,
-  provider: string
-): SelectOption[] {
-  const providerModels = configOptions.models[provider] ?? { quick: [], deep: [] };
-  return providerModels.deep.length > 0 ? providerModels.deep : providerModels.quick;
 }
 
 function requireText(value: string, fieldName: string): string {
@@ -734,7 +519,12 @@ function buildDefaultDecisionContext(
   tradeRecord: TradeRecord,
   t: ReturnType<typeof usePreferences>["t"]
 ): string {
-  const contextParts = [tradeRecord.initial_thesis, tradeRecord.notes]
+  const contextParts = [
+    tradeRecord.entry_reason,
+    tradeRecord.invalidation_condition,
+    tradeRecord.exit_reason,
+    tradeRecord.initial_thesis,
+  ]
     .map((part) => part?.trim())
     .filter(Boolean);
 
@@ -773,32 +563,6 @@ function joinList(items: string[]): string {
 
 function formatPrice(value: number | null | undefined): string {
   return value === null || value === undefined ? "N/A" : String(value);
-}
-
-function ReviewSelectField({
-  children,
-  label,
-  onChange,
-  value,
-}: {
-  children: ReactNode;
-  label: string;
-  onChange: (value: string) => void;
-  value: string;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-        {label}
-      </span>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="mt-2 bg-white text-slate-800">
-          <SelectValue placeholder={label} />
-        </SelectTrigger>
-        <SelectContent>{children}</SelectContent>
-      </Select>
-    </label>
-  );
 }
 
 function ReviewField({

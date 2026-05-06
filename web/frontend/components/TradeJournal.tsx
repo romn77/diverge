@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  createTradeReview,
+  generateTradeReview,
   getTickerTradeFeedback,
   getTrade,
   listTrades,
@@ -25,10 +31,12 @@ import {
   type TradeFeedbackPayload,
   type TradeRecord,
   type TradeReview,
-  type TradeReviewCreateRequest,
+  type TradeReviewGenerateRequest,
   type TradeReviewType,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { TickerPricePanel } from "./TickerPricePanel";
+import { CloseTradeForm } from "./CloseTradeForm";
 import { TradeRecordForm } from "./TradeRecordForm";
 import { TradeReviewForm } from "./TradeReviewForm";
 
@@ -52,6 +60,13 @@ interface ReviewGenerationError {
   message: string;
 }
 
+interface TradeTickerGroup {
+  ticker: string;
+  displaySymbol: string;
+  trades: TradeRecord[];
+  latestTrade: TradeRecord;
+}
+
 export function TradeJournal({
   reports,
   onOpenSidebar,
@@ -66,14 +81,19 @@ export function TradeJournal({
   const [statusFilter, setStatusFilter] = useState("all");
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("all");
   const [reviewTab, setReviewTab] = useState<TradeReviewType>("entry_review");
+  const [expandedTickerGroups, setExpandedTickerGroups] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [isHistoryCollapsed, setIsHistoryCollapsed] = useState(false);
+  const [historyPaneWidth, setHistoryPaneWidth] = useState(420);
+  const [isResizingHistory, setIsResizingHistory] = useState(false);
   const [loadingTrades, setLoadingTrades] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
-  const [loadingFeedback, setLoadingFeedback] = useState(false);
   const [tradesError, setTradesError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
-  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const [showCreateTrade, setShowCreateTrade] = useState(false);
   const [showEditTrade, setShowEditTrade] = useState(false);
+  const [showCloseTrade, setShowCloseTrade] = useState(false);
   const [editingReviewType, setEditingReviewType] = useState<TradeReviewType | null>(
     null
   );
@@ -81,6 +101,7 @@ export function TradeJournal({
     useState<PendingReviewGeneration | null>(null);
   const [reviewGenerationError, setReviewGenerationError] =
     useState<ReviewGenerationError | null>(null);
+  const historyGridRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let isActive = true;
@@ -173,16 +194,12 @@ export function TradeJournal({
   useEffect(() => {
     if (!tradeDetail?.record.ticker) {
       setFeedback(null);
-      setFeedbackError(null);
       return;
     }
 
     let isActive = true;
 
     const loadFeedback = async () => {
-      setLoadingFeedback(true);
-      setFeedbackError(null);
-
       try {
         const data = await getTickerTradeFeedback(tradeDetail.record.ticker, {
           limit: 3,
@@ -191,24 +208,12 @@ export function TradeJournal({
           return;
         }
         setFeedback(data);
-      } catch (error) {
+      } catch {
         if (!isActive) {
           return;
         }
 
         setFeedback(null);
-        setFeedbackError(
-          error instanceof Error
-            ? error.message
-            : t(
-                "journal.error.loadFeedback",
-                "Unable to load same-ticker feedback"
-              )
-        );
-      } finally {
-        if (isActive) {
-          setLoadingFeedback(false);
-        }
       }
     };
 
@@ -216,7 +221,7 @@ export function TradeJournal({
     return () => {
       isActive = false;
     };
-  }, [tradeDetail?.record.ticker, t]);
+  }, [tradeDetail?.record.ticker]);
 
   const refreshTrades = async (preferredTradeId?: string) => {
     setLoadingTrades(true);
@@ -264,39 +269,54 @@ export function TradeJournal({
   };
 
   const refreshFeedback = async (ticker: string) => {
-    setLoadingFeedback(true);
-    setFeedbackError(null);
-
     try {
       const data = await getTickerTradeFeedback(ticker, { limit: 3 });
       setFeedback(data);
-    } catch (error) {
-      setFeedbackError(
-        error instanceof Error
-          ? error.message
-          : t(
-              "journal.error.loadFeedback",
-              "Unable to load same-ticker feedback"
-            )
-      );
-    } finally {
-      setLoadingFeedback(false);
+    } catch {
+      setFeedback(null);
     }
   };
 
   const filteredTrades = useMemo(() => {
-    return trades.filter((trade) => {
-      const normalizedFilter = tickerFilter.trim().toUpperCase();
-      const matchesTicker =
-        !normalizedFilter ||
-        trade.ticker.includes(normalizedFilter) ||
-        trade.trade_id.toUpperCase().includes(normalizedFilter);
-      const matchesStatus =
-        statusFilter === "all" || trade.status.toLowerCase() === statusFilter;
-      const matchesTimeWindow = withinTimeWindow(trade, timeWindow);
-      return matchesTicker && matchesStatus && matchesTimeWindow;
-    });
+    return trades
+      .filter((trade) => {
+        const normalizedFilter = tickerFilter.trim().toUpperCase();
+        const matchesTicker =
+          !normalizedFilter ||
+          trade.ticker.includes(normalizedFilter) ||
+          trade.trade_id.toUpperCase().includes(normalizedFilter);
+        const matchesStatus =
+          statusFilter === "all" || trade.status.toLowerCase() === statusFilter;
+        const matchesTimeWindow = withinTimeWindow(trade, timeWindow);
+        return matchesTicker && matchesStatus && matchesTimeWindow;
+      })
+      .sort((left, right) => compareTradesNewestFirst(left, right));
   }, [statusFilter, tickerFilter, timeWindow, trades]);
+
+  const tradeTickerGroups = useMemo<TradeTickerGroup[]>(() => {
+    const grouped = new Map<string, TradeRecord[]>();
+
+    for (const trade of filteredTrades) {
+      const current = grouped.get(trade.ticker) ?? [];
+      current.push(trade);
+      grouped.set(trade.ticker, current);
+    }
+
+    return Array.from(grouped.entries())
+      .map(([ticker, tickerTrades]) => {
+        const sortedTrades = [...tickerTrades].sort((left, right) =>
+          compareTradesNewestFirst(left, right)
+        );
+        const latestTrade = sortedTrades[0];
+        return {
+          ticker,
+          displaySymbol: latestTrade.display_symbol ?? ticker,
+          trades: sortedTrades,
+          latestTrade,
+        };
+      })
+      .sort((left, right) => compareTradesNewestFirst(left.latestTrade, right.latestTrade));
+  }, [filteredTrades]);
 
   useEffect(() => {
     if (filteredTrades.length === 0 || !selectedTradeId) {
@@ -307,6 +327,57 @@ export function TradeJournal({
       setSelectedTradeId(filteredTrades[0].trade_id);
     }
   }, [filteredTrades, selectedTradeId]);
+
+  useEffect(() => {
+    setExpandedTickerGroups((current) => {
+      let changed = false;
+      const next = { ...current };
+
+      tradeTickerGroups.forEach((group, index) => {
+        if (typeof next[group.ticker] !== "boolean") {
+          next[group.ticker] = index === 0;
+          changed = true;
+        }
+      });
+
+      return changed ? next : current;
+    });
+  }, [tradeTickerGroups]);
+
+  useEffect(() => {
+    if (!selectedTradeId) {
+      return;
+    }
+
+    const selectedTrade = trades.find((trade) => trade.trade_id === selectedTradeId);
+    if (!selectedTrade) {
+      return;
+    }
+
+    setExpandedTickerGroups((current) =>
+      current[selectedTrade.ticker] ? current : { ...current, [selectedTrade.ticker]: true }
+    );
+  }, [selectedTradeId, trades]);
+
+  useEffect(() => {
+    if (!isResizingHistory) {
+      return;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const left = historyGridRef.current?.getBoundingClientRect().left ?? 0;
+      setHistoryPaneWidth(Math.min(620, Math.max(300, event.clientX - left)));
+      setIsHistoryCollapsed(false);
+    };
+    const handlePointerUp = () => setIsResizingHistory(false);
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+    };
+  }, [isResizingHistory]);
 
   const statusOptions = useMemo(() => {
     const values = Array.from(
@@ -338,6 +409,13 @@ export function TradeJournal({
   const reviewCoverageLabel = tradeDetail
     ? `${tradeDetail.reviews.length}/2 reviews`
     : "0/2 reviews";
+  const sameTickerFeedbackReviews = feedback?.reviews ?? [];
+  const currentTradeFeedbackReviews =
+    tradeDetail
+      ? sameTickerFeedbackReviews.filter(
+          (review) => review.trade_id === tradeDetail.record.trade_id
+        )
+      : [];
   const selectionSummaryCards = useMemo(() => {
     if (!tradeDetail) {
       return [];
@@ -347,7 +425,7 @@ export function TradeJournal({
       {
         label: "Trade Health",
         value: localizeTradeValue(tradeDetail.record.status, t),
-        hint: `${localizeTradeValue(tradeDetail.record.side, t)} · ${tradeDetail.record.exchange_or_market}`,
+        hint: `${localizeTradeValue(tradeDetail.record.side, t)} · ${tradeDetail.record.market.toUpperCase()}`,
       },
       {
         label: "Review Coverage",
@@ -357,20 +435,27 @@ export function TradeJournal({
       {
         label: "Feedback Loop",
         value:
-          feedback && feedback.reviews.length > 0
+          sameTickerFeedbackReviews.length > 0
             ? t("journal.feedbackReady", "Ready")
             : t("journal.feedbackBuilding", "Building"),
         hint:
-          feedback && feedback.reviews.length > 0
-            ? `${feedback.reviews.length} saved examples will inform future analyses`
+          sameTickerFeedbackReviews.length > 0
+            ? `${sameTickerFeedbackReviews.length} same-ticker saved examples; ${currentTradeFeedbackReviews.length} on this trade`
             : "Save at least one review to seed future context",
       },
     ];
-  }, [feedback, reviewCoverageLabel, t, tradeDetail]);
+  }, [
+    currentTradeFeedbackReviews.length,
+    reviewCoverageLabel,
+    sameTickerFeedbackReviews.length,
+    t,
+    tradeDetail,
+  ]);
 
   const handleTradeSaved = (record: TradeRecord) => {
     setShowCreateTrade(false);
     setShowEditTrade(false);
+    setShowCloseTrade(false);
     setSelectedTradeId(record.trade_id);
     void refreshTrades(record.trade_id);
     void refreshTradeDetail(record.trade_id);
@@ -393,9 +478,9 @@ export function TradeJournal({
 
   const handleGenerateReviewRequested = (
     record: TradeRecord,
-    payload: TradeReviewCreateRequest
+    reviewType: TradeReviewType,
+    payload: TradeReviewGenerateRequest
   ) => {
-    const reviewType = payload.review_type;
     setEditingReviewType(null);
     setReviewTab(reviewType);
     setSelectedTradeId(record.trade_id);
@@ -406,7 +491,7 @@ export function TradeJournal({
       startedAt: new Date().toISOString(),
     });
 
-    void createTradeReview(record.trade_id, payload)
+    void generateTradeReview(record.trade_id, reviewType, payload)
       .then((review) => {
         handleReviewSaved(review);
       })
@@ -543,11 +628,40 @@ export function TradeJournal({
             </div>
           </PageHeader>
 
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,2.05fr)]">
-            <Card className="card-surface p-4 md:p-5">
+          <section
+            ref={historyGridRef}
+            style={
+              {
+                "--journal-history-width": isHistoryCollapsed
+                  ? "5.5rem"
+                  : `${historyPaneWidth}px`,
+              } as CSSProperties
+            }
+            className="grid gap-6 transition-[grid-template-columns] duration-300 xl:[grid-template-columns:minmax(5.5rem,var(--journal-history-width))_minmax(0,1fr)]"
+          >
+            <Card className={cn("card-surface relative p-4 md:p-5", isHistoryCollapsed && "p-3 md:p-3")}>
+              {!isHistoryCollapsed ? (
+                <div
+                  role="separator"
+                  aria-label={t("journal.resizeHistory", "Resize trade history")}
+                  aria-orientation="vertical"
+                  className="absolute -right-3 top-8 hidden h-[calc(100%-4rem)] w-6 cursor-col-resize items-center justify-center xl:flex"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    setIsResizingHistory(true);
+                  }}
+                >
+                  <span className="h-16 w-1 rounded-full bg-[var(--border)] shadow-[0_0_0_3px_rgba(255,255,255,0.75)]" />
+                </div>
+              ) : null}
               <CardContent className="p-0">
-              <div className="flex items-center justify-between gap-4">
-                <div>
+              <div
+                className={cn(
+                  "flex items-center justify-between gap-4",
+                  isHistoryCollapsed && "justify-center"
+                )}
+              >
+                <div className={cn(isHistoryCollapsed && "sr-only")}>
                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
                     {t("journal.history", "History")}
                   </p>
@@ -555,11 +669,37 @@ export function TradeJournal({
                     {t("journal.tradeRecords", "Trade records")}
                   </h2>
                 </div>
-                <Badge variant="secondary" className="text-slate-500">
-                  {t("sidebar.shownCount", ({ count }) => `${count} shown`, {
-                    count: filteredTrades.length,
-                  })}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {!isHistoryCollapsed ? (
+                    <Badge variant="secondary" className="text-slate-500">
+                      {t("sidebar.shownCount", ({ count }) => `${count} shown`, {
+                        count: filteredTrades.length,
+                      })}
+                    </Badge>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    aria-label={
+                      isHistoryCollapsed
+                        ? t("journal.expandHistory", "Expand trade history")
+                        : t("journal.collapseHistory", "Collapse trade history")
+                    }
+                    onClick={() => setIsHistoryCollapsed((current) => !current)}
+                    title={
+                      isHistoryCollapsed
+                        ? t("journal.expandHistory", "Expand trade history")
+                        : t("journal.collapseHistory", "Collapse trade history")
+                    }
+                  >
+                    {isHistoryCollapsed ? (
+                      <PanelLeftOpen className="size-4" aria-hidden />
+                    ) : (
+                      <PanelLeftClose className="size-4" aria-hidden />
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {tradesError ? (
@@ -583,71 +723,176 @@ export function TradeJournal({
                   </Button>
                 </div>
               ) : (
-                <div className="mt-4 space-y-3">
-                  {filteredTrades.map((trade) => {
-                    const isSelected = selectedTradeId === trade.trade_id;
+                <div className={cn("mt-4 space-y-3", isHistoryCollapsed && "space-y-2")}>
+                  {tradeTickerGroups.map((group) => {
+                    const isExpanded = expandedTickerGroups[group.ticker] ?? false;
+                    const selectedWithinGroup = group.trades.some(
+                      (trade) => trade.trade_id === selectedTradeId
+                    );
+                    const latestTimestamp = formatDateTime(
+                      activityDateValue(group.latestTrade),
+                      locale,
+                      t("common.notSet", "Not set")
+                    );
+
+                    if (isHistoryCollapsed) {
+                      return (
+                        <Button
+                          key={group.ticker}
+                          type="button"
+                          data-active={selectedWithinGroup}
+                          variant="secondary"
+                          className={cn(
+                            "h-auto w-full flex-col gap-1 rounded-2xl px-2 py-3 text-center",
+                            selectedWithinGroup
+                              ? "border-[var(--primary)] bg-[var(--primary-soft)]/80 text-slate-900"
+                              : "bg-white/85 text-slate-700 hover:bg-white"
+                          )}
+                          title={`${group.displaySymbol} · ${group.trades.length}`}
+                          onClick={() => {
+                            setSelectedTradeId(group.latestTrade.trade_id);
+                            setExpandedTickerGroups((current) => ({
+                              ...current,
+                              [group.ticker]: true,
+                            }));
+                          }}
+                        >
+                          <span className="max-w-full truncate font-mono text-[11px] font-semibold">
+                            {compactTickerLabel(group.displaySymbol)}
+                          </span>
+                          <span className="rounded-full border border-[var(--border)] bg-white px-2 py-0.5 text-[10px] text-slate-500">
+                            {group.trades.length}
+                          </span>
+                        </Button>
+                      );
+                    }
+
                     return (
-                      <Button
-                        key={trade.trade_id}
-                        type="button"
-                        data-active={isSelected}
-                        variant="secondary"
-                        className={`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[26px] p-4 text-left whitespace-normal ${
-                          isSelected
-                            ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 text-slate-900 shadow-[0_18px_36px_rgba(28,36,48,0.12)] hover:bg-[var(--primary-soft)]/75"
-                            : "bg-white/85 text-slate-900 hover:bg-white"
-                        }`}
-                        onClick={() => setSelectedTradeId(trade.trade_id)}
+                      <div
+                        key={group.ticker}
+                        className={cn(
+                          "rounded-[28px] border bg-white/70 p-3",
+                          selectedWithinGroup
+                            ? "border-[var(--primary)] shadow-[0_18px_36px_rgba(28,36,48,0.1)]"
+                            : "border-[var(--border)]"
+                        )}
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <p className="text-lg font-semibold text-slate-900">
-                              {trade.ticker}
-                            </p>
-                            <p className="mt-1 font-mono text-[11px] text-slate-500">
-                              {trade.trade_id}
-                            </p>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="h-auto w-full items-start justify-between rounded-[22px] bg-white/80 px-4 py-3 text-left hover:bg-white"
+                          aria-expanded={isExpanded}
+                          onClick={() =>
+                            setExpandedTickerGroups((current) => ({
+                              ...current,
+                              [group.ticker]: !(current[group.ticker] ?? false),
+                            }))
+                          }
+                        >
+                          <span className="flex min-w-0 items-start gap-3">
+                            <span className="mt-1 grid size-6 shrink-0 place-items-center rounded-full border border-[var(--border)] bg-[var(--surface-strong)] text-slate-600">
+                              {isExpanded ? (
+                                <ChevronDown className="size-4" aria-hidden />
+                              ) : (
+                                <ChevronRight className="size-4" aria-hidden />
+                              )}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-lg font-semibold text-slate-900">
+                                {group.displaySymbol}
+                              </span>
+                              <span className="mt-1 block text-xs text-slate-500">
+                                {t(
+                                  "journal.tickerGroupLatest",
+                                  ({ value }) => `Latest ${value}`,
+                                  { value: latestTimestamp }
+                                )}
+                              </span>
+                            </span>
+                          </span>
+                          <Badge variant="secondary" className="shrink-0 text-slate-500">
+                            {t("journal.tradeCount", ({ count }) => `${count} logs`, {
+                              count: group.trades.length,
+                            })}
+                          </Badge>
+                        </Button>
+
+                        {isExpanded ? (
+                          <div className="mt-3 space-y-3">
+                            {group.trades.map((trade) => {
+                              const isSelected = selectedTradeId === trade.trade_id;
+                              return (
+                                <Button
+                                  key={trade.trade_id}
+                                  type="button"
+                                  data-active={isSelected}
+                                  variant="secondary"
+                                  className={cn(
+                                    "h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[24px] p-4 text-left whitespace-normal",
+                                    isSelected
+                                      ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 text-slate-900 shadow-[0_14px_28px_rgba(28,36,48,0.1)] hover:bg-[var(--primary-soft)]/75"
+                                      : "bg-white/85 text-slate-900 hover:bg-white"
+                                  )}
+                                  onClick={() => setSelectedTradeId(trade.trade_id)}
+                                >
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <p className="font-mono text-[11px] text-slate-500">
+                                        {formatDateTime(
+                                          activityDateValue(trade),
+                                          locale,
+                                          t("common.notSet", "Not set")
+                                        )}
+                                      </p>
+                                      <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
+                                        {trade.trade_id}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-wrap justify-end gap-2">
+                                      <StatusBadge label={trade.side} tone="accent" />
+                                      <StatusBadge label={trade.status} tone="primary" />
+                                    </div>
+                                  </div>
+                                  <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
+                                    <MetaItem
+                                      label={t("journal.entry", "Entry")}
+                                      value={formatDateTime(
+                                        trade.entry_timestamp,
+                                        locale,
+                                        t("common.notSet", "Not set")
+                                      )}
+                                    />
+                                    <MetaItem
+                                      label={t("journal.exit", "Exit")}
+                                      value={formatDateTime(
+                                        trade.exit_timestamp,
+                                        locale,
+                                        t("common.notSet", "Not set")
+                                      )}
+                                    />
+                                    <MetaItem
+                                      label={t("journal.entryPrice", "Entry Px")}
+                                      value={formatNumber(
+                                        trade.entry_price,
+                                        locale,
+                                        t("common.notSet", "Not set")
+                                      )}
+                                    />
+                                    <MetaItem
+                                      label={t("journal.exitPrice", "Exit Px")}
+                                      value={formatNumber(
+                                        trade.exit_price,
+                                        locale,
+                                        t("common.notSet", "Not set")
+                                      )}
+                                    />
+                                  </div>
+                                </Button>
+                              );
+                            })}
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            <StatusBadge label={trade.side} tone="accent" />
-                            <StatusBadge label={trade.status} tone="primary" />
-                          </div>
-                        </div>
-                        <div className="mt-4 grid w-full gap-3 sm:grid-cols-2">
-                          <MetaItem
-                            label={t("journal.entry", "Entry")}
-                            value={formatDateTime(
-                              trade.entry_timestamp,
-                              locale,
-                              t("common.notSet", "Not set")
-                            )}
-                          />
-                          <MetaItem
-                            label={t("journal.exit", "Exit")}
-                            value={formatDateTime(
-                              trade.exit_timestamp,
-                              locale,
-                              t("common.notSet", "Not set")
-                            )}
-                          />
-                          <MetaItem
-                            label={t("journal.entryPrice", "Entry Px")}
-                            value={formatNumber(
-                              trade.entry_price,
-                              locale,
-                              t("common.notSet", "Not set")
-                            )}
-                          />
-                          <MetaItem
-                            label={t("journal.exitPrice", "Exit Px")}
-                            value={formatNumber(
-                              trade.exit_price,
-                              locale,
-                              t("common.notSet", "Not set")
-                            )}
-                          />
-                        </div>
-                      </Button>
+                        ) : null}
+                      </div>
                     );
                   })}
                 </div>
@@ -683,7 +928,7 @@ export function TradeJournal({
                           {t("journal.stableTradeId", "Stable trade_id")}
                         </p>
                         <h2 className="mt-2 text-3xl font-semibold text-slate-900">
-                          {tradeDetail.record.ticker}
+                          {tradeDetail.record.display_symbol ?? tradeDetail.record.ticker}
                         </h2>
                         <p className="mt-2 font-mono text-[12px] text-slate-500">
                           {tradeDetail.record.trade_id}
@@ -693,6 +938,11 @@ export function TradeJournal({
                       <div className="flex flex-wrap items-center gap-3">
                         <StatusBadge label={tradeDetail.record.side} tone="accent" />
                         <StatusBadge label={tradeDetail.record.status} tone="primary" />
+                        {tradeDetail.record.status.toLowerCase() === "open" ? (
+                          <Button type="button" size="sm" onClick={() => setShowCloseTrade(true)}>
+                            {t("journal.closeTrade", "Close Trade")}
+                          </Button>
+                        ) : null}
                         <Button type="button" variant="secondary" size="sm" onClick={() => setShowEditTrade(true)}>
                           {t("journal.editTrade", "Edit Trade")}
                         </Button>
@@ -711,8 +961,8 @@ export function TradeJournal({
                     </div>
 
                     <TickerPricePanel
-                      symbol={tradeDetail.record.ticker}
-                      market={tradeDetail.record.exchange_or_market}
+                      symbol={tradeDetail.record.canonical_symbol ?? tradeDetail.record.ticker}
+                      market={tradeDetail.record.market}
                       title={t("journal.priceTrend", "Price Trend")}
                       subtitle={t(
                         "journal.priceTrendHint",
@@ -723,7 +973,11 @@ export function TradeJournal({
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <MetaCard
                         label={t("journal.marketExchange", "Market / Exchange")}
-                        value={tradeDetail.record.exchange_or_market}
+                        value={`${tradeDetail.record.market.toUpperCase()}${tradeDetail.record.exchange ? ` · ${tradeDetail.record.exchange}` : ""}`}
+                      />
+                      <MetaCard
+                        label={t("journal.strategyTags", "Strategy Tags")}
+                        value={tradeDetail.record.strategy_tags.join(", ")}
                       />
                       <MetaCard
                         label={t("journal.plannedHorizon", "Planned Horizon")}
@@ -741,6 +995,22 @@ export function TradeJournal({
                         label={t("journal.lastUpdated", "Last Updated")}
                         value={formatDateTime(
                           tradeDetail.record.updated_at,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
+                      />
+                      <MetaCard
+                        label={t("journal.realizedReturn", "Realized Return")}
+                        value={formatPercent(
+                          tradeDetail.record.derived_metrics?.realized_return_pct ?? null,
+                          locale,
+                          t("common.notSet", "Not set")
+                        )}
+                      />
+                      <MetaCard
+                        label={t("journal.rMultiple", "R Multiple")}
+                        value={formatNumber(
+                          tradeDetail.record.derived_metrics?.r_multiple ?? null,
                           locale,
                           t("common.notSet", "Not set")
                         )}
@@ -782,20 +1052,39 @@ export function TradeJournal({
                     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
                       <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
                         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-                          {t("journal.initialThesis", "Initial Thesis")}
+                          {t("journal.entryReason", "Entry Reason")}
                         </p>
                         <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                          {tradeDetail.record.initial_thesis}
+                          {tradeDetail.record.entry_reason}
                         </p>
                       </section>
 
                       <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
                         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-                          {t("journal.notes", "Notes")}
+                          {t("journal.invalidationCondition", "Invalidation Condition")}
                         </p>
                         <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-                          {tradeDetail.record.notes ||
-                            t("journal.noNotes", "No notes saved.")}
+                          {tradeDetail.record.invalidation_condition}
+                        </p>
+                      </section>
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-2">
+                      <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+                          {t("journal.exitReason", "Exit Reason")}
+                        </p>
+                        <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                          {tradeDetail.record.exit_reason ||
+                            t("journal.noExitReason", "No exit reason saved.")}
+                        </p>
+                      </section>
+                      <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
+                        <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+                          {t("journal.planExecution", "Plan Execution")}
+                        </p>
+                        <p className="mt-3 text-sm leading-7 text-slate-700">
+                          {tradeDetail.record.plan_execution.replaceAll("_", " ")}
                         </p>
                       </section>
                     </div>
@@ -928,7 +1217,7 @@ export function TradeJournal({
                           {t(
                             "journal.noReview",
                             ({ reviewType }) =>
-                              `No ${reviewType} saved for this trade yet. Use the manual review editor to add the structured assessment fields required by the backend schema.`,
+                              `No ${reviewType} saved for this trade yet. Same-ticker history is available from the ticker-grouped list on the left.`,
                             {
                               reviewType:
                                 reviewTab === "entry_review"
@@ -966,26 +1255,11 @@ export function TradeJournal({
                             value={selectedReview.outcome_summary}
                           />
 
-                          <div className="grid gap-4 md:grid-cols-3">
-                            <TagCard
-                              label={t(
-                                "journal.improvementActions",
-                                "Improvement Actions"
-                              )}
-                              values={selectedReview.improvement_actions}
-                            />
-                            <TagCard
-                              label={t(
-                                "journal.tickerSpecificLessons",
-                                "Ticker-Specific Lessons"
-                              )}
-                              values={selectedReview.ticker_specific_lessons}
-                            />
-                            <TagCard
-                              label={t("journal.crossTickerTags", "Cross-Ticker Tags")}
-                              values={selectedReview.cross_ticker_tags}
-                            />
-                          </div>
+                          <ReviewFollowupPanel
+                            improvementActions={selectedReview.improvement_actions}
+                            tickerLessons={selectedReview.ticker_specific_lessons}
+                            crossTickerTags={selectedReview.cross_ticker_tags}
+                          />
 
                           <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)]/85 px-4 py-4 text-sm text-slate-600">
                             {t(
@@ -1011,81 +1285,6 @@ export function TradeJournal({
                   </div>
                 )}
               </section>
-
-              <Card className="card-surface p-5 md:p-6">
-                <CardContent className="p-0">
-                <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">
-                      {t("journal.sameTickerFeedback", "Same-Ticker Feedback")}
-                    </p>
-                    <h2 className="mt-2 text-xl font-semibold text-slate-900">
-                      {t(
-                        "journal.futureAnalyses",
-                        "Future analyses will read this saved review context"
-                      )}
-                    </h2>
-                  </div>
-                  {tradeDetail?.record.ticker ? (
-                    <Badge variant="secondary" className="text-slate-500">
-                      {tradeDetail.record.ticker}
-                    </Badge>
-                  ) : null}
-                </div>
-
-                {feedbackError ? (
-                  <div className="mt-4 rounded-3xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
-                    {feedbackError}
-                  </div>
-                ) : loadingFeedback ? (
-                  <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-8 text-sm text-slate-500">
-                    {t(
-                      "journal.loadingFeedback",
-                      "Loading same-ticker feedback preview..."
-                    )}
-                  </div>
-                ) : !feedback || feedback.reviews.length === 0 ? (
-                  <div className="mt-4 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                    {t(
-                      "journal.noFeedback",
-                      "No saved feedback prompt is available yet for this ticker. Once an entry_review or exit_review is stored, later analyses can reuse it."
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-4 space-y-5">
-                    <div className="grid gap-4 md:grid-cols-3">
-                      {feedback.reviews.map((review) => (
-                        <div
-                          key={review.review_id}
-                          className="rounded-3xl border border-[var(--border)] bg-[var(--surface-strong)]/85 p-4"
-                        >
-                          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-                            {review.review_type === "entry_review"
-                              ? t("journal.entryReview", "Entry Review")
-                              : t("journal.exitReview", "Exit Review")}
-                          </p>
-                          <p className="mt-2 font-mono text-[11px] text-slate-500">
-                            {review.trade_id}
-                          </p>
-                          <p className="mt-3 text-sm leading-6 text-slate-700">
-                            {review.outcome_summary}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="rounded-[28px] border border-[var(--border)] bg-[var(--surface-strong)] px-5 py-5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                        {t("journal.promptPreview", "Prompt Preview")}
-                      </p>
-                      <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-3xl bg-white/85 px-4 py-4 font-mono text-[12px] leading-6 text-slate-700">
-                        {feedback.prompt}
-                      </pre>
-                    </div>
-                  </div>
-                )}
-                </CardContent>
-              </Card>
             </div>
           </section>
         </div>
@@ -1108,6 +1307,13 @@ export function TradeJournal({
         onSaved={handleTradeSaved}
       />
 
+      <CloseTradeForm
+        isOpen={showCloseTrade && Boolean(tradeDetail)}
+        record={tradeDetail?.record ?? null}
+        onClose={() => setShowCloseTrade(false)}
+        onSaved={handleTradeSaved}
+      />
+
       {editingReviewType && tradeDetail ? (
         <TradeReviewForm
           isOpen={Boolean(editingReviewType)}
@@ -1120,7 +1326,7 @@ export function TradeJournal({
           }
           onClose={() => setEditingReviewType(null)}
           onGenerateReview={(payload) =>
-            handleGenerateReviewRequested(tradeDetail.record, payload)
+            handleGenerateReviewRequested(tradeDetail.record, editingReviewType, payload)
           }
           onSaved={handleReviewSaved}
         />
@@ -1201,6 +1407,265 @@ function MetaItem({
   );
 }
 
+type ReviewTextMarker =
+  | "Verdict"
+  | "Score"
+  | "Evidence"
+  | "Impact"
+  | "Cannot conclude"
+  | "Record quality"
+  | "Setup"
+  | "Process"
+  | "Confidence"
+  | "Main root cause"
+  | "Remediation";
+
+type ReviewTextLanguage = "zh" | "en";
+
+type LocalizedReviewText = Record<ReviewTextLanguage, string>;
+type DisplayReviewTextMarker = Exclude<ReviewTextMarker, "Cannot conclude">;
+
+const REVIEW_TEXT_MARKER_ALIASES: Record<ReviewTextMarker, string[]> = {
+  Verdict: ["Verdict", "判断"],
+  Score: ["Score", "评分"],
+  Evidence: ["Evidence", "依据", "证据"],
+  Impact: ["Impact", "影响"],
+  "Cannot conclude": ["Cannot conclude"],
+  "Record quality": ["Record quality", "记录质量"],
+  Setup: ["Setup", "形态"],
+  Process: ["Process", "过程"],
+  Confidence: ["Confidence", "置信度"],
+  "Main root cause": ["Main root cause", "主要原因"],
+  Remediation: ["Remediation", "修复要求", "改进要求"],
+};
+
+const REVIEW_TEXT_LABELS: Record<DisplayReviewTextMarker, LocalizedReviewText> = {
+  Verdict: { zh: "判断", en: "Verdict" },
+  Score: { zh: "评分", en: "Score" },
+  Evidence: { zh: "依据", en: "Evidence" },
+  Impact: { zh: "影响", en: "Impact" },
+  "Record quality": { zh: "记录质量", en: "Record quality" },
+  Setup: { zh: "形态", en: "Setup" },
+  Process: { zh: "过程", en: "Process" },
+  Confidence: { zh: "置信度", en: "Confidence" },
+  "Main root cause": { zh: "主要原因", en: "Main root cause" },
+  Remediation: { zh: "修复", en: "Remediation" },
+};
+
+const REVIEW_TERM_LABELS: Record<string, LocalizedReviewText> = {
+  technical_decision_checks: { zh: "技术检查", en: "technical checks" },
+  local_price_history: { zh: "本地价格历史", en: "local price history" },
+  key_metrics: { zh: "关键指标", en: "key metrics" },
+  strategy_tags: { zh: "策略标签", en: "strategy tags" },
+  entry_reason: { zh: "入场理由", en: "entry reason" },
+  initial_thesis: { zh: "初始假设", en: "initial thesis" },
+  invalidation_condition: { zh: "失效条件", en: "invalidation condition" },
+  breakout_level: { zh: "突破位", en: "breakout level" },
+  confirmation_method: { zh: "确认方式", en: "confirmation method" },
+  entry_price: { zh: "入场价", en: "entry price" },
+  previous_20d_high: { zh: "20日高点", en: "20-day high" },
+  entry_vs_previous_20d_high_pct: {
+    zh: "较20日高点",
+    en: "entry vs. 20-day high",
+  },
+  latest_close: { zh: "最新收盘价", en: "latest close" },
+  entry_vs_latest_close_pct: { zh: "较最新收盘价", en: "entry vs. latest close" },
+  volume_vs_20d_avg: { zh: "较20日均量", en: "volume vs. 20-day average" },
+  rsi_14: { zh: "RSI(14)", en: "RSI(14)" },
+  close_vs_sma_20_pct: { zh: "较20日均线", en: "close vs. 20-day SMA" },
+  atr_14: { zh: "ATR(14)", en: "ATR(14)" },
+  stop_loss: { zh: "止损", en: "stop loss" },
+  take_profit: { zh: "止盈", en: "take profit" },
+  planned_horizon: { zh: "计划周期", en: "planned horizon" },
+  plan_execution: { zh: "执行记录", en: "execution record" },
+  external_news: { zh: "外部新闻", en: "external news" },
+  take_profit_or_reward_target: {
+    zh: "止盈或收益目标",
+    en: "take profit or reward target",
+  },
+  testable_invalidation: { zh: "可验证失效条件", en: "testable invalidation" },
+  reward_target: { zh: "收益目标", en: "reward target" },
+  entry_vs_previous_20d_high: {
+    zh: "较20日高点",
+    en: "entry vs. 20-day high",
+  },
+  return_20d_pct: { zh: "20日涨幅", en: "20-day return" },
+  account_risk: { zh: "账户风险", en: "account risk" },
+  risk_reward: { zh: "风险收益比", en: "risk/reward" },
+  position_size: { zh: "仓位", en: "position size" },
+  size: { zh: "仓位", en: "size" },
+  risk_plan_undefined: { zh: "风险计划未定义", en: "risk plan undefined" },
+  breakout_execution_undefined: {
+    zh: "突破执行未定义",
+    en: "breakout execution undefined",
+  },
+  late_breakout_entry: { zh: "突破追高入场", en: "late breakout entry" },
+  overextended_momentum: { zh: "动量延伸过高", en: "overextended momentum" },
+  intraday_chase: { zh: "盘中追涨", en: "intraday chase" },
+  breakout: { zh: "突破", en: "breakout" },
+};
+
+const REVIEW_VALUE_LABELS: Record<string, LocalizedReviewText> = {
+  null: { zh: "未设置", en: "not set" },
+  unknown: { zh: "未记录", en: "unknown" },
+  unavailable: { zh: "不可用", en: "unavailable" },
+  available: { zh: "可用", en: "available" },
+  medium: { zh: "中等", en: "medium" },
+  low: { zh: "低", en: "low" },
+  high: { zh: "高", en: "high" },
+  poor: { zh: "较差", en: "poor" },
+  weak: { zh: "偏弱", en: "weak" },
+  good: { zh: "良好", en: "good" },
+  excellent: { zh: "优秀", en: "excellent" },
+};
+
+interface ReviewTextSegment {
+  label: string | null;
+  body: string;
+}
+
+function formatReviewTextSegments(value: string, locale: string): ReviewTextSegment[] {
+  const normalized = value.trim();
+  if (!normalized) {
+    return [{ label: null, body: "" }];
+  }
+  const language = getReviewTextLanguage(locale);
+
+  const pipeSegments = normalized
+    .split(/\s*\|\s*/u)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+
+  const rawSegments =
+    pipeSegments.length > 1 ? pipeSegments : splitReviewTextByMarkers(normalized);
+
+  return rawSegments
+    .map((segment) => parseReviewTextSegment(segment, language))
+    .filter(isReviewTextSegment);
+}
+
+function splitReviewTextByMarkers(value: string): string[] {
+  const escapedMarkers = getReviewMarkerAliases().map(escapeRegExp);
+  const markerPattern = new RegExp(
+    `(^|[\\s|。；;])(?:${escapedMarkers.join("|")})\\s*[:：]`,
+    "gu"
+  );
+  const matches = [...value.matchAll(markerPattern)];
+
+  if (matches.length <= 1) {
+    return [value];
+  }
+
+  const segments: string[] = [];
+  const firstMarkerIndex = (matches[0].index ?? 0) + matches[0][1].length;
+  const prefix = value.slice(0, firstMarkerIndex).trim();
+
+  if (prefix) {
+    segments.push(prefix);
+  }
+
+  matches.forEach((match, index) => {
+    const start = (match.index ?? 0) + match[1].length;
+    const nextMatch = matches[index + 1];
+    const nextStart = nextMatch
+      ? (nextMatch.index ?? 0) + nextMatch[1].length
+      : value.length;
+    const segment = value.slice(start, nextStart).trim();
+
+    if (segment) {
+      segments.push(segment.replace(/[。；.;]\s*$/u, ""));
+    }
+  });
+
+  return segments;
+}
+
+function parseReviewTextSegment(
+  segment: string,
+  language: ReviewTextLanguage
+): ReviewTextSegment | null {
+  const markerAliases = getReviewMarkerAliases().map(escapeRegExp);
+  const labelMatch = segment.match(
+    new RegExp(`^(${markerAliases.join("|")})\\s*[:：]\\s*(.+)$`, "u")
+  );
+
+  if (!labelMatch) {
+    return { label: null, body: prettifyReviewText(segment, language) };
+  }
+
+  const marker = getReviewTextMarker(labelMatch[1]);
+  if (marker === "Cannot conclude") {
+    return null;
+  }
+
+  return {
+    label: REVIEW_TEXT_LABELS[marker][language],
+    body: prettifyReviewText(labelMatch[2], language),
+  };
+}
+
+function isReviewTextSegment(
+  segment: ReviewTextSegment | null
+): segment is ReviewTextSegment {
+  return segment !== null;
+}
+
+function prettifyReviewText(value: string, localeOrLanguage: string): string {
+  let output = value.trim();
+  const language = getReviewTextLanguage(localeOrLanguage);
+
+  const terms = Object.entries(REVIEW_TERM_LABELS).sort(
+    ([left], [right]) => right.length - left.length
+  );
+  terms.forEach(([term, labels]) => {
+    output = output.replace(
+      new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(term)}(?=$|[^A-Za-z0-9_])`, "giu"),
+      (_, prefix: string) => `${prefix}${labels[language]}`
+    );
+  });
+
+  Object.entries(REVIEW_VALUE_LABELS).forEach(([term, labels]) => {
+    output = output.replace(
+      new RegExp(`(^|[^A-Za-z0-9_])${escapeRegExp(term)}(?=$|[^A-Za-z0-9_])`, "giu"),
+      (_, prefix: string) => `${prefix}${labels[language]}`
+    );
+  });
+
+  const assignmentSeparator = language === "zh" ? "：" : ": ";
+  const clauseSeparator = language === "zh" ? "；" : "; ";
+  const listSeparator = language === "zh" ? "，" : ", ";
+
+  return output
+    .replace(/\s*=\s*/gu, assignmentSeparator)
+    .replace(/\s*;\s*/gu, clauseSeparator)
+    .replace(/\s*,\s*/gu, listSeparator)
+    .replace(/\s{2,}/gu, " ");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+}
+
+function getReviewMarkerAliases(): string[] {
+  return Object.values(REVIEW_TEXT_MARKER_ALIASES)
+    .flat()
+    .sort((left, right) => right.length - left.length);
+}
+
+function getReviewTextMarker(value: string): ReviewTextMarker {
+  const normalized = value.trim().toLowerCase();
+  for (const [marker, aliases] of Object.entries(REVIEW_TEXT_MARKER_ALIASES)) {
+    if (aliases.some((alias) => alias.toLowerCase() === normalized)) {
+      return marker as ReviewTextMarker;
+    }
+  }
+  return "Verdict";
+}
+
+function getReviewTextLanguage(locale: string): ReviewTextLanguage {
+  return locale.toLowerCase().startsWith("zh") ? "zh" : "en";
+}
+
 function ReviewCard({
   label,
   value,
@@ -1208,48 +1673,123 @@ function ReviewCard({
   label: string;
   value: string;
 }) {
+  const { locale } = usePreferences();
+  const segments = formatReviewTextSegments(value, locale);
+
   return (
-    <div className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]/80 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+    <div className="rounded-[26px] border border-[var(--border)] bg-white/70 p-5 shadow-[0_18px_36px_rgba(18,28,41,0.035)]">
+      <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">
         {label}
       </p>
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
-        {value}
-      </p>
+      <div className="mt-4 space-y-2 text-sm leading-7 text-slate-700">
+        {segments.map((segment, index) => (
+          <p
+            key={`${segment.label ?? "text"}-${index}`}
+            className="whitespace-pre-wrap"
+          >
+            {segment.label ? (
+              <span className="mr-2 font-semibold text-slate-900">
+                {segment.label}:
+              </span>
+            ) : null}
+            {segment.body}
+          </p>
+        ))}
+      </div>
     </div>
   );
 }
 
-function TagCard({
-  label,
-  values,
+function ReviewFollowupPanel({
+  improvementActions,
+  tickerLessons,
+  crossTickerTags,
 }: {
-  label: string;
-  values: string[];
+  improvementActions: string[];
+  tickerLessons: string[];
+  crossTickerTags: string[];
 }) {
-  const { t } = usePreferences();
+  const { locale, t } = usePreferences();
+
   return (
-    <div className="rounded-[26px] border border-[var(--border)] bg-[var(--surface-strong)]/80 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-        {label}
-      </p>
-      <div className="mt-4 flex flex-wrap gap-2">
-        {values.length === 0 ? (
-          <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs text-slate-500">
-            {t("journal.noneSaved", "None saved")}
-          </span>
-        ) : (
-          values.map((value) => (
-            <span
-              key={value}
-              className="rounded-full border border-[var(--border)] bg-white px-3 py-1 text-xs font-medium text-slate-700"
-            >
-              {value}
-            </span>
-          ))
-        )}
-      </div>
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+      <section className="rounded-[26px] border border-[var(--border)] bg-white/70 p-5 shadow-[0_18px_36px_rgba(18,28,41,0.035)]">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">
+          {t("journal.improvementActions", "Improvement Actions")}
+        </p>
+        <ReviewListItems
+          values={improvementActions}
+          emptyLabel={t("journal.noneSaved", "None saved")}
+          locale={locale}
+        />
+      </section>
+
+      <section className="rounded-[26px] border border-[var(--border)] bg-white/70 p-5 shadow-[0_18px_36px_rgba(18,28,41,0.035)]">
+        <p className="text-xs font-semibold tracking-[0.18em] text-slate-500">
+          {t("journal.tickerSpecificLessons", "Ticker-Specific Lessons")}
+        </p>
+        <ReviewListItems
+          values={tickerLessons}
+          emptyLabel={t("journal.noneSaved", "None saved")}
+          locale={locale}
+          compact
+        />
+
+        {crossTickerTags.length > 0 ? (
+          <div className="mt-5 border-t border-[var(--border)] pt-4">
+            <p className="mb-3 text-xs font-semibold tracking-[0.18em] text-slate-500">
+              {t("journal.crossTickerTags", "Cross-Ticker Tags")}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {crossTickerTags.map((value) => (
+                <span
+                  key={value}
+                  className="rounded-full border border-[var(--border)] bg-white/60 px-3 py-1 text-xs font-medium text-slate-600"
+                >
+                  {prettifyReviewText(value, locale)}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </section>
     </div>
+  );
+}
+
+function ReviewListItems({
+  values,
+  emptyLabel,
+  locale,
+  compact = false,
+}: {
+  values: string[];
+  emptyLabel: string;
+  locale: string;
+  compact?: boolean;
+}) {
+  if (values.length === 0) {
+    return (
+      <p className="mt-4 rounded-[18px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-slate-500">
+        {emptyLabel}
+      </p>
+    );
+  }
+
+  return (
+    <ol className={cn("mt-4 space-y-3 text-sm leading-7 text-slate-700", compact && "space-y-2")}>
+      {values.map((value, index) => (
+        <li
+          key={`${value}-${index}`}
+          className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3"
+        >
+          <span className="mt-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--surface-strong)] text-[11px] font-semibold text-[var(--primary-strong)]">
+            {index + 1}
+          </span>
+          <span>{prettifyReviewText(value, locale)}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
@@ -1283,6 +1823,15 @@ function formatNumber(value: number | null, locale: string, notSetLabel: string)
   return new Intl.NumberFormat(locale, {
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatPercent(value: number | null, locale: string, notSetLabel: string): string {
+  if (typeof value !== "number") {
+    return notSetLabel;
+  }
+  return `${new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 2,
+  }).format(value)}%`;
 }
 
 function formatDateTime(value: string | null, locale: string, notSetLabel: string): string {
@@ -1323,6 +1872,24 @@ function localizeTradeValue(
   return value;
 }
 
+function compactTickerLabel(value: string): string {
+  if (value.length <= 8) {
+    return value;
+  }
+  return value.slice(0, 7);
+}
+
+function compareTradesNewestFirst(left: TradeRecord, right: TradeRecord): number {
+  const leftTimestamp = activityTimestamp(left) ?? 0;
+  const rightTimestamp = activityTimestamp(right) ?? 0;
+
+  if (rightTimestamp !== leftTimestamp) {
+    return rightTimestamp - leftTimestamp;
+  }
+
+  return right.trade_id.localeCompare(left.trade_id);
+}
+
 function withinTimeWindow(record: TradeRecord, timeWindow: TimeWindow): boolean {
   if (timeWindow === "all") {
     return true;
@@ -1342,6 +1909,17 @@ function withinTimeWindow(record: TradeRecord, timeWindow: TimeWindow): boolean 
         : 365 * 24 * 60 * 60 * 1000;
 
   return now - timestamp <= maxAgeMs;
+}
+
+function activityDateValue(record: TradeRecord): string | null {
+  const candidates = [
+    record.updated_at,
+    record.exit_timestamp,
+    record.entry_timestamp,
+    record.created_at,
+  ];
+
+  return candidates.find((candidate) => Boolean(candidate)) ?? null;
 }
 
 function activityTimestamp(record: TradeRecord): number | null {

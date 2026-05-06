@@ -17,7 +17,7 @@ test("TradeReviewForm keeps manual entry and exit reviews focused on price-actio
   assert.match(source, /Entry Review/);
   assert.match(source, /Exit Review/);
   assert.match(source, /Manual Adjustments/);
-  assert.match(source, /The original thesis and notes are already part of the trade record/);
+  assert.match(source, /The original trade plan and reasons are already part of the trade record/);
   assert.match(source, /buildDefaultDecisionContext/);
   assert.match(source, /Price Assessment/);
   assert.match(source, /Next-Time Guardrail/);
@@ -44,10 +44,10 @@ test("TradeReviewForm can request an AI-generated review before manual editing",
   assert.doesNotMatch(source, /createTradeReview/);
   assert.match(source, /generateReview/);
   assert.match(source, /onGenerateReview/);
-  assert.match(source, /review_type: reviewType/);
   assert.doesNotMatch(source, /Apply generated review/);
-  assert.match(source, /llm_provider/);
-  assert.match(source, /model/);
+  assert.match(source, /admin-configured trade journal review model/);
+  assert.doesNotMatch(source, /llm_provider/);
+  assert.doesNotMatch(source, /model:/);
 });
 
 test("TradeReviewForm treats linked snapshots as optional AI context", () => {

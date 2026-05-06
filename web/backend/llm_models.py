@@ -31,12 +31,17 @@ LLM_MODEL_TABLES = (
     "llm_model_configs",
     "llm_model_profiles",
     "llm_model_profile_routes",
+    "llm_module_settings",
     "llm_model_usage",
 )
 
 VALID_COST_TIERS = {"low", "medium", "high", "premium"}
 VALID_PROFILE_MODES = {"quick", "deep"}
 VALID_ROLES = {"admin", "operator", "viewer"}
+VALID_MODULE_SETTINGS = {"trade_journal_review"}
+VALID_OUTPUT_LANGUAGES = {"en", "cn"}
+VALID_OPENAI_REASONING_EFFORTS = {"low", "medium", "high"}
+VALID_GOOGLE_THINKING_LEVELS = {"high", "minimal"}
 
 
 def _utcnow() -> datetime:
@@ -119,6 +124,25 @@ class LLMModelProfileRoute(auth.Base):
     provider: Mapped[str] = mapped_column(String(64), nullable=False)
     model_id: Mapped[str] = mapped_column(String(192), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+
+
+class LLMModuleSetting(auth.Base):
+    __tablename__ = "llm_module_settings"
+
+    module: Mapped[str] = mapped_column(String(64), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    model_profile: Mapped[str] = mapped_column(String(64), nullable=False, default="balanced")
+    output_language: Mapped[str] = mapped_column(String(8), nullable=False, default="cn")
+    custom_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    custom_model: Mapped[str | None] = mapped_column(String(192), nullable=True)
+    openai_reasoning_effort: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    google_thinking_level: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        onupdate=_utcnow,
+    )
 
 
 class LLMModelUsage(auth.Base):
@@ -388,6 +412,23 @@ def _default_profile_rows() -> list[dict[str, Any]]:
     ]
 
 
+def _default_module_settings() -> dict[str, dict[str, Any]]:
+    return {
+        "trade_journal_review": {
+            "module": "trade_journal_review",
+            "label": "Trade Journal AI Review",
+            "description": "Automatically generate entry and exit trade reviews after manual journal updates.",
+            "enabled": False,
+            "model_profile": "balanced",
+            "output_language": "cn",
+            "custom_provider": None,
+            "custom_model": None,
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": "high",
+        }
+    }
+
+
 def _default_routes(profile_id: str) -> list[ModelRoute]:
     for profile in STATIC_MODEL_PROFILES:
         if profile.value == profile_id:
@@ -469,6 +510,67 @@ def resolve_model_profile_from_db(profile_id: str) -> ResolvedModelSelection:
     raise ValueError(f"Model profile '{normalized}' has no available provider route")
 
 
+def _module_setting_payload(row: LLMModuleSetting | None, module: str) -> dict[str, Any]:
+    defaults = _default_module_settings()[module]
+    if row is None:
+        return dict(defaults)
+    return {
+        **defaults,
+        "enabled": row.enabled,
+        "model_profile": row.model_profile,
+        "output_language": row.output_language,
+        "custom_provider": row.custom_provider,
+        "custom_model": row.custom_model,
+        "openai_reasoning_effort": row.openai_reasoning_effort,
+        "google_thinking_level": row.google_thinking_level,
+    }
+
+
+def get_module_setting(module: str) -> dict[str, Any]:
+    normalized = module.strip().lower()
+    if normalized not in VALID_MODULE_SETTINGS:
+        raise ValueError(f"Unknown LLM module setting '{module}'")
+    if not database_backed_llm_models_enabled():
+        return dict(_default_module_settings()[normalized])
+    with auth.db_session() as db:
+        return _module_setting_payload(db.get(LLMModuleSetting, normalized), normalized)
+
+
+def resolve_module_model_selection(module: str) -> dict[str, Any] | None:
+    setting = get_module_setting(module)
+    if not setting["enabled"]:
+        return None
+    profile = str(setting["model_profile"]).strip().lower()
+    if profile == "custom":
+        provider = str(setting.get("custom_provider") or "").strip().lower()
+        model = str(setting.get("custom_model") or "").strip()
+        if not provider or not model:
+            raise ValueError("Custom module model settings require provider and model")
+        return {
+            "module": setting["module"],
+            "model_profile": "custom",
+            "llm_provider": provider,
+            "model": model,
+            "output_language": setting["output_language"],
+            "openai_reasoning_effort": setting["openai_reasoning_effort"],
+            "google_thinking_level": setting["google_thinking_level"],
+        }
+    resolved = (
+        resolve_model_profile_from_db(profile)
+        if database_backed_llm_models_enabled()
+        else resolve_model_profile(profile)
+    )
+    return {
+        "module": setting["module"],
+        "model_profile": resolved.model_profile,
+        "llm_provider": resolved.llm_provider,
+        "model": resolved.deep_think_llm,
+        "output_language": setting["output_language"],
+        "openai_reasoning_effort": setting["openai_reasoning_effort"],
+        "google_thinking_level": setting["google_thinking_level"],
+    }
+
+
 def ensure_model_selection_available(provider: str, quick_model: str, deep_model: str) -> None:
     if not database_backed_llm_models_enabled():
         return
@@ -482,7 +584,13 @@ def ensure_model_selection_available(provider: str, quick_model: str, deep_model
 
 def list_llm_model_summary() -> dict[str, Any]:
     if not database_backed_llm_models_enabled():
-        return {"date": _today_key(), "providers": [], "models": [], "profiles": []}
+        return {
+            "date": _today_key(),
+            "providers": [],
+            "models": [],
+            "profiles": [],
+            "module_settings": list(_default_module_settings().values()),
+        }
 
     usage_date = _today_key()
     with auth.db_session() as db:
@@ -531,6 +639,10 @@ def list_llm_model_summary() -> dict[str, Any]:
             ],
             "models": models,
             "profiles": sorted(profiles, key=lambda item: int(item["sort_order"])),
+            "module_settings": [
+                _module_setting_payload(db.get(LLMModuleSetting, module), module)
+                for module in sorted(VALID_MODULE_SETTINGS)
+            ],
         }
 
 
@@ -735,6 +847,85 @@ def update_profile_routes(profile_id: str, routes: list[dict[str, Any]]) -> list
             }
             for index, route in enumerate(_profile_routes_from_db(db, normalized))
         ]
+
+
+def update_module_setting(
+    module: str,
+    *,
+    enabled: bool,
+    model_profile: str,
+    output_language: str,
+    custom_provider: str | None = None,
+    custom_model: str | None = None,
+    openai_reasoning_effort: str | None,
+    google_thinking_level: str | None,
+) -> dict[str, Any]:
+    normalized = module.strip().lower()
+    if normalized not in VALID_MODULE_SETTINGS:
+        raise ValueError(f"Unknown LLM module setting '{module}'")
+    profile = model_profile.strip().lower()
+    provider = custom_provider.strip().lower() if custom_provider else None
+    model = custom_model.strip() if custom_model else None
+    if profile == "custom":
+        if not provider or not model:
+            raise ValueError("Custom module model settings require provider and model")
+    else:
+        provider = None
+        model = None
+        try:
+            get_model_profile(profile)
+        except KeyError as exc:
+            raise ValueError(f"Unknown model profile '{model_profile}'") from exc
+    language = output_language.strip().lower()
+    if language not in VALID_OUTPUT_LANGUAGES:
+        raise ValueError("output_language must be en or cn")
+    openai_effort = (
+        openai_reasoning_effort.strip().lower()
+        if openai_reasoning_effort
+        else None
+    )
+    if openai_effort is not None and openai_effort not in VALID_OPENAI_REASONING_EFFORTS:
+        raise ValueError("openai_reasoning_effort must be low, medium, or high")
+    google_level = (
+        google_thinking_level.strip().lower()
+        if google_thinking_level
+        else None
+    )
+    if google_level is not None and google_level not in VALID_GOOGLE_THINKING_LEVELS:
+        raise ValueError("google_thinking_level must be high or minimal")
+
+    if not database_backed_llm_models_enabled():
+        return {
+            **_default_module_settings()[normalized],
+            "enabled": enabled,
+            "model_profile": profile,
+            "output_language": language,
+            "custom_provider": provider,
+            "custom_model": model,
+            "openai_reasoning_effort": openai_effort,
+            "google_thinking_level": google_level,
+        }
+
+    with auth.db_session() as db:
+        if profile == "custom":
+            model_payload = _model_payload(db, provider or "", model or "")
+            if model_payload is None:
+                raise ValueError(f"Unknown model '{model}' for provider '{provider}'")
+            if not model_payload["supports_deep"]:
+                raise ValueError("Custom module model must support deep analysis")
+        row = db.get(LLMModuleSetting, normalized)
+        if row is None:
+            row = LLMModuleSetting(module=normalized)
+            db.add(row)
+        row.enabled = enabled
+        row.model_profile = profile
+        row.output_language = language
+        row.custom_provider = provider
+        row.custom_model = model
+        row.openai_reasoning_effort = openai_effort
+        row.google_thinking_level = google_level
+        db.flush()
+        return _module_setting_payload(row, normalized)
 
 
 def record_model_usage(

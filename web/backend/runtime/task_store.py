@@ -62,6 +62,7 @@ class InMemoryTaskStore:
             self.ids.setdefault(kind, []).remove(task_id)
 
     def list_tasks(self, kind: str) -> list[dict]:
+        self.tasks.setdefault(kind, {})
         return [
             dict(self.tasks[kind][task_id])
             for task_id in self.ids.setdefault(kind, [])

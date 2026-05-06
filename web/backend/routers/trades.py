@@ -6,7 +6,7 @@ from web.backend import access, auth
 from web.backend.schemas.trades import (
     TradeRecordCreatePayload,
     TradeRecordUpdatePayload,
-    TradeReviewCreatePayload,
+    TradeReviewGeneratePayload,
     TradeReviewSavePayload,
 )
 from web.backend.services import trades as trade_service
@@ -25,6 +25,12 @@ def _require_journal_permission(request: Request | None, permission: str) -> Non
 def list_trades(ticker: str | None = None, request: Request = None) -> list[dict]:
     _require_journal_permission(request, auth.PERMISSION_JOURNAL_READ)
     return trade_service.list_trades(ticker=ticker, request=request)
+
+
+@router.get("/api/journal/review-tasks")
+def list_trade_review_activity(request: Request = None) -> list[dict]:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_READ)
+    return trade_service.list_trade_review_activity(request)
 
 
 @router.post("/api/trades")
@@ -55,14 +61,20 @@ def get_trade_reviews(trade_id: str, request: Request = None) -> list[dict]:
     return trade_service.get_trade_reviews(trade_id, request)
 
 
-@router.post("/api/trades/{trade_id}/reviews")
-def create_trade_review(
+@router.post("/api/trades/{trade_id}/reviews/{review_type}/generate")
+def generate_trade_review(
     trade_id: str,
-    payload: TradeReviewCreatePayload,
+    review_type: str,
+    payload: TradeReviewGeneratePayload,
     request: Request = None,
 ) -> dict:
     _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
-    return trade_service.create_trade_review(trade_id, payload, request)
+    return trade_service.generate_configured_trade_review(
+        trade_id,
+        review_type,
+        payload,
+        request,
+    )
 
 
 @router.put(

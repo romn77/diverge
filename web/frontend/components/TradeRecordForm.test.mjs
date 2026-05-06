@@ -17,16 +17,17 @@ test("TradeRecordForm keeps the manual trade payload aligned with backend schema
   assert.doesNotMatch(source, /role="dialog"/);
   assert.match(source, /createTrade/);
   assert.match(source, /updateTrade/);
-  assert.match(source, /ticker:\s*string/);
-  assert.match(source, /exchange_or_market:\s*string/);
+  assert.match(source, /resolveMarketSymbol/);
+  assert.match(source, /raw_symbol:\s*string/);
+  assert.match(source, /strategy_tags:\s*string\[]/);
+  assert.match(source, /entry_reason:\s*string/);
+  assert.match(source, /invalidation_condition:\s*string/);
   assert.match(source, /entry_timestamp:\s*string/);
-  assert.match(source, /exit_timestamp:\s*string/);
-  assert.match(source, /initial_thesis:\s*string/);
   assert.match(source, /planned_horizon:\s*string/);
   assert.match(source, /analysis_references:\s*AnalysisReference\[]/);
-  assert.match(source, /Capture a hand-entered trade record for the manual review\./);
-  assert.match(source, /Bind analysis snapshots instead of copying full reports/);
-  assert.match(source, /Quick add from reports/);
+  assert.match(source, /Capture the setup, trigger, invalidation, and risk plan/);
+  assert.match(source, /Market Resolution/);
+  assert.match(source, /Strategy Tags/);
   assert.match(source, /Add Blank Reference/);
 });
 
@@ -35,15 +36,16 @@ test("TradeRecordForm derives report and full-state-log paths from the MAY-8 con
 
   assert.match(source, /buildReferenceFromReport/);
   assert.match(source, /data\/reports\/\$?\{?report\.id\}?\/complete_report\.md/);
-  assert.match(source, /data\/eval_results\/\$?\{?report\.ticker\}?\/DivergeStrategy_logs\/full_states_log_/);
+  assert.match(source, /full_state_log_path:\s*""/);
   assert.match(source, /normalizeAnalysisReferences/);
   assert.match(source, /Snapshot reference \${index \+ 1} is incomplete\./);
+  assert.match(source, /!analysisDate \|\| !reportPath/);
 });
 
 test("TradeRecordForm preserves offset-aware timestamps through the datetime-local editor", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /normalizeOptionalTimestamp/);
+  assert.match(source, /normalizeRequiredTimestamp/);
   assert.match(source, /toOffsetDateTimeString/);
   assert.match(source, /getTimezoneOffset/);
   assert.equal(source.includes('return value.replace("Z", "").slice(0, 16);'), false);
@@ -57,11 +59,11 @@ test("TradeRecordForm hides native scrollbar chrome while keeping internal modal
   assert.match(source, /scrollbar-hidden/);
 });
 
-test("TradeRecordForm normalizes persisted trade statuses before binding the Select", () => {
+test("TradeRecordForm keeps market and status out of the primary manual fields", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /function normalizeTradeStatus/);
-  assert.match(source, /normalized === "close" \|\| normalized === "closed"/);
-  assert.match(source, /status: normalizeTradeStatus\(record\?\.status \?\? "open"\)/);
-  assert.match(source, /status: normalizeTradeStatus\(requireText\(state\.status/);
+  assert.doesNotMatch(source, /status:\s*string/);
+  assert.doesNotMatch(source, /exchange_or_market:\s*string/);
+  assert.match(source, /market_override/);
+  assert.match(source, /source: "manual"/);
 });
