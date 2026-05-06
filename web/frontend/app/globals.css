@@ -622,10 +622,6 @@ input {
   margin-inline: auto;
 }
 
-.analysis-density-page .workbench-content-frame {
-  width: min(100%, clamp(68rem, 90vw, 90rem));
-}
-
 .workbench-page-shell {
   padding: 0.8rem 1rem 1.6rem;
 }

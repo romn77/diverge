@@ -22,17 +22,17 @@ test("ReportViewer uses sticky headers with pressed-state navigation buttons", (
   assert.equal(source.includes('role="tablist"'), false);
 });
 
-test("ReportViewer lets the reading surface use the full content column", () => {
+test("ReportViewer uses the shared workbench width frame for report pages", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
-  assert.match(source, /viewer-frame mx-auto min-w-0 w-full max-w-full/);
-  assert.match(source, /flex min-w-0 max-w-full flex-1 flex-col/);
+  assert.match(source, /analysis-density-page workbench-page-shell/);
+  assert.match(source, /className="workbench-content-frame"/);
+  assert.match(source, /className="viewer-frame min-w-0 w-full"/);
   assert.match(source, /report-reading-frame/);
   assert.match(source, /min-w-0 w-full max-w-full/);
   assert.match(source, /TabsList className="scrollbar-none flex min-w-0 w-full max-w-full/);
-  assert.equal(source.includes("max-w-[1080px]"), false);
-  assert.equal(source.includes("max-w-[76rem]"), false);
-  assert.equal(source.includes("max-w-[1260px]"), false);
+  assert.doesNotMatch(source, /viewer-frame mx-auto min-w-0 w-full max-w-full/);
+  assert.equal(source.includes("max-w-none"), false);
   assert.equal(source.includes("reader-frame"), false);
   assert.equal(source.includes("md:h-screen"), false);
   assert.equal(source.includes("overflow-y-auto"), false);
@@ -90,6 +90,16 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
     tickerPanelIndex > panelIndex,
     "overview companion should own the ticker price panel rendering"
   );
+});
+
+test("ReportViewer localizes report hierarchy file labels consistently", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /function localizeFileLabel/);
+  assert.match(source, /t\(`report\.file\.\$\{file\}`/);
+  assert.match(source, /const selectedFileLabel = selectedFile \? localizeFileLabel\(selectedFile, t\) : null/);
+  assert.match(source, /\{localizeFileLabel\(file, t\)\}/);
+  assert.doesNotMatch(source, /\{FILE_LABELS\[file\] \|\| file\}/);
 });
 
 test("ReportViewer lets the top overview panel collapse above the report body", () => {

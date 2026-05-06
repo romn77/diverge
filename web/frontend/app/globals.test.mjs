@@ -74,11 +74,11 @@ test("globals.css keeps the page background stable across long scrolling pages",
   assert.match(source, /html\[data-theme="dark"\]\[data-visual-style="stylful"\] body\s*\{[\s\S]*?background-attachment:\s*fixed, fixed, fixed;/);
 });
 
-test("globals.css scopes denser analysis page sizing without changing every workbench page", () => {
+test("globals.css keeps analysis pages on the shared workbench content width", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 
-  assert.match(source, /\.analysis-density-page \.workbench-content-frame\s*\{/);
-  assert.match(source, /width:\s*min\(100%, clamp\(68rem, 90vw, 90rem\)\);/);
+  assert.doesNotMatch(source, /\.analysis-density-page \.workbench-content-frame\s*\{/);
+  assert.match(source, /width:\s*min\(100%, clamp\(72rem, 92vw, 100rem\)\);/);
   assert.match(source, /\.analysis-overview-title\s*\{[\s\S]*?font-size:\s*2rem;/);
   assert.match(source, /\.analysis-overview-metric \.metric-card-value\s*\{[\s\S]*?font-size:\s*1\.55rem;/);
   assert.match(source, /\.analysis-report-group\s*\{[\s\S]*?border-radius:\s*22px;/);

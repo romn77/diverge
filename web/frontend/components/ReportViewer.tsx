@@ -44,6 +44,13 @@ const FILE_LABELS: Record<string, string> = {
 
 const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
 
+function localizeFileLabel(
+  file: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return t(`report.file.${file}`, FILE_LABELS[file] || file);
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -410,9 +417,7 @@ export function ReportViewer({
       : selectedCategoryMeta
         ? t(`report.category.${selectedTab}`, selectedCategoryMeta.label)
         : null;
-  const selectedFileLabel = selectedFile
-    ? t(`report.file.${selectedFile}`, FILE_LABELS[selectedFile] || selectedFile)
-    : null;
+  const selectedFileLabel = selectedFile ? localizeFileLabel(selectedFile, t) : null;
   const generatedLabel = formatGeneratedLabel(
     reportMeta,
     locale,
@@ -458,25 +463,28 @@ export function ReportViewer({
 
   if (!structure) {
     return (
-      <div className="flex min-w-0 flex-1 flex-col p-2 md:p-3 lg:p-4">
-        <div className="viewer-frame mx-auto flex w-full items-center justify-center p-8 text-sm text-slate-600">
-          {isLoading
-            ? t("report.loadingReport", "Loading report...")
-            : error
-              ? `${t("report.errorPrefix", "Error")}: ${error}`
-              : t("report.noReportData", "No report data")}
+      <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+        <div className="workbench-content-frame">
+          <div className="viewer-frame flex w-full items-center justify-center p-8 text-sm text-slate-600">
+            {isLoading
+              ? t("report.loadingReport", "Loading report...")
+              : error
+                ? `${t("report.errorPrefix", "Error")}: ${error}`
+                : t("report.noReportData", "No report data")}
+          </div>
         </div>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden p-2 md:p-3 lg:p-4">
-      <section
-        id="report-content-panel"
-        className="viewer-frame mx-auto min-w-0 w-full max-w-full"
-        aria-live="polite"
-      >
+    <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] min-w-0 flex-1 flex-col overflow-x-hidden">
+      <div className="workbench-content-frame">
+        <section
+          id="report-content-panel"
+          className="viewer-frame min-w-0 w-full"
+          aria-live="polite"
+        >
         <div className="min-w-0 max-w-full">
           <div className="min-w-0 max-w-full px-4 pt-6 md:px-8 md:pt-8">
             <div className="min-w-0 w-full max-w-full">
@@ -679,7 +687,7 @@ export function ReportViewer({
                         className="whitespace-nowrap"
                         aria-controls="report-content-panel"
                       >
-                        {FILE_LABELS[file] || file}
+                        {localizeFileLabel(file, t)}
                       </Button>
                     ))}
                   </div>
@@ -743,8 +751,9 @@ export function ReportViewer({
             </div>
           </div>
         </div>
-      </section>
-    </div>
+        </section>
+      </div>
+    </main>
   );
 }
 
