@@ -56,10 +56,10 @@ After your complete decision, append a structured highlights block in the follow
 ```json-highlights
 {{
   "category": "research_decision",
-  "signal": "BUY or HOLD or SELL",
+  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your ruling",
-  "decision": "BUY or HOLD or SELL",
+  "decision": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "aligned_with": "bull or bear",
   "rationale": "one sentence explaining why you sided this way",
   "action_items": ["action 1", "action 2", "action 3"]

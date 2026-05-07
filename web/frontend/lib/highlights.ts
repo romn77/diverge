@@ -1,4 +1,9 @@
-export type TradeSignal = "BUY" | "HOLD" | "SELL";
+export type TradeSignal =
+  | "BUY"
+  | "OVERWEIGHT"
+  | "HOLD"
+  | "UNDERWEIGHT"
+  | "SELL";
 export type SignalConfidence = "high" | "medium" | "low";
 
 export interface BaseHighlights {
@@ -114,7 +119,17 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 
 const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
 const HIGHLIGHTS_BLOCK_RE_GLOBAL = /```json-highlights[ \t]*\r?\n[\s\S]*?\r?\n?```/g;
-const FINAL_PROPOSAL_RE = /FINAL\s+TRANSACTION\s+PROPOSAL:\s*\**\s*(BUY|HOLD|SELL)\s*\**/i;
+const DECISION_CARD_BLOCK_RE_GLOBAL =
+  /```json-decision-card[ \t]*\r?\n[\s\S]*?\r?\n?```/g;
+const TRADE_SIGNALS = [
+  "BUY",
+  "OVERWEIGHT",
+  "HOLD",
+  "UNDERWEIGHT",
+  "SELL",
+] as const;
+const FINAL_PROPOSAL_RE =
+  /FINAL\s+TRANSACTION\s+PROPOSAL:\s*\**\s*(BUY|OVERWEIGHT|HOLD|UNDERWEIGHT|SELL)\s*\**/i;
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -139,7 +154,7 @@ function extractSignalFromMarkdown(markdown: string): TradeSignal | null {
   }
 
   const signal = match[1].toUpperCase();
-  if (signal === "BUY" || signal === "HOLD" || signal === "SELL") {
+  if (isEnumValue(signal, TRADE_SIGNALS)) {
     return signal;
   }
   return null;
@@ -154,7 +169,7 @@ function validateBaseHighlights(value: unknown): value is BaseHighlights {
     return false;
   }
 
-  if (!isEnumValue(value.signal, ["BUY", "HOLD", "SELL"] as const)) {
+  if (!isEnumValue(value.signal, TRADE_SIGNALS)) {
     return false;
   }
 
@@ -290,7 +305,7 @@ function validateResearchManagerHighlights(value: unknown): value is ResearchMan
 
   return (
     validateBaseHighlights(value) &&
-    isEnumValue(value.decision, ["BUY", "HOLD", "SELL"] as const) &&
+    isEnumValue(value.decision, TRADE_SIGNALS) &&
     isEnumValue(value.aligned_with, ["bull", "bear"] as const) &&
     isString(value.rationale) &&
     isStringArray(value.action_items)
@@ -304,7 +319,7 @@ function validateTraderHighlights(value: unknown): value is TraderHighlights {
 
   if (
     !validateBaseHighlights(value) ||
-    !isEnumValue(value.decision, ["BUY", "HOLD", "SELL"] as const) ||
+    !isEnumValue(value.decision, TRADE_SIGNALS) ||
     !isObject(value.entry_exit)
   ) {
     return false;
@@ -343,7 +358,7 @@ function validatePortfolioDecisionHighlights(value: unknown): value is Portfolio
 
   if (
     !validateBaseHighlights(value) ||
-    !isEnumValue(value.final_decision, ["BUY", "HOLD", "SELL"] as const) ||
+    !isEnumValue(value.final_decision, TRADE_SIGNALS) ||
     !isString(value.decision_basis) ||
     !Array.isArray(value.strategic_actions) ||
     !isStringArray(value.risk_warnings)
@@ -399,7 +414,7 @@ export function parseHighlights(markdown: string): {
   if (!firstBlock) {
     return {
       highlights: null,
-      cleanMarkdown: markdown,
+      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }
 
@@ -407,7 +422,7 @@ export function parseHighlights(markdown: string): {
   if (!rawJson) {
     return {
       highlights: null,
-      cleanMarkdown: markdown,
+      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }
 
@@ -417,14 +432,14 @@ export function parseHighlights(markdown: string): {
   } catch {
     return {
       highlights: null,
-      cleanMarkdown: markdown,
+      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }
 
   if (!isObject(parsed)) {
     return {
       highlights: null,
-      cleanMarkdown: markdown,
+      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }
 
@@ -438,16 +453,22 @@ export function parseHighlights(markdown: string): {
   if (!validateReportHighlights(parsed)) {
     return {
       highlights: null,
-      cleanMarkdown: markdown,
+      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }
 
   return {
     highlights: parsed,
-    cleanMarkdown: stripHighlightsBlocks(markdown),
+    cleanMarkdown: stripStructuredDecisionBlocks(markdown),
   };
 }
 
 export function stripHighlightsBlocks(markdown: string): string {
   return markdown.replace(HIGHLIGHTS_BLOCK_RE_GLOBAL, "");
+}
+
+export function stripStructuredDecisionBlocks(markdown: string): string {
+  return markdown
+    .replace(HIGHLIGHTS_BLOCK_RE_GLOBAL, "")
+    .replace(DECISION_CARD_BLOCK_RE_GLOBAL, "");
 }

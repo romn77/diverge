@@ -224,6 +224,7 @@ class AnalysisProgress:
     agent_status: dict[str, str]
     current_agent: Optional[str]
     message: Optional[str] = None
+    warnings: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -273,6 +274,7 @@ class AnalysisTracker:
         self.report_sections["investment_plan"] = None
         self.report_sections["trader_investment_plan"] = None
         self.report_sections["final_trade_decision"] = None
+        self.runtime_warnings: list[dict[str, str]] = []
 
     def mark_started(self) -> None:
         if not self.selected_analysts:
@@ -304,6 +306,11 @@ class AnalysisTracker:
         if message:
             dirty = True
 
+        warning_message = self._consume_runtime_warnings(chunk)
+        if warning_message:
+            message = warning_message
+            dirty = True
+
         if self._update_analyst_statuses(chunk):
             dirty = True
 
@@ -332,7 +339,25 @@ class AnalysisTracker:
             agent_status=dict(self.agent_status),
             current_agent=self.current_agent,
             message=message,
+            warnings=list(self.runtime_warnings),
         )
+
+    def _consume_runtime_warnings(self, chunk: dict) -> Optional[str]:
+        incoming = chunk.get("runtime_warnings")
+        if not isinstance(incoming, list):
+            return None
+
+        latest_message = None
+        for warning in incoming:
+            if not isinstance(warning, dict):
+                continue
+            normalized = {str(key): str(value) for key, value in warning.items()}
+            if normalized in self.runtime_warnings:
+                continue
+            self.runtime_warnings.append(normalized)
+            latest_message = normalized.get("message") or "Runtime warning recorded."
+
+        return f"Warning: {latest_message}" if latest_message else None
 
     def _build_stage_status(self) -> dict[str, str]:
         stage_status = {}
@@ -690,6 +715,18 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
                 f"## V. Portfolio Manager Decision\n\n### Portfolio Manager\n{risk['judge_decision']}"
             )
 
+    runtime_warnings = final_state.get("runtime_warnings")
+    if isinstance(runtime_warnings, list) and runtime_warnings:
+        warning_lines = []
+        for warning in runtime_warnings:
+            if not isinstance(warning, dict):
+                continue
+            stage = str(warning.get("stage") or "Runtime").strip()
+            message = str(warning.get("message") or warning).strip()
+            warning_lines.append(f"- **{stage}**: {message}")
+        if warning_lines:
+            sections.append("## Runtime Warnings\n\n" + "\n".join(warning_lines))
+
     header = (
         f"# Trading Analysis Report: {ticker}\n\n"
         f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -724,6 +761,16 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         }
         (artifacts_dir / "trade_feedback.json").write_text(
             json.dumps(trade_feedback_artifact, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    if isinstance(runtime_warnings, list) and runtime_warnings:
+        runtime_warning_artifact = {
+            "type": "runtime_warnings",
+            "ticker": ticker,
+            "warnings": runtime_warnings,
+        }
+        (artifacts_dir / "runtime_warnings.json").write_text(
+            json.dumps(runtime_warning_artifact, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
     return save_path / "complete_report.md"

@@ -5,7 +5,7 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { HighlightCards } from "@/components/HighlightCards";
-import { parseHighlights, stripHighlightsBlocks } from "@/lib/highlights";
+import { parseHighlights, stripStructuredDecisionBlocks } from "@/lib/highlights";
 
 interface MarkdownContentProps {
   content: string;
@@ -73,7 +73,7 @@ export const MarkdownContent = React.memo(function MarkdownContent({
     }
 
     return {
-      processedContent: stripHighlightsBlocks(content),
+      processedContent: stripStructuredDecisionBlocks(content),
       highlights: null,
     };
   }, [content, highlightMode]);

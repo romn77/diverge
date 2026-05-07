@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
+import type { DecisionCard as DecisionCardModel } from "@/lib/decisionCard";
+import { fetchDecisionCard } from "@/lib/fetchDecisionCard";
+import { DecisionCard as DecisionCardView } from "./DecisionCard";
+import { DecisionCardSkeleton } from "./DecisionCardSkeleton";
 import { MarkdownContent } from "./MarkdownContent";
 import { TickerPricePanel } from "./TickerPricePanel";
 
@@ -43,6 +47,10 @@ const FILE_LABELS: Record<string, string> = {
 };
 
 const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
+
+function formatDecisionCardJson(card: DecisionCardModel): string {
+  return JSON.stringify(card, null, 2);
+}
 
 function localizeFileLabel(
   file: string,
@@ -265,11 +273,20 @@ export function ReportViewer({
   const [selectedTab, setSelectedTab] = useState(SUMMARY_TAB_KEY);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [decisionCard, setDecisionCard] = useState<DecisionCardModel | null>(null);
+  const [isDecisionCardLoading, setIsDecisionCardLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(false);
   const requestIdRef = useRef(0);
   const contentCacheRef = useRef(new Map<string, string>());
+  const decisionCardPath = useMemo(
+    () =>
+      structure?.artifacts.find(
+        (artifact) => artifact.type.toLowerCase() === "decision_card"
+      )?.path ?? null,
+    [structure]
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -316,6 +333,42 @@ export function ReportViewer({
       isActive = false;
     };
   }, [reportId, t]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!decisionCardPath) {
+      setDecisionCard(null);
+      setIsDecisionCardLoading(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadDecisionCard = async () => {
+      try {
+        setIsDecisionCardLoading(true);
+        const card = await fetchDecisionCard(reportId, decisionCardPath);
+        if (isActive) {
+          setDecisionCard(card);
+        }
+      } catch {
+        if (isActive) {
+          setDecisionCard(null);
+        }
+      } finally {
+        if (isActive) {
+          setIsDecisionCardLoading(false);
+        }
+      }
+    };
+
+    loadDecisionCard();
+
+    return () => {
+      isActive = false;
+    };
+  }, [decisionCardPath, reportId]);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -732,11 +785,40 @@ export function ReportViewer({
                   t={t}
                 />
               ) : selectedTab === "complete" ? (
-                <MarkdownContent
-                  content={content}
-                  isLoading={isLoading}
-                  highlightMode="off"
-                />
+                <>
+                  {isDecisionCardLoading && <DecisionCardSkeleton />}
+                  {decisionCard && (
+                    <>
+                      <DecisionCardView card={decisionCard} />
+                      <details className="decision-raw-details">
+                        <summary>
+                          <span>
+                            {t(
+                              "decisionCard.rawDetails",
+                              "Structured decision data"
+                            )}
+                          </span>
+                          <span className="decision-raw-meta">
+                            {t(
+                              "decisionCard.rawDetailsHint",
+                              "JSON for audit"
+                            )}
+                          </span>
+                        </summary>
+                        <pre>
+                          <code>{formatDecisionCardJson(decisionCard)}</code>
+                        </pre>
+                      </details>
+                    </>
+                  )}
+                  <MarkdownContent
+                    content={content}
+                    isLoading={isLoading}
+                    highlightMode={
+                      decisionCard || isDecisionCardLoading ? "off" : "single"
+                    }
+                  />
+                </>
               ) : categoryFiles.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-500">
                   {t("report.noCategoryData", "No data available for this category")}

@@ -55,7 +55,7 @@ After your complete analysis, append a structured highlights block:
 ```json-highlights
 {{
   "category": "bear_case",
-  "signal": "BUY or HOLD or SELL",
+  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your bear case",
   "stance": "bearish",

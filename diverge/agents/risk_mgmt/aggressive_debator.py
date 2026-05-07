@@ -85,7 +85,7 @@ After your complete argument, append a structured highlights block:
 ```json-highlights
 {{
   "category": "risk_aggressive",
-  "signal": "BUY or HOLD or SELL",
+  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence summary of your aggressive risk stance",
   "stance_label": "Aggressive",

@@ -117,6 +117,18 @@ test("ReportViewer lets the top overview panel collapse above the report body", 
   assert.match(source, /!\s*isOverviewCollapsed && \(/);
 });
 
+test("ReportViewer loads and renders decision_card artifacts before complete markdown", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /fetchDecisionCard/);
+  assert.match(source, /artifact\.type\.toLowerCase\(\) === "decision_card"/);
+  assert.match(source, /<DecisionCardView card=\{decisionCard\}/);
+  assert.match(source, /<DecisionCardSkeleton/);
+  assert.match(source, /decision-raw-details/);
+  assert.match(source, /formatDecisionCardJson\(decisionCard\)/);
+  assert.match(source, /decisionCard \|\| isDecisionCardLoading \? "off" : "single"/);
+});
+
 test("ReportViewer keeps tab changes smooth by caching report content instead of blanking the body", () => {
   const source = readFileSync(reportViewerPath, "utf8");
   const handleStart = source.indexOf("const handleTabChange = useCallback");

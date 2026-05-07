@@ -113,3 +113,30 @@ class ThesisArtifactListingTests(unittest.TestCase):
         payload = get_structure("MSFT_20260320_100000")
         self.assertEqual(payload["artifacts"][0]["path"], "artifacts/trade_feedback.json")
         self.assertEqual(payload["artifacts"][0]["type"], "trade_feedback")
+
+    def test_report_structure_exposes_decision_card_artifact_metadata_when_present(self):
+        report_dir = app_config.REPORTS_DIR / "MSFT_20260320_100000"
+        artifact_dir = report_dir / "artifacts"
+        artifact_dir.mkdir(parents=True)
+        (report_dir / "complete_report.md").write_text(
+            "# Trading Analysis Report: MSFT\n\nGenerated: 2026-03-20 10:00:00\n\n",
+            encoding="utf-8",
+        )
+        (artifact_dir / "decision_card.json").write_text(
+            json.dumps(
+                {
+                    "symbol": "MSFT",
+                    "rating": "OVERWEIGHT",
+                    "one_line_summary": "Maintain core exposure and add only on confirmation.",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = get_structure("MSFT_20260320_100000")
+        self.assertEqual(payload["artifacts"][0]["path"], "artifacts/decision_card.json")
+        self.assertEqual(payload["artifacts"][0]["type"], "decision_card")
+        self.assertEqual(
+            payload["artifacts"][0]["summary"],
+            "Maintain core exposure and add only on confirmation.",
+        )

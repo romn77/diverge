@@ -154,6 +154,27 @@ class AnalysisTrackerTests(unittest.TestCase):
             self.assertIn("Momentum is positive", market_path.read_text(encoding="utf-8"))
             self.assertIn("Reduce risk", trader_path.read_text(encoding="utf-8"))
 
+    def test_tracker_surfaces_runtime_warning_progress_message(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tracker = AnalysisTracker(["market"], Path(temp_dir))
+
+            progress = tracker.consume_chunk(
+                {
+                    "runtime_warnings": [
+                        {
+                            "stage": "Portfolio Manager",
+                            "kind": "transient_llm_error",
+                            "message": "Portfolio Manager used fallback: Connection error.",
+                        }
+                    ]
+                },
+                status="running",
+            )
+
+            self.assertIsNotNone(progress)
+            self.assertIn("Warning:", progress.message)
+            self.assertEqual(progress.warnings[0]["stage"], "Portfolio Manager")
+
     def test_save_report_to_disk_keeps_fundamentals_report_and_writes_thesis_artifact(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             final_state = {
@@ -192,6 +213,13 @@ class AnalysisTrackerTests(unittest.TestCase):
                         "thesis_assessment": "Thesis was grounded in durable cloud demand.",
                     }
                 ],
+                "runtime_warnings": [
+                    {
+                        "stage": "Portfolio Manager",
+                        "kind": "transient_llm_error",
+                        "message": "Portfolio Manager used fallback: Connection error.",
+                    }
+                ],
             }
 
             report_path = save_report_to_disk(final_state, "MSFT", Path(temp_dir))
@@ -200,13 +228,19 @@ class AnalysisTrackerTests(unittest.TestCase):
             thesis_path = Path(temp_dir) / "artifacts" / "thesis.json"
             summary_path = Path(temp_dir) / "artifacts" / "summary.json"
             trade_feedback_path = Path(temp_dir) / "artifacts" / "trade_feedback.json"
+            runtime_warnings_path = Path(temp_dir) / "artifacts" / "runtime_warnings.json"
 
             self.assertTrue(report_path.is_file())
             self.assertTrue(fundamentals_path.is_file())
             self.assertTrue(thesis_path.is_file())
             self.assertTrue(summary_path.is_file())
             self.assertTrue(trade_feedback_path.is_file())
+            self.assertTrue(runtime_warnings_path.is_file())
             self.assertIn("## DCF Summary", fundamentals_path.read_text(encoding="utf-8"))
+            self.assertIn(
+                "Runtime Warnings",
+                report_path.read_text(encoding="utf-8"),
+            )
 
             thesis_payload = json.loads(thesis_path.read_text(encoding="utf-8"))
             self.assertEqual(thesis_payload["type"], "thesis")
@@ -222,6 +256,15 @@ class AnalysisTrackerTests(unittest.TestCase):
             )
             self.assertEqual(trade_feedback_payload["type"], "trade_feedback")
             self.assertEqual(len(trade_feedback_payload["reviews"]), 1)
+
+            runtime_warning_payload = json.loads(
+                runtime_warnings_path.read_text(encoding="utf-8")
+            )
+            self.assertEqual(runtime_warning_payload["type"], "runtime_warnings")
+            self.assertIn(
+                "Connection error.",
+                runtime_warning_payload["warnings"][0]["message"],
+            )
 
     def test_run_analysis_streaming_requests_only_visible_trade_feedback(self):
         request = AnalysisRequest(

@@ -53,7 +53,7 @@ After your complete analysis, append a structured highlights block in the follow
 ```json-highlights
 {{
   "category": "bull_case",
-  "signal": "BUY or HOLD or SELL",
+  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your bull case",
   "stance": "bullish",

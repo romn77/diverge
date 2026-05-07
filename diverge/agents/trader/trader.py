@@ -44,17 +44,17 @@ def create_trader(llm, memory):
 
 {trade_feedback_message}
 
-Conclude your narrative analysis with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' as your final narrative line.
+Conclude your narrative analysis with 'FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL**' as your final narrative line.
 
 Then append a structured highlights block at the end of your response:
 
 ```json-highlights
 {{
   "category": "trader",
-  "signal": "BUY or HOLD or SELL",
+  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your trading decision",
-  "decision": "BUY or HOLD or SELL",
+  "decision": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "entry_exit": {{
     "action": "core trading action description",
     "exit_target": "target exit price or condition",

@@ -72,3 +72,50 @@ test("parseHighlights removes every json-highlights block after parsing the firs
   assert.match(result.cleanMarkdown, /Follow-up debate/);
   assert.match(result.cleanMarkdown, /Closing paragraph/);
 });
+
+test("parseHighlights accepts portfolio five-level rating signals", () => {
+  const { parseHighlights } = loadHighlightsModule();
+  const markdown = [
+    "Portfolio decision.",
+    "```json-highlights",
+    JSON.stringify({
+      category: "portfolio_decision",
+      signal: "OVERWEIGHT",
+      signal_confidence: "medium",
+      summary: "Add only when the setup confirms.",
+      final_decision: "UNDERWEIGHT",
+      decision_basis: "Risk/reward is not yet attractive.",
+      strategic_actions: [{ action: "Trim into strength.", priority: "conditional" }],
+      risk_warnings: ["Valuation reset"],
+    }),
+    "```",
+  ].join("\n");
+
+  const result = parseHighlights(markdown);
+
+  assert.equal(result.highlights?.signal, "OVERWEIGHT");
+  assert.equal(result.highlights?.category, "portfolio_decision");
+  assert.equal(result.highlights?.final_decision, "UNDERWEIGHT");
+});
+
+test("parseHighlights strips json-decision-card blocks from markdown output", () => {
+  const { parseHighlights } = loadHighlightsModule();
+  const markdown = [
+    "Portfolio decision.",
+    "```json-decision-card",
+    JSON.stringify({
+      rating: "SELL",
+      action: "AVOID",
+      conviction_score: 62,
+    }),
+    "```",
+    "Readable conclusion.",
+  ].join("\n");
+
+  const result = parseHighlights(markdown);
+
+  assert.equal(result.highlights, null);
+  assert.equal(result.cleanMarkdown.includes("json-decision-card"), false);
+  assert.match(result.cleanMarkdown, /Portfolio decision/);
+  assert.match(result.cleanMarkdown, /Readable conclusion/);
+});

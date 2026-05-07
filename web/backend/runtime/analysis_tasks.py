@@ -15,6 +15,11 @@ from typing import Optional
 from fastapi import HTTPException
 
 from diverge.dataflows import vendor_usage
+from diverge.decision_card.builder import (
+    build_decision_card,
+    build_fallback_decision_card,
+)
+from diverge.decision_card.storage import save_decision_card
 from diverge.runner import (
     AnalysisProgress,
     AnalysisRequest,
@@ -438,6 +443,28 @@ def run_task(task_id: str) -> None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_id = f"{task.request.ticker}_{timestamp}"
         save_report_to_disk(final_state, task.request.ticker, temp_dir)
+        try:
+            decision_card = build_decision_card(
+                final_state=final_state,
+                symbol=task.request.ticker,
+                report_id=report_id,
+                analysis_date=str(task.request.analysis_date),
+            )
+            save_decision_card(decision_card, temp_dir)
+        except Exception as exc:
+            logger.exception("Failed to build decision card for %s", report_id)
+            fallback_card = build_fallback_decision_card(
+                symbol=task.request.ticker,
+                report_id=report_id,
+                analysis_date=str(task.request.analysis_date),
+                raw_signal=(
+                    final_state.get("final_trade_decision")
+                    if isinstance(final_state.get("final_trade_decision"), str)
+                    else None
+                ),
+                error=str(exc),
+            )
+            save_decision_card(fallback_card, temp_dir)
         app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         final_report_dir = report_output_dir(report_id)
         temp_dir.replace(final_report_dir)

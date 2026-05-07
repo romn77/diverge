@@ -86,6 +86,24 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
             }
         )
 
+    decision_card_path = artifacts_dir / "decision_card.json"
+    if decision_card_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(decision_card_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = payload.get("one_line_summary")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "decision_card",
+                "path": "artifacts/decision_card.json",
+                "summary": summary,
+            }
+        )
+
     trade_feedback_path = artifacts_dir / "trade_feedback.json"
     if trade_feedback_path.is_file():
         summary = None

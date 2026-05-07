@@ -645,6 +645,7 @@ export interface ProgressEvent {
   agent_status: Record<string, string>;
   current_agent: string | null;
   message?: string | null;
+  warnings?: Array<Record<string, string>>;
 }
 
 export interface Task {

@@ -4,7 +4,17 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from diverge.llm_clients.factory import create_llm_client
-from diverge.llm_clients.openai_client import NormalizedChatOpenAI, OpenAIClient
+from diverge.llm_clients.openai_client import (
+    NormalizedChatOpenAI,
+    OpenAIClient,
+    _is_retryable_openai_error,
+)
+
+
+class _FakeStatusError(Exception):
+    def __init__(self, status_code: int, message: str = "fake status error"):
+        super().__init__(message)
+        self.status_code = status_code
 
 
 class OpenAICompatibleProviderTests(unittest.TestCase):
@@ -61,6 +71,87 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
         self.assertEqual(kwargs["base_url"], "https://cc.z2blog.com")
         self.assertEqual(kwargs["api_key"], "test-sub2api-key")
         self.assertTrue(kwargs["use_responses_api"])
+
+    def test_openai_client_sets_transient_retry_defaults(self):
+        client = OpenAIClient(
+            "gpt-5.4-mini",
+            provider="openai",
+        )
+
+        with patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai:
+            client.get_llm()
+
+        kwargs = chat_openai.call_args.kwargs
+        self.assertEqual(kwargs["transient_max_retries"], 2)
+        self.assertEqual(kwargs["transient_retry_base_delay"], 1.0)
+        self.assertEqual(kwargs["transient_retry_max_delay"], 8.0)
+
+    def test_openai_client_allows_transient_retry_env_overrides(self):
+        client = OpenAIClient(
+            "gpt-5.4-mini",
+            provider="openai",
+        )
+
+        with (
+            patch.dict(
+                "os.environ",
+                {
+                    "LLM_TRANSIENT_MAX_RETRIES": "4",
+                    "LLM_TRANSIENT_RETRY_BASE_DELAY": "0",
+                    "LLM_TRANSIENT_RETRY_MAX_DELAY": "2",
+                },
+                clear=True,
+            ),
+            patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
+        ):
+            client.get_llm()
+
+        kwargs = chat_openai.call_args.kwargs
+        self.assertEqual(kwargs["transient_max_retries"], 4)
+        self.assertEqual(kwargs["transient_retry_base_delay"], 0.0)
+        self.assertEqual(kwargs["transient_retry_max_delay"], 2.0)
+
+    def test_retryable_openai_error_detects_gateway_timeout_html(self):
+        self.assertTrue(
+            _is_retryable_openai_error(
+                _FakeStatusError(500, "<html><title>504 Gateway Time-out</title></html>")
+            )
+        )
+        self.assertTrue(_is_retryable_openai_error(_FakeStatusError(504)))
+        self.assertFalse(_is_retryable_openai_error(_FakeStatusError(400)))
+
+    def test_retryable_openai_error_detects_ssl_eof_connection_error(self):
+        self.assertTrue(
+            _is_retryable_openai_error(
+                RuntimeError(
+                    "[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol"
+                )
+            )
+        )
+
+    def test_normalized_chat_openai_retries_transient_invoke_errors(self):
+        llm = NormalizedChatOpenAI(
+            model="gpt-5.4-mini",
+            api_key="test-key",
+            transient_max_retries=1,
+            transient_retry_base_delay=0,
+        )
+
+        with (
+            patch(
+                "diverge.llm_clients.openai_client.ChatOpenAI.invoke",
+                side_effect=[
+                    _FakeStatusError(504, "Gateway Time-out"),
+                    AIMessage(content="Recovered."),
+                ],
+            ) as invoke,
+            patch("diverge.llm_clients.openai_client.time.sleep") as sleep,
+        ):
+            result = llm.invoke([HumanMessage(content="Analyze AAPL")])
+
+        self.assertEqual(result.content, "Recovered.")
+        self.assertEqual(invoke.call_count, 2)
+        sleep.assert_not_called()
 
     def test_sub2api_responses_payload_promotes_system_message_to_instructions(self):
         with patch.dict("os.environ", {"SUB2API_API_KEY": "test-sub2api-key"}, clear=True):

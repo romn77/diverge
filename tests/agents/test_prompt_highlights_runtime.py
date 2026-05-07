@@ -45,6 +45,20 @@ class _FakeMemory:
         return [{"recommendation": f"memory {idx}"} for idx in range(n_matches)]
 
 
+class _FakeGatewayTimeout(Exception):
+    status_code = 504
+
+
+class _FailingLLM:
+    def invoke(self, _prompt):
+        raise _FakeGatewayTimeout("504 Gateway Time-out")
+
+
+class _ConnectionFailingLLM:
+    def invoke(self, _prompt):
+        raise RuntimeError("Connection error.")
+
+
 def _base_state():
     return {
         "company_of_interest": "QQQ",
@@ -153,6 +167,32 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
 
         self.assertIn("## DCF Summary", result["fundamentals_report"])
         self.assertIn('"category": "fundamentals"', result["fundamentals_report"])
+
+    def test_portfolio_manager_gateway_timeout_returns_fallback_decision(self):
+        node = create_portfolio_manager(_FailingLLM(), _FakeMemory())
+
+        result = node(_base_state())
+
+        self.assertIn("Portfolio Manager Fallback Decision", result["final_trade_decision"])
+        self.assertIn("```json-decision-card", result["final_trade_decision"])
+        self.assertIn('"rating": "HOLD"', result["final_trade_decision"])
+        self.assertIn('"action": "NO_ACTION"', result["final_trade_decision"])
+        self.assertEqual(
+            result["risk_debate_state"]["judge_decision"],
+            result["final_trade_decision"],
+        )
+
+    def test_portfolio_manager_connection_error_returns_fallback_decision(self):
+        node = create_portfolio_manager(_ConnectionFailingLLM(), _FakeMemory())
+
+        result = node(_base_state())
+
+        self.assertIn("Portfolio Manager Fallback Decision", result["final_trade_decision"])
+        self.assertIn("```json-decision-card", result["final_trade_decision"])
+        self.assertIn('"rating": "HOLD"', result["final_trade_decision"])
+        self.assertIn("transient LLM connection failure", result["final_trade_decision"])
+        self.assertEqual(result["runtime_warnings"][0]["stage"], "Portfolio Manager")
+        self.assertIn("Connection error.", result["runtime_warnings"][0]["message"])
 
 
 if __name__ == "__main__":
