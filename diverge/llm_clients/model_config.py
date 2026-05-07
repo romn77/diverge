@@ -203,6 +203,8 @@ XIAOHUMINI_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
 XIAOHUMINI_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("GPT-5.5 - Best balanced frontier", "gpt-5.5"),
     ("GPT-5.4 - Deep OpenAI baseline", "gpt-5.4"),
+    ("GPT-5.2 - Strong reasoning", "gpt-5.2"),
+    ("GPT-5 Mini - Balanced speed and capability", "gpt-5-mini"),
     (
         "Grok 4.20 Reasoning - Latest xAI reasoning",
         "grok-4-20-reasoning",

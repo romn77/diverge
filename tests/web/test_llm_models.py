@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlalchemy import func, select
+
 from web.backend import auth, llm_models
 
 
@@ -36,6 +38,22 @@ class LLMModelConfigTests(unittest.TestCase):
         self.assertEqual(openai["key_status"], "configured")
         self.assertEqual(openai["api_key_env"], "OPENAI_API_KEY")
         self.assertNotIn("secret-value", str(summary))
+
+    def test_summary_seeds_database_defaults(self):
+        with self._env():
+            auth.create_all_for_testing()
+            summary = llm_models.list_llm_model_summary()
+
+            with auth.db_session() as db:
+                provider_count = db.scalar(select(func.count()).select_from(llm_models.LLMProviderConfig))
+                model_count = db.scalar(select(func.count()).select_from(llm_models.LLMModelConfig))
+                profile_count = db.scalar(select(func.count()).select_from(llm_models.LLMModelProfile))
+                route_count = db.scalar(select(func.count()).select_from(llm_models.LLMModelProfileRoute))
+
+        self.assertEqual(provider_count, len(summary["providers"]))
+        self.assertEqual(model_count, len(summary["models"]))
+        self.assertEqual(profile_count, len(summary["profiles"]))
+        self.assertEqual(route_count, sum(len(profile["routes"]) * 2 for profile in summary["profiles"]))
 
     def test_disabled_model_blocks_profile_resolution(self):
         with self._env({"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}):
@@ -109,6 +127,25 @@ class LLMModelConfigTests(unittest.TestCase):
         self.assertEqual(setting["custom_model"], "gpt-5.5")
         self.assertEqual(resolved["llm_provider"], "openai")
         self.assertEqual(resolved["model"], "gpt-5.5")
+
+    def test_default_profile_routes_can_be_saved(self):
+        with self._env():
+            auth.create_all_for_testing()
+            summary = llm_models.list_llm_model_summary()
+            for profile in summary["profiles"]:
+                if profile["profile_id"] == "custom":
+                    continue
+                routes = [
+                    {
+                        "provider": route["provider"],
+                        "quick_model": route["quick_model"],
+                        "deep_model": route["deep_model"],
+                    }
+                    for route in profile["routes"]
+                ]
+                saved = llm_models.update_profile_routes(profile["profile_id"], routes)
+
+                self.assertEqual(len(saved), len(routes))
 
 
 if __name__ == "__main__":

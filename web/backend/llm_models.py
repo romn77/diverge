@@ -192,6 +192,7 @@ def ensure_llm_model_tables(settings: auth.AuthSettings | None = None) -> None:
 
 def initialize_llm_model_runtime() -> None:
     ensure_llm_model_tables()
+    ensure_llm_model_defaults()
 
 
 def _model_pk(provider: str, model_id: str) -> str:
@@ -292,12 +293,10 @@ def _provider_payload(db: Session, provider: str) -> dict[str, Any]:
 
 
 def _model_payload(db: Session, provider: str, model_id: str) -> dict[str, Any] | None:
-    defaults = _default_models()
     key = _model_pk(provider, model_id)
-    default = defaults.get(key)
     row = db.get(LLMModelConfig, key)
     if row is None:
-        return default
+        return None
     return {
         "id": row.id,
         "provider": row.provider,
@@ -443,9 +442,6 @@ def _profile_routes_from_db(db: Session, profile_id: str) -> list[ModelRoute]:
         .where(LLMModelProfileRoute.enabled.is_(True))
         .order_by(LLMModelProfileRoute.route_order.asc(), LLMModelProfileRoute.mode.asc())
     ).all()
-    if not rows:
-        return _default_routes(profile_id)
-
     grouped: dict[int, dict[str, LLMModelProfileRoute]] = {}
     for row in rows:
         grouped.setdefault(row.route_order, {})[row.mode] = row
@@ -458,6 +454,79 @@ def _profile_routes_from_db(db: Session, profile_id: str) -> list[ModelRoute]:
             continue
         routes.append(ModelRoute(quick.provider, quick.model_id, deep.model_id))
     return routes
+
+
+def _seed_llm_model_defaults(db: Session) -> None:
+    for provider, _label, _base_url in PROVIDER_OPTIONS:
+        default = _default_provider(provider)
+        row = db.get(LLMProviderConfig, provider)
+        if row is None:
+            db.add(LLMProviderConfig(**default))
+        else:
+            row.label = default["label"]
+            row.api_key_env = default["api_key_env"]
+
+    for default in _default_models().values():
+        row = db.get(LLMModelConfig, default["id"])
+        if row is None:
+            db.add(LLMModelConfig(**default))
+        else:
+            row.provider = default["provider"]
+            row.model_id = default["model_id"]
+            row.label = default["label"]
+            row.supports_quick = default["supports_quick"]
+            row.supports_deep = default["supports_deep"]
+
+    for default in _default_profile_rows():
+        row = db.get(LLMModelProfile, default["profile_id"])
+        if row is None:
+            db.add(LLMModelProfile(**default))
+        else:
+            row.label = default["label"]
+            row.description = default["description"]
+            row.sort_order = default["sort_order"]
+
+    existing_route_profiles = set(db.scalars(select(LLMModelProfileRoute.profile_id)).all())
+    for profile in STATIC_MODEL_PROFILES:
+        if profile.value in existing_route_profiles:
+            continue
+        for index, route in enumerate(_default_routes(profile.value)):
+            db.add(LLMModelProfileRoute(
+                profile_id=profile.value,
+                mode="quick",
+                route_order=index,
+                provider=route.provider,
+                model_id=route.quick_model,
+                enabled=True,
+            ))
+            db.add(LLMModelProfileRoute(
+                profile_id=profile.value,
+                mode="deep",
+                route_order=index,
+                provider=route.provider,
+                model_id=route.deep_model,
+                enabled=True,
+            ))
+
+    for module, default in _default_module_settings().items():
+        if db.get(LLMModuleSetting, module) is None:
+            db.add(LLMModuleSetting(
+                module=module,
+                enabled=default["enabled"],
+                model_profile=default["model_profile"],
+                output_language=default["output_language"],
+                custom_provider=default["custom_provider"],
+                custom_model=default["custom_model"],
+                openai_reasoning_effort=default["openai_reasoning_effort"],
+                google_thinking_level=default["google_thinking_level"],
+            ))
+
+
+def ensure_llm_model_defaults() -> None:
+    if not database_backed_llm_models_enabled():
+        return
+    with auth.db_session() as db:
+        _seed_llm_model_defaults(db)
 
 
 def _is_route_available(db: Session, route: ModelRoute) -> bool:
@@ -490,6 +559,7 @@ def resolve_model_profile_from_db(profile_id: str) -> ResolvedModelSelection:
     if not database_backed_llm_models_enabled():
         return resolve_model_profile(profile_id)
 
+    ensure_llm_model_defaults()
     normalized = profile_id.strip().lower()
     with auth.db_session() as db:
         profile_row = db.get(LLMModelProfile, normalized)
@@ -532,6 +602,7 @@ def get_module_setting(module: str) -> dict[str, Any]:
         raise ValueError(f"Unknown LLM module setting '{module}'")
     if not database_backed_llm_models_enabled():
         return dict(_default_module_settings()[normalized])
+    ensure_llm_model_defaults()
     with auth.db_session() as db:
         return _module_setting_payload(db.get(LLMModuleSetting, normalized), normalized)
 
@@ -574,6 +645,7 @@ def resolve_module_model_selection(module: str) -> dict[str, Any] | None:
 def ensure_model_selection_available(provider: str, quick_model: str, deep_model: str) -> None:
     if not database_backed_llm_models_enabled():
         return
+    ensure_llm_model_defaults()
     route = ModelRoute(provider.strip().lower(), quick_model.strip(), deep_model.strip())
     with auth.db_session() as db:
         if not _is_route_available(db, route):
@@ -592,25 +664,22 @@ def list_llm_model_summary() -> dict[str, Any]:
             "module_settings": list(_default_module_settings().values()),
         }
 
+    ensure_llm_model_defaults()
     usage_date = _today_key()
     with auth.db_session() as db:
-        default_models = _default_models()
-        rows = {row.id: row for row in db.scalars(select(LLMModelConfig)).all()}
         models = []
-        for key, default in default_models.items():
-            row = rows.get(key)
-            payload = default if row is None else _model_payload(db, row.provider, row.model_id)
+        for row in db.scalars(
+            select(LLMModelConfig).order_by(LLMModelConfig.provider.asc(), LLMModelConfig.model_id.asc())
+        ).all():
+            payload = _model_payload(db, row.provider, row.model_id)
             if payload is not None:
                 models.append(_model_summary(db, payload, usage_date))
 
-        configured_profiles = {
-            row.profile_id: row
-            for row in db.scalars(select(LLMModelProfile)).all()
-        }
         profiles = []
-        for default in _default_profile_rows():
-            row = configured_profiles.get(default["profile_id"])
-            profile = default if row is None else {
+        for row in db.scalars(
+            select(LLMModelProfile).order_by(LLMModelProfile.sort_order.asc(), LLMModelProfile.profile_id.asc())
+        ).all():
+            profile = {
                 "profile_id": row.profile_id,
                 "label": row.label,
                 "description": row.description,
@@ -635,7 +704,9 @@ def list_llm_model_summary() -> dict[str, Any]:
             "date": usage_date,
             "providers": [
                 _provider_payload(db, provider)
-                for provider, _label, _base_url in PROVIDER_OPTIONS
+                for provider in db.scalars(
+                    select(LLMProviderConfig.provider).order_by(LLMProviderConfig.provider.asc())
+                ).all()
             ],
             "models": models,
             "profiles": sorted(profiles, key=lambda item: int(item["sort_order"])),
@@ -650,6 +721,7 @@ def list_config_model_profiles() -> list[dict[str, object]]:
     if not database_backed_llm_models_enabled():
         return list_model_profile_options()
 
+    ensure_llm_model_defaults()
     with auth.db_session() as db:
         options: list[dict[str, object]] = []
         profile_rows = {
@@ -773,6 +845,7 @@ def update_profile_config(
     roles = [role.strip().lower() for role in default_for_roles if role.strip()]
     if any(role not in VALID_ROLES for role in roles):
         raise ValueError("default_for_roles contains an unsupported role")
+    ensure_llm_model_defaults()
     with auth.db_session() as db:
         row = db.get(LLMModelProfile, normalized)
         if row is None:
@@ -804,6 +877,7 @@ def update_profile_config(
 
 def update_profile_routes(profile_id: str, routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     normalized = profile_id.strip().lower()
+    ensure_llm_model_defaults()
     with auth.db_session() as db:
         existing = db.scalars(
             select(LLMModelProfileRoute).where(LLMModelProfileRoute.profile_id == normalized)
@@ -906,6 +980,7 @@ def update_module_setting(
             "google_thinking_level": google_level,
         }
 
+    ensure_llm_model_defaults()
     with auth.db_session() as db:
         if profile == "custom":
             model_payload = _model_payload(db, provider or "", model or "")
