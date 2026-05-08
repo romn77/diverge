@@ -85,3 +85,13 @@ class AdminLLMModuleSettingUpdatePayload(BaseModel):
     custom_model: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     google_thinking_level: Optional[str] = None
+
+
+class SearchGlobalUpdatePayload(BaseModel):
+    enabled: bool
+
+
+class SearchProviderUpdatePayload(BaseModel):
+    enabled: Optional[bool] = None
+    monthly_free_quota: Optional[int] = Field(default=None, ge=0)
+    monthly_hard_cap: Optional[int] = Field(default=None, ge=0)
