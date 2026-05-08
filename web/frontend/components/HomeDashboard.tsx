@@ -5,7 +5,6 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePreferences } from "@/components/PreferencesProvider";
-import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { MetricCard } from "@/components/workbench/MetricCard";
 import { PageHeader } from "@/components/workbench/PageHeader";
@@ -13,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  buildActivityHref,
   buildHomeHref,
   buildReportHref,
 } from "@/lib/workbenchRoutes";
@@ -105,12 +103,10 @@ function buildTickerGroupPanelId(ticker: string): string {
 export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   const router = useRouter();
   const { t } = usePreferences();
-  const { openAnalysisDialog } = useWorkbenchChrome();
   const {
     activeTasks,
     authState,
     loadingReports,
-    newAnalysisDisabled,
     reports,
     reportsError,
   } = useWorkbench();
@@ -197,22 +193,6 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             "home.workspaceDescription",
             "Search reports and continue existing coverage."
           )}
-          actions={
-            <>
-              <Button
-                type="button"
-                disabled={newAnalysisDisabled}
-                onClick={openAnalysisDialog}
-              >
-                {t("home.launchAnalysis", "New Analysis")}
-              </Button>
-              <Button asChild variant="secondary">
-                <Link href={buildActivityHref()}>
-                  {t("home.viewActivity", "View Activity")}
-                </Link>
-              </Button>
-            </>
-          }
         >
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard

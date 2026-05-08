@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export function TradeJournal({
   sidebarOpen = false,
 }: TradeJournalProps) {
   const { locale, t } = usePreferences();
+  const { setTopbarActions } = useWorkbenchChrome();
   const [trades, setTrades] = useState<TradeRecord[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
   const [tradeDetail, setTradeDetail] = useState<TradeDetail | null>(null);
@@ -512,6 +514,24 @@ export function TradeJournal({
       });
   };
 
+  const topbarActions = useMemo(
+    () => (
+      <Button
+        type="button"
+        className="workbench-topbar-new"
+        onClick={() => setShowCreateTrade(true)}
+      >
+        {t("journal.recordTrade", "Record Trade")}
+      </Button>
+    ),
+    [t]
+  );
+
+  useEffect(() => {
+    setTopbarActions(topbarActions);
+    return () => setTopbarActions(null);
+  }, [setTopbarActions, topbarActions]);
+
   return (
     <>
       <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
@@ -523,8 +543,7 @@ export function TradeJournal({
               "Record trades, separate entry and exit reviews, and preview future same-ticker feedback"
             )}
             actions={
-              <>
-                {onOpenSidebar ? (
+              onOpenSidebar ? (
                   <Button
                     type="button"
                     variant={sidebarOpen ? "default" : "secondary"}
@@ -537,11 +556,7 @@ export function TradeJournal({
                   >
                     {t("common.menu", "Menu")}
                   </Button>
-                ) : null}
-                <Button type="button" onClick={() => setShowCreateTrade(true)}>
-                  {t("journal.recordTrade", "Record Trade")}
-                </Button>
-              </>
+              ) : null
             }
           >
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_180px_180px]">

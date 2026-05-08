@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { MetricCard } from "@/components/workbench/MetricCard";
 import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -53,7 +54,6 @@ type AssetDraft = {
 };
 
 const DEFAULT_BASE_CURRENCY = "USD";
-const HERO_ACTION_BUTTON_CLASS = "h-10 min-w-[8.75rem] px-4 text-sm";
 const HERO_CURRENCY_CONTROL_CLASS =
   "inline-flex h-10 min-w-[8.75rem] items-center justify-between gap-3 whitespace-nowrap rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-[var(--button-secondary-shadow)]";
 const HERO_CURRENCY_INPUT_CLASS =
@@ -159,6 +159,7 @@ function flattenPositions(summary: AssetSummaryPayload | null): AssetPositionRec
 
 export function AssetsWorkspace() {
   const { t } = usePreferences();
+  const { setTopbarActions } = useWorkbenchChrome();
   const [baseCurrency, setBaseCurrency] = useState(DEFAULT_BASE_CURRENCY);
   const [summary, setSummary] = useState<AssetSummaryPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -196,11 +197,11 @@ export function AssetsWorkspace() {
   const flatPositions = useMemo(() => flattenPositions(summary), [summary]);
   const notAvailableLabel = t("common.notAvailable", "N/A");
 
-  const openCreateDialog = () => {
+  const openCreateDialog = useCallback(() => {
     setEditingPositionId(null);
     setDraft(buildEmptyDraft());
     setDialogOpen(true);
-  };
+  }, []);
 
   const openEditDialog = async (positionId: string) => {
     setSubmitting(true);
@@ -298,7 +299,7 @@ export function AssetsWorkspace() {
     }
   };
 
-  const handleRefreshAll = async (force: boolean) => {
+  const handleRefreshAll = useCallback(async (force: boolean) => {
     setSubmitting(true);
     setError(null);
     try {
@@ -316,7 +317,39 @@ export function AssetsWorkspace() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [baseCurrency, loadSummary, t]);
+
+  const topbarActions = useMemo(
+    () => (
+      <>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={submitting}
+          onClick={() => void handleRefreshAll(false)}
+          className="workbench-topbar-secondary"
+        >
+          <RefreshCw className="size-4" aria-hidden="true" />
+          {t("assets.refreshDue", "Refresh Due")}
+        </Button>
+        <Button
+          type="button"
+          disabled={submitting}
+          onClick={openCreateDialog}
+          className="workbench-topbar-new"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          {t("assets.addAsset", "Add Asset")}
+        </Button>
+      </>
+    ),
+    [handleRefreshAll, openCreateDialog, submitting, t]
+  );
+
+  useEffect(() => {
+    setTopbarActions(topbarActions);
+    return () => setTopbarActions(null);
+  }, [setTopbarActions, topbarActions]);
 
   return (
     <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
@@ -334,37 +367,16 @@ export function AssetsWorkspace() {
             "View accounts, holdings, and asset exposure."
           )}
           actions={
-            <>
-              <label className={HERO_CURRENCY_CONTROL_CLASS}>
-                <span>{t("assets.base", "Base")}</span>
-                <Input
-                  type="text"
-                  value={baseCurrency}
-                  onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
-                  aria-label={t("assets.base", "Base")}
-                  className={HERO_CURRENCY_INPUT_CLASS}
-                />
-              </label>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={submitting}
-                onClick={() => void handleRefreshAll(false)}
-                className={HERO_ACTION_BUTTON_CLASS}
-              >
-                <RefreshCw className="size-4" aria-hidden="true" />
-                {t("assets.refreshDue", "Refresh Due")}
-              </Button>
-              <Button
-                type="button"
-                disabled={submitting}
-                onClick={openCreateDialog}
-                className={HERO_ACTION_BUTTON_CLASS}
-              >
-                <Plus className="size-4" aria-hidden="true" />
-                {t("assets.addAsset", "Add Asset")}
-              </Button>
-            </>
+            <label className={HERO_CURRENCY_CONTROL_CLASS}>
+              <span>{t("assets.base", "Base")}</span>
+              <Input
+                type="text"
+                value={baseCurrency}
+                onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
+                aria-label={t("assets.base", "Base")}
+                className={HERO_CURRENCY_INPUT_CLASS}
+              />
+            </label>
           }
         >
           <div className="grid gap-4 md:grid-cols-4">

@@ -37,7 +37,11 @@ test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog 
 test("AssetsWorkspace gives hero actions stable wide touch targets", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /HERO_ACTION_BUTTON_CLASS/);
+  assert.match(source, /useWorkbenchChrome/);
+  assert.match(source, /setTopbarActions/);
+  assert.match(source, /workbench-topbar-secondary/);
+  assert.match(source, /workbench-topbar-new/);
+  assert.match(source, /return \(\) => setTopbarActions\(null\)/);
   assert.match(source, /HERO_CURRENCY_CONTROL_CLASS/);
   assert.match(source, /h-10/);
   assert.match(source, /min-w-\[8\.75rem\]/);

@@ -19,9 +19,14 @@ test("WorkbenchShell renders the page title and utility bar together in the top 
   assert.match(source, /<Sidebar/);
   assert.match(source, /<div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">/);
   assert.match(source, /<header className="workbench-topbar">/);
-  assert.match(source, /workbench-topbar-eyebrow/);
   assert.match(source, /workbench-topbar-title/);
   assert.match(source, /workbench-topbar-menu md:hidden/);
+  assert.match(source, /workbench-topbar-search/);
+  assert.match(source, /workbench-topbar-actions/);
+  assert.match(source, /setTopbarActions/);
+  assert.match(source, /buildHomeHref\(nextQuery\)/);
+  assert.match(source, /t\("home\.launchAnalysis", "New Analysis"\)/);
+  assert.doesNotMatch(source, /workbench-topbar-eyebrow/);
 
   const headerIndex = source.indexOf("<WorkspaceAccountMenu");
   const topbarIndex = source.indexOf('<header className="workbench-topbar">');

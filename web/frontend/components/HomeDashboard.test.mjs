@@ -16,26 +16,26 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
   assert.match(source, /<PageHeader/);
   assert.match(source, /<Input/);
   assert.match(source, /<Badge/);
-  assert.match(source, /buildActivityHref/);
   assert.match(source, /t\("home\.searchLabel", "Search reports"\)/);
   assert.match(source, /t\("home\.recentTickers", "Tracked Tickers"\)/);
   assert.match(source, /home\.metric\.trackedTickersMeta/);
   assert.doesNotMatch(source, /home\.coverageSnapshot/);
   assert.doesNotMatch(source, /home\.coverageMap/);
-  assert.match(source, /t\("home\.launchAnalysis", "New Analysis"\)/);
+  assert.doesNotMatch(source, /t\("home\.launchAnalysis", "New Analysis"\)/);
+  assert.doesNotMatch(source, /buildActivityHref/);
   assert.doesNotMatch(source, /Launch Screener/);
   assert.doesNotMatch(source, /Open Trade Journal/);
   assert.doesNotMatch(source, /buildScreenerRunHref/);
   assert.doesNotMatch(source, /QueueCard/);
 });
 
-test("HomeDashboard hero actions share a unified CTA base style across button and link elements", () => {
+test("HomeDashboard leaves global actions to the workbench topbar", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /<Button/);
-  assert.match(source, /asChild/);
-  assert.match(source, /variant="secondary"/);
   assert.match(source, /home\.searchLabel/);
+  assert.doesNotMatch(source, /useWorkbenchChrome/);
+  assert.doesNotMatch(source, /openAnalysisDialog/);
 });
 
 test("HomeDashboard keeps the page title stable while search changes the results section", () => {
