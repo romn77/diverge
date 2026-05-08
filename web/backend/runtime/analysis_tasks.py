@@ -6,6 +6,7 @@ import os
 import shutil
 import threading
 import uuid
+import inspect
 from contextlib import suppress
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -435,12 +436,16 @@ def run_task(task_id: str) -> None:
 
         visible_ids = access.visible_trade_ids_for_task(task)
         with vendor_usage.data_source_usage_context("analysis"):
+            stream_kwargs = {
+                "reports_dir": app_config.REPORTS_DIR,
+                "visible_trade_ids": visible_ids,
+            }
+            if "analysis_run_id" in inspect.signature(run_analysis_streaming).parameters:
+                stream_kwargs["analysis_run_id"] = task_id
             progress_stream = run_analysis_streaming(
                 task.request,
                 temp_dir,
-                reports_dir=app_config.REPORTS_DIR,
-                visible_trade_ids=visible_ids,
-                analysis_run_id=task_id,
+                **stream_kwargs,
             )
             final_state = None
             while True:
