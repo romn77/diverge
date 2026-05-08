@@ -67,6 +67,10 @@ const ACTIVE_TASK_STATUSES = new Set<TaskStatus>([
   "running",
 ]);
 
+function hasActiveTaskStatus(task: { status: TaskStatus }): boolean {
+  return ACTIVE_TASK_STATUSES.has(task.status);
+}
+
 function hasPermission(
   authState: ReturnType<typeof useAuth>["authState"],
   permission: Permission
@@ -198,6 +202,16 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }
   }, [canAccessWorkbench, handleProtectedError]);
 
+  const hasActiveTasks = useMemo(() => tasks.some(hasActiveTaskStatus), [tasks]);
+  const hasActiveScreenerTasks = useMemo(
+    () => screenerTasks.some(hasActiveTaskStatus),
+    [screenerTasks]
+  );
+  const hasActiveJournalReviewTasks = useMemo(
+    () => journalReviewTasks.some(hasActiveTaskStatus),
+    [journalReviewTasks]
+  );
+
   useEffect(() => {
     if (canAccessWorkbench) {
       void refreshReports();
@@ -225,6 +239,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }
 
     void refreshTasks();
+    if (!hasActiveTasks) {
+      return;
+    }
+
     const intervalId = window.setInterval(() => {
       void refreshTasks();
     }, POLL_INTERVAL_MS);
@@ -232,7 +250,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [canAccessWorkbench, refreshTasks]);
+  }, [canAccessWorkbench, hasActiveTasks, refreshTasks]);
 
   useEffect(() => {
     if (!canAccessWorkbench) {
@@ -241,6 +259,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }
 
     void refreshScreenerTasks();
+    if (!hasActiveScreenerTasks) {
+      return;
+    }
+
     const intervalId = window.setInterval(() => {
       void refreshScreenerTasks();
     }, POLL_INTERVAL_MS);
@@ -248,7 +270,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [canAccessWorkbench, refreshScreenerTasks]);
+  }, [canAccessWorkbench, hasActiveScreenerTasks, refreshScreenerTasks]);
 
   useEffect(() => {
     if (!canAccessWorkbench) {
@@ -257,6 +279,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }
 
     void refreshJournalReviewTasks();
+    if (!hasActiveJournalReviewTasks) {
+      return;
+    }
+
     const intervalId = window.setInterval(() => {
       void refreshJournalReviewTasks();
     }, POLL_INTERVAL_MS);
@@ -264,7 +290,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [canAccessWorkbench, refreshJournalReviewTasks]);
+  }, [canAccessWorkbench, hasActiveJournalReviewTasks, refreshJournalReviewTasks]);
 
   const sortedReports = useMemo(() => {
     return [...reports].sort(
@@ -308,15 +334,15 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   }, [sortedReports]);
 
   const activeTasks = useMemo(
-    () => tasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
+    () => tasks.filter(hasActiveTaskStatus),
     [tasks]
   );
   const activeJournalReviewTasks = useMemo(
-    () => journalReviewTasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
+    () => journalReviewTasks.filter(hasActiveTaskStatus),
     [journalReviewTasks]
   );
   const activeScreenerTasks = useMemo(
-    () => screenerTasks.filter((task) => ACTIVE_TASK_STATUSES.has(task.status)),
+    () => screenerTasks.filter(hasActiveTaskStatus),
     [screenerTasks]
   );
 

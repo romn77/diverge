@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,20 +49,40 @@ export function TaskProgress({
   const [streamError, setStreamError] = useState<string | null>(null);
   const [showRequestDetails, setShowRequestDetails] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const onTaskCompleteRef = useRef(onTaskComplete);
+  const hasNotifiedTaskCompleteRef = useRef(false);
+
+  useEffect(() => {
+    onTaskCompleteRef.current = onTaskComplete;
+  }, [onTaskComplete]);
+
+  useEffect(() => {
+    hasNotifiedTaskCompleteRef.current = false;
+  }, [taskId]);
 
   useEffect(() => {
     let isActive = true;
+    let unsubscribe: (() => void) | undefined;
+
+    const notifyTaskComplete = (reportId: string | null) => {
+      if (hasNotifiedTaskCompleteRef.current) {
+        return;
+      }
+      hasNotifiedTaskCompleteRef.current = true;
+      onTaskCompleteRef.current(reportId);
+    };
 
     const syncTask = async () => {
       const nextTask = await getTask(taskId);
       if (!isActive) {
-        return;
+        return null;
       }
       setTask(nextTask);
       setLoading(false);
       if (nextTask.status === "completed") {
-        onTaskComplete(nextTask.report_id);
+        notifyTaskComplete(nextTask.report_id);
       }
+      return nextTask;
     };
 
     const ingestEvent = (event: ProgressEvent) => {
@@ -94,11 +114,30 @@ export function TaskProgress({
       );
 
       if (isTerminalTaskStatus(event.status)) {
+        unsubscribe?.();
+        unsubscribe = undefined;
         void syncTask();
       }
     };
 
-    void syncTask().catch((error) => {
+    const syncAndSubscribe = async () => {
+      const nextTask = await syncTask();
+      if (!nextTask || isTerminalTaskStatus(nextTask.status)) {
+        return;
+      }
+
+      unsubscribe = subscribeToTask(
+        taskId,
+        ingestEvent,
+        (error) => {
+          if (isActive) {
+            setStreamError(error.message);
+          }
+        }
+      );
+    };
+
+    void syncAndSubscribe().catch((error) => {
       if (isActive) {
         setStreamError(
           error instanceof Error
@@ -109,17 +148,11 @@ export function TaskProgress({
       }
     });
 
-    const unsubscribe = subscribeToTask(
-      taskId,
-      ingestEvent,
-      (error) => setStreamError(error.message)
-    );
-
     return () => {
       isActive = false;
-      unsubscribe();
+      unsubscribe?.();
     };
-  }, [onTaskComplete, taskId, t]);
+  }, [taskId, t]);
 
   const stageStatus = task?.latest_progress?.stage_status ?? {};
   const eventLog = useMemo(

@@ -25,6 +25,13 @@ test("TaskProgress subscribes to backend task snapshots and renders the six-stag
   assert.match(source, /subscribeToTask/);
   assert.match(source, /getTask/);
   assert.match(source, /cancelTask/);
+  assert.match(source, /onTaskCompleteRef/);
+  assert.match(source, /hasNotifiedTaskCompleteRef/);
+  assert.match(source, /const syncAndSubscribe = async/);
+  assert.match(source, /if \(!nextTask \|\| isTerminalTaskStatus\(nextTask\.status\)\) \{\s*return;\s*\}/s);
+  assert.match(source, /unsubscribe\?\.\(\);\s*unsubscribe = undefined;\s*void syncTask\(\);/s);
+  assert.match(source, /\}, \[taskId, t\]\)/);
+  assert.doesNotMatch(source, /\}, \[onTaskComplete, taskId, t\]\)/);
   assert.match(source, /waiting_for_quota/);
   assert.match(source, /queue_position/);
   assert.match(source, /blocked_vendor/);

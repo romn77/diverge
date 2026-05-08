@@ -18,6 +18,7 @@ const SPARKLINE_HEIGHT = 34;
 const SPARKLINE_PADDING = 4;
 const SPARKLINE_LOOKBACK_POINTS = 30;
 const PRICE_PANEL_LOOKBACK_DAYS = 1000;
+const tickerHistoryRequestCache = new Map<string, Promise<TickerHistorySeries>>();
 
 interface TickerPricePanelProps {
   symbol: string;
@@ -46,6 +47,40 @@ interface SparklineMarker {
   index: number;
 }
 
+function buildTickerHistoryCacheKey(options: {
+  symbol: string;
+  market?: string | null;
+  asOfDate?: string | null;
+  days?: number;
+}): string {
+  return [
+    options.symbol.trim().toUpperCase(),
+    options.market ?? "",
+    options.asOfDate ?? "",
+    options.days ?? "",
+  ].join("|");
+}
+
+function getCachedTickerHistory(options: {
+  symbol: string;
+  market?: string | null;
+  asOfDate?: string | null;
+  days?: number;
+}): Promise<TickerHistorySeries> {
+  const cacheKey = buildTickerHistoryCacheKey(options);
+  const cachedRequest = tickerHistoryRequestCache.get(cacheKey);
+  if (cachedRequest) {
+    return cachedRequest;
+  }
+
+  const request = getTickerHistory(options).catch((error) => {
+    tickerHistoryRequestCache.delete(cacheKey);
+    throw error;
+  });
+  tickerHistoryRequestCache.set(cacheKey, request);
+  return request;
+}
+
 export function TickerPricePanel({
   symbol,
   market,
@@ -68,7 +103,7 @@ export function TickerPricePanel({
       setError(null);
 
       try {
-        const nextHistory = await getTickerHistory({
+        const nextHistory = await getCachedTickerHistory({
           symbol,
           market,
           asOfDate,

@@ -9,11 +9,16 @@ test("TickerPricePanel renders a trading-focused chart surface with range and ex
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /getTickerHistory/);
+  assert.match(source, /tickerHistoryRequestCache/);
+  assert.match(source, /function getCachedTickerHistory/);
+  assert.match(source, /tickerHistoryRequestCache\.set\(cacheKey, request\)/);
+  assert.match(source, /tickerHistoryRequestCache\.delete\(cacheKey\)/);
   assert.match(source, /TickerSparkline/);
   assert.match(source, /TickerFinancialChart/);
   assert.match(source, /PRICE_PANEL_LOOKBACK_DAYS = 1000/);
   assert.match(source, /SPARKLINE_LOOKBACK_POINTS = 30/);
   assert.match(source, /days: PRICE_PANEL_LOOKBACK_DAYS/);
+  assert.match(source, /await getCachedTickerHistory\(\{/);
   assert.match(source, /slice\(-SPARKLINE_LOOKBACK_POINTS\)/);
   assert.match(source, /buildSparklineDomain/);
   assert.match(source, /buildSparklineLatestMarker/);
