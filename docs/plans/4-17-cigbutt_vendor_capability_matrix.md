@@ -18,7 +18,7 @@
 
 ### 2.1 当前真正暴露给 agent 的数据方法
 
-当前 `ToolNode` 和 `interface.py` 暴露的核心方法只有：
+当前 ADK tool registry 和 `interface.py` 暴露的核心方法只有：
 
 - `get_stock_data`
 - `get_indicators`

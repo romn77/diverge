@@ -7,15 +7,16 @@ name = "diverge"
 version = "0.2.3"
 description = "Diverge: Multi-Agents LLM Financial Trading Framework"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
+    "google-adk==2.0.0b1",
+    "litellm>=1.83.14",
     "langchain-core>=0.3.81",
     "backtrader>=1.9.78.123",
     "langchain-anthropic>=0.3.15",
     "langchain-experimental>=0.3.4",
     "langchain-google-genai>=4.0.0",
     "langchain-openai>=0.3.23",
-    "langgraph>=0.4.8",
     "pandas>=2.3.0",
     "parsel>=1.10.0",
     "pytz>=2025.2",
@@ -58,3 +59,6 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["diverge*"]
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]

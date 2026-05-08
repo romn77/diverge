@@ -605,7 +605,7 @@ def run_analysis_streaming(
         )
 
         trace = []
-        for chunk in graph.graph.stream(init_agent_state, **args):
+        for chunk in graph.stream(init_agent_state, **args):
             trace.append(chunk)
             progress = tracker.consume_chunk(chunk, status="running")
             if progress is not None:

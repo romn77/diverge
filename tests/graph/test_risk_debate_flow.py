@@ -25,29 +25,26 @@ class RiskDebateFlowTests(unittest.TestCase):
 
         self.assertEqual(next_step, "Portfolio Manager")
 
-    @patch("diverge.graph.trading_graph.GraphSetup")
     @patch("diverge.graph.trading_graph.SignalProcessor")
     @patch("diverge.graph.trading_graph.Reflector")
     @patch("diverge.graph.trading_graph.Propagator")
     @patch("diverge.graph.trading_graph.FinancialSituationMemory")
-    @patch("diverge.graph.trading_graph.create_llm_client")
+    @patch("diverge.graph.trading_graph.create_adk_model")
+    @patch("diverge.graph.trading_graph.AdkWorkflowRunner")
     @patch("diverge.graph.trading_graph.set_config")
     @patch.object(DivergeGraph, "_create_tool_nodes", return_value={})
-    @patch("diverge.graph.trading_graph.ConditionalLogic")
-    def test_trading_graph_passes_round_limits_to_conditional_logic(
+    def test_trading_graph_passes_round_limits_to_adk_workflow_runner(
         self,
-        conditional_logic_cls,
         _create_tool_nodes,
         _set_config,
-        create_llm_client,
+        runner_cls,
+        create_adk_model,
         _financial_situation_memory,
         _propagator,
         _reflector,
         _signal_processor,
-        graph_setup_cls,
     ):
-        create_llm_client.return_value.get_llm.return_value = object()
-        graph_setup_cls.return_value.setup_graph.return_value = object()
+        create_adk_model.return_value = object()
 
         config = DEFAULT_CONFIG.copy()
         config["max_debate_rounds"] = 2
@@ -55,10 +52,9 @@ class RiskDebateFlowTests(unittest.TestCase):
 
         DivergeGraph(selected_analysts=["market"], config=config)
 
-        conditional_logic_cls.assert_called_once_with(
-            max_debate_rounds=2,
-            max_risk_discuss_rounds=4,
-        )
+        kwargs = runner_cls.call_args.kwargs
+        self.assertEqual(kwargs["max_debate_rounds"], 2)
+        self.assertEqual(kwargs["max_risk_discuss_rounds"], 4)
 
 
 if __name__ == "__main__":

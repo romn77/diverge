@@ -1,6 +1,5 @@
 from typing import Annotated
 
-from langgraph.graph import MessagesState
 from typing_extensions import NotRequired, TypedDict
 
 
@@ -44,7 +43,8 @@ class RiskDebateState(TypedDict):
     count: Annotated[int, "Length of the current conversation"]  # Conversation length
 
 
-class AgentState(MessagesState):
+class AgentState(TypedDict):
+    messages: Annotated[list[object], "Conversation messages exchanged by agents"]
     company_of_interest: Annotated[str, "Company that we are interested in trading"]
     trade_date: Annotated[str, "What date we are trading at"]
     output_language: Annotated[str, "Output language code: en or cn"]
