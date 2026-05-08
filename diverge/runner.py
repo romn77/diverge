@@ -16,6 +16,11 @@ from diverge.llm_clients.model_config import (
 from diverge.llm_clients.validators import validate_model
 from diverge.dataflows.cn_market_utils import detect_market
 from diverge.research.thesis_tracker import build_thesis_artifact
+from diverge.research.search.session import (
+    SearchToolContext,
+    current_search_context,
+    search_sessions,
+)
 from diverge.screener.market_calendar import latest_trading_day_on_or_before
 from diverge.ticker_symbols import normalize_analysis_ticker_symbol
 from diverge.trade_feedback import get_trade_feedback_payload
@@ -551,6 +556,7 @@ def run_analysis_streaming(
     *,
     reports_dir: Path | None = None,
     visible_trade_ids: Collection[str] | None = None,
+    analysis_run_id: str | None = None,
 ) -> Generator[AnalysisProgress, None, dict]:
     config = build_analysis_config(request)
     selected_analysts = [key for key in ANALYST_ORDER if key in request.analysts]
@@ -563,45 +569,70 @@ def run_analysis_streaming(
         visible_trade_ids=set(visible_trade_ids) if visible_trade_ids is not None else None,
     )
 
-    graph = DivergeGraph(
-        selected_analysts,
-        config=config,
-        debug=True,
-    )
-    init_agent_state = graph.propagator.create_initial_state(
-        request.ticker,
-        request.analysis_date,
-        request.output_language,
-        historical_trade_feedback=trade_feedback_payload["prompt"],
-        historical_trade_reviews=trade_feedback_payload["reviews"],
-        portfolio_context=request.portfolio_context or "",
-    )
-    args = graph.propagator.get_graph_args()
+    context_token = None
+    if analysis_run_id:
+        search_sessions.create(
+            analysis_run_id=analysis_run_id,
+            ticker=request.ticker,
+            analysis_date=request.analysis_date,
+        )
+        market = detect_market(request.ticker)
+        if market not in {"cn", "us", "hk"}:
+            market = "us"
+        context_token = current_search_context.set(
+            SearchToolContext(
+                analysis_run_id=analysis_run_id,
+                agent="Analysis",
+                ticker=request.ticker,
+                analysis_date=request.analysis_date,
+                market=market,
+                language=request.output_language,
+            )
+        )
 
-    yield tracker.to_progress(
-        status="running",
-        message=f"System: Analyzing {request.ticker} on {request.analysis_date}",
-    )
+    try:
+        graph = DivergeGraph(
+            selected_analysts,
+            config=config,
+            debug=True,
+        )
+        init_agent_state = graph.propagator.create_initial_state(
+            request.ticker,
+            request.analysis_date,
+            request.output_language,
+            historical_trade_feedback=trade_feedback_payload["prompt"],
+            historical_trade_reviews=trade_feedback_payload["reviews"],
+            portfolio_context=request.portfolio_context or "",
+        )
+        args = graph.propagator.get_graph_args()
 
-    trace = []
-    for chunk in graph.graph.stream(init_agent_state, **args):
-        trace.append(chunk)
-        progress = tracker.consume_chunk(chunk, status="running")
-        if progress is not None:
-            yield progress
+        yield tracker.to_progress(
+            status="running",
+            message=f"System: Analyzing {request.ticker} on {request.analysis_date}",
+        )
 
-    if not trace:
-        raise RuntimeError("Analysis completed without producing a final state")
+        trace = []
+        for chunk in graph.graph.stream(init_agent_state, **args):
+            trace.append(chunk)
+            progress = tracker.consume_chunk(chunk, status="running")
+            if progress is not None:
+                yield progress
 
-    final_state = trace[-1]
-    for agent in list(tracker.agent_status):
-        tracker.update_agent_status(agent, "completed")
+        if not trace:
+            raise RuntimeError("Analysis completed without producing a final state")
 
-    yield tracker.to_progress(
-        status="completed",
-        message=f"System: Completed analysis for {request.analysis_date}",
-    )
-    return final_state
+        final_state = trace[-1]
+        for agent in list(tracker.agent_status):
+            tracker.update_agent_status(agent, "completed")
+
+        yield tracker.to_progress(
+            status="completed",
+            message=f"System: Completed analysis for {request.analysis_date}",
+        )
+        return final_state
+    finally:
+        if context_token is not None:
+            current_search_context.reset(context_token)
 
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):

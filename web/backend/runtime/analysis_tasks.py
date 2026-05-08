@@ -20,6 +20,8 @@ from diverge.decision_card.builder import (
     build_fallback_decision_card,
 )
 from diverge.decision_card.storage import save_decision_card
+from diverge.research.search.evidence import build_search_evidence_artifact
+from diverge.research.search.session import search_sessions
 from diverge.runner import (
     AnalysisProgress,
     AnalysisRequest,
@@ -126,6 +128,18 @@ def _write_json_atomic(path: Path, payload: dict) -> None:
         encoding="utf-8",
     )
     temp_path.replace(path)
+
+
+def write_search_evidence_artifact(task_id: str, report_dir: Path) -> Path | None:
+    session = search_sessions.get(task_id)
+    if session is None:
+        return None
+    artifact = build_search_evidence_artifact(session)
+    if artifact is None:
+        return None
+    artifact_path = report_dir / "artifacts" / "search_evidence.json"
+    _write_json_atomic(artifact_path, artifact)
+    return artifact_path
 
 
 def delete_task_snapshot(task_id: str) -> None:
@@ -426,6 +440,7 @@ def run_task(task_id: str) -> None:
                 temp_dir,
                 reports_dir=app_config.REPORTS_DIR,
                 visible_trade_ids=visible_ids,
+                analysis_run_id=task_id,
             )
             final_state = None
             while True:
@@ -443,6 +458,7 @@ def run_task(task_id: str) -> None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         report_id = f"{task.request.ticker}_{timestamp}"
         save_report_to_disk(final_state, task.request.ticker, temp_dir)
+        write_search_evidence_artifact(task_id, temp_dir)
         try:
             decision_card = build_decision_card(
                 final_state=final_state,
@@ -510,6 +526,8 @@ def run_task(task_id: str) -> None:
             shutil.rmtree(temp_dir, ignore_errors=True)
         logger.exception("analysis task failed task_id=%s", task_id)
         _fail_task(task_id, GENERIC_ANALYSIS_TASK_ERROR)
+    finally:
+        search_sessions.pop(task_id)
 
 
 def create_task(
