@@ -37,9 +37,7 @@ def run_demo() -> None:
 
 def main() -> None:
     if len(sys.argv) > 1:
-        from cli.main import app
-
-        app()
+        print("Command-line workflows were removed. Use the web workbench or Python API.")
         return
 
     run_demo()

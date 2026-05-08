@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Generator, Optional
 
-from cli.models import AnalystType
+from diverge.analysis.options import ANALYST_AGENT_NAMES, ANALYST_ORDER, AnalystType
 from diverge.default_config import DEFAULT_CONFIG
 from diverge.graph.trading_graph import DivergeGraph
 from diverge.llm_clients.model_config import (
@@ -26,13 +26,6 @@ from diverge.ticker_symbols import normalize_analysis_ticker_symbol
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
-ANALYST_ORDER = ["market", "social", "news", "fundamentals"]
-ANALYST_AGENT_NAMES = {
-    "market": "Market Analyst",
-    "social": "Social Analyst",
-    "news": "News Analyst",
-    "fundamentals": "Fundamentals Analyst",
-}
 SECTION_FILE_MAP = {
     "market_report": ("1_analysts", "market.md"),
     "sentiment_report": ("1_analysts", "sentiment.md"),

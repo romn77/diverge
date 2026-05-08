@@ -93,6 +93,7 @@ class MetadataBackfillTests(unittest.TestCase):
         record = create_trade_record_file(
             {
                 "ticker": "MSFT",
+                "raw_symbol": "MSFT",
                 "exchange_or_market": "NASDAQ",
                 "side": "long",
                 "status": "open",
@@ -100,7 +101,10 @@ class MetadataBackfillTests(unittest.TestCase):
                 "entry_price": 420.5,
                 "size": 12,
                 "initial_thesis": "Cloud durability remains underpriced.",
-                "planned_horizon": "swing_2w",
+                "planned_horizon": "swing_1_4w",
+                "strategy_tags": ["cloud"],
+                "entry_reason": "Confirmed relative strength.",
+                "invalidation_condition": "Cloud demand weakens materially.",
                 "stop_loss": 405.0,
                 "take_profit": 450.0,
                 "notes": "Initial entry.",

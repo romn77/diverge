@@ -4,7 +4,7 @@ import os
 
 from dotenv import dotenv_values
 
-from cli.utils import ANALYST_ORDER
+from diverge.analysis.options import ANALYST_OPTIONS
 from diverge.screener.presets import (
     DEFAULT_FILTER_PRESET_SELECTIONS,
     DEFAULT_RANKING_PROFILE_ID,
@@ -115,7 +115,7 @@ def get_config_options_payload() -> dict:
     }
     analyst_options = [
         {"label": label, "value": value.value}
-        for label, value in ANALYST_ORDER
+        for label, value in ANALYST_OPTIONS
     ]
 
     return {
