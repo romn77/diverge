@@ -78,6 +78,19 @@ test("admin APIs expose data-source usage and configuration controls", () => {
   assert.match(source, /\/api\/admin\/data-source-routes\/\$\{route\.module\}/);
 });
 
+test("admin APIs expose search quota controls", () => {
+  assert.match(source, /AdminSearchQuotaProvider/);
+  assert.match(source, /AdminSearchQuotaResponse/);
+  assert.match(source, /AdminSearchProviderUpdateRequest/);
+  assert.match(source, /getAdminSearchQuota/);
+  assert.match(source, /updateAdminSearchGlobal/);
+  assert.match(source, /updateAdminSearchProvider/);
+  assert.match(source, /reactivateAdminSearchProvider/);
+  assert.match(source, /resetAdminSearchProviderUsage/);
+  assert.match(source, /\/api\/admin\/search-quota/);
+  assert.match(source, /\/api\/admin\/search-quota\/providers\/\$\{provider\}\/reactivate/);
+});
+
 test("admin APIs expose LLM model configuration controls without key values", () => {
   assert.match(source, /AdminLLMModelsResponse/);
   assert.match(source, /AdminLLMProvider/);

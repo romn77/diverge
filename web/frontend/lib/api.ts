@@ -159,6 +159,63 @@ export interface AdminDataSourceRouteUpdateResponse {
   route: AdminDataSourceRoute;
 }
 
+export type AdminSearchProviderName = "brave" | "tavily" | "bocha";
+
+export interface AdminSearchQuotaGlobal {
+  enabled: boolean;
+  disabled_until: string | null;
+  disabled_reason: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminSearchQuotaProvider {
+  provider: AdminSearchProviderName;
+  label: string;
+  enabled: boolean;
+  key_status: "configured" | "missing";
+  monthly_free_quota: number;
+  monthly_hard_cap: number;
+  used_this_month: number;
+  remaining_to_hard_cap: number;
+  hard_cap_reached: boolean;
+  success_count: number;
+  failure_count: number;
+  disabled_until: string | null;
+  disabled_reason: string | null;
+  last_error: string | null;
+  last_called_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminSearchQuotaResponse {
+  month: string;
+  global: AdminSearchQuotaGlobal;
+  providers: AdminSearchQuotaProvider[];
+}
+
+export interface AdminSearchGlobalUpdateRequest {
+  enabled: boolean;
+}
+
+export interface AdminSearchProviderUpdateRequest {
+  enabled?: boolean;
+  monthly_free_quota?: number | null;
+  monthly_hard_cap?: number | null;
+}
+
+export interface AdminSearchProviderUpdateResponse {
+  provider: AdminSearchQuotaProvider;
+}
+
+export interface AdminSearchGlobalUpdateResponse {
+  global: AdminSearchQuotaGlobal;
+}
+
+export interface AdminSearchProviderUsageResetResponse {
+  provider: AdminSearchQuotaProvider;
+  reset_count: number;
+}
+
 export interface AdminLLMProvider {
   provider: string;
   label: string;
@@ -1159,6 +1216,49 @@ export async function updateAdminDataSourceRoute(
   return requestJson<AdminDataSourceRouteUpdateResponse>(
     `/api/admin/data-source-routes/${route.module}/${route.market}/${route.category}`,
     createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function getAdminSearchQuota(): Promise<AdminSearchQuotaResponse> {
+  return requestJson<AdminSearchQuotaResponse>("/api/admin/search-quota", {
+    cache: "no-store",
+  });
+}
+
+export async function updateAdminSearchGlobal(
+  payload: AdminSearchGlobalUpdateRequest
+): Promise<AdminSearchGlobalUpdateResponse> {
+  return requestJson<AdminSearchGlobalUpdateResponse>(
+    "/api/admin/search-quota/global",
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function updateAdminSearchProvider(
+  provider: AdminSearchProviderName,
+  payload: AdminSearchProviderUpdateRequest
+): Promise<AdminSearchProviderUpdateResponse> {
+  return requestJson<AdminSearchProviderUpdateResponse>(
+    `/api/admin/search-quota/providers/${provider}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function reactivateAdminSearchProvider(
+  provider: AdminSearchProviderName
+): Promise<AdminSearchProviderUpdateResponse> {
+  return requestJson<AdminSearchProviderUpdateResponse>(
+    `/api/admin/search-quota/providers/${provider}/reactivate`,
+    createJsonRequestInit("POST")
+  );
+}
+
+export async function resetAdminSearchProviderUsage(
+  provider: AdminSearchProviderName
+): Promise<AdminSearchProviderUsageResetResponse> {
+  return requestJson<AdminSearchProviderUsageResetResponse>(
+    `/api/admin/search-quota/providers/${provider}/usage/reset`,
+    createJsonRequestInit("POST")
   );
 }
 

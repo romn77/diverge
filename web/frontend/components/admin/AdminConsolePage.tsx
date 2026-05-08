@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export type AdminConsoleTab =
   | "users"
   | "data-sources"
+  | "search-quota"
   | "llm-models"
   | "task-queue"
   | "audit";
@@ -14,6 +15,7 @@ export type AdminConsoleTab =
 const ADMIN_TABS: Array<{ key: AdminConsoleTab; label: string; href: string }> = [
   { key: "users", label: "User Management", href: "/admin/users" },
   { key: "data-sources", label: "Data Sources", href: "/admin/data-sources" },
+  { key: "search-quota", label: "Search Quota", href: "/admin/search-quota" },
   { key: "llm-models", label: "LLM Models", href: "/admin/llm-models" },
   { key: "task-queue", label: "Task Queue", href: "/admin/task-queue" },
   { key: "audit", label: "Audit Log", href: "/admin/audit" },
