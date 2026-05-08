@@ -127,6 +127,30 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
             }
         )
 
+    search_evidence_path = artifacts_dir / "search_evidence.json"
+    if search_evidence_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(search_evidence_path.read_text(encoding="utf-8"))
+            calls = payload.get("calls") if isinstance(payload, dict) else []
+            if isinstance(calls, list):
+                result_count = sum(
+                    len(call.get("results") or [])
+                    for call in calls
+                    if isinstance(call, dict)
+                )
+                summary = f"{len(calls)} web search call(s), {result_count} result(s)"
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "search_evidence",
+                "path": "artifacts/search_evidence.json",
+                "summary": summary,
+            }
+        )
+
     return results
 
 
