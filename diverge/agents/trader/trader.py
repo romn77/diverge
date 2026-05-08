@@ -6,6 +6,7 @@ from diverge.agents.utils.agent_utils import (
     get_research_note_style_instruction,
     get_trade_feedback_message,
 )
+from diverge.runtime.messages import AdkPrompt
 
 
 def create_trader(llm, memory):
@@ -37,10 +38,7 @@ def create_trader(llm, memory):
             "content": f"Based on a comprehensive analysis by a team of analysts, here is an investment plan tailored for {company_name}. {instrument_context} This plan incorporates insights from current technical market trends, macroeconomic indicators, and social media sentiment. Use this plan as a foundation for evaluating your next trading decision.\n\nProposed Investment Plan: {investment_plan}\n\nLeverage these insights to make an informed and strategic decision.",
         }
 
-        messages = [
-            {
-                "role": "system",
-                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. Apply lessons from past decisions to strengthen your analysis. Here are reflections from similar situations you traded in and the lessons learned: {past_memory_str}
+        system_prompt = f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. Apply lessons from past decisions to strengthen your analysis. Here are reflections from similar situations you traded in and the lessons learned: {past_memory_str}
 
 {trade_feedback_message}
 
@@ -68,12 +66,14 @@ Then append a structured highlights block at the end of your response:
 Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
 
 {style_instruction}
-{language_instruction}""",
-            },
-            context,
-        ]
+{language_instruction}"""
 
-        result = llm.invoke(messages)
+        result = llm.invoke(
+            AdkPrompt(
+                system_message=system_prompt,
+                messages=(context,),
+            )
+        )
 
         return {
             "messages": [result],

@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Generator
+from datetime import datetime, timedelta
 from typing import Any, Callable, Optional
 
 from google.adk.workflow import START, FunctionNode, Workflow
@@ -199,6 +200,17 @@ class AdkWorkflowRunner:
             yield from self._run_node(state, node)
             last_message = _last_message(state)
             tool_calls = list(getattr(last_message, "tool_calls", []) or [])
+            if (
+                state.get(report_key)
+                and not tool_calls
+                and _looks_like_incomplete_tool_preface(last_message)
+            ):
+                state[report_key] = ""
+                state.setdefault("messages", []).append(
+                    _human_message(_tool_retry_instruction(state, analyst))
+                )
+                yield _snapshot(state)
+                continue
             if state.get(report_key) or not tool_calls:
                 return
             self._append_tool_results(state, analyst, tool_calls)
@@ -235,7 +247,11 @@ class AdkWorkflowRunner:
                 try:
                     content = collection.invoke(
                         tool_name,
-                        _normalize_tool_args(tool_call.get("args")),
+                        _contextual_tool_args(
+                            state,
+                            tool_name,
+                            _normalize_tool_args(tool_call.get("args")),
+                        ),
                     )
                 except Exception as exc:
                     content = f"Tool `{tool_name}` failed: {exc}"
@@ -309,6 +325,81 @@ def _normalize_tool_args(args: Any) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+def _contextual_tool_args(
+    state: dict[str, Any],
+    tool_name: str,
+    args: dict[str, Any],
+) -> dict[str, Any]:
+    normalized = dict(args)
+    ticker = str(state.get("company_of_interest") or "").strip().upper()
+    trade_date = str(state.get("trade_date") or "").strip()
+
+    if tool_name in {"get_news", "get_fundamentals", "get_balance_sheet", "get_cashflow", "get_income_statement", "get_insider_transactions"}:
+        if "ticker" not in normalized and "symbol" in normalized:
+            normalized["ticker"] = normalized["symbol"]
+        if "ticker" not in normalized and ticker:
+            normalized["ticker"] = ticker
+
+    if tool_name in {"get_stock_data", "get_indicators"}:
+        if "symbol" not in normalized and "ticker" in normalized:
+            normalized["symbol"] = normalized["ticker"]
+        if "symbol" not in normalized and ticker:
+            normalized["symbol"] = ticker
+
+    if tool_name in {"get_news", "get_stock_data"} and trade_date:
+        normalized.setdefault("end_date", trade_date)
+        normalized.setdefault("start_date", _date_days_before(trade_date, 7))
+
+    if tool_name == "get_global_news" and trade_date:
+        normalized.setdefault("curr_date", trade_date)
+
+    if tool_name == "get_indicators" and trade_date:
+        normalized.setdefault("curr_date", trade_date)
+
+    return normalized
+
+
+def _date_days_before(date_text: str, days: int) -> str:
+    try:
+        parsed = datetime.strptime(date_text, "%Y-%m-%d")
+    except ValueError:
+        return date_text
+    return (parsed - timedelta(days=days)).strftime("%Y-%m-%d")
+
+
+def _looks_like_incomplete_tool_preface(message: Any) -> bool:
+    content = str(getattr(message, "content", "") or "").strip()
+    if not content or "json-highlights" in content or len(content) > 800:
+        return False
+
+    lowered = content.lower()
+    intent_markers = (
+        "i'll",
+        "i’ll",
+        "i will",
+        "let me",
+        "i need to",
+        "first pull",
+        "first retrieve",
+        "first gather",
+    )
+    tool_markers = ("tool", "get_", "pull", "retrieve", "gather", "calculate")
+    return any(marker in lowered for marker in intent_markers) and any(
+        marker in lowered for marker in tool_markers
+    )
+
+
+def _tool_retry_instruction(state: dict[str, Any], analyst: str) -> str:
+    ticker = str(state.get("company_of_interest") or "").strip().upper()
+    trade_date = str(state.get("trade_date") or "").strip()
+    return (
+        "Your previous response described tool use but did not issue an executable "
+        f"tool call. For the {analyst} analyst step, call the required tool now "
+        f"using ticker/symbol {ticker} and current date {trade_date}. Do not write "
+        "the final report until tool results have been returned."
+    )
 
 
 def _human_message(content: str) -> Any:

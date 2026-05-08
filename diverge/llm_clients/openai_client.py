@@ -466,7 +466,7 @@ _PROVIDER_CONFIG = {
     "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "siliconflow": ("https://api.siliconflow.cn/v1", "SILICONFLOW_API_KEY"),
     "xiaohumini": ("https://xiaohumini.site/v1", "XIAOHUMINI_API_KEY"),
-    "sub2api": ("https://cc.z2blog.com", "SUB2API_API_KEY"),
+    "sub2api": ("https://cc.z2blog.com/v1", "SUB2API_API_KEY"),
     "deepseek": ("https://api.deepseek.com/v1", "DEEPSEEK_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
 }

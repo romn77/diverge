@@ -3,6 +3,7 @@ from diverge.agents.utils.agent_utils import (
     get_research_note_style_instruction,
     get_trade_feedback_message,
 )
+from diverge.runtime.messages import AdkPrompt
 
 
 def create_bull_researcher(llm, memory):
@@ -68,7 +69,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {language_instruction}
 """
 
-        response = llm.invoke(prompt)
+        response = llm.invoke(AdkPrompt(system_message=prompt))
 
         argument = f"Bull Analyst: {response.content}"
 

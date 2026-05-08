@@ -7,6 +7,7 @@ from diverge.agents.utils.agent_utils import (
     get_research_note_style_instruction,
     get_trade_feedback_message,
 )
+from diverge.runtime.messages import AdkPrompt
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +294,7 @@ Keep the `json-highlights` and `json-decision-card` fences, JSON keys, and enum 
 
         runtime_warnings = list(state.get("runtime_warnings") or [])
         try:
-            response = llm.invoke(prompt)
+            response = llm.invoke(AdkPrompt(system_message=prompt))
             response_content = response.content
         except Exception as exc:
             if not _is_transient_llm_error(exc):

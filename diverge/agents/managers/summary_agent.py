@@ -1,4 +1,5 @@
 from diverge.agents.utils.agent_utils import get_language_instruction
+from diverge.runtime.messages import AdkPrompt
 
 
 def _section(title: str, content: str | None, limit: int = 8000) -> str:
@@ -51,7 +52,7 @@ Complete report context:
 
 {language_instruction}"""
 
-        response = llm.invoke(prompt)
+        response = llm.invoke(AdkPrompt(system_message=prompt))
         return {"report_summary": response.content.strip()}
 
     return summary_agent_node

@@ -160,7 +160,7 @@ class ModelConfigTests(unittest.TestCase):
 
     def test_sub2api_provider_exposes_openai_responses_models(self):
         provider_map = {provider: (label, base_url) for provider, label, base_url in PROVIDER_OPTIONS}
-        self.assertEqual(provider_map["sub2api"], ("Sub2API", "https://cc.z2blog.com"))
+        self.assertEqual(provider_map["sub2api"], ("Sub2API", "https://cc.z2blog.com/v1"))
 
         quick_models = {model for _label, model in QUICK_MODEL_OPTIONS["sub2api"]}
         deep_models = {model for _label, model in DEEP_MODEL_OPTIONS["sub2api"]}

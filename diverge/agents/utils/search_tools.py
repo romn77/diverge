@@ -3,8 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from langchain_core.tools import tool
-
+from diverge.agents.utils.tooling import tool
 from diverge.research.search.providers.bocha import BochaSearchProvider
 from diverge.research.search.providers.brave import BraveSearchProvider
 from diverge.research.search.providers.tavily import TavilySearchProvider

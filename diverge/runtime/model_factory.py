@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
+import shlex
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
@@ -55,6 +57,22 @@ def _prefixed_litellm_model(provider: str, model: str) -> str:
     return f"{prefix}/{model}"
 
 
+def _normalize_litellm_api_base(provider: str, base_url: Optional[str]) -> Optional[str]:
+    if not base_url:
+        return None
+
+    normalized = base_url.strip().rstrip("/")
+    if not normalized:
+        return None
+
+    if provider.lower().strip() == "sub2api" and not normalized.endswith(
+        ("/v1", "/api/v1")
+    ):
+        return f"{normalized}/v1"
+
+    return normalized
+
+
 def _litellm_kwargs(
     provider: str,
     *,
@@ -65,8 +83,9 @@ def _litellm_kwargs(
     extra: dict[str, Any],
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
-    if base_url:
-        kwargs["api_base"] = base_url
+    api_base = _normalize_litellm_api_base(provider, base_url)
+    if api_base:
+        kwargs["api_base"] = api_base
     if api_key:
         kwargs["api_key"] = api_key
     elif provider in _PROVIDER_API_KEY_ENV:
@@ -185,6 +204,11 @@ def _function_call_args(raw_args: Any) -> dict[str, Any]:
     return {}
 
 
+def _fallback_tool_call_id(name: str, index: int) -> str:
+    safe_name = re.sub(r"[^A-Za-z0-9_]+", "_", name).strip("_") or "tool"
+    return f"call_{safe_name}_{index}"
+
+
 def _content_parts_from_message(message: Any) -> list[types.Part]:
     tool_calls = getattr(message, "tool_calls", None) or []
     parts: list[types.Part] = []
@@ -192,25 +216,28 @@ def _content_parts_from_message(message: Any) -> list[types.Part]:
     if content:
         parts.append(types.Part.from_text(text=content))
 
-    for tool_call in tool_calls:
+    for index, tool_call in enumerate(tool_calls, start=1):
         name = str(tool_call.get("name") or "")
         if not name:
             continue
-        parts.append(
-            types.Part.from_function_call(
-                name=name,
-                args=_function_call_args(tool_call.get("args")),
-            )
+        function_call_part = types.Part.from_function_call(
+            name=name,
+            args=_function_call_args(tool_call.get("args")),
         )
+        tool_call_id = str(tool_call.get("id") or _fallback_tool_call_id(name, index))
+        function_call_part.function_call.id = tool_call_id
+        parts.append(function_call_part)
 
     if message.__class__.__name__ == "ToolMessage":
-        name = str(getattr(message, "name", "") or getattr(message, "tool_call_id", "tool"))
-        parts = [
-            types.Part.from_function_response(
-                name=name,
-                response={"result": content},
-            )
-        ]
+        tool_call_id = str(getattr(message, "tool_call_id", "") or "")
+        name = str(getattr(message, "name", "") or tool_call_id or "tool")
+        function_response_part = types.Part.from_function_response(
+            name=name,
+            response={"result": content},
+        )
+        if tool_call_id:
+            function_response_part.function_response.id = tool_call_id
+        parts = [function_response_part]
 
     return parts or [types.Part.from_text(text="")]
 
@@ -231,7 +258,128 @@ def _contents_from_prompt(prompt: Any) -> list[types.Content]:
     return contents
 
 
-def _response_text_and_tools(response: Any) -> tuple[str, list[dict[str, Any]]]:
+def _tool_name(tool: Any) -> str | None:
+    name = getattr(tool, "name", None)
+    if name:
+        return str(name)
+    func = getattr(tool, "func", None)
+    if callable(func):
+        return getattr(func, "__name__", None)
+    if callable(tool):
+        return getattr(tool, "__name__", None)
+    return None
+
+
+def _bound_tool_names(tools: Iterable[Any] | None) -> set[str]:
+    return {name for tool in tools or [] if (name := _tool_name(tool))}
+
+
+def _coerce_textual_tool_arg(value: str) -> Any:
+    cleaned = value.strip().strip(",.;")
+    if cleaned.isdigit():
+        return int(cleaned)
+    return cleaned
+
+
+def _parse_key_value_tool_args(text: str) -> dict[str, Any]:
+    try:
+        tokens = shlex.split(text, posix=True)
+    except ValueError:
+        return {}
+
+    args: dict[str, Any] = {}
+    for token in tokens:
+        if "=" not in token:
+            continue
+        key, value = token.split("=", 1)
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            args[key] = _coerce_textual_tool_arg(value)
+    return args
+
+
+def _first_json_object(text: str) -> tuple[dict[str, Any], int] | None:
+    search_text = text[:800]
+    for start, char in enumerate(search_text):
+        if char != "{":
+            continue
+
+        depth = 0
+        in_string = False
+        escaped = False
+        for offset, current in enumerate(search_text[start:], start=start):
+            if escaped:
+                escaped = False
+                continue
+            if current == "\\":
+                escaped = True
+                continue
+            if current == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = search_text[start : offset + 1]
+                    try:
+                        parsed = json.loads(candidate)
+                    except json.JSONDecodeError:
+                        break
+                    if isinstance(parsed, dict):
+                        return parsed, start
+                    break
+    return None
+
+
+def _parse_textual_tool_args(segment: str) -> dict[str, Any]:
+    json_object = _first_json_object(segment)
+    json_args: dict[str, Any] = {}
+    key_value_segment = segment
+    if json_object is not None:
+        json_args, json_start = json_object
+        key_value_segment = segment[:json_start]
+
+    args = _parse_key_value_tool_args(key_value_segment)
+    args.update(json_args)
+    return args
+
+
+def _extract_textual_tool_calls(
+    text: str,
+    tool_names: set[str],
+) -> list[dict[str, Any]]:
+    if not text or not tool_names:
+        return []
+
+    alternation = "|".join(
+        re.escape(name) for name in sorted(tool_names, key=len, reverse=True)
+    )
+    pattern = re.compile(rf"(?<![\w.-])to=({alternation})(?=\b|\s|$)")
+    matches = list(pattern.finditer(text))
+    calls: list[dict[str, Any]] = []
+    for index, match in enumerate(matches):
+        name = match.group(1)
+        next_start = (
+            matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        )
+        segment = text[match.end() : next_start]
+        calls.append(
+            {
+                "name": name,
+                "args": _parse_textual_tool_args(segment),
+                "id": _fallback_tool_call_id(name, index + 1),
+            }
+        )
+    return calls
+
+
+def _response_text_and_tools(
+    response: Any,
+    tools: Iterable[Any] | None = None,
+) -> tuple[str, list[dict[str, Any]]]:
     content = getattr(response, "content", None)
     if content is None:
         return "", []
@@ -248,10 +396,14 @@ def _response_text_and_tools(response: Any) -> tuple[str, list[dict[str, Any]]]:
             {
                 "name": function_call.name,
                 "args": dict(function_call.args or {}),
-                "id": getattr(function_call, "id", None) or function_call.name,
+                "id": getattr(function_call, "id", None)
+                or _fallback_tool_call_id(function_call.name, len(tool_calls) + 1),
             }
         )
-    return "".join(text_parts).strip(), tool_calls
+    text = "".join(text_parts).strip()
+    if not tool_calls:
+        tool_calls = _extract_textual_tool_calls(text, _bound_tool_names(tools))
+    return text, tool_calls
 
 
 def _build_ai_message(content: str, tool_calls: list[dict[str, Any]]):
@@ -309,7 +461,7 @@ class AdkChatModel:
         if final_response is None:
             return _build_ai_message("", [])
 
-        text, tool_calls = _response_text_and_tools(final_response)
+        text, tool_calls = _response_text_and_tools(final_response, tools)
         return _build_ai_message(text, tool_calls)
 
 

@@ -1,6 +1,7 @@
-from langchain_core.tools import tool
 from typing import Annotated
+
 from diverge.dataflows.vendors.local.analysis_market_data import get_stock_data_from_history
+from diverge.agents.utils.tooling import tool
 
 
 @tool

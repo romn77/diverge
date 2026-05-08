@@ -1,5 +1,6 @@
-from langchain_core.tools import tool
 from typing import Annotated
+
+from diverge.agents.utils.tooling import tool
 from diverge.dataflows.vendors.local.analysis_market_data import get_local_indicator
 
 @tool

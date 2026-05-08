@@ -1,5 +1,3 @@
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_indicators,
@@ -8,6 +6,7 @@ from diverge.agents.utils.agent_utils import (
     get_stock_data,
     get_trade_feedback_message,
 )
+from diverge.runtime.messages import AdkPrompt
 
 
 def create_market_analyst(llm):
@@ -75,37 +74,23 @@ Volume-Based Indicators:
 Keep the `json-highlights` fence, JSON keys, and enum literals in English constants exactly as shown; free-form string values should follow the report language."""
         )
 
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " Use the provided tools to progress towards answering the question."
-                    " If you are unable to fully answer, that's OK; another assistant with different tools"
-                    " will help where you left off. Execute what you can to make progress."
-                    " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** or deliverable,"
-                    " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** so the team knows to stop."
-                    " You have access to the following tools: {tool_names}.\n{system_message}"
-                    "\n{style_instruction}"
-                    "\n{language_instruction}"
-                    "\n{trade_feedback_message}"
-                    "\nFor your reference, the current date is {current_date}. {instrument_context}",
-                ),
-                MessagesPlaceholder(variable_name="messages"),
-            ]
+        prompt = AdkPrompt(
+            system_message=(
+                "You are a helpful AI assistant, collaborating with other assistants."
+                " Use the provided tools to progress towards answering the question."
+                " If you are unable to fully answer, that's OK; another assistant with different tools"
+                " will help where you left off. Execute what you can to make progress."
+                " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** or deliverable,"
+                " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** so the team knows to stop."
+                f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
+                f"\n{style_instruction}"
+                f"\n{language_instruction}"
+                f"\n{trade_feedback_message}"
+                f"\nFor your reference, the current date is {current_date}. {instrument_context}"
+            ),
+            messages=tuple(state["messages"]),
         )
-
-        prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(style_instruction=style_instruction)
-        prompt = prompt.partial(language_instruction=language_instruction)
-        prompt = prompt.partial(instrument_context=instrument_context)
-        prompt = prompt.partial(trade_feedback_message=trade_feedback_message)
-
-        chain = prompt | llm.bind_tools(tools)
-
-        result = chain.invoke(state["messages"])
+        result = llm.bind_tools(tools).invoke(prompt)
 
         report = ""
 

@@ -40,7 +40,7 @@ Diverge models the workflow of a trading desk with specialized LLM-powered agent
 
 This fork currently includes:
 
-- LangGraph-based multi-agent analysis with Web Workbench and package entry points.
+- Google ADK-backed multi-agent analysis runtime with Web Workbench and package entry points.
 - Multi-provider LLM support through OpenAI, Google, Anthropic, xAI, OpenRouter, DeepSeek, Xiaohumini, and local Ollama-compatible settings.
 - Vendor-routed market data under `diverge/dataflows/vendors/`, grouped by source: `akshare`, `alpha_vantage`, `fmp`, `massive`, `tushare`, `yfinance`, and `local`.
 - Market-aware routing for `core_stock_apis`, `technical_indicators`, `fundamental_data`, and `news_data`, with fallback chains, usage tracking, and admin-configurable route policies.

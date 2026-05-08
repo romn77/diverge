@@ -16,7 +16,7 @@ PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
     ("deepseek", "DeepSeek", "https://api.deepseek.com/v1"),
     ("siliconflow", "SiliconFlow", "https://api.siliconflow.cn/v1"),
     ("xiaohumini", "Xiaohumini", "https://xiaohumini.site/v1"),
-    ("sub2api", "Sub2API", "https://cc.z2blog.com"),
+    ("sub2api", "Sub2API", "https://cc.z2blog.com/v1"),
 )
 
 OPENAI_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (

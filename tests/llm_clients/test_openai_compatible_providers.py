@@ -68,7 +68,7 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
         chat_openai.assert_called_once()
         kwargs = chat_openai.call_args.kwargs
         self.assertEqual(kwargs["model"], "gpt-5.4")
-        self.assertEqual(kwargs["base_url"], "https://cc.z2blog.com")
+        self.assertEqual(kwargs["base_url"], "https://cc.z2blog.com/v1")
         self.assertEqual(kwargs["api_key"], "test-sub2api-key")
         self.assertTrue(kwargs["use_responses_api"])
 

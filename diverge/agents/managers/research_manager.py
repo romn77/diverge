@@ -5,6 +5,7 @@ from diverge.agents.utils.agent_utils import (
 )
 
 from diverge.agents.utils.agent_utils import build_instrument_context
+from diverge.runtime.messages import AdkPrompt
 
 
 def create_research_manager(llm, memory):
@@ -70,7 +71,7 @@ Keep the fence, JSON keys, and enum literals in English exactly as shown, even w
 
 {style_instruction}
 {language_instruction}"""
-        response = llm.invoke(prompt)
+        response = llm.invoke(AdkPrompt(system_message=prompt))
 
         new_investment_debate_state = {
             "judge_decision": response.content,

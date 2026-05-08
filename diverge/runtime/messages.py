@@ -19,6 +19,43 @@ class AdkMessage:
         print(self.content)
 
 
+@dataclass(frozen=True)
+class AdkPrompt:
+    """Small prompt envelope consumed by the ADK model adapter."""
+
+    system_message: str
+    messages: tuple[Any, ...] = ()
+
+    def to_messages(self) -> list[Any]:
+        return [{"role": "system", "content": self.system_message}, *self.messages]
+
+    def to_string(self) -> str:
+        lines = [f"System: {self.system_message}"]
+        for message in self.messages:
+            role = message_role(message).title()
+            content = message_content(message)
+            lines.append(f"{role}: {content}")
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        return self.to_string()
+
+    def __contains__(self, value: object) -> bool:
+        return str(value) in self.to_string()
+
+    def __iter__(self):
+        return iter(self.to_messages())
+
+    def __getitem__(self, index):
+        return self.to_messages()[index]
+
+    def __len__(self) -> int:
+        return len(self.to_messages())
+
+    def lower(self) -> str:
+        return self.to_string().lower()
+
+
 def message_content(message: Any) -> str:
     if isinstance(message, tuple) and len(message) >= 2:
         return str(message[1])

@@ -7,6 +7,7 @@ from diverge.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
     get_risk_debate_mode,
 )
+from diverge.runtime.messages import AdkPrompt
 
 
 def create_conservative_debator(llm):
@@ -98,7 +99,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {style_instruction}
 {language_instruction}"""
 
-        response = llm.invoke(prompt)
+        response = llm.invoke(AdkPrompt(system_message=prompt))
 
         argument = f"Conservative Analyst: {response.content}"
 
