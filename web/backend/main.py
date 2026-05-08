@@ -21,6 +21,7 @@ from web.backend import (
     screener_results,
     report_metadata,
     screener_runs,
+    search_quota,
     trade_entries,
 )
 from web.backend.routers import (
@@ -49,6 +50,7 @@ async def _app_lifespan(_: FastAPI):
     analysis_limits.initialize_analysis_limits_runtime()
     data_sources.initialize_data_source_runtime()
     llm_models.initialize_llm_model_runtime()
+    search_quota.initialize_search_quota_runtime()
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
     screener_results.initialize_screener_result_runtime()
