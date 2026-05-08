@@ -7,11 +7,13 @@ from diverge.agents.utils.agent_utils import (
     get_news,
     get_research_note_style_instruction,
     get_trade_feedback_message,
+    web_search_evidence,
 )
 from diverge.research.earnings import (
     build_earnings_workflow_context,
     inject_earnings_section,
 )
+from diverge.research.search.session import current_search_context
 
 
 def create_news_analyst(llm):
@@ -32,11 +34,15 @@ def create_news_analyst(llm):
         tools = [
             get_news,
             get_global_news,
+            web_search_evidence,
         ]
+
+        web_search_instruction = """Web Search is an optional evidence supplement. You may use web_search_evidence at most 2 times in this analyst step. Prefer existing financial news tools first. Use Web Search only for fresh-news verification, missing coverage, Chinese/local sources, or source-backed risks/catalysts. If Web Search returns no results or warnings, continue with available tools and clearly note the limitation. Do not make web-search-backed claims unless supported by the returned evidence."""
 
         system_message = (
             "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(query, start_date, end_date) for company-specific or targeted news searches, and get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
+            + f"\n\n{web_search_instruction}"
             + f"\n\n{earnings_context.prompt_instruction}"
             + """ After the markdown table, append exactly one structured highlights block in this exact format:
 
@@ -89,7 +95,24 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
         prompt = prompt.partial(trade_feedback_message=trade_feedback_message)
 
         chain = prompt | llm.bind_tools(tools)
-        result = chain.invoke(state["messages"])
+        context_token = None
+        parent_context = current_search_context.get()
+        if parent_context is not None:
+            context_token = current_search_context.set(
+                parent_context.model_copy(
+                    update={
+                        "agent": "News Analyst",
+                        "ticker": ticker,
+                        "analysis_date": current_date,
+                        "language": output_language,
+                    }
+                )
+            )
+        try:
+            result = chain.invoke(state["messages"])
+        finally:
+            if context_token is not None:
+                current_search_context.reset(context_token)
 
         report = ""
 

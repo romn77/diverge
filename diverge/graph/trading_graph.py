@@ -24,6 +24,7 @@ from diverge.agents.utils.agent_utils import (
     get_news,
     get_insider_transactions,
     get_global_news,
+    web_search_evidence,
 )
 
 from .conditional_logic import ConditionalLogic
@@ -177,6 +178,7 @@ class DivergeGraph:
                 [
                     # News tools for social media analysis
                     get_news,
+                    web_search_evidence,
                 ]
             ),
             "news": ToolNode(
@@ -185,6 +187,7 @@ class DivergeGraph:
                     get_news,
                     get_global_news,
                     get_insider_transactions,
+                    web_search_evidence,
                 ]
             ),
             "fundamentals": ToolNode(

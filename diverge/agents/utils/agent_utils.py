@@ -14,6 +14,7 @@ from diverge.agents.utils.news_data_tools import (
     get_insider_transactions,
     get_global_news,
 )
+from diverge.agents.utils.search_tools import web_search_evidence
 
 
 def build_instrument_context(ticker: str) -> str:
