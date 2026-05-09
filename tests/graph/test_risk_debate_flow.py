@@ -25,8 +25,6 @@ class RiskDebateFlowTests(unittest.TestCase):
 
         self.assertEqual(next_step, "Portfolio Manager")
 
-    @patch("diverge.graph.trading_graph.SignalProcessor")
-    @patch("diverge.graph.trading_graph.Reflector")
     @patch("diverge.graph.trading_graph.Propagator")
     @patch("diverge.graph.trading_graph.FinancialSituationMemory")
     @patch("diverge.graph.trading_graph.create_adk_model")
@@ -41,8 +39,6 @@ class RiskDebateFlowTests(unittest.TestCase):
         create_adk_model,
         _financial_situation_memory,
         _propagator,
-        _reflector,
-        _signal_processor,
     ):
         create_adk_model.return_value = object()
 

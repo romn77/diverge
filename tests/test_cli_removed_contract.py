@@ -36,6 +36,4 @@ def test_project_no_longer_exposes_or_ships_cli_module():
     assert '"typer' not in pyproject
     assert '"questionary' not in pyproject
 
-    root_main = PROJECT_ROOT / "main.py"
-    if root_main.exists():
-        assert "cli.main" not in root_main.read_text(encoding="utf-8")
+    assert not (PROJECT_ROOT / "main.py").exists()

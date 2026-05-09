@@ -163,8 +163,9 @@ config["market"] = "auto"
 config["output_language"] = "en"
 
 ta = DivergeGraph(debug=True, config=config)
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
+trace = list(ta.stream("NVDA", "2026-01-15", config["output_language"]))
+final_state = trace[-1]
+print(final_state["final_trade_decision"])
 ```
 
 ## Data Sources

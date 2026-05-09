@@ -1,6 +1,7 @@
 import sys
 import types
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from diverge.graph.trading_graph import DivergeGraph
@@ -37,7 +38,53 @@ def test_diverge_graph_exposes_runtime_facade_without_nested_graph_stream():
 
     assert hasattr(graph, "stream")
     assert hasattr(graph, "invoke")
+    assert not hasattr(graph, "propagate")
     assert not hasattr(graph, "graph")
+
+
+def test_diverge_graph_runtime_facade_accepts_ticker_date_or_initial_state():
+    graph = DivergeGraph.__new__(DivergeGraph)
+    captured = []
+
+    def create_initial_state(ticker, trade_date, output_language):
+        return {
+            "company_of_interest": ticker,
+            "trade_date": trade_date,
+            "output_language": output_language,
+        }
+
+    def stream(init_state, **args):
+        captured.append(("stream", init_state, args))
+        yield {"final_trade_decision": "BUY"}
+
+    def invoke(init_state, **args):
+        captured.append(("invoke", init_state, args))
+        return {"final_trade_decision": "HOLD"}
+
+    graph.propagator = SimpleNamespace(
+        create_initial_state=create_initial_state,
+        get_graph_args=lambda: {"recursion_limit": 8},
+    )
+    graph.workflow_runner = SimpleNamespace(stream=stream, invoke=invoke)
+
+    assert list(graph.stream("MSFT", "2026-03-20", "en", recursion_limit=3)) == [
+        {"final_trade_decision": "BUY"}
+    ]
+    assert graph.invoke({"company_of_interest": "NVDA"}, recursion_limit=5) == {
+        "final_trade_decision": "HOLD"
+    }
+    assert captured == [
+        (
+            "stream",
+            {
+                "company_of_interest": "MSFT",
+                "trade_date": "2026-03-20",
+                "output_language": "en",
+            },
+            {"recursion_limit": 3},
+        ),
+        ("invoke", {"company_of_interest": "NVDA"}, {"recursion_limit": 5}),
+    ]
 
 
 def test_runner_uses_diverge_graph_stream_facade():
