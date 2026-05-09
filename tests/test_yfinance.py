@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 
 from diverge.dataflows.y_finance import _fetch_yfinance_ohlcv_df
-from diverge.screener.market_data import fetch_price_history
+from diverge.market_data.price_history import fetch_price_history
 
 
 SYMBOL = "BRK.B"

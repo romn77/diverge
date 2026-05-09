@@ -17,7 +17,7 @@ from diverge.common.dates import parse_iso_date
 from diverge.common.json_io import write_json_atomic
 from diverge.common.market_calendar import latest_trading_day_on_or_before
 from diverge.dataflows.vendor_errors import VendorDataEmptyError
-from diverge.screener.market_data import fetch_price_history
+from diverge.market_data.price_history import fetch_price_history
 from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.sync import (
     sync_cn_tushare_fundamentals,

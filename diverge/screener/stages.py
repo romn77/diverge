@@ -11,9 +11,10 @@ from diverge.market_data.history_cache import (
     classify_history_cache_coverage,
     load_history_cache,
 )
+from diverge.market_data.price_history import LOOKBACK_DAYS
 from diverge.screener.filters import apply_hard_filters
 from diverge.screener.indicators import build_features_table
-from diverge.screener.market_data import LOOKBACK_DAYS, fetch_history_for_universe
+from diverge.screener.market_data import fetch_history_for_universe
 from diverge.screener.ranker import score_candidates
 from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.universe import load_universe

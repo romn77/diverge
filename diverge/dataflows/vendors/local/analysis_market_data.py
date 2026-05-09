@@ -8,7 +8,7 @@ from diverge.dataflows.cn_market_utils import (
     generate_indicator_report,
 )
 from diverge.dataflows.routes import history_source_kwargs_for_market
-from diverge.screener.market_data import fetch_ticker_history
+from diverge.market_data.price_history import fetch_ticker_history
 
 
 INDICATOR_WARMUP_DAYS = 260

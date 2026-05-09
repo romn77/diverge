@@ -9,9 +9,9 @@ import pytest
 
 from diverge.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
 from diverge.market_data.history_cache import checkpoint_path, save_checkpoint
+from diverge.market_data.price_history import fetch_price_history
 from diverge.screener.market_data import (
     fetch_history_for_universe,
-    fetch_price_history,
 )
 
 
@@ -54,7 +54,7 @@ def test_fetch_price_history_uses_tushare_for_cn_and_normalizes_amount():
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_tushare_stock_df",
+        "diverge.market_data.price_history._fetch_tushare_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history("600519.SH", "cn", "2025-01-01", "2026-03-24")
@@ -79,7 +79,7 @@ def test_fetch_price_history_uses_akshare_for_cn_and_normalizes_symbol():
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_akshare_stock_df",
+        "diverge.market_data.price_history._fetch_akshare_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -109,7 +109,7 @@ def test_fetch_price_history_uses_yfinance_for_us_and_computes_amount_when_missi
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.market_data.price_history._fetch_yfinance_ohlcv_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history("AAPL", "us", "2025-01-01", "2026-03-24")
@@ -139,7 +139,7 @@ def test_fetch_price_history_uses_alpha_vantage_for_us_and_computes_amount_when_
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_alpha_vantage_stock_df",
+        "diverge.market_data.price_history._fetch_alpha_vantage_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -170,7 +170,7 @@ def test_fetch_price_history_uses_tushare_for_us_and_keeps_amount():
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_tushare_us_stock_df",
+        "diverge.market_data.price_history._fetch_tushare_us_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -200,7 +200,7 @@ def test_fetch_price_history_uses_akshare_for_us_and_computes_amount_when_missin
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_akshare_us_stock_df",
+        "diverge.market_data.price_history._fetch_akshare_us_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -230,7 +230,7 @@ def test_fetch_price_history_uses_massive_for_us_and_computes_amount_when_missin
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_massive_stock_df",
+        "diverge.market_data.price_history._fetch_massive_stock_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history(
@@ -247,7 +247,7 @@ def test_fetch_price_history_uses_massive_for_us_and_computes_amount_when_missin
 
 def test_fetch_price_history_handles_empty_us_frame_without_columns():
     with patch(
-        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.market_data.price_history._fetch_yfinance_ohlcv_df",
         return_value=pd.DataFrame(),
     ) as mock_fetch:
         result = fetch_price_history("NVDA", "us", "2026-03-26", "2026-03-26")
@@ -310,7 +310,7 @@ def test_fetch_price_history_enforces_canonical_history_contract():
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.market_data.price_history._fetch_yfinance_ohlcv_df",
         return_value=frame,
     ):
         result = fetch_price_history("AAPL", "us", "2025-01-01", "2026-03-25")
@@ -344,7 +344,7 @@ def test_fetch_price_history_normalizes_us_share_class_symbol_for_yfinance():
     )
 
     with patch(
-        "diverge.screener.market_data._fetch_yfinance_ohlcv_df",
+        "diverge.market_data.price_history._fetch_yfinance_ohlcv_df",
         return_value=frame,
     ) as mock_fetch:
         result = fetch_price_history("BRK.B", "us", "2025-01-01", "2026-03-24")
@@ -439,7 +439,7 @@ def test_fetch_history_for_universe_retries_retryable_errors_before_succeeding(
                 success_frame,
             ],
         ) as mock_fetch,
-        patch("diverge.screener.market_data.time.sleep") as mock_sleep,
+        patch("diverge.market_data.price_history.time.sleep") as mock_sleep,
     ):
         histories, failures = fetch_history_for_universe(
             universe,
@@ -660,7 +660,7 @@ def test_fetch_history_for_universe_reraises_raw_cn_error_after_retries_exhauste
             "diverge.screener.market_data.fetch_price_history",
             side_effect=raise_wrapped,
         ),
-        patch("diverge.screener.market_data.time.sleep"),
+        patch("diverge.market_data.price_history.time.sleep"),
     ):
         with pytest.raises(RuntimeError, match="boom"):
             fetch_history_for_universe(
@@ -767,7 +767,7 @@ def test_fetch_history_for_universe_rate_limits_cn_requests_between_symbols(tmp_
             "diverge.screener.market_data.fetch_price_history",
             return_value=frame,
         ),
-        patch("diverge.screener.market_data.time.sleep") as mock_sleep,
+        patch("diverge.market_data.price_history.time.sleep") as mock_sleep,
     ):
         fetch_history_for_universe(
             universe,
@@ -813,7 +813,7 @@ def test_fetch_history_for_universe_rate_limits_us_requests_between_symbols(tmp_
             "diverge.screener.market_data.fetch_price_history",
             return_value=frame,
         ),
-        patch("diverge.screener.market_data.time.sleep") as mock_sleep,
+        patch("diverge.market_data.price_history.time.sleep") as mock_sleep,
     ):
         fetch_history_for_universe(
             universe,

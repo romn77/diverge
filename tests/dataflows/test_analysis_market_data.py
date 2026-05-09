@@ -102,7 +102,7 @@ def test_analysis_stock_data_uses_latest_cache_for_weekend_as_of(tmp_path, monke
     )
 
     with patch(
-        "diverge.screener.market_data.fetch_price_history",
+        "diverge.market_data.price_history.fetch_price_history",
         side_effect=AssertionError("weekend analysis should use latest local cache"),
     ):
         result = get_stock_data.func("AAPL", "2026-01-02", "2026-01-10")
@@ -139,7 +139,7 @@ def test_analysis_indicators_use_latest_cache_for_weekend_as_of(tmp_path, monkey
     save_history_cache(tmp_path, "us", "AAPL", _history_rows("2025-01-01", 374))
 
     with patch(
-        "diverge.screener.market_data.fetch_price_history",
+        "diverge.market_data.price_history.fetch_price_history",
         side_effect=AssertionError("weekend indicators should use latest local cache"),
     ):
         result = get_indicators.func(

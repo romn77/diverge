@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from diverge.common.dates import offset_iso_date
-from diverge.screener.market_data import LOOKBACK_DAYS
+from diverge.market_data.price_history import LOOKBACK_DAYS
 from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.stages import (
     prepare_universe_stage,

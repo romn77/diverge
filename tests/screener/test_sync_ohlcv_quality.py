@@ -5,8 +5,9 @@ from types import SimpleNamespace
 
 import pandas as pd
 
-from diverge.screener import market_data, sync
+from diverge.market_data import price_history
 from diverge.market_data.history_cache import classify_history_cache_coverage
+from diverge.screener import market_data, sync
 from diverge.screener.schema import ScreenRunConfig
 
 
@@ -105,7 +106,7 @@ def test_sync_ohlcv_cache_retries_missing_as_of_bar_until_ready(tmp_path, monkey
         "prepare_universe_stage",
         lambda *_args, **_kwargs: SimpleNamespace(prefiltered_df=universe_df),
     )
-    monkeypatch.setattr(market_data, "CN_REQUEST_DELAY_SECONDS", 0)
+    monkeypatch.setattr(price_history, "CN_REQUEST_DELAY_SECONDS", 0)
 
     def fake_fetch_price_history(*_args, **_kwargs):
         calls.append(_args)
@@ -141,7 +142,7 @@ def test_sync_ohlcv_cache_marks_persistent_missing_as_of_bar_after_three_retries
         "prepare_universe_stage",
         lambda *_args, **_kwargs: SimpleNamespace(prefiltered_df=universe_df),
     )
-    monkeypatch.setattr(market_data, "CN_REQUEST_DELAY_SECONDS", 0)
+    monkeypatch.setattr(price_history, "CN_REQUEST_DELAY_SECONDS", 0)
 
     def fake_fetch_price_history(*_args, **_kwargs):
         calls.append(_args)

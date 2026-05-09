@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from diverge.screener.market_data import LOOKBACK_DAYS
+from diverge.market_data.price_history import LOOKBACK_DAYS
 from web.backend import auth
 from web.backend.schemas.ticker_history import TickerHistoryBatchPayload
 from web.backend.services.ticker_history import (

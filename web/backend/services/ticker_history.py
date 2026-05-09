@@ -6,7 +6,7 @@ from fastapi import HTTPException
 
 from diverge.common.dates import require_iso_date, today_iso
 from diverge.market_data.history_cache import history_cache_path
-from diverge.screener.market_data import LOOKBACK_DAYS, fetch_ticker_history
+from diverge.market_data.price_history import LOOKBACK_DAYS, fetch_ticker_history
 from web.backend import app_config, storage
 from web.backend.schemas.ticker_history import TickerHistoryBatchPayload
 

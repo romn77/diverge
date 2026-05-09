@@ -21,7 +21,8 @@ from diverge.market_data.history_cache import (
     classify_history_cache_coverage,
     load_history_cache,
 )
-from diverge.screener.market_data import LOOKBACK_DAYS, fetch_history_for_universe
+from diverge.market_data.price_history import LOOKBACK_DAYS
+from diverge.screener.market_data import fetch_history_for_universe
 from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.stages import prepare_universe_stage
 
