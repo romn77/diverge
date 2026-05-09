@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils";
 interface MetricCardProps {
   label: string;
   value: string;
+  /** @deprecated persistent helper copy is intentionally not rendered. */
   meta?: string;
+  /** @deprecated persistent helper copy is intentionally not rendered. */
   secondary?: string;
   action?: ReactNode;
   badge?: ReactNode;
@@ -21,8 +23,6 @@ interface MetricCardProps {
 export function MetricCard({
   label,
   value,
-  meta,
-  secondary,
   action,
   badge,
   trendLabel,
@@ -32,7 +32,7 @@ export function MetricCard({
   valueClassName,
 }: MetricCardProps) {
   const hasMetricDetails = Boolean(
-    secondary || action || badge || trendLabel || trendValue
+    action || badge || trendLabel || trendValue
   );
   const trendVariant =
     trendDirection === "up"
@@ -56,7 +56,6 @@ export function MetricCard({
           >
             {value}
           </p>
-          {meta ? <p className="metric-card-meta mt-1 text-xs">{meta}</p> : null}
         </CardContent>
       </Card>
     );
@@ -96,10 +95,6 @@ export function MetricCard({
             </Badge>
           ) : null}
         </div>
-        {meta ? <p className="metric-card-meta mt-1 text-xs">{meta}</p> : null}
-        {secondary ? (
-          <p className="mt-1 text-[11px] leading-4 text-muted-foreground">{secondary}</p>
-        ) : null}
       </CardContent>
     </Card>
   );

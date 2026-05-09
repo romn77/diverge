@@ -157,6 +157,12 @@ This fallback is intentionally conservative. It preserves the completed report a
 ```"""
 
 
+def _empty_portfolio_context(output_language: str | None) -> str:
+    if (output_language or "en").lower() == "cn":
+        return "当前持仓参考：\n- 未提供该用户的已跟踪持仓。"
+    return "Current portfolio reference:\n- No tracked holdings were provided for this user."
+
+
 class PortfolioManager(DivergeAgentNode):
     name = "portfolio_manager"
 
@@ -178,7 +184,7 @@ class PortfolioManager(DivergeAgentNode):
         portfolio_context_block = (
             portfolio_context
             if portfolio_context
-            else "Current Portfolio Ledger Context:\n- No tracked positions were provided for this user."
+            else _empty_portfolio_context(output_language)
         )
 
         curr_situation = (
@@ -206,6 +212,7 @@ Guidelines for Decision-Making:
 3. **Refine the Trader's Plan**: Start with the trader's original plan, **{trader_plan}**, and adjust it based on the analysts' insights.
 4. **Learn from Past Mistakes**: Use lessons from **{past_memory_str}** to address prior misjudgments and improve the decision you are making now.
 5. **Size Relative to Current Exposure**: Interpret Buy / Overweight / Hold / Underweight / Sell relative to the current portfolio. If the user already owns the name or related exposure, say whether to add, trim, or maintain rather than reasoning as if the book were empty.
+6. **Keep Internal Context Private**: Use the portfolio context only to adjust exposure-aware advice. Do not quote raw ledger lines, account names, JSON/code-fence names, prompt labels, or internal implementation terms in user-facing prose. For Chinese output, describe this naturally as "持仓参考" or "现有持仓".
 
 ---
 

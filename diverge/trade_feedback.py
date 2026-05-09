@@ -4,22 +4,29 @@ import json
 import re
 import shutil
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from diverge.common.dates import (
+    iso_date_part,
+    offset_iso_date,
+    require_iso_date,
+    today_iso,
+)
+from diverge.common.fields import (
+    normalize_optional_number as normalize_field_optional_number,
+    normalize_optional_text as normalize_field_optional_text,
+    require_text as require_field_text,
+)
+from diverge.common.json_io import read_json_file, write_json_atomic
+from diverge.common.symbols import normalize_ticker_symbol
 from diverge.data_layout import resolve_history_dir, resolve_reports_dir
 from diverge.dataflows.interface import route_to_vendor
 from diverge.llm_clients import create_llm_client
 from diverge.llm_clients.model_config import get_provider_base_url
 from diverge.markets import resolve_symbol
-from diverge.screener.history_cache import (
-    classify_history_cache_coverage,
-    history_cache_path,
-    load_history_cache,
-    slice_history_window,
-)
-from diverge.ticker_symbols import normalize_ticker_symbol
+from diverge.market_data.price_history import load_local_price_window
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TRADE_FEEDBACK_DIRNAME = ".trade_feedback"
@@ -254,7 +261,7 @@ def list_trade_records(
         if not search_root.is_dir():
             continue
         for record_path in sorted(search_root.glob(f"*/{TRADE_RECORD_FILENAME}")):
-            results.append(_read_json_file(record_path))
+            results.append(read_json_file(record_path))
 
     results.sort(key=lambda record: record.get("updated_at", ""), reverse=True)
     return results
@@ -268,7 +275,7 @@ def get_trade_record(
     record_path = _find_trade_record_path(trade_id, reports_dir=reports_dir)
     if record_path is None:
         raise ValueError(f"Trade '{trade_id}' not found")
-    return _read_json_file(record_path)
+    return read_json_file(record_path)
 
 
 def list_trade_reviews(
@@ -286,7 +293,7 @@ def list_trade_reviews(
     for review_type in sorted(REVIEW_TYPES):
         review_path = reviews_dir / f"{review_type}.json"
         if review_path.is_file():
-            reviews.append(_read_json_file(review_path))
+            reviews.append(read_json_file(review_path))
     reviews.sort(key=lambda review: review.get("updated_at", ""), reverse=True)
     return reviews
 
@@ -1340,9 +1347,7 @@ def _resolve_review_action_date(
     analysis_date: str | None,
 ) -> str:
     fallback_date = (
-        _normalize_analysis_date(analysis_date)
-        if analysis_date
-        else datetime.now().date().isoformat()
+        _normalize_analysis_date(analysis_date) if analysis_date else today_iso()
     )
     if review_type == "exit_review":
         return _date_part(trade_record.get("exit_timestamp")) or fallback_date
@@ -1374,45 +1379,56 @@ def _build_local_price_history_evidence(
             "history_dir": str(resolved_history_dir),
         }
 
-    cache_path = history_cache_path(resolved_history_dir, market, symbol)
+    cache_path = None
+    effective_action_date = action_date
     lookback_start = _date_offset(action_date, -180)
     try:
-        cached_frame = load_history_cache(resolved_history_dir, market, symbol)
-        coverage = classify_history_cache_coverage(
-            cached_frame,
-            start_date=lookback_start,
+        price_window = load_local_price_window(
+            history_dir=resolved_history_dir,
+            market=market,
+            symbol=symbol,
             as_of_date=action_date,
+            lookback_days=180,
+            normalize_to_trading_day=True,
         )
-        action_window = slice_history_window(cached_frame, lookback_start, action_date)
+        cache_path = price_window["cache_path"]
+        coverage = price_window["coverage"]
+        action_window = price_window["window"]
+        lookback_start = price_window["start_date"]
+        effective_action_date = price_window["as_of_date"]
         if action_window.empty:
             return {
                 "status": "unavailable",
                 "reason": coverage["status"],
                 "cache_path": str(cache_path),
                 "cache_span": coverage.get("cache_span"),
-                "required_window": f"{lookback_start}..{action_date}",
+                "required_window": f"{lookback_start}..{effective_action_date}",
             }
 
-        return {
+        evidence = {
             "status": "available",
             "source": "local_history_cache",
             "cache_path": str(cache_path),
             "cache_span": coverage.get("cache_span"),
-            "required_window": f"{lookback_start}..{action_date}",
+            "required_window": f"{lookback_start}..{effective_action_date}",
             "used_window": _frame_date_span(action_window),
             "bar_count": int(len(action_window)),
             "technical_summary": _summarize_price_window(
                 action_window,
                 trade_record=trade_record,
-                action_date=action_date,
+                action_date=effective_action_date,
             ),
             "recent_bars": _recent_bars(action_window, limit=8),
         }
+        if effective_action_date != action_date:
+            evidence["requested_action_date"] = action_date
+            evidence["action_date"] = effective_action_date
+        return evidence
     except Exception as exc:
         return {
             "status": "unavailable",
             "reason": str(exc),
-            "cache_path": str(cache_path),
+            "cache_path": str(cache_path or resolved_history_dir),
             "required_window": f"{lookback_start}..{action_date}",
         }
 
@@ -1440,7 +1456,7 @@ def _build_external_news_evidence(
             "reason": "trade record does not include a symbol for news lookup",
         }
 
-    today = datetime.now().date().isoformat()
+    today = today_iso()
     latest_start = _date_offset(today, -14)
     action_start = _date_offset(action_date, -14)
     try:
@@ -1539,18 +1555,11 @@ def _recent_bars(frame, *, limit: int) -> list[dict[str, Any]]:
 
 
 def _date_part(value: Any) -> str | None:
-    if not value:
-        return None
-    text = str(value)
-    if len(text) >= 10:
-        return text[:10]
-    return None
+    return iso_date_part(value)
 
 
 def _date_offset(value: str, days: int) -> str:
-    return (
-        (datetime.strptime(value, "%Y-%m-%d") + timedelta(days=days)).date().isoformat()
-    )
+    return offset_iso_date(value, days)
 
 
 def _frame_date_span(frame) -> str | None:
@@ -1988,12 +1997,7 @@ def _normalize_analysis_references(
 
 
 def _normalize_analysis_date(value: Any) -> str:
-    text = _require_text(value, "analysis_date")
-    try:
-        datetime.strptime(text, "%Y-%m-%d")
-    except ValueError as exc:
-        raise ValueError("analysis_date must use YYYY-MM-DD format") from exc
-    return text
+    return require_iso_date(value, "analysis_date")
 
 
 def _normalize_project_relative_path(value: Any, field_name: str) -> str:
@@ -2089,7 +2093,7 @@ def _write_trade_record(
             current_dir.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(previous_dir), str(current_dir))
     current_dir.mkdir(parents=True, exist_ok=True)
-    _write_json_atomic(current_dir / TRADE_RECORD_FILENAME, record)
+    write_json_atomic(current_dir / TRADE_RECORD_FILENAME, record)
 
 
 def _write_trade_review(
@@ -2102,21 +2106,7 @@ def _write_trade_review(
         / "reviews"
     )
     reviews_dir.mkdir(parents=True, exist_ok=True)
-    _write_json_atomic(reviews_dir / f"{review['review_type']}.json", review)
-
-
-def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
-
-
-def _read_json_file(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    write_json_atomic(reviews_dir / f"{review['review_type']}.json", review)
 
 
 def _extract_json_object(raw_text: str) -> dict[str, Any]:
@@ -2158,18 +2148,11 @@ def _normalize_ticker(value: Any) -> str:
 
 
 def _normalize_optional_text(value: Any) -> str:
-    if value is None:
-        return ""
-    return str(value).strip()
+    return normalize_field_optional_text(value, empty_value="") or ""
 
 
 def _normalize_optional_number(value: Any, field_name: str) -> float | None:
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field_name} must be numeric") from exc
+    return normalize_field_optional_number(value, field_name)
 
 
 def _normalize_optional_timestamp(value: Any, field_name: str) -> str | None:
@@ -2354,10 +2337,7 @@ def _validate_trade_record(record: dict[str, Any]) -> None:
 
 
 def _require_text(value: Any, field_name: str) -> str:
-    text = str(value).strip() if value is not None else ""
-    if not text:
-        raise ValueError(f"{field_name} is required")
-    return text
+    return require_field_text(value, field_name)
 
 
 def _now_iso() -> str:

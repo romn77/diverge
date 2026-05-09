@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { HighlightCards } from "@/components/HighlightCards";
 import { parseHighlights, stripStructuredDecisionBlocks } from "@/lib/highlights";
+import { sanitizeUserFacingReportText } from "@/lib/reportSanitizer";
 
 interface MarkdownContentProps {
   content: string;
@@ -67,13 +68,15 @@ export const MarkdownContent = React.memo(function MarkdownContent({
     if (highlightMode === "single") {
       const parsed = parseHighlights(content);
       return {
-        processedContent: parsed.cleanMarkdown,
+        processedContent: sanitizeUserFacingReportText(parsed.cleanMarkdown),
         highlights: parsed.highlights,
       };
     }
 
     return {
-      processedContent: stripStructuredDecisionBlocks(content),
+      processedContent: sanitizeUserFacingReportText(
+        stripStructuredDecisionBlocks(content)
+      ),
       highlights: null,
     };
   }, [content, highlightMode]);

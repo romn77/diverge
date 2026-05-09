@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import os
 import re
 import shlex
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
@@ -470,10 +472,34 @@ class AdkChatModel:
 
 
 def _run_coro_blocking(coro):
+    wrapped = _await_and_flush_litellm_logging(coro)
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        return asyncio.run(coro)
+        return asyncio.run(wrapped)
 
     with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(asyncio.run, coro).result()
+        return executor.submit(asyncio.run, wrapped).result()
+
+
+async def _await_and_flush_litellm_logging(coro):
+    try:
+        return await coro
+    finally:
+        await _flush_litellm_logging_worker()
+
+
+async def _flush_litellm_logging_worker() -> None:
+    worker_module = sys.modules.get("litellm.litellm_core_utils.logging_worker")
+    if worker_module is None:
+        return
+
+    worker = getattr(worker_module, "GLOBAL_LOGGING_WORKER", None)
+    flush = getattr(worker, "flush", None)
+    if not callable(flush):
+        return
+
+    # LiteLLM logging is best-effort; a flush failure must not replace the model
+    # result or mask the original model exception.
+    with contextlib.suppress(Exception):
+        await flush()

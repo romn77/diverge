@@ -20,6 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from diverge.common.fields import normalize_optional_text
 from web.backend import auth
 
 REPORT_VISIBILITY_PRIVATE = "private"
@@ -53,9 +54,7 @@ def _normalize_text(value: str | None, field_name: str) -> str:
 
 
 def _normalize_optional_text(value: str | None) -> str | None:
-    if value is None or not value.strip():
-        return None
-    return value.strip()
+    return normalize_optional_text(value)
 
 
 def _normalize_visibility(value: str | None) -> str:

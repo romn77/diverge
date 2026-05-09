@@ -8,8 +8,8 @@ from datetime import date
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from diverge.dataflows import vendor_usage
-from diverge.screener.market_calendar import latest_trading_day_on_or_before
+from diverge.common.market_calendar import latest_trading_day_on_or_before
+from diverge.dataflows.routes import dual_market_history_source_kwargs
 from diverge.screener.schema import ScreenRunConfig
 from web.backend import (
     access,
@@ -53,29 +53,7 @@ def _get_authorized_screener_task(
 
 
 def resolve_screener_data_sources(markets: list[str]) -> dict:
-    sources: dict[str, object] = {}
-
-    cn_chain = vendor_usage.get_data_source_route(
-        module="screener",
-        market="cn",
-        category="core_stock_apis",
-    )
-    if not cn_chain:
-        cn_chain = ["tushare"]
-    sources["cn_data_source"] = cn_chain[0]
-    sources["cn_data_source_fallbacks"] = cn_chain[1:]
-
-    us_chain = vendor_usage.get_data_source_route(
-        module="screener",
-        market="us",
-        category="core_stock_apis",
-    )
-    if not us_chain:
-        us_chain = ["massive"]
-    sources["us_data_source"] = us_chain[0]
-    sources["us_data_source_fallbacks"] = us_chain[1:]
-
-    return sources
+    return dual_market_history_source_kwargs(module="screener")
 
 
 def resolve_screener_as_of_date(

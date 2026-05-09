@@ -149,9 +149,6 @@ export default function LoginPage() {
             <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-foreground">
               Workspace credentials
             </h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              Sign in to continue to your requested page.
-            </p>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
               <label className="block">

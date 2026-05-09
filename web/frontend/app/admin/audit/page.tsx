@@ -238,7 +238,6 @@ export default function AdminAuditPage() {
     <AdminConsolePage
       activeTab="audit"
       title="Audit Log"
-      description="Review tenant-scoped auth, admin, data-source, task, asset, and journal activity."
       badges={
         <>
           <Badge variant="secondary">Read-only</Badge>

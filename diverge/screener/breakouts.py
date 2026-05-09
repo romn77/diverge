@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from .history_cache import prepare_history_frame_for_indicators
+from diverge.market_data.history_cache import prepare_history_frame_for_indicators
 
 
 BREAKOUT_HISTORY_MIN_BARS = 120

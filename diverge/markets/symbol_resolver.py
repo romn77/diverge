@@ -6,12 +6,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from diverge.dataflows.cn_market_utils import (
+from diverge.common.symbols import (
     CN_TICKER_RE,
     US_TICKER_RE,
+    normalize_ticker_symbol,
     parse_and_normalize_cn_ticker,
 )
-from diverge.ticker_symbols import normalize_ticker_symbol
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent

@@ -11,8 +11,8 @@ from diverge.data.manifest_schema import (
     COMMON_MANIFEST_COLUMNS,
     COMPARE_MANIFEST_COLUMNS,
 )
+from diverge.common.symbols import infer_cn_exchange
 from diverge.dataflows.vendors.akshare.stock import _import_akshare
-from diverge.dataflows.cn_market_utils import infer_cn_exchange
 from diverge.dataflows.vendors.tushare.common import get_tushare_pro_client
 from diverge.dataflows.vendor_errors import (
     VendorAuthError,

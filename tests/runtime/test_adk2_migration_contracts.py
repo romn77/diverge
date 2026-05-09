@@ -1,3 +1,5 @@
+import sys
+import types
 from pathlib import Path
 from unittest.mock import patch
 
@@ -153,6 +155,31 @@ def test_sub2api_litellm_api_base_uses_openai_compatible_v1_endpoint():
 
     assert kwargs["api_base"] == "https://cc.z2blog.com/v1"
     assert already_versioned_kwargs["api_base"] == "https://cc.z2blog.com/v1"
+
+
+def test_sync_adk_invoke_flushes_litellm_logging_worker():
+    import asyncio
+
+    from diverge.runtime.model_factory import _run_coro_blocking
+
+    class Worker:
+        def __init__(self):
+            self.flushed = False
+
+        async def flush(self):
+            self.flushed = True
+
+    worker = Worker()
+    module = types.SimpleNamespace(GLOBAL_LOGGING_WORKER=worker)
+
+    with patch.dict(
+        sys.modules,
+        {"litellm.litellm_core_utils.logging_worker": module},
+    ):
+        result = _run_coro_blocking(asyncio.sleep(0, result="ok"))
+
+    assert result == "ok"
+    assert worker.flushed is True
 
 
 def test_adk_adapter_extracts_sub2api_textual_tool_calls():

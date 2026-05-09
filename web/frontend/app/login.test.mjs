@@ -18,7 +18,7 @@ test("login page bootstraps from auth state and preserves the requested destinat
   assert.match(source, /await login\(\{/);
   assert.match(source, /Sign In/);
   assert.match(source, /Diverge/);
-  assert.match(source, /Sign in to continue to your requested page\./);
+  assert.doesNotMatch(source, /Sign in to continue to your requested page\./);
 });
 
 test("login page uses theme-aware surface and text tokens for the signed-out layout", () => {

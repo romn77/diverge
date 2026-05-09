@@ -188,6 +188,7 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
                 owner_user_id,
                 tenant_id=tenant_id,
                 ticker=analysis_request.ticker,
+                output_language=analysis_request.output_language,
             )
         )
 

@@ -1,4 +1,5 @@
 import type { ReportHighlights, TradeSignal } from "./highlights.ts";
+import { sanitizeUserFacingReportText } from "./reportSanitizer.ts";
 
 export type TerminalPanelVariant =
   | "story"
@@ -73,7 +74,58 @@ function withFallback(value: string | undefined, fallback: string): string {
   }
 
   const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : fallback;
+  return trimmed.length > 0 ? sanitizeUserFacingReportText(trimmed) : fallback;
+}
+
+function cleanText(value: string): string {
+  return sanitizeUserFacingReportText(value);
+}
+
+function cleanChip(chip: TerminalChip): TerminalChip {
+  return {
+    label: cleanText(chip.label),
+    value: cleanText(chip.value),
+  };
+}
+
+function cleanEntry(entry: TerminalEntry): TerminalEntry {
+  return {
+    title: cleanText(entry.title),
+    body: entry.body ? cleanText(entry.body) : undefined,
+    meta: entry.meta ? cleanText(entry.meta) : undefined,
+  };
+}
+
+function cleanPanel(panel: TerminalPanel): TerminalPanel {
+  return {
+    ...panel,
+    title: cleanText(panel.title),
+    summary: panel.summary ? cleanText(panel.summary) : undefined,
+    chips: panel.chips?.map(cleanChip),
+    entries: panel.entries?.map(cleanEntry),
+    columns: panel.columns?.map((column) => ({
+      title: cleanText(column.title),
+      items: column.items.map(cleanText),
+    })),
+    table: panel.table
+      ? {
+          columns: panel.table.columns.map(cleanText) as [string, string, string],
+          rows: panel.table.rows.map((row) => ({
+            label: cleanText(row.label),
+            value: cleanText(row.value),
+            detail: cleanText(row.detail),
+          })),
+        }
+      : undefined,
+  };
+}
+
+function cleanConsole(consolePanel: TerminalConsole): TerminalConsole {
+  return {
+    key: consolePanel.key,
+    title: cleanText(consolePanel.title),
+    panels: consolePanel.panels.map(cleanPanel),
+  };
 }
 
 function baseDeck(
@@ -84,13 +136,13 @@ function baseDeck(
   consoles: [TerminalConsole, TerminalConsole]
 ): HighlightDeck {
   return {
-    categoryLabel,
-    heroTitle,
-    summary: highlights.summary,
+    categoryLabel: cleanText(categoryLabel),
+    heroTitle: cleanText(heroTitle),
+    summary: cleanText(highlights.summary),
     signal: highlights.signal,
     confidence: highlights.signal_confidence,
-    heroChips,
-    consoles,
+    heroChips: heroChips.map(cleanChip),
+    consoles: consoles.map(cleanConsole) as [TerminalConsole, TerminalConsole],
   };
 }
 

@@ -98,10 +98,6 @@ export function ActivityDashboard() {
         <PageHeader
           eyebrow={t("sidebar.nav.activity", "Activity")}
           title={t("activity.title", "Background work")}
-          description={t(
-            "activity.description",
-            "Monitor analysis and screener jobs in one place."
-          )}
           actions={
             <>
               <Button asChild variant="secondary">
@@ -140,7 +136,6 @@ export function ActivityDashboard() {
         <section className="grid gap-6 xl:grid-cols-2">
           <ActivityQueueSection
             title={t("activity.analysisTasks", "Analysis tasks")}
-            description={t("activity.analysisDescription", "Research jobs waiting or running.")}
             emptyLabel={t("activity.noAnalysisJobs", "No active analysis jobs.")}
             items={activeTasks.map((task) => ({
               href: buildTaskHref(task.id),
@@ -157,7 +152,6 @@ export function ActivityDashboard() {
           />
           <ActivityQueueSection
             title={t("activity.failedAnalysisTasks", "Failed analysis tasks")}
-            description={t("activity.failedAnalysisDescription", "Failed research records that can be removed.")}
             emptyLabel={t("activity.noFailedAnalysisJobs", "No failed analysis jobs.")}
             items={failedTasks.map((task) => ({
               href: buildTaskHref(task.id),
@@ -176,10 +170,6 @@ export function ActivityDashboard() {
           />
           <ActivityQueueSection
             title={t("activity.screenerTasks", "Screener tasks")}
-            description={t(
-              "activity.screenerDescription",
-              "Candidate-pool builds currently in motion."
-            )}
             emptyLabel={t("activity.noScreenerJobs", "No active screener jobs.")}
             items={activeScreenerTasks.map((task) => ({
               href: buildScreenerTaskHref(task.id),
@@ -199,10 +189,6 @@ export function ActivityDashboard() {
           />
           <ActivityQueueSection
             title={t("activity.journalReviewTasks", "Journal AI reviews")}
-            description={t(
-              "activity.journalReviewDescription",
-              "Automatic trade-review generation launched from journal submissions."
-            )}
             emptyLabel={t(
               "activity.noJournalReviewJobs",
               "No journal AI review activity yet."
@@ -218,7 +204,6 @@ export function ActivityDashboard() {
           />
           <ActivityQueueSection
             title={t("activity.failedScreenerTasks", "Failed screener tasks")}
-            description={t("activity.failedScreenerDescription", "Failed candidate-pool records that can be removed.")}
             emptyLabel={t("activity.noFailedScreenerJobs", "No failed screener jobs.")}
             items={failedScreenerTasks.map((task) => ({
               href: buildScreenerTaskHref(task.id),
@@ -260,12 +245,10 @@ function ActivityMetric({
 
 function ActivityQueueSection({
   title,
-  description,
   emptyLabel,
   items,
 }: {
   title: string;
-  description: string;
   emptyLabel: string;
   items: Array<{
     href: string;
@@ -286,7 +269,6 @@ function ActivityQueueSection({
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {title}
           </p>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">{description}</p>
         </div>
         <Badge variant="secondary" className="text-slate-500">
           {items.length}

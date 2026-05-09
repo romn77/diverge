@@ -283,7 +283,6 @@ export default function AdminSearchQuotaPage() {
     <AdminConsolePage
       activeTab="search-quota"
       title="Search Quota"
-      description="Control optional Web Search for News and Sentiment analysts. Defaults keep global search and every provider disabled."
       badges={
         <Badge variant={globalEnabled ? "secondary" : "destructive"}>
           {globalEnabled ? "global enabled" : "global disabled"}
@@ -322,11 +321,11 @@ export default function AdminSearchQuotaPage() {
                 {globalEnabled ? "enabled" : "disabled"}
               </Badge>
             </div>
-            <p className="mt-1 text-xs leading-5 text-slate-600">
-              {globalDisabledReason
-                ? `Disabled reason: ${globalDisabledReason}`
-                : "Provider switches and hard caps still apply when global search is enabled."}
-            </p>
+            {globalDisabledReason ? (
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                Disabled reason: {globalDisabledReason}
+              </p>
+            ) : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button

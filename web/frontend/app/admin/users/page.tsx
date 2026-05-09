@@ -567,7 +567,6 @@ export default function AdminUsersPage() {
       <AdminConsolePage
         activeTab="users"
         title="Manage workspace access"
-        description="Keep the roster visible, then open focused panels for account creation, user edits, and weekly module quotas."
         actions={
           <>
                 <Button

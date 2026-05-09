@@ -3,9 +3,9 @@ from __future__ import annotations
 import pandas as pd
 
 from .rate_limit import call_akshare_api
+from diverge.common.symbols import parse_and_normalize_cn_ticker
 from ...cn_market_utils import (
     dataframe_to_standard_string,
-    parse_and_normalize_cn_ticker,
 )
 from ...vendor_errors import (
     VendorDataEmptyError,

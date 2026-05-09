@@ -29,6 +29,8 @@ web/frontend/lib/*
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
 !web/frontend/lib/highlightTerminalSkillAdoption.test.mjs
+!web/frontend/lib/reportSanitizer.ts
+!web/frontend/lib/reportSanitizer.test.mjs
 !web/frontend/lib/workbenchRoutes.ts
 !web/frontend/lib/workbenchRoutes.test.mjs
 !web/frontend/lib/uiPreferences.ts

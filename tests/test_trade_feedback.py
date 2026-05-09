@@ -375,6 +375,58 @@ class TradeFeedbackServiceTests(unittest.TestCase):
         self.assertIn("Keep fundamental discussion to 1-2 sentences", prompt)
         self.assertIn("Do not explain general trading theory", prompt)
 
+    def test_generated_review_prompt_resolves_weekend_action_date_for_price_cache(
+        self,
+    ):
+        history_dir = self.project_root / "data" / "history" / "us"
+        history_dir.mkdir(parents=True)
+        start = date(2026, 1, 1)
+        rows = ["Date,Open,High,Low,Close,Volume,Amount"]
+        for offset in range(72):
+            day = start + timedelta(days=offset)
+            close = 100 + offset
+            rows.append(
+                f"{day.isoformat()},{close - 1},{close + 2},{close - 3},{close},1000000,{close * 1000000}"
+            )
+        (history_dir / "MSFT.csv").write_text("\n".join(rows), encoding="utf-8")
+        record = trade_feedback.create_trade_record(
+            self._trade_payload(
+                raw_symbol="msft",
+                entry_timestamp="2026-03-14T09:30:00",
+                entry_price=171.0,
+            ),
+            reports_dir=self.reports_dir,
+        )
+        fake_llm = _FakeLLM(
+            json.dumps(
+                {
+                    "thesis_assessment": "The thesis was testable.",
+                    "timing_assessment": "The Friday cache covered the setup.",
+                    "sizing_assessment": "Sizing was reviewable.",
+                    "discipline_assessment": "The entry followed the plan.",
+                    "outcome_summary": "Evidence was used.",
+                    "improvement_actions": ["Keep cache coverage fresh."],
+                    "ticker_specific_lessons": ["Use resolved trading dates."],
+                    "cross_ticker_tags": ["local_history_available"],
+                }
+            )
+        )
+
+        trade_feedback.generate_trade_review(
+            record["trade_id"],
+            review_type="entry_review",
+            llm_provider="ollama",
+            model="local-test",
+            analysis_date="2026-03-14",
+            reports_dir=self.reports_dir,
+            llm=fake_llm,
+        )
+
+        prompt = fake_llm.prompts[0]
+        self.assertIn('"status": "available"', prompt)
+        self.assertIn('"action_date": "2026-03-13"', prompt)
+        self.assertIn('"requested_action_date": "2026-03-14"', prompt)
+
     def test_generated_review_prompt_includes_behavior_diagnostics(self):
         record = trade_feedback.create_trade_record(
             self._trade_payload(

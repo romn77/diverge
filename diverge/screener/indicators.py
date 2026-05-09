@@ -3,9 +3,13 @@ from __future__ import annotations
 import pandas as pd
 from stockstats import wrap
 
+from diverge.common.market_calendar import last_n_trading_days
+
 from .breakouts import detect_breakout_signal
-from .history_cache import empty_history_frame, prepare_history_frame_for_indicators
-from .market_calendar import last_n_trading_days
+from diverge.market_data.history_cache import (
+    empty_history_frame,
+    prepare_history_frame_for_indicators,
+)
 
 
 INDICATOR_COLUMNS = [

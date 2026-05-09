@@ -13,9 +13,11 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from fastapi import HTTPException
 
+from diverge.common.dates import parse_iso_date
+from diverge.common.json_io import write_json_atomic
+from diverge.common.market_calendar import latest_trading_day_on_or_before
 from diverge.dataflows.vendor_errors import VendorDataEmptyError
 from diverge.screener.market_data import fetch_price_history
-from diverge.screener.market_calendar import latest_trading_day_on_or_before
 from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.sync import (
     sync_cn_tushare_fundamentals,
@@ -187,7 +189,9 @@ def _probe_ohlcv_vendor_ready(
 
 def ensure_ohlcv_vendor_ready(payload: dict[str, Any]) -> None:
     as_of_date = str(payload["as_of_date"])
-    requested_date = datetime.strptime(as_of_date, "%Y-%m-%d").date()
+    requested_date = parse_iso_date(as_of_date)
+    if requested_date is None:
+        raise RuntimeError("as_of_date must use YYYY-MM-DD format")
     markets = [str(market).strip().lower() for market in payload.get("markets") or []]
 
     for market in markets:
@@ -264,16 +268,6 @@ def _task_path(task_id: str) -> Path:
     return _state_dir() / f"{task_id}.json"
 
 
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
-
-
 def _save_task(task: DataSyncTask) -> None:
     job_records.upsert_job_record(
         kind="data_sync",
@@ -295,7 +289,7 @@ def _save_task(task: DataSyncTask) -> None:
         return
     with data_sync_tasks_lock:
         data_sync_tasks[task.id] = task
-    _write_json(_task_path(task.id), task.to_dict())
+    write_json_atomic(_task_path(task.id), task.to_dict())
 
 
 def _build_recovered_progress(task: DataSyncTask) -> dict[str, Any]:

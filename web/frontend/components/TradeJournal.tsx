@@ -412,12 +412,6 @@ export function TradeJournal({
     ? `${tradeDetail.reviews.length}/2 reviews`
     : "0/2 reviews";
   const sameTickerFeedbackReviews = feedback?.reviews ?? [];
-  const currentTradeFeedbackReviews =
-    tradeDetail
-      ? sameTickerFeedbackReviews.filter(
-          (review) => review.trade_id === tradeDetail.record.trade_id
-        )
-      : [];
   const selectionSummaryCards = useMemo(() => {
     if (!tradeDetail) {
       return [];
@@ -427,12 +421,10 @@ export function TradeJournal({
       {
         label: "Trade Health",
         value: localizeTradeValue(tradeDetail.record.status, t),
-        hint: `${localizeTradeValue(tradeDetail.record.side, t)} · ${tradeDetail.record.market.toUpperCase()}`,
       },
       {
         label: "Review Coverage",
         value: reviewCoverageLabel,
-        hint: `${tradeDetail.record.analysis_references.length} linked snapshots`,
       },
       {
         label: "Feedback Loop",
@@ -440,14 +432,9 @@ export function TradeJournal({
           sameTickerFeedbackReviews.length > 0
             ? t("journal.feedbackReady", "Ready")
             : t("journal.feedbackBuilding", "Building"),
-        hint:
-          sameTickerFeedbackReviews.length > 0
-            ? `${sameTickerFeedbackReviews.length} same-ticker saved examples; ${currentTradeFeedbackReviews.length} on this trade`
-            : "Save at least one review to seed future context",
       },
     ];
   }, [
-    currentTradeFeedbackReviews.length,
     reviewCoverageLabel,
     sameTickerFeedbackReviews.length,
     t,
@@ -619,26 +606,14 @@ export function TradeJournal({
               <SummaryCard
                 label={t("journal.summary.totalRecords", "Total Records")}
                 value={String(trades.length)}
-                hint={t(
-                  "journal.summary.totalHint",
-                  "Hand-entered trades saved against the backend schema"
-                )}
               />
               <SummaryCard
                 label={t("journal.summary.openStatus", "Open Status")}
                 value={String(openTrades.length)}
-                hint={t(
-                  "journal.summary.openHint",
-                  "Trades still marked open in the manual journal"
-                )}
               />
               <SummaryCard
                 label={t("journal.summary.visible", "Visible in Filter")}
                 value={String(filteredTrades.length)}
-                hint={t(
-                  "journal.summary.visibleHint",
-                  "History filtered by ticker, status, and activity window"
-                )}
               />
             </div>
           </PageHeader>
@@ -970,29 +945,27 @@ export function TradeJournal({
                           key={card.label}
                           label={card.label}
                           value={card.value}
-                          hint={card.hint}
                         />
                       ))}
                     </div>
 
                     <TickerPricePanel
                       symbol={tradeDetail.record.canonical_symbol ?? tradeDetail.record.ticker}
-                      market={tradeDetail.record.market}
+                      market={normalizeMarketForHistory(tradeDetail.record.market)}
                       title={t("journal.priceTrend", "Price Trend")}
-                      subtitle={t(
-                        "journal.priceTrendHint",
-                        "1000-day vendor-backed history for the selected trade ticker."
-                      )}
                     />
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <MetaCard
                         label={t("journal.marketExchange", "Market / Exchange")}
-                        value={`${tradeDetail.record.market.toUpperCase()}${tradeDetail.record.exchange ? ` · ${tradeDetail.record.exchange}` : ""}`}
+                        value={formatTradeMarketExchangeLabel(tradeDetail.record)}
                       />
                       <MetaCard
                         label={t("journal.strategyTags", "Strategy Tags")}
-                        value={tradeDetail.record.strategy_tags.join(", ")}
+                        value={formatStrategyTags(
+                          tradeDetail.record.strategy_tags,
+                          t("common.notSet", "Not set")
+                        )}
                       />
                       <MetaCard
                         label={t("journal.plannedHorizon", "Planned Horizon")}
@@ -1353,11 +1326,9 @@ export function TradeJournal({
 function SummaryCard({
   label,
   value,
-  hint,
 }: {
   label: string;
   value: string;
-  hint: string;
 }) {
   return (
     <div className="rounded-[28px] border border-[var(--border)] bg-white/90 px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
@@ -1365,7 +1336,6 @@ function SummaryCard({
         {label}
       </p>
       <p className="mt-3 text-3xl font-semibold text-slate-900">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p>
     </div>
   );
 }
@@ -1388,11 +1358,9 @@ function MetaCard({
 function DetailMetric({
   label,
   value,
-  hint,
 }: {
   label: string;
   value: string;
-  hint: string;
 }) {
   return (
     <div className="rounded-[26px] border border-[var(--border)] bg-white/90 px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
@@ -1400,7 +1368,6 @@ function DetailMetric({
         {label}
       </p>
       <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p>
     </div>
   );
 }
@@ -1849,6 +1816,10 @@ function formatPercent(value: number | null, locale: string, notSetLabel: string
   }).format(value)}%`;
 }
 
+function formatStrategyTags(values: string[], notSetLabel: string): string {
+  return values.length > 0 ? values.join(", ") : notSetLabel;
+}
+
 function formatDateTime(value: string | null, locale: string, notSetLabel: string): string {
   if (!value) {
     return notSetLabel;
@@ -1885,6 +1856,36 @@ function localizeTradeValue(
     return t(`trade.status.${statusKey}`, value);
   }
   return value;
+}
+
+function normalizeMarketForHistory(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized || normalized === "unknown") {
+    return null;
+  }
+  return normalized;
+}
+
+function formatMarketLabel(
+  market: string | null | undefined,
+  exchangeOrMarket?: string | null
+): string {
+  const normalizedMarket = market?.trim();
+  if (normalizedMarket) {
+    return normalizedMarket.toUpperCase();
+  }
+
+  const fallback = exchangeOrMarket?.trim();
+  return fallback ? fallback.toUpperCase() : "UNKNOWN";
+}
+
+function formatTradeMarketExchangeLabel(record: TradeRecord): string {
+  const marketLabel = formatMarketLabel(record.market, record.exchange_or_market);
+  const exchange = record.exchange?.trim();
+  if (!exchange || exchange.toUpperCase() === marketLabel) {
+    return marketLabel;
+  }
+  return `${marketLabel} · ${exchange}`;
 }
 
 function compactTickerLabel(value: string): string {

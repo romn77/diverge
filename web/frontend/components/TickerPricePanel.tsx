@@ -25,7 +25,6 @@ interface TickerPricePanelProps {
   market?: string | null;
   asOfDate?: string | null;
   title?: string;
-  subtitle?: string;
   embedded?: boolean;
 }
 
@@ -86,7 +85,6 @@ export function TickerPricePanel({
   market,
   asOfDate,
   title = "Price Trend",
-  subtitle = "1000-day vendor-backed history for the active ticker.",
   embedded = false,
 }: TickerPricePanelProps) {
   const { locale, t } = usePreferences();
@@ -178,9 +176,6 @@ export function TickerPricePanel({
         <div className="min-w-0">
           <p className="text-[12px] font-semibold uppercase tracking-[0.26em] text-slate-700">
             {title}
-          </p>
-          <p className="mt-1.5 text-[13px] leading-6 text-slate-500 md:text-sm">
-            {subtitle}
           </p>
         </div>
       </div>

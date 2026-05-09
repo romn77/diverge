@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 
 from .rate_limit import call_akshare_api
-from ...cn_market_utils import parse_and_normalize_cn_ticker
+from diverge.common.symbols import parse_and_normalize_cn_ticker
 from ...vendor_errors import VendorDataEmptyError, VendorRetryableError
 from diverge.valuation.schemas import (
     AssumptionValue,

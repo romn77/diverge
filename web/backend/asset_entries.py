@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import DateTime, Float, ForeignKey, Index, String, inspect, select
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from diverge.common.fields import normalize_optional_text, require_text
 from web.backend import auth
 
 
@@ -200,16 +201,11 @@ def initialize_asset_runtime() -> None:
 
 
 def _require_text(value: str | None, field_name: str) -> str:
-    if value is None or not str(value).strip():
-        raise auth.AuthValidationError(f"{field_name} is required")
-    return str(value).strip()
+    return require_text(value, field_name, error_type=auth.AuthValidationError)
 
 
 def _normalize_optional_text(value: str | None) -> str | None:
-    if value is None:
-        return None
-    candidate = str(value).strip()
-    return candidate or None
+    return normalize_optional_text(value)
 
 
 def _normalize_upper(value: str | None) -> str | None:

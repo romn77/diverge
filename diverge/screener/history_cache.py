@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from diverge.common.dates import offset_iso_date
+
 
 REQUIRED_PRICE_COLUMNS = ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
 NUMERIC_PRICE_COLUMNS = REQUIRED_PRICE_COLUMNS[1:]
@@ -162,8 +164,7 @@ def resolve_incremental_fetch_start(
     if cached_start <= start_date and cached_end >= end_date:
         return None
     if cached_start <= start_date and cached_end < end_date:
-        next_date = datetime.strptime(cached_end, "%Y-%m-%d") + timedelta(days=1)
-        return max(start_date, next_date.strftime("%Y-%m-%d"))
+        return max(start_date, offset_iso_date(cached_end, 1))
     return start_date
 
 

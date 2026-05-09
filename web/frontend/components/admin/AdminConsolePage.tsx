@@ -24,14 +24,12 @@ const ADMIN_TABS: Array<{ key: AdminConsoleTab; label: string; href: string }> =
 export function AdminConsolePage({
   activeTab,
   title,
-  description,
   badges,
   actions,
   children,
 }: {
   activeTab: AdminConsoleTab;
   title: string;
-  description: string;
   badges?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
@@ -83,9 +81,6 @@ export function AdminConsolePage({
                   </h1>
                   {badges}
                 </div>
-                <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">
-                  {description}
-                </p>
               </div>
               {actions ? (
                 <div className="flex min-h-[6rem] flex-wrap items-end justify-start gap-2 lg:justify-end">

@@ -14,15 +14,14 @@ from diverge.llm_clients.model_config import (
     get_provider_base_url,
 )
 from diverge.llm_clients.validators import validate_model
-from diverge.dataflows.cn_market_utils import detect_market
+from diverge.common.market_calendar import resolve_market_trading_date
+from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
 from diverge.research.thesis_tracker import build_thesis_artifact
 from diverge.research.search.session import (
     SearchToolContext,
     current_search_context,
     search_sessions,
 )
-from diverge.screener.market_calendar import latest_trading_day_on_or_before
-from diverge.ticker_symbols import normalize_analysis_ticker_symbol
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
@@ -166,12 +165,12 @@ class AnalysisRequest:
         market = detect_market(self.ticker)
         if market not in {"cn", "us"}:
             market = "us"
-        latest_trading_date = latest_trading_day_on_or_before(
+        trading_date = resolve_market_trading_date(
             market,
             analysis_date.date(),
         )
-        if latest_trading_date is not None:
-            self.analysis_date = latest_trading_date.strftime("%Y-%m-%d")
+        if trading_date is not None:
+            self.analysis_date = trading_date
 
         self.analysts = [_coerce_analyst_key(analyst) for analyst in self.analysts]
         if not self.analysts:

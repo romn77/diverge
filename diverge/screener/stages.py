@@ -1,20 +1,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
 import pandas as pd
 
-from .filters import apply_hard_filters
-from .history_cache import classify_history_cache_coverage, load_history_cache
-from .indicators import build_features_table
-from .market_data import LOOKBACK_DAYS, fetch_history_for_universe
-from .ranker import score_candidates
-from .schema import ScreenRunConfig
-from .universe import load_universe
-from .universe_prefilter import apply_universe_prefilters
+from diverge.common.dates import offset_iso_date
+from diverge.market_data.history_cache import (
+    classify_history_cache_coverage,
+    load_history_cache,
+)
+from diverge.screener.filters import apply_hard_filters
+from diverge.screener.indicators import build_features_table
+from diverge.screener.market_data import LOOKBACK_DAYS, fetch_history_for_universe
+from diverge.screener.ranker import score_candidates
+from diverge.screener.schema import ScreenRunConfig
+from diverge.screener.universe import load_universe
+from diverge.screener.universe_prefilter import apply_universe_prefilters
 
 
 @dataclass(slots=True)
@@ -91,9 +94,7 @@ def prune_universe_by_history_coverage(
             ),
         )
 
-    start_date = (
-        datetime.strptime(config.as_of_date, "%Y-%m-%d") - timedelta(days=LOOKBACK_DAYS)
-    ).strftime("%Y-%m-%d")
+    start_date = offset_iso_date(config.as_of_date, -LOOKBACK_DAYS)
     kept_rows: list[dict] = []
     pruned_rows: list[dict] = []
 

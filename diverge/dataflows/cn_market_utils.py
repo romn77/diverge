@@ -1,17 +1,19 @@
 from __future__ import annotations
 
-import re
 from datetime import datetime
 
 import pandas as pd
 from stockstats import wrap
 
-
-CN_TICKER_RE = re.compile(
-    r"^(?:(?P<prefix>SH|SZ|BJ))?(?P<code>\d{6})(?:\.(?P<suffix>SH|SZ|BJ))?$",
-    re.IGNORECASE,
+from diverge.common.symbols import (
+    CN_TICKER_RE as CN_TICKER_RE,
+    US_TICKER_RE as US_TICKER_RE,
+    detect_market as detect_market,
+    infer_cn_exchange as infer_cn_exchange,
+    normalize_symbol_for_vendor as normalize_symbol_for_vendor,
+    parse_and_normalize_cn_ticker as parse_and_normalize_cn_ticker,
 )
-US_TICKER_RE = re.compile(r"^[A-Z][A-Z0-9.-]{0,9}$")
+
 
 INDICATOR_DESCRIPTIONS = {
     "close_50_sma": (
@@ -40,94 +42,6 @@ INDICATOR_DESCRIPTIONS = {
         "and selling pressure."
     ),
 }
-
-
-def infer_cn_exchange(code: str) -> str:
-    if code.startswith(("600", "601", "603", "605", "688", "689")):
-        return "SH"
-    if code.startswith(("000", "001", "002", "003", "300", "301", "302")):
-        return "SZ"
-    if code.startswith(
-        (
-            "430",
-            "440",
-            "830",
-            "831",
-            "832",
-            "833",
-            "834",
-            "835",
-            "836",
-            "837",
-            "838",
-            "839",
-            "870",
-            "871",
-            "872",
-            "873",
-            "874",
-            "875",
-            "876",
-            "877",
-            "878",
-            "879",
-            "920",
-        )
-    ):
-        return "BJ"
-    if code.startswith(("4", "8")):
-        return "BJ"
-    raise ValueError(f"Unable to infer exchange for ticker '{code}'")
-
-
-def parse_and_normalize_cn_ticker(symbol: str) -> dict[str, str]:
-    value = symbol.strip().upper()
-    match = CN_TICKER_RE.match(value)
-    if not match:
-        raise ValueError(f"Unsupported CN ticker format: '{symbol}'")
-
-    code = match.group("code")
-    prefix = match.group("prefix")
-    suffix = match.group("suffix")
-
-    if prefix and suffix and prefix != suffix:
-        raise ValueError(f"Ticker prefix/suffix mismatch: '{symbol}'")
-
-    exchange = prefix or suffix or infer_cn_exchange(code)
-    yfinance_exchange = "SS" if exchange == "SH" else exchange
-
-    return {
-        "raw": code,
-        "exchange": exchange,
-        "akshare": code,
-        "akshare_prefixed": f"{exchange.lower()}{code}",
-        "akshare_em": f"{exchange}{code}",
-        "tushare": f"{code}.{exchange}",
-        "yfinance": f"{code}.{yfinance_exchange}",
-    }
-
-
-def detect_market(symbol: str) -> str:
-    value = symbol.strip().upper()
-    if CN_TICKER_RE.match(value):
-        return "cn"
-    if US_TICKER_RE.match(value):
-        return "us"
-    return "unknown"
-
-
-def normalize_symbol_for_vendor(symbol: str, market: str, vendor: str) -> str:
-    if market != "cn":
-        return symbol
-
-    parsed = parse_and_normalize_cn_ticker(symbol)
-    if vendor == "akshare":
-        return parsed["akshare"]
-    if vendor == "tushare":
-        return parsed["tushare"]
-    if vendor == "yfinance":
-        return parsed["yfinance"]
-    return symbol
 
 
 def dataframe_to_standard_string(df: pd.DataFrame, title: str) -> str:

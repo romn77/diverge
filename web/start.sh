@@ -55,7 +55,12 @@ TAIL_PID=""
 
 kill_port() {
     local port="$1"
-    lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    if command -v lsof > /dev/null 2>&1; then
+        lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
+    if command -v fuser > /dev/null 2>&1; then
+        fuser -k "${port}/tcp" > /dev/null 2>&1 || true
+    fi
 }
 
 wait_for_http() {

@@ -1,22 +1,23 @@
 from __future__ import annotations
 
 from collections import Counter
-import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from importlib import import_module
 from pathlib import Path
 from typing import Any, Callable
 
 import pandas as pd
 
+from diverge.common.dates import offset_iso_date
+from diverge.common.json_io import write_json_atomic
 from diverge.data_layout import (
     resolve_fundamentals_dir,
     resolve_history_dir,
     resolve_screener_cache_dir,
 )
 from diverge.dataflows.vendors.tushare.common import get_tushare_pro_client
-from diverge.screener.history_cache import (
+from diverge.market_data.history_cache import (
     classify_history_cache_coverage,
     load_history_cache,
 )
@@ -113,20 +114,8 @@ def _utc_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _write_json(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
-
-
 def _ohlcv_history_start(as_of_date: str) -> str:
-    return (
-        datetime.strptime(as_of_date, "%Y-%m-%d") - timedelta(days=LOOKBACK_DAYS)
-    ).strftime("%Y-%m-%d")
+    return offset_iso_date(as_of_date, -LOOKBACK_DAYS)
 
 
 def _quality_artifact_path(cache_root: Path, config: ScreenRunConfig) -> Path:
@@ -257,7 +246,7 @@ def _write_ohlcv_quality_artifact(
     config: ScreenRunConfig,
     quality_rows: list[dict[str, str | None]],
 ) -> None:
-    _write_json(
+    write_json_atomic(
         path,
         {
             "sync_type": "ohlcv",
@@ -341,7 +330,7 @@ def _save_fundamental_snapshot(
     sync_result.field_coverage = len(present_fields) / len(FUNDAMENTAL_FIELDS)
     sync_result.missing_fields = missing_fields
     sync_result.updated_at = _utc_iso()
-    _write_json(meta_path, asdict(sync_result))
+    write_json_atomic(meta_path, asdict(sync_result))
     return sync_result
 
 
@@ -725,5 +714,5 @@ def sync_ohlcv_cache(
         missing_as_of_bar_symbols=_missing_as_of_bar_symbols(quality_rows),
         updated_at=_utc_iso(),
     )
-    _write_json(meta_path, asdict(result))
+    write_json_atomic(meta_path, asdict(result))
     return result

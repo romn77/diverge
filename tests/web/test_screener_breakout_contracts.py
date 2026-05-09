@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pandas as pd
 from fastapi import HTTPException
 
-from diverge.screener.history_cache import save_history_cache
+from diverge.market_data.history_cache import save_history_cache
 from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, screener_results
 from web.backend.routers import screeners as screeners_router

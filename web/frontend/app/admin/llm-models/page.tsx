@@ -256,7 +256,6 @@ export default function AdminLLMModelsPage() {
     <AdminConsolePage
       activeTab="llm-models"
       title="LLM Models"
-      description="Manage provider availability, per-model visibility, quota limits, and profile routing."
       actions={
         <Button type="button" variant="secondary" size="sm" onClick={() => void load()}>
           <RefreshCw className="h-4 w-4" />
@@ -371,7 +370,6 @@ export default function AdminLLMModelsPage() {
               <AdminPanel key={profile.profile_id} contentClassName="space-y-3 p-4">
                   <div>
                     <h3 className="font-semibold">{profile.label}</h3>
-                    <p className="mt-1 text-sm text-slate-500">{profile.description}</p>
                   </div>
                   <textarea
                     className="min-h-[104px] w-full rounded-[12px] border border-[var(--border)] bg-white px-3 py-2 text-sm"
@@ -554,9 +552,6 @@ function ModuleSettingCard({
     <AdminPanel contentClassName="space-y-5 p-5">
       <div>
         <h3 className="text-lg font-semibold">{moduleSetting.label}</h3>
-        <p className="mt-1 text-sm leading-6 text-slate-500">
-          {moduleSetting.description}
-        </p>
       </div>
 
       <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
@@ -592,9 +587,6 @@ function ModuleSettingCard({
               >
                 <span className="min-w-0 text-sm font-semibold">
                   {profile.label}
-                </span>
-                <span className="mt-2 min-w-0 break-words text-xs leading-5">
-                  {profile.description}
                 </span>
               </Button>
             );

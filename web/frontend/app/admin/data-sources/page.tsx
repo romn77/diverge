@@ -321,7 +321,6 @@ export default function AdminDataSourcesPage() {
     <AdminConsolePage
       activeTab="data-sources"
       title="Data Source Usage"
-      description="Monitor vendor API usage across Analysis, Screener, and Trade Journal workflows. LLM calls are not counted here."
       actions={
         <Button
           type="button"
@@ -510,10 +509,6 @@ export default function AdminDataSourcesPage() {
             <h2 className="text-lg font-semibold tracking-normal text-slate-950">
               Routing Policies
             </h2>
-            <p className="mt-1 text-xs leading-5 text-slate-600">
-              Configure the vendor chain used by each workflow and market. Changes are
-              read at runtime.
-            </p>
           </div>
           <Card className="rounded-[14px] border-[var(--border)]">
             <CardContent className="grid gap-3 p-5">

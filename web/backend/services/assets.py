@@ -6,6 +6,7 @@ from typing import Any
 from fastapi import HTTPException, Request
 
 from diverge.assets.market_data import MarketDataClient, SymbolCandidate
+from diverge.common.fields import normalize_optional_text, require_text
 from web.backend import access, analysis_limits, asset_entries, audit, auth
 from web.backend.schemas.assets import (
     AssetPositionCreatePayload,
@@ -51,16 +52,11 @@ def translate_asset_error(exc: Exception) -> HTTPException:
 
 
 def _require_text(value: str | None, field_name: str) -> str:
-    if value is None or not str(value).strip():
-        raise auth.AuthValidationError(f"{field_name} is required")
-    return str(value).strip()
+    return require_text(value, field_name, error_type=auth.AuthValidationError)
 
 
 def _normalize_optional_text(value: str | None) -> str | None:
-    if value is None:
-        return None
-    candidate = str(value).strip()
-    return candidate or None
+    return normalize_optional_text(value)
 
 
 def _normalize_upper(value: str | None) -> str | None:
@@ -874,11 +870,13 @@ def build_portfolio_context_for_owner(
     tenant_id: str | None = None,
     ticker: str | None = None,
     base_currency: str = "USD",
+    output_language: str = "en",
 ) -> str:
     _require_asset_runtime()
     normalized_owner_user_id = _require_text(owner_user_id, "owner_user_id")
     normalized_base_currency = _normalize_upper(base_currency) or "USD"
     normalized_ticker = _normalize_upper(ticker)
+    use_chinese_labels = (output_language or "en").strip().lower() == "cn"
 
     with auth.db_session() as db:
         positions = asset_entries.list_asset_position_records(
@@ -945,10 +943,18 @@ def build_portfolio_context_for_owner(
             value_label = (
                 f"{market_value:.2f} {normalized_base_currency}"
                 if market_value is not None
-                else "unpriced"
+                else ("未定价" if use_chinese_labels else "unpriced")
             )
             current_ticker_positions.append(
-                f"- {position.asset_name} | qty {position.quantity:g} | {value_label} | {account.platform_name}/{account.account_name}"
+                (
+                    f"- {position.asset_name} | 数量 {position.quantity:g} | {value_label} | "
+                    f"{account.platform_name}/{account.account_name}"
+                )
+                if use_chinese_labels
+                else (
+                    f"- {position.asset_name} | qty {position.quantity:g} | "
+                    f"{value_label} | {account.platform_name}/{account.account_name}"
+                )
             )
 
     top_positions.sort(
@@ -959,23 +965,48 @@ def build_portfolio_context_for_owner(
         )
     )
 
-    lines = [
-        "Current Portfolio Ledger Context:",
-        f"- Tracked positions: {len(top_positions)} across {len(accounts)} account(s).",
-        f"- Priced portfolio value: {total_value:.2f} {normalized_base_currency}.",
-    ]
+    if use_chinese_labels:
+        lines = [
+            "当前持仓参考：",
+            f"- 已跟踪持仓：{len(top_positions)} 个，分布在 {len(accounts)} 个账户。",
+            f"- 已定价持仓市值：{total_value:.2f} {normalized_base_currency}。",
+        ]
+    else:
+        lines = [
+            "Current portfolio reference:",
+            f"- Tracked holdings: {len(top_positions)} across {len(accounts)} account(s).",
+            f"- Priced portfolio value: {total_value:.2f} {normalized_base_currency}.",
+        ]
     if normalized_ticker:
         if current_ticker_positions:
-            lines.append(f"- Existing exposure to {normalized_ticker}:")
+            lines.append(
+                f"- 当前标的 {normalized_ticker} 持仓："
+                if use_chinese_labels
+                else f"- Existing {normalized_ticker} exposure:"
+            )
             lines.extend(current_ticker_positions[:3])
         else:
-            lines.append(f"- Existing exposure to {normalized_ticker}: none recorded.")
+            lines.append(
+                f"- 当前标的 {normalized_ticker} 持仓：未记录。"
+                if use_chinese_labels
+                else f"- Existing {normalized_ticker} exposure: none recorded."
+            )
 
-    lines.append("- Largest tracked positions:")
+    lines.append(
+        "- 主要持仓：" if use_chinese_labels else "- Largest tracked holdings:"
+    )
     for item in top_positions[:5]:
         if item["market_value"] is None:
             lines.append(
-                f"- {item['label']} | qty {item['quantity']:g} | unpriced | {item['platform_name']}/{item['account_name']}"
+                (
+                    f"- {item['label']} | 数量 {item['quantity']:g} | 未定价 | "
+                    f"{item['platform_name']}/{item['account_name']}"
+                )
+                if use_chinese_labels
+                else (
+                    f"- {item['label']} | qty {item['quantity']:g} | unpriced | "
+                    f"{item['platform_name']}/{item['account_name']}"
+                )
             )
             continue
         weight = (item["market_value"] / total_value) * 100 if total_value > 0 else 0.0
@@ -984,10 +1015,20 @@ def build_portfolio_context_for_owner(
             if item["unrealized_pnl"] is not None
             else "N/A"
         )
-        lines.append(
-            f"- {item['label']} | qty {item['quantity']:g} | value {item['market_value']:.2f} {normalized_base_currency} | "
-            f"weight {weight:.1f}% | P/L {pnl_label} | {item['platform_name']}/{item['account_name']}"
-        )
+        if use_chinese_labels:
+            lines.append(
+                f"- {item['label']} | 数量 {item['quantity']:g} | 市值 {item['market_value']:.2f} {normalized_base_currency} | "
+                f"权重 {weight:.1f}% | 盈亏 {pnl_label} | {item['platform_name']}/{item['account_name']}"
+            )
+        else:
+            lines.append(
+                f"- {item['label']} | qty {item['quantity']:g} | value {item['market_value']:.2f} {normalized_base_currency} | "
+                f"weight {weight:.1f}% | P/L {pnl_label} | {item['platform_name']}/{item['account_name']}"
+            )
     if unpriced_count:
-        lines.append(f"- Additional unpriced positions: {unpriced_count}.")
+        lines.append(
+            f"- 其他未定价持仓：{unpriced_count} 个。"
+            if use_chinese_labels
+            else f"- Additional unpriced holdings: {unpriced_count}."
+        )
     return "\n".join(lines)

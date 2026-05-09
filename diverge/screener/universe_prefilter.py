@@ -4,7 +4,8 @@ import re
 
 import pandas as pd
 
-from .market_calendar import count_trading_days
+from diverge.common.market_calendar import count_trading_days
+
 from .schema import ScreenRunConfig
 from .universe_rules import cap_market_bucket_rows, us_prefilter_drop_reason
 

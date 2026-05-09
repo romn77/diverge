@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import json
 from collections.abc import Generator
-from datetime import datetime, timedelta
 from typing import Any, Callable, Optional
 
 from google.adk.workflow import START, FunctionNode, Workflow
@@ -23,6 +22,7 @@ from diverge.agents.risk_mgmt.conservative_debator import ConservativeDebator
 from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
 from diverge.agents.risk_mgmt.debate_phase import get_total_risk_turn_limit
 from diverge.agents.trader.trader import Trader
+from diverge.common.dates import days_before_or_original
 from diverge.runtime.messages import AdkMessage
 from diverge.runtime.tools import AdkToolCollection, create_adk_tool_collections
 
@@ -368,11 +368,7 @@ def _contextual_tool_args(
 
 
 def _date_days_before(date_text: str, days: int) -> str:
-    try:
-        parsed = datetime.strptime(date_text, "%Y-%m-%d")
-    except ValueError:
-        return date_text
-    return (parsed - timedelta(days=days)).strftime("%Y-%m-%d")
+    return days_before_or_original(date_text, days)
 
 
 def _looks_like_incomplete_tool_preface(message: Any) -> bool:

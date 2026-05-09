@@ -35,7 +35,7 @@ from .vendors.fmp.news import (
     get_insider_transactions as get_fmp_insider_transactions,
 )
 from .vendors.alpha_vantage.common import AlphaVantageRateLimitError
-from .cn_market_utils import detect_market, normalize_symbol_for_vendor
+from diverge.common.symbols import detect_market, normalize_symbol_for_vendor
 from .config import get_config
 from .fundamentals_normalizer import normalize_fundamentals_payload
 from .vendors.tushare import (

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import pandas as pd
 
+from diverge.common.market_calendar import trading_day_lag
+
 from .presets import resolve_filter_preset_conditions
-from .market_calendar import trading_day_lag
 from .schema import ScreenRunConfig
 
 

@@ -362,10 +362,6 @@ export function AssetsWorkspace() {
         <PageHeader
           eyebrow={t("sidebar.nav.assets", "Assets")}
           title={t("assets.title", "Portfolio ledger")}
-          description={t(
-            "assets.description",
-            "View accounts, holdings, and asset exposure."
-          )}
           actions={
             <label className={HERO_CURRENCY_CONTROL_CLASS}>
               <span>{t("assets.base", "Base")}</span>

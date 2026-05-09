@@ -244,16 +244,6 @@ export function TaskProgress({
                   </Button>
                 ) : null}
               </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                {task?.analysis_date
-                  ? t(
-                      "task.trackingDate",
-                      ({ date }) =>
-                        `Tracking ${date} research flow across analyst, debate, trading, and portfolio stages.`,
-                      { date: task.analysis_date }
-                    )
-                  : t("task.trackingLive", "Tracking the live research pipeline.")}
-              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

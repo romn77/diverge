@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from diverge.dataflows import vendor_usage
-from diverge.screener.market_calendar import latest_trading_day_on_or_before
+from diverge.common.market_calendar import latest_trading_day_on_or_before
+from diverge.dataflows.routes import dual_market_history_source_kwargs
 from diverge.screener.presets import (
     normalize_filter_preset_selections,
     resolve_ranking_profile,
@@ -114,22 +114,7 @@ def _enabled_markets() -> list[str]:
 
 
 def _resolve_screener_data_sources() -> dict[str, object]:
-    cn_chain = vendor_usage.get_data_source_route(
-        module="screener",
-        market="cn",
-        category="core_stock_apis",
-    ) or ["tushare"]
-    us_chain = vendor_usage.get_data_source_route(
-        module="screener",
-        market="us",
-        category="core_stock_apis",
-    ) or ["massive"]
-    return {
-        "cn_data_source": cn_chain[0],
-        "cn_data_source_fallbacks": cn_chain[1:],
-        "us_data_source": us_chain[0],
-        "us_data_source_fallbacks": us_chain[1:],
-    }
+    return dual_market_history_source_kwargs(module="screener")
 
 
 def default_screener_prewarm_payload(market: str, as_of_date: str) -> dict[str, Any]:

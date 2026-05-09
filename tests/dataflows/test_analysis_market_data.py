@@ -7,7 +7,7 @@ import pandas as pd
 
 from diverge.agents.utils.core_stock_tools import get_stock_data
 from diverge.agents.utils.technical_indicators_tools import get_indicators
-from diverge.screener.history_cache import save_history_cache
+from diverge.market_data.history_cache import save_history_cache
 
 
 def _history_rows(start: str, periods: int) -> pd.DataFrame:
@@ -71,6 +71,47 @@ def test_analysis_stock_data_uses_shared_history_cache_before_vendor_route(
     assert "105.0" in result
 
 
+def test_analysis_stock_data_uses_latest_cache_for_weekend_as_of(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
+    save_history_cache(
+        tmp_path,
+        "us",
+        "AAPL",
+        pd.DataFrame(
+            [
+                {
+                    "Date": "2026-01-02",
+                    "Open": 100.0,
+                    "High": 103.0,
+                    "Low": 99.0,
+                    "Close": 102.0,
+                    "Volume": 1000,
+                    "Amount": 102000.0,
+                },
+                {
+                    "Date": "2026-01-09",
+                    "Open": 104.0,
+                    "High": 108.0,
+                    "Low": 103.0,
+                    "Close": 107.0,
+                    "Volume": 1400,
+                    "Amount": 149800.0,
+                },
+            ]
+        ),
+    )
+
+    with patch(
+        "diverge.screener.market_data.fetch_price_history",
+        side_effect=AssertionError("weekend analysis should use latest local cache"),
+    ):
+        result = get_stock_data.func("AAPL", "2026-01-02", "2026-01-10")
+
+    assert "# Stock data for AAPL from 2026-01-02 to 2026-01-10" in result
+    assert "2026-01-09" in result
+    assert "107.0" in result
+
+
 def test_analysis_indicators_are_computed_locally_from_shared_history_cache(
     tmp_path, monkeypatch
 ):
@@ -91,3 +132,23 @@ def test_analysis_indicators_are_computed_locally_from_shared_history_cache(
     assert "## close_10_ema values from 2026-01-12 to 2026-01-15" in result
     assert "2026-01-15:" in result
     assert "10 EMA" in result
+
+
+def test_analysis_indicators_use_latest_cache_for_weekend_as_of(tmp_path, monkeypatch):
+    monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
+    save_history_cache(tmp_path, "us", "AAPL", _history_rows("2025-01-01", 374))
+
+    with patch(
+        "diverge.screener.market_data.fetch_price_history",
+        side_effect=AssertionError("weekend indicators should use latest local cache"),
+    ):
+        result = get_indicators.func(
+            "AAPL",
+            "close_10_ema",
+            "2026-01-10",
+            3,
+        )
+
+    assert "## close_10_ema values from 2026-01-07 to 2026-01-10" in result
+    assert "2026-01-10: N/A: Not a trading day" in result
+    assert "2026-01-09:" in result

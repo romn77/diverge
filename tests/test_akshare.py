@@ -5,7 +5,7 @@ import traceback
 import akshare as ak
 
 from diverge.dataflows.akshare_stock import _fetch_akshare_stock_df
-from diverge.dataflows.cn_market_utils import normalize_symbol_for_vendor
+from diverge.common.symbols import normalize_symbol_for_vendor
 
 
 SYMBOL = "000913.SZ"

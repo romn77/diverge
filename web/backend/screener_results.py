@@ -17,6 +17,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from diverge.common.json_io import write_json_atomic
 from diverge.screener.presets import normalize_filter_preset_selections
 from web.backend import app_config, auth, screener_runs
 
@@ -486,18 +487,6 @@ def resolve_screener_result_state_path(
     )
 
 
-def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(
-        f".{path.name}.{hashlib.sha1(path.as_posix().encode()).hexdigest()}.tmp"
-    )
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
-
-
 def _increment_legacy_read(context: str) -> None:
     with _OBSERVABILITY_LOCK:
         legacy_counts = _OBSERVABILITY["legacy_read_total"]
@@ -745,7 +734,7 @@ def load_screener_result_state(
 
 def save_screener_result_state(state: ScreenerResultState) -> None:
     state.updated_at = _serialize_timestamp()
-    _write_json_atomic(
+    write_json_atomic(
         resolve_screener_result_state_path(state.owner_user_id, state.screener_key),
         asdict(state),
     )

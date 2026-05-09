@@ -4,12 +4,12 @@ import contextlib
 import contextvars
 import json
 import os
-import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterator, TypeVar
 
+from diverge.common.json_io import write_json_atomic
 from diverge.data_layout import resolve_data_dir
 
 
@@ -171,14 +171,7 @@ def _load_state(path: Path) -> dict:
 
 
 def _write_state(path: Path, state: dict) -> None:
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(
-            _normalize_state(state), ensure_ascii=False, indent=2, sort_keys=True
-        ),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
+    write_json_atomic(path, _normalize_state(state), sort_keys=True)
 
 
 def _default_state() -> dict:

@@ -1152,17 +1152,6 @@ function ScreenerResultPlaceholder({
               ? t("screenerDashboard.placeholderRunningTitle", "Building candidate pool")
               : t("screenerDashboard.placeholderReadyTitle", "Ready for a run")}
           </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            {isRunning
-              ? t(
-                  "screenerDashboard.placeholderRunningBody",
-                  "The result will appear here when the current screener task finishes."
-                )
-              : t(
-                  "screenerDashboard.placeholderReadyBody",
-                  "This slot will hold the ranked candidates after the first run."
-                )}
-          </p>
         </div>
         {activeTaskId ? (
           <Button

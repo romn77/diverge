@@ -189,28 +189,12 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
         <PageHeader
           eyebrow={t("sidebar.nav.analysis", "Analysis")}
           title={t("home.analysisWorkspace", "Analysis workspace")}
-          description={t(
-            "home.workspaceDescription",
-            "Search reports and continue existing coverage."
-          )}
         >
           <div className="grid gap-4 md:grid-cols-3">
             <MetricCard
               className="analysis-overview-metric"
               label={t("home.metric.reportLibrary", "Report Library")}
               value={`${scopedReports.length}`}
-              meta={
-                scopeFilter === "all"
-                  ? t("home.metric.reportLibraryMeta", "Total indexed reports")
-                  : t("home.metric.scopedReportLibraryMeta", "Reports in current scope")
-              }
-              secondary={t(
-                "home.metric.reportLibrarySecondary",
-                ({ count }) => `${count} shown in the current dashboard`,
-                {
-                  count: visibleReports.length,
-                }
-              )}
               trendLabel={t("home.metric.reportLibraryScope", "Scope")}
               trendValue={t(REPORT_SCOPE_LABEL_KEYS[scopeFilter], scopeFilter)}
             />
@@ -218,14 +202,6 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               className="analysis-overview-metric"
               label={t("home.recentTickers", "Tracked Tickers")}
               value={`${trackedTickers.length}`}
-              meta={t("home.metric.trackedTickersMeta", "Coverage names in the library")}
-              secondary={t(
-                "home.metric.trackedTickersSecondary",
-                ({ count }) => `${count} ticker groups ready to open`,
-                {
-                  count: reportTickerGroups.length,
-                }
-              )}
               trendLabel={t("home.metric.groupedReports", "Grouped reports")}
               trendValue={`${reportTickerGroups.length}`}
             />
@@ -233,12 +209,6 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               className="analysis-overview-metric"
               label={t("home.metric.activeResearch", "Active Research")}
               value={`${activeTasks.length}`}
-              meta={t("home.metric.activeResearchMeta", "In-flight analysis jobs")}
-              secondary={
-                activeTasks.length > 0
-                  ? t("home.metric.activeResearchSecondaryActive", "Work is running in the background")
-                  : t("home.metric.activeResearchSecondaryIdle", "No queued analysis jobs right now")
-              }
               trendLabel={t("activity.title", "Background work")}
               trendValue={
                 activeTasks.length > 0
@@ -264,24 +234,13 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
               className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
             />
-            <p className="mt-2 text-sm text-slate-500">
-              {t(
-                "home.searchDeepLinkHint",
-                "Results update in place and keep the query in the URL for deep-linking."
-              )}
-            </p>
           </div>
         </PageHeader>
 
         <section className="analysis-report-section viewer-frame px-6 py-6 md:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  {deferredSearchQuery
-                    ? t("home.matchingReports", "Matching Reports")
-                    : t("home.recentReports", "Recent Reports")}
-                </p>
-                <h2 className="analysis-reports-title workbench-section-title mt-2 text-2xl">
+                <h2 className="analysis-reports-title workbench-section-title text-2xl">
                   {deferredSearchQuery
                     ? t("home.matchingReportCount", ({ count }) => `${count} matching reports`, {
                         count: matchingReports.length,
@@ -334,7 +293,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 {t("home.noReportMatches", "No reports match this search yet.")}
               </div>
             ) : (
-              <div className="analysis-report-list mt-5 space-y-3">
+              <div className="analysis-report-list mt-5">
                 {reportTickerGroups.map((group) => {
                   const isExpanded = expandedTickerGroups[group.ticker] ?? false;
                   const panelId = buildTickerGroupPanelId(group.ticker);
@@ -393,7 +352,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                             <Link
                               key={report.id}
                               href={buildReportHref(report.id)}
-                              className="analysis-report-row group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
+                              className="analysis-report-row group flex items-center justify-between gap-4"
                             >
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-2">

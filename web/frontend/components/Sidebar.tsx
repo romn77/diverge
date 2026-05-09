@@ -108,11 +108,11 @@ export function Sidebar({
     "md:border-r-0",
   ].join(" ");
   const desktopShellClasses = [
-    "hidden md:block md:shrink-0",
+    "hidden md:block md:shrink-0 md:transition-[width] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
     isDesktopCollapsed ? "md:w-[5.5rem]" : "md:w-[18rem]",
   ].join(" ");
   const desktopToggleWrapperClasses = [
-    "pointer-events-none fixed top-1/2 z-[60] hidden -translate-y-1/2 md:flex",
+    "pointer-events-none fixed top-1/2 z-[60] hidden -translate-y-1/2 md:flex md:transition-[left] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
     isDesktopCollapsed ? "left-[5.5rem]" : "left-[18rem]",
   ].join(" ");
   const headerClasses = [

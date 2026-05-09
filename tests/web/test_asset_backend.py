@@ -112,7 +112,7 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
             "notes": "owner-scoped test asset",
         }
 
-    def _task_payload(self, ticker: str = "MSFT") -> dict:
+    def _task_payload(self, ticker: str = "MSFT", output_language: str = "en") -> dict:
         return {
             "ticker": ticker,
             "analysis_date": "2026-04-23",
@@ -121,7 +121,7 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
             "llm_provider": "openai",
             "quick_think_llm": "gpt-5-mini",
             "deep_think_llm": "gpt-5.2",
-            "output_language": "en",
+            "output_language": output_language,
             "openai_reasoning_effort": "medium",
             "google_thinking_level": None,
         }
@@ -319,10 +319,70 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 task = analysis_tasks.get_task(task_id)
                 self.assertEqual(task.owner_user_id, owner_one_id)
                 self.assertIsNotNone(task.request.portfolio_context)
-                self.assertIn(
-                    "Existing exposure to MSFT", task.request.portfolio_context
-                )
+                self.assertIn("Existing MSFT exposure", task.request.portfolio_context)
                 self.assertIn("qty 10", task.request.portfolio_context)
-                self.assertIn("Tracked positions: 1", task.request.portfolio_context)
+                self.assertIn("Tracked holdings: 1", task.request.portfolio_context)
+                self.assertNotIn(
+                    "Portfolio Ledger Context", task.request.portfolio_context
+                )
+
+        asyncio.run(scenario())
+
+    def test_task_creation_localizes_portfolio_context(self):
+        async def scenario():
+            async with self._client() as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                await self._create_user(
+                    admin_client,
+                    email="owner-cn@example.com",
+                    password="OwnerCnPass123",
+                )
+
+            async with self._client() as owner_client:
+                await self._login(
+                    owner_client, "owner-cn@example.com", "OwnerCnPass123"
+                )
+                asset_response = await owner_client.post(
+                    "/api/assets",
+                    json=self._manual_asset_payload(
+                        asset_name="Micron Technology",
+                        ticker="MU",
+                        quantity=5.0,
+                        cost_basis=80.0,
+                        manual_price=95.0,
+                    ),
+                )
+                self.assertEqual(asset_response.status_code, 200, asset_response.text)
+
+                with (
+                    patch("web.backend.routers.tasks.hydrate_provider_credentials"),
+                    patch(
+                        "web.backend.routers.tasks.get_provider_availability",
+                        return_value={"enabled": True, "disabled_reason": None},
+                    ),
+                    patch(
+                        "web.backend.routers.tasks.llm_models.ensure_model_selection_available"
+                    ),
+                    patch("web.backend.runtime.analysis_tasks.start_task_thread"),
+                ):
+                    task_response = await owner_client.post(
+                        "/api/tasks",
+                        json=self._task_payload("MU", output_language="cn"),
+                    )
+
+                self.assertEqual(task_response.status_code, 200, task_response.text)
+                task = analysis_tasks.get_task(task_response.json()["task_id"])
+                self.assertIsNotNone(task.request.portfolio_context)
+                self.assertIn("当前持仓参考", task.request.portfolio_context)
+                self.assertIn("当前标的 MU 持仓", task.request.portfolio_context)
+                self.assertIn("数量 5", task.request.portfolio_context)
+                self.assertNotIn(
+                    "Portfolio Ledger Context", task.request.portfolio_context
+                )
 
         asyncio.run(scenario())

@@ -20,6 +20,22 @@ test("frontend API exposes market resolution and AI-generated trade review endpo
   assert.match(source, /\/api\/trades\/\$\{tradeId\}\/reviews\/\$\{reviewType\}\/generate/);
 });
 
+test("journal APIs normalize legacy trade payloads before components receive them", () => {
+  assert.match(source, /function normalizeTradeRecord\(value: unknown\): TradeRecord/);
+  assert.match(source, /strategy_tags: normalizeStringArray\(record\.strategy_tags\)/);
+  assert.match(
+    source,
+    /analysis_references: normalizeAnalysisReferences\(record\.analysis_references\)/
+  );
+  assert.match(source, /plan_execution: stringValue\(record\.plan_execution\)/);
+  assert.match(source, /function normalizeTradeReview\(value: unknown/);
+  assert.match(source, /improvement_actions: normalizeStringArray/);
+  assert.match(source, /function normalizeTradeDetail\(value: unknown\): TradeDetail/);
+  assert.match(source, /return Array\.isArray\(data\) \? data\.map\(normalizeTradeRecord\) : \[\]/);
+  assert.match(source, /return normalizeTradeDetail\(data\)/);
+  assert.match(source, /return normalizeTradeReview\(data\)/);
+});
+
 test("screener task stream resumes from a cursor instead of replaying all events", () => {
   assert.match(source, /progress_events:\s*ProgressEvent\[\]/);
   assert.match(source, /startCursor\s*=\s*0/);

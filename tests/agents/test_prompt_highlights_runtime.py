@@ -192,6 +192,20 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             result["final_trade_decision"],
         )
 
+    def test_portfolio_manager_prompt_uses_user_facing_portfolio_context(self):
+        llm = _FakeLLM()
+        node = create_portfolio_manager(llm, _FakeMemory())
+        state = _base_state()
+        state["output_language"] = "cn"
+
+        node(state)
+
+        prompt = llm.prompts[0].to_string()
+        self.assertIn("当前持仓参考", prompt)
+        self.assertIn("未提供该用户的已跟踪持仓", prompt)
+        self.assertNotIn("Portfolio Ledger Context", prompt)
+        self.assertIn("internal implementation terms", prompt)
+
     def test_portfolio_manager_connection_error_returns_fallback_decision(self):
         node = create_portfolio_manager(_ConnectionFailingLLM(), _FakeMemory())
 

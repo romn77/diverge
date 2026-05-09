@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
 from fastapi import HTTPException
 
+from diverge.common.dates import offset_iso_date
 from diverge.screener.market_data import LOOKBACK_DAYS
 from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.stages import (
@@ -116,10 +116,7 @@ def _data_not_ready_error(
         "missing_markets": missing_markets,
         "examples": examples,
         "universe_count_by_market": universe_count_by_market,
-        "required_history_start": (
-            datetime.strptime(config.as_of_date, "%Y-%m-%d")
-            - timedelta(days=LOOKBACK_DAYS)
-        ).strftime("%Y-%m-%d"),
+        "required_history_start": offset_iso_date(config.as_of_date, -LOOKBACK_DAYS),
         "required_history_end": config.as_of_date,
     }
     if reason:

@@ -2,29 +2,31 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Callable
 
 import pandas as pd
 
+from diverge.common.dates import offset_iso_date, parse_iso_date
+from diverge.common.market_calendar import resolve_market_trading_date
+from diverge.common.symbols import normalize_symbol_for_vendor, resolve_symbol_market
 from diverge.data_layout import (
     resolve_history_dir,
     resolve_screener_cache_dir,
 )
+from diverge.dataflows import vendor_usage
 from diverge.dataflows.vendors.akshare.stock import (
     _fetch_akshare_stock_df,
     _fetch_akshare_us_stock_df,
 )
 from diverge.dataflows.vendors.alpha_vantage.common import AlphaVantageRateLimitError
 from diverge.dataflows.vendors.alpha_vantage.stock import _fetch_alpha_vantage_stock_df
-from diverge.dataflows.cn_market_utils import detect_market, normalize_symbol_for_vendor
 from diverge.dataflows.vendors.massive.stock import _fetch_massive_stock_df
 from diverge.dataflows.vendors.tushare.stock import (
     _fetch_tushare_stock_df,
     _fetch_tushare_us_stock_df,
 )
-from diverge.dataflows import vendor_usage
 from diverge.dataflows.vendor_errors import (
     VendorAuthError,
     VendorDataEmptyError,
@@ -32,7 +34,7 @@ from diverge.dataflows.vendor_errors import (
     VendorRetryableError,
 )
 from diverge.dataflows.vendors.yfinance.stock import _fetch_yfinance_ohlcv_df
-from .history_cache import (
+from diverge.market_data.history_cache import (
     checkpoint_path,
     delete_checkpoint,
     load_checkpoint,
@@ -619,14 +621,7 @@ def fetch_price_history(
 
 
 def resolve_history_market(symbol: str, market: str | None = None) -> str:
-    normalized_market = str(market or "").strip().lower()
-    if normalized_market in {"cn", "china", "sh", "sz", "sse", "szse"}:
-        return "cn"
-    if normalized_market in {"us", "usa", "nasdaq", "nyse", "amex"}:
-        return "us"
-
-    detected_market = detect_market(str(symbol).strip())
-    return detected_market if detected_market in {"cn", "us"} else "us"
+    return resolve_symbol_market(symbol, market)
 
 
 def fetch_ticker_history(
@@ -640,6 +635,7 @@ def fetch_ticker_history(
     us_data_source: str = "yfinance",
     us_data_source_fallbacks: list[str] | None = None,
     cache_dir: str | Path | None = None,
+    normalize_as_of_to_trading_day: bool = False,
 ) -> tuple[str, pd.DataFrame]:
     normalized_symbol = str(symbol).strip()
     if not normalized_symbol:
@@ -647,12 +643,22 @@ def fetch_ticker_history(
     if lookback_days <= 0:
         raise ValueError("lookback_days must be positive")
 
-    as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
-    start_date = (as_of_dt - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
+    requested_as_of_dt = parse_iso_date(as_of_date)
+    if requested_as_of_dt is None:
+        raise ValueError("as_of_date must use YYYY-MM-DD format")
+    start_date = offset_iso_date(as_of_date, -lookback_days)
     history_cache_dir = (
         Path(cache_dir) if cache_dir is not None else resolve_history_dir()
     )
     resolved_market = resolve_history_market(normalized_symbol, market)
+    effective_as_of_date = as_of_date
+    if normalize_as_of_to_trading_day:
+        trading_date = resolve_market_trading_date(
+            resolved_market,
+            requested_as_of_dt,
+        )
+        if trading_date is not None:
+            effective_as_of_date = trading_date
     cached_frame = load_history_cache(
         history_cache_dir, resolved_market, normalized_symbol
     )
@@ -662,12 +668,12 @@ def fetch_ticker_history(
         progress_current=1,
         progress_total=1,
         start_date=start_date,
-        as_of_date=as_of_date,
+        as_of_date=effective_as_of_date,
         history_dir=history_cache_dir,
         cached_frame=cached_frame,
         cached_span=_history_span(cached_frame),
         fetch_start=resolve_incremental_fetch_start(
-            cached_frame, start_date, as_of_date
+            cached_frame, start_date, effective_as_of_date
         ),
     )
 
@@ -680,7 +686,7 @@ def fetch_ticker_history(
         )
 
     executor = _HistoryFetchExecutor(
-        as_of_date=as_of_date,
+        as_of_date=effective_as_of_date,
         cn_source_chain=build_cn_source_chain(
             cn_data_source,
             cn_data_source_fallbacks,
@@ -717,8 +723,9 @@ def fetch_history_for_universe(
     checkpoint_batch_size: int = 100,
     cache_only: bool = False,
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
-    as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
-    start_date = (as_of_dt - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    if parse_iso_date(as_of_date) is None:
+        raise ValueError("as_of_date must use YYYY-MM-DD format")
+    start_date = offset_iso_date(as_of_date, -LOOKBACK_DAYS)
     resolved_history_dir = (
         Path(history_dir) if history_dir is not None else resolve_history_dir()
     )

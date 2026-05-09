@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from diverge.screener.history_cache import (
+from diverge.market_data.history_cache import (
     load_history_cache,
     merge_history_frames,
     normalize_history_frame,

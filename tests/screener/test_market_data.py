@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from diverge.dataflows.vendor_errors import VendorDataEmptyError, VendorRetryableError
-from diverge.screener.history_cache import checkpoint_path, save_checkpoint
+from diverge.market_data.history_cache import checkpoint_path, save_checkpoint
 from diverge.screener.market_data import (
     fetch_history_for_universe,
     fetch_price_history,

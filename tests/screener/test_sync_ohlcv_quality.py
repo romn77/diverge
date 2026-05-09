@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from diverge.screener import market_data, sync
-from diverge.screener.history_cache import classify_history_cache_coverage
+from diverge.market_data.history_cache import classify_history_cache_coverage
 from diverge.screener.schema import ScreenRunConfig
 
 

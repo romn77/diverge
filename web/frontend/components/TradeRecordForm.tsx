@@ -761,7 +761,10 @@ function buildInitialState(record: TradeRecord | null): TradeRecordFormState {
     invalidation_condition: record?.invalidation_condition ?? "",
     stop_loss: toInputNumber(record?.stop_loss ?? null),
     take_profit: toInputNumber(record?.take_profit ?? null),
-    market_override: record?.market_resolution?.source === "manual" ? record.market : "auto",
+    market_override:
+      record?.market_resolution?.source === "manual" && record.market
+        ? record.market
+        : "auto",
     exchange_override: record?.market_resolution?.source === "manual" ? record.exchange ?? "" : "",
     initial_thesis: record?.initial_thesis ?? "",
     analysis_references:

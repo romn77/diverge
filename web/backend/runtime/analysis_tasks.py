@@ -15,6 +15,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
+from diverge.common.json_io import write_json_atomic
 from diverge.dataflows import vendor_usage
 from diverge.decision_card.builder import (
     build_decision_card,
@@ -125,16 +126,6 @@ def report_output_dir(report_id: str) -> Path:
     return report_dir
 
 
-def _write_json_atomic(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
-
-
 def write_search_evidence_artifact(task_id: str, report_dir: Path) -> Path | None:
     session = search_sessions.get(task_id)
     if session is None:
@@ -143,7 +134,7 @@ def write_search_evidence_artifact(task_id: str, report_dir: Path) -> Path | Non
     if artifact is None:
         return None
     artifact_path = report_dir / "artifacts" / "search_evidence.json"
-    _write_json_atomic(artifact_path, artifact)
+    write_json_atomic(artifact_path, artifact)
     return artifact_path
 
 
@@ -171,7 +162,7 @@ def persist_task_snapshot(task_id: str) -> None:
     if snapshot["status"] in app_config.TERMINAL_TASK_STATUSES:
         delete_task_snapshot(task_id)
         return
-    _write_json_atomic(task_snapshot_path(task_id), snapshot)
+    write_json_atomic(task_snapshot_path(task_id), snapshot)
 
 
 def task_from_snapshot(payload: dict) -> Task:

@@ -258,7 +258,6 @@ export default function AdminTaskQueuePage() {
     <AdminConsolePage
       activeTab="task-queue"
       title="Task Queue"
-      description="Inspect active background jobs by status, owner, queue position, and quota block."
       badges={<Badge variant="secondary">Operations</Badge>}
       actions={
         <>

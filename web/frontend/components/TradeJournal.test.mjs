@@ -83,6 +83,18 @@ test("TradeJournal adds health and review overview blocks so a selected trade is
   assert.match(source, /reviewCoverageLabel/);
 });
 
+test("TradeJournal tolerates legacy trade records with missing display fields", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /function formatMarketLabel/);
+  assert.match(source, /function formatTradeMarketExchangeLabel/);
+  assert.match(source, /function normalizeMarketForHistory/);
+  assert.match(source, /function formatStrategyTags/);
+  assert.doesNotMatch(source, /record\.market\.toUpperCase\(\)/);
+  assert.doesNotMatch(source, /tradeDetail\.record\.market\.toUpperCase\(\)/);
+  assert.doesNotMatch(source, /tradeDetail\.record\.strategy_tags\.join\(", "\)/);
+});
+
 test("TradeJournal keeps trade history metadata inside each record card", () => {
   const source = readFileSync(componentPath, "utf8");
 

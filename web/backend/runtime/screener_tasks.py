@@ -13,6 +13,7 @@ from typing import Optional
 
 from fastapi import HTTPException
 
+from diverge.common.json_io import write_json_atomic
 from diverge.dataflows import vendor_usage
 from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
@@ -135,16 +136,6 @@ def screener_task_snapshot_path(task_id: str) -> Path:
     return active_screener_tasks_dir() / task_id / "task.json"
 
 
-def _write_json_atomic(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
-
-
 def delete_screener_task_snapshot(task_id: str) -> None:
     snapshot_path = screener_task_snapshot_path(task_id)
     with suppress(FileNotFoundError):
@@ -169,7 +160,7 @@ def persist_screener_task_snapshot(task_id: str) -> None:
     if snapshot["status"] in app_config.TERMINAL_TASK_STATUSES:
         delete_screener_task_snapshot(task_id)
         return
-    _write_json_atomic(screener_task_snapshot_path(task_id), snapshot)
+    write_json_atomic(screener_task_snapshot_path(task_id), snapshot)
 
 
 def get_screener_task(task_id: str) -> ScreenerTask:

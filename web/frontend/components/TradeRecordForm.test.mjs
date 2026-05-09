@@ -65,5 +65,6 @@ test("TradeRecordForm keeps market and status out of the primary manual fields",
   assert.doesNotMatch(source, /status:\s*string/);
   assert.doesNotMatch(source, /exchange_or_market:\s*string/);
   assert.match(source, /market_override/);
+  assert.match(source, /record\?\.market_resolution\?\.source === "manual" && record\.market/);
   assert.match(source, /source: "manual"/);
 });

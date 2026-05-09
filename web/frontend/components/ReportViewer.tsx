@@ -461,7 +461,6 @@ export function ReportViewer({
         : 0,
     [structure]
   );
-  const artifactCount = structure?.artifacts.length ?? 0;
 
   const selectedCategoryMeta = selectedTab !== "complete" ? CATEGORY_MAP[selectedTab] : null;
   const selectedCategoryLabel =
@@ -666,25 +665,14 @@ export function ReportViewer({
                               selectedCategoryLabel ??
                               t("report.completeReport", "Complete Report")
                             }
-                            hint={selectedFileLabel ?? t("report.houseView", "House View")}
                           />
                           <SummaryMetric
                             label={t("report.availableTracks", "Available tracks")}
                             value={String(availableTrackCount)}
-                            hint={t(
-                              "report.trackCountHint",
-                              ({ count }) => `${count} agent tracks available`,
-                              { count: availableTrackCount }
-                            )}
                           />
                           <SummaryMetric
                             label={t("report.sourceFiles", "Source files")}
                             value={String(sourceFileCount)}
-                            hint={t(
-                              "report.referenceArtifactsHint",
-                              ({ count }) => `${count} Reference artifacts attached`,
-                              { count: artifactCount }
-                            )}
                           />
                         </div>
                       </div>
@@ -761,17 +749,6 @@ export function ReportViewer({
                       {selectedFileLabel ?? selectedCategoryLabel ?? selectedCategoryMeta.label}
                     </h3>
                   </div>
-                  <p className="max-w-xl text-sm leading-6 text-[var(--muted)]">
-                    {t(
-                      "report.filePerspective",
-                      ({ label, ticker }) =>
-                        `${label} captures one desk's perspective for ${ticker}. Read this layer on its own, then compare it against the full report.`,
-                      {
-                        label: selectedCategoryLabel ?? selectedCategoryMeta.label,
-                        ticker: structure.ticker,
-                      }
-                    )}
-                  </p>
                 </div>
               )}
 
@@ -854,10 +831,6 @@ const ReportOverviewCompanion = memo(function ReportOverviewCompanion({
         symbol={ticker}
         asOfDate={asOfDate}
         title={t("report.priceTrend", "Price Trend")}
-        subtitle={t(
-          "report.priceTrendHint",
-          "1000-day vendor-backed history aligned to this report date."
-        )}
         embedded
       />
     </div>
@@ -867,11 +840,9 @@ const ReportOverviewCompanion = memo(function ReportOverviewCompanion({
 function SummaryMetric({
   label,
   value,
-  hint,
 }: {
   label: string;
   value: string;
-  hint: string;
 }) {
   return (
     <Card className="border-b-0 bg-white/80 shadow-none">
@@ -880,7 +851,6 @@ function SummaryMetric({
         {label}
       </p>
       <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
       </CardContent>
     </Card>
   );
