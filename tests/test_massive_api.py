@@ -16,7 +16,9 @@ class MassiveApiIntegrationTests(unittest.TestCase):
         if not api_key:
             self.skipTest("MASSIVE_API_KEY is not configured")
 
-        base_url = os.getenv("MASSIVE_BASE_URL", "http://bcprivateserver.site/api/v1").rstrip("/")
+        base_url = os.getenv(
+            "MASSIVE_BASE_URL", "http://bcprivateserver.site/api/v1"
+        ).rstrip("/")
         response = requests.get(
             f"{base_url}/market/stocks/bars",
             headers={"X-API-KEY": api_key},

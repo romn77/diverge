@@ -40,7 +40,9 @@ def run_admin_password_reset(
         user = auth.get_user_by_email(db, settings.bootstrap_admin_email)
         if user is None:
             print(f"User not found: {settings.bootstrap_admin_email}", file=output)
-            return AdminPasswordResetResult(exit_code=1, email=settings.bootstrap_admin_email)
+            return AdminPasswordResetResult(
+                exit_code=1, email=settings.bootstrap_admin_email
+            )
 
         updated_user = auth.reset_user_password(
             db,
@@ -83,7 +85,9 @@ def main(argv: list[str] | None = None) -> int:
 
     load_env_file(args.env_file, override=args.override_env)
     try:
-        result = run_admin_password_reset(must_change_password=args.must_change_password)
+        result = run_admin_password_reset(
+            must_change_password=args.must_change_password
+        )
     except Exception as exc:  # pragma: no cover - shell-facing guard
         print(f"Admin password reset failed: {exc}", file=sys.stderr)
         return 1

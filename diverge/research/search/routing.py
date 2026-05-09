@@ -4,7 +4,11 @@ from __future__ import annotations
 def provider_order_for_context(*, market: str, language: str | None) -> list[str]:
     normalized_market = str(market or "").strip().lower()
     normalized_language = str(language or "").strip().lower()
-    if normalized_market in {"cn", "hk"} or normalized_language in {"cn", "zh", "zh-cn"}:
+    if normalized_market in {"cn", "hk"} or normalized_language in {
+        "cn",
+        "zh",
+        "zh-cn",
+    }:
         return ["bocha", "brave", "tavily"]
     return ["brave", "tavily"]
 

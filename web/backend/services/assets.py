@@ -7,7 +7,10 @@ from fastapi import HTTPException, Request
 
 from diverge.assets.market_data import MarketDataClient, SymbolCandidate
 from web.backend import access, analysis_limits, asset_entries, audit, auth
-from web.backend.schemas.assets import AssetPositionCreatePayload, AssetPositionUpdatePayload
+from web.backend.schemas.assets import (
+    AssetPositionCreatePayload,
+    AssetPositionUpdatePayload,
+)
 
 REFRESH_INTERVAL = timedelta(minutes=15)
 MARKET_VALUATION_MODE = "market"
@@ -68,7 +71,9 @@ def _normalize_upper(value: str | None) -> str | None:
 def _normalize_valuation_mode(value: str | None) -> str:
     normalized = _require_text(value, "valuation_mode").lower()
     if normalized not in {MARKET_VALUATION_MODE, MANUAL_VALUATION_MODE}:
-        raise auth.AuthValidationError("valuation_mode must be either 'market' or 'manual'")
+        raise auth.AuthValidationError(
+            "valuation_mode must be either 'market' or 'manual'"
+        )
     return normalized
 
 
@@ -84,7 +89,9 @@ def _normalize_compare_text(value: str | None) -> str:
     return " ".join(str(value or "").strip().lower().split())
 
 
-def _auto_select_candidate(asset_name: str, candidates: list[SymbolCandidate]) -> SymbolCandidate | None:
+def _auto_select_candidate(
+    asset_name: str, candidates: list[SymbolCandidate]
+) -> SymbolCandidate | None:
     if len(candidates) == 1:
         return candidates[0]
     normalized_name = _normalize_compare_text(asset_name)
@@ -120,7 +127,11 @@ def _serialize_position(
             >= REFRESH_INTERVAL
         )
 
-    state = latest_snapshot.status if latest_snapshot is not None else (position.mapping_status or "unresolved")
+    state = (
+        latest_snapshot.status
+        if latest_snapshot is not None
+        else (position.mapping_status or "unresolved")
+    )
     return {
         "id": position.id,
         "owner_user_id": position.owner_user_id,
@@ -180,7 +191,9 @@ def _list_position_payloads(
             owner_user_id=owner_scope,
         )
     }
-    latest_snapshots = asset_entries.list_latest_snapshots_by_position(db, [position.id for position in positions])
+    latest_snapshots = asset_entries.list_latest_snapshots_by_position(
+        db, [position.id for position in positions]
+    )
     payloads = [
         _serialize_position(
             position,
@@ -203,7 +216,9 @@ def _list_position_payloads(
     return payloads
 
 
-def _resolve_mapping(position: asset_entries.AssetPosition, *, market_data: MarketDataClient) -> None:
+def _resolve_mapping(
+    position: asset_entries.AssetPosition, *, market_data: MarketDataClient
+) -> None:
     if position.valuation_mode != MARKET_VALUATION_MODE:
         position.mapping_status = "manual_only"
         position.error_message = None
@@ -215,7 +230,9 @@ def _resolve_mapping(position: asset_entries.AssetPosition, *, market_data: Mark
         position.error_message = None
         return
 
-    candidates = market_data.search_symbols(position.asset_name, position.asset_category, limit=5)
+    candidates = market_data.search_symbols(
+        position.asset_name, position.asset_category, limit=5
+    )
     if not candidates:
         position.mapping_status = "unresolved"
         position.error_message = "No market matches found"
@@ -224,7 +241,9 @@ def _resolve_mapping(position: asset_entries.AssetPosition, *, market_data: Mark
     selected = _auto_select_candidate(position.asset_name, candidates)
     if selected is None:
         position.mapping_status = "ambiguous"
-        position.error_message = f"{len(candidates)} candidates matched. Set ticker explicitly."
+        position.error_message = (
+            f"{len(candidates)} candidates matched. Set ticker explicitly."
+        )
         return
 
     position.ticker = selected.ticker
@@ -277,7 +296,9 @@ def _refresh_manual_position(
         base_currency=base_currency,
     )
     market_value = round(position.quantity * position.manual_price * fx_rate, 4)
-    unrealized_pnl = round((position.manual_price - position.cost_basis) * position.quantity * fx_rate, 4)
+    unrealized_pnl = round(
+        (position.manual_price - position.cost_basis) * position.quantity * fx_rate, 4
+    )
     snapshot = asset_entries.add_asset_snapshot(
         db,
         position_id=position.id,
@@ -315,7 +336,8 @@ def _refresh_market_position(
             status=position.mapping_status or "unresolved",
             base_currency=base_currency,
             source=position.vendor or getattr(market_data, "vendor", None),
-            error_message=position.error_message or "Asset is not mapped to a market symbol",
+            error_message=position.error_message
+            or "Asset is not mapped to a market symbol",
             captured_at=now,
         )
         return asset_entries.serialize_asset_snapshot(snapshot) or {}
@@ -328,7 +350,9 @@ def _refresh_market_position(
             base_currency=base_currency,
         )
         market_value = round(position.quantity * latest_quote.price * fx_rate, 4)
-        unrealized_pnl = round((latest_quote.price - position.cost_basis) * position.quantity * fx_rate, 4)
+        unrealized_pnl = round(
+            (latest_quote.price - position.cost_basis) * position.quantity * fx_rate, 4
+        )
         snapshot = asset_entries.add_asset_snapshot(
             db,
             position_id=position.id,
@@ -407,7 +431,9 @@ def list_asset_positions(request: Request | None) -> list[dict[str, Any]]:
     _require_asset_runtime()
     with auth.db_session() as db:
         user, owner_scope = _resolve_request_scope(db, request)
-        return _list_position_payloads(db, tenant_id=user.tenant_id, owner_scope=owner_scope)
+        return _list_position_payloads(
+            db, tenant_id=user.tenant_id, owner_scope=owner_scope
+        )
 
 
 def get_asset_position(position_id: str, request: Request | None) -> dict[str, Any]:
@@ -426,7 +452,9 @@ def get_asset_position(position_id: str, request: Request | None) -> dict[str, A
             tenant_id=user.tenant_id,
             owner_user_id=position.owner_user_id,
         )
-        snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
+        snapshot = asset_entries.list_latest_snapshots_by_position(
+            db, [position.id]
+        ).get(position.id)
         audit.record_audit_event_safely(
             db,
             tenant_id=user.tenant_id,
@@ -434,7 +462,10 @@ def get_asset_position(position_id: str, request: Request | None) -> dict[str, A
             action="assets.position.created",
             resource_type="asset_position",
             resource_id=position.id,
-            metadata={"asset_category": position.asset_category, "valuation_mode": position.valuation_mode},
+            metadata={
+                "asset_category": position.asset_category,
+                "valuation_mode": position.valuation_mode,
+            },
             request=request,
         )
         return _serialize_position(position, account, snapshot)
@@ -462,7 +493,9 @@ def create_asset_position(
             owner_user_id=user.id,
             account_id=account.id,
             asset_name=_require_text(payload.asset_name, "asset_name"),
-            asset_category=_require_text(payload.asset_category, "asset_category").lower(),
+            asset_category=_require_text(
+                payload.asset_category, "asset_category"
+            ).lower(),
             quantity=float(payload.quantity),
             cost_basis=float(payload.cost_basis),
             valuation_mode=valuation_mode,
@@ -474,7 +507,9 @@ def create_asset_position(
             resolved_name=_normalize_optional_text(payload.resolved_name),
             quote_currency=_normalize_upper(payload.currency),
             vendor=getattr(market_data, "vendor", None),
-            mapping_status="manual_only" if valuation_mode == MANUAL_VALUATION_MODE else "unresolved",
+            mapping_status="manual_only"
+            if valuation_mode == MANUAL_VALUATION_MODE
+            else "unresolved",
             notes=_normalize_optional_text(payload.notes),
         )
         db.add(position)
@@ -488,7 +523,9 @@ def create_asset_position(
             base_currency=position.quote_currency or "USD",
             market_data=market_data,
         )
-        snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
+        snapshot = asset_entries.list_latest_snapshots_by_position(
+            db, [position.id]
+        ).get(position.id)
         return _serialize_position(position, account, snapshot)
 
 
@@ -530,13 +567,17 @@ def update_asset_position(
         if "asset_name" in changes:
             position.asset_name = _require_text(changes.pop("asset_name"), "asset_name")
         if "asset_category" in changes:
-            position.asset_category = _require_text(changes.pop("asset_category"), "asset_category").lower()
+            position.asset_category = _require_text(
+                changes.pop("asset_category"), "asset_category"
+            ).lower()
         if "quantity" in changes:
             position.quantity = float(changes.pop("quantity"))
         if "cost_basis" in changes:
             position.cost_basis = float(changes.pop("cost_basis"))
         if "valuation_mode" in changes:
-            position.valuation_mode = _normalize_valuation_mode(changes.pop("valuation_mode"))
+            position.valuation_mode = _normalize_valuation_mode(
+                changes.pop("valuation_mode")
+            )
         if "manual_price" in changes:
             position.manual_price = changes.pop("manual_price")
         if "ticker" in changes:
@@ -548,13 +589,17 @@ def update_asset_position(
         if "quote_type" in changes:
             position.quote_type = _normalize_optional_text(changes.pop("quote_type"))
         if "resolved_name" in changes:
-            position.resolved_name = _normalize_optional_text(changes.pop("resolved_name"))
+            position.resolved_name = _normalize_optional_text(
+                changes.pop("resolved_name")
+            )
         if "currency" in changes:
             position.quote_currency = _normalize_upper(changes.pop("currency"))
         if "notes" in changes:
             position.notes = _normalize_optional_text(changes.pop("notes"))
         if changes:
-            raise auth.AuthValidationError(f"Unsupported asset fields: {sorted(changes.keys())}")
+            raise auth.AuthValidationError(
+                f"Unsupported asset fields: {sorted(changes.keys())}"
+            )
 
         if position.valuation_mode == MANUAL_VALUATION_MODE:
             position.mapping_status = "manual_only"
@@ -575,7 +620,9 @@ def update_asset_position(
             base_currency=position.quote_currency or "USD",
             market_data=market_data,
         )
-        snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
+        snapshot = asset_entries.list_latest_snapshots_by_position(
+            db, [position.id]
+        ).get(position.id)
         audit.record_audit_event_safely(
             db,
             tenant_id=user.tenant_id,
@@ -583,7 +630,10 @@ def update_asset_position(
             action="assets.position.updated",
             resource_type="asset_position",
             resource_id=position.id,
-            metadata={"asset_category": position.asset_category, "valuation_mode": position.valuation_mode},
+            metadata={
+                "asset_category": position.asset_category,
+                "valuation_mode": position.valuation_mode,
+            },
             request=request,
         )
         return _serialize_position(position, target_account, snapshot)
@@ -637,9 +687,15 @@ def refresh_asset_position(
             tenant_id=user.tenant_id,
             owner_user_id=position.owner_user_id,
         )
-        _refresh_position_record(db, position, base_currency=base_currency, market_data=market_data)
-        snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
-        return _serialize_position(position, account, snapshot, base_currency=base_currency)
+        _refresh_position_record(
+            db, position, base_currency=base_currency, market_data=market_data
+        )
+        snapshot = asset_entries.list_latest_snapshots_by_position(
+            db, [position.id]
+        ).get(position.id)
+        return _serialize_position(
+            position, account, snapshot, base_currency=base_currency
+        )
 
 
 def refresh_due_asset_positions(
@@ -668,12 +724,16 @@ def refresh_due_asset_positions(
                 owner_user_id=owner_scope,
             )
         }
-        latest_snapshots = asset_entries.list_latest_snapshots_by_position(db, [position.id for position in positions])
+        latest_snapshots = asset_entries.list_latest_snapshots_by_position(
+            db, [position.id for position in positions]
+        )
         now = _coerce_now()
         refreshed: list[dict[str, Any]] = []
         for position in positions:
             latest_snapshot = latest_snapshots.get(position.id)
-            if not force and _is_snapshot_fresh(latest_snapshot, base_currency=base_currency, now=now):
+            if not force and _is_snapshot_fresh(
+                latest_snapshot, base_currency=base_currency, now=now
+            ):
                 continue
             _refresh_position_record(
                 db,
@@ -682,7 +742,9 @@ def refresh_due_asset_positions(
                 market_data=market_data,
                 now=now,
             )
-            latest_snapshot = asset_entries.list_latest_snapshots_by_position(db, [position.id]).get(position.id)
+            latest_snapshot = asset_entries.list_latest_snapshots_by_position(
+                db, [position.id]
+            ).get(position.id)
             refreshed.append(
                 _serialize_position(
                     position,
@@ -835,7 +897,9 @@ def build_portfolio_context_for_owner(
                 owner_user_id=normalized_owner_user_id,
             )
         }
-        latest_snapshots = asset_entries.list_latest_snapshots_by_position(db, [position.id for position in positions])
+        latest_snapshots = asset_entries.list_latest_snapshots_by_position(
+            db, [position.id for position in positions]
+        )
 
     total_value = 0.0
     top_positions: list[dict[str, Any]] = []

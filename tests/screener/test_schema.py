@@ -238,8 +238,13 @@ def test_screen_run_config_accepts_split_filter_presets():
     assert config.filter_preset_selections["roe"] == "roe_gte_20"
     assert config.filter_preset_selections["gross_margin"] == "gross_margin_gte_30"
     assert config.filter_preset_selections["net_margin"] == "net_margin_gte_10"
-    assert config.filter_preset_selections["revenue_growth_yoy"] == "revenue_growth_gte_20"
-    assert config.filter_preset_selections["net_income_growth_yoy"] == "income_growth_gte_10"
+    assert (
+        config.filter_preset_selections["revenue_growth_yoy"] == "revenue_growth_gte_20"
+    )
+    assert (
+        config.filter_preset_selections["net_income_growth_yoy"]
+        == "income_growth_gte_10"
+    )
     assert config.filter_preset_selections["current_ratio"] == "current_ratio_gte_1_5"
     assert config.filter_preset_selections["debt_to_assets"] == "debt_assets_lte_60"
     assert not {
@@ -271,7 +276,10 @@ def test_screen_run_config_migrates_legacy_valuation_preset_selection():
     assert config.filter_preset_selections["ret_60"] == "ret60_10"
     assert config.filter_preset_selections["ps_ttm"] == "ps_lte_10"
     assert config.filter_preset_selections["gross_margin"] == "gross_margin_gte_30"
-    assert config.filter_preset_selections["net_income_growth_yoy"] == "income_growth_gte_10"
+    assert (
+        config.filter_preset_selections["net_income_growth_yoy"]
+        == "income_growth_gte_10"
+    )
     assert config.filter_preset_selections["debt_to_assets"] == "debt_assets_lte_60"
     assert not {
         "moving_average",

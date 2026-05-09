@@ -3,7 +3,16 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, inspect, select
+from sqlalchemy import (
+    JSON,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    inspect,
+    select,
+)
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from web.backend import auth
@@ -37,8 +46,12 @@ class ScreenerRun(auth.Base):
     candidate_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     generated_at: Mapped[str] = mapped_column(String(32), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
-    artifact_manifest: Mapped[dict[str, str]] = mapped_column(JSON, nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    artifact_manifest: Mapped[dict[str, str]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -109,10 +122,14 @@ def upsert_screener_run(
 ) -> ScreenerRun:
     normalized_run_id = _normalize_text(run_id, "run_id")
     normalized_owner_user_id = _normalize_text(owner_user_id, "owner_user_id")
-    normalized_tenant_id = tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+    normalized_tenant_id = (
+        tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+    )
     if normalized_tenant_id is None:
         owner = db.get(auth.User, normalized_owner_user_id)
-        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        normalized_tenant_id = (
+            owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        )
     normalized_storage_path = _normalize_text(storage_path, "storage_path")
     normalized_generated_at = _normalize_text(generated_at, "generated_at")
 
@@ -131,7 +148,11 @@ def upsert_screener_run(
 
     record.tenant_id = normalized_tenant_id
     record.owner_user_id = normalized_owner_user_id
-    record.as_of_date = as_of_date.strip() if isinstance(as_of_date, str) and as_of_date.strip() else None
+    record.as_of_date = (
+        as_of_date.strip()
+        if isinstance(as_of_date, str) and as_of_date.strip()
+        else None
+    )
     record.markets = _normalize_markets(markets)
     record.candidate_count = max(int(candidate_count), 0)
     record.generated_at = normalized_generated_at
@@ -153,7 +174,9 @@ def list_screener_run_records(
         statement = statement.where(ScreenerRun.tenant_id == tenant_id)
     if owner_user_id is not None:
         statement = statement.where(ScreenerRun.owner_user_id == owner_user_id)
-    statement = statement.order_by(ScreenerRun.generated_at.desc(), ScreenerRun.id.desc())
+    statement = statement.order_by(
+        ScreenerRun.generated_at.desc(), ScreenerRun.id.desc()
+    )
     return list(db.scalars(statement))
 
 

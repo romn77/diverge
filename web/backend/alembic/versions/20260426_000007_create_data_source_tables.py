@@ -24,7 +24,12 @@ def upgrade() -> None:
         sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("daily_limit", sa.Integer(), nullable=True),
         sa.Column("hourly_limit", sa.Integer(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("vendor"),
     )
 
@@ -39,8 +44,18 @@ def upgrade() -> None:
         sa.Column("hour_key", sa.String(length=13), nullable=True),
         sa.Column("hour_total_calls", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("last_called_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("usage_date", "vendor", "module"),
     )
     op.create_table(
@@ -49,7 +64,12 @@ def upgrade() -> None:
         sa.Column("market", sa.String(length=32), nullable=False),
         sa.Column("category", sa.String(length=64), nullable=False),
         sa.Column("vendor_chain", sa.String(length=512), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("module", "market", "category"),
     )
     op.create_index(

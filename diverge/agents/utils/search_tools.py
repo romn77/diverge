@@ -7,7 +7,12 @@ from diverge.agents.utils.tooling import tool
 from diverge.research.search.providers.bocha import BochaSearchProvider
 from diverge.research.search.providers.brave import BraveSearchProvider
 from diverge.research.search.providers.tavily import TavilySearchProvider
-from diverge.research.search.schema import SearchPurpose, SearchResponse, SearchWarning, clamp_max_results
+from diverge.research.search.schema import (
+    SearchPurpose,
+    SearchResponse,
+    SearchWarning,
+    clamp_max_results,
+)
 from diverge.research.search.service import SearchService
 from diverge.research.search.session import current_search_context, search_sessions
 
@@ -23,7 +28,9 @@ class WebSearchQuotaRepository:
         with auth.db_session() as db:
             return search_quota.get_search_quota_summary(db)
 
-    def record_call(self, provider: str, *, success: bool, error: str | None = None) -> None:
+    def record_call(
+        self, provider: str, *, success: bool, error: str | None = None
+    ) -> None:
         from web.backend import auth, search_quota
 
         with auth.db_session() as db:
@@ -132,7 +139,9 @@ def _missing_context_markdown(query: str) -> str:
 @tool
 def web_search_evidence(
     query: Annotated[str, "Search query"] = "",
-    purpose: Annotated[str, "fresh_news, sentiment, risk, catalyst, or default"] = "default",
+    purpose: Annotated[
+        str, "fresh_news, sentiment, risk, catalyst, or default"
+    ] = "default",
     max_results: Annotated[int, "Maximum results to return, clamped to 1..5"] = 5,
 ) -> str:
     """Return controlled Web Search evidence as Markdown for analyst use."""

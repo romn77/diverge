@@ -140,7 +140,9 @@ def get_ticker_history_payload(
             cache_dir=history_cache_dir(),
         )
         if storage_backend_is_remote():
-            target = history_cache_path(history_cache_dir(), resolved_market, normalized_symbol)
+            target = history_cache_path(
+                history_cache_dir(), resolved_market, normalized_symbol
+            )
             if target.is_file():
                 storage.get_storage().put_bytes(
                     f"history/{resolved_market}/{target.name}",
@@ -150,7 +152,9 @@ def get_ticker_history_payload(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to load ticker history: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Failed to load ticker history: {exc}"
+        ) from exc
 
     return ticker_history_response(
         symbol=normalized_symbol,
@@ -167,7 +171,9 @@ def get_batch_ticker_history_payload(payload: TickerHistoryBatchPayload) -> dict
     normalized_days = normalize_history_days(payload.days)
     tickers = payload.tickers or []
     if not tickers:
-        raise HTTPException(status_code=400, detail="tickers must include at least one item")
+        raise HTTPException(
+            status_code=400, detail="tickers must include at least one item"
+        )
     if len(tickers) > 50:
         raise HTTPException(status_code=400, detail="tickers must not exceed 50 items")
 

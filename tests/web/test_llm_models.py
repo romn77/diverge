@@ -34,7 +34,11 @@ class LLMModelConfigTests(unittest.TestCase):
             auth.create_all_for_testing()
             summary = llm_models.list_llm_model_summary()
 
-        openai = next(provider for provider in summary["providers"] if provider["provider"] == "openai")
+        openai = next(
+            provider
+            for provider in summary["providers"]
+            if provider["provider"] == "openai"
+        )
         self.assertEqual(openai["key_status"], "configured")
         self.assertEqual(openai["api_key_env"], "OPENAI_API_KEY")
         self.assertNotIn("secret-value", str(summary))
@@ -45,18 +49,31 @@ class LLMModelConfigTests(unittest.TestCase):
             summary = llm_models.list_llm_model_summary()
 
             with auth.db_session() as db:
-                provider_count = db.scalar(select(func.count()).select_from(llm_models.LLMProviderConfig))
-                model_count = db.scalar(select(func.count()).select_from(llm_models.LLMModelConfig))
-                profile_count = db.scalar(select(func.count()).select_from(llm_models.LLMModelProfile))
-                route_count = db.scalar(select(func.count()).select_from(llm_models.LLMModelProfileRoute))
+                provider_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMProviderConfig)
+                )
+                model_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMModelConfig)
+                )
+                profile_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMModelProfile)
+                )
+                route_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMModelProfileRoute)
+                )
 
         self.assertEqual(provider_count, len(summary["providers"]))
         self.assertEqual(model_count, len(summary["models"]))
         self.assertEqual(profile_count, len(summary["profiles"]))
-        self.assertEqual(route_count, sum(len(profile["routes"]) * 2 for profile in summary["profiles"]))
+        self.assertEqual(
+            route_count,
+            sum(len(profile["routes"]) * 2 for profile in summary["profiles"]),
+        )
 
     def test_disabled_model_blocks_profile_resolution(self):
-        with self._env({"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}):
+        with self._env(
+            {"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}
+        ):
             auth.create_all_for_testing()
             llm_models.update_model_config(
                 "openai",
@@ -72,7 +89,9 @@ class LLMModelConfigTests(unittest.TestCase):
         self.assertEqual(resolved.llm_provider, "sub2api")
 
     def test_daily_model_limit_blocks_route(self):
-        with self._env({"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}):
+        with self._env(
+            {"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}
+        ):
             auth.create_all_for_testing()
             llm_models.update_model_config(
                 "openai",

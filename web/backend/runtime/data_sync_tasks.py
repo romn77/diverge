@@ -108,7 +108,9 @@ def _parse_cutoff_time(raw_value: str) -> time:
         hour_text, minute_text = raw_value.strip().split(":", 1)
         return time(hour=int(hour_text), minute=int(minute_text))
     except Exception as exc:
-        raise RuntimeError(f"Invalid data sync ready cutoff time '{raw_value}'. Use HH:MM.") from exc
+        raise RuntimeError(
+            f"Invalid data sync ready cutoff time '{raw_value}'. Use HH:MM."
+        ) from exc
 
 
 def _configured_cutoff_time(env_name: str, default_value: str) -> time:
@@ -233,7 +235,9 @@ def ensure_ohlcv_vendor_ready(payload: dict[str, Any]) -> None:
             )
 
 
-def resolve_ready_ohlcv_as_of_date(market: str, source: str, candidate_day: date) -> date:
+def resolve_ready_ohlcv_as_of_date(
+    market: str, source: str, candidate_day: date
+) -> date:
     """Resolve the latest default screener date that should have vendor OHLCV data."""
     normalized_market = str(market).strip().lower()
     normalized_source = str(source).strip().lower()
@@ -314,7 +318,9 @@ def restore_persisted_data_sync_tasks() -> None:
                 task.latest_progress = failure_progress
                 task.progress_events.append(failure_progress)
                 _save_task(task)
-                task_store.get_task_store().append_event("data_sync", task.id, failure_progress)
+                task_store.get_task_store().append_event(
+                    "data_sync", task.id, failure_progress
+                )
                 task_store.get_task_store().ack("data_sync", task.id)
         return
 
@@ -323,7 +329,9 @@ def restore_persisted_data_sync_tasks() -> None:
 
     for path in sorted(_state_dir().glob("*.json")):
         try:
-            task = data_sync_task_from_payload(json.loads(path.read_text(encoding="utf-8")))
+            task = data_sync_task_from_payload(
+                json.loads(path.read_text(encoding="utf-8"))
+            )
         except (
             OSError,
             UnicodeDecodeError,
@@ -428,7 +436,9 @@ def get_data_sync_task(task_id: str) -> DataSyncTask:
         store = task_store.get_task_store()
         payload = store.get_task("data_sync", task_id)
         if payload is None:
-            raise HTTPException(status_code=404, detail=f"Data sync task '{task_id}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Data sync task '{task_id}' not found"
+            )
         task = data_sync_task_from_payload(payload)
         task.queue_position = store.queue_position("data_sync", task.id)
         return task
@@ -461,7 +471,11 @@ def list_data_sync_tasks() -> list[DataSyncTask]:
         if any(task.id == path.stem for task in tasks):
             continue
         try:
-            tasks.append(data_sync_task_from_payload(json.loads(path.read_text(encoding="utf-8"))))
+            tasks.append(
+                data_sync_task_from_payload(
+                    json.loads(path.read_text(encoding="utf-8"))
+                )
+            )
         except Exception:
             continue
     return sorted(tasks, key=lambda task: task.created_at or "", reverse=True)
@@ -574,9 +588,7 @@ def _simfin_daily_ticker_limit() -> int:
 def _dedupe_symbols(symbols: list[Any]) -> list[str]:
     return list(
         dict.fromkeys(
-            str(symbol).strip().upper()
-            for symbol in symbols
-            if str(symbol).strip()
+            str(symbol).strip().upper() for symbol in symbols if str(symbol).strip()
         )
     )
 
@@ -624,7 +636,9 @@ def _run_ohlcv_task(task: DataSyncTask) -> dict[str, Any]:
             message += f" [{status}]"
         if detail:
             message += f" {detail}"
-        _append_progress(task.id, message, stage=stage, current=current, total=total, symbol=symbol)
+        _append_progress(
+            task.id, message, stage=stage, current=current, total=total, symbol=symbol
+        )
 
     result = run_ohlcv_sync_payload(
         payload,
@@ -672,7 +686,9 @@ def run_fundamental_sync_payload(
             )
         api_key = os.environ.get("SIMFIN_API_KEY")
         if not api_key:
-            raise RuntimeError("SIMFIN_API_KEY is required for US SimFin fundamental sync.")
+            raise RuntimeError(
+                "SIMFIN_API_KEY is required for US SimFin fundamental sync."
+            )
         result = sync_us_simfin_fundamentals(
             api_key=api_key,
             tickers=symbols or None,
@@ -732,7 +748,11 @@ def run_data_sync_task(task_id: str) -> None:
     _save_task(task)
     try:
         _append_progress(task_id, f"{task.sync_type} sync started.")
-        result = _run_ohlcv_task(task) if task.sync_type == "ohlcv" else _run_fundamental_task(task)
+        result = (
+            _run_ohlcv_task(task)
+            if task.sync_type == "ohlcv"
+            else _run_fundamental_task(task)
+        )
         task = get_data_sync_task(task_id)
         task.status = "completed"
         task.finished_at = _utc_iso()

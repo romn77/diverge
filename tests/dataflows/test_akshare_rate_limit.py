@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from unittest.mock import Mock, patch
 
-import pandas as pd
 
 from diverge.dataflows.akshare_rate_limit import (
     call_akshare_api,

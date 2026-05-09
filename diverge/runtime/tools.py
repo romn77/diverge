@@ -190,12 +190,12 @@ class AdkToolCollection:
         return str(tool.func(**_filter_arguments(tool.func, arguments)))
 
 
-def _filter_arguments(func: Callable[..., Any], arguments: dict[str, Any]) -> dict[str, Any]:
+def _filter_arguments(
+    func: Callable[..., Any], arguments: dict[str, Any]
+) -> dict[str, Any]:
     signature = inspect.signature(func)
     return {
-        key: value
-        for key, value in arguments.items()
-        if key in signature.parameters
+        key: value for key, value in arguments.items() if key in signature.parameters
     }
 
 
@@ -204,7 +204,12 @@ def create_raw_tool_registry() -> dict[str, list[Callable[..., str]]]:
     return {
         "market": [get_stock_data, get_indicators],
         "social": [get_news, web_search_evidence],
-        "news": [get_news, get_global_news, get_insider_transactions, web_search_evidence],
+        "news": [
+            get_news,
+            get_global_news,
+            get_insider_transactions,
+            web_search_evidence,
+        ],
         "fundamentals": [
             get_fundamentals,
             get_balance_sheet,

@@ -18,7 +18,9 @@ def _make_price_frame(periods: int = 80) -> pd.DataFrame:
             "Low": close - 1.0,
             "Close": close,
             "Volume": 1_000 + pd.Series(range(periods), dtype=float),
-            "Amount": (close * (1_000 + pd.Series(range(periods), dtype=float))).astype(float),
+            "Amount": (close * (1_000 + pd.Series(range(periods), dtype=float))).astype(
+                float
+            ),
         }
     )
     return frame
@@ -129,7 +131,9 @@ def test_build_feature_row_marks_too_short_history_as_insufficient():
 
 
 def test_build_feature_row_counts_available_bars_in_latest_20_trading_days():
-    price_df = _make_price_frame(periods=40).drop(index=[30, 34, 36]).reset_index(drop=True)
+    price_df = (
+        _make_price_frame(periods=40).drop(index=[30, 34, 36]).reset_index(drop=True)
+    )
     meta_row = pd.Series(
         {
             "symbol": "AAPL",
@@ -227,7 +231,9 @@ def test_build_features_table_builds_rows_for_each_symbol():
     result = build_features_table(universe_df, histories, "2026-03-20")
 
     assert list(result["symbol"]) == ["AAPL", "MSFT"]
-    assert set(result.columns).issuperset({"ma20", "macdh", "atr_pct", "bar_count", "trading_days_20d"})
+    assert set(result.columns).issuperset(
+        {"ma20", "macdh", "atr_pct", "bar_count", "trading_days_20d"}
+    )
 
 
 def test_build_features_table_skips_symbols_without_successful_history():

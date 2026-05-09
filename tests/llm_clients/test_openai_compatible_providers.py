@@ -41,8 +41,14 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
         )
 
         with (
-            patch.dict("os.environ", {"SILICONFLOW_API_KEY": "test-siliconflow-key"}, clear=True),
-            patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
+            patch.dict(
+                "os.environ",
+                {"SILICONFLOW_API_KEY": "test-siliconflow-key"},
+                clear=True,
+            ),
+            patch(
+                "diverge.llm_clients.openai_client.NormalizedChatOpenAI"
+            ) as chat_openai,
         ):
             client.get_llm()
 
@@ -60,8 +66,12 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
         )
 
         with (
-            patch.dict("os.environ", {"SUB2API_API_KEY": "test-sub2api-key"}, clear=True),
-            patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
+            patch.dict(
+                "os.environ", {"SUB2API_API_KEY": "test-sub2api-key"}, clear=True
+            ),
+            patch(
+                "diverge.llm_clients.openai_client.NormalizedChatOpenAI"
+            ) as chat_openai,
         ):
             client.get_llm()
 
@@ -78,7 +88,9 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
             provider="openai",
         )
 
-        with patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai:
+        with patch(
+            "diverge.llm_clients.openai_client.NormalizedChatOpenAI"
+        ) as chat_openai:
             client.get_llm()
 
         kwargs = chat_openai.call_args.kwargs
@@ -102,7 +114,9 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
                 },
                 clear=True,
             ),
-            patch("diverge.llm_clients.openai_client.NormalizedChatOpenAI") as chat_openai,
+            patch(
+                "diverge.llm_clients.openai_client.NormalizedChatOpenAI"
+            ) as chat_openai,
         ):
             client.get_llm()
 
@@ -114,7 +128,9 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
     def test_retryable_openai_error_detects_gateway_timeout_html(self):
         self.assertTrue(
             _is_retryable_openai_error(
-                _FakeStatusError(500, "<html><title>504 Gateway Time-out</title></html>")
+                _FakeStatusError(
+                    500, "<html><title>504 Gateway Time-out</title></html>"
+                )
             )
         )
         self.assertTrue(_is_retryable_openai_error(_FakeStatusError(504)))
@@ -154,7 +170,9 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
         sleep.assert_not_called()
 
     def test_sub2api_responses_payload_promotes_system_message_to_instructions(self):
-        with patch.dict("os.environ", {"SUB2API_API_KEY": "test-sub2api-key"}, clear=True):
+        with patch.dict(
+            "os.environ", {"SUB2API_API_KEY": "test-sub2api-key"}, clear=True
+        ):
             llm = OpenAIClient(
                 "gpt-5.4",
                 provider="sub2api",
@@ -167,7 +185,9 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(payload["instructions"], "Follow the trading analyst instructions.")
+        self.assertEqual(
+            payload["instructions"], "Follow the trading analyst instructions."
+        )
         self.assertEqual(
             [message["role"] for message in payload["input"]],
             ["user"],
@@ -200,7 +220,9 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
                 ]
             )
 
-        self.assertEqual(result.generations[0].message.content, "Market momentum is mixed.")
+        self.assertEqual(
+            result.generations[0].message.content, "Market momentum is mixed."
+        )
 
     def test_sub2api_sse_function_calls_are_returned_as_tool_calls(self):
         class RawStringResponse:
@@ -318,7 +340,11 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
         )
 
         payload = llm._get_request_payload(
-            [HumanMessage(content="Analyze AAPL"), ai_message, HumanMessage(content="Tool done")]
+            [
+                HumanMessage(content="Analyze AAPL"),
+                ai_message,
+                HumanMessage(content="Tool done"),
+            ]
         )
 
         self.assertEqual(

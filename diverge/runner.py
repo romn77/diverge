@@ -121,7 +121,9 @@ def classify_message_type(message) -> tuple[str, str | None]:
     return ("System", content)
 
 
-def _shorten_message(message_type: str, content: str | None, limit: int = 280) -> str | None:
+def _shorten_message(
+    message_type: str, content: str | None, limit: int = 280
+) -> str | None:
     if not content:
         return None
     compact = " ".join(content.split())
@@ -411,7 +413,9 @@ class AnalysisTracker:
 
             if has_report:
                 dirty = self.update_agent_status(agent_name, "completed") or dirty
-                dirty = self.update_report_section(report_key, chunk[report_key]) or dirty
+                dirty = (
+                    self.update_report_section(report_key, chunk[report_key]) or dirty
+                )
             elif not found_active:
                 dirty = self.update_agent_status(agent_name, "in_progress") or dirty
                 found_active = True
@@ -438,17 +442,26 @@ class AnalysisTracker:
                 dirty = self.update_agent_status(agent, "in_progress") or dirty
 
         if bull_history:
-            dirty = self.update_report_section(
-                "investment_plan", f"### Bull Researcher Analysis\n{bull_history}"
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "investment_plan", f"### Bull Researcher Analysis\n{bull_history}"
+                )
+                or dirty
+            )
         if bear_history:
-            dirty = self.update_report_section(
-                "investment_plan", f"### Bear Researcher Analysis\n{bear_history}"
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "investment_plan", f"### Bear Researcher Analysis\n{bear_history}"
+                )
+                or dirty
+            )
         if judge:
-            dirty = self.update_report_section(
-                "investment_plan", f"### Research Manager Decision\n{judge}"
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "investment_plan", f"### Research Manager Decision\n{judge}"
+                )
+                or dirty
+            )
             for agent in RESEARCH_TEAM:
                 dirty = self.update_agent_status(agent, "completed") or dirty
             dirty = self.update_agent_status("Trader", "in_progress") or dirty
@@ -478,29 +491,47 @@ class AnalysisTracker:
         judge = risk_state.get("judge_decision", "").strip()
 
         if aggressive:
-            dirty = self.update_agent_status("Aggressive Analyst", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Aggressive Analyst Analysis\n{aggressive}",
-            ) or dirty
+            dirty = (
+                self.update_agent_status("Aggressive Analyst", "in_progress") or dirty
+            )
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Aggressive Analyst Analysis\n{aggressive}",
+                )
+                or dirty
+            )
         if conservative:
-            dirty = self.update_agent_status("Conservative Analyst", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Conservative Analyst Analysis\n{conservative}",
-            ) or dirty
+            dirty = (
+                self.update_agent_status("Conservative Analyst", "in_progress") or dirty
+            )
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Conservative Analyst Analysis\n{conservative}",
+                )
+                or dirty
+            )
         if neutral:
             dirty = self.update_agent_status("Neutral Analyst", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Neutral Analyst Analysis\n{neutral}",
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Neutral Analyst Analysis\n{neutral}",
+                )
+                or dirty
+            )
         if judge:
-            dirty = self.update_agent_status("Portfolio Manager", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Portfolio Manager Decision\n{judge}",
-            ) or dirty
+            dirty = (
+                self.update_agent_status("Portfolio Manager", "in_progress") or dirty
+            )
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Portfolio Manager Decision\n{judge}",
+                )
+                or dirty
+            )
             for agent in RISK_TEAM:
                 dirty = self.update_agent_status(agent, "completed") or dirty
             dirty = self.update_agent_status("Portfolio Manager", "completed") or dirty
@@ -559,7 +590,9 @@ def run_analysis_streaming(
         request.ticker,
         reports_dir=reports_dir,
         analysis_date=request.analysis_date,
-        visible_trade_ids=set(visible_trade_ids) if visible_trade_ids is not None else None,
+        visible_trade_ids=set(visible_trade_ids)
+        if visible_trade_ids is not None
+        else None,
     )
 
     context_token = None

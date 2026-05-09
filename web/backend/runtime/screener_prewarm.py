@@ -109,9 +109,7 @@ def due_market_trading_day(market: str, now_utc: datetime | None = None) -> str 
 def _enabled_markets() -> list[str]:
     options = get_screener_config_options_payload()
     return [
-        str(market["value"])
-        for market in options["markets"]
-        if market.get("enabled")
+        str(market["value"]) for market in options["markets"] if market.get("enabled")
     ]
 
 
@@ -152,7 +150,9 @@ def default_screener_prewarm_payload(market: str, as_of_date: str) -> dict[str, 
     }
 
 
-def _payload_for_market(raw_payload: dict[str, Any], market: str, as_of_date: str) -> dict[str, Any]:
+def _payload_for_market(
+    raw_payload: dict[str, Any], market: str, as_of_date: str
+) -> dict[str, Any]:
     payload = dict(raw_payload)
     payload["markets"] = [market]
     payload["as_of_date"] = as_of_date
@@ -160,7 +160,9 @@ def _payload_for_market(raw_payload: dict[str, Any], market: str, as_of_date: st
     return payload
 
 
-def collect_screener_prewarm_payloads(market: str, as_of_date: str) -> list[dict[str, Any]]:
+def collect_screener_prewarm_payloads(
+    market: str, as_of_date: str
+) -> list[dict[str, Any]]:
     payloads = [default_screener_prewarm_payload(market, as_of_date)]
     for preset in screener_presets.list_all_screener_preset_configs():
         config = preset.get("config") or {}
@@ -178,10 +180,15 @@ def payload_requires_fundamentals(payload: dict[str, Any]) -> bool:
         ranking_profile = resolve_ranking_profile(payload.get("ranking_profile_id"))
     except ValueError:
         ranking_profile = None
-    if ranking_profile and float(ranking_profile["weights"].get("fundamental", 0.0)) > 0:
+    if (
+        ranking_profile
+        and float(ranking_profile["weights"].get("fundamental", 0.0)) > 0
+    ):
         return True
     try:
-        selections = normalize_filter_preset_selections(payload.get("filter_preset_selections"))
+        selections = normalize_filter_preset_selections(
+            payload.get("filter_preset_selections")
+        )
     except ValueError:
         return False
     return any(
@@ -204,7 +211,9 @@ def build_screener_config_payload(request_payload: dict[str, Any]) -> dict[str, 
     if "us" in config_payload["markets"]:
         manifest_path = os.environ.get("SCREEN_US_MANIFEST_PATH")
         if not manifest_path:
-            raise RuntimeError("SCREEN_US_MANIFEST_PATH is required for US screener prewarm.")
+            raise RuntimeError(
+                "SCREEN_US_MANIFEST_PATH is required for US screener prewarm."
+            )
         config_payload["us_manifest_path"] = manifest_path
     ScreenRunConfig(**config_payload)
     return config_payload

@@ -81,7 +81,7 @@ test("globals.css keeps analysis pages on the shared workbench content width", (
   assert.match(source, /width:\s*min\(100%, clamp\(72rem, 92vw, 100rem\)\);/);
   assert.match(source, /\.analysis-overview-title\s*\{[\s\S]*?font-size:\s*2rem;/);
   assert.match(source, /\.analysis-overview-metric \.metric-card-value\s*\{[\s\S]*?font-size:\s*1\.55rem;/);
-  assert.match(source, /\.analysis-report-group\s*\{[\s\S]*?border-radius:\s*22px;/);
+  assert.match(source, /\.analysis-report-group\s*\{[\s\S]*?border-radius:\s*14px;/);
   assert.match(source, /\.analysis-report-group-header\s*\{[\s\S]*?padding:\s*0\.95rem 1rem;/);
   assert.match(source, /\.analysis-report-children\s*\{[\s\S]*?gap:\s*0\.55rem;/);
   assert.match(source, /\.analysis-report-row\s*\{[\s\S]*?padding:\s*0\.8rem 1rem;/);
@@ -118,9 +118,12 @@ test("globals.css maps every in-use white alpha surface to a dark surface", () =
     "80",
     "78",
     "76",
+    "75",
     "72",
     "70",
     "68",
+    "58",
+    "50",
     "42",
   ];
 

@@ -82,10 +82,26 @@ def test_debug_screen_symbol_uses_shared_stage_helpers_for_target_symbol():
     universe_stage = SimpleNamespace(
         universe_df=universe_df,
         prefiltered_df=universe_df,
-        prefiltered_out_df=pd.DataFrame(columns=list(universe_df.columns) + ["drop_reason"]),
+        prefiltered_out_df=pd.DataFrame(
+            columns=list(universe_df.columns) + ["drop_reason"]
+        ),
     )
     evaluation_stage = SimpleNamespace(
-        histories={"AAPL": pd.DataFrame([{"Date": "2026-03-24", "Open": 100.0, "High": 102.0, "Low": 99.0, "Close": 101.0, "Volume": 500.0, "Amount": 50_500.0}])},
+        histories={
+            "AAPL": pd.DataFrame(
+                [
+                    {
+                        "Date": "2026-03-24",
+                        "Open": 100.0,
+                        "High": 102.0,
+                        "Low": 99.0,
+                        "Close": 101.0,
+                        "Volume": 500.0,
+                        "Amount": 50_500.0,
+                    }
+                ]
+            )
+        },
         fetch_failures=pd.DataFrame(columns=["symbol", "market", "drop_reason"]),
         features_df=feature_df,
         kept_df=feature_df,
@@ -94,8 +110,13 @@ def test_debug_screen_symbol_uses_shared_stage_helpers_for_target_symbol():
     )
 
     with (
-        patch("diverge.screener.debug.prepare_universe_stage", return_value=universe_stage),
-        patch("diverge.screener.debug.evaluate_screen_stage", return_value=evaluation_stage),
+        patch(
+            "diverge.screener.debug.prepare_universe_stage", return_value=universe_stage
+        ),
+        patch(
+            "diverge.screener.debug.evaluate_screen_stage",
+            return_value=evaluation_stage,
+        ),
     ):
         result = debug_screen_symbol(config, symbol="AAPL", market="us")
 
@@ -190,7 +211,9 @@ def test_debug_screen_symbol_returns_stage_outputs_for_ranked_symbol():
     universe_stage = SimpleNamespace(
         universe_df=universe_df,
         prefiltered_df=universe_df,
-        prefiltered_out_df=pd.DataFrame(columns=list(universe_df.columns) + ["drop_reason"]),
+        prefiltered_out_df=pd.DataFrame(
+            columns=list(universe_df.columns) + ["drop_reason"]
+        ),
     )
     evaluation_stage = SimpleNamespace(
         histories={"AAPL": history_df},
@@ -202,8 +225,13 @@ def test_debug_screen_symbol_returns_stage_outputs_for_ranked_symbol():
     )
 
     with (
-        patch("diverge.screener.debug.prepare_universe_stage", return_value=universe_stage),
-        patch("diverge.screener.debug.evaluate_screen_stage", return_value=evaluation_stage),
+        patch(
+            "diverge.screener.debug.prepare_universe_stage", return_value=universe_stage
+        ),
+        patch(
+            "diverge.screener.debug.evaluate_screen_stage",
+            return_value=evaluation_stage,
+        ),
     ):
         result = debug_screen_symbol(config, symbol="AAPL", market="us")
 

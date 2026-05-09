@@ -22,9 +22,7 @@ FUNDAMENTAL_METADATA_COLUMNS = {
 
 def _snapshot_path(config: ScreenRunConfig, market: str) -> Path:
     source = (
-        config.cn_fundamental_source
-        if market == "cn"
-        else config.us_fundamental_source
+        config.cn_fundamental_source if market == "cn" else config.us_fundamental_source
     )
     return Path(config.fundamental_dir) / source / market / "snapshots.csv"
 
@@ -96,5 +94,7 @@ def enrich_features_with_fundamentals(
     for column in FUNDAMENTAL_FIELDS:
         if column not in result.columns:
             result[column] = pd.NA
-    result["fundamental_data_status"] = result["fundamental_data_status"].fillna("missing")
+    result["fundamental_data_status"] = result["fundamental_data_status"].fillna(
+        "missing"
+    )
     return result

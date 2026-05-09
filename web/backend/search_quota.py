@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Index, Integer, String, delete, func, inspect, select
+from sqlalchemy import Boolean, DateTime, Index, Integer, String, delete, inspect
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from web.backend import auth
@@ -62,7 +62,9 @@ class SearchGlobalConfig(auth.Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default="global")
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    disabled_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disabled_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     disabled_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -74,15 +76,15 @@ class SearchGlobalConfig(auth.Base):
 
 class SearchProviderConfig(auth.Base):
     __tablename__ = "search_provider_configs"
-    __table_args__ = (
-        Index("ix_search_provider_configs_provider", "provider"),
-    )
+    __table_args__ = (Index("ix_search_provider_configs_provider", "provider"),)
 
     provider: Mapped[str] = mapped_column(String(32), primary_key=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     monthly_free_quota: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     monthly_hard_cap: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    disabled_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disabled_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     disabled_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -103,7 +105,9 @@ class SearchProviderUsage(auth.Base):
     total_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     success_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_called_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_called_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     last_error: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
 
@@ -178,7 +182,9 @@ def _ensure_defaults(db: Session) -> None:
         _ensure_provider_config(db, provider)
 
 
-def _usage_row(db: Session, provider: str, usage_month: str) -> SearchProviderUsage | None:
+def _usage_row(
+    db: Session, provider: str, usage_month: str
+) -> SearchProviderUsage | None:
     return db.get(SearchProviderUsage, (usage_month, provider))
 
 
@@ -271,20 +277,28 @@ def update_global_config(db: Session, enabled: bool) -> dict[str, Any]:
     return _global_payload(row)
 
 
-def update_provider_config(db: Session, provider: str, payload: dict[str, Any]) -> dict[str, Any]:
+def update_provider_config(
+    db: Session, provider: str, payload: dict[str, Any]
+) -> dict[str, Any]:
     row = _ensure_provider_config(db, provider)
     monthly_free_quota = (
-        _normalize_nonnegative_int(payload["monthly_free_quota"], field_name="monthly_free_quota")
+        _normalize_nonnegative_int(
+            payload["monthly_free_quota"], field_name="monthly_free_quota"
+        )
         if "monthly_free_quota" in payload and payload["monthly_free_quota"] is not None
         else row.monthly_free_quota
     )
     monthly_hard_cap = (
-        _normalize_nonnegative_int(payload["monthly_hard_cap"], field_name="monthly_hard_cap")
+        _normalize_nonnegative_int(
+            payload["monthly_hard_cap"], field_name="monthly_hard_cap"
+        )
         if "monthly_hard_cap" in payload and payload["monthly_hard_cap"] is not None
         else row.monthly_hard_cap
     )
     if monthly_hard_cap > monthly_free_quota:
-        raise ValueError("monthly_hard_cap must be less than or equal to monthly_free_quota")
+        raise ValueError(
+            "monthly_hard_cap must be less than or equal to monthly_free_quota"
+        )
     if "enabled" in payload and payload["enabled"] is not None:
         row.enabled = bool(payload["enabled"])
         if row.enabled:
@@ -364,7 +378,9 @@ def reactivate_provider(db: Session, provider: str) -> dict[str, Any]:
     return _provider_payload(row, usage=usage)
 
 
-def disable_provider_until_month_end(db: Session, provider: str, reason: str) -> dict[str, Any]:
+def disable_provider_until_month_end(
+    db: Session, provider: str, reason: str
+) -> dict[str, Any]:
     row = _ensure_provider_config(db, provider)
     row.enabled = False
     row.disabled_until = month_end_utc()

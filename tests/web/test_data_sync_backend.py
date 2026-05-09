@@ -21,8 +21,13 @@ from web.backend.schemas.data_sync import (
 def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
     actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
-        patch("web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
             return_value={"task_id": "sync-1", "status": "pending"},
@@ -51,15 +56,25 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
 def test_create_ohlcv_sync_task_records_audit_event_for_admin():
     actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
         patch("web.backend.routers.data_sync.auth.auth_enabled", return_value=True),
-        patch("web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
             return_value={"task_id": "sync-1", "status": "pending"},
         ),
-        patch("web.backend.routers.data_sync.auth.db_session", return_value=nullcontext("db")),
-        patch("web.backend.routers.data_sync.audit.record_audit_event_safely") as record_audit,
+        patch(
+            "web.backend.routers.data_sync.auth.db_session",
+            return_value=nullcontext("db"),
+        ),
+        patch(
+            "web.backend.routers.data_sync.audit.record_audit_event_safely"
+        ) as record_audit,
     ):
         data_sync_router.create_ohlcv_sync_task(
             DataSyncOhlcvPayload(
@@ -80,12 +95,19 @@ def test_create_ohlcv_sync_task_records_audit_event_for_admin():
 def test_create_ohlcv_sync_task_rejects_when_vendor_not_ready():
     actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready",
-            side_effect=data_sync_tasks.VendorDataNotReadyError("Tushare daily data is not ready."),
+            side_effect=data_sync_tasks.VendorDataNotReadyError(
+                "Tushare daily data is not ready."
+            ),
         ),
-        patch("web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task") as create_task,
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task"
+        ) as create_task,
     ):
         with pytest.raises(HTTPException) as exc_info:
             data_sync_router.create_ohlcv_sync_task(
@@ -103,7 +125,9 @@ def test_create_ohlcv_sync_task_rejects_when_vendor_not_ready():
 
 def test_create_fundamental_sync_task_routes_to_runtime():
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=None),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission", return_value=None
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
             return_value={"task_id": "sync-2", "status": "pending"},
@@ -132,8 +156,14 @@ def test_list_data_sync_jobs_is_tenant_scoped():
         SimpleNamespace(id="b", tenant_id="tenant-b", to_dict=lambda: {"id": "b"}),
     ]
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
-        patch("web.backend.routers.data_sync.data_sync_tasks.list_data_sync_tasks", return_value=jobs),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.list_data_sync_tasks",
+            return_value=jobs,
+        ),
     ):
         response = data_sync_router.list_data_sync_jobs()
 
@@ -181,7 +211,9 @@ def test_worker_dispatches_data_sync_tasks_from_unified_queue(monkeypatch):
 
 
 def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
-    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(
+        data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state"
+    )
     data_sync_tasks.data_sync_tasks.clear()
     task = data_sync_tasks.DataSyncTask(
         id="sync-completed",
@@ -199,8 +231,12 @@ def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
     assert restored.result == {"status": "completed", "symbols_total": 1}
 
 
-def test_restore_persisted_data_sync_tasks_marks_running_tasks_failed(tmp_path, monkeypatch):
-    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+def test_restore_persisted_data_sync_tasks_marks_running_tasks_failed(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state"
+    )
     data_sync_tasks.data_sync_tasks.clear()
     task = data_sync_tasks.DataSyncTask(
         id="sync-recover",
@@ -225,7 +261,9 @@ def test_restore_persisted_data_sync_tasks_marks_running_tasks_failed(tmp_path, 
 
 
 def test_run_data_sync_task_records_completed_audit_event(tmp_path, monkeypatch):
-    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(
+        data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state"
+    )
     monkeypatch.setattr(data_sync_tasks.auth, "auth_enabled", lambda: True)
     data_sync_tasks.data_sync_tasks.clear()
     with patch("web.backend.runtime.data_sync_tasks.threading.Thread"):
@@ -245,9 +283,16 @@ def test_run_data_sync_task_records_completed_audit_event(tmp_path, monkeypatch)
     }
 
     with (
-        patch("web.backend.runtime.data_sync_tasks._run_ohlcv_task", return_value=result),
-        patch("web.backend.runtime.data_sync_tasks.auth.db_session", return_value=nullcontext("db")),
-        patch("web.backend.runtime.data_sync_tasks.audit.record_audit_event_safely") as record_audit,
+        patch(
+            "web.backend.runtime.data_sync_tasks._run_ohlcv_task", return_value=result
+        ),
+        patch(
+            "web.backend.runtime.data_sync_tasks.auth.db_session",
+            return_value=nullcontext("db"),
+        ),
+        patch(
+            "web.backend.runtime.data_sync_tasks.audit.record_audit_event_safely"
+        ) as record_audit,
     ):
         data_sync_tasks.run_data_sync_task(response["task_id"])
 
@@ -338,7 +383,9 @@ def test_tushare_ohlcv_sync_rejects_today_before_ready_cutoff(monkeypatch):
         lambda timezone_name: data_sync_tasks.datetime(2026, 4, 29, 17, 59),
     )
     with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"):
+        with pytest.raises(
+            RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"
+        ):
             data_sync_tasks.run_ohlcv_sync_payload(
                 {
                     "markets": ["cn"],
@@ -363,7 +410,9 @@ def test_tushare_ohlcv_sync_rejects_when_ready_probe_is_empty(monkeypatch):
     )
 
     with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"):
+        with pytest.raises(
+            RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"
+        ):
             data_sync_tasks.run_ohlcv_sync_payload(
                 {
                     "markets": ["cn"],
@@ -383,7 +432,9 @@ def test_massive_ohlcv_sync_uses_new_york_ready_cutoff(monkeypatch):
     )
 
     with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(RuntimeError, match="Massive daily data for 2026-04-29 is not ready"):
+        with pytest.raises(
+            RuntimeError, match="Massive daily data for 2026-04-29 is not ready"
+        ):
             data_sync_tasks.run_ohlcv_sync_payload(
                 {
                     "markets": ["us"],

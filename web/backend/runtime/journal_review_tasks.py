@@ -58,7 +58,9 @@ def create_auto_review_task(
 ) -> str:
     task_id = f"journal_review_{uuid.uuid4().hex[:12]}"
     now = _utc_iso()
-    progress = _event("pending", "Trade journal AI review queued from trade submission.")
+    progress = _event(
+        "pending", "Trade journal AI review queued from trade submission."
+    )
     payload = {
         "id": task_id,
         "kind": KIND,

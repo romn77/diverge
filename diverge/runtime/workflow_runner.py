@@ -8,31 +8,30 @@ from typing import Any, Callable, Optional
 
 from google.adk.workflow import START, FunctionNode, Workflow
 
-from diverge.agents import (
-    create_aggressive_debator,
-    create_bear_researcher,
-    create_bull_researcher,
-    create_conservative_debator,
-    create_fundamentals_analyst,
-    create_market_analyst,
-    create_neutral_debator,
-    create_news_analyst,
-    create_portfolio_manager,
-    create_research_manager,
-    create_social_media_analyst,
-    create_summary_agent,
-    create_trader,
-)
+from diverge.agents.analysts.fundamentals_analyst import FundamentalsAnalyst
+from diverge.agents.analysts.market_analyst import MarketAnalyst
+from diverge.agents.analysts.news_analyst import NewsAnalyst
+from diverge.agents.analysts.social_media_analyst import SocialMediaAnalyst
+from diverge.agents.base import DivergeAgentNode
+from diverge.agents.managers.portfolio_manager import PortfolioManager
+from diverge.agents.managers.research_manager import ResearchManager
+from diverge.agents.managers.summary_agent import SummaryAgent
+from diverge.agents.researchers.bear_researcher import BearResearcher
+from diverge.agents.researchers.bull_researcher import BullResearcher
+from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
+from diverge.agents.risk_mgmt.conservative_debator import ConservativeDebator
+from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
 from diverge.agents.risk_mgmt.debate_phase import get_total_risk_turn_limit
+from diverge.agents.trader.trader import Trader
 from diverge.runtime.messages import AdkMessage
 from diverge.runtime.tools import AdkToolCollection, create_adk_tool_collections
 
 
-ANALYST_NODE_FACTORIES: dict[str, Callable[[Any], Callable[[dict], dict]]] = {
-    "market": create_market_analyst,
-    "social": create_social_media_analyst,
-    "news": create_news_analyst,
-    "fundamentals": create_fundamentals_analyst,
+ANALYST_NODE_CLASSES: dict[str, type[DivergeAgentNode]] = {
+    "market": MarketAnalyst,
+    "social": SocialMediaAnalyst,
+    "news": NewsAnalyst,
+    "fundamentals": FundamentalsAnalyst,
 }
 
 
@@ -59,7 +58,9 @@ class AdkWorkflowRunner:
             raise ValueError("Diverge ADK Workflow Error: no analysts selected!")
 
         unsupported = [
-            analyst for analyst in selected_analysts if analyst not in ANALYST_NODE_FACTORIES
+            analyst
+            for analyst in selected_analysts
+            if analyst not in ANALYST_NODE_CLASSES
         ]
         if unsupported:
             raise ValueError(f"Unsupported analysts for ADK workflow: {unsupported}")
@@ -73,46 +74,44 @@ class AdkWorkflowRunner:
         self.max_tool_iterations = max_tool_iterations
 
         self.analyst_nodes = {
-            analyst: ANALYST_NODE_FACTORIES[analyst](self.quick_llm)
+            analyst: ANALYST_NODE_CLASSES[analyst](self.quick_llm)
             for analyst in self.selected_analysts
         }
-        self.bull_researcher = create_bull_researcher(self.quick_llm, bull_memory)
-        self.bear_researcher = create_bear_researcher(self.quick_llm, bear_memory)
-        self.research_manager = create_research_manager(
+        self.bull_researcher = BullResearcher(self.quick_llm, bull_memory)
+        self.bear_researcher = BearResearcher(self.quick_llm, bear_memory)
+        self.research_manager = ResearchManager(
             self.deep_llm,
             invest_judge_memory,
         )
-        self.trader = create_trader(self.quick_llm, trader_memory)
-        self.aggressive_analyst = create_aggressive_debator(self.quick_llm)
-        self.conservative_analyst = create_conservative_debator(self.quick_llm)
-        self.neutral_analyst = create_neutral_debator(self.quick_llm)
-        self.portfolio_manager = create_portfolio_manager(
+        self.trader = Trader(self.quick_llm, trader_memory)
+        self.aggressive_analyst = AggressiveDebator(self.quick_llm)
+        self.conservative_analyst = ConservativeDebator(self.quick_llm)
+        self.neutral_analyst = NeutralDebator(self.quick_llm)
+        self.portfolio_manager = PortfolioManager(
             self.deep_llm,
             portfolio_manager_memory,
         )
-        self.summary_agent = create_summary_agent(self.quick_llm)
+        self.summary_agent = SummaryAgent(self.quick_llm)
         self.workflow = self._build_workflow_definition()
 
     def _build_workflow_definition(self) -> Workflow:
         nodes = {
-            f"{name}_analyst": FunctionNode(
-                func=_identity_node,
-                name=f"{name}_analyst",
-            )
+            f"{name}_analyst": _function_node(self.analyst_nodes[name])
             for name in self.selected_analysts
         }
-        for name in [
-            "bull_researcher",
-            "bear_researcher",
-            "research_manager",
-            "trader",
-            "aggressive_analyst",
-            "conservative_analyst",
-            "neutral_analyst",
-            "portfolio_manager",
-            "summary_agent",
-        ]:
-            nodes[name] = FunctionNode(func=_identity_node, name=name)
+        named_agents = {
+            "bull_researcher": self.bull_researcher,
+            "bear_researcher": self.bear_researcher,
+            "research_manager": self.research_manager,
+            "trader": self.trader,
+            "aggressive_analyst": self.aggressive_analyst,
+            "conservative_analyst": self.conservative_analyst,
+            "neutral_analyst": self.neutral_analyst,
+            "portfolio_manager": self.portfolio_manager,
+            "summary_agent": self.summary_agent,
+        }
+        for name, agent in named_agents.items():
+            nodes[name] = _function_node(agent)
 
         ordered_names = [f"{name}_analyst" for name in self.selected_analysts]
         ordered_names.extend(
@@ -163,9 +162,9 @@ class AdkWorkflowRunner:
         while self._should_continue_research_debate(state):
             next_node = (
                 self.bear_researcher
-                if state["investment_debate_state"].get("current_response", "").startswith(
-                    "Bull"
-                )
+                if state["investment_debate_state"]
+                .get("current_response", "")
+                .startswith("Bull")
                 else self.bull_researcher
             )
             yield from self._run_node(state, next_node)
@@ -282,8 +281,8 @@ class AdkWorkflowRunner:
         )
 
 
-def _identity_node(state: dict[str, Any]) -> dict[str, Any]:
-    return state
+def _function_node(agent: DivergeAgentNode) -> FunctionNode:
+    return FunctionNode(func=agent, name=agent.name)
 
 
 def _analyst_report_key(analyst: str) -> str:
@@ -336,7 +335,14 @@ def _contextual_tool_args(
     ticker = str(state.get("company_of_interest") or "").strip().upper()
     trade_date = str(state.get("trade_date") or "").strip()
 
-    if tool_name in {"get_news", "get_fundamentals", "get_balance_sheet", "get_cashflow", "get_income_statement", "get_insider_transactions"}:
+    if tool_name in {
+        "get_news",
+        "get_fundamentals",
+        "get_balance_sheet",
+        "get_cashflow",
+        "get_income_statement",
+        "get_insider_transactions",
+    }:
         if "ticker" not in normalized and "symbol" in normalized:
             normalized["ticker"] = normalized["symbol"]
         if "ticker" not in normalized and ticker:

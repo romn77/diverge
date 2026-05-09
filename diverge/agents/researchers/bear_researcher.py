@@ -1,3 +1,4 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
@@ -6,8 +7,10 @@ from diverge.agents.utils.agent_utils import (
 from diverge.runtime.messages import AdkPrompt
 
 
-def create_bear_researcher(llm, memory):
-    def bear_node(state) -> dict:
+class BearResearcher(DivergeAgentNode):
+    name = "bear_researcher"
+
+    def run(self, state) -> dict:
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")
         bear_history = investment_debate_state.get("bear_history", "")
@@ -23,7 +26,7 @@ def create_bear_researcher(llm, memory):
         fundamentals_report = state["fundamentals_report"]
 
         curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
-        past_memories = memory.get_memories(curr_situation, n_matches=2)
+        past_memories = self.memory.get_memories(curr_situation, n_matches=2)
 
         past_memory_str = ""
         for i, rec in enumerate(past_memories, 1):
@@ -71,7 +74,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {language_instruction}
 """
 
-        response = llm.invoke(AdkPrompt(system_message=prompt))
+        response = self.llm.invoke(AdkPrompt(system_message=prompt))
 
         argument = f"Bear Analyst: {response.content}"
 
@@ -85,4 +88,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 
         return {"investment_debate_state": new_investment_debate_state}
 
-    return bear_node
+
+def create_bear_researcher(llm, memory):
+    return BearResearcher(llm, memory)

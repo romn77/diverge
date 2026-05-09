@@ -20,17 +20,15 @@ from diverge.research.search.schema import (
 
 
 class SearchQuotaRepository(Protocol):
-    def get_summary(self) -> dict:
-        ...
+    def get_summary(self) -> dict: ...
 
-    def record_call(self, provider: str, *, success: bool, error: str | None = None) -> None:
-        ...
+    def record_call(
+        self, provider: str, *, success: bool, error: str | None = None
+    ) -> None: ...
 
-    def disable_provider_until_month_end(self, provider: str, reason: str) -> None:
-        ...
+    def disable_provider_until_month_end(self, provider: str, reason: str) -> None: ...
 
-    def disable_global_until_month_end(self, reason: str) -> None:
-        ...
+    def disable_global_until_month_end(self, reason: str) -> None: ...
 
 
 def _utcnow() -> datetime:
@@ -87,7 +85,8 @@ class SearchService:
 
         order = provider_order_for_context(market=market, language=language)
         provider_chain = [
-            provider for provider in available_provider_chain(order, summary)
+            provider
+            for provider in available_provider_chain(order, summary)
             if provider in self.providers
         ]
         if not provider_chain:

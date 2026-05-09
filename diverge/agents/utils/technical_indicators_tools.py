@@ -3,11 +3,14 @@ from typing import Annotated
 from diverge.agents.utils.tooling import tool
 from diverge.dataflows.vendors.local.analysis_market_data import get_local_indicator
 
+
 @tool
 def get_indicators(
     symbol: Annotated[str, "ticker symbol of the company"],
     indicator: Annotated[str, "technical indicator to get the analysis and report of"],
-    curr_date: Annotated[str, "The current trading date you are trading on, YYYY-mm-dd"],
+    curr_date: Annotated[
+        str, "The current trading date you are trading on, YYYY-mm-dd"
+    ],
     look_back_days: Annotated[int, "how many days to look back"] = 30,
 ) -> str:
     """

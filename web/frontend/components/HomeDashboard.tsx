@@ -204,18 +204,48 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                   ? t("home.metric.reportLibraryMeta", "Total indexed reports")
                   : t("home.metric.scopedReportLibraryMeta", "Reports in current scope")
               }
+              secondary={t(
+                "home.metric.reportLibrarySecondary",
+                ({ count }) => `${count} shown in the current dashboard`,
+                {
+                  count: visibleReports.length,
+                }
+              )}
+              trendLabel={t("home.metric.reportLibraryScope", "Scope")}
+              trendValue={t(REPORT_SCOPE_LABEL_KEYS[scopeFilter], scopeFilter)}
             />
             <MetricCard
               className="analysis-overview-metric"
               label={t("home.recentTickers", "Tracked Tickers")}
               value={`${trackedTickers.length}`}
               meta={t("home.metric.trackedTickersMeta", "Coverage names in the library")}
+              secondary={t(
+                "home.metric.trackedTickersSecondary",
+                ({ count }) => `${count} ticker groups ready to open`,
+                {
+                  count: reportTickerGroups.length,
+                }
+              )}
+              trendLabel={t("home.metric.groupedReports", "Grouped reports")}
+              trendValue={`${reportTickerGroups.length}`}
             />
             <MetricCard
               className="analysis-overview-metric"
               label={t("home.metric.activeResearch", "Active Research")}
               value={`${activeTasks.length}`}
               meta={t("home.metric.activeResearchMeta", "In-flight analysis jobs")}
+              secondary={
+                activeTasks.length > 0
+                  ? t("home.metric.activeResearchSecondaryActive", "Work is running in the background")
+                  : t("home.metric.activeResearchSecondaryIdle", "No queued analysis jobs right now")
+              }
+              trendLabel={t("activity.title", "Background work")}
+              trendValue={
+                activeTasks.length > 0
+                  ? t("home.metric.activeResearchLive", "Live")
+                  : t("home.metric.activeResearchIdle", "Idle")
+              }
+              trendDirection={activeTasks.length > 0 ? "up" : "neutral"}
             />
           </div>
 

@@ -350,11 +350,7 @@ def build_vendor_chain(method: str, market: str):
         market=market,
     )
     if route_vendors:
-        return [
-            vendor
-            for vendor in route_vendors
-            if vendor in all_available_vendors
-        ]
+        return [vendor for vendor in route_vendors if vendor in all_available_vendors]
 
     vendor_config = get_vendor(category, method, market)
     primary_vendors = [
@@ -503,7 +499,9 @@ def route_to_normalized_fundamentals(
     curr_date: str | None = None,
     freq: str = "quarterly",
 ):
-    market, _, _ = resolve_market_and_symbol("get_fundamentals", (ticker, curr_date), {})
+    market, _, _ = resolve_market_and_symbol(
+        "get_fundamentals", (ticker, curr_date), {}
+    )
     raw_payload = {
         "fundamentals": route_to_vendor("get_fundamentals", ticker, curr_date),
         "balance_sheet": route_to_vendor("get_balance_sheet", ticker, freq, curr_date),

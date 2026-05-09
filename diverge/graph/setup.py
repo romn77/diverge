@@ -32,7 +32,9 @@ class GraphSetup:
         self.portfolio_manager_memory = portfolio_manager_memory
         self.conditional_logic = conditional_logic
 
-    def setup_graph(self, selected_analysts: Optional[list[str]] = None) -> AdkWorkflowRunner:
+    def setup_graph(
+        self, selected_analysts: Optional[list[str]] = None
+    ) -> AdkWorkflowRunner:
         selected = selected_analysts or ["market", "social", "news", "fundamentals"]
         max_debate_rounds = getattr(self.conditional_logic, "max_debate_rounds", 1)
         max_risk_discuss_rounds = getattr(

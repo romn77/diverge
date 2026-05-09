@@ -23,14 +23,14 @@
   --surface-elevated: var(--surface-strong);
   --text: #1c2430;
   --muted: #5d7470;
-  --border: rgba(28, 36, 48, 0.12);
-  --border-strong: rgba(28, 36, 48, 0.22);
+  --border: rgba(28, 36, 48, 0.1);
+  --border-strong: rgba(28, 36, 48, 0.2);
   --primary: #1c2430;
   --primary-strong: #111923;
   --primary-foreground: #f5f2ec;
-  --primary-soft: rgba(93, 116, 112, 0.16);
+  --primary-soft: rgba(93, 116, 112, 0.14);
   --accent: #5d7470;
-  --accent-soft: rgba(93, 116, 112, 0.14);
+  --accent-soft: rgba(93, 116, 112, 0.12);
   --success: #2e7653;
   --danger: #a33535;
   --danger-foreground: #fffaf5;
@@ -49,13 +49,13 @@
   --accent-foreground: var(--primary-strong);
   --input: rgba(22, 34, 51, 0.16);
   --shadow-soft:
-    0 24px 54px rgba(18, 28, 41, 0.08),
-    0 2px 0 rgba(255, 255, 255, 0.78) inset;
+    0 12px 28px rgba(18, 28, 41, 0.045),
+    0 1px 0 rgba(255, 255, 255, 0.72) inset;
   --shadow-hover:
-    0 30px 60px rgba(18, 28, 41, 0.12),
-    0 2px 0 rgba(255, 255, 255, 0.82) inset;
-  --button-primary-shadow: 0 14px 28px rgba(28, 36, 48, 0.16);
-  --button-secondary-shadow: 0 10px 22px rgba(18, 28, 41, 0.06);
+    0 16px 34px rgba(18, 28, 41, 0.065),
+    0 1px 0 rgba(255, 255, 255, 0.78) inset;
+  --button-primary-shadow: 0 8px 18px rgba(28, 36, 48, 0.12);
+  --button-secondary-shadow: 0 6px 14px rgba(18, 28, 41, 0.045);
   --body-radial-primary: transparent;
   --body-radial-secondary: transparent;
   --body-gradient-start: #fbf8f2;
@@ -494,7 +494,7 @@ input {
 .card-surface {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(22, 34, 51, 0.1);
+  border: 1px solid var(--border);
   border-radius: 14px;
   background:
     linear-gradient(180deg, rgba(255, 253, 248, 0.96) 0%, rgba(255, 248, 238, 0.86) 100%),
@@ -513,11 +513,11 @@ input {
 }
 
 .card-surface:hover {
-  border-color: rgba(93, 116, 112, 0.24);
+  border-color: var(--border-strong);
 }
 
 .list-item-surface {
-  box-shadow: 0 10px 24px rgba(18, 28, 41, 0.035);
+  box-shadow: 0 6px 16px rgba(18, 28, 41, 0.03);
   transition:
     transform 150ms ease,
     border-color 150ms ease,
@@ -529,7 +529,7 @@ input {
 .list-item-surface:hover {
   transform: translateY(-1px);
   background: var(--surface-hover);
-  box-shadow: 0 16px 32px rgba(18, 28, 41, 0.07);
+  box-shadow: 0 10px 22px rgba(18, 28, 41, 0.05);
 }
 
 .sidebar-surface {
@@ -601,11 +601,11 @@ input {
 .viewer-frame {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(22, 34, 51, 0.1);
+  border: 1px solid var(--border);
   border-radius: 16px;
   background:
     linear-gradient(180deg, rgba(255, 253, 248, 0.96) 0%, rgba(255, 249, 240, 0.92) 100%);
-  box-shadow: 0 22px 54px rgba(18, 28, 41, 0.075);
+  box-shadow: 0 12px 30px rgba(18, 28, 41, 0.05);
 }
 
 .viewer-frame::before {
@@ -679,7 +679,7 @@ input {
   background: rgba(255, 255, 255, 0.82);
   padding: 0.45rem 0.55rem 0.45rem 0.85rem;
   color: var(--muted);
-  box-shadow: 0 8px 20px rgba(18, 28, 41, 0.04);
+  box-shadow: 0 6px 16px rgba(18, 28, 41, 0.03);
   transition:
     border-color 160ms ease,
     box-shadow 160ms ease,
@@ -687,9 +687,9 @@ input {
 }
 
 .workbench-topbar-search:focus-within {
-  border-color: rgba(93, 116, 112, 0.38);
+  border-color: rgba(93, 116, 112, 0.34);
   background: var(--surface);
-  box-shadow: 0 10px 24px rgba(93, 116, 112, 0.08);
+  box-shadow: 0 8px 18px rgba(93, 116, 112, 0.06);
 }
 
 .workbench-topbar-search input {
@@ -759,7 +759,7 @@ input {
 .workbench-topbar-new {
   background: var(--primary);
   color: var(--primary-foreground);
-  box-shadow: 0 12px 24px rgba(28, 36, 48, 0.16);
+  box-shadow: var(--button-primary-shadow);
 }
 
 .workbench-topbar-secondary:hover,
@@ -855,13 +855,13 @@ input {
   padding: 0.5rem 1rem;
   font-size: 0.82rem;
   letter-spacing: 0.02em;
-  box-shadow: 0 8px 16px rgba(18, 28, 41, 0.045);
+  box-shadow: 0 6px 14px rgba(18, 28, 41, 0.035);
 }
 
 .workbench-page-header-actions .button-primary {
   border-color: color-mix(in srgb, var(--primary) 86%, var(--surface) 14%);
   background-color: color-mix(in srgb, var(--primary) 92%, var(--surface) 8%);
-  box-shadow: 0 8px 16px rgba(18, 28, 41, 0.08);
+  box-shadow: var(--button-primary-shadow);
 }
 
 .workbench-page-header-actions .button-primary:hover {
@@ -1033,7 +1033,7 @@ input {
   background:
     linear-gradient(180deg, rgba(255, 253, 248, 0.9) 0%, rgba(255, 247, 235, 0.76) 100%),
     var(--surface);
-  box-shadow: 0 12px 28px rgba(18, 28, 41, 0.035);
+  box-shadow: 0 7px 18px rgba(18, 28, 41, 0.03);
 }
 
 .analysis-report-group-header {
@@ -1131,14 +1131,14 @@ input {
 .metric-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(22, 34, 51, 0.08);
+  border: 1px solid var(--border);
   border-radius: 14px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 252, 247, 0.78) 100%),
     var(--surface);
   box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 16px 32px rgba(18, 28, 41, 0.055);
+    0 1px 0 rgba(255, 255, 255, 0.86) inset,
+    0 8px 18px rgba(18, 28, 41, 0.035);
 }
 
 .metric-card::after {
@@ -1147,7 +1147,7 @@ input {
   inset: 0 auto 0 0;
   width: 3px;
   background: linear-gradient(180deg, var(--accent), transparent);
-  opacity: 0.42;
+  opacity: 0.32;
 }
 
 .metric-card-value {
@@ -2693,9 +2693,12 @@ html[data-theme="dark"] .bg-white\/82,
 html[data-theme="dark"] .bg-white\/80,
 html[data-theme="dark"] .bg-white\/78,
 html[data-theme="dark"] .bg-white\/76,
+html[data-theme="dark"] .bg-white\/75,
 html[data-theme="dark"] .bg-white\/72,
 html[data-theme="dark"] .bg-white\/70,
 html[data-theme="dark"] .bg-white\/68,
+html[data-theme="dark"] .bg-white\/58,
+html[data-theme="dark"] .bg-white\/50,
 html[data-theme="dark"] .bg-white\/42 {
   background-color: rgba(24, 34, 47, 0.92) !important;
 }
@@ -2725,6 +2728,8 @@ html[data-theme="dark"] .divide-slate-200 {
 }
 
 html[data-theme="dark"] .hover\:bg-white:hover,
+html[data-theme="dark"] .hover\:bg-white\/80:hover,
+html[data-theme="dark"] .hover\:bg-white\/75:hover,
 html[data-theme="dark"] .hover\:bg-slate-50:hover,
 html[data-theme="dark"] .hover\:bg-slate-100:hover {
   background-color: rgba(34, 48, 66, 0.96) !important;
@@ -2890,9 +2895,12 @@ html[data-theme="everforest"] .bg-white\/82,
 html[data-theme="everforest"] .bg-white\/80,
 html[data-theme="everforest"] .bg-white\/78,
 html[data-theme="everforest"] .bg-white\/76,
+html[data-theme="everforest"] .bg-white\/75,
 html[data-theme="everforest"] .bg-white\/72,
 html[data-theme="everforest"] .bg-white\/70,
 html[data-theme="everforest"] .bg-white\/68,
+html[data-theme="everforest"] .bg-white\/58,
+html[data-theme="everforest"] .bg-white\/50,
 html[data-theme="everforest"] .bg-white\/42 {
   background-color: rgba(52, 63, 68, 0.92) !important;
 }
@@ -2922,6 +2930,8 @@ html[data-theme="everforest"] .divide-slate-200 {
 }
 
 html[data-theme="everforest"] .hover\:bg-white:hover,
+html[data-theme="everforest"] .hover\:bg-white\/80:hover,
+html[data-theme="everforest"] .hover\:bg-white\/75:hover,
 html[data-theme="everforest"] .hover\:bg-slate-50:hover,
 html[data-theme="everforest"] .hover\:bg-slate-100:hover {
   background-color: rgba(69, 82, 87, 0.96) !important;

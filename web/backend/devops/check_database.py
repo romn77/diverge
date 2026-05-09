@@ -82,10 +82,16 @@ def run_database_check(
 ) -> DatabaseCheckResult:
     output = stream or sys.stdout
     settings = auth.get_auth_settings()
-    print(f"Auth: {'enabled' if settings.enabled else 'disabled'} mode={settings.mode}", file=output)
+    print(
+        f"Auth: {'enabled' if settings.enabled else 'disabled'} mode={settings.mode}",
+        file=output,
+    )
 
     if not settings.enabled:
-        print("Database: skipped because AUTH_ENABLED is false or AUTH_MODE is disabled", file=output)
+        print(
+            "Database: skipped because AUTH_ENABLED is false or AUTH_MODE is disabled",
+            file=output,
+        )
         return DatabaseCheckResult(exit_code=0, auth_enabled=False)
 
     if not settings.database_url:
@@ -104,10 +110,14 @@ def run_database_check(
     engine = auth.get_engine(settings)
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
-        current_heads = tuple(MigrationContext.configure(connection).get_current_heads())
+        current_heads = tuple(
+            MigrationContext.configure(connection).get_current_heads()
+        )
         existing_tables = set(inspect(connection).get_table_names())
 
-    missing_tables = tuple(table for table in REQUIRED_TABLES if table not in existing_tables)
+    missing_tables = tuple(
+        table for table in REQUIRED_TABLES if table not in existing_tables
+    )
     schema_up_to_date = set(current_heads) == set(script_heads)
 
     print("Connection: ok", file=output)

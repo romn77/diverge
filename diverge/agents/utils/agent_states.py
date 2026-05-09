@@ -52,7 +52,9 @@ class AgentState(TypedDict):
         Annotated[dict[str, object] | None, "Optional earnings event context"]
     ]
     instrument_type: NotRequired[
-        Annotated[str | None, "Normalized instrument classification for valuation logic"]
+        Annotated[
+            str | None, "Normalized instrument classification for valuation logic"
+        ]
     ]
     valuation_applicability: NotRequired[
         Annotated[str | None, "Whether operating-company DCF is applicable"]
@@ -64,7 +66,9 @@ class AgentState(TypedDict):
         Annotated[str | None, "Ticker-matched historical trade review prompt block"]
     ]
     historical_trade_reviews: NotRequired[
-        Annotated[list[dict[str, object]], "Structured historical trade review payloads"]
+        Annotated[
+            list[dict[str, object]], "Structured historical trade review payloads"
+        ]
     ]
     portfolio_context: NotRequired[
         Annotated[str | None, "Current owner-scoped holdings and exposure summary"]

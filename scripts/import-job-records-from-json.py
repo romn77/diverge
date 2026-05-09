@@ -11,8 +11,8 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from web.backend import app_config, auth, job_records
-from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks
+from web.backend import app_config, auth, job_records  # noqa: E402
+from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks  # noqa: E402
 
 
 def _read_json(path: Path) -> dict[str, Any] | None:
@@ -143,7 +143,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Import local task JSON snapshots into job_records."
     )
-    parser.add_argument("--dry-run", action="store_true", help="Count importable records without writing DB.")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Count importable records without writing DB.",
+    )
     args = parser.parse_args()
     counts = import_records(dry_run=args.dry_run)
     mode = "would import" if args.dry_run else "imported"

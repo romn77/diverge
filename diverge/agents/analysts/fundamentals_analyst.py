@@ -1,17 +1,18 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
-    get_balance_sheet,
-    get_cashflow,
-    get_fundamentals,
-    get_income_statement,
-    get_insider_transactions,
     get_language_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
 )
 from diverge.agents.utils.fundamental_data_tools import (
+    get_balance_sheet,
+    get_cashflow,
+    get_fundamentals,
+    get_income_statement,
     get_valuation_ready_fundamentals,
 )
+from diverge.agents.utils.news_data_tools import get_insider_transactions
 from diverge.research.earnings import (
     build_earnings_workflow_context,
     inject_earnings_section,
@@ -23,8 +24,10 @@ from diverge.valuation.formatter import (
 )
 
 
-def create_fundamentals_analyst(llm):
-    def fundamentals_analyst_node(state):
+class FundamentalsAnalyst(DivergeAgentNode):
+    name = "fundamentals_analyst"
+
+    def run(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -71,7 +74,7 @@ def create_fundamentals_analyst(llm):
             ),
             messages=tuple(state["messages"]),
         )
-        result = llm.bind_tools(tools).invoke(prompt)
+        result = self.llm.bind_tools(tools).invoke(prompt)
 
         report = ""
         instrument_type = state.get("instrument_type")
@@ -115,4 +118,6 @@ def create_fundamentals_analyst(llm):
             "valuation_applicability_reason": valuation_applicability_reason,
         }
 
-    return fundamentals_analyst_node
+
+def create_fundamentals_analyst(llm):
+    return FundamentalsAnalyst(llm)

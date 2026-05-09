@@ -6,7 +6,9 @@ import json
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from diverge.llm_clients.model_profiles import resolve_model_profile as resolve_static_model_profile
+from diverge.llm_clients.model_profiles import (
+    resolve_model_profile as resolve_static_model_profile,
+)
 from diverge.runner import AnalysisRequest
 from web.backend import access, analysis_limits, app_config, audit, auth, llm_models
 from web.backend.runtime import analysis_tasks, screener_tasks, task_store
@@ -106,9 +108,13 @@ def _analysis_request_payload(payload: TaskCreatePayload) -> dict:
                 "deep_think_llm": resolved.deep_think_llm,
             }
         )
-        if resolved.llm_provider == "openai" and not request_payload.get("openai_reasoning_effort"):
+        if resolved.llm_provider == "openai" and not request_payload.get(
+            "openai_reasoning_effort"
+        ):
             request_payload["openai_reasoning_effort"] = "medium"
-        if resolved.llm_provider == "google" and not request_payload.get("google_thinking_level"):
+        if resolved.llm_provider == "google" and not request_payload.get(
+            "google_thinking_level"
+        ):
             request_payload["google_thinking_level"] = "high"
     else:
         request_payload["model_profile"] = profile or None
@@ -177,10 +183,12 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
             raise access.translate_auth_error(exc) from exc
 
     if owner_user_id:
-        analysis_request.portfolio_context = asset_service.build_portfolio_context_for_owner(
-            owner_user_id,
-            tenant_id=tenant_id,
-            ticker=analysis_request.ticker,
+        analysis_request.portfolio_context = (
+            asset_service.build_portfolio_context_for_owner(
+                owner_user_id,
+                tenant_id=tenant_id,
+                ticker=analysis_request.ticker,
+            )
         )
 
     result = analysis_tasks.create_task(

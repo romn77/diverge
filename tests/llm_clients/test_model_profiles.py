@@ -25,8 +25,12 @@ class ModelProfileTests(unittest.TestCase):
         for profile in STATIC_MODEL_PROFILES:
             with self.subTest(profile=profile.value):
                 resolved = resolve_model_profile(profile.value, _available)
-                self.assertTrue(validate_model(resolved.llm_provider, resolved.quick_think_llm))
-                self.assertTrue(validate_model(resolved.llm_provider, resolved.deep_think_llm))
+                self.assertTrue(
+                    validate_model(resolved.llm_provider, resolved.quick_think_llm)
+                )
+                self.assertTrue(
+                    validate_model(resolved.llm_provider, resolved.deep_think_llm)
+                )
 
     def test_resolver_skips_unavailable_provider_routes(self):
         resolved = resolve_model_profile("balanced", _only_sub2api)
@@ -46,7 +50,9 @@ class ModelProfileTests(unittest.TestCase):
         self.assertIn("custom", by_value)
         self.assertTrue(by_value["custom"]["enabled"])
         self.assertFalse(by_value["balanced"]["enabled"])
-        self.assertIn("No configured provider", str(by_value["balanced"]["disabled_reason"]))
+        self.assertIn(
+            "No configured provider", str(by_value["balanced"]["disabled_reason"])
+        )
 
 
 if __name__ == "__main__":

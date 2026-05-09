@@ -21,7 +21,10 @@ def upload_backup(path: Path) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) != 1:
-        print("Usage: python -m web.backend.devops.backup_to_storage /path/to/backup.sql.gz", file=sys.stderr)
+        print(
+            "Usage: python -m web.backend.devops.backup_to_storage /path/to/backup.sql.gz",
+            file=sys.stderr,
+        )
         return 2
     key = upload_backup(Path(args[0]))
     print(f"Uploaded backup to storage key: {key}")

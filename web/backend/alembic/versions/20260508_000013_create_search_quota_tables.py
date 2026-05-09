@@ -22,22 +22,40 @@ def upgrade() -> None:
         op.create_table(
             "search_global_configs",
             sa.Column("id", sa.String(length=32), nullable=False),
-            sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
+            sa.Column(
+                "enabled", sa.Boolean(), nullable=False, server_default=sa.false()
+            ),
             sa.Column("disabled_until", sa.DateTime(timezone=True), nullable=True),
             sa.Column("disabled_reason", sa.String(length=255), nullable=True),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             sa.PrimaryKeyConstraint("id"),
         )
     if not inspector.has_table("search_provider_configs"):
         op.create_table(
             "search_provider_configs",
             sa.Column("provider", sa.String(length=32), nullable=False),
-            sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.false()),
-            sa.Column("monthly_free_quota", sa.Integer(), nullable=False, server_default="0"),
-            sa.Column("monthly_hard_cap", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column(
+                "enabled", sa.Boolean(), nullable=False, server_default=sa.false()
+            ),
+            sa.Column(
+                "monthly_free_quota", sa.Integer(), nullable=False, server_default="0"
+            ),
+            sa.Column(
+                "monthly_hard_cap", sa.Integer(), nullable=False, server_default="0"
+            ),
             sa.Column("disabled_until", sa.DateTime(timezone=True), nullable=True),
             sa.Column("disabled_reason", sa.String(length=255), nullable=True),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             sa.PrimaryKeyConstraint("provider"),
         )
         op.create_index(
@@ -51,8 +69,12 @@ def upgrade() -> None:
             sa.Column("usage_month", sa.String(length=7), nullable=False),
             sa.Column("provider", sa.String(length=32), nullable=False),
             sa.Column("total_calls", sa.Integer(), nullable=False, server_default="0"),
-            sa.Column("success_count", sa.Integer(), nullable=False, server_default="0"),
-            sa.Column("failure_count", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column(
+                "success_count", sa.Integer(), nullable=False, server_default="0"
+            ),
+            sa.Column(
+                "failure_count", sa.Integer(), nullable=False, server_default="0"
+            ),
             sa.Column("last_called_at", sa.DateTime(timezone=True), nullable=True),
             sa.Column("last_error", sa.String(length=512), nullable=True),
             sa.PrimaryKeyConstraint("usage_month", "provider"),

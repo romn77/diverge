@@ -21,7 +21,6 @@ from diverge.screener.history_cache import (
 )
 from diverge.ticker_symbols import normalize_ticker_symbol
 
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TRADE_FEEDBACK_DIRNAME = ".trade_feedback"
 REVIEW_TYPES = {"entry_review", "exit_review"}
@@ -101,7 +100,9 @@ def create_trade_record(
         "entry_timestamp": _normalize_optional_timestamp(
             payload.get("entry_timestamp"), "entry_timestamp"
         ),
-        "entry_price": _normalize_required_number(payload.get("entry_price"), "entry_price"),
+        "entry_price": _normalize_required_number(
+            payload.get("entry_price"), "entry_price"
+        ),
         "exit_timestamp": exit_timestamp,
         "exit_price": exit_price,
         "size": _normalize_optional_number(payload.get("size"), "size"),
@@ -142,10 +143,7 @@ def update_trade_record(
     updated = dict(existing)
     previous_ticker = existing["ticker"]
 
-    if (
-        "raw_symbol" in updates
-        or "market_resolution" in updates
-    ):
+    if "raw_symbol" in updates or "market_resolution" in updates:
         market_resolution = _resolve_trade_market(
             {
                 **updated,
@@ -183,10 +181,15 @@ def update_trade_record(
     if "size" in updates:
         updated["size"] = _normalize_optional_number(updates.get("size"), "size")
     if "strategy_tags" in updates and updates["strategy_tags"] is not None:
-        updated["strategy_tags"] = _normalize_strategy_tags(updates.get("strategy_tags"))
+        updated["strategy_tags"] = _normalize_strategy_tags(
+            updates.get("strategy_tags")
+        )
     if "entry_reason" in updates and updates["entry_reason"] is not None:
         updated["entry_reason"] = _require_text(updates["entry_reason"], "entry_reason")
-    if "invalidation_condition" in updates and updates["invalidation_condition"] is not None:
+    if (
+        "invalidation_condition" in updates
+        and updates["invalidation_condition"] is not None
+    ):
         updated["invalidation_condition"] = _require_text(
             updates["invalidation_condition"], "invalidation_condition"
         )
@@ -342,7 +345,10 @@ def list_trade_feedback_entries(
     )
     results: list[dict[str, Any]] = []
     for record in list_trade_records(ticker=normalized_ticker, reports_dir=reports_dir):
-        if allowed_trade_ids is not None and record["trade_id"] not in allowed_trade_ids:
+        if (
+            allowed_trade_ids is not None
+            and record["trade_id"] not in allowed_trade_ids
+        ):
             continue
         for review in list_trade_reviews(record["trade_id"], reports_dir=reports_dir):
             results.append(
@@ -882,7 +888,9 @@ def _build_review_diagnostics(
     evidence_pack: dict[str, Any],
 ) -> dict[str, Any]:
     setup_type = _infer_setup_type(trade_record)
-    missing_critical_fields = _review_missing_critical_fields(trade_record, setup_type, review_type)
+    missing_critical_fields = _review_missing_critical_fields(
+        trade_record, setup_type, review_type
+    )
     validation_warnings = _review_validation_warnings(
         trade_record,
         setup_type,
@@ -937,7 +945,10 @@ def _build_technical_decision_checks(
     evidence_pack: dict[str, Any],
 ) -> dict[str, Any]:
     local_history = evidence_pack.get("local_price_history")
-    if not isinstance(local_history, dict) or local_history.get("status") != "available":
+    if (
+        not isinstance(local_history, dict)
+        or local_history.get("status") != "available"
+    ):
         return {
             "status": "unavailable",
             "reason": (
@@ -1010,32 +1021,52 @@ def _technical_interpretation_hints(
     close_vs_sma20 = _json_number(summary.get("close_vs_sma_20_pct"))
     if setup_type == "breakout" and entry_vs_previous_high is not None:
         if entry_vs_previous_high > 3:
-            hints.append("entry is more than 3% above the previous 20d high; treat as extended breakout/chase unless retest or close confirmation exists")
+            hints.append(
+                "entry is more than 3% above the previous 20d high; treat as extended breakout/chase unless retest or close confirmation exists"
+            )
         elif entry_vs_previous_high >= 0:
-            hints.append("entry is above the previous 20d high; breakout trigger may be present if confirmation and risk are defined")
+            hints.append(
+                "entry is above the previous 20d high; breakout trigger may be present if confirmation and risk are defined"
+            )
         else:
-            hints.append("entry is below the previous 20d high; breakout trigger is not confirmed by local OHLC")
+            hints.append(
+                "entry is below the previous 20d high; breakout trigger is not confirmed by local OHLC"
+            )
     if entry_vs_latest_close is not None and entry_vs_latest_close > 0:
-        hints.append("entry price is above the latest close in the evidence window; check intraday chase/slippage risk")
+        hints.append(
+            "entry price is above the latest close in the evidence window; check intraday chase/slippage risk"
+        )
     if volume_ratio is not None:
         if volume_ratio >= 1.5:
-            hints.append("volume is materially above 20d average, supporting participation but not replacing risk control")
+            hints.append(
+                "volume is materially above 20d average, supporting participation but not replacing risk control"
+            )
         elif volume_ratio >= 1.1:
-            hints.append("volume is only moderately above 20d average; confirmation is not strong by volume alone")
+            hints.append(
+                "volume is only moderately above 20d average; confirmation is not strong by volume alone"
+            )
         else:
             hints.append("volume does not confirm strong participation")
     if rsi is not None and rsi >= 70:
-        hints.append("RSI14 is above 70; momentum is strong but overextension risk is elevated")
+        hints.append(
+            "RSI14 is above 70; momentum is strong but overextension risk is elevated"
+        )
     if close_vs_sma20 is not None and close_vs_sma20 > 10:
-        hints.append("close is more than 10% above SMA20; short-term extension risk is elevated")
+        hints.append(
+            "close is more than 10% above SMA20; short-term extension risk is elevated"
+        )
     return hints
 
 
 def _infer_setup_type(trade_record: dict[str, Any]) -> str:
     text = _review_signal_text(trade_record)
-    if _contains_any(text, ("value", "valuation", "fundamental", "基本面", "估值", "价值")):
+    if _contains_any(
+        text, ("value", "valuation", "fundamental", "基本面", "估值", "价值")
+    ):
         return "value_or_fundamental"
-    if _contains_any(text, ("earnings", "event", "catalyst", "财报", "公告", "事件", "业绩", "催化")):
+    if _contains_any(
+        text, ("earnings", "event", "catalyst", "财报", "公告", "事件", "业绩", "催化")
+    ):
         return "earnings_or_event"
     if _contains_any(text, ("breakout", "break out", "突破", "破位向上")):
         return "breakout"
@@ -1043,7 +1074,9 @@ def _infer_setup_type(trade_record: dict[str, Any]) -> str:
         return "pullback"
     if _contains_any(text, ("trend", "趋势", "均线", "moving average")):
         return "trend_following"
-    if _contains_any(text, ("mean reversion", "reversion", "超跌", "低吸", "反弹", "回归")):
+    if _contains_any(
+        text, ("mean reversion", "reversion", "超跌", "低吸", "反弹", "回归")
+    ):
         return "mean_reversion"
     if _contains_any(text, ("momentum", "chase", "追高", "动量", "急拉", "冲高")):
         return "momentum_chase"
@@ -1061,7 +1094,10 @@ def _review_missing_critical_fields(
             missing.append("breakout_level")
         if not _mentions_confirmation_method(trade_record):
             missing.append("confirmation_method")
-    if setup_type in {"pullback", "mean_reversion"} and not _mentions_support_or_reversal(trade_record):
+    if setup_type in {
+        "pullback",
+        "mean_reversion",
+    } and not _mentions_support_or_reversal(trade_record):
         missing.append("support_or_reversal_reference")
     if not _has_testable_invalidation(trade_record.get("invalidation_condition")):
         missing.append("testable_invalidation")
@@ -1069,7 +1105,10 @@ def _review_missing_critical_fields(
         missing.append("stop_loss")
     if not _has_number(trade_record.get("take_profit")):
         missing.append("take_profit_or_reward_target")
-    if not trade_record.get("planned_horizon") or trade_record.get("planned_horizon") == "unknown":
+    if (
+        not trade_record.get("planned_horizon")
+        or trade_record.get("planned_horizon") == "unknown"
+    ):
         missing.append("planned_horizon")
     if not _has_number(trade_record.get("size")):
         missing.append("size")
@@ -1090,7 +1129,10 @@ def _review_validation_warnings(
     text = _review_signal_text(trade_record)
     if _contains_any(text, ("追高", "chase", "急拉", "冲高")):
         warnings.append("entry_reason suggests intraday chase or extended entry")
-    if trade_record.get("invalidation_condition") and "testable_invalidation" in missing_critical_fields:
+    if (
+        trade_record.get("invalidation_condition")
+        and "testable_invalidation" in missing_critical_fields
+    ):
         warnings.append("invalidation_condition is vague")
     if (
         "stop_loss" in missing_critical_fields
@@ -1102,7 +1144,9 @@ def _review_validation_warnings(
         "breakout_level" in missing_critical_fields
         or "confirmation_method" in missing_critical_fields
     ):
-        warnings.append("breakout setup is not executable without level and confirmation")
+        warnings.append(
+            "breakout setup is not executable without level and confirmation"
+        )
     return _dedupe_preserve(warnings)
 
 
@@ -1138,14 +1182,25 @@ def _priority_process_errors(
         {"breakout_level", "confirmation_method"}.intersection(missing_critical_fields)
         or any("chase" in warning for warning in validation_warnings)
     ):
-        errors.append("breakout execution undefined: level, confirmation, or chase control is missing")
-    if (
-        {"testable_invalidation", "stop_loss", "take_profit_or_reward_target"}.intersection(missing_critical_fields)
-        or not computable_metrics.get("risk_reward_available")
+        errors.append(
+            "breakout execution undefined: level, confirmation, or chase control is missing"
+        )
+    if {
+        "testable_invalidation",
+        "stop_loss",
+        "take_profit_or_reward_target",
+    }.intersection(missing_critical_fields) or not computable_metrics.get(
+        "risk_reward_available"
     ):
-        errors.append("risk plan undefined: invalidation, stop, target, or reward/risk cannot be checked")
-    if {"planned_horizon", "exit_reason", "plan_execution"}.intersection(missing_critical_fields):
-        errors.append("exit management undefined: holding period or exit rules are not executable")
+        errors.append(
+            "risk plan undefined: invalidation, stop, target, or reward/risk cannot be checked"
+        )
+    if {"planned_horizon", "exit_reason", "plan_execution"}.intersection(
+        missing_critical_fields
+    ):
+        errors.append(
+            "exit management undefined: holding period or exit rules are not executable"
+        )
     if not errors and missing_critical_fields:
         errors.append("record lacks setup-critical evidence for a confident review")
     return errors[:3]
@@ -1290,14 +1345,8 @@ def _resolve_review_action_date(
         else datetime.now().date().isoformat()
     )
     if review_type == "exit_review":
-        return (
-            _date_part(trade_record.get("exit_timestamp"))
-            or fallback_date
-        )
-    return (
-        _date_part(trade_record.get("entry_timestamp"))
-        or fallback_date
-    )
+        return _date_part(trade_record.get("exit_timestamp")) or fallback_date
+    return _date_part(trade_record.get("entry_timestamp")) or fallback_date
 
 
 def _build_local_price_history_evidence(
@@ -1313,7 +1362,11 @@ def _build_local_price_history_evidence(
         or trade_record.get("raw_symbol")
         or ""
     ).strip()
-    resolved_history_dir = Path(history_dir) if history_dir is not None else resolve_history_dir(PROJECT_ROOT)
+    resolved_history_dir = (
+        Path(history_dir)
+        if history_dir is not None
+        else resolve_history_dir(PROJECT_ROOT)
+    )
     if not market or not symbol:
         return {
             "status": "unavailable",
@@ -1425,7 +1478,10 @@ def _summarize_price_window(
     high_values = _numeric_series(frame, "High")
     low_values = _numeric_series(frame, "Low")
     if close_values.empty:
-        return {"status": "unavailable", "reason": "Close column has no usable numeric values"}
+        return {
+            "status": "unavailable",
+            "reason": "Close column has no usable numeric values",
+        }
 
     last = frame.iloc[-1]
     latest_close = _json_number(last.get("Close"))
@@ -1492,7 +1548,9 @@ def _date_part(value: Any) -> str | None:
 
 
 def _date_offset(value: str, days: int) -> str:
-    return (datetime.strptime(value, "%Y-%m-%d") + timedelta(days=days)).date().isoformat()
+    return (
+        (datetime.strptime(value, "%Y-%m-%d") + timedelta(days=days)).date().isoformat()
+    )
 
 
 def _frame_date_span(frame) -> str | None:
@@ -1574,14 +1632,20 @@ def _rsi(close_values, window: int) -> float | None:
 
 
 def _atr(high_values, low_values, close_values, window: int) -> float | None:
-    if len(high_values) <= window or len(low_values) <= window or len(close_values) <= window:
+    if (
+        len(high_values) <= window
+        or len(low_values) <= window
+        or len(close_values) <= window
+    ):
         return None
     ranges = []
     for index in range(1, len(close_values)):
         high = float(high_values.iloc[index])
         low = float(low_values.iloc[index])
         previous_close = float(close_values.iloc[index - 1])
-        ranges.append(max(high - low, abs(high - previous_close), abs(low - previous_close)))
+        ranges.append(
+            max(high - low, abs(high - previous_close), abs(low - previous_close))
+        )
     if len(ranges) < window:
         return None
     return _round_float(sum(ranges[-window:]) / window)
@@ -1776,7 +1840,9 @@ def _resolve_review_analysis_references(
 ) -> list[dict[str, Any]]:
     if analysis_references is not None:
         source = analysis_references
-    elif isinstance(existing_review, dict) and existing_review.get("analysis_references"):
+    elif isinstance(existing_review, dict) and existing_review.get(
+        "analysis_references"
+    ):
         source = existing_review["analysis_references"]
     else:
         source = trade_record.get("analysis_references") or []
@@ -1871,15 +1937,17 @@ def _load_snapshot_context(reference: dict[str, Any]) -> dict[str, Any]:
                     value = selected_state.get(key)
                     if value:
                         state_excerpt[key] = value
-                trader_plan = selected_state.get("trader_investment_plan") or selected_state.get(
-                    "trader_investment_decision"
-                )
+                trader_plan = selected_state.get(
+                    "trader_investment_plan"
+                ) or selected_state.get("trader_investment_decision")
                 if trader_plan:
                     state_excerpt["trader_investment_plan"] = trader_plan
             else:
                 state_excerpt["raw_value"] = selected_state
         else:
-            snapshot_warning = "full_state_log_path was provided but the file does not exist"
+            snapshot_warning = (
+                "full_state_log_path was provided but the file does not exist"
+            )
     else:
         snapshot_warning = "full_state_log_path is not attached"
 
@@ -1947,7 +2015,9 @@ def _normalize_optional_project_relative_path(value: Any, field_name: str) -> st
     try:
         return resolved.relative_to(project_root).as_posix()
     except ValueError as exc:
-        raise ValueError("Analysis references must remain inside the project directory") from exc
+        raise ValueError(
+            "Analysis references must remain inside the project directory"
+        ) from exc
 
 
 def _resolve_project_path(value: str) -> Path:
@@ -1958,7 +2028,9 @@ def _resolve_project_path(value: str) -> Path:
     try:
         resolved.relative_to(project_root)
     except ValueError as exc:
-        raise ValueError("Analysis references must remain inside the project directory") from exc
+        raise ValueError(
+            "Analysis references must remain inside the project directory"
+        ) from exc
     return resolved
 
 
@@ -1994,7 +2066,9 @@ def _trade_dir(
     try:
         trade_dir.relative_to(root.resolve())
     except ValueError as exc:
-        raise ValueError("Trade feedback directory must remain inside the feedback root") from exc
+        raise ValueError(
+            "Trade feedback directory must remain inside the feedback root"
+        ) from exc
     return trade_dir
 
 
@@ -2004,9 +2078,13 @@ def _write_trade_record(
     reports_dir: Path | None = None,
     previous_ticker: str | None = None,
 ) -> None:
-    current_dir = _trade_dir(record["ticker"], record["trade_id"], reports_dir=reports_dir)
+    current_dir = _trade_dir(
+        record["ticker"], record["trade_id"], reports_dir=reports_dir
+    )
     if previous_ticker and previous_ticker != record["ticker"]:
-        previous_dir = _trade_dir(previous_ticker, record["trade_id"], reports_dir=reports_dir)
+        previous_dir = _trade_dir(
+            previous_ticker, record["trade_id"], reports_dir=reports_dir
+        )
         if previous_dir.is_dir():
             current_dir.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(previous_dir), str(current_dir))
@@ -2019,7 +2097,10 @@ def _write_trade_review(
     *,
     reports_dir: Path | None = None,
 ) -> None:
-    reviews_dir = _trade_dir(review["ticker"], review["trade_id"], reports_dir=reports_dir) / "reviews"
+    reviews_dir = (
+        _trade_dir(review["ticker"], review["trade_id"], reports_dir=reports_dir)
+        / "reviews"
+    )
     reviews_dir.mkdir(parents=True, exist_ok=True)
     _write_json_atomic(reviews_dir / f"{review['review_type']}.json", review)
 
@@ -2121,7 +2202,12 @@ def _calculate_realized_return_pct(record: dict[str, Any]) -> float | None:
         return None
 
     direction = -1.0 if str(record.get("side", "")).lower() == "short" else 1.0
-    return round(((float(exit_price) - float(entry_price)) / float(entry_price)) * 100 * direction, 4)
+    return round(
+        ((float(exit_price) - float(entry_price)) / float(entry_price))
+        * 100
+        * direction,
+        4,
+    )
 
 
 def calculate_derived_metrics(record: dict[str, Any]) -> dict[str, Any]:
@@ -2134,7 +2220,9 @@ def calculate_derived_metrics(record: dict[str, Any]) -> dict[str, Any]:
     pnl_amount = None
     r_multiple = None
     if entry_price is not None and exit_price is not None and size is not None:
-        pnl_amount = round((float(exit_price) - float(entry_price)) * float(size) * direction, 4)
+        pnl_amount = round(
+            (float(exit_price) - float(entry_price)) * float(size) * direction, 4
+        )
     if entry_price is not None and exit_price is not None and stop_loss is not None:
         risk_per_unit = abs(float(entry_price) - float(stop_loss))
         if risk_per_unit > 0:
@@ -2167,7 +2255,10 @@ def _resolve_trade_market(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(market_resolution, dict):
         raw_symbol = raw_symbol or market_resolution.get("raw_symbol")
     raw_symbol = _require_text(raw_symbol, "raw_symbol")
-    if isinstance(market_resolution, dict) and market_resolution.get("source") == "manual":
+    if (
+        isinstance(market_resolution, dict)
+        and market_resolution.get("source") == "manual"
+    ):
         return resolve_symbol(
             raw_symbol,
             manual_market=market_resolution.get("market"),

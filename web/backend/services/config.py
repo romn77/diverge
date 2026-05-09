@@ -53,6 +53,8 @@ GOOGLE_THINKING_OPTIONS = [
     {"label": "Enable Thinking", "value": "high"},
     {"label": "Minimal Thinking", "value": "minimal"},
 ]
+
+
 def read_project_env_values() -> dict[str, str]:
     if not app_config.PROJECT_ENV_FILE.is_file():
         return {}
@@ -114,8 +116,7 @@ def get_config_options_payload() -> dict:
         for provider, _label, _base_url in PROVIDER_OPTIONS
     }
     analyst_options = [
-        {"label": label, "value": value.value}
-        for label, value in ANALYST_OPTIONS
+        {"label": label, "value": value.value} for label, value in ANALYST_OPTIONS
     ]
 
     return {

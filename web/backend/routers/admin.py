@@ -7,8 +7,22 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from diverge.dataflows import vendor_usage
-from web.backend import access, analysis_limits, audit, auth, data_sources, job_records, llm_models, search_quota
-from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks, task_store
+from web.backend import (
+    access,
+    analysis_limits,
+    audit,
+    auth,
+    data_sources,
+    job_records,
+    llm_models,
+    search_quota,
+)
+from web.backend.runtime import (
+    analysis_tasks,
+    data_sync_tasks,
+    screener_tasks,
+    task_store,
+)
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
     AdminDataSourceRouteUpdatePayload,
@@ -45,7 +59,9 @@ def _parse_datetime_filter(value: str | None) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def _require_admin_permission(request: Request | None, permission: str) -> auth.User | None:
+def _require_admin_permission(
+    request: Request | None, permission: str
+) -> auth.User | None:
     if request is None or not auth.auth_enabled():
         return None
     with auth.db_session() as db:
@@ -197,7 +213,9 @@ def _queue_sort_key(item: dict) -> tuple[int, int, str, str]:
 def list_admin_task_queue(request: Request = None) -> dict:
     actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
     try:
-        user_lookup = _load_admin_user_lookup(actor.tenant_id if actor is not None else None)
+        user_lookup = _load_admin_user_lookup(
+            actor.tenant_id if actor is not None else None
+        )
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
 
@@ -222,7 +240,9 @@ def list_admin_task_queue(request: Request = None) -> dict:
     items.sort(key=_queue_sort_key)
     totals = {
         "active": len(items),
-        "queued": sum(1 for item in items if item["status"] in task_store.QUEUED_STATUSES),
+        "queued": sum(
+            1 for item in items if item["status"] in task_store.QUEUED_STATUSES
+        ),
         "running": sum(1 for item in items if item["status"] == "running"),
         "waiting_for_quota": sum(
             1 for item in items if item["status"] == "waiting_for_quota"
@@ -248,7 +268,9 @@ def list_admin_audit_events(
 ) -> dict:
     try:
         with auth.db_session() as db:
-            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_AUDIT)
+            actor = _require_db_admin_permission(
+                db, request, auth.PERMISSION_ADMIN_AUDIT
+            )
             if actor is None:
                 return {"events": []}
             events = audit.list_audit_events(
@@ -270,7 +292,9 @@ def list_admin_audit_events(
 def list_admin_users(request: Request = None) -> list[dict]:
     try:
         with auth.db_session() as db:
-            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_USERS)
+            actor = _require_db_admin_permission(
+                db, request, auth.PERMISSION_ADMIN_USERS
+            )
             users = auth.list_users(
                 db,
                 tenant_id=actor.tenant_id if actor is not None else None,
@@ -542,7 +566,9 @@ def reset_admin_search_provider_usage(
                 auth.PERMISSION_ADMIN_SETTINGS,
             )
             normalized_provider = search_quota._normalize_provider(provider)
-            reset_count = search_quota.reset_provider_month_usage(db, normalized_provider)
+            reset_count = search_quota.reset_provider_month_usage(
+                db, normalized_provider
+            )
             summary = search_quota.get_search_quota_summary(db)
             provider_config = next(
                 item
@@ -557,7 +583,10 @@ def reset_admin_search_provider_usage(
                     action="admin.search.provider_usage_reset",
                     resource_type="search_provider_usage",
                     resource_id=normalized_provider,
-                    metadata={"reset_count": reset_count, "usage_month": summary["month"]},
+                    metadata={
+                        "reset_count": reset_count,
+                        "usage_month": summary["month"],
+                    },
                     request=request,
                 )
             return {"provider": provider_config, "reset_count": reset_count}
@@ -599,7 +628,10 @@ def update_admin_llm_provider(
                 action="admin.llm_provider.updated",
                 resource_type="llm_provider",
                 resource_id=source["provider"],
-                metadata={"enabled": source["enabled"], "api_key_env": source["api_key_env"]},
+                metadata={
+                    "enabled": source["enabled"],
+                    "api_key_env": source["api_key_env"],
+                },
                 request=request,
             )
     return {"provider": source}
@@ -741,7 +773,9 @@ def update_admin_llm_module_setting(
 def get_admin_user(user_id: str, request: Request = None) -> dict:
     try:
         with auth.db_session() as db:
-            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_USERS)
+            actor = _require_db_admin_permission(
+                db, request, auth.PERMISSION_ADMIN_USERS
+            )
             target = auth.get_user_by_id(db, user_id)
             _ensure_same_tenant(actor, target)
             return auth.serialize_user(target)

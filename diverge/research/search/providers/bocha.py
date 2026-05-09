@@ -41,20 +41,22 @@ class BochaSearchProvider:
             headers={"Authorization": f"Bearer {api_key}"},
             json={"query": query, "count": count},
         )
-        raise_for_http_status(self.name, response.status_code, getattr(response, "text", ""))
-        payload = response_json(self.name, response)
-        raw_results = (
-            payload.get("data", {})
-            .get("webPages", {})
-            .get("value", [])
+        raise_for_http_status(
+            self.name, response.status_code, getattr(response, "text", "")
         )
+        payload = response_json(self.name, response)
+        raw_results = payload.get("data", {}).get("webPages", {}).get("value", [])
         results = [
-            self._map_result(item, index=index, query=query, language=language, market=market)
+            self._map_result(
+                item, index=index, query=query, language=language, market=market
+            )
             for index, item in enumerate(raw_results)
             if isinstance(item, dict)
         ]
         if not results:
-            raise SearchProviderEmptyResult("empty_results", "bocha returned no results")
+            raise SearchProviderEmptyResult(
+                "empty_results", "bocha returned no results"
+            )
         return results[:count]
 
     def _map_result(
@@ -72,7 +74,9 @@ class BochaSearchProvider:
             query=query,
             title=str(item.get("name") or item.get("title") or ""),
             url=str(item.get("url") or ""),
-            source=str(item.get("siteName") or item.get("source")) if item.get("siteName") or item.get("source") else None,
+            source=str(item.get("siteName") or item.get("source"))
+            if item.get("siteName") or item.get("source")
+            else None,
             snippet=str(item.get("snippet") or item.get("summary") or ""),
             published_at=parse_provider_datetime(
                 item.get("datePublished") or item.get("published_at")

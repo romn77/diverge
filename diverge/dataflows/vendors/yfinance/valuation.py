@@ -76,9 +76,21 @@ def _classify_instrument(
 
 def _extract_growth_assumption(ticker_obj) -> AssumptionValue | None:
     candidate_frames = (
-        ("yfinance.earnings_estimate", getattr(ticker_obj, "earnings_estimate", None), "growth"),
-        ("yfinance.revenue_estimate", getattr(ticker_obj, "revenue_estimate", None), "growth"),
-        ("yfinance.growth_estimates", getattr(ticker_obj, "growth_estimates", None), "stock"),
+        (
+            "yfinance.earnings_estimate",
+            getattr(ticker_obj, "earnings_estimate", None),
+            "growth",
+        ),
+        (
+            "yfinance.revenue_estimate",
+            getattr(ticker_obj, "revenue_estimate", None),
+            "growth",
+        ),
+        (
+            "yfinance.growth_estimates",
+            getattr(ticker_obj, "growth_estimates", None),
+            "stock",
+        ),
     )
     for source, frame, column in candidate_frames:
         if frame is None or getattr(frame, "empty", False):
@@ -119,8 +131,12 @@ def _extract_peg_assumptions(
             try:
                 eps_fy0 = _coerce_float(earnings_estimate.loc["0y", "avg"])
                 eps_nfy1 = _coerce_float(earnings_estimate.loc["+1y", "avg"])
-                analysts_fy0 = _coerce_float(earnings_estimate.loc["0y", "numberOfAnalysts"])
-                analysts_nfy1 = _coerce_float(earnings_estimate.loc["+1y", "numberOfAnalysts"])
+                analysts_fy0 = _coerce_float(
+                    earnings_estimate.loc["0y", "numberOfAnalysts"]
+                )
+                analysts_nfy1 = _coerce_float(
+                    earnings_estimate.loc["+1y", "numberOfAnalysts"]
+                )
             except KeyError:
                 eps_fy0 = eps_nfy1 = analysts_fy0 = analysts_nfy1 = None
             if (
@@ -174,9 +190,15 @@ def _statement_by_date(df: pd.DataFrame) -> dict[date | None, dict[str, float | 
 def _build_yfinance_snapshots(ticker_obj, freq: str) -> list[FinancialSnapshot]:
     del freq  # Phase 1 always uses annual history here.
 
-    income_by_date = _statement_by_date(getattr(ticker_obj, "income_stmt", pd.DataFrame()))
-    cashflow_by_date = _statement_by_date(getattr(ticker_obj, "cashflow", pd.DataFrame()))
-    balance_by_date = _statement_by_date(getattr(ticker_obj, "balance_sheet", pd.DataFrame()))
+    income_by_date = _statement_by_date(
+        getattr(ticker_obj, "income_stmt", pd.DataFrame())
+    )
+    cashflow_by_date = _statement_by_date(
+        getattr(ticker_obj, "cashflow", pd.DataFrame())
+    )
+    balance_by_date = _statement_by_date(
+        getattr(ticker_obj, "balance_sheet", pd.DataFrame())
+    )
 
     report_dates = {
         *income_by_date.keys(),

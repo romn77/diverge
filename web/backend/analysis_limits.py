@@ -134,7 +134,9 @@ def ensure_analysis_limit_tables(settings: auth.AuthSettings | None = None) -> N
     inspector = inspect(auth.get_engine(resolved_settings))
     required_tables = ("analysis_role_limits", "analysis_task_usage")
     missing_tables = [
-        table_name for table_name in required_tables if not inspector.has_table(table_name)
+        table_name
+        for table_name in required_tables
+        if not inspector.has_table(table_name)
     ]
     if missing_tables:
         joined = ", ".join(missing_tables)
@@ -192,10 +194,7 @@ def _normalize_weekly_limit(value: int | None) -> int | None:
 
 
 def list_role_limits(db: Session) -> list[dict[str, Any]]:
-    rows = {
-        row.role: row.weekly_limit
-        for row in db.scalars(select(AnalysisRoleLimit))
-    }
+    rows = {row.role: row.weekly_limit for row in db.scalars(select(AnalysisRoleLimit))}
     return [
         serialize_role_limit(role, rows.get(role, DEFAULT_ROLE_WEEKLY_LIMITS[role]))
         for role in ROLE_ORDER
@@ -211,7 +210,9 @@ def update_role_limits(
     for entry in limits:
         role = _normalize_role(entry.get("role"))
         if role in seen_roles:
-            raise auth.AuthValidationError(f"Duplicate analysis limit for role '{role}'")
+            raise auth.AuthValidationError(
+                f"Duplicate analysis limit for role '{role}'"
+            )
         seen_roles.add(role)
 
         weekly_limit = _normalize_weekly_limit(
@@ -365,9 +366,7 @@ def build_user_weekly_usage_summary(
             "used_count": used_count,
             "weekly_limit": weekly_limit,
             "remaining_count": (
-                None
-                if weekly_limit is None
-                else max(int(weekly_limit) - used_count, 0)
+                None if weekly_limit is None else max(int(weekly_limit) - used_count, 0)
             ),
         }
     return {
@@ -393,7 +392,9 @@ def reset_user_weekly_usage(
         AnalysisTaskUsage.usage_week == resolved_week,
     )
     if module is not None:
-        statement = statement.where(AnalysisTaskUsage.module == _normalize_module(module))
+        statement = statement.where(
+            AnalysisTaskUsage.module == _normalize_module(module)
+        )
     result = db.execute(statement)
     db.flush()
     return int(result.rowcount or 0)

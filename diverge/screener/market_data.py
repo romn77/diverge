@@ -12,12 +12,18 @@ from diverge.data_layout import (
     resolve_history_dir,
     resolve_screener_cache_dir,
 )
-from diverge.dataflows.vendors.akshare.stock import _fetch_akshare_stock_df, _fetch_akshare_us_stock_df
+from diverge.dataflows.vendors.akshare.stock import (
+    _fetch_akshare_stock_df,
+    _fetch_akshare_us_stock_df,
+)
 from diverge.dataflows.vendors.alpha_vantage.common import AlphaVantageRateLimitError
 from diverge.dataflows.vendors.alpha_vantage.stock import _fetch_alpha_vantage_stock_df
 from diverge.dataflows.cn_market_utils import detect_market, normalize_symbol_for_vendor
 from diverge.dataflows.vendors.massive.stock import _fetch_massive_stock_df
-from diverge.dataflows.vendors.tushare.stock import _fetch_tushare_stock_df, _fetch_tushare_us_stock_df
+from diverge.dataflows.vendors.tushare.stock import (
+    _fetch_tushare_stock_df,
+    _fetch_tushare_us_stock_df,
+)
 from diverge.dataflows import vendor_usage
 from diverge.dataflows.vendor_errors import (
     VendorAuthError,
@@ -55,6 +61,7 @@ CN_FALLBACK_ERRORS = (
 try:
     from yfinance.exceptions import YFRateLimitError
 except ModuleNotFoundError:  # pragma: no cover
+
     class YFRateLimitError(Exception):
         pass
 
@@ -122,7 +129,9 @@ class _HistoryFetchExecutor:
             return self._fetch_us(symbol, market, fetch_start)
         return self._fetch_cn(symbol, market, fetch_start)
 
-    def _fetch_us(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
+    def _fetch_us(
+        self, symbol: str, market: str, fetch_start: str
+    ) -> _FetchedHistoryFrame:
         last_error: Exception | None = None
         for source in self.us_source_chain:
             attempt = 0
@@ -154,7 +163,9 @@ class _HistoryFetchExecutor:
 
         raise VendorRetryableError("US history fetch failed without a fallback result")
 
-    def _fetch_cn(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
+    def _fetch_cn(
+        self, symbol: str, market: str, fetch_start: str
+    ) -> _FetchedHistoryFrame:
         last_error: Exception | None = None
         for source in self.cn_source_chain:
             attempt = 0
@@ -229,7 +240,9 @@ class _HistoryCheckpointState:
             updated_at=updated_at,
         )
 
-    def checkpoint_skip_result(self, context: _HistoryFetchContext) -> _HistoryStepResult | None:
+    def checkpoint_skip_result(
+        self, context: _HistoryFetchContext
+    ) -> _HistoryStepResult | None:
         if not context.cached_frame.empty or context.symbol not in self.failure_reasons:
             return None
 
@@ -317,7 +330,9 @@ def _normalize_price_frame(df: pd.DataFrame) -> pd.DataFrame:
     return normalize_history_frame(df)
 
 
-def _history_failure_row(context: _HistoryFetchContext, drop_reason: str) -> dict[str, str]:
+def _history_failure_row(
+    context: _HistoryFetchContext, drop_reason: str
+) -> dict[str, str]:
     return {
         "symbol": context.symbol,
         "market": context.market,
@@ -355,7 +370,9 @@ def _build_history_fetch_context(
         history_dir=history_dir,
         cached_frame=cached_frame,
         cached_span=_history_span(cached_frame),
-        fetch_start=resolve_incremental_fetch_start(cached_frame, start_date, as_of_date),
+        fetch_start=resolve_incremental_fetch_start(
+            cached_frame, start_date, as_of_date
+        ),
     )
 
 
@@ -416,8 +433,12 @@ def _reconcile_fetched_history(
         )
 
     merged_frame = merge_history_frames(context.cached_frame, fetched.frame)
-    save_history_cache(context.history_dir, context.market, context.symbol, merged_frame)
-    history_window = slice_history_window(merged_frame, context.start_date, context.as_of_date)
+    save_history_cache(
+        context.history_dir, context.market, context.symbol, merged_frame
+    )
+    history_window = slice_history_window(
+        merged_frame, context.start_date, context.as_of_date
+    )
     if context.cached_frame.empty or fetch_start == context.start_date:
         status = "fetch_full"
         detail = f"fetch={fetch_range}{source_detail}"
@@ -517,7 +538,9 @@ def _process_history_symbol(
     return _fetch_symbol_history(context, executor=executor)
 
 
-def _call_price_data_source(vendor: str, fetcher: Callable[[], pd.DataFrame]) -> pd.DataFrame:
+def _call_price_data_source(
+    vendor: str, fetcher: Callable[[], pd.DataFrame]
+) -> pd.DataFrame:
     return vendor_usage.track_data_source_call(vendor, fetcher)
 
 
@@ -530,7 +553,9 @@ def fetch_price_history(
     us_data_source: str = "yfinance",
 ) -> pd.DataFrame:
     if market == "cn":
-        vendor_symbol = normalize_symbol_for_vendor(symbol, market="cn", vendor=cn_data_source)
+        vendor_symbol = normalize_symbol_for_vendor(
+            symbol, market="cn", vendor=cn_data_source
+        )
         if cn_data_source == "tushare":
             frame = _call_price_data_source(
                 "tushare",
@@ -544,7 +569,11 @@ def fetch_price_history(
         else:
             raise ValueError(f"Unsupported CN data source '{cn_data_source}'")
 
-        if cn_data_source == "tushare" and not frame.empty and "Amount" in frame.columns:
+        if (
+            cn_data_source == "tushare"
+            and not frame.empty
+            and "Amount" in frame.columns
+        ):
             frame = frame.copy()
             frame["Amount"] = pd.to_numeric(frame["Amount"], errors="coerce") * 1000
         return _normalize_price_frame(frame)
@@ -624,7 +653,9 @@ def fetch_ticker_history(
         Path(cache_dir) if cache_dir is not None else resolve_history_dir()
     )
     resolved_market = resolve_history_market(normalized_symbol, market)
-    cached_frame = load_history_cache(history_cache_dir, resolved_market, normalized_symbol)
+    cached_frame = load_history_cache(
+        history_cache_dir, resolved_market, normalized_symbol
+    )
     context = _HistoryFetchContext(
         symbol=normalized_symbol,
         market=resolved_market,
@@ -635,7 +666,9 @@ def fetch_ticker_history(
         history_dir=history_cache_dir,
         cached_frame=cached_frame,
         cached_span=_history_span(cached_frame),
-        fetch_start=resolve_incremental_fetch_start(cached_frame, start_date, as_of_date),
+        fetch_start=resolve_incremental_fetch_start(
+            cached_frame, start_date, as_of_date
+        ),
     )
 
     cache_hit = _cache_hit_result(context)
@@ -687,14 +720,10 @@ def fetch_history_for_universe(
     as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
     start_date = (as_of_dt - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
     resolved_history_dir = (
-        Path(history_dir)
-        if history_dir is not None
-        else resolve_history_dir()
+        Path(history_dir) if history_dir is not None else resolve_history_dir()
     )
     screener_cache_dir = (
-        Path(cache_dir)
-        if cache_dir is not None
-        else resolve_screener_cache_dir()
+        Path(cache_dir) if cache_dir is not None else resolve_screener_cache_dir()
     )
     history_checkpoint_dir = (
         Path(checkpoint_dir)

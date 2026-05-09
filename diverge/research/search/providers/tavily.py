@@ -46,16 +46,22 @@ class TavilySearchProvider:
                 "include_raw_content": False,
             },
         )
-        raise_for_http_status(self.name, response.status_code, getattr(response, "text", ""))
+        raise_for_http_status(
+            self.name, response.status_code, getattr(response, "text", "")
+        )
         payload = response_json(self.name, response)
         raw_results = payload.get("results", [])
         results = [
-            self._map_result(item, index=index, query=query, language=language, market=market)
+            self._map_result(
+                item, index=index, query=query, language=language, market=market
+            )
             for index, item in enumerate(raw_results)
             if isinstance(item, dict)
         ]
         if not results:
-            raise SearchProviderEmptyResult("empty_results", "tavily returned no results")
+            raise SearchProviderEmptyResult(
+                "empty_results", "tavily returned no results"
+            )
         return results[:count]
 
     def _map_result(
@@ -81,6 +87,8 @@ class TavilySearchProvider:
             retrieved_at=datetime.now(timezone.utc),
             language=language,
             market=market,
-            relevance_score=float(item["score"]) if item.get("score") is not None else None,
+            relevance_score=float(item["score"])
+            if item.get("score") is not None
+            else None,
             raw_provider_id=str(item.get("id")) if item.get("id") else None,
         )

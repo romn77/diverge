@@ -9,13 +9,17 @@ def _period(freq: str) -> str:
     return "annual" if str(freq or "").lower().startswith("annual") else "quarter"
 
 
-def _filter_rows_by_date(rows: list[dict[str, Any]], curr_date: str | None) -> list[dict[str, Any]]:
+def _filter_rows_by_date(
+    rows: list[dict[str, Any]], curr_date: str | None
+) -> list[dict[str, Any]]:
     if not curr_date:
         return rows
     return [
         row
         for row in rows
-        if str(row.get("date") or row.get("fillingDate") or row.get("acceptedDate") or "")[:10]
+        if str(
+            row.get("date") or row.get("fillingDate") or row.get("acceptedDate") or ""
+        )[:10]
         <= curr_date
     ]
 
@@ -53,13 +57,19 @@ def get_fundamentals(ticker: str, curr_date: str | None = None) -> str:
     return dumps(rows)
 
 
-def get_balance_sheet(ticker: str, freq: str = "quarterly", curr_date: str | None = None) -> str:
+def get_balance_sheet(
+    ticker: str, freq: str = "quarterly", curr_date: str | None = None
+) -> str:
     return _statement_payload("balance-sheet-statement", ticker, freq, curr_date)
 
 
-def get_cashflow(ticker: str, freq: str = "quarterly", curr_date: str | None = None) -> str:
+def get_cashflow(
+    ticker: str, freq: str = "quarterly", curr_date: str | None = None
+) -> str:
     return _statement_payload("cash-flow-statement", ticker, freq, curr_date)
 
 
-def get_income_statement(ticker: str, freq: str = "quarterly", curr_date: str | None = None) -> str:
+def get_income_statement(
+    ticker: str, freq: str = "quarterly", curr_date: str | None = None
+) -> str:
     return _statement_payload("income-statement", ticker, freq, curr_date)

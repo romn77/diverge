@@ -16,7 +16,15 @@ from diverge.trade_feedback import (
     save_trade_review as save_trade_review_file,
     update_trade_record as update_trade_record_file,
 )
-from web.backend import access, analysis_limits, app_config, audit, auth, llm_models, trade_entries
+from web.backend import (
+    access,
+    analysis_limits,
+    app_config,
+    audit,
+    auth,
+    llm_models,
+    trade_entries,
+)
 from web.backend.schemas.trades import (
     TradeRecordCreatePayload,
     TradeRecordUpdatePayload,
@@ -54,8 +62,12 @@ def record_journal_usage(db, user: auth.User) -> None:
     analysis_limits.record_module_usage(db, user, module="journal")
 
 
-def sync_trade_entry_metadata(db, record: dict, owner_user_id: str, tenant_id: str | None = None) -> None:
-    reviews = list_trade_reviews_file(record["trade_id"], reports_dir=app_config.REPORTS_DIR)
+def sync_trade_entry_metadata(
+    db, record: dict, owner_user_id: str, tenant_id: str | None = None
+) -> None:
+    reviews = list_trade_reviews_file(
+        record["trade_id"], reports_dir=app_config.REPORTS_DIR
+    )
     trade_entries.upsert_trade_entry(
         db,
         record,
@@ -66,10 +78,14 @@ def sync_trade_entry_metadata(db, record: dict, owner_user_id: str, tenant_id: s
     )
 
 
-def _review_types_for_auto_generation(record: dict, existing_reviews: list[dict]) -> list[str]:
+def _review_types_for_auto_generation(
+    record: dict, existing_reviews: list[dict]
+) -> list[str]:
     saved_review_types = {review.get("review_type") for review in existing_reviews}
     review_types: list[str] = []
-    has_entry_fact = bool(record.get("entry_timestamp") or record.get("entry_price") is not None)
+    has_entry_fact = bool(
+        record.get("entry_timestamp") or record.get("entry_price") is not None
+    )
     has_exit_fact = bool(
         str(record.get("status", "")).strip().lower() == "closed"
         or record.get("exit_timestamp")
@@ -88,7 +104,9 @@ def _resolve_trade_review_model_setting(*, require_enabled: bool) -> dict | None
     except Exception as exc:
         if require_enabled:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        logger.info("skip trade review generation module=%s reason=%s", AUTO_REVIEW_MODULE, exc)
+        logger.info(
+            "skip trade review generation module=%s reason=%s", AUTO_REVIEW_MODULE, exc
+        )
         return None
     if model_setting is None and require_enabled:
         raise HTTPException(
@@ -100,7 +118,9 @@ def _resolve_trade_review_model_setting(*, require_enabled: bool) -> dict | None
 
 def _ensure_trade_review_provider_available(model_setting: dict) -> None:
     hydrate_provider_credentials(str(model_setting["llm_provider"]))
-    provider_availability = get_provider_availability(str(model_setting["llm_provider"]))
+    provider_availability = get_provider_availability(
+        str(model_setting["llm_provider"])
+    )
     if not provider_availability["enabled"]:
         raise HTTPException(
             status_code=400,
@@ -244,7 +264,9 @@ def generate_automatic_trade_reviews(
     else:
         journal_review_tasks.fail_task(
             activity_task_id,
-            failures[0]["error"] if failures else "Trade journal AI review generation failed.",
+            failures[0]["error"]
+            if failures
+            else "Trade journal AI review generation failed.",
             "Trade journal AI review generation failed.",
         )
     return generated
@@ -265,13 +287,19 @@ def load_owner_scoped_trade_records(
         ticker=ticker,
     ):
         try:
-            records.append(get_trade_record_file(entry.trade_id, reports_dir=app_config.REPORTS_DIR))
+            records.append(
+                get_trade_record_file(
+                    entry.trade_id, reports_dir=app_config.REPORTS_DIR
+                )
+            )
         except ValueError:
             continue
     return records
 
 
-def list_trades(ticker: str | None = None, request: Request | None = None) -> list[dict]:
+def list_trades(
+    ticker: str | None = None, request: Request | None = None
+) -> list[dict]:
     try:
         if auth.auth_enabled():
             with auth.db_session() as db:
@@ -283,7 +311,9 @@ def list_trades(ticker: str | None = None, request: Request | None = None) -> li
                     tenant_id=user.tenant_id,
                     ticker=ticker,
                 )
-        return list_trade_records_file(ticker=ticker, reports_dir=app_config.REPORTS_DIR)
+        return list_trade_records_file(
+            ticker=ticker, reports_dir=app_config.REPORTS_DIR
+        )
     except HTTPException:
         raise
     except (ValueError, analysis_limits.WeeklyUsageLimitExceeded) as exc:
@@ -317,7 +347,10 @@ def create_trade(
                     action="journal.trade.created",
                     resource_type="trade",
                     resource_id=record.get("trade_id"),
-                    metadata={"ticker": record.get("ticker"), "status": record.get("status")},
+                    metadata={
+                        "ticker": record.get("ticker"),
+                        "status": record.get("status"),
+                    },
                     request=request,
                 )
                 if generated_reviews:
@@ -328,11 +361,17 @@ def create_trade(
                         action="journal.review.auto_generated",
                         resource_type="trade",
                         resource_id=record.get("trade_id"),
-                        metadata={"review_types": [review["review_type"] for review in generated_reviews]},
+                        metadata={
+                            "review_types": [
+                                review["review_type"] for review in generated_reviews
+                            ]
+                        },
                         request=request,
                     )
                 return record
-        record = create_trade_record_file(payload.model_dump(), reports_dir=app_config.REPORTS_DIR)
+        record = create_trade_record_file(
+            payload.model_dump(), reports_dir=app_config.REPORTS_DIR
+        )
         generate_automatic_trade_reviews(record)
         return record
     except HTTPException:
@@ -354,12 +393,20 @@ def get_trade(trade_id: str, request: Request | None = None) -> dict:
                     tenant_id=user.tenant_id,
                 )
                 return {
-                    "record": get_trade_record_file(trade_id, reports_dir=app_config.REPORTS_DIR),
-                    "reviews": list_trade_reviews_file(trade_id, reports_dir=app_config.REPORTS_DIR),
+                    "record": get_trade_record_file(
+                        trade_id, reports_dir=app_config.REPORTS_DIR
+                    ),
+                    "reviews": list_trade_reviews_file(
+                        trade_id, reports_dir=app_config.REPORTS_DIR
+                    ),
                 }
         return {
-            "record": get_trade_record_file(trade_id, reports_dir=app_config.REPORTS_DIR),
-            "reviews": list_trade_reviews_file(trade_id, reports_dir=app_config.REPORTS_DIR),
+            "record": get_trade_record_file(
+                trade_id, reports_dir=app_config.REPORTS_DIR
+            ),
+            "reviews": list_trade_reviews_file(
+                trade_id, reports_dir=app_config.REPORTS_DIR
+            ),
         }
     except HTTPException:
         raise
@@ -402,7 +449,10 @@ def update_trade(
                     action="journal.trade.updated",
                     resource_type="trade",
                     resource_id=trade_id,
-                    metadata={"ticker": record.get("ticker"), "status": record.get("status")},
+                    metadata={
+                        "ticker": record.get("ticker"),
+                        "status": record.get("status"),
+                    },
                     request=request,
                 )
                 if generated_reviews:
@@ -413,7 +463,11 @@ def update_trade(
                         action="journal.review.auto_generated",
                         resource_type="trade",
                         resource_id=trade_id,
-                        metadata={"review_types": [review["review_type"] for review in generated_reviews]},
+                        metadata={
+                            "review_types": [
+                                review["review_type"] for review in generated_reviews
+                            ]
+                        },
                         request=request,
                     )
                 return record
@@ -442,7 +496,9 @@ def get_trade_reviews(trade_id: str, request: Request | None = None) -> list[dic
                     user.id,
                     tenant_id=user.tenant_id,
                 )
-                return list_trade_reviews_file(trade_id, reports_dir=app_config.REPORTS_DIR)
+                return list_trade_reviews_file(
+                    trade_id, reports_dir=app_config.REPORTS_DIR
+                )
         return list_trade_reviews_file(trade_id, reports_dir=app_config.REPORTS_DIR)
     except HTTPException:
         raise
@@ -509,7 +565,9 @@ def generate_configured_trade_review(
                     analysis_references=analysis_references,
                     output_language=payload.output_language,
                 )
-                record = get_trade_record_file(trade_id, reports_dir=app_config.REPORTS_DIR)
+                record = get_trade_record_file(
+                    trade_id, reports_dir=app_config.REPORTS_DIR
+                )
                 sync_trade_entry_metadata(db, record, user.id, user.tenant_id)
                 audit.record_audit_event_safely(
                     db,
@@ -573,7 +631,9 @@ def save_trade_review(
                     ),
                     reports_dir=app_config.REPORTS_DIR,
                 )
-                record = get_trade_record_file(trade_id, reports_dir=app_config.REPORTS_DIR)
+                record = get_trade_record_file(
+                    trade_id, reports_dir=app_config.REPORTS_DIR
+                )
                 sync_trade_entry_metadata(db, record, user.id, user.tenant_id)
                 audit.record_audit_event_safely(
                     db,

@@ -26,7 +26,9 @@ class _FakeResponse:
 class _FakeLLM:
     def __init__(self, tool_response=None):
         self.prompts = []
-        self.tool_response = tool_response or AIMessage(content="stub response", tool_calls=[])
+        self.tool_response = tool_response or AIMessage(
+            content="stub response", tool_calls=[]
+        )
 
     def invoke(self, prompt):
         self.prompts.append(prompt)
@@ -123,7 +125,11 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         cases = [
             ("bull", create_bull_researcher(_FakeLLM(), _FakeMemory()), _base_state()),
             ("bear", create_bear_researcher(_FakeLLM(), _FakeMemory()), _base_state()),
-            ("research_manager", create_research_manager(_FakeLLM(), _FakeMemory()), _base_state()),
+            (
+                "research_manager",
+                create_research_manager(_FakeLLM(), _FakeMemory()),
+                _base_state(),
+            ),
             ("trader", create_trader(_FakeLLM(), _FakeMemory()), _base_state()),
             ("aggressive", create_aggressive_debator(_FakeLLM()), _base_state()),
             ("conservative", create_conservative_debator(_FakeLLM()), _base_state()),
@@ -140,7 +146,9 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 result = node(state)
                 self.assertIsInstance(result, dict)
 
-    @patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+    @patch(
+        "diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals"
+    )
     def test_fundamentals_analyst_runtime_supports_valuation_sections(
         self,
         mock_get_valuation_ready_fundamentals,
@@ -173,7 +181,9 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
 
         result = node(_base_state())
 
-        self.assertIn("Portfolio Manager Fallback Decision", result["final_trade_decision"])
+        self.assertIn(
+            "Portfolio Manager Fallback Decision", result["final_trade_decision"]
+        )
         self.assertIn("```json-decision-card", result["final_trade_decision"])
         self.assertIn('"rating": "HOLD"', result["final_trade_decision"])
         self.assertIn('"action": "NO_ACTION"', result["final_trade_decision"])
@@ -187,10 +197,14 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
 
         result = node(_base_state())
 
-        self.assertIn("Portfolio Manager Fallback Decision", result["final_trade_decision"])
+        self.assertIn(
+            "Portfolio Manager Fallback Decision", result["final_trade_decision"]
+        )
         self.assertIn("```json-decision-card", result["final_trade_decision"])
         self.assertIn('"rating": "HOLD"', result["final_trade_decision"])
-        self.assertIn("transient LLM connection failure", result["final_trade_decision"])
+        self.assertIn(
+            "transient LLM connection failure", result["final_trade_decision"]
+        )
         self.assertEqual(result["runtime_warnings"][0]["stage"], "Portfolio Manager")
         self.assertIn("Connection error.", result["runtime_warnings"][0]["message"])
 

@@ -74,8 +74,7 @@ class SearchProvider(Protocol):
         max_results: int,
         language: str | None,
         market: str | None,
-    ) -> list[SearchResult]:
-        ...
+    ) -> list[SearchResult]: ...
 
 
 def require_api_key(api_key: str | None, provider: str) -> str:
@@ -128,7 +127,9 @@ def raise_for_http_status(provider: str, status_code: int, text: str) -> None:
     if status_code < 400:
         return
     if status_code in {401, 403} and not _looks_like_monthly_quota(text):
-        raise SearchProviderAuthError("auth_error", f"{provider}: authentication failed")
+        raise SearchProviderAuthError(
+            "auth_error", f"{provider}: authentication failed"
+        )
     if status_code == 402 or _looks_like_payment(text):
         raise SearchProviderPaymentError(
             "payment_required",

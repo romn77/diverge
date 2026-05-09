@@ -92,7 +92,9 @@ def count_active_tasks() -> int:
     if task_store.redis_task_backend_enabled():
         return task_store.get_task_store().count_active("analysis")
     with tasks_lock:
-        return sum(1 for task in tasks.values() if task.status in task_store.ACTIVE_STATUSES)
+        return sum(
+            1 for task in tasks.values() if task.status in task_store.ACTIVE_STATUSES
+        )
 
 
 def _utc_iso() -> str:
@@ -117,7 +119,9 @@ def report_output_dir(report_id: str) -> Path:
     try:
         report_dir.relative_to(reports_root)
     except ValueError as exc:
-        raise ValueError("Report output directory must remain inside the reports root") from exc
+        raise ValueError(
+            "Report output directory must remain inside the reports root"
+        ) from exc
     return report_dir
 
 
@@ -148,7 +152,11 @@ def delete_task_snapshot(task_id: str) -> None:
     with suppress(FileNotFoundError):
         snapshot_path.unlink()
 
-    for directory in (snapshot_path.parent, active_tasks_dir(), active_tasks_dir().parent):
+    for directory in (
+        snapshot_path.parent,
+        active_tasks_dir(),
+        active_tasks_dir().parent,
+    ):
         with suppress(OSError):
             directory.rmdir()
 
@@ -208,8 +216,12 @@ def get_task(task_id: str) -> Task:
         if payload is None:
             raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
         task = task_from_snapshot(payload)
-        task.queue_position = task_store.get_task_store().queue_position("analysis", task_id)
-        task.progress_events = task_store.get_task_store().list_events("analysis", task_id)
+        task.queue_position = task_store.get_task_store().queue_position(
+            "analysis", task_id
+        )
+        task.progress_events = task_store.get_task_store().list_events(
+            "analysis", task_id
+        )
         return task
     with tasks_lock:
         task = tasks.get(task_id)
@@ -300,7 +312,9 @@ def build_failure_progress(task: Task, error: str) -> dict:
     return failure_progress.to_dict()
 
 
-def build_waiting_for_quota_progress(task: Task, exc: vendor_usage.QuotaWaitRequired) -> dict:
+def build_waiting_for_quota_progress(
+    task: Task, exc: vendor_usage.QuotaWaitRequired
+) -> dict:
     latest_progress = task.latest_progress or {
         "stage_status": {
             "Analysts": "not_started",
@@ -361,11 +375,17 @@ def restore_persisted_active_tasks() -> None:
             if task.status == "running":
                 task.status = "failed"
                 task.error = app_config.RECOVERED_TASK_ERROR
-                failure_progress = build_failure_progress(task, app_config.RECOVERED_TASK_ERROR)
+                failure_progress = build_failure_progress(
+                    task, app_config.RECOVERED_TASK_ERROR
+                )
                 task.latest_progress = failure_progress
                 task.progress_events.append(failure_progress)
-                task_store.get_task_store().save_task("analysis", task.id, task.to_dict())
-                task_store.get_task_store().append_event("analysis", task.id, failure_progress)
+                task_store.get_task_store().save_task(
+                    "analysis", task.id, task.to_dict()
+                )
+                task_store.get_task_store().append_event(
+                    "analysis", task.id, failure_progress
+                )
                 task_store.get_task_store().ack("analysis", task.id)
         return
     active_dir = active_tasks_dir()
@@ -440,7 +460,10 @@ def run_task(task_id: str) -> None:
                 "reports_dir": app_config.REPORTS_DIR,
                 "visible_trade_ids": visible_ids,
             }
-            if "analysis_run_id" in inspect.signature(run_analysis_streaming).parameters:
+            if (
+                "analysis_run_id"
+                in inspect.signature(run_analysis_streaming).parameters
+            ):
                 stream_kwargs["analysis_run_id"] = task_id
             progress_stream = run_analysis_streaming(
                 task.request,
@@ -650,7 +673,9 @@ def claim_next_task(*, timeout: int = 5) -> str | None:
 def cancel_task(task_id: str) -> None:
     task = get_task(task_id)
     if task.status not in {"pending", "queued", "waiting_for_quota"}:
-        raise HTTPException(status_code=409, detail="Only queued or waiting tasks can be canceled.")
+        raise HTTPException(
+            status_code=409, detail="Only queued or waiting tasks can be canceled."
+        )
     now_iso = _utc_iso()
     task.status = "canceled"
     task.canceled_at = now_iso

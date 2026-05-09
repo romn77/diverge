@@ -1,3 +1,4 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
@@ -10,8 +11,10 @@ from diverge.agents.risk_mgmt.debate_phase import (
 from diverge.runtime.messages import AdkPrompt
 
 
-def create_aggressive_debator(llm):
-    def aggressive_node(state) -> dict:
+class AggressiveDebator(DivergeAgentNode):
+    name = "aggressive_analyst"
+
+    def run(self, state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
         aggressive_history = risk_debate_state.get("aggressive_history", "")
@@ -99,7 +102,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {style_instruction}
 {language_instruction}"""
 
-        response = llm.invoke(AdkPrompt(system_message=prompt))
+        response = self.llm.invoke(AdkPrompt(system_message=prompt))
 
         argument = f"Aggressive Analyst: {response.content}"
 
@@ -121,4 +124,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 
         return {"risk_debate_state": new_risk_debate_state}
 
-    return aggressive_node
+
+def create_aggressive_debator(llm):
+    return AggressiveDebator(llm)

@@ -21,7 +21,9 @@ class BraveSearchProvider:
     endpoint = "https://api.search.brave.com/res/v1/web/search"
 
     def __init__(self, api_key: str | None = None, client: httpx.Client | None = None):
-        self.api_key = api_key if api_key is not None else os.getenv("BRAVE_SEARCH_API_KEY")
+        self.api_key = (
+            api_key if api_key is not None else os.getenv("BRAVE_SEARCH_API_KEY")
+        )
         self.client = client or httpx.Client(
             timeout=httpx.Timeout(10.0, connect=3.0, read=8.0)
         )
@@ -49,16 +51,22 @@ class BraveSearchProvider:
                 "country": (market or "us").upper(),
             },
         )
-        raise_for_http_status(self.name, response.status_code, getattr(response, "text", ""))
+        raise_for_http_status(
+            self.name, response.status_code, getattr(response, "text", "")
+        )
         payload = response_json(self.name, response)
         raw_results = payload.get("web", {}).get("results", [])
         results = [
-            self._map_result(item, index=index, query=query, language=language, market=market)
+            self._map_result(
+                item, index=index, query=query, language=language, market=market
+            )
             for index, item in enumerate(raw_results)
             if isinstance(item, dict)
         ]
         if not results:
-            raise SearchProviderEmptyResult("empty_results", "brave returned no results")
+            raise SearchProviderEmptyResult(
+                "empty_results", "brave returned no results"
+            )
         return results[:count]
 
     def _map_result(

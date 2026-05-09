@@ -52,7 +52,9 @@ def get_request_user_with_password_change(
     return user
 
 
-def require_permission(db: Any, request: Request | None, permission: str) -> auth.User | None:
+def require_permission(
+    db: Any, request: Request | None, permission: str
+) -> auth.User | None:
     settings = auth.get_auth_settings()
     if not settings.enabled:
         return None

@@ -47,7 +47,33 @@ def infer_cn_exchange(code: str) -> str:
         return "SH"
     if code.startswith(("000", "001", "002", "003", "300", "301", "302")):
         return "SZ"
-    if code.startswith(("430", "440", "830", "831", "832", "833", "834", "835", "836", "837", "838", "839", "870", "871", "872", "873", "874", "875", "876", "877", "878", "879", "920")):
+    if code.startswith(
+        (
+            "430",
+            "440",
+            "830",
+            "831",
+            "832",
+            "833",
+            "834",
+            "835",
+            "836",
+            "837",
+            "838",
+            "839",
+            "870",
+            "871",
+            "872",
+            "873",
+            "874",
+            "875",
+            "876",
+            "877",
+            "878",
+            "879",
+            "920",
+        )
+    ):
         return "BJ"
     if code.startswith(("4", "8")):
         return "BJ"
@@ -135,7 +161,9 @@ def generate_indicator_report(
 ) -> str:
     if indicator not in INDICATOR_DESCRIPTIONS:
         supported = ", ".join(sorted(INDICATOR_DESCRIPTIONS.keys()))
-        raise ValueError(f"Indicator {indicator} is not supported. Choose from: {supported}")
+        raise ValueError(
+            f"Indicator {indicator} is not supported. Choose from: {supported}"
+        )
 
     working = df.copy()
     if "Date" not in working.columns:

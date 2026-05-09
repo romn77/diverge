@@ -37,10 +37,16 @@ def _make_api_request(path: str, params: dict[str, Any] | None = None) -> Any:
     try:
         payload = response.json()
     except ValueError as exc:
-        raise VendorRetryableError(f"FMP returned non-JSON response: {response.text[:200]}") from exc
+        raise VendorRetryableError(
+            f"FMP returned non-JSON response: {response.text[:200]}"
+        ) from exc
 
     if isinstance(payload, dict):
-        message = payload.get("Error Message") or payload.get("error") or payload.get("message")
+        message = (
+            payload.get("Error Message")
+            or payload.get("error")
+            or payload.get("message")
+        )
         if message:
             lowered = str(message).lower()
             if "limit" in lowered or "apikey" in lowered or "api key" in lowered:

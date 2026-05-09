@@ -130,28 +130,38 @@ class AnalysisTrackerTests(unittest.TestCase):
             self.assertEqual(initial.stage_status["Portfolio"], "not_started")
 
             tracker.update_agent_status("Market Analyst", "in_progress")
-            running = tracker.to_progress(status="running", message="Market analyst started")
+            running = tracker.to_progress(
+                status="running", message="Market analyst started"
+            )
             self.assertEqual(running.stage_status["Analysts"], "processing")
             self.assertEqual(running.current_agent, "Market Analyst")
 
             tracker.update_agent_status("Market Analyst", "completed")
             tracker.update_agent_status("News Analyst", "completed")
-            finished = tracker.to_progress(status="running", message="Analysts finished")
+            finished = tracker.to_progress(
+                status="running", message="Analysts finished"
+            )
             self.assertEqual(finished.stage_status["Analysts"], "completed")
 
     def test_tracker_writes_partial_reports_into_final_stage_directories(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             tracker = AnalysisTracker(["market"], Path(temp_dir))
 
-            tracker.update_report_section("market_report", "# Market\n\nMomentum is positive.")
-            tracker.update_report_section("trader_investment_plan", "Reduce risk and wait.")
+            tracker.update_report_section(
+                "market_report", "# Market\n\nMomentum is positive."
+            )
+            tracker.update_report_section(
+                "trader_investment_plan", "Reduce risk and wait."
+            )
 
             market_path = Path(temp_dir) / "1_analysts" / "market.md"
             trader_path = Path(temp_dir) / "3_trading" / "trader.md"
 
             self.assertTrue(market_path.is_file())
             self.assertTrue(trader_path.is_file())
-            self.assertIn("Momentum is positive", market_path.read_text(encoding="utf-8"))
+            self.assertIn(
+                "Momentum is positive", market_path.read_text(encoding="utf-8")
+            )
             self.assertIn("Reduce risk", trader_path.read_text(encoding="utf-8"))
 
     def test_tracker_surfaces_runtime_warning_progress_message(self):
@@ -175,7 +185,9 @@ class AnalysisTrackerTests(unittest.TestCase):
             self.assertIn("Warning:", progress.message)
             self.assertEqual(progress.warnings[0]["stage"], "Portfolio Manager")
 
-    def test_save_report_to_disk_keeps_fundamentals_report_and_writes_thesis_artifact(self):
+    def test_save_report_to_disk_keeps_fundamentals_report_and_writes_thesis_artifact(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as temp_dir:
             final_state = {
                 "market_report": "# Market\n\nStable backdrop.",
@@ -228,7 +240,9 @@ class AnalysisTrackerTests(unittest.TestCase):
             thesis_path = Path(temp_dir) / "artifacts" / "thesis.json"
             summary_path = Path(temp_dir) / "artifacts" / "summary.json"
             trade_feedback_path = Path(temp_dir) / "artifacts" / "trade_feedback.json"
-            runtime_warnings_path = Path(temp_dir) / "artifacts" / "runtime_warnings.json"
+            runtime_warnings_path = (
+                Path(temp_dir) / "artifacts" / "runtime_warnings.json"
+            )
 
             self.assertTrue(report_path.is_file())
             self.assertTrue(fundamentals_path.is_file())
@@ -236,7 +250,9 @@ class AnalysisTrackerTests(unittest.TestCase):
             self.assertTrue(summary_path.is_file())
             self.assertTrue(trade_feedback_path.is_file())
             self.assertTrue(runtime_warnings_path.is_file())
-            self.assertIn("## DCF Summary", fundamentals_path.read_text(encoding="utf-8"))
+            self.assertIn(
+                "## DCF Summary", fundamentals_path.read_text(encoding="utf-8")
+            )
             self.assertIn(
                 "Runtime Warnings",
                 report_path.read_text(encoding="utf-8"),

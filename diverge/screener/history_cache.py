@@ -66,25 +66,33 @@ def history_cache_path(history_dir: str | Path, market: str, symbol: str) -> Pat
     return Path(history_dir) / market / f"{safe_symbol}.csv"
 
 
-def load_history_cache(history_dir: str | Path, market: str, symbol: str) -> pd.DataFrame:
+def load_history_cache(
+    history_dir: str | Path, market: str, symbol: str
+) -> pd.DataFrame:
     path = history_cache_path(history_dir, market, symbol)
     if not path.is_file():
         return empty_history_frame()
     return normalize_history_frame(pd.read_csv(path))
 
 
-def save_history_cache(history_dir: str | Path, market: str, symbol: str, frame: pd.DataFrame) -> Path:
+def save_history_cache(
+    history_dir: str | Path, market: str, symbol: str, frame: pd.DataFrame
+) -> Path:
     path = history_cache_path(history_dir, market, symbol)
     path.parent.mkdir(parents=True, exist_ok=True)
     normalize_history_frame(frame).to_csv(path, index=False)
     return path
 
 
-def slice_history_window(frame: pd.DataFrame, start_date: str, end_date: str) -> pd.DataFrame:
+def slice_history_window(
+    frame: pd.DataFrame, start_date: str, end_date: str
+) -> pd.DataFrame:
     normalized = normalize_history_frame(frame)
     if normalized.empty:
         return normalized
-    window = normalized[(normalized["Date"] >= start_date) & (normalized["Date"] <= end_date)]
+    window = normalized[
+        (normalized["Date"] >= start_date) & (normalized["Date"] <= end_date)
+    ]
     return window.reset_index(drop=True)
 
 
@@ -129,7 +137,9 @@ def classify_history_cache_coverage(
     }
 
 
-def merge_history_frames(existing_frame: pd.DataFrame, new_frame: pd.DataFrame) -> pd.DataFrame:
+def merge_history_frames(
+    existing_frame: pd.DataFrame, new_frame: pd.DataFrame
+) -> pd.DataFrame:
     if existing_frame.empty:
         return normalize_history_frame(new_frame)
     if new_frame.empty:
@@ -180,12 +190,16 @@ def checkpoint_path(
         "us_data_source_fallbacks": list(us_data_source_fallbacks or []),
     }
     digest = hashlib.sha1(
-        json.dumps(payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True).encode("utf-8")
+        json.dumps(
+            payload, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
     ).hexdigest()[:16]
     return Path(checkpoint_dir) / digest / "history.json"
 
 
-def load_checkpoint(path: str | Path, *, max_age: timedelta | None = None) -> dict | None:
+def load_checkpoint(
+    path: str | Path, *, max_age: timedelta | None = None
+) -> dict | None:
     checkpoint_file = Path(path)
     if not checkpoint_file.is_file():
         return None

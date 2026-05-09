@@ -9,7 +9,11 @@ from typing import Callable
 from pydantic import BaseModel
 
 from diverge.default_config import DEFAULT_CONFIG
-from diverge.research.search.schema import SearchPurpose, SearchResponse, clamp_max_results
+from diverge.research.search.schema import (
+    SearchPurpose,
+    SearchResponse,
+    clamp_max_results,
+)
 
 
 SEARCH_CACHE_TTL_SECONDS = 43_200
@@ -56,7 +60,9 @@ class SearchCache:
         *,
         now_func: Callable[[], datetime] | None = None,
     ) -> None:
-        self.cache_dir = Path(cache_dir or Path(DEFAULT_CONFIG["data_cache_dir"]) / "search")
+        self.cache_dir = Path(
+            cache_dir or Path(DEFAULT_CONFIG["data_cache_dir"]) / "search"
+        )
         self.now_func = now_func or _utcnow
 
     def _path(self, key: SearchCacheKey) -> Path:

@@ -75,7 +75,9 @@ def _fetch_akshare_us_stock_df(symbol: str, start_date: str, end_date: str):
 
     start_ts = pd.to_datetime(start_date)
     end_ts = pd.to_datetime(end_date)
-    filtered = renamed[(renamed["Date"] >= start_ts) & (renamed["Date"] <= end_ts)].reset_index(drop=True)
+    filtered = renamed[
+        (renamed["Date"] >= start_ts) & (renamed["Date"] <= end_ts)
+    ].reset_index(drop=True)
     if filtered.empty:
         raise VendorDataEmptyError(f"No akshare us stock data found for {symbol}")
     return filtered

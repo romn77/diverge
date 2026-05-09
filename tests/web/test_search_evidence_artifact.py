@@ -126,13 +126,20 @@ class SearchEvidenceArtifactRuntimeTests(unittest.TestCase):
             return {"final_trade_decision": "HOLD"}
 
         with (
-            patch.object(analysis_tasks, "run_analysis_streaming", fake_run_analysis_streaming),
+            patch.object(
+                analysis_tasks, "run_analysis_streaming", fake_run_analysis_streaming
+            ),
             self._patch_report_writers(),
         ):
             analysis_tasks.run_task("task-search")
 
         task = analysis_tasks.get_task("task-search")
-        artifact_path = app_config.REPORTS_DIR / task.report_id / "artifacts" / "search_evidence.json"
+        artifact_path = (
+            app_config.REPORTS_DIR
+            / task.report_id
+            / "artifacts"
+            / "search_evidence.json"
+        )
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         self.assertEqual(payload["type"], "search_evidence")
         self.assertEqual(payload["summary"]["call_count"], 1)
@@ -160,13 +167,20 @@ class SearchEvidenceArtifactRuntimeTests(unittest.TestCase):
             return {"final_trade_decision": "HOLD"}
 
         with (
-            patch.object(analysis_tasks, "run_analysis_streaming", fake_run_analysis_streaming),
+            patch.object(
+                analysis_tasks, "run_analysis_streaming", fake_run_analysis_streaming
+            ),
             self._patch_report_writers(),
         ):
             analysis_tasks.run_task("task-empty")
 
         task = analysis_tasks.get_task("task-empty")
-        artifact_path = app_config.REPORTS_DIR / task.report_id / "artifacts" / "search_evidence.json"
+        artifact_path = (
+            app_config.REPORTS_DIR
+            / task.report_id
+            / "artifacts"
+            / "search_evidence.json"
+        )
         self.assertFalse(artifact_path.exists())
         self.assertIsNone(search_sessions.get("task-empty"))
 

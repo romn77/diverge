@@ -17,8 +17,12 @@ def test_billing_and_quota_errors_are_monthly_disable_errors():
     assert is_monthly_disable_reason("payment_required")
     assert is_monthly_disable_reason("hard_cap_reached")
 
-    assert SearchProviderQuotaError("quota_exhausted", "Quota exhausted").monthly_disable
-    assert SearchProviderPaymentError("payment_required", "Payment required").monthly_disable
+    assert SearchProviderQuotaError(
+        "quota_exhausted", "Quota exhausted"
+    ).monthly_disable
+    assert SearchProviderPaymentError(
+        "payment_required", "Payment required"
+    ).monthly_disable
 
 
 def test_temporary_empty_and_malformed_errors_do_not_monthly_disable():

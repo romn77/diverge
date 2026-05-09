@@ -198,8 +198,12 @@ def list_reports_from_storage() -> list[dict]:
         date_str = None
         time_str = None
         try:
-            content = storage.get_storage().get_text(f"reports/{report_id}/complete_report.md")
-            parsed_ticker, date_str, time_str = parse_complete_report_header_text(content)
+            content = storage.get_storage().get_text(
+                f"reports/{report_id}/complete_report.md"
+            )
+            parsed_ticker, date_str, time_str = parse_complete_report_header_text(
+                content
+            )
             if parsed_ticker:
                 ticker = parsed_ticker
         except Exception:
@@ -402,6 +406,8 @@ def get_content(report_id: str, path: str, request: Request | None = None) -> di
             report_id,
             path,
         )
-        raise HTTPException(status_code=500, detail="Failed to read report file") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to read report file"
+        ) from exc
 
     return {"content": content}

@@ -86,7 +86,9 @@ def prune_universe_by_history_coverage(
     if prefiltered_df.empty:
         return HistoryCoveragePruneBundle(
             kept_df=prefiltered_df.copy(),
-            pruned_df=pd.DataFrame(columns=list(prefiltered_df.columns) + ["drop_reason"]),
+            pruned_df=pd.DataFrame(
+                columns=list(prefiltered_df.columns) + ["drop_reason"]
+            ),
         )
 
     start_date = (
@@ -116,7 +118,12 @@ def prune_universe_by_history_coverage(
         kept_df=pd.DataFrame(kept_rows, columns=list(prefiltered_df.columns)),
         pruned_df=pd.DataFrame(
             pruned_rows,
-            columns=[*list(prefiltered_df.columns), "drop_reason", "cache_span", "as_of_date"],
+            columns=[
+                *list(prefiltered_df.columns),
+                "drop_reason",
+                "cache_span",
+                "as_of_date",
+            ],
         ),
     )
 
@@ -157,7 +164,9 @@ def evaluate_screen_stage(
     _emit(progress_callback, "filters", 1, 1)
 
     _emit(progress_callback, "ranking", 0, 1)
-    ranked_df = score_candidates(kept_df, config) if not kept_df.empty else kept_df.copy()
+    ranked_df = (
+        score_candidates(kept_df, config) if not kept_df.empty else kept_df.copy()
+    )
     _emit(progress_callback, "ranking", 1, 1)
 
     return EvaluationStageBundle(

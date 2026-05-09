@@ -23,7 +23,9 @@ def get_tushare_pro_client():
         ts.set_token(token)
         return ts.pro_api(token)
     except Exception as exc:
-        raise VendorRetryableError(f"Failed to initialize tushare client: {exc}") from exc
+        raise VendorRetryableError(
+            f"Failed to initialize tushare client: {exc}"
+        ) from exc
 
 
 def to_tushare_date(value: str) -> str:

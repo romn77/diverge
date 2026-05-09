@@ -24,9 +24,15 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
         self.original_stock_history_dir = app_config.STOCK_HISTORY_DIR
         self.original_tmp_reports_dir = app_config.TMP_REPORTS_DIR
         app_config.REPORTS_DIR = self.project_root / "data" / "reports"
-        app_config.SCREENER_RESULTS_DIR = self.project_root / "data" / "screener" / "runs"
-        app_config.SCREENER_TASKS_DIR = self.project_root / "data" / "screener" / "tasks"
-        app_config.SCREENER_CACHE_DIR = self.project_root / "data" / "cache" / "screener"
+        app_config.SCREENER_RESULTS_DIR = (
+            self.project_root / "data" / "screener" / "runs"
+        )
+        app_config.SCREENER_TASKS_DIR = (
+            self.project_root / "data" / "screener" / "tasks"
+        )
+        app_config.SCREENER_CACHE_DIR = (
+            self.project_root / "data" / "cache" / "screener"
+        )
         app_config.STOCK_HISTORY_DIR = self.project_root / "data" / "history"
         app_config.TMP_REPORTS_DIR = app_config.REPORTS_DIR / ".tmp"
         app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -141,7 +147,9 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 )
 
             async with self._client() as owner_one_client:
-                await self._login(owner_one_client, "owner-one@example.com", "OwnerOnePass123")
+                await self._login(
+                    owner_one_client, "owner-one@example.com", "OwnerOnePass123"
+                )
                 create_response = await owner_one_client.post(
                     "/api/assets",
                     json=self._manual_asset_payload(asset_name="Cash Reserve"),
@@ -155,16 +163,22 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                     "/api/assets/summary",
                     params={"base_currency": "USD", "refresh_if_stale": "false"},
                 )
-                self.assertEqual(summary_response.status_code, 200, summary_response.text)
+                self.assertEqual(
+                    summary_response.status_code, 200, summary_response.text
+                )
                 summary = summary_response.json()
                 self.assertEqual(summary["totals"]["position_count"], 1)
                 self.assertAlmostEqual(summary["totals"]["market_value"], 10000.0)
 
-                detail_response = await owner_one_client.get(f"/api/assets/{position_id}")
+                detail_response = await owner_one_client.get(
+                    f"/api/assets/{position_id}"
+                )
                 self.assertEqual(detail_response.status_code, 200, detail_response.text)
 
             async with self._client() as owner_two_client:
-                await self._login(owner_two_client, "owner-two@example.com", "OwnerTwoPass123")
+                await self._login(
+                    owner_two_client, "owner-two@example.com", "OwnerTwoPass123"
+                )
 
                 list_response = await owner_two_client.get("/api/assets")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
@@ -174,10 +188,14 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                     "/api/assets/summary",
                     params={"base_currency": "USD", "refresh_if_stale": "false"},
                 )
-                self.assertEqual(summary_response.status_code, 200, summary_response.text)
+                self.assertEqual(
+                    summary_response.status_code, 200, summary_response.text
+                )
                 self.assertEqual(summary_response.json()["totals"]["position_count"], 0)
 
-                detail_response = await owner_two_client.get(f"/api/assets/{position_id}")
+                detail_response = await owner_two_client.get(
+                    f"/api/assets/{position_id}"
+                )
                 self.assertEqual(detail_response.status_code, 404, detail_response.text)
 
         asyncio.run(scenario())
@@ -198,7 +216,9 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 )
 
             async with self._client() as owner_client:
-                await self._login(owner_client, "readonly-assets@example.com", "OwnerPass123")
+                await self._login(
+                    owner_client, "readonly-assets@example.com", "OwnerPass123"
+                )
                 create_response = await owner_client.post(
                     "/api/assets",
                     json=self._manual_asset_payload(asset_name="Cash Reserve"),
@@ -224,16 +244,22 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                     )
 
             async with self._client() as owner_client:
-                await self._login(owner_client, "readonly-assets@example.com", "OwnerPass123")
+                await self._login(
+                    owner_client, "readonly-assets@example.com", "OwnerPass123"
+                )
                 summary_response = await owner_client.get("/api/assets/summary")
-                self.assertEqual(summary_response.status_code, 200, summary_response.text)
+                self.assertEqual(
+                    summary_response.status_code, 200, summary_response.text
+                )
                 self.assertEqual(summary_response.json()["totals"]["position_count"], 1)
 
                 refresh_response = await owner_client.get(
                     "/api/assets/summary",
                     params={"refresh_if_stale": "true"},
                 )
-                self.assertEqual(refresh_response.status_code, 403, refresh_response.text)
+                self.assertEqual(
+                    refresh_response.status_code, 403, refresh_response.text
+                )
 
         asyncio.run(scenario())
 
@@ -253,7 +279,9 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 )
 
             async with self._client() as owner_client:
-                await self._login(owner_client, "owner-one@example.com", "OwnerOnePass123")
+                await self._login(
+                    owner_client, "owner-one@example.com", "OwnerOnePass123"
+                )
                 asset_response = await owner_client.post(
                     "/api/assets",
                     json=self._manual_asset_payload(
@@ -272,8 +300,12 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                         "web.backend.routers.tasks.get_provider_availability",
                         return_value={"enabled": True, "disabled_reason": None},
                     ),
-                    patch("web.backend.routers.tasks.llm_models.ensure_model_selection_available"),
-                    patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
+                    patch(
+                        "web.backend.routers.tasks.llm_models.ensure_model_selection_available"
+                    ),
+                    patch(
+                        "web.backend.runtime.analysis_tasks.start_task_thread"
+                    ) as start_task_thread,
                 ):
                     task_response = await owner_client.post(
                         "/api/tasks",
@@ -287,7 +319,9 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 task = analysis_tasks.get_task(task_id)
                 self.assertEqual(task.owner_user_id, owner_one_id)
                 self.assertIsNotNone(task.request.portfolio_context)
-                self.assertIn("Existing exposure to MSFT", task.request.portfolio_context)
+                self.assertIn(
+                    "Existing exposure to MSFT", task.request.portfolio_context
+                )
                 self.assertIn("qty 10", task.request.portfolio_context)
                 self.assertIn("Tracked positions: 1", task.request.portfolio_context)
 

@@ -1,3 +1,4 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
@@ -10,8 +11,10 @@ from diverge.agents.risk_mgmt.debate_phase import (
 from diverge.runtime.messages import AdkPrompt
 
 
-def create_neutral_debator(llm):
-    def neutral_node(state) -> dict:
+class NeutralDebator(DivergeAgentNode):
+    name = "neutral_analyst"
+
+    def run(self, state) -> dict:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
         neutral_history = risk_debate_state.get("neutral_history", "")
@@ -104,7 +107,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {style_instruction}
 {language_instruction}"""
 
-        response = llm.invoke(AdkPrompt(system_message=prompt))
+        response = self.llm.invoke(AdkPrompt(system_message=prompt))
 
         argument = f"Neutral Analyst: {response.content}"
 
@@ -126,4 +129,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 
         return {"risk_debate_state": new_risk_debate_state}
 
-    return neutral_node
+
+def create_neutral_debator(llm):
+    return NeutralDebator(llm)

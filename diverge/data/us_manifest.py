@@ -24,7 +24,9 @@ def _import_akshare():
     return ak
 
 
-def build_us_manifest(source_df: pd.DataFrame, limit: int | None = DEFAULT_LIMIT) -> pd.DataFrame:
+def build_us_manifest(
+    source_df: pd.DataFrame, limit: int | None = DEFAULT_LIMIT
+) -> pd.DataFrame:
     required_columns = {"symbol", "name", "market", "category", "mktcap"}
     missing_columns = required_columns.difference(source_df.columns)
     if missing_columns:
@@ -41,12 +43,16 @@ def build_us_manifest(source_df: pd.DataFrame, limit: int | None = DEFAULT_LIMIT
             "mktcap": pd.to_numeric(source_df["mktcap"], errors="coerce").fillna(0.0),
         }
     )
-    manifest_df = manifest_df.loc[manifest_df["symbol"] != "", MANIFEST_COLUMNS].reset_index(drop=True)
-    manifest_df, _ = filter_us_common_stock_rows(
-        manifest_df.assign(market="us")
-    )
+    manifest_df = manifest_df.loc[
+        manifest_df["symbol"] != "", MANIFEST_COLUMNS
+    ].reset_index(drop=True)
+    manifest_df, _ = filter_us_common_stock_rows(manifest_df.assign(market="us"))
     manifest_df = (
-        sort_rows_by_mktcap(manifest_df.drop(columns=["market"], errors="ignore").loc[:, MANIFEST_COLUMNS])
+        sort_rows_by_mktcap(
+            manifest_df.drop(columns=["market"], errors="ignore").loc[
+                :, MANIFEST_COLUMNS
+            ]
+        )
         .drop_duplicates(subset=["symbol"], keep="first")
         .reset_index(drop=True)
     )

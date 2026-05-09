@@ -42,7 +42,9 @@ def _scheduler_lock(store) -> Iterator[bool]:
                 pass
 
 
-def promote_due_tasks(store=None, *, now_ts: float | None = None) -> list[tuple[str, str]]:
+def promote_due_tasks(
+    store=None, *, now_ts: float | None = None
+) -> list[tuple[str, str]]:
     resolved_store = store or task_store.get_task_store()
     current_ts = time.time() if now_ts is None else now_ts
     promoted: list[tuple[str, str]] = []
@@ -104,7 +106,11 @@ def _claim_next_locked(store) -> tuple[str, str] | None:
     if not candidates:
         return None
     analysis_candidate = candidates.get("analysis")
-    if slots_remaining <= 1 and analysis_running == 0 and analysis_candidate is not None:
+    if (
+        slots_remaining <= 1
+        and analysis_running == 0
+        and analysis_candidate is not None
+    ):
         return _mark_claimed(store, "analysis", analysis_candidate)
     kind, task_id = min(
         candidates.items(),
@@ -127,7 +133,9 @@ def claim_next_kind(kind: str, *, timeout: int = 5) -> str | None:
         if store.count_running() >= task_store.get_global_running_limit():
             return None
         if kind != "analysis":
-            slots_remaining = task_store.get_global_running_limit() - store.count_running()
+            slots_remaining = (
+                task_store.get_global_running_limit() - store.count_running()
+            )
             analysis_candidate = _first_eligible_task(store, "analysis")
             if (
                 slots_remaining <= 1

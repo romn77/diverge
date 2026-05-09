@@ -1,3 +1,4 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     get_language_instruction,
     get_research_note_style_instruction,
@@ -8,8 +9,10 @@ from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.runtime.messages import AdkPrompt
 
 
-def create_research_manager(llm, memory):
-    def research_manager_node(state) -> dict:
+class ResearchManager(DivergeAgentNode):
+    name = "research_manager"
+
+    def run(self, state) -> dict:
         instrument_context = build_instrument_context(state["company_of_interest"])
         history = state["investment_debate_state"].get("history", "")
         market_research_report = state["market_report"]
@@ -24,7 +27,7 @@ def create_research_manager(llm, memory):
         trade_feedback_message = get_trade_feedback_message(state)
 
         curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
-        past_memories = memory.get_memories(curr_situation, n_matches=2)
+        past_memories = self.memory.get_memories(curr_situation, n_matches=2)
 
         past_memory_str = ""
         for i, rec in enumerate(past_memories, 1):
@@ -71,7 +74,7 @@ Keep the fence, JSON keys, and enum literals in English exactly as shown, even w
 
 {style_instruction}
 {language_instruction}"""
-        response = llm.invoke(AdkPrompt(system_message=prompt))
+        response = self.llm.invoke(AdkPrompt(system_message=prompt))
 
         new_investment_debate_state = {
             "judge_decision": response.content,
@@ -87,4 +90,6 @@ Keep the fence, JSON keys, and enum literals in English exactly as shown, even w
             "investment_plan": response.content,
         }
 
-    return research_manager_node
+
+def create_research_manager(llm, memory):
+    return ResearchManager(llm, memory)

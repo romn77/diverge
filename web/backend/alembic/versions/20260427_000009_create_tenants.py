@@ -26,9 +26,21 @@ def upgrade() -> None:
         sa.Column("id", sa.String(length=32), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("slug", sa.String(length=128), nullable=False),
-        sa.Column("status", sa.String(length=32), nullable=False, server_default="active"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "status", sa.String(length=32), nullable=False, server_default="active"
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index("ix_tenants_slug", "tenants", ["slug"], unique=True)
@@ -46,14 +58,21 @@ def upgrade() -> None:
 
     op.add_column(
         "users",
-        sa.Column("tenant_id", sa.String(length=32), nullable=True, server_default=DEFAULT_TENANT_ID),
+        sa.Column(
+            "tenant_id",
+            sa.String(length=32),
+            nullable=True,
+            server_default=DEFAULT_TENANT_ID,
+        ),
     )
     op.execute(
-        sa.text("UPDATE users SET tenant_id = :tenant_id WHERE tenant_id IS NULL").bindparams(
-            tenant_id=DEFAULT_TENANT_ID
-        )
+        sa.text(
+            "UPDATE users SET tenant_id = :tenant_id WHERE tenant_id IS NULL"
+        ).bindparams(tenant_id=DEFAULT_TENANT_ID)
     )
-    op.create_index("ix_users_tenant_email", "users", ["tenant_id", "email"], unique=True)
+    op.create_index(
+        "ix_users_tenant_email", "users", ["tenant_id", "email"], unique=True
+    )
 
 
 def downgrade() -> None:

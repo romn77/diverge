@@ -24,10 +24,22 @@ def upgrade() -> None:
         sa.Column("ticker", sa.String(length=32), nullable=False),
         sa.Column("status", sa.String(length=64), nullable=False),
         sa.Column("storage_path", sa.String(length=1024), nullable=False),
-        sa.Column("review_count", sa.Integer(), nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "review_count", sa.Integer(), nullable=False, server_default=sa.text("0")
+        ),
         sa.Column("last_review_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("trade_id"),
     )

@@ -91,9 +91,15 @@ def test_build_akshare_valuation_input_uses_bond_and_research_sources(monkeypatc
     )
 
     assert valuation_input.market.market == "cn"
-    assert valuation_input.assumptions["risk_free_rate"].source == "akshare:bond_zh_us_rate"
+    assert (
+        valuation_input.assumptions["risk_free_rate"].source
+        == "akshare:bond_zh_us_rate"
+    )
     assert valuation_input.assumptions["risk_free_rate"].value == 0.023
-    assert valuation_input.assumptions["short_term_growth"].source == "akshare:stock_research_report_em"
+    assert (
+        valuation_input.assumptions["short_term_growth"].source
+        == "akshare:stock_research_report_em"
+    )
     assert valuation_input.latest_financial.free_cash_flow == 100.0
     assert len(valuation_input.financials) == 2
 

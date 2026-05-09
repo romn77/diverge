@@ -72,9 +72,7 @@ class LLMProviderConfig(auth.Base):
 
 class LLMModelConfig(auth.Base):
     __tablename__ = "llm_model_configs"
-    __table_args__ = (
-        Index("ix_llm_model_configs_provider", "provider"),
-    )
+    __table_args__ = (Index("ix_llm_model_configs_provider", "provider"),)
 
     id: Mapped[str] = mapped_column(String(256), primary_key=True)
     provider: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -84,7 +82,9 @@ class LLMModelConfig(auth.Base):
     supports_quick: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     supports_deep: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     cost_tier: Mapped[str] = mapped_column(String(32), nullable=False, default="medium")
-    visible_to_roles: Mapped[str] = mapped_column(String(128), nullable=False, default="admin,operator,viewer")
+    visible_to_roles: Mapped[str] = mapped_column(
+        String(128), nullable=False, default="admin,operator,viewer"
+    )
     daily_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     weekly_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
@@ -102,7 +102,9 @@ class LLMModelProfile(auth.Base):
     label: Mapped[str] = mapped_column(String(128), nullable=False)
     description: Mapped[str] = mapped_column(String(512), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    default_for_roles: Mapped[str] = mapped_column(String(128), nullable=False, default="")
+    default_for_roles: Mapped[str] = mapped_column(
+        String(128), nullable=False, default=""
+    )
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -114,9 +116,7 @@ class LLMModelProfile(auth.Base):
 
 class LLMModelProfileRoute(auth.Base):
     __tablename__ = "llm_model_profile_routes"
-    __table_args__ = (
-        Index("ix_llm_model_profile_routes_profile", "profile_id"),
-    )
+    __table_args__ = (Index("ix_llm_model_profile_routes_profile", "profile_id"),)
 
     profile_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     mode: Mapped[str] = mapped_column(String(16), primary_key=True)
@@ -131,11 +131,17 @@ class LLMModuleSetting(auth.Base):
 
     module: Mapped[str] = mapped_column(String(64), primary_key=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    model_profile: Mapped[str] = mapped_column(String(64), nullable=False, default="balanced")
-    output_language: Mapped[str] = mapped_column(String(8), nullable=False, default="cn")
+    model_profile: Mapped[str] = mapped_column(
+        String(64), nullable=False, default="balanced"
+    )
+    output_language: Mapped[str] = mapped_column(
+        String(8), nullable=False, default="cn"
+    )
     custom_provider: Mapped[str | None] = mapped_column(String(64), nullable=True)
     custom_model: Mapped[str | None] = mapped_column(String(192), nullable=True)
-    openai_reasoning_effort: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    openai_reasoning_effort: Mapped[str | None] = mapped_column(
+        String(16), nullable=True
+    )
     google_thinking_level: Mapped[str | None] = mapped_column(String(16), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -148,7 +154,12 @@ class LLMModuleSetting(auth.Base):
 class LLMModelUsage(auth.Base):
     __tablename__ = "llm_model_usage"
     __table_args__ = (
-        Index("ix_llm_model_usage_provider_model_date", "provider", "model_id", "usage_date"),
+        Index(
+            "ix_llm_model_usage_provider_model_date",
+            "provider",
+            "model_id",
+            "usage_date",
+        ),
     )
 
     usage_date: Mapped[str] = mapped_column(String(10), primary_key=True)
@@ -160,7 +171,9 @@ class LLMModelUsage(auth.Base):
     failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     hour_key: Mapped[str | None] = mapped_column(String(13), nullable=True)
     hour_total_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_called_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_called_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -169,7 +182,9 @@ class LLMModelUsage(auth.Base):
     )
 
 
-def database_backed_llm_models_enabled(settings: auth.AuthSettings | None = None) -> bool:
+def database_backed_llm_models_enabled(
+    settings: auth.AuthSettings | None = None,
+) -> bool:
     resolved_settings = settings or auth.get_auth_settings()
     return resolved_settings.enabled and bool(resolved_settings.database_url)
 
@@ -180,7 +195,8 @@ def ensure_llm_model_tables(settings: auth.AuthSettings | None = None) -> None:
         return
     inspector = inspect(auth.get_engine(resolved_settings))
     missing_tables = [
-        table_name for table_name in LLM_MODEL_TABLES
+        table_name
+        for table_name in LLM_MODEL_TABLES
         if not inspector.has_table(table_name)
     ]
     if missing_tables:
@@ -279,15 +295,19 @@ def _provider_key_status(config: dict[str, Any]) -> str:
 def _provider_payload(db: Session, provider: str) -> dict[str, Any]:
     default = _default_provider(provider)
     row = db.get(LLMProviderConfig, provider)
-    payload = default if row is None else {
-        "provider": row.provider,
-        "label": row.label,
-        "enabled": row.enabled,
-        "base_url": row.base_url,
-        "api_key_env": row.api_key_env,
-        "daily_limit": row.daily_limit,
-        "hourly_limit": row.hourly_limit,
-    }
+    payload = (
+        default
+        if row is None
+        else {
+            "provider": row.provider,
+            "label": row.label,
+            "enabled": row.enabled,
+            "base_url": row.base_url,
+            "api_key_env": row.api_key_env,
+            "daily_limit": row.daily_limit,
+            "hourly_limit": row.hourly_limit,
+        }
+    )
     payload["key_status"] = _provider_key_status(payload)
     return payload
 
@@ -312,7 +332,9 @@ def _model_payload(db: Session, provider: str, model_id: str) -> dict[str, Any] 
     }
 
 
-def _sum_usage(db: Session, provider: str, model_id: str, usage_date: str) -> dict[str, Any]:
+def _sum_usage(
+    db: Session, provider: str, model_id: str, usage_date: str
+) -> dict[str, Any]:
     row = db.execute(
         select(
             func.coalesce(func.sum(LLMModelUsage.total_calls), 0),
@@ -382,18 +404,26 @@ def _sum_model_week_usage(db: Session, provider: str, model_id: str) -> int:
     return int(value or 0)
 
 
-def _model_summary(db: Session, model: dict[str, Any], usage_date: str) -> dict[str, Any]:
+def _model_summary(
+    db: Session, model: dict[str, Any], usage_date: str
+) -> dict[str, Any]:
     usage = _sum_usage(db, model["provider"], model["model_id"], usage_date)
-    used_this_hour = _sum_hour_usage(db, model["provider"], model["model_id"], usage_date)
+    used_this_hour = _sum_hour_usage(
+        db, model["provider"], model["model_id"], usage_date
+    )
     daily_limit = model["daily_limit"]
     return {
         **model,
         "used_today": usage["total_calls"],
         "used_this_hour": used_this_hour,
-        "remaining_today": None if daily_limit is None else max(daily_limit - usage["total_calls"], 0),
+        "remaining_today": None
+        if daily_limit is None
+        else max(daily_limit - usage["total_calls"], 0),
         "success_count": usage["success_count"],
         "failure_count": usage["failure_count"],
-        "last_called_at": usage["last_called_at"].isoformat() if usage["last_called_at"] else None,
+        "last_called_at": usage["last_called_at"].isoformat()
+        if usage["last_called_at"]
+        else None,
     }
 
 
@@ -404,7 +434,9 @@ def _default_profile_rows() -> list[dict[str, Any]]:
             "label": profile.label,
             "description": profile.description,
             "enabled": True,
-            "default_for_roles": "admin,operator,viewer" if profile.value == "balanced" else "",
+            "default_for_roles": "admin,operator,viewer"
+            if profile.value == "balanced"
+            else "",
             "sort_order": index,
         }
         for index, profile in enumerate(STATIC_MODEL_PROFILES)
@@ -440,7 +472,9 @@ def _profile_routes_from_db(db: Session, profile_id: str) -> list[ModelRoute]:
         select(LLMModelProfileRoute)
         .where(LLMModelProfileRoute.profile_id == profile_id)
         .where(LLMModelProfileRoute.enabled.is_(True))
-        .order_by(LLMModelProfileRoute.route_order.asc(), LLMModelProfileRoute.mode.asc())
+        .order_by(
+            LLMModelProfileRoute.route_order.asc(), LLMModelProfileRoute.mode.asc()
+        )
     ).all()
     grouped: dict[int, dict[str, LLMModelProfileRoute]] = {}
     for row in rows:
@@ -486,40 +520,48 @@ def _seed_llm_model_defaults(db: Session) -> None:
             row.description = default["description"]
             row.sort_order = default["sort_order"]
 
-    existing_route_profiles = set(db.scalars(select(LLMModelProfileRoute.profile_id)).all())
+    existing_route_profiles = set(
+        db.scalars(select(LLMModelProfileRoute.profile_id)).all()
+    )
     for profile in STATIC_MODEL_PROFILES:
         if profile.value in existing_route_profiles:
             continue
         for index, route in enumerate(_default_routes(profile.value)):
-            db.add(LLMModelProfileRoute(
-                profile_id=profile.value,
-                mode="quick",
-                route_order=index,
-                provider=route.provider,
-                model_id=route.quick_model,
-                enabled=True,
-            ))
-            db.add(LLMModelProfileRoute(
-                profile_id=profile.value,
-                mode="deep",
-                route_order=index,
-                provider=route.provider,
-                model_id=route.deep_model,
-                enabled=True,
-            ))
+            db.add(
+                LLMModelProfileRoute(
+                    profile_id=profile.value,
+                    mode="quick",
+                    route_order=index,
+                    provider=route.provider,
+                    model_id=route.quick_model,
+                    enabled=True,
+                )
+            )
+            db.add(
+                LLMModelProfileRoute(
+                    profile_id=profile.value,
+                    mode="deep",
+                    route_order=index,
+                    provider=route.provider,
+                    model_id=route.deep_model,
+                    enabled=True,
+                )
+            )
 
     for module, default in _default_module_settings().items():
         if db.get(LLMModuleSetting, module) is None:
-            db.add(LLMModuleSetting(
-                module=module,
-                enabled=default["enabled"],
-                model_profile=default["model_profile"],
-                output_language=default["output_language"],
-                custom_provider=default["custom_provider"],
-                custom_model=default["custom_model"],
-                openai_reasoning_effort=default["openai_reasoning_effort"],
-                google_thinking_level=default["google_thinking_level"],
-            ))
+            db.add(
+                LLMModuleSetting(
+                    module=module,
+                    enabled=default["enabled"],
+                    model_profile=default["model_profile"],
+                    output_language=default["output_language"],
+                    custom_provider=default["custom_provider"],
+                    custom_model=default["custom_model"],
+                    openai_reasoning_effort=default["openai_reasoning_effort"],
+                    google_thinking_level=default["google_thinking_level"],
+                )
+            )
 
 
 def ensure_llm_model_defaults() -> None:
@@ -534,9 +576,17 @@ def _is_route_available(db: Session, route: ModelRoute) -> bool:
     if not provider["enabled"] or provider["key_status"] != "configured":
         return False
     usage_date = _today_key()
-    if provider["daily_limit"] is not None and _sum_provider_usage(db, route.provider, usage_date) >= provider["daily_limit"]:
+    if (
+        provider["daily_limit"] is not None
+        and _sum_provider_usage(db, route.provider, usage_date)
+        >= provider["daily_limit"]
+    ):
         return False
-    if provider["hourly_limit"] is not None and _sum_provider_hour_usage(db, route.provider, usage_date) >= provider["hourly_limit"]:
+    if (
+        provider["hourly_limit"] is not None
+        and _sum_provider_hour_usage(db, route.provider, usage_date)
+        >= provider["hourly_limit"]
+    ):
         return False
     for mode, model_id in (("quick", route.quick_model), ("deep", route.deep_model)):
         model = _model_payload(db, route.provider, model_id)
@@ -550,7 +600,11 @@ def _is_route_available(db: Session, route: ModelRoute) -> bool:
             usage = _sum_usage(db, route.provider, model_id, usage_date)
             if usage["total_calls"] >= model["daily_limit"]:
                 return False
-        if model["weekly_limit"] is not None and _sum_model_week_usage(db, route.provider, model_id) >= model["weekly_limit"]:
+        if (
+            model["weekly_limit"] is not None
+            and _sum_model_week_usage(db, route.provider, model_id)
+            >= model["weekly_limit"]
+        ):
             return False
     return True
 
@@ -574,13 +628,17 @@ def resolve_model_profile_from_db(profile_id: str) -> ResolvedModelSelection:
                     llm_provider=route.provider,
                     quick_think_llm=route.quick_model,
                     deep_think_llm=route.deep_model,
-                    backend_url=str(provider["base_url"] or get_provider_base_url(route.provider)),
+                    backend_url=str(
+                        provider["base_url"] or get_provider_base_url(route.provider)
+                    ),
                 )
 
     raise ValueError(f"Model profile '{normalized}' has no available provider route")
 
 
-def _module_setting_payload(row: LLMModuleSetting | None, module: str) -> dict[str, Any]:
+def _module_setting_payload(
+    row: LLMModuleSetting | None, module: str
+) -> dict[str, Any]:
     defaults = _default_module_settings()[module]
     if row is None:
         return dict(defaults)
@@ -642,11 +700,15 @@ def resolve_module_model_selection(module: str) -> dict[str, Any] | None:
     }
 
 
-def ensure_model_selection_available(provider: str, quick_model: str, deep_model: str) -> None:
+def ensure_model_selection_available(
+    provider: str, quick_model: str, deep_model: str
+) -> None:
     if not database_backed_llm_models_enabled():
         return
     ensure_llm_model_defaults()
-    route = ModelRoute(provider.strip().lower(), quick_model.strip(), deep_model.strip())
+    route = ModelRoute(
+        provider.strip().lower(), quick_model.strip(), deep_model.strip()
+    )
     with auth.db_session() as db:
         if not _is_route_available(db, route):
             raise ValueError(
@@ -669,7 +731,9 @@ def list_llm_model_summary() -> dict[str, Any]:
     with auth.db_session() as db:
         models = []
         for row in db.scalars(
-            select(LLMModelConfig).order_by(LLMModelConfig.provider.asc(), LLMModelConfig.model_id.asc())
+            select(LLMModelConfig).order_by(
+                LLMModelConfig.provider.asc(), LLMModelConfig.model_id.asc()
+            )
         ).all():
             payload = _model_payload(db, row.provider, row.model_id)
             if payload is not None:
@@ -677,7 +741,9 @@ def list_llm_model_summary() -> dict[str, Any]:
 
         profiles = []
         for row in db.scalars(
-            select(LLMModelProfile).order_by(LLMModelProfile.sort_order.asc(), LLMModelProfile.profile_id.asc())
+            select(LLMModelProfile).order_by(
+                LLMModelProfile.sort_order.asc(), LLMModelProfile.profile_id.asc()
+            )
         ).all():
             profile = {
                 "profile_id": row.profile_id,
@@ -705,7 +771,9 @@ def list_llm_model_summary() -> dict[str, Any]:
             "providers": [
                 _provider_payload(db, provider)
                 for provider in db.scalars(
-                    select(LLMProviderConfig.provider).order_by(LLMProviderConfig.provider.asc())
+                    select(LLMProviderConfig.provider).order_by(
+                        LLMProviderConfig.provider.asc()
+                    )
                 ).all()
             ],
             "models": models,
@@ -725,8 +793,7 @@ def list_config_model_profiles() -> list[dict[str, object]]:
     with auth.db_session() as db:
         options: list[dict[str, object]] = []
         profile_rows = {
-            row.profile_id: row
-            for row in db.scalars(select(LLMModelProfile)).all()
+            row.profile_id: row for row in db.scalars(select(LLMModelProfile)).all()
         }
         for profile in STATIC_MODEL_PROFILES:
             row = profile_rows.get(profile.value)
@@ -737,24 +804,38 @@ def list_config_model_profiles() -> list[dict[str, object]]:
                 options.append(option)
                 continue
             route = next(
-                (candidate for candidate in _profile_routes_from_db(db, profile.value) if _is_route_available(db, candidate)),
+                (
+                    candidate
+                    for candidate in _profile_routes_from_db(db, profile.value)
+                    if _is_route_available(db, candidate)
+                ),
                 None,
             )
             options.append(
                 {
                     "label": row.label if row is not None else profile.label,
                     "value": profile.value,
-                    "description": row.description if row is not None else profile.description,
+                    "description": row.description
+                    if row is not None
+                    else profile.description,
                     "cost_tier": profile.cost_tier,
                     "enabled": route is not None,
                     "disabled_reason": None
                     if route is not None
                     else "No configured provider is available for this model profile.",
                     "default_provider": route.provider if route is not None else None,
-                    "default_quick_model": route.quick_model if route is not None else None,
-                    "default_deep_model": route.deep_model if route is not None else None,
-                    "default_quick_label": route.quick_model if route is not None else None,
-                    "default_deep_label": route.deep_model if route is not None else None,
+                    "default_quick_model": route.quick_model
+                    if route is not None
+                    else None,
+                    "default_deep_model": route.deep_model
+                    if route is not None
+                    else None,
+                    "default_quick_label": route.quick_model
+                    if route is not None
+                    else None,
+                    "default_deep_label": route.deep_model
+                    if route is not None
+                    else None,
                 }
             )
         options.append(serialize_model_profile(get_model_profile("custom")))
@@ -875,12 +956,16 @@ def update_profile_config(
         }
 
 
-def update_profile_routes(profile_id: str, routes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def update_profile_routes(
+    profile_id: str, routes: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
     normalized = profile_id.strip().lower()
     ensure_llm_model_defaults()
     with auth.db_session() as db:
         existing = db.scalars(
-            select(LLMModelProfileRoute).where(LLMModelProfileRoute.profile_id == normalized)
+            select(LLMModelProfileRoute).where(
+                LLMModelProfileRoute.profile_id == normalized
+            )
         ).all()
         for row in existing:
             db.delete(row)
@@ -889,27 +974,37 @@ def update_profile_routes(profile_id: str, routes: list[dict[str, Any]]) -> list
             quick_model = str(route.get("quick_model", "")).strip()
             deep_model = str(route.get("deep_model", "")).strip()
             if not provider or not quick_model or not deep_model:
-                raise ValueError("Each route requires provider, quick_model, and deep_model")
+                raise ValueError(
+                    "Each route requires provider, quick_model, and deep_model"
+                )
             if _model_payload(db, provider, quick_model) is None:
-                raise ValueError(f"Unknown quick model '{quick_model}' for provider '{provider}'")
+                raise ValueError(
+                    f"Unknown quick model '{quick_model}' for provider '{provider}'"
+                )
             if _model_payload(db, provider, deep_model) is None:
-                raise ValueError(f"Unknown deep model '{deep_model}' for provider '{provider}'")
-            db.add(LLMModelProfileRoute(
-                profile_id=normalized,
-                mode="quick",
-                route_order=index,
-                provider=provider,
-                model_id=quick_model,
-                enabled=True,
-            ))
-            db.add(LLMModelProfileRoute(
-                profile_id=normalized,
-                mode="deep",
-                route_order=index,
-                provider=provider,
-                model_id=deep_model,
-                enabled=True,
-            ))
+                raise ValueError(
+                    f"Unknown deep model '{deep_model}' for provider '{provider}'"
+                )
+            db.add(
+                LLMModelProfileRoute(
+                    profile_id=normalized,
+                    mode="quick",
+                    route_order=index,
+                    provider=provider,
+                    model_id=quick_model,
+                    enabled=True,
+                )
+            )
+            db.add(
+                LLMModelProfileRoute(
+                    profile_id=normalized,
+                    mode="deep",
+                    route_order=index,
+                    provider=provider,
+                    model_id=deep_model,
+                    enabled=True,
+                )
+            )
         db.flush()
         return [
             {
@@ -954,16 +1049,15 @@ def update_module_setting(
     if language not in VALID_OUTPUT_LANGUAGES:
         raise ValueError("output_language must be en or cn")
     openai_effort = (
-        openai_reasoning_effort.strip().lower()
-        if openai_reasoning_effort
-        else None
+        openai_reasoning_effort.strip().lower() if openai_reasoning_effort else None
     )
-    if openai_effort is not None and openai_effort not in VALID_OPENAI_REASONING_EFFORTS:
+    if (
+        openai_effort is not None
+        and openai_effort not in VALID_OPENAI_REASONING_EFFORTS
+    ):
         raise ValueError("openai_reasoning_effort must be low, medium, or high")
     google_level = (
-        google_thinking_level.strip().lower()
-        if google_thinking_level
-        else None
+        google_thinking_level.strip().lower() if google_thinking_level else None
     )
     if google_level is not None and google_level not in VALID_GOOGLE_THINKING_LEVELS:
         raise ValueError("google_thinking_level must be high or minimal")

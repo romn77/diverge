@@ -11,7 +11,13 @@ from unittest.mock import patch
 from diverge.runner import AnalysisRequest
 from tests.web.auth_helpers import AuthClientMixin
 from tests.web.http_harness import app_client
-from web.backend import analysis_limits, app_config, auth, screener_results, screener_runs
+from web.backend import (
+    analysis_limits,
+    app_config,
+    auth,
+    screener_results,
+    screener_runs,
+)
 from web.backend.main import app
 from web.backend.runtime import analysis_tasks, screener_tasks
 
@@ -27,10 +33,18 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
         self.original_stock_history_dir = app_config.STOCK_HISTORY_DIR
         self.original_tmp_reports_dir = app_config.TMP_REPORTS_DIR
         app_config.REPORTS_DIR = Path(self.temp_dir.name) / "data" / "reports"
-        app_config.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "runs"
-        app_config.SCREENER_STATE_DIR = Path(self.temp_dir.name) / "data" / "screener" / "state"
-        app_config.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "tasks"
-        app_config.SCREENER_CACHE_DIR = Path(self.temp_dir.name) / "data" / "cache" / "screener"
+        app_config.SCREENER_RESULTS_DIR = (
+            Path(self.temp_dir.name) / "data" / "screener" / "runs"
+        )
+        app_config.SCREENER_STATE_DIR = (
+            Path(self.temp_dir.name) / "data" / "screener" / "state"
+        )
+        app_config.SCREENER_TASKS_DIR = (
+            Path(self.temp_dir.name) / "data" / "screener" / "tasks"
+        )
+        app_config.SCREENER_CACHE_DIR = (
+            Path(self.temp_dir.name) / "data" / "cache" / "screener"
+        )
         app_config.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "data" / "history"
         app_config.TMP_REPORTS_DIR = app_config.REPORTS_DIR / ".tmp"
         app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -272,18 +286,26 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     401,
                 )
 
-                login_payload = await self._login(client, "admin@example.com", "AdminPass123")
+                login_payload = await self._login(
+                    client, "admin@example.com", "AdminPass123"
+                )
                 self.assertTrue(login_payload["authenticated"])
                 self.assertEqual(login_payload["user"]["email"], "admin@example.com")
                 self.assertTrue(login_payload["user"]["must_change_password"])
-                self.assertEqual(login_payload["tenant"]["slug"], auth.DEFAULT_TENANT_SLUG)
-                self.assertEqual(login_payload["user"]["tenant_id"], login_payload["tenant"]["id"])
+                self.assertEqual(
+                    login_payload["tenant"]["slug"], auth.DEFAULT_TENANT_SLUG
+                )
+                self.assertEqual(
+                    login_payload["user"]["tenant_id"], login_payload["tenant"]["id"]
+                )
                 self.assertIn(auth.PERMISSION_ADMIN_AUDIT, login_payload["permissions"])
 
                 me_response = await client.get("/api/auth/me")
                 self.assertEqual(me_response.status_code, 200)
                 self.assertTrue(me_response.json()["user"]["must_change_password"])
-                self.assertEqual(me_response.json()["tenant"]["slug"], auth.DEFAULT_TENANT_SLUG)
+                self.assertEqual(
+                    me_response.json()["tenant"]["slug"], auth.DEFAULT_TENANT_SLUG
+                )
 
                 self.assertEqual((await client.get("/api/reports")).status_code, 403)
                 self.assertEqual(
@@ -300,7 +322,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     "/api/ticker-history",
                     params={"symbol": "AAPL", "as_of_date": "2026-03-24"},
                 )
-                self.assertEqual(history_response.status_code, 403, history_response.text)
+                self.assertEqual(
+                    history_response.status_code, 403, history_response.text
+                )
 
                 change_password_response = await client.post(
                     "/api/auth/change-password",
@@ -310,7 +334,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     },
                 )
                 self.assertEqual(change_password_response.status_code, 200)
-                self.assertFalse(change_password_response.json()["user"]["must_change_password"])
+                self.assertFalse(
+                    change_password_response.json()["user"]["must_change_password"]
+                )
 
                 reports_response = await client.get("/api/reports")
                 self.assertEqual(reports_response.status_code, 200)
@@ -318,7 +344,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     "/api/ticker-history",
                     params={"symbol": "AAPL", "as_of_date": "2026-03-24"},
                 )
-                self.assertEqual(history_response.status_code, 200, history_response.text)
+                self.assertEqual(
+                    history_response.status_code, 200, history_response.text
+                )
                 self.assertEqual(history_response.json()["points"][0]["close"], 182.0)
 
                 logout_response = await client.post("/api/auth/logout")
@@ -374,7 +402,10 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 for _ in range(auth.LOGIN_FAILURE_LIMIT):
                     response = await client.post(
                         "/api/auth/login",
-                        json={"email": "admin@example.com", "password": "wrong-password"},
+                        json={
+                            "email": "admin@example.com",
+                            "password": "wrong-password",
+                        },
                     )
                     self.assertEqual(response.status_code, 401, response.text)
 
@@ -388,7 +419,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     "/api/auth/login",
                     json={"email": "admin@example.com", "password": "AdminPass123"},
                 )
-                self.assertEqual(correct_response.status_code, 429, correct_response.text)
+                self.assertEqual(
+                    correct_response.status_code, 429, correct_response.text
+                )
 
             async with self._client(auth_enabled=True, auth_mode="required") as client:
                 for index in range(auth.LOGIN_FAILURE_LIMIT):
@@ -405,7 +438,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     "/api/auth/login",
                     json={"email": "admin@example.com", "password": "AdminPass123"},
                 )
-                self.assertEqual(correct_response.status_code, 429, correct_response.text)
+                self.assertEqual(
+                    correct_response.status_code, 429, correct_response.text
+                )
 
         asyncio.run(scenario())
 
@@ -438,7 +473,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 "172.18.0.5",
             )
 
-    def test_optional_mode_requires_login_for_reports_but_keeps_market_history_public(self):
+    def test_optional_mode_requires_login_for_reports_but_keeps_market_history_public(
+        self,
+    ):
         async def scenario():
             self._write_report()
             self._write_history_cache(market="us", symbol="AAPL")
@@ -454,19 +491,25 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     ).status_code,
                     401,
                 )
-                self.assertEqual((await client.get("/api/admin/users")).status_code, 401)
+                self.assertEqual(
+                    (await client.get("/api/admin/users")).status_code, 401
+                )
                 history_response = await client.get(
                     "/api/ticker-history",
                     params={"symbol": "AAPL", "as_of_date": "2026-03-24"},
                 )
-                self.assertEqual(history_response.status_code, 200, history_response.text)
+                self.assertEqual(
+                    history_response.status_code, 200, history_response.text
+                )
                 self.assertEqual(history_response.json()["market"], "us")
 
         asyncio.run(scenario())
 
     def test_admin_routes_require_admin_role_and_support_user_crud(self):
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -497,7 +540,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     json={"display_name": "Operator Prime", "status": "disabled"},
                 )
                 self.assertEqual(update_response.status_code, 200)
-                self.assertEqual(update_response.json()["display_name"], "Operator Prime")
+                self.assertEqual(
+                    update_response.json()["display_name"], "Operator Prime"
+                )
                 self.assertEqual(update_response.json()["status"], "disabled")
 
                 reset_response = await admin_client.post(
@@ -514,17 +559,25 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertEqual(reenable_response.status_code, 200)
                 self.assertEqual(reenable_response.json()["status"], "active")
 
-            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as operator_client:
                 login_response = await operator_client.post(
                     "/api/auth/login",
                     json={"email": "operator@example.com", "password": "ResetPass123"},
                 )
                 self.assertEqual(login_response.status_code, 200, login_response.text)
-                self.assertEqual((await operator_client.get("/api/admin/users")).status_code, 403)
+                self.assertEqual(
+                    (await operator_client.get("/api/admin/users")).status_code, 403
+                )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(admin_client, "admin@example.com", "AdminPass456")
-                delete_response = await admin_client.delete(f"/api/admin/users/{operator_id}")
+                delete_response = await admin_client.delete(
+                    f"/api/admin/users/{operator_id}"
+                )
                 self.assertEqual(delete_response.status_code, 200)
                 self.assertEqual(delete_response.json()["user_id"], operator_id)
 
@@ -532,7 +585,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
     def test_screener_tasks_scope_to_owner_and_allow_viewer_limited_usage(self):
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -561,11 +616,19 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     role="viewer",
                 )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
-                await self._login(operator_client, "operator.one@example.com", "OperatorPass123")
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as operator_client:
+                await self._login(
+                    operator_client, "operator.one@example.com", "OperatorPass123"
+                )
                 with (
-                    patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
-                    patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+                    patch(
+                        "web.backend.services.screeners.ensure_screener_cache_coverage"
+                    ),
+                    patch(
+                        "web.backend.runtime.screener_tasks.start_screener_task_thread"
+                    ) as start_task_thread,
                 ):
                     create_response = await operator_client.post(
                         "/api/screener/tasks",
@@ -580,9 +643,13 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 start_task_thread.assert_called_once()
 
                 task_id = create_response.json()["task_id"]
-                task_response = await operator_client.get(f"/api/screener/tasks/{task_id}")
+                task_response = await operator_client.get(
+                    f"/api/screener/tasks/{task_id}"
+                )
                 self.assertEqual(task_response.status_code, 200, task_response.text)
-                self.assertEqual(task_response.json()["owner_user_id"], operator_user["id"])
+                self.assertEqual(
+                    task_response.json()["owner_user_id"], operator_user["id"]
+                )
 
                 list_response = await operator_client.get("/api/screener/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
@@ -597,23 +664,35 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 snapshot_payload = json.loads(snapshot_path.read_text(encoding="utf-8"))
                 self.assertEqual(snapshot_payload["owner_user_id"], operator_user["id"])
 
-            async with self._client(auth_enabled=True, auth_mode="required") as other_operator_client:
-                await self._login(other_operator_client, "operator.two@example.com", "OperatorPass123")
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as other_operator_client:
+                await self._login(
+                    other_operator_client, "operator.two@example.com", "OperatorPass123"
+                )
                 list_response = await other_operator_client.get("/api/screener/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
                 self.assertEqual(list_response.json(), [])
                 self.assertEqual(
-                    (await other_operator_client.get(f"/api/screener/tasks/{task_id}")).status_code,
+                    (
+                        await other_operator_client.get(
+                            f"/api/screener/tasks/{task_id}"
+                        )
+                    ).status_code,
                     404,
                 )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as viewer_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as viewer_client:
                 await self._login(viewer_client, "viewer@example.com", "ViewerPass123")
                 list_response = await viewer_client.get("/api/screener/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
                 self.assertEqual(list_response.json(), [])
 
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(admin_client, "admin@example.com", "AdminPass456")
                 list_response = await admin_client.get("/api/screener/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
@@ -623,7 +702,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
     def test_analysis_tasks_require_owner_or_admin_to_read_payloads(self):
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -666,11 +747,17 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
             )
             analysis_tasks.tasks[task.id] = task
 
-            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
-                await self._login(operator_client, "operator.one@example.com", "OperatorPass123")
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as operator_client:
+                await self._login(
+                    operator_client, "operator.one@example.com", "OperatorPass123"
+                )
                 list_response = await operator_client.get("/api/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
-                self.assertEqual([row["id"] for row in list_response.json()], ["task-owned"])
+                self.assertEqual(
+                    [row["id"] for row in list_response.json()], ["task-owned"]
+                )
                 self.assertIn(
                     "owner-one private portfolio context",
                     list_response.json()[0]["request_payload"]["portfolio_context"],
@@ -679,22 +766,34 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 detail_response = await operator_client.get("/api/tasks/task-owned")
                 self.assertEqual(detail_response.status_code, 200, detail_response.text)
 
-            async with self._client(auth_enabled=True, auth_mode="required") as other_client:
-                await self._login(other_client, "operator.two@example.com", "OperatorPass123")
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as other_client:
+                await self._login(
+                    other_client, "operator.two@example.com", "OperatorPass123"
+                )
                 list_response = await other_client.get("/api/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
                 self.assertEqual(list_response.json(), [])
-                self.assertEqual((await other_client.get("/api/tasks/task-owned")).status_code, 404)
                 self.assertEqual(
-                    (await other_client.get("/api/tasks/task-owned/stream")).status_code,
+                    (await other_client.get("/api/tasks/task-owned")).status_code, 404
+                )
+                self.assertEqual(
+                    (
+                        await other_client.get("/api/tasks/task-owned/stream")
+                    ).status_code,
                     404,
                 )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(admin_client, "admin@example.com", "AdminPass456")
                 list_response = await admin_client.get("/api/tasks")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
-                self.assertEqual([row["id"] for row in list_response.json()], ["task-owned"])
+                self.assertEqual(
+                    [row["id"] for row in list_response.json()], ["task-owned"]
+                )
 
         asyncio.run(scenario())
 
@@ -713,7 +812,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
         }
 
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -747,7 +848,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     {"admin": None, "operator": 1, "viewer": 4},
                 )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as operator_client:
                 await self._login(
                     operator_client,
                     "operator.limited@example.com",
@@ -759,10 +862,16 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                         "web.backend.routers.tasks.get_provider_availability",
                         return_value={"enabled": True, "disabled_reason": None},
                     ),
-                    patch("web.backend.routers.tasks.llm_models.ensure_model_selection_available"),
-                    patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
+                    patch(
+                        "web.backend.routers.tasks.llm_models.ensure_model_selection_available"
+                    ),
+                    patch(
+                        "web.backend.runtime.analysis_tasks.start_task_thread"
+                    ) as start_task_thread,
                 ):
-                    first_response = await operator_client.post("/api/tasks", json=task_payload)
+                    first_response = await operator_client.post(
+                        "/api/tasks", json=task_payload
+                    )
                     second_response = await operator_client.post(
                         "/api/tasks",
                         json={**task_payload, "ticker": "AAPL"},
@@ -790,7 +899,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
         }
 
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -812,17 +923,25 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                         effect=auth.PERMISSION_EFFECT_DENY,
                     )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as operator_client:
                 await self._login(
                     operator_client,
                     "operator.deny@example.com",
                     "OperatorPass123",
                 )
                 with (
-                    patch("web.backend.routers.tasks.hydrate_provider_credentials") as hydrate_provider_credentials,
-                    patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
+                    patch(
+                        "web.backend.routers.tasks.hydrate_provider_credentials"
+                    ) as hydrate_provider_credentials,
+                    patch(
+                        "web.backend.runtime.analysis_tasks.start_task_thread"
+                    ) as start_task_thread,
                 ):
-                    response = await operator_client.post("/api/tasks", json=task_payload)
+                    response = await operator_client.post(
+                        "/api/tasks", json=task_payload
+                    )
 
                 self.assertEqual(response.status_code, 403, response.text)
                 hydrate_provider_credentials.assert_not_called()
@@ -832,7 +951,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
     def test_user_permission_grant_allows_admin_settings_without_user_admin(self):
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -854,14 +975,18 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                         effect=auth.PERMISSION_EFFECT_GRANT,
                     )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as operator_client:
                 await self._login(
                     operator_client,
                     "operator.settings@example.com",
                     "OperatorPass123",
                 )
                 settings_response = await operator_client.get("/api/admin/data-sources")
-                self.assertEqual(settings_response.status_code, 200, settings_response.text)
+                self.assertEqual(
+                    settings_response.status_code, 200, settings_response.text
+                )
 
                 users_response = await operator_client.get("/api/admin/users")
                 self.assertEqual(users_response.status_code, 403)
@@ -870,7 +995,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
     def test_admin_users_include_weekly_usage_stats_and_reset_current_week(self):
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -887,8 +1014,12 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
                 with auth.db_session() as db:
                     persisted_user = auth.get_user_by_id(db, operator_user["id"])
-                    analysis_limits.record_module_usage(db, persisted_user, module="analysis")
-                    analysis_limits.record_module_usage(db, persisted_user, module="screener")
+                    analysis_limits.record_module_usage(
+                        db, persisted_user, module="analysis"
+                    )
+                    analysis_limits.record_module_usage(
+                        db, persisted_user, module="screener"
+                    )
 
                 users_response = await admin_client.get("/api/admin/users")
                 self.assertEqual(users_response.status_code, 200, users_response.text)
@@ -933,7 +1064,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
     def test_screener_runs_are_shared_across_screener_read_users(self):
         async def scenario():
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(
                     admin_client,
                     "admin@example.com",
@@ -963,7 +1096,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 )
 
                 self._write_screener_run("20260324_214530", symbol="600519.SH")
-                self._write_screener_run("20260325_214530", symbol="AAPL", markets=["us"])
+                self._write_screener_run(
+                    "20260325_214530", symbol="AAPL", markets=["us"]
+                )
                 with auth.db_session() as db:
                     screener_runs.upsert_screener_run(
                         db,
@@ -994,8 +1129,12 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                         },
                     )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as operator_client:
-                await self._login(operator_client, "operator.one@example.com", "OperatorPass123")
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as operator_client:
+                await self._login(
+                    operator_client, "operator.one@example.com", "OperatorPass123"
+                )
                 list_response = await operator_client.get("/api/screener/runs")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
                 self.assertEqual(
@@ -1003,23 +1142,35 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     ["20260325_214530", "20260324_214530"],
                 )
 
-                detail_response = await operator_client.get("/api/screener/runs/20260324_214530")
+                detail_response = await operator_client.get(
+                    "/api/screener/runs/20260324_214530"
+                )
                 self.assertEqual(detail_response.status_code, 200, detail_response.text)
                 self.assertEqual(
-                    detail_response.json()["filtered_count_by_reason"]["liquidity_floor"],
+                    detail_response.json()["filtered_count_by_reason"][
+                        "liquidity_floor"
+                    ],
                     2,
                 )
 
                 candidates_response = await operator_client.get(
                     "/api/screener/runs/20260324_214530/candidates"
                 )
-                self.assertEqual(candidates_response.status_code, 200, candidates_response.text)
+                self.assertEqual(
+                    candidates_response.status_code, 200, candidates_response.text
+                )
                 self.assertEqual(candidates_response.json()[0]["symbol"], "600519.SH")
 
-                shared_detail_response = await operator_client.get("/api/screener/runs/20260325_214530")
-                self.assertEqual(shared_detail_response.status_code, 200, shared_detail_response.text)
+                shared_detail_response = await operator_client.get(
+                    "/api/screener/runs/20260325_214530"
+                )
+                self.assertEqual(
+                    shared_detail_response.status_code, 200, shared_detail_response.text
+                )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as admin_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as admin_client:
                 await self._login(admin_client, "admin@example.com", "AdminPass456")
                 list_response = await admin_client.get("/api/screener/runs")
                 self.assertEqual(list_response.status_code, 200, list_response.text)
@@ -1028,7 +1179,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     {"20260324_214530", "20260325_214530"},
                 )
 
-            async with self._client(auth_enabled=True, auth_mode="required") as viewer_client:
+            async with self._client(
+                auth_enabled=True, auth_mode="required"
+            ) as viewer_client:
                 await self._login(viewer_client, "viewer@example.com", "ViewerPass123")
                 list_response = await viewer_client.get("/api/screener/runs")
                 self.assertEqual(list_response.status_code, 200, list_response.text)

@@ -1,5 +1,4 @@
-import functools
-
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.agents.utils.agent_utils import (
     get_language_instruction,
@@ -9,8 +8,11 @@ from diverge.agents.utils.agent_utils import (
 from diverge.runtime.messages import AdkPrompt
 
 
-def create_trader(llm, memory):
-    def trader_node(state, name):
+class Trader(DivergeAgentNode):
+    name = "trader"
+    sender_name = "Trader"
+
+    def run(self, state):
         company_name = state["company_of_interest"]
         instrument_context = build_instrument_context(company_name)
         investment_plan = state["investment_plan"]
@@ -24,7 +26,7 @@ def create_trader(llm, memory):
         trade_feedback_message = get_trade_feedback_message(state)
 
         curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
-        past_memories = memory.get_memories(curr_situation, n_matches=2)
+        past_memories = self.memory.get_memories(curr_situation, n_matches=2)
 
         past_memory_str = ""
         if past_memories:
@@ -68,7 +70,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {style_instruction}
 {language_instruction}"""
 
-        result = llm.invoke(
+        result = self.llm.invoke(
             AdkPrompt(
                 system_message=system_prompt,
                 messages=(context,),
@@ -78,7 +80,9 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
         return {
             "messages": [result],
             "trader_investment_plan": result.content,
-            "sender": name,
+            "sender": self.sender_name,
         }
 
-    return functools.partial(trader_node, name="Trader")
+
+def create_trader(llm, memory):
+    return Trader(llm, memory)

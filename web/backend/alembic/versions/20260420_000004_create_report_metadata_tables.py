@@ -25,8 +25,18 @@ def upgrade() -> None:
         sa.Column("ticker", sa.String(length=32), nullable=False),
         sa.Column("generated_at", sa.String(length=32), nullable=True),
         sa.Column("storage_path", sa.String(length=1024), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -51,10 +61,24 @@ def upgrade() -> None:
         sa.Column("entry_type", sa.String(length=32), nullable=False),
         sa.Column("category_key", sa.String(length=32), nullable=True),
         sa.Column("artifact_type", sa.String(length=64), nullable=True),
-        sa.Column("sort_order", sa.Integer(), nullable=False, server_default=sa.text("0")),
-        sa.Column("is_primary", sa.Boolean(), nullable=False, server_default=sa.text("false")),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "sort_order", sa.Integer(), nullable=False, server_default=sa.text("0")
+        ),
+        sa.Column(
+            "is_primary", sa.Boolean(), nullable=False, server_default=sa.text("false")
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["report_id"], ["report_runs.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )

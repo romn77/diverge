@@ -24,7 +24,13 @@ class _NYSEHolidayCalendar(AbstractHolidayCalendar):
         USPresidentsDay,
         GoodFriday,
         USMemorialDay,
-        Holiday("Juneteenth", month=6, day=19, observance=nearest_workday, start_date="2021-06-19"),
+        Holiday(
+            "Juneteenth",
+            month=6,
+            day=19,
+            observance=nearest_workday,
+            start_date="2021-06-19",
+        ),
         Holiday("IndependenceDay", month=7, day=4, observance=nearest_workday),
         USLaborDay,
         USThanksgivingDay,
@@ -165,7 +171,9 @@ def count_trading_days(
     normalized_market = str(market).strip().lower()
     if normalized_market == "cn":
         years = range(start_date.year, end_date.year + 1)
-        unsupported_years = [year for year in years if year not in CN_MARKET_CLOSED_RANGES]
+        unsupported_years = [
+            year for year in years if year not in CN_MARKET_CLOSED_RANGES
+        ]
         if unsupported_years:
             if fallback_to_weekdays:
                 return _count_weekdays(start_date, end_date)
@@ -221,7 +229,9 @@ def trading_day_lag(
     normalized_market = str(market).strip().lower()
     if normalized_market == "cn":
         years = range(data_end_date.year, as_of_date.year + 1)
-        unsupported_years = [year for year in years if year not in CN_MARKET_CLOSED_RANGES]
+        unsupported_years = [
+            year for year in years if year not in CN_MARKET_CLOSED_RANGES
+        ]
         if unsupported_years:
             unsupported = ", ".join(str(year) for year in unsupported_years)
             raise ValueError(

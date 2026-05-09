@@ -40,7 +40,9 @@ class SearchEvidenceReportStructureTests(unittest.TestCase):
             artifact for artifact in artifacts if artifact["type"] == "search_evidence"
         )
         self.assertEqual(search_artifact["path"], "artifacts/search_evidence.json")
-        self.assertEqual(search_artifact["summary"], "2 web search call(s), 3 result(s)")
+        self.assertEqual(
+            search_artifact["summary"], "2 web search call(s), 3 result(s)"
+        )
 
     def test_invalid_search_evidence_json_still_exposes_artifact(self):
         (self.report_dir / "artifacts" / "search_evidence.json").write_text(

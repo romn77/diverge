@@ -142,7 +142,10 @@ SILICONFLOW_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("DeepSeek V4 Flash - Latest fast preview", "deepseek-ai/DeepSeek-V4-Flash"),
     ("MiniMax M2.5 - Latest MiniMax standard", "MiniMaxAI/MiniMax-M2.5"),
     ("DeepSeek V3.2 - Efficient latest DeepSeek", "deepseek-ai/DeepSeek-V3.2"),
-    ("DeepSeek V3.1 Terminus - Stable efficient chat", "deepseek-ai/DeepSeek-V3.1-Terminus"),
+    (
+        "DeepSeek V3.1 Terminus - Stable efficient chat",
+        "deepseek-ai/DeepSeek-V3.1-Terminus",
+    ),
     ("DeepSeek V3 - Latest V3 refresh", "deepseek-ai/DeepSeek-V3"),
     ("Z.AI GLM 4.6 - Efficient GLM chat", "zai-org/GLM-4.6"),
     ("Z.AI GLM 4.6V - Vision-capable GLM", "zai-org/GLM-4.6V"),
@@ -158,7 +161,10 @@ SILICONFLOW_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("Kimi K2.5 Pro - Strong long-context Kimi", "Pro/moonshotai/Kimi-K2.5"),
     ("Z.AI GLM 4.7 Pro - Strong reasoning GLM", "Pro/zai-org/GLM-4.7"),
     ("DeepSeek V3.2 Pro - Latest DeepSeek pro", "Pro/deepseek-ai/DeepSeek-V3.2"),
-    ("DeepSeek V3.1 Terminus Pro - Stable pro chat", "Pro/deepseek-ai/DeepSeek-V3.1-Terminus"),
+    (
+        "DeepSeek V3.1 Terminus Pro - Stable pro chat",
+        "Pro/deepseek-ai/DeepSeek-V3.1-Terminus",
+    ),
     ("DeepSeek R1 - Reasoning baseline", "deepseek-ai/DeepSeek-R1"),
     ("DeepSeek R1 Pro - Pro reasoning", "Pro/deepseek-ai/DeepSeek-R1"),
     ("DeepSeek V3 Pro - Pro V3 refresh", "Pro/deepseek-ai/DeepSeek-V3"),

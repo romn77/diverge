@@ -45,7 +45,12 @@ def _base_feature_row(**overrides):
 
 def test_apply_hard_filters_drops_rows_with_insufficient_bars():
     features = pd.DataFrame([_base_feature_row(bar_count=40)])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 
@@ -77,7 +82,12 @@ def test_apply_hard_filters_does_not_reapply_listing_age_after_history():
 
 def test_apply_hard_filters_drops_rows_with_missing_required_features():
     features = pd.DataFrame([_base_feature_row(rsi=pd.NA)])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 
@@ -87,7 +97,12 @@ def test_apply_hard_filters_drops_rows_with_missing_required_features():
 
 def test_apply_hard_filters_drops_rows_with_stale_data():
     features = pd.DataFrame([_base_feature_row(data_end_date="2026-03-18")])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 
@@ -97,7 +112,12 @@ def test_apply_hard_filters_drops_rows_with_stale_data():
 
 def test_apply_hard_filters_prioritizes_stale_data_before_missing_features():
     features = pd.DataFrame([_base_feature_row(data_end_date="2026-03-18", rsi=pd.NA)])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 
@@ -109,7 +129,12 @@ def test_apply_hard_filters_uses_us_market_holidays_for_stale_data_lag():
     features = pd.DataFrame(
         [_base_feature_row(as_of_date="2026-04-07", data_end_date="2026-04-01")]
     )
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-04-07", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-04-07",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 
@@ -140,7 +165,12 @@ def test_apply_hard_filters_uses_cn_market_holidays_for_stale_data_lag():
 
 def test_apply_hard_filters_enforces_us_price_floor():
     features = pd.DataFrame([_base_feature_row(close=4.99)])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 
@@ -170,7 +200,12 @@ def test_apply_hard_filters_enforces_cn_price_floor():
 
 def test_apply_hard_filters_requires_recent_trading_continuity():
     features = pd.DataFrame([_base_feature_row(trading_days_20d=17)])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 
@@ -180,7 +215,14 @@ def test_apply_hard_filters_requires_recent_trading_continuity():
 
 def test_apply_hard_filters_uses_cn_liquidity_threshold():
     features = pd.DataFrame(
-        [_base_feature_row(symbol="600519.SH", market="cn", exchange="SSE", avg_amount_20d=1_000_000.0)]
+        [
+            _base_feature_row(
+                symbol="600519.SH",
+                market="cn",
+                exchange="SSE",
+                avg_amount_20d=1_000_000.0,
+            )
+        ]
     )
     config = ScreenRunConfig(markets=["cn"], as_of_date="2026-03-24", top_k=20)
 
@@ -192,7 +234,12 @@ def test_apply_hard_filters_uses_cn_liquidity_threshold():
 
 def test_apply_hard_filters_uses_us_dollar_volume_threshold():
     features = pd.DataFrame([_base_feature_row(avg_amount_20d=1_000_000.0)])
-    config = ScreenRunConfig(markets=["us"], as_of_date="2026-03-24", top_k=20, us_manifest_path="/tmp/us.csv")
+    config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+    )
 
     kept, dropped = apply_hard_filters(features, config)
 

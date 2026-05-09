@@ -20,7 +20,12 @@ from web.backend import (
     screener_presets,
     screener_results,
 )
-from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks, task_store
+from web.backend.runtime import (
+    analysis_tasks,
+    data_sync_tasks,
+    screener_tasks,
+    task_store,
+)
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.services import screeners as screener_service
 
@@ -41,7 +46,9 @@ def _get_authorized_screener_task(
         task.owner_user_id,
         tenant_id=getattr(task, "tenant_id", None),
     ):
-        raise HTTPException(status_code=404, detail=f"Screener task '{task_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Screener task '{task_id}' not found"
+        )
     return task
 
 
@@ -71,7 +78,9 @@ def resolve_screener_data_sources(markets: list[str]) -> dict:
     return sources
 
 
-def resolve_screener_as_of_date(markets: list[str], data_sources: dict | None = None) -> str:
+def resolve_screener_as_of_date(
+    markets: list[str], data_sources: dict | None = None
+) -> str:
     today = date.today()
     sources = data_sources or {}
     trading_days = []
@@ -93,7 +102,9 @@ def resolve_screener_as_of_date(markets: list[str], data_sources: dict | None = 
             )
         )
     if not trading_days:
-        raise HTTPException(status_code=400, detail="Unable to resolve screener trading date.")
+        raise HTTPException(
+            status_code=400, detail="Unable to resolve screener trading date."
+        )
     return min(trading_days).isoformat()
 
 
@@ -166,7 +177,7 @@ def create_screener_task(
         config_payload["us_manifest_path"] = manifest_path
 
     try:
-        config = ScreenRunConfig(**config_payload)
+        ScreenRunConfig(**config_payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -306,7 +317,9 @@ async def stream_screener_task(
                 task = _get_authorized_screener_task(task_id, current_user)
             except HTTPException:
                 break
-            pending_events = screener_tasks.get_screener_progress_events(task_id, cursor)
+            pending_events = screener_tasks.get_screener_progress_events(
+                task_id, cursor
+            )
             task_status = task.status
 
             for event in pending_events:

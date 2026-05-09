@@ -23,7 +23,9 @@ class TradeFeedbackServiceTests(unittest.TestCase):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.project_root = Path(self.temp_dir.name)
         self.reports_dir = self.project_root / "data" / "reports"
-        self.report_dir = self.project_root / "data" / "reports" / "MSFT_20260401_120000"
+        self.report_dir = (
+            self.project_root / "data" / "reports" / "MSFT_20260401_120000"
+        )
         self.eval_dir = (
             self.project_root
             / "data"
@@ -128,7 +130,10 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                     "ticker_specific_lessons": [
                         "MSFT follow-through trades work better when cloud commentary confirms the thesis."
                     ],
-                    "cross_ticker_tags": ["earnings_follow_through", "planned_scale_in"],
+                    "cross_ticker_tags": [
+                        "earnings_follow_through",
+                        "planned_scale_in",
+                    ],
                 }
             )
         )
@@ -150,46 +155,90 @@ class TradeFeedbackServiceTests(unittest.TestCase):
         self.assertEqual(review["analysis_date"], "2026-04-04")
         self.assertIn("Avoid obvious hindsight bias", fake_llm.prompts[0])
         self.assertIn("This is an EXIT review.", fake_llm.prompts[0])
-        self.assertIn("Reports and full-state logs are optional supplements", fake_llm.prompts[0])
+        self.assertIn(
+            "Reports and full-state logs are optional supplements", fake_llm.prompts[0]
+        )
         self.assertIn("Evidence pack:", fake_llm.prompts[0])
         self.assertIn('"local_price_history"', fake_llm.prompts[0])
         self.assertIn('"external_news"', fake_llm.prompts[0])
         self.assertIn("Review diagnostics:", fake_llm.prompts[0])
         self.assertIn("Separate record quality from trade quality", fake_llm.prompts[0])
         self.assertIn("Determine setup_type", fake_llm.prompts[0])
-        self.assertIn("Do not mechanically punish a trade for missing fundamentals", fake_llm.prompts[0])
+        self.assertIn(
+            "Do not mechanically punish a trade for missing fundamentals",
+            fake_llm.prompts[0],
+        )
         self.assertIn("CRITICAL OUTPUT FORMAT", fake_llm.prompts[0])
         self.assertIn("Score floors by setup_type", fake_llm.prompts[0])
         self.assertIn("Record quality: <high|medium|low>", fake_llm.prompts[0])
         self.assertIn("`thesis_assessment` = Logic assessment", fake_llm.prompts[0])
         self.assertIn("`timing_assessment` = Technical assessment", fake_llm.prompts[0])
-        self.assertIn("`sizing_assessment` = Risk-control assessment", fake_llm.prompts[0])
-        self.assertIn("`discipline_assessment` = Execution assessment", fake_llm.prompts[0])
-        self.assertIn("Assign each root cause to one primary module", fake_llm.prompts[0])
-        self.assertIn("verify whether the buy actually satisfied the setup trigger", fake_llm.prompts[0])
-        self.assertIn("fundamental/catalyst context supports or conflicts with the technical signal", fake_llm.prompts[0])
-        self.assertIn("explicitly give the required risk-control rule or remediation", fake_llm.prompts[0])
+        self.assertIn(
+            "`sizing_assessment` = Risk-control assessment", fake_llm.prompts[0]
+        )
+        self.assertIn(
+            "`discipline_assessment` = Execution assessment", fake_llm.prompts[0]
+        )
+        self.assertIn(
+            "Assign each root cause to one primary module", fake_llm.prompts[0]
+        )
+        self.assertIn(
+            "verify whether the buy actually satisfied the setup trigger",
+            fake_llm.prompts[0],
+        )
+        self.assertIn(
+            "fundamental/catalyst context supports or conflicts with the technical signal",
+            fake_llm.prompts[0],
+        )
+        self.assertIn(
+            "explicitly give the required risk-control rule or remediation",
+            fake_llm.prompts[0],
+        )
         self.assertIn("critique the operational failure", fake_llm.prompts[0])
-        self.assertIn("Each action must be enforceable by software or a pre-order checklist", fake_llm.prompts[0])
+        self.assertIn(
+            "Each action must be enforceable by software or a pre-order checklist",
+            fake_llm.prompts[0],
+        )
         self.assertIn("Review diagnostics as the source of truth", fake_llm.prompts[0])
         self.assertIn("high-quality trading coach", fake_llm.prompts[0])
-        self.assertIn("Translate raw record and diagnostic keys into trader-facing language", fake_llm.prompts[0])
+        self.assertIn(
+            "Translate raw record and diagnostic keys into trader-facing language",
+            fake_llm.prompts[0],
+        )
         self.assertIn("Do not output internal diagnostic keys", fake_llm.prompts[0])
-        self.assertIn("For each score, include a short \"because...\" explanation", fake_llm.prompts[0])
-        self.assertIn("Outcome summary after the anchor sentence should be 2-3 coaching sentences only", fake_llm.prompts[0])
+        self.assertIn(
+            'For each score, include a short "because..." explanation',
+            fake_llm.prompts[0],
+        )
+        self.assertIn(
+            "Outcome summary after the anchor sentence should be 2-3 coaching sentences only",
+            fake_llm.prompts[0],
+        )
         self.assertIn("why confidence is high/medium/low", fake_llm.prompts[0])
-        self.assertIn("Write \"R:R could not be calculated\", not `risk_reward_available=false`", fake_llm.prompts[0])
-        self.assertIn("Mix severity levels so the ruleset is usable", fake_llm.prompts[0])
-        self.assertIn("Prefix each action with exactly one severity label", fake_llm.prompts[0])
+        self.assertIn(
+            'Write "R:R could not be calculated", not `risk_reward_available=false`',
+            fake_llm.prompts[0],
+        )
+        self.assertIn(
+            "Mix severity levels so the ruleset is usable", fake_llm.prompts[0]
+        )
+        self.assertIn(
+            "Prefix each action with exactly one severity label", fake_llm.prompts[0]
+        )
         self.assertIn("`BLOCKING:`", fake_llm.prompts[0])
         self.assertIn("`CONDITIONAL:`", fake_llm.prompts[0])
         self.assertIn("`FLAG:`", fake_llm.prompts[0])
         self.assertIn("all English lowercase snake_case", fake_llm.prompts[0])
         self.assertIn("Do not mix Chinese and English in tags", fake_llm.prompts[0])
-        self.assertIn("mention each unavailable evidence source at most once", fake_llm.prompts[0])
+        self.assertIn(
+            "mention each unavailable evidence source at most once", fake_llm.prompts[0]
+        )
         self.assertIn("Return 3 to 5 items only", fake_llm.prompts[0])
         self.assertIn("Verdict: <one phrase> | Score:", fake_llm.prompts[0])
-        self.assertIn("Use numeric thresholds when the record, setup defaults, or provided rule examples support them", fake_llm.prompts[0])
+        self.assertIn(
+            "Use numeric thresholds when the record, setup defaults, or provided rule examples support them",
+            fake_llm.prompts[0],
+        )
 
         earlier_feedback = trade_feedback.get_trade_feedback_payload(
             "MSFT",
@@ -204,7 +253,9 @@ class TradeFeedbackServiceTests(unittest.TestCase):
             analysis_date="2026-04-04",
         )
         self.assertEqual(len(feedback_payload["reviews"]), 1)
-        self.assertIn("Historical trade feedback for ticker MSFT", feedback_payload["prompt"])
+        self.assertIn(
+            "Historical trade feedback for ticker MSFT", feedback_payload["prompt"]
+        )
         self.assertIn("planned_scale_in", feedback_payload["prompt"])
 
     def test_backfilled_review_visibility_uses_review_save_time(self):
@@ -254,7 +305,9 @@ class TradeFeedbackServiceTests(unittest.TestCase):
         self.assertEqual(hidden_feedback["reviews"], [])
         self.assertEqual(len(visible_feedback["reviews"]), 1)
 
-    def test_generated_review_prompt_uses_local_price_history_cache_when_available(self):
+    def test_generated_review_prompt_uses_local_price_history_cache_when_available(
+        self,
+    ):
         history_dir = self.project_root / "data" / "history" / "us"
         history_dir.mkdir(parents=True)
         start = date(2026, 1, 1)
@@ -283,7 +336,9 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                     "discipline_assessment": "The entry followed the plan.",
                     "outcome_summary": "Evidence was used.",
                     "improvement_actions": ["Keep cache coverage fresh."],
-                    "ticker_specific_lessons": ["MSFT reviews should cite local cache context."],
+                    "ticker_specific_lessons": [
+                        "MSFT reviews should cite local cache context."
+                    ],
                     "cross_ticker_tags": ["local_history_available"],
                 }
             )
@@ -308,9 +363,15 @@ class TradeFeedbackServiceTests(unittest.TestCase):
         self.assertIn('"must_use_in_timing_assessment": true', prompt)
         self.assertIn('"entry_vs_previous_20d_high_pct"', prompt)
         self.assertIn("MUST cite at least three concrete OHLC-derived metrics", prompt)
-        self.assertIn("do NOT say there is no chart, volume, price structure, or technical context", prompt)
+        self.assertIn(
+            "do NOT say there is no chart, volume, price structure, or technical context",
+            prompt,
+        )
         self.assertIn("For breakout trades, focus on breakout level", prompt)
-        self.assertIn("Low data_quality means limited review confidence, not automatic poor trade quality", prompt)
+        self.assertIn(
+            "Low data_quality means limited review confidence, not automatic poor trade quality",
+            prompt,
+        )
         self.assertIn("Keep fundamental discussion to 1-2 sentences", prompt)
         self.assertIn("Do not explain general trading theory", prompt)
 
@@ -340,7 +401,9 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                     "improvement_actions": [
                         "Before entering a breakout trade, record breakout level and confirmation method."
                     ],
-                    "ticker_specific_lessons": ["MSFT breakout reviews need executable levels."],
+                    "ticker_specific_lessons": [
+                        "MSFT breakout reviews need executable levels."
+                    ],
                     "cross_ticker_tags": ["undefined_risk"],
                 }
             )
@@ -413,7 +476,9 @@ class TradeFeedbackServiceTests(unittest.TestCase):
                     "discipline_assessment": "Discipline score: 4/5. The decision followed the written plan.",
                     "outcome_summary": "Strengths: clear thesis. Weaknesses: limited confirmation. Hindsight calibration: unavailable.",
                     "improvement_actions": ["Wait for confirmation before entry."],
-                    "ticker_specific_lessons": ["MSFT entries need clear cloud demand confirmation."],
+                    "ticker_specific_lessons": [
+                        "MSFT entries need clear cloud demand confirmation."
+                    ],
                     "cross_ticker_tags": ["confirmation_needed"],
                 }
             )

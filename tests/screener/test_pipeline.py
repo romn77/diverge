@@ -55,7 +55,9 @@ def _evaluation_stage(
         ),
         features_df=pd.DataFrame() if features_df is None else features_df,
         kept_df=pd.DataFrame() if kept_df is None else kept_df,
-        dropped_df=pd.DataFrame(columns=["drop_reason"]) if dropped_df is None else dropped_df,
+        dropped_df=pd.DataFrame(columns=["drop_reason"])
+        if dropped_df is None
+        else dropped_df,
         ranked_df=pd.DataFrame() if ranked_df is None else ranked_df,
     )
 
@@ -209,10 +211,26 @@ def test_run_screen_uses_shared_stage_helpers(tmp_path):
     universe_stage = SimpleNamespace(
         universe_df=universe_df,
         prefiltered_df=universe_df,
-        prefiltered_out_df=pd.DataFrame(columns=list(universe_df.columns) + ["drop_reason"]),
+        prefiltered_out_df=pd.DataFrame(
+            columns=list(universe_df.columns) + ["drop_reason"]
+        ),
     )
     evaluation_stage = SimpleNamespace(
-        histories={"AAPL": pd.DataFrame([{"Date": "2026-03-24", "Open": 1, "High": 1, "Low": 1, "Close": 1, "Volume": 1, "Amount": 1}])},
+        histories={
+            "AAPL": pd.DataFrame(
+                [
+                    {
+                        "Date": "2026-03-24",
+                        "Open": 1,
+                        "High": 1,
+                        "Low": 1,
+                        "Close": 1,
+                        "Volume": 1,
+                        "Amount": 1,
+                    }
+                ]
+            )
+        },
         fetch_failures=pd.DataFrame(columns=["symbol", "market", "drop_reason"]),
         features_df=features_df,
         kept_df=features_df,
@@ -221,8 +239,14 @@ def test_run_screen_uses_shared_stage_helpers(tmp_path):
     )
 
     with (
-        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=universe_stage),
-        patch("diverge.screener.pipeline.evaluate_screen_stage", return_value=evaluation_stage),
+        patch(
+            "diverge.screener.pipeline.prepare_universe_stage",
+            return_value=universe_stage,
+        ),
+        patch(
+            "diverge.screener.pipeline.evaluate_screen_stage",
+            return_value=evaluation_stage,
+        ),
         patch("diverge.screener.storage.datetime", _FixedDateTime),
     ):
         result = run_screen(config)
@@ -240,8 +264,22 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
     )
     universe_df = pd.DataFrame(
         [
-            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
-            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": "19801212"},
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "name": "Kweichow Moutai",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "20010827",
+            },
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+            },
         ]
     )
     features_df = pd.DataFrame(
@@ -281,7 +319,17 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
     )
     histories = {
         "600519.SH": pd.DataFrame(
-            [{"Date": "2026-03-24", "Open": 1, "High": 1, "Low": 1, "Close": 1, "Volume": 1, "Amount": 1}]
+            [
+                {
+                    "Date": "2026-03-24",
+                    "Open": 1,
+                    "High": 1,
+                    "Low": 1,
+                    "Close": 1,
+                    "Volume": 1,
+                    "Amount": 1,
+                }
+            ]
         )
     }
     fetch_failures = pd.DataFrame(
@@ -305,7 +353,10 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
     )
 
     with (
-        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch(
+            "diverge.screener.pipeline.prepare_universe_stage",
+            return_value=_universe_stage(universe_df),
+        ),
         patch(
             "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
@@ -313,7 +364,9 @@ def test_run_screen_writes_all_required_artifacts_and_merges_fetch_failures(tmp_
                 fetch_failures=fetch_failures,
                 features_df=features_df,
                 kept_df=features_df,
-                dropped_df=pd.DataFrame(columns=list(features_df.columns) + ["drop_reason"]),
+                dropped_df=pd.DataFrame(
+                    columns=list(features_df.columns) + ["drop_reason"]
+                ),
                 ranked_df=scored_df,
             ),
         ),
@@ -362,8 +415,22 @@ def test_run_screen_prefilters_too_new_symbols_before_history(tmp_path):
     )
     universe_df = pd.DataFrame(
         [
-            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
-            {"symbol": "301000.SZ", "market": "cn", "name": "Recent Listing", "exchange": "SZSE", "sector": "Technology", "list_date": "20260115"},
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "name": "Kweichow Moutai",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "20010827",
+            },
+            {
+                "symbol": "301000.SZ",
+                "market": "cn",
+                "name": "Recent Listing",
+                "exchange": "SZSE",
+                "sector": "Technology",
+                "list_date": "20260115",
+            },
         ]
     )
     filtered_universe_df = universe_df.iloc[[0]].reset_index(drop=True)
@@ -383,7 +450,17 @@ def test_run_screen_prefilters_too_new_symbols_before_history(tmp_path):
     features_df = pd.DataFrame()
     histories = {
         "600519.SH": pd.DataFrame(
-            [{"Date": "2026-03-24", "Open": 1, "High": 1, "Low": 1, "Close": 1, "Volume": 1, "Amount": 1}]
+            [
+                {
+                    "Date": "2026-03-24",
+                    "Open": 1,
+                    "High": 1,
+                    "Low": 1,
+                    "Close": 1,
+                    "Volume": 1,
+                    "Amount": 1,
+                }
+            ]
         )
     }
 
@@ -472,14 +549,24 @@ def test_run_screen_writes_stale_data_rows_with_as_of_and_data_end_dates(tmp_pat
     )
 
     with (
-        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch(
+            "diverge.screener.pipeline.prepare_universe_stage",
+            return_value=_universe_stage(universe_df),
+        ),
         patch(
             "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
                 histories={"AAPL": pd.DataFrame()},
                 features_df=stale_features_df,
                 kept_df=pd.DataFrame(columns=stale_features_df.columns),
-                dropped_df=pd.DataFrame([{**stale_features_df.iloc[0].to_dict(), "drop_reason": "stale_data"}]),
+                dropped_df=pd.DataFrame(
+                    [
+                        {
+                            **stale_features_df.iloc[0].to_dict(),
+                            "drop_reason": "stale_data",
+                        }
+                    ]
+                ),
                 ranked_df=pd.DataFrame(),
             ),
         ),
@@ -493,7 +580,9 @@ def test_run_screen_writes_stale_data_rows_with_as_of_and_data_end_dates(tmp_pat
     assert filtered_out["data_end_date"].tolist() == ["2026-03-18"]
 
 
-def test_run_screen_allocates_dual_market_candidates_with_floor_and_global_backfill(tmp_path):
+def test_run_screen_allocates_dual_market_candidates_with_floor_and_global_backfill(
+    tmp_path,
+):
     config = ScreenRunConfig(
         markets=["cn", "us"],
         as_of_date="2026-03-24",
@@ -503,23 +592,76 @@ def test_run_screen_allocates_dual_market_candidates_with_floor_and_global_backf
     )
     universe_df = pd.DataFrame(
         [
-            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
-            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": "19801212"},
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "name": "Kweichow Moutai",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "20010827",
+            },
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+            },
         ]
     )
     ranked_df = pd.DataFrame(
         [
-            {"symbol": "AAPL", "market": "us", "global_rank": 1, "market_rank": 1, "total_score": 9.5},
-            {"symbol": "MSFT", "market": "us", "global_rank": 2, "market_rank": 2, "total_score": 8.5},
-            {"symbol": "NVDA", "market": "us", "global_rank": 3, "market_rank": 3, "total_score": 8.0},
-            {"symbol": "600519.SH", "market": "cn", "global_rank": 4, "market_rank": 1, "total_score": 7.8},
-            {"symbol": "000001.SZ", "market": "cn", "global_rank": 5, "market_rank": 2, "total_score": 7.2},
-            {"symbol": "AMZN", "market": "us", "global_rank": 6, "market_rank": 4, "total_score": 7.0},
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "global_rank": 1,
+                "market_rank": 1,
+                "total_score": 9.5,
+            },
+            {
+                "symbol": "MSFT",
+                "market": "us",
+                "global_rank": 2,
+                "market_rank": 2,
+                "total_score": 8.5,
+            },
+            {
+                "symbol": "NVDA",
+                "market": "us",
+                "global_rank": 3,
+                "market_rank": 3,
+                "total_score": 8.0,
+            },
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "global_rank": 4,
+                "market_rank": 1,
+                "total_score": 7.8,
+            },
+            {
+                "symbol": "000001.SZ",
+                "market": "cn",
+                "global_rank": 5,
+                "market_rank": 2,
+                "total_score": 7.2,
+            },
+            {
+                "symbol": "AMZN",
+                "market": "us",
+                "global_rank": 6,
+                "market_rank": 4,
+                "total_score": 7.0,
+            },
         ]
     )
 
     with (
-        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch(
+            "diverge.screener.pipeline.prepare_universe_stage",
+            return_value=_universe_stage(universe_df),
+        ),
         patch(
             "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
@@ -536,7 +678,9 @@ def test_run_screen_allocates_dual_market_candidates_with_floor_and_global_backf
     assert candidates["market"].tolist() == ["us", "us", "cn", "cn"]
 
 
-def test_run_screen_backfills_from_global_ranking_when_one_market_cannot_fill_floor(tmp_path):
+def test_run_screen_backfills_from_global_ranking_when_one_market_cannot_fill_floor(
+    tmp_path,
+):
     config = ScreenRunConfig(
         markets=["cn", "us"],
         as_of_date="2026-03-24",
@@ -546,22 +690,69 @@ def test_run_screen_backfills_from_global_ranking_when_one_market_cannot_fill_fl
     )
     universe_df = pd.DataFrame(
         [
-            {"symbol": "600519.SH", "market": "cn", "name": "Kweichow Moutai", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
-            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": "19801212"},
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "name": "Kweichow Moutai",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "20010827",
+            },
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+            },
         ]
     )
     ranked_df = pd.DataFrame(
         [
-            {"symbol": "AAPL", "market": "us", "global_rank": 1, "market_rank": 1, "total_score": 9.5},
-            {"symbol": "MSFT", "market": "us", "global_rank": 2, "market_rank": 2, "total_score": 8.5},
-            {"symbol": "NVDA", "market": "us", "global_rank": 3, "market_rank": 3, "total_score": 8.0},
-            {"symbol": "600519.SH", "market": "cn", "global_rank": 4, "market_rank": 1, "total_score": 7.8},
-            {"symbol": "AMZN", "market": "us", "global_rank": 5, "market_rank": 4, "total_score": 7.0},
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "global_rank": 1,
+                "market_rank": 1,
+                "total_score": 9.5,
+            },
+            {
+                "symbol": "MSFT",
+                "market": "us",
+                "global_rank": 2,
+                "market_rank": 2,
+                "total_score": 8.5,
+            },
+            {
+                "symbol": "NVDA",
+                "market": "us",
+                "global_rank": 3,
+                "market_rank": 3,
+                "total_score": 8.0,
+            },
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "global_rank": 4,
+                "market_rank": 1,
+                "total_score": 7.8,
+            },
+            {
+                "symbol": "AMZN",
+                "market": "us",
+                "global_rank": 5,
+                "market_rank": 4,
+                "total_score": 7.0,
+            },
         ]
     )
 
     with (
-        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch(
+            "diverge.screener.pipeline.prepare_universe_stage",
+            return_value=_universe_stage(universe_df),
+        ),
         patch(
             "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
@@ -588,19 +779,47 @@ def test_run_screen_keeps_single_market_selection_as_plain_top_k(tmp_path):
     )
     universe_df = pd.DataFrame(
         [
-            {"symbol": "AAPL", "market": "us", "name": "Apple", "exchange": "NASDAQ", "sector": "Technology", "list_date": "19801212"},
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "name": "Apple",
+                "exchange": "NASDAQ",
+                "sector": "Technology",
+                "list_date": "19801212",
+            },
         ]
     )
     ranked_df = pd.DataFrame(
         [
-            {"symbol": "AAPL", "market": "us", "global_rank": 1, "market_rank": 1, "total_score": 9.5},
-            {"symbol": "MSFT", "market": "us", "global_rank": 2, "market_rank": 2, "total_score": 8.5},
-            {"symbol": "NVDA", "market": "us", "global_rank": 3, "market_rank": 3, "total_score": 8.0},
+            {
+                "symbol": "AAPL",
+                "market": "us",
+                "global_rank": 1,
+                "market_rank": 1,
+                "total_score": 9.5,
+            },
+            {
+                "symbol": "MSFT",
+                "market": "us",
+                "global_rank": 2,
+                "market_rank": 2,
+                "total_score": 8.5,
+            },
+            {
+                "symbol": "NVDA",
+                "market": "us",
+                "global_rank": 3,
+                "market_rank": 3,
+                "total_score": 8.0,
+            },
         ]
     )
 
     with (
-        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch(
+            "diverge.screener.pipeline.prepare_universe_stage",
+            return_value=_universe_stage(universe_df),
+        ),
         patch(
             "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
@@ -626,10 +845,38 @@ def test_run_screen_requires_selected_breakout_type_in_final_candidates(tmp_path
     )
     universe_df = pd.DataFrame(
         [
-            {"symbol": "300308.SZ", "market": "cn", "name": "No Breakout", "exchange": "SZSE", "sector": "Technology", "list_date": "20120927"},
-            {"symbol": "600519.SH", "market": "cn", "name": "Platform Hit", "exchange": "SSE", "sector": "Liquor", "list_date": "20010827"},
-            {"symbol": "688256.SH", "market": "cn", "name": "Wrong Breakout", "exchange": "SSE", "sector": "Technology", "list_date": "20200722"},
-            {"symbol": "000001.SZ", "market": "cn", "name": "Volume Hit", "exchange": "SZSE", "sector": "Banking", "list_date": "19910403"},
+            {
+                "symbol": "300308.SZ",
+                "market": "cn",
+                "name": "No Breakout",
+                "exchange": "SZSE",
+                "sector": "Technology",
+                "list_date": "20120927",
+            },
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "name": "Platform Hit",
+                "exchange": "SSE",
+                "sector": "Liquor",
+                "list_date": "20010827",
+            },
+            {
+                "symbol": "688256.SH",
+                "market": "cn",
+                "name": "Wrong Breakout",
+                "exchange": "SSE",
+                "sector": "Technology",
+                "list_date": "20200722",
+            },
+            {
+                "symbol": "000001.SZ",
+                "market": "cn",
+                "name": "Volume Hit",
+                "exchange": "SZSE",
+                "sector": "Banking",
+                "list_date": "19910403",
+            },
         ]
     )
     ranked_df = pd.DataFrame(
@@ -678,7 +925,10 @@ def test_run_screen_requires_selected_breakout_type_in_final_candidates(tmp_path
     )
 
     with (
-        patch("diverge.screener.pipeline.prepare_universe_stage", return_value=_universe_stage(universe_df)),
+        patch(
+            "diverge.screener.pipeline.prepare_universe_stage",
+            return_value=_universe_stage(universe_df),
+        ),
         patch(
             "diverge.screener.pipeline.evaluate_screen_stage",
             return_value=_evaluation_stage(
@@ -693,4 +943,7 @@ def test_run_screen_requires_selected_breakout_type_in_final_candidates(tmp_path
     candidates = pd.read_csv(Path(result.run_dir) / "candidates.csv")
     assert result.candidate_count == 2
     assert candidates["symbol"].tolist() == ["600519.SH", "000001.SZ"]
-    assert candidates["breakout_type"].tolist() == ["platform_breakout", "platform_breakout"]
+    assert candidates["breakout_type"].tolist() == [
+        "platform_breakout",
+        "platform_breakout",
+    ]

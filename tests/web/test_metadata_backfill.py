@@ -114,7 +114,9 @@ class MetadataBackfillTests(unittest.TestCase):
         )
         return record["trade_id"]
 
-    def test_backfill_indexes_reports_trades_and_screener_runs_under_bootstrap_admin(self):
+    def test_backfill_indexes_reports_trades_and_screener_runs_under_bootstrap_admin(
+        self,
+    ):
         self._write_report()
         self._write_trade()
         self._write_screener_run()
@@ -167,7 +169,9 @@ class MetadataBackfillTests(unittest.TestCase):
                         ticker="MSFT",
                         generated_at="2026-03-20 10:00:00",
                         storage_path=report_dir.name,
-                        file_entries=report_metadata.build_report_file_index(report_dir),
+                        file_entries=report_metadata.build_report_file_index(
+                            report_dir
+                        ),
                     )
 
                 async with app_client(app) as client:
@@ -175,7 +179,9 @@ class MetadataBackfillTests(unittest.TestCase):
                         "/api/auth/login",
                         json={"email": "admin@example.com", "password": "AdminPass123"},
                     )
-                    self.assertEqual(login_response.status_code, 200, login_response.text)
+                    self.assertEqual(
+                        login_response.status_code, 200, login_response.text
+                    )
                     change_response = await client.post(
                         "/api/auth/change-password",
                         json={
@@ -183,17 +189,23 @@ class MetadataBackfillTests(unittest.TestCase):
                             "new_password": "AdminPass456",
                         },
                     )
-                    self.assertEqual(change_response.status_code, 200, change_response.text)
+                    self.assertEqual(
+                        change_response.status_code, 200, change_response.text
+                    )
 
                     list_response = await client.get("/api/reports")
                     self.assertEqual(list_response.status_code, 200, list_response.text)
-                    self.assertEqual([row["id"] for row in list_response.json()], [report_dir.name])
+                    self.assertEqual(
+                        [row["id"] for row in list_response.json()], [report_dir.name]
+                    )
 
                     content_response = await client.get(
                         f"/api/reports/{report_dir.name}/content",
                         params={"path": "complete_report.md"},
                     )
-                    self.assertEqual(content_response.status_code, 200, content_response.text)
+                    self.assertEqual(
+                        content_response.status_code, 200, content_response.text
+                    )
 
                     missing_index_response = await client.get(
                         f"/api/reports/{report_dir.name}/content",

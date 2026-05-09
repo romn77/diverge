@@ -9,7 +9,9 @@ US_UNIVERSE_CAP_DEFAULT = 2200
 US_PRIMARY_EXCHANGES = {"NYSE", "NASDAQ"}
 US_ALLOWED_DOT_SUFFIXES = {"A", "B", "C", "V"}
 US_NON_PRIMARY_SYMBOL_SUFFIXES = {"R", "RT", "RU", "U", "UN", "W", "WS", "WT"}
-US_NON_PRIMARY_NAME_RE = re.compile(r"\b(WARRANT|WARRANTS|RIGHT|RIGHTS|UNIT|UNITS)\b", re.IGNORECASE)
+US_NON_PRIMARY_NAME_RE = re.compile(
+    r"\b(WARRANT|WARRANTS|RIGHT|RIGHTS|UNIT|UNITS)\b", re.IGNORECASE
+)
 US_SPAC_NAME_RE = re.compile(r"\b(ACQUISITION|BLANK CHECK)\b", re.IGNORECASE)
 US_TEST_LISTING_NAME_RE = re.compile(r"\bTICK PILOT TEST\b", re.IGNORECASE)
 US_TEST_LISTING_SYMBOL_RE = re.compile(r"^(?:A|C|N|P)TEST(?:[.-]|$)", re.IGNORECASE)
@@ -37,10 +39,9 @@ def sort_rows_by_mktcap(frame: pd.DataFrame) -> pd.DataFrame:
 
     ranked = frame.copy()
     ranked["mktcap"] = pd.to_numeric(ranked["mktcap"], errors="coerce").fillna(0.0)
-    return (
-        ranked.sort_values(["mktcap", "symbol"], ascending=[False, True], kind="stable")
-        .reset_index(drop=True)
-    )
+    return ranked.sort_values(
+        ["mktcap", "symbol"], ascending=[False, True], kind="stable"
+    ).reset_index(drop=True)
 
 
 def us_prefilter_drop_reason(row: pd.Series) -> str | None:

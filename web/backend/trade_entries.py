@@ -132,10 +132,14 @@ def upsert_trade_entry(
 ) -> TradeEntry:
     review_count, last_review_at = _review_summary(reviews)
     now = _utcnow()
-    normalized_tenant_id = tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+    normalized_tenant_id = (
+        tenant_id.strip() if isinstance(tenant_id, str) and tenant_id.strip() else None
+    )
     if normalized_tenant_id is None:
         owner = db.get(auth.User, owner_user_id)
-        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        normalized_tenant_id = (
+            owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        )
 
     entry = db.get(TradeEntry, record["trade_id"])
     if entry is None:
@@ -178,7 +182,9 @@ def list_trade_entries_for_owner(
         statement = statement.where(TradeEntry.tenant_id == tenant_id)
     if ticker:
         statement = statement.where(TradeEntry.ticker == _normalize_ticker(ticker))
-    statement = statement.order_by(TradeEntry.updated_at.desc(), TradeEntry.trade_id.desc())
+    statement = statement.order_by(
+        TradeEntry.updated_at.desc(), TradeEntry.trade_id.desc()
+    )
     return list(db.scalars(statement))
 
 

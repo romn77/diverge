@@ -73,7 +73,9 @@ def get_stock_data_from_history(
         cache_dir=resolve_history_dir(),
         **_history_source_kwargs(market),
     )
-    display_symbol = history_symbol if resolved_market == "cn" else str(symbol).strip().upper()
+    display_symbol = (
+        history_symbol if resolved_market == "cn" else str(symbol).strip().upper()
+    )
     return dataframe_to_standard_string(
         frame,
         f"Stock data for {display_symbol} from {start_date} to {end_date}",

@@ -21,7 +21,12 @@ def upgrade() -> None:
         "analysis_role_limits",
         sa.Column("role", sa.String(length=32), nullable=False),
         sa.Column("weekly_limit", sa.Integer(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("role"),
     )
 
@@ -32,7 +37,12 @@ def upgrade() -> None:
         sa.Column("role", sa.String(length=32), nullable=False),
         sa.Column("module", sa.String(length=32), nullable=False),
         sa.Column("usage_week", sa.String(length=10), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -51,7 +61,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_analysis_task_usage_role_module_week", table_name="analysis_task_usage")
-    op.drop_index("ix_analysis_task_usage_user_module_week", table_name="analysis_task_usage")
+    op.drop_index(
+        "ix_analysis_task_usage_role_module_week", table_name="analysis_task_usage"
+    )
+    op.drop_index(
+        "ix_analysis_task_usage_user_module_week", table_name="analysis_task_usage"
+    )
     op.drop_table("analysis_task_usage")
     op.drop_table("analysis_role_limits")

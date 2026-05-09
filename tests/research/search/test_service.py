@@ -17,7 +17,9 @@ class FakeProvider:
         self.error = error
         self.calls: list[dict] = []
 
-    def search(self, query: str, *, max_results: int, language: str | None, market: str | None):
+    def search(
+        self, query: str, *, max_results: int, language: str | None, market: str | None
+    ):
         self.calls.append(
             {
                 "query": query,
@@ -56,7 +58,9 @@ class FakeQuotaRepository:
     def get_summary(self) -> dict:
         return self.summary
 
-    def record_call(self, provider: str, *, success: bool, error: str | None = None) -> None:
+    def record_call(
+        self, provider: str, *, success: bool, error: str | None = None
+    ) -> None:
         self.recorded.append((provider, success, error))
 
     def disable_provider_until_month_end(self, provider: str, reason: str) -> None:
@@ -211,7 +215,9 @@ def test_cache_hit_skips_provider_and_quota(tmp_path):
 
 def test_primary_failure_falls_back_and_records_each_external_request(tmp_path):
     repo = FakeQuotaRepository(_summary())
-    brave = FakeProvider("brave", error=SearchProviderTemporaryError("timeout", "timeout"))
+    brave = FakeProvider(
+        "brave", error=SearchProviderTemporaryError("timeout", "timeout")
+    )
     tavily = FakeProvider("tavily")
 
     response = _service(
@@ -325,5 +331,7 @@ def test_results_are_normalized_ranked_deduped_and_clamped(tmp_path):
     )
 
     assert 0 < len(response.results) <= 5
-    assert len({result.canonical_url for result in response.results}) == len(response.results)
+    assert len({result.canonical_url for result in response.results}) == len(
+        response.results
+    )
     assert response.results[0].published_at is not None

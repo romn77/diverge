@@ -27,19 +27,43 @@ def upgrade() -> None:
         sa.Column("request_payload", sa.JSON(), nullable=True),
         sa.Column("result_summary", sa.JSON(), nullable=True),
         sa.Column("error", sa.Text(), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.Column("queued_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("started_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("heartbeat_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("worker_id", sa.String(length=128), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_job_records_kind_status", "job_records", ["kind", "status"], unique=False)
-    op.create_index("ix_job_records_tenant_status", "job_records", ["tenant_id", "status"], unique=False)
-    op.create_index("ix_job_records_owner_status", "job_records", ["owner_user_id", "status"], unique=False)
-    op.create_index("ix_job_records_updated_at", "job_records", ["updated_at"], unique=False)
+    op.create_index(
+        "ix_job_records_kind_status", "job_records", ["kind", "status"], unique=False
+    )
+    op.create_index(
+        "ix_job_records_tenant_status",
+        "job_records",
+        ["tenant_id", "status"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_job_records_owner_status",
+        "job_records",
+        ["owner_user_id", "status"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_job_records_updated_at", "job_records", ["updated_at"], unique=False
+    )
 
 
 def downgrade() -> None:

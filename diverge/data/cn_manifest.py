@@ -7,7 +7,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 import pandas as pd
 
-from diverge.data.manifest_schema import COMMON_MANIFEST_COLUMNS, COMPARE_MANIFEST_COLUMNS
+from diverge.data.manifest_schema import (
+    COMMON_MANIFEST_COLUMNS,
+    COMPARE_MANIFEST_COLUMNS,
+)
 from diverge.screener.universe import load_cn_universe
 
 
@@ -19,13 +22,19 @@ DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("cn_manifest.csv")
 DEFAULT_ALLOWED_EXCHANGES = ("SSE", "SZSE")
 DEFAULT_DATA_SOURCE = "tushare"
 DEFAULT_FALLBACK_DATA_SOURCES: tuple[str, ...] = ()
+
+
 def build_cn_manifest(
     source_df: pd.DataFrame,
     allowed_exchanges: Collection[str] | None = DEFAULT_ALLOWED_EXCHANGES,
 ) -> pd.DataFrame:
-    missing_columns = [column for column in COMMON_MANIFEST_COLUMNS if column not in source_df.columns]
+    missing_columns = [
+        column for column in COMMON_MANIFEST_COLUMNS if column not in source_df.columns
+    ]
     if missing_columns:
-        raise ValueError(f"source_df is missing required columns: {', '.join(sorted(missing_columns))}")
+        raise ValueError(
+            f"source_df is missing required columns: {', '.join(sorted(missing_columns))}"
+        )
 
     manifest_df = pd.DataFrame(
         {
@@ -41,7 +50,9 @@ def build_cn_manifest(
 
     if allowed_exchanges is not None:
         normalized_allowed_exchanges = {
-            str(exchange).strip().upper() for exchange in allowed_exchanges if str(exchange).strip()
+            str(exchange).strip().upper()
+            for exchange in allowed_exchanges
+            if str(exchange).strip()
         }
         manifest_df = manifest_df.loc[
             manifest_df["exchange"].str.upper().isin(normalized_allowed_exchanges)
@@ -73,7 +84,9 @@ def write_cn_manifest(
         source_df = load_cn_universe(
             data_source=data_source,
             cache_dir=cache_dir,
-            fallback_data_sources=list(fallback_data_sources) if fallback_data_sources is not None else None,
+            fallback_data_sources=list(fallback_data_sources)
+            if fallback_data_sources is not None
+            else None,
         )
 
     manifest_df = build_cn_manifest(
@@ -87,7 +100,9 @@ def write_cn_manifest(
 
 
 def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Export the CN screener universe to a CSV manifest.")
+    parser = argparse.ArgumentParser(
+        description="Export the CN screener universe to a CSV manifest."
+    )
     parser.add_argument(
         "--output-path",
         default=str(DEFAULT_OUTPUT_PATH),

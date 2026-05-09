@@ -111,5 +111,7 @@ def get_data_sync_job(task_id: str, request: Request = None) -> dict:
     actor = _require_admin_permission(request)
     task = data_sync_tasks.get_data_sync_task(task_id)
     if actor is not None and task.tenant_id != actor.tenant_id:
-        raise access.translate_auth_error(auth.AuthNotFoundError(f"Task '{task_id}' not found"))
+        raise access.translate_auth_error(
+            auth.AuthNotFoundError(f"Task '{task_id}' not found")
+        )
     return task.to_dict()

@@ -89,7 +89,7 @@ def _upper_trendline_value(values: pd.Series) -> float:
 
 
 def _platform_candidate(frame: pd.DataFrame) -> tuple[bool, float, str]:
-    window = frame.iloc[-(PLATFORM_LOOKBACK + 1):-1].copy()
+    window = frame.iloc[-(PLATFORM_LOOKBACK + 1) : -1].copy()
     latest = frame.iloc[-1]
     resistance = float(window["High"].max())
     breakout_strength = _breakout_strength(float(latest["Close"]), resistance)
@@ -107,7 +107,7 @@ def _platform_candidate(frame: pd.DataFrame) -> tuple[bool, float, str]:
 
 
 def _box_candidate(frame: pd.DataFrame) -> tuple[bool, float, str]:
-    window = frame.iloc[-(BOX_LOOKBACK + 1):-1].copy()
+    window = frame.iloc[-(BOX_LOOKBACK + 1) : -1].copy()
     latest = frame.iloc[-1]
     resistance = float(window["High"].max())
     breakout_strength = _breakout_strength(float(latest["Close"]), resistance)
@@ -126,7 +126,7 @@ def _box_candidate(frame: pd.DataFrame) -> tuple[bool, float, str]:
 
 
 def _wedge_candidate(frame: pd.DataFrame) -> tuple[bool, float, str]:
-    window = frame.iloc[-(WEDGE_LOOKBACK + 1):-1].copy()
+    window = frame.iloc[-(WEDGE_LOOKBACK + 1) : -1].copy()
     latest = frame.iloc[-1]
     highs = pd.to_numeric(window["High"], errors="coerce")
     lows = pd.to_numeric(window["Low"], errors="coerce")
@@ -149,7 +149,11 @@ def _wedge_candidate(frame: pd.DataFrame) -> tuple[bool, float, str]:
     if opening_range <= 0 or ending_range >= opening_range * 0.75:
         return False, projected_resistance, "wedge_not_contracting"
 
-    return True, projected_resistance, f"wedge_slopes=({high_slope:.4f},{low_slope:.4f})"
+    return (
+        True,
+        projected_resistance,
+        f"wedge_slopes=({high_slope:.4f},{low_slope:.4f})",
+    )
 
 
 def detect_breakout_signal(price_df: pd.DataFrame) -> BreakoutSignal:
@@ -186,7 +190,9 @@ def detect_breakout_signal(price_df: pd.DataFrame) -> BreakoutSignal:
             breakout_volume_ratio=volume_ratio,
         )
 
-    if no_hit_reasons and all(reason == "close_not_above_resistance" for reason in no_hit_reasons):
+    if no_hit_reasons and all(
+        reason == "close_not_above_resistance" for reason in no_hit_reasons
+    ):
         return _empty_signal(
             "close_not_above_resistance",
             volume_ratio=volume_ratio,

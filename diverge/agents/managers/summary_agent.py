@@ -1,3 +1,4 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import get_language_instruction
 from diverge.runtime.messages import AdkPrompt
 
@@ -11,8 +12,10 @@ def _section(title: str, content: str | None, limit: int = 8000) -> str:
     return f"## {title}\n{text}"
 
 
-def create_summary_agent(llm):
-    def summary_agent_node(state) -> dict:
+class SummaryAgent(DivergeAgentNode):
+    name = "summary_agent"
+
+    def run(self, state) -> dict:
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         debate = state.get("investment_debate_state") or {}
@@ -52,7 +55,9 @@ Complete report context:
 
 {language_instruction}"""
 
-        response = llm.invoke(AdkPrompt(system_message=prompt))
+        response = self.llm.invoke(AdkPrompt(system_message=prompt))
         return {"report_summary": response.content.strip()}
 
-    return summary_agent_node
+
+def create_summary_agent(llm):
+    return SummaryAgent(llm)

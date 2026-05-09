@@ -47,9 +47,7 @@ def validate_price_plan(card: DecisionCard) -> DecisionCard:
             )
 
     if card.action == "WATCH" and not card.watch_items and not plan.add_condition:
-        card.data_quality_notes.append(
-            "WATCH card lacks watch_items or add_condition."
-        )
+        card.data_quality_notes.append("WATCH card lacks watch_items or add_condition.")
 
     return card
 

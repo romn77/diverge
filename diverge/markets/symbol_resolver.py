@@ -108,7 +108,9 @@ def _resolve_without_manual(
             source="rule",
         )
 
-    return _unknown_resolution(raw_symbol, ["Unable to resolve symbol as CN/US equity or ETF."])
+    return _unknown_resolution(
+        raw_symbol, ["Unable to resolve symbol as CN/US equity or ETF."]
+    )
 
 
 def _find_manifest_match(
@@ -205,17 +207,26 @@ def _manual_resolution(
     manual_exchange: str | None,
     manual_asset_type: str | None,
 ) -> dict[str, Any]:
-    market = _normalize_market(manual_market or rule_resolution.get("market") or "unknown")
+    market = _normalize_market(
+        manual_market or rule_resolution.get("market") or "unknown"
+    )
     exchange = _normalize_exchange(
-        manual_exchange if manual_exchange is not None else rule_resolution.get("exchange"),
+        manual_exchange
+        if manual_exchange is not None
+        else rule_resolution.get("exchange"),
         market,
     )
     asset_type = _normalize_asset_type(
         manual_asset_type or rule_resolution.get("asset_type") or "unknown"
     )
-    canonical_symbol = _manual_canonical_symbol(raw_symbol, market, exchange, rule_resolution)
+    canonical_symbol = _manual_canonical_symbol(
+        raw_symbol, market, exchange, rule_resolution
+    )
     warnings = ["Market was manually overridden."]
-    if rule_resolution.get("market") not in {None, "unknown"} and market != rule_resolution.get("market"):
+    if rule_resolution.get("market") not in {
+        None,
+        "unknown",
+    } and market != rule_resolution.get("market"):
         warnings.append("Manual override conflicts with rule-based market detection.")
     return _base_resolution(
         raw_symbol=raw_symbol,
@@ -235,7 +246,9 @@ def _manual_canonical_symbol(
     exchange: str | None,
     rule_resolution: dict[str, Any],
 ) -> str:
-    if market == rule_resolution.get("market") and rule_resolution.get("canonical_symbol"):
+    if market == rule_resolution.get("market") and rule_resolution.get(
+        "canonical_symbol"
+    ):
         return normalize_ticker_symbol(rule_resolution["canonical_symbol"])
     if market == "cn" and exchange in {"SH", "SZ"}:
         try:

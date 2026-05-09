@@ -17,7 +17,9 @@ def _fetch_dataset(fetcher_name: str, ticker: str, fields: str | None = None):
         else:
             df = fetcher(ts_code=ticker)
     except Exception as exc:
-        raise VendorRetryableError(f"tushare {fetcher_name} fetch failed: {exc}") from exc
+        raise VendorRetryableError(
+            f"tushare {fetcher_name} fetch failed: {exc}"
+        ) from exc
 
     if df is None or df.empty:
         raise VendorDataEmptyError(f"No tushare {fetcher_name} data found for {ticker}")
@@ -53,7 +55,17 @@ def get_fundamentals(ticker: str, curr_date: str = None) -> str:
         f"List Date: {basic_row.get('list_date')}",
     ]
 
-    for label in ("roe", "roa", "grossprofit_margin", "netprofit_margin", "current_ratio", "debt_to_assets", "eps", "bps", "ocfps"):
+    for label in (
+        "roe",
+        "roa",
+        "grossprofit_margin",
+        "netprofit_margin",
+        "current_ratio",
+        "debt_to_assets",
+        "eps",
+        "bps",
+        "ocfps",
+    ):
         if label in indicator_row and pd.notna(indicator_row[label]):
             lines.append(f"{label}: {indicator_row[label]}")
 
@@ -63,9 +75,13 @@ def get_fundamentals(ticker: str, curr_date: str = None) -> str:
     return "# CN Company Fundamentals\n\n" + "\n".join(lines)
 
 
-def get_balance_sheet(ticker: str, freq: str = "quarterly", curr_date: str = None) -> str:
+def get_balance_sheet(
+    ticker: str, freq: str = "quarterly", curr_date: str = None
+) -> str:
     df = _fetch_dataset("balancesheet", ticker)
-    return dataframe_to_standard_string(df, f"CN Balance Sheet data for {ticker} ({freq})")
+    return dataframe_to_standard_string(
+        df, f"CN Balance Sheet data for {ticker} ({freq})"
+    )
 
 
 def get_cashflow(ticker: str, freq: str = "quarterly", curr_date: str = None) -> str:
@@ -73,6 +89,10 @@ def get_cashflow(ticker: str, freq: str = "quarterly", curr_date: str = None) ->
     return dataframe_to_standard_string(df, f"CN Cash Flow data for {ticker} ({freq})")
 
 
-def get_income_statement(ticker: str, freq: str = "quarterly", curr_date: str = None) -> str:
+def get_income_statement(
+    ticker: str, freq: str = "quarterly", curr_date: str = None
+) -> str:
     df = _fetch_dataset("income", ticker)
-    return dataframe_to_standard_string(df, f"CN Income Statement data for {ticker} ({freq})")
+    return dataframe_to_standard_string(
+        df, f"CN Income Statement data for {ticker} ({freq})"
+    )

@@ -28,7 +28,9 @@ def _history_rows(start: str, periods: int) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def test_analysis_stock_data_uses_shared_history_cache_before_vendor_route(tmp_path, monkeypatch):
+def test_analysis_stock_data_uses_shared_history_cache_before_vendor_route(
+    tmp_path, monkeypatch
+):
     monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
     save_history_cache(
         tmp_path,
@@ -69,7 +71,9 @@ def test_analysis_stock_data_uses_shared_history_cache_before_vendor_route(tmp_p
     assert "105.0" in result
 
 
-def test_analysis_indicators_are_computed_locally_from_shared_history_cache(tmp_path, monkeypatch):
+def test_analysis_indicators_are_computed_locally_from_shared_history_cache(
+    tmp_path, monkeypatch
+):
     monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
     save_history_cache(tmp_path, "us", "AAPL", _history_rows("2025-01-01", 380))
 

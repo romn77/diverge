@@ -80,7 +80,9 @@ def count_active_tasks() -> int:
         return task_store.get_task_store().count_active("screener")
     with screener_tasks_lock:
         return sum(
-            1 for task in screener_tasks.values() if task.status in task_store.ACTIVE_STATUSES
+            1
+            for task in screener_tasks.values()
+            if task.status in task_store.ACTIVE_STATUSES
         )
 
 
@@ -115,7 +117,9 @@ def _record_screener_pruned_audit_event(task: ScreenerTask, run_dir: Path) -> No
                     "run_id": run_dir.name,
                     "as_of_date": run_meta.get("as_of_date"),
                     "pruned_symbol_count": pruned_count,
-                    "filtered_count_by_reason": run_meta.get("filtered_count_by_reason"),
+                    "filtered_count_by_reason": run_meta.get(
+                        "filtered_count_by_reason"
+                    ),
                     "pruned_symbols_path": artifact_paths.get("pruned_symbols"),
                 },
             )
@@ -172,15 +176,23 @@ def get_screener_task(task_id: str) -> ScreenerTask:
     if task_store.redis_task_backend_enabled():
         payload = task_store.get_task_store().get_task("screener", task_id)
         if payload is None:
-            raise HTTPException(status_code=404, detail=f"Screener task '{task_id}' not found")
+            raise HTTPException(
+                status_code=404, detail=f"Screener task '{task_id}' not found"
+            )
         task = screener_task_from_payload(payload)
-        task.queue_position = task_store.get_task_store().queue_position("screener", task_id)
-        task.progress_events = task_store.get_task_store().list_events("screener", task_id)
+        task.queue_position = task_store.get_task_store().queue_position(
+            "screener", task_id
+        )
+        task.progress_events = task_store.get_task_store().list_events(
+            "screener", task_id
+        )
         return task
     with screener_tasks_lock:
         task = screener_tasks.get(task_id)
     if task is None:
-        raise HTTPException(status_code=404, detail=f"Screener task '{task_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Screener task '{task_id}' not found"
+        )
     return task
 
 
@@ -217,7 +229,9 @@ def append_screener_progress(task_id: str, progress: dict) -> None:
     persist_screener_task_snapshot(task_id)
 
 
-def set_screener_task_status(task_id: str, status: str, error: Optional[str] = None) -> None:
+def set_screener_task_status(
+    task_id: str, status: str, error: Optional[str] = None
+) -> None:
     if task_store.redis_task_backend_enabled():
         task = get_screener_task(task_id)
         task.status = status
@@ -517,7 +531,9 @@ def run_screener_task(task_id: str) -> None:
             )
         _record_screener_pruned_audit_event(current_task, Path(result.run_dir))
         if storage_backend_is_remote():
-            storage.upload_directory(Path(result.run_dir), f"screener/runs/{Path(result.run_dir).name}")
+            storage.upload_directory(
+                Path(result.run_dir), f"screener/runs/{Path(result.run_dir).name}"
+            )
 
         current_task = get_screener_task(task_id)
         candidate = screener_service.run_screener(current_task, result)
@@ -659,9 +675,7 @@ def screener_task_from_payload(payload: dict) -> ScreenerTask:
             else None
         ),
         tenant_id=(
-            str(payload["tenant_id"]).strip()
-            if payload.get("tenant_id")
-            else None
+            str(payload["tenant_id"]).strip() if payload.get("tenant_id") else None
         ),
         status=status,
         latest_progress=payload.get("latest_progress"),
@@ -741,7 +755,10 @@ def claim_next_screener_task(*, timeout: int = 5) -> str | None:
 def cancel_screener_task(task_id: str) -> None:
     task = get_screener_task(task_id)
     if task.status not in {"pending", "queued", "waiting_for_quota"}:
-        raise HTTPException(status_code=409, detail="Only queued or waiting screener tasks can be canceled.")
+        raise HTTPException(
+            status_code=409,
+            detail="Only queued or waiting screener tasks can be canceled.",
+        )
     now_iso = _utc_iso()
     task.status = "canceled"
     task.canceled_at = now_iso

@@ -81,7 +81,9 @@ def normalize_and_rank_results(
 
         normalized = result.model_copy(update={"canonical_url": canonical_url})
         existing = deduped.get(canonical_url)
-        if existing is None or _dedupe_choice_key(normalized) > _dedupe_choice_key(existing):
+        if existing is None or _dedupe_choice_key(normalized) > _dedupe_choice_key(
+            existing
+        ):
             deduped[canonical_url] = normalized
 
     return sorted(deduped.values(), key=_rank_key, reverse=True)[

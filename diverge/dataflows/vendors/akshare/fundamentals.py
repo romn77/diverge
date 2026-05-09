@@ -3,7 +3,10 @@ from __future__ import annotations
 import pandas as pd
 
 from .rate_limit import call_akshare_api
-from ...cn_market_utils import dataframe_to_standard_string, parse_and_normalize_cn_ticker
+from ...cn_market_utils import (
+    dataframe_to_standard_string,
+    parse_and_normalize_cn_ticker,
+)
 from ...vendor_errors import VendorDataEmptyError, VendorRetryableError
 
 
@@ -70,9 +73,13 @@ def get_fundamentals(ticker: str, curr_date: str = None) -> str:
     return "# CN Company Fundamentals\n\n" + "\n".join(lines)
 
 
-def get_balance_sheet(ticker: str, freq: str = "quarterly", curr_date: str = None) -> str:
+def get_balance_sheet(
+    ticker: str, freq: str = "quarterly", curr_date: str = None
+) -> str:
     df = _fetch_report(ticker, "资产负债表")
-    return dataframe_to_standard_string(df, f"CN Balance Sheet data for {ticker} ({freq})")
+    return dataframe_to_standard_string(
+        df, f"CN Balance Sheet data for {ticker} ({freq})"
+    )
 
 
 def get_cashflow(ticker: str, freq: str = "quarterly", curr_date: str = None) -> str:
@@ -80,6 +87,10 @@ def get_cashflow(ticker: str, freq: str = "quarterly", curr_date: str = None) ->
     return dataframe_to_standard_string(df, f"CN Cash Flow data for {ticker} ({freq})")
 
 
-def get_income_statement(ticker: str, freq: str = "quarterly", curr_date: str = None) -> str:
+def get_income_statement(
+    ticker: str, freq: str = "quarterly", curr_date: str = None
+) -> str:
     df = _fetch_report(ticker, "利润表")
-    return dataframe_to_standard_string(df, f"CN Income Statement data for {ticker} ({freq})")
+    return dataframe_to_standard_string(
+        df, f"CN Income Statement data for {ticker} ({freq})"
+    )

@@ -168,14 +168,18 @@ class ScreenRunConfig:
         if not self.history_dir:
             raise ValueError("history_dir is required")
         if self.history_cache_policy not in VALID_HISTORY_CACHE_POLICIES:
-            raise ValueError("history_cache_policy must be one of {'cache_only', 'refresh_missing'}")
+            raise ValueError(
+                "history_cache_policy must be one of {'cache_only', 'refresh_missing'}"
+            )
         if not self.fundamental_dir:
             raise ValueError("fundamental_dir is required")
 
         if self.cn_data_source not in VALID_CN_DATA_SOURCES:
             raise ValueError("cn_data_source must be one of {'akshare', 'tushare'}")
         if self.us_data_source not in VALID_US_DATA_SOURCES:
-            raise ValueError("us_data_source must be one of {'akshare', 'alpha_vantage', 'massive', 'tushare', 'yfinance'}")
+            raise ValueError(
+                "us_data_source must be one of {'akshare', 'alpha_vantage', 'massive', 'tushare', 'yfinance'}"
+            )
         if self.cn_fundamental_source not in VALID_FUNDAMENTAL_SOURCES["cn"]:
             raise ValueError("cn_fundamental_source must be one of {'tushare'}")
         if self.us_fundamental_source not in VALID_FUNDAMENTAL_SOURCES["us"]:

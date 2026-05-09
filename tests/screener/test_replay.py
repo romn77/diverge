@@ -50,8 +50,12 @@ def _write_run_artifacts(
     filtered_out_df: pd.DataFrame,
 ) -> None:
     run_dir.mkdir(parents=True)
-    (run_dir / "features.csv").write_text(features_df.to_csv(index=False), encoding="utf-8")
-    (run_dir / "filtered_out.csv").write_text(filtered_out_df.to_csv(index=False), encoding="utf-8")
+    (run_dir / "features.csv").write_text(
+        features_df.to_csv(index=False), encoding="utf-8"
+    )
+    (run_dir / "filtered_out.csv").write_text(
+        filtered_out_df.to_csv(index=False), encoding="utf-8"
+    )
     (run_dir / "run_meta.json").write_text(
         json.dumps(
             {
@@ -143,7 +147,9 @@ def test_replay_screen_hard_filters_prefers_supplied_run_dir_artifacts(tmp_path)
 
     shutil.copytree(original_run_dir, copied_run_dir)
 
-    copied_features_df = pd.DataFrame([{**_base_feature_row("000002.SZ"), "close": 2.5}])
+    copied_features_df = pd.DataFrame(
+        [{**_base_feature_row("000002.SZ"), "close": 2.5}]
+    )
     (copied_run_dir / "features.csv").write_text(
         copied_features_df.to_csv(index=False),
         encoding="utf-8",

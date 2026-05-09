@@ -1,17 +1,19 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
-    get_indicators,
     get_language_instruction,
     get_research_note_style_instruction,
-    get_stock_data,
     get_trade_feedback_message,
 )
+from diverge.agents.utils.core_stock_tools import get_stock_data
+from diverge.agents.utils.technical_indicators_tools import get_indicators
 from diverge.runtime.messages import AdkPrompt
 
 
-def create_market_analyst(llm):
+class MarketAnalyst(DivergeAgentNode):
+    name = "market_analyst"
 
-    def market_analyst_node(state):
+    def run(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -90,7 +92,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
             ),
             messages=tuple(state["messages"]),
         )
-        result = llm.bind_tools(tools).invoke(prompt)
+        result = self.llm.bind_tools(tools).invoke(prompt)
 
         report = ""
 
@@ -102,4 +104,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
             "market_report": report,
         }
 
-    return market_analyst_node
+
+def create_market_analyst(llm):
+    return MarketAnalyst(llm)

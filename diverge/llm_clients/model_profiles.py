@@ -143,11 +143,15 @@ def resolve_model_profile(
 ) -> ResolvedModelSelection:
     profile = get_model_profile(profile_id)
     if profile.value == "custom":
-        raise ValueError("custom model profile requires explicit provider and model selection")
+        raise ValueError(
+            "custom model profile requires explicit provider and model selection"
+        )
 
     route = next(iter_available_routes(profile.routes, availability_fn), None)
     if route is None:
-        raise ValueError(f"Model profile '{profile.value}' has no available provider route")
+        raise ValueError(
+            f"Model profile '{profile.value}' has no available provider route"
+        )
 
     return ResolvedModelSelection(
         model_profile=profile.value,
@@ -202,5 +206,7 @@ def list_model_profile_options(
         serialize_model_profile(profile, availability_fn)
         for profile in STATIC_MODEL_PROFILES
     ]
-    profiles.append(serialize_model_profile(get_model_profile("custom"), availability_fn))
+    profiles.append(
+        serialize_model_profile(get_model_profile("custom"), availability_fn)
+    )
     return profiles

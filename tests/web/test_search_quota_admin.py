@@ -73,7 +73,9 @@ class SearchQuotaAdminApiTests(AuthClientMixin, unittest.TestCase):
                         "monthly_hard_cap": 8,
                     },
                 )
-                self.assertEqual(provider_response.status_code, 200, provider_response.text)
+                self.assertEqual(
+                    provider_response.status_code, 200, provider_response.text
+                )
                 provider = provider_response.json()["provider"]
                 self.assertTrue(provider["enabled"])
                 self.assertEqual(provider["monthly_free_quota"], 10)
@@ -94,7 +96,9 @@ class SearchQuotaAdminApiTests(AuthClientMixin, unittest.TestCase):
                 reactivate_response = await client.post(
                     "/api/admin/search-quota/providers/brave/reactivate"
                 )
-                self.assertEqual(reactivate_response.status_code, 200, reactivate_response.text)
+                self.assertEqual(
+                    reactivate_response.status_code, 200, reactivate_response.text
+                )
                 self.assertTrue(reactivate_response.json()["provider"]["enabled"])
 
                 reset_response = await client.post(

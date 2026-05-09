@@ -57,7 +57,9 @@ def _prefixed_litellm_model(provider: str, model: str) -> str:
     return f"{prefix}/{model}"
 
 
-def _normalize_litellm_api_base(provider: str, base_url: Optional[str]) -> Optional[str]:
+def _normalize_litellm_api_base(
+    provider: str, base_url: Optional[str]
+) -> Optional[str]:
     if not base_url:
         return None
 
@@ -173,7 +175,9 @@ def create_adk_generation_config(
     )
 
 
-def _adk_tools_from_legacy_tools(tools: Iterable[Any] | None) -> dict[str, FunctionTool]:
+def _adk_tools_from_legacy_tools(
+    tools: Iterable[Any] | None,
+) -> dict[str, FunctionTool]:
     registry: dict[str, FunctionTool] = {}
     for tool in tools or []:
         if isinstance(tool, FunctionTool):

@@ -21,7 +21,9 @@ _massive_rate_limit_lock = threading.Lock()
 def get_massive_api_key() -> str:
     api_key = os.getenv("MASSIVE_API_KEY") or os.getenv("MASSIVE_TOKEN")
     if not api_key:
-        raise VendorAuthError("MASSIVE_API_KEY or MASSIVE_TOKEN environment variable is not set.")
+        raise VendorAuthError(
+            "MASSIVE_API_KEY or MASSIVE_TOKEN environment variable is not set."
+        )
     return api_key
 
 
@@ -47,7 +49,10 @@ def format_rfc3339_end(date_str: str) -> str:
 def _apply_massive_rate_limit() -> None:
     with _massive_rate_limit_lock:
         now = time.monotonic()
-        while _massive_call_timestamps and now - _massive_call_timestamps[0] >= _MASSIVE_WINDOW_SECONDS:
+        while (
+            _massive_call_timestamps
+            and now - _massive_call_timestamps[0] >= _MASSIVE_WINDOW_SECONDS
+        ):
             _massive_call_timestamps.popleft()
 
         if len(_massive_call_timestamps) >= _MASSIVE_MAX_CALLS_PER_MINUTE:
@@ -55,7 +60,10 @@ def _apply_massive_rate_limit() -> None:
             if sleep_for > 0:
                 time.sleep(sleep_for)
                 now = time.monotonic()
-                while _massive_call_timestamps and now - _massive_call_timestamps[0] >= _MASSIVE_WINDOW_SECONDS:
+                while (
+                    _massive_call_timestamps
+                    and now - _massive_call_timestamps[0] >= _MASSIVE_WINDOW_SECONDS
+                ):
                     _massive_call_timestamps.popleft()
 
         _massive_call_timestamps.append(time.monotonic())
@@ -84,6 +92,8 @@ def massive_get(path: str, params: dict) -> dict:
     try:
         payload = response.json()
     except ValueError as exc:
-        raise VendorRetryableError(f"massive response was not valid JSON: {exc}") from exc
+        raise VendorRetryableError(
+            f"massive response was not valid JSON: {exc}"
+        ) from exc
 
     return payload

@@ -13,7 +13,13 @@ from fastapi import HTTPException
 from diverge.dataflows import vendor_usage
 from diverge.runner import AnalysisRequest
 from diverge.screener.schema import ScreenRunResult
-from web.backend import app_config as backend_config, auth, job_records, main as backend_main, screener_results
+from web.backend import (
+    app_config as backend_config,
+    auth,
+    job_records,
+    main as backend_main,
+    screener_results,
+)
 from web.backend.routers import admin as admin_router
 from web.backend.routers import config as config_router
 from web.backend.routers import screeners as screeners_router
@@ -52,16 +58,28 @@ class BackendMainTests(unittest.TestCase):
         self.original_tmp_reports_dir = backend_config.TMP_REPORTS_DIR
         self.vendor_usage_env_patch = patch.dict(
             os.environ,
-            {"DATA_SOURCE_USAGE_PATH": str(Path(self.temp_dir.name) / "vendor_usage.json")},
+            {
+                "DATA_SOURCE_USAGE_PATH": str(
+                    Path(self.temp_dir.name) / "vendor_usage.json"
+                )
+            },
             clear=False,
         )
         self.vendor_usage_env_patch.start()
         vendor_usage.reset_data_source_usage_state()
         backend_config.REPORTS_DIR = Path(self.temp_dir.name) / "data" / "reports"
-        backend_config.SCREENER_RESULTS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "runs"
-        backend_config.SCREENER_STATE_DIR = Path(self.temp_dir.name) / "data" / "screener" / "state"
-        backend_config.SCREENER_TASKS_DIR = Path(self.temp_dir.name) / "data" / "screener" / "tasks"
-        backend_config.SCREENER_CACHE_DIR = Path(self.temp_dir.name) / "data" / "cache" / "screener"
+        backend_config.SCREENER_RESULTS_DIR = (
+            Path(self.temp_dir.name) / "data" / "screener" / "runs"
+        )
+        backend_config.SCREENER_STATE_DIR = (
+            Path(self.temp_dir.name) / "data" / "screener" / "state"
+        )
+        backend_config.SCREENER_TASKS_DIR = (
+            Path(self.temp_dir.name) / "data" / "screener" / "tasks"
+        )
+        backend_config.SCREENER_CACHE_DIR = (
+            Path(self.temp_dir.name) / "data" / "cache" / "screener"
+        )
         backend_config.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "data" / "history"
         backend_config.TMP_REPORTS_DIR = backend_config.REPORTS_DIR / ".tmp"
         self.empty_project_root = Path(self.empty_project_dir.name)
@@ -98,7 +116,12 @@ class BackendMainTests(unittest.TestCase):
         run_dir = backend_config.SCREENER_RESULTS_DIR / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         candidate_rows = rows or [
-            {"symbol": "600519.SH", "market": "cn", "global_rank": 1, "total_score": 1.23},
+            {
+                "symbol": "600519.SH",
+                "market": "cn",
+                "global_rank": 1,
+                "total_score": 1.23,
+            },
             {"symbol": "AAPL", "market": "us", "global_rank": 2, "total_score": 0.91},
         ]
         headers = list(candidate_rows[0].keys())
@@ -184,7 +207,9 @@ class BackendMainTests(unittest.TestCase):
         )
 
         with (
-            patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread,
+            patch(
+                "web.backend.runtime.analysis_tasks.start_task_thread"
+            ) as start_task_thread,
             patch.dict(os.environ, {}, clear=True),
             patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
             patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
@@ -199,7 +224,9 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(task_status["request_payload"]["ticker"], "SPY")
         self.assertEqual(task_status["request_payload"]["analysts"], ["market", "news"])
         self.assertEqual(task_status["request_payload"]["llm_provider"], "openai")
-        self.assertEqual(task_status["request_payload"]["market_data_source"], "massive")
+        self.assertEqual(
+            task_status["request_payload"]["market_data_source"], "massive"
+        )
 
         snapshot_path = analysis_tasks.task_snapshot_path(body["task_id"])
         self.assertTrue(snapshot_path.is_file())
@@ -282,7 +309,9 @@ class BackendMainTests(unittest.TestCase):
             "google_thinking_level": None,
         }
 
-        with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+        with patch(
+            "web.backend.runtime.analysis_tasks.start_task_thread"
+        ) as start_task_thread:
             with self.assertRaises(HTTPException) as context:
                 tasks_router.create_task(TaskCreatePayload(**payload))
 
@@ -305,7 +334,9 @@ class BackendMainTests(unittest.TestCase):
             "google_thinking_level": None,
         }
 
-        with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+        with patch(
+            "web.backend.runtime.analysis_tasks.start_task_thread"
+        ) as start_task_thread:
             with self.assertRaises(HTTPException) as context:
                 tasks_router.create_task(TaskCreatePayload(**payload))
 
@@ -358,17 +389,33 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
             patch("web.backend.routers.tasks.hydrate_provider_credentials"),
             patch(
                 "web.backend.routers.tasks.get_provider_availability",
                 return_value={"enabled": True, "disabled_reason": None},
             ),
-            patch("web.backend.routers.tasks.auth.db_session", return_value=contextlib.nullcontext()),
-            patch("web.backend.routers.tasks.auth.get_user_by_id", return_value=user("operator-one")),
-            patch("web.backend.routers.tasks.analysis_limits.record_analysis_task_creation"),
-            patch("web.backend.routers.tasks.asset_service.build_portfolio_context_for_owner", return_value=None),
-            patch("web.backend.routers.tasks._current_user", return_value=user("operator-one")),
+            patch(
+                "web.backend.routers.tasks.auth.db_session",
+                return_value=contextlib.nullcontext(),
+            ),
+            patch(
+                "web.backend.routers.tasks.auth.get_user_by_id",
+                return_value=user("operator-one"),
+            ),
+            patch(
+                "web.backend.routers.tasks.analysis_limits.record_analysis_task_creation"
+            ),
+            patch(
+                "web.backend.routers.tasks.asset_service.build_portfolio_context_for_owner",
+                return_value=None,
+            ),
+            patch(
+                "web.backend.routers.tasks._current_user",
+                return_value=user("operator-one"),
+            ),
         ):
             with self.assertRaises(HTTPException) as context:
                 tasks_router.create_task(TaskCreatePayload(**payload))
@@ -378,17 +425,33 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
             patch("web.backend.routers.tasks.hydrate_provider_credentials"),
             patch(
                 "web.backend.routers.tasks.get_provider_availability",
                 return_value={"enabled": True, "disabled_reason": None},
             ),
-            patch("web.backend.routers.tasks.auth.db_session", return_value=contextlib.nullcontext()),
-            patch("web.backend.routers.tasks.auth.get_user_by_id", return_value=user("operator-two")),
-            patch("web.backend.routers.tasks.analysis_limits.record_analysis_task_creation"),
-            patch("web.backend.routers.tasks.asset_service.build_portfolio_context_for_owner", return_value=None),
-            patch("web.backend.routers.tasks._current_user", return_value=user("operator-two")),
+            patch(
+                "web.backend.routers.tasks.auth.db_session",
+                return_value=contextlib.nullcontext(),
+            ),
+            patch(
+                "web.backend.routers.tasks.auth.get_user_by_id",
+                return_value=user("operator-two"),
+            ),
+            patch(
+                "web.backend.routers.tasks.analysis_limits.record_analysis_task_creation"
+            ),
+            patch(
+                "web.backend.routers.tasks.asset_service.build_portfolio_context_for_owner",
+                return_value=None,
+            ),
+            patch(
+                "web.backend.routers.tasks._current_user",
+                return_value=user("operator-two"),
+            ),
         ):
             body = tasks_router.create_task(TaskCreatePayload(**payload))
 
@@ -503,11 +566,22 @@ class BackendMainTests(unittest.TestCase):
                 pass
 
         with (
-            patch("web.backend.runtime.task_store.redis_task_backend_enabled", return_value=True),
-            patch("web.backend.main.restore_persisted_active_tasks") as restore_analysis,
-            patch("web.backend.main.restore_persisted_screener_tasks") as restore_screener,
-            patch("web.backend.main.restore_persisted_data_sync_tasks") as restore_data_sync,
-            patch("web.backend.main.job_records.recover_stale_running_job_records") as recover_jobs,
+            patch(
+                "web.backend.runtime.task_store.redis_task_backend_enabled",
+                return_value=True,
+            ),
+            patch(
+                "web.backend.main.restore_persisted_active_tasks"
+            ) as restore_analysis,
+            patch(
+                "web.backend.main.restore_persisted_screener_tasks"
+            ) as restore_screener,
+            patch(
+                "web.backend.main.restore_persisted_data_sync_tasks"
+            ) as restore_data_sync,
+            patch(
+                "web.backend.main.job_records.recover_stale_running_job_records"
+            ) as recover_jobs,
         ):
             asyncio.run(run_lifespan())
 
@@ -567,7 +641,9 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
-            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+            patch(
+                "web.backend.runtime.screener_tasks.start_screener_task_thread"
+            ) as start_task_thread,
         ):
             body = screeners_router.create_screener_task(
                 ScreenTaskCreatePayload(**payload)
@@ -596,9 +672,13 @@ class BackendMainTests(unittest.TestCase):
         }
 
         with (
-            patch.dict(os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us.csv"}, clear=False),
+            patch.dict(
+                os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us.csv"}, clear=False
+            ),
             patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
-            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+            patch(
+                "web.backend.runtime.screener_tasks.start_screener_task_thread"
+            ) as start_task_thread,
         ):
             body = screeners_router.create_screener_task(
                 ScreenTaskCreatePayload(**payload)
@@ -729,8 +809,13 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
-            patch("web.backend.routers.admin.auth.db_session", return_value=contextlib.nullcontext(object())),
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
+            patch(
+                "web.backend.routers.admin.auth.db_session",
+                return_value=contextlib.nullcontext(object()),
+            ),
             patch("web.backend.routers.admin.auth.list_users", return_value=users),
             patch(
                 "web.backend.routers.admin.auth.serialize_user",
@@ -753,7 +838,9 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(items["analysis-queued"]["kind"], "analysis")
         self.assertEqual(items["analysis-queued"]["label"], "AAPL")
         self.assertEqual(items["analysis-queued"]["queue_position"], 1)
-        self.assertEqual(items["analysis-queued"]["owner"]["email"], "operator@example.com")
+        self.assertEqual(
+            items["analysis-queued"]["owner"]["email"], "operator@example.com"
+        )
         self.assertEqual(items["analysis-running"]["owner"]["role"], "viewer")
         self.assertEqual(items["screener-waiting"]["label"], "us, cn")
         self.assertEqual(items["screener-waiting"]["blocked_vendor"], "alpha_vantage")
@@ -786,11 +873,20 @@ class BackendMainTests(unittest.TestCase):
         )
 
         with (
-            patch("web.backend.routers.admin._require_admin_permission", return_value=SimpleNamespace(tenant_id="tenant-a")),
+            patch(
+                "web.backend.routers.admin._require_admin_permission",
+                return_value=SimpleNamespace(tenant_id="tenant-a"),
+            ),
             patch("web.backend.routers.admin.auth.list_users", return_value=[]),
-            patch("web.backend.runtime.data_sync_tasks.list_data_sync_tasks", return_value=[]),
+            patch(
+                "web.backend.runtime.data_sync_tasks.list_data_sync_tasks",
+                return_value=[],
+            ),
             patch("web.backend.runtime.analysis_tasks.list_tasks", return_value=[]),
-            patch("web.backend.runtime.screener_tasks.list_screener_tasks", return_value=[]),
+            patch(
+                "web.backend.runtime.screener_tasks.list_screener_tasks",
+                return_value=[],
+            ),
         ):
             payload = admin_router.list_admin_task_queue()
 
@@ -888,9 +984,15 @@ class BackendMainTests(unittest.TestCase):
         }
 
         with (
-            patch.dict(os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us_manifest.csv"}, clear=True),
+            patch.dict(
+                os.environ,
+                {"SCREEN_US_MANIFEST_PATH": "/tmp/us_manifest.csv"},
+                clear=True,
+            ),
             patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
-            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+            patch(
+                "web.backend.runtime.screener_tasks.start_screener_task_thread"
+            ) as start_task_thread,
         ):
             body = screeners_router.create_screener_task(
                 ScreenTaskCreatePayload(**payload)
@@ -903,7 +1005,9 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(task_status["request_payload"]["markets"], ["us"])
         self.assertEqual(task_status["request_payload"]["us_data_source"], "massive")
         self.assertEqual(task_status["config_payload"]["us_data_source"], "massive")
-        self.assertEqual(task_status["config_payload"]["us_manifest_path"], "/tmp/us_manifest.csv")
+        self.assertEqual(
+            task_status["config_payload"]["us_manifest_path"], "/tmp/us_manifest.csv"
+        )
 
     def test_post_screener_tasks_injects_backend_cn_manifest_when_configured(self):
         payload = {
@@ -919,7 +1023,9 @@ class BackendMainTests(unittest.TestCase):
         ):
             with (
                 patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
-                patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread,
+                patch(
+                    "web.backend.runtime.screener_tasks.start_screener_task_thread"
+                ) as start_task_thread,
             ):
                 body = screeners_router.create_screener_task(
                     ScreenTaskCreatePayload(**payload)
@@ -982,9 +1088,7 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 20,
         }
         with self.assertRaises(HTTPException) as context:
-            screeners_router.create_screener_task(
-                ScreenTaskCreatePayload(**payload)
-            )
+            screeners_router.create_screener_task(ScreenTaskCreatePayload(**payload))
 
         self.assertEqual(context.exception.status_code, 409)
         self.assertIn("queue", context.exception.detail.lower())
@@ -1010,11 +1114,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(rows[1]["market"], "us")
 
     def test_get_ticker_history_payload_reads_cached_series_and_infers_market(self):
-        cache_path = (
-            backend_config.STOCK_HISTORY_DIR
-            / "us"
-            / "AAPL.csv"
-        )
+        cache_path = backend_config.STOCK_HISTORY_DIR / "us" / "AAPL.csv"
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(
             (
@@ -1026,7 +1126,9 @@ class BackendMainTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-        payload = ticker_history_service.get_ticker_history_payload("AAPL", as_of_date="2026-03-24")
+        payload = ticker_history_service.get_ticker_history_payload(
+            "AAPL", as_of_date="2026-03-24"
+        )
 
         self.assertEqual(payload["symbol"], "AAPL")
         self.assertEqual(payload["market"], "us")
@@ -1038,11 +1140,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(payload["points"][2]["open"], 214.0)
 
     def test_get_batch_ticker_history_payload_returns_compact_points(self):
-        cache_path = (
-            backend_config.STOCK_HISTORY_DIR
-            / "cn"
-            / "600519.SH.csv"
-        )
+        cache_path = backend_config.STOCK_HISTORY_DIR / "cn" / "600519.SH.csv"
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_text(
             (
@@ -1056,7 +1154,9 @@ class BackendMainTests(unittest.TestCase):
 
         payload = ticker_history_service.get_batch_ticker_history_payload(
             TickerHistoryBatchPayload(
-                tickers=[TickerHistoryBatchItemPayload(symbol="600519.SH", market="cn")],
+                tickers=[
+                    TickerHistoryBatchItemPayload(symbol="600519.SH", market="cn")
+                ],
                 as_of_date="2026-03-24",
             )
         )
@@ -1123,7 +1223,10 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
-            patch("web.backend.runtime.screener_tasks.run_screen", side_effect=ValueError("boom")),
+            patch(
+                "web.backend.runtime.screener_tasks.run_screen",
+                side_effect=ValueError("boom"),
+            ),
         ):
             screener_tasks.run_screener_task(task.id)
 
@@ -1196,12 +1299,22 @@ class BackendMainTests(unittest.TestCase):
 
         run_dir = self._write_screener_run(
             "20260324_214530",
-            rows=[{"symbol": "600519.SH", "market": "cn", "global_rank": 1, "total_score": 0.91}],
+            rows=[
+                {
+                    "symbol": "600519.SH",
+                    "market": "cn",
+                    "global_rank": 1,
+                    "total_score": 0.91,
+                }
+            ],
             markets=["cn"],
         )
         with (
             patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
-            patch("web.backend.runtime.screener_tasks.run_screen", side_effect=fake_run_screen),
+            patch(
+                "web.backend.runtime.screener_tasks.run_screen",
+                side_effect=fake_run_screen,
+            ),
         ):
             screener_tasks.run_screener_task(task.id)
 
@@ -1227,7 +1340,11 @@ class BackendMainTests(unittest.TestCase):
                 "cn_data_source": "akshare",
             },
             status="failed",
-            latest_progress={"timestamp": "10:00:01", "status": "failed", "message": "new"},
+            latest_progress={
+                "timestamp": "10:00:01",
+                "status": "failed",
+                "message": "new",
+            },
             progress_events=[
                 {"timestamp": "10:00:00", "status": "running", "message": "old"},
                 {"timestamp": "10:00:01", "status": "failed", "message": "new"},
@@ -1247,7 +1364,9 @@ class BackendMainTests(unittest.TestCase):
             )
             chunks = []
             async for chunk in response.body_iterator:
-                chunks.append(chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk)
+                chunks.append(
+                    chunk.decode("utf-8") if isinstance(chunk, bytes) else chunk
+                )
             return "".join(chunks)
 
         body = asyncio.run(render_stream())
@@ -1261,7 +1380,9 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 20,
         }
 
-        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+        with patch(
+            "web.backend.runtime.screener_tasks.start_screener_task_thread"
+        ) as start_task_thread:
             with self.assertRaises(HTTPException) as context:
                 screeners_router.create_screener_task(
                     ScreenTaskCreatePayload(**payload)
@@ -1278,7 +1399,9 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 0,
         }
 
-        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+        with patch(
+            "web.backend.runtime.screener_tasks.start_screener_task_thread"
+        ) as start_task_thread:
             with self.assertRaises(HTTPException) as context:
                 screeners_router.create_screener_task(
                     ScreenTaskCreatePayload(**payload)
@@ -1295,7 +1418,9 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 101,
         }
 
-        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+        with patch(
+            "web.backend.runtime.screener_tasks.start_screener_task_thread"
+        ) as start_task_thread:
             with self.assertRaises(HTTPException) as context:
                 screeners_router.create_screener_task(
                     ScreenTaskCreatePayload(**payload)
@@ -1312,7 +1437,9 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 20,
         }
 
-        with patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_task_thread:
+        with patch(
+            "web.backend.runtime.screener_tasks.start_screener_task_thread"
+        ) as start_task_thread:
             with self.assertRaises(HTTPException) as context:
                 screeners_router.create_screener_task(
                     ScreenTaskCreatePayload(**payload)
@@ -1355,11 +1482,21 @@ class BackendMainTests(unittest.TestCase):
         self.assertIn("google", provider_values)
         self.assertIn("siliconflow", provider_values)
         self.assertIn("sub2api", provider_values)
-        self.assertIn("balanced", {option["value"] for option in payload["model_profiles"]})
-        self.assertIn("custom", {option["value"] for option in payload["model_profiles"]})
+        self.assertIn(
+            "balanced", {option["value"] for option in payload["model_profiles"]}
+        )
+        self.assertIn(
+            "custom", {option["value"] for option in payload["model_profiles"]}
+        )
         self.assertIn("market", {option["value"] for option in payload["analysts"]})
-        self.assertIn("gpt-5-mini", {option["value"] for option in payload["models"]["openai"]["quick"]})
-        self.assertIn("gpt-5.4", {option["value"] for option in payload["models"]["sub2api"]["deep"]})
+        self.assertIn(
+            "gpt-5-mini",
+            {option["value"] for option in payload["models"]["openai"]["quick"]},
+        )
+        self.assertIn(
+            "gpt-5.4",
+            {option["value"] for option in payload["models"]["sub2api"]["deep"]},
+        )
         self.assertIn(
             "deepseek-ai/DeepSeek-V4-Flash",
             {option["value"] for option in payload["models"]["siliconflow"]["quick"]},
@@ -1435,7 +1572,9 @@ class BackendMainTests(unittest.TestCase):
             with (
                 patch.dict(os.environ, {}, clear=True),
                 patch.object(backend_config, "PROJECT_ROOT", temp_project_path),
-                patch.object(backend_config, "PROJECT_ENV_FILE", temp_project_path / ".env"),
+                patch.object(
+                    backend_config, "PROJECT_ENV_FILE", temp_project_path / ".env"
+                ),
             ):
                 payload = config_service.get_config_options_payload()
         finally:
@@ -1457,7 +1596,9 @@ class BackendMainTests(unittest.TestCase):
             with (
                 patch.dict(os.environ, {}, clear=True),
                 patch.object(backend_config, "PROJECT_ROOT", temp_project_path),
-                patch.object(backend_config, "PROJECT_ENV_FILE", temp_project_path / ".env"),
+                patch.object(
+                    backend_config, "PROJECT_ENV_FILE", temp_project_path / ".env"
+                ),
             ):
                 payload = config_service.get_config_options_payload()
         finally:

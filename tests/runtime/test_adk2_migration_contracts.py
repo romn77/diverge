@@ -93,7 +93,9 @@ def test_adk_tool_registry_builds_function_tools():
 
     assert isinstance(registry["market"][0], FunctionTool)
     assert registry["market"][0].name == "get_stock_data"
-    assert "get_insider_transactions" in {tool.name for tool in registry["fundamentals"]}
+    assert "get_insider_transactions" in {
+        tool.name for tool in registry["fundamentals"]
+    }
 
 
 def test_adk_model_factory_uses_gemini_for_google_and_litellm_for_others():
@@ -169,7 +171,7 @@ def test_adk_adapter_extracts_sub2api_textual_tool_calls():
                 'start_date="2026-05-01" end_date="2026-05-08"'
             ),
             Part(
-                ' to=get_global_news '
+                " to=get_global_news "
                 '{"curr_date":"2026-05-08","look_back_days":7,"limit":10}'
             ),
         ]

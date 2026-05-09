@@ -22,7 +22,9 @@ class _Response:
         return self._payload
 
 
-def test_fmp_income_statement_uses_stable_endpoint_and_filters_future_reports(monkeypatch):
+def test_fmp_income_statement_uses_stable_endpoint_and_filters_future_reports(
+    monkeypatch,
+):
     from diverge.dataflows.fmp_fundamentals import get_income_statement
 
     monkeypatch.setenv("FMP_API_KEY", "demo")
@@ -37,7 +39,9 @@ def test_fmp_income_statement_uses_stable_endpoint_and_filters_future_reports(mo
     ) as mock_get:
         result = get_income_statement("AAPL", "annual", "2026-04-26")
 
-    assert json.loads(result) == {"annualReports": [{"date": "2025-12-31", "revenue": 123}]}
+    assert json.loads(result) == {
+        "annualReports": [{"date": "2025-12-31", "revenue": 123}]
+    }
     url = mock_get.call_args.args[0]
     params = mock_get.call_args.kwargs["params"]
     assert url.endswith("/stable/income-statement")

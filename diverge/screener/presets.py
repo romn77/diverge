@@ -36,16 +36,56 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "RSI (14)",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Strength >= 60", "value": "strength_60", "condition": {"field": "rsi", "op": ">=", "value": 60}},
-            {"label": "Overbought >= 70", "value": "overbought_70", "condition": {"field": "rsi", "op": ">=", "value": 70}},
-            {"label": "Overbought >= 80", "value": "overbought_80", "condition": {"field": "rsi", "op": ">=", "value": 80}},
-            {"label": "Overbought >= 90", "value": "overbought_90", "condition": {"field": "rsi", "op": ">=", "value": 90}},
-            {"label": "Weakness <= 40", "value": "weakness_40", "condition": {"field": "rsi", "op": "<=", "value": 40}},
-            {"label": "Oversold <= 30", "value": "oversold_30", "condition": {"field": "rsi", "op": "<=", "value": 30}},
-            {"label": "Oversold <= 20", "value": "oversold_20", "condition": {"field": "rsi", "op": "<=", "value": 20}},
-            {"label": "Oversold <= 10", "value": "oversold_10", "condition": {"field": "rsi", "op": "<=", "value": 10}},
-            {"label": "Not Overbought < 70", "value": "not_overbought_70", "condition": {"field": "rsi", "op": "<", "value": 70}},
-            {"label": "Not Oversold > 30", "value": "not_oversold_30", "condition": {"field": "rsi", "op": ">", "value": 30}},
+            {
+                "label": "Strength >= 60",
+                "value": "strength_60",
+                "condition": {"field": "rsi", "op": ">=", "value": 60},
+            },
+            {
+                "label": "Overbought >= 70",
+                "value": "overbought_70",
+                "condition": {"field": "rsi", "op": ">=", "value": 70},
+            },
+            {
+                "label": "Overbought >= 80",
+                "value": "overbought_80",
+                "condition": {"field": "rsi", "op": ">=", "value": 80},
+            },
+            {
+                "label": "Overbought >= 90",
+                "value": "overbought_90",
+                "condition": {"field": "rsi", "op": ">=", "value": 90},
+            },
+            {
+                "label": "Weakness <= 40",
+                "value": "weakness_40",
+                "condition": {"field": "rsi", "op": "<=", "value": 40},
+            },
+            {
+                "label": "Oversold <= 30",
+                "value": "oversold_30",
+                "condition": {"field": "rsi", "op": "<=", "value": 30},
+            },
+            {
+                "label": "Oversold <= 20",
+                "value": "oversold_20",
+                "condition": {"field": "rsi", "op": "<=", "value": 20},
+            },
+            {
+                "label": "Oversold <= 10",
+                "value": "oversold_10",
+                "condition": {"field": "rsi", "op": "<=", "value": 10},
+            },
+            {
+                "label": "Not Overbought < 70",
+                "value": "not_overbought_70",
+                "condition": {"field": "rsi", "op": "<", "value": 70},
+            },
+            {
+                "label": "Not Oversold > 30",
+                "value": "not_oversold_30",
+                "condition": {"field": "rsi", "op": ">", "value": 30},
+            },
         ],
     },
     {
@@ -53,9 +93,26 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "MA20",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Price > MA20", "value": "price_above_ma20", "condition": {"field": "close", "op": ">", "compare_field": "ma20"}},
-            {"label": "Near MA20 within +/-3%", "value": "near_ma20_3pct", "condition": {"field": "close", "op": "within_pct", "compare_field": "ma20", "value": 0.03}},
-            {"label": "Below MA20", "value": "below_ma20", "condition": {"field": "close", "op": "<", "compare_field": "ma20"}},
+            {
+                "label": "Price > MA20",
+                "value": "price_above_ma20",
+                "condition": {"field": "close", "op": ">", "compare_field": "ma20"},
+            },
+            {
+                "label": "Near MA20 within +/-3%",
+                "value": "near_ma20_3pct",
+                "condition": {
+                    "field": "close",
+                    "op": "within_pct",
+                    "compare_field": "ma20",
+                    "value": 0.03,
+                },
+            },
+            {
+                "label": "Below MA20",
+                "value": "below_ma20",
+                "condition": {"field": "close", "op": "<", "compare_field": "ma20"},
+            },
         ],
     },
     {
@@ -63,8 +120,16 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "MA60",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Price > MA60", "value": "price_above_ma60", "condition": {"field": "close", "op": ">", "compare_field": "ma60"}},
-            {"label": "Below MA60", "value": "below_ma60", "condition": {"field": "close", "op": "<", "compare_field": "ma60"}},
+            {
+                "label": "Price > MA60",
+                "value": "price_above_ma60",
+                "condition": {"field": "close", "op": ">", "compare_field": "ma60"},
+            },
+            {
+                "label": "Below MA60",
+                "value": "below_ma60",
+                "condition": {"field": "close", "op": "<", "compare_field": "ma60"},
+            },
         ],
     },
     {
@@ -87,9 +152,21 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "20D Return",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "20D Return > 0%", "value": "ret20_positive", "condition": {"field": "ret_20", "op": ">", "value": 0}},
-            {"label": "20D Return >= 5%", "value": "ret20_5", "condition": {"field": "ret_20", "op": ">=", "value": 0.05}},
-            {"label": "20D Return < 0%", "value": "ret20_negative", "condition": {"field": "ret_20", "op": "<", "value": 0}},
+            {
+                "label": "20D Return > 0%",
+                "value": "ret20_positive",
+                "condition": {"field": "ret_20", "op": ">", "value": 0},
+            },
+            {
+                "label": "20D Return >= 5%",
+                "value": "ret20_5",
+                "condition": {"field": "ret_20", "op": ">=", "value": 0.05},
+            },
+            {
+                "label": "20D Return < 0%",
+                "value": "ret20_negative",
+                "condition": {"field": "ret_20", "op": "<", "value": 0},
+            },
         ],
     },
     {
@@ -97,8 +174,16 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "60D Return",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "60D Return > 0%", "value": "ret60_positive", "condition": {"field": "ret_60", "op": ">", "value": 0}},
-            {"label": "60D Return >= 10%", "value": "ret60_10", "condition": {"field": "ret_60", "op": ">=", "value": 0.10}},
+            {
+                "label": "60D Return > 0%",
+                "value": "ret60_positive",
+                "condition": {"field": "ret_60", "op": ">", "value": 0},
+            },
+            {
+                "label": "60D Return >= 10%",
+                "value": "ret60_10",
+                "condition": {"field": "ret_60", "op": ">=", "value": 0.10},
+            },
         ],
     },
     {
@@ -106,10 +191,26 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Volatility",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Low Volatility: ATR% <= 2%", "value": "atr_low_2", "condition": {"field": "atr_pct", "op": "<=", "value": 0.02}},
-            {"label": "Normal Volatility: ATR% <= 4%", "value": "atr_normal_4", "condition": {"field": "atr_pct", "op": "<=", "value": 0.04}},
-            {"label": "High Volatility: ATR% >= 5%", "value": "atr_high_5", "condition": {"field": "atr_pct", "op": ">=", "value": 0.05}},
-            {"label": "Extreme Volatility: ATR% >= 8%", "value": "atr_extreme_8", "condition": {"field": "atr_pct", "op": ">=", "value": 0.08}},
+            {
+                "label": "Low Volatility: ATR% <= 2%",
+                "value": "atr_low_2",
+                "condition": {"field": "atr_pct", "op": "<=", "value": 0.02},
+            },
+            {
+                "label": "Normal Volatility: ATR% <= 4%",
+                "value": "atr_normal_4",
+                "condition": {"field": "atr_pct", "op": "<=", "value": 0.04},
+            },
+            {
+                "label": "High Volatility: ATR% >= 5%",
+                "value": "atr_high_5",
+                "condition": {"field": "atr_pct", "op": ">=", "value": 0.05},
+            },
+            {
+                "label": "Extreme Volatility: ATR% >= 8%",
+                "value": "atr_extreme_8",
+                "condition": {"field": "atr_pct", "op": ">=", "value": 0.08},
+            },
         ],
     },
     {
@@ -117,8 +218,24 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Liquidity",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Market Default", "value": "market_default", "condition": {"field": "avg_amount_20d", "op": ">=", "market_threshold": "default_liquidity"}},
-            {"label": "2x Market Default", "value": "market_default_2x", "condition": {"field": "avg_amount_20d", "op": ">=", "market_threshold": "double_liquidity"}},
+            {
+                "label": "Market Default",
+                "value": "market_default",
+                "condition": {
+                    "field": "avg_amount_20d",
+                    "op": ">=",
+                    "market_threshold": "default_liquidity",
+                },
+            },
+            {
+                "label": "2x Market Default",
+                "value": "market_default_2x",
+                "condition": {
+                    "field": "avg_amount_20d",
+                    "op": ">=",
+                    "market_threshold": "double_liquidity",
+                },
+            },
         ],
     },
     {
@@ -126,10 +243,38 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Pattern",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Any Breakout", "value": "breakout_any", "condition": {"field": "breakout_hit", "op": "is_true"}},
-            {"label": "Platform Breakout", "value": "platform_breakout", "condition": {"field": "breakout_type", "op": "==", "value": "platform_breakout"}},
-            {"label": "Box Breakout", "value": "box_breakout", "condition": {"field": "breakout_type", "op": "==", "value": "box_breakout"}},
-            {"label": "Wedge Breakout", "value": "wedge_breakout", "condition": {"field": "breakout_type", "op": "==", "value": "wedge_breakout"}},
+            {
+                "label": "Any Breakout",
+                "value": "breakout_any",
+                "condition": {"field": "breakout_hit", "op": "is_true"},
+            },
+            {
+                "label": "Platform Breakout",
+                "value": "platform_breakout",
+                "condition": {
+                    "field": "breakout_type",
+                    "op": "==",
+                    "value": "platform_breakout",
+                },
+            },
+            {
+                "label": "Box Breakout",
+                "value": "box_breakout",
+                "condition": {
+                    "field": "breakout_type",
+                    "op": "==",
+                    "value": "box_breakout",
+                },
+            },
+            {
+                "label": "Wedge Breakout",
+                "value": "wedge_breakout",
+                "condition": {
+                    "field": "breakout_type",
+                    "op": "==",
+                    "value": "wedge_breakout",
+                },
+            },
         ],
     },
     {
@@ -137,7 +282,11 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Volume",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Breakout Volume Confirmed", "value": "breakout_volume_confirmed", "condition": {"field": "breakout_with_volume", "op": "is_true"}},
+            {
+                "label": "Breakout Volume Confirmed",
+                "value": "breakout_volume_confirmed",
+                "condition": {"field": "breakout_with_volume", "op": "is_true"},
+            },
         ],
     },
     {
@@ -145,9 +294,30 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "P/E",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "P/E > 0 and <= 10", "value": "pe_lte_10", "conditions": [{"field": "pe_ttm", "op": ">", "value": 0}, {"field": "pe_ttm", "op": "<=", "value": 10}]},
-            {"label": "P/E > 0 and <= 20", "value": "pe_lte_20", "conditions": [{"field": "pe_ttm", "op": ">", "value": 0}, {"field": "pe_ttm", "op": "<=", "value": 20}]},
-            {"label": "P/E > 0 and <= 40", "value": "pe_lte_40", "conditions": [{"field": "pe_ttm", "op": ">", "value": 0}, {"field": "pe_ttm", "op": "<=", "value": 40}]},
+            {
+                "label": "P/E > 0 and <= 10",
+                "value": "pe_lte_10",
+                "conditions": [
+                    {"field": "pe_ttm", "op": ">", "value": 0},
+                    {"field": "pe_ttm", "op": "<=", "value": 10},
+                ],
+            },
+            {
+                "label": "P/E > 0 and <= 20",
+                "value": "pe_lte_20",
+                "conditions": [
+                    {"field": "pe_ttm", "op": ">", "value": 0},
+                    {"field": "pe_ttm", "op": "<=", "value": 20},
+                ],
+            },
+            {
+                "label": "P/E > 0 and <= 40",
+                "value": "pe_lte_40",
+                "conditions": [
+                    {"field": "pe_ttm", "op": ">", "value": 0},
+                    {"field": "pe_ttm", "op": "<=", "value": 40},
+                ],
+            },
         ],
     },
     {
@@ -155,9 +325,21 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "P/S",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "P/S <= 3", "value": "ps_lte_3", "condition": {"field": "ps_ttm", "op": "<=", "value": 3}},
-            {"label": "P/S <= 5", "value": "ps_lte_5", "condition": {"field": "ps_ttm", "op": "<=", "value": 5}},
-            {"label": "P/S <= 10", "value": "ps_lte_10", "condition": {"field": "ps_ttm", "op": "<=", "value": 10}},
+            {
+                "label": "P/S <= 3",
+                "value": "ps_lte_3",
+                "condition": {"field": "ps_ttm", "op": "<=", "value": 3},
+            },
+            {
+                "label": "P/S <= 5",
+                "value": "ps_lte_5",
+                "condition": {"field": "ps_ttm", "op": "<=", "value": 5},
+            },
+            {
+                "label": "P/S <= 10",
+                "value": "ps_lte_10",
+                "condition": {"field": "ps_ttm", "op": "<=", "value": 10},
+            },
         ],
     },
     {
@@ -165,9 +347,21 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "P/B",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "P/B <= 1", "value": "pb_lte_1", "condition": {"field": "pb", "op": "<=", "value": 1}},
-            {"label": "P/B <= 3", "value": "pb_lte_3", "condition": {"field": "pb", "op": "<=", "value": 3}},
-            {"label": "P/B <= 5", "value": "pb_lte_5", "condition": {"field": "pb", "op": "<=", "value": 5}},
+            {
+                "label": "P/B <= 1",
+                "value": "pb_lte_1",
+                "condition": {"field": "pb", "op": "<=", "value": 1},
+            },
+            {
+                "label": "P/B <= 3",
+                "value": "pb_lte_3",
+                "condition": {"field": "pb", "op": "<=", "value": 3},
+            },
+            {
+                "label": "P/B <= 5",
+                "value": "pb_lte_5",
+                "condition": {"field": "pb", "op": "<=", "value": 5},
+            },
         ],
     },
     {
@@ -175,9 +369,21 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "PEG",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "PEG <= 1", "value": "peg_lte_1", "condition": {"field": "peg", "op": "<=", "value": 1}},
-            {"label": "PEG <= 1.5", "value": "peg_lte_1_5", "condition": {"field": "peg", "op": "<=", "value": 1.5}},
-            {"label": "PEG <= 2", "value": "peg_lte_2", "condition": {"field": "peg", "op": "<=", "value": 2}},
+            {
+                "label": "PEG <= 1",
+                "value": "peg_lte_1",
+                "condition": {"field": "peg", "op": "<=", "value": 1},
+            },
+            {
+                "label": "PEG <= 1.5",
+                "value": "peg_lte_1_5",
+                "condition": {"field": "peg", "op": "<=", "value": 1.5},
+            },
+            {
+                "label": "PEG <= 2",
+                "value": "peg_lte_2",
+                "condition": {"field": "peg", "op": "<=", "value": 2},
+            },
         ],
     },
     {
@@ -185,8 +391,16 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "ROE",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "ROE >= 10%", "value": "roe_gte_10", "condition": {"field": "roe", "op": ">=", "value": 0.10}},
-            {"label": "ROE >= 20%", "value": "roe_gte_20", "condition": {"field": "roe", "op": ">=", "value": 0.20}},
+            {
+                "label": "ROE >= 10%",
+                "value": "roe_gte_10",
+                "condition": {"field": "roe", "op": ">=", "value": 0.10},
+            },
+            {
+                "label": "ROE >= 20%",
+                "value": "roe_gte_20",
+                "condition": {"field": "roe", "op": ">=", "value": 0.20},
+            },
         ],
     },
     {
@@ -194,7 +408,11 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Gross Margin",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Gross Margin >= 30%", "value": "gross_margin_gte_30", "condition": {"field": "gross_margin", "op": ">=", "value": 0.30}},
+            {
+                "label": "Gross Margin >= 30%",
+                "value": "gross_margin_gte_30",
+                "condition": {"field": "gross_margin", "op": ">=", "value": 0.30},
+            },
         ],
     },
     {
@@ -202,7 +420,11 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Net Margin",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Net Margin >= 10%", "value": "net_margin_gte_10", "condition": {"field": "net_margin", "op": ">=", "value": 0.10}},
+            {
+                "label": "Net Margin >= 10%",
+                "value": "net_margin_gte_10",
+                "condition": {"field": "net_margin", "op": ">=", "value": 0.10},
+            },
         ],
     },
     {
@@ -210,8 +432,16 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Revenue Growth",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Revenue Growth >= 10%", "value": "revenue_growth_gte_10", "condition": {"field": "revenue_growth_yoy", "op": ">=", "value": 0.10}},
-            {"label": "Revenue Growth >= 20%", "value": "revenue_growth_gte_20", "condition": {"field": "revenue_growth_yoy", "op": ">=", "value": 0.20}},
+            {
+                "label": "Revenue Growth >= 10%",
+                "value": "revenue_growth_gte_10",
+                "condition": {"field": "revenue_growth_yoy", "op": ">=", "value": 0.10},
+            },
+            {
+                "label": "Revenue Growth >= 20%",
+                "value": "revenue_growth_gte_20",
+                "condition": {"field": "revenue_growth_yoy", "op": ">=", "value": 0.20},
+            },
         ],
     },
     {
@@ -219,7 +449,15 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Net Income Growth",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Net Income Growth >= 10%", "value": "income_growth_gte_10", "condition": {"field": "net_income_growth_yoy", "op": ">=", "value": 0.10}},
+            {
+                "label": "Net Income Growth >= 10%",
+                "value": "income_growth_gte_10",
+                "condition": {
+                    "field": "net_income_growth_yoy",
+                    "op": ">=",
+                    "value": 0.10,
+                },
+            },
         ],
     },
     {
@@ -227,8 +465,16 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Current Ratio",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Current Ratio >= 1", "value": "current_ratio_gte_1", "condition": {"field": "current_ratio", "op": ">=", "value": 1.0}},
-            {"label": "Current Ratio >= 1.5", "value": "current_ratio_gte_1_5", "condition": {"field": "current_ratio", "op": ">=", "value": 1.5}},
+            {
+                "label": "Current Ratio >= 1",
+                "value": "current_ratio_gte_1",
+                "condition": {"field": "current_ratio", "op": ">=", "value": 1.0},
+            },
+            {
+                "label": "Current Ratio >= 1.5",
+                "value": "current_ratio_gte_1_5",
+                "condition": {"field": "current_ratio", "op": ">=", "value": 1.5},
+            },
         ],
     },
     {
@@ -236,7 +482,11 @@ FILTER_PRESET_GROUPS: list[dict[str, Any]] = [
         "label": "Debt / Assets",
         "options": [
             {"label": "Any", "value": "any"},
-            {"label": "Debt / Assets <= 60%", "value": "debt_assets_lte_60", "condition": {"field": "debt_to_assets", "op": "<=", "value": 0.60}},
+            {
+                "label": "Debt / Assets <= 60%",
+                "value": "debt_assets_lte_60",
+                "condition": {"field": "debt_to_assets", "op": "<=", "value": 0.60},
+            },
         ],
     },
 ]
@@ -389,12 +639,16 @@ def normalize_filter_preset_selections(
                 continue
             mapped_group = LEGACY_FILTER_OPTION_GROUPS[group].get(value)
             if mapped_group is None:
-                raise ValueError(f"unknown screener filter preset option for {group}: {value}")
+                raise ValueError(
+                    f"unknown screener filter preset option for {group}: {value}"
+                )
             group = mapped_group
         if group not in options_by_group:
             raise ValueError(f"unknown screener filter preset group: {group}")
         if value not in options_by_group[group]:
-            raise ValueError(f"unknown screener filter preset option for {group}: {value}")
+            raise ValueError(
+                f"unknown screener filter preset option for {group}: {value}"
+            )
         normalized[group] = value
     return normalized
 

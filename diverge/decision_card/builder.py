@@ -57,7 +57,9 @@ def _infer_market(symbol: str) -> str:
     normalized = symbol.strip().upper()
     if normalized.endswith(".HK"):
         return "hk"
-    if normalized.endswith((".SS", ".SZ")) or (normalized.isdigit() and len(normalized) == 6):
+    if normalized.endswith((".SS", ".SZ")) or (
+        normalized.isdigit() and len(normalized) == 6
+    ):
         return "cn"
     if normalized:
         return "us"
@@ -165,7 +167,9 @@ def _payload_from_decision_card_block(
     analysis_date: str | None,
     raw_signal: str | None,
 ) -> dict[str, Any]:
-    rating = normalize_rating(str(block.get("rating")) if block.get("rating") is not None else None)
+    rating = normalize_rating(
+        str(block.get("rating")) if block.get("rating") is not None else None
+    )
     payload = _base_payload(
         symbol=symbol,
         report_id=report_id,
@@ -173,21 +177,31 @@ def _payload_from_decision_card_block(
         rating=rating,
         raw_signal=raw_signal,
     )
-    price_plan = block.get("price_plan") if isinstance(block.get("price_plan"), dict) else {}
+    price_plan = (
+        block.get("price_plan") if isinstance(block.get("price_plan"), dict) else {}
+    )
     payload.update(
         {
             "card_version": block.get("card_version") or "1.0",
             "name": block.get("name") if isinstance(block.get("name"), str) else None,
-            "market": block.get("market") if block.get("market") in {"cn", "us", "hk", "unknown"} else payload["market"],
+            "market": block.get("market")
+            if block.get("market") in {"cn", "us", "hk", "unknown"}
+            else payload["market"],
             "action": normalize_action(
                 str(block.get("action")) if block.get("action") is not None else None,
                 rating,
             ),
             "confidence": normalize_confidence(
-                str(block.get("confidence")) if block.get("confidence") is not None else None
+                str(block.get("confidence"))
+                if block.get("confidence") is not None
+                else None
             ),
-            "conviction_score": block.get("conviction_score") if isinstance(block.get("conviction_score"), int) else 50,
-            "time_horizon": _first_non_empty(block.get("time_horizon"), fallback="Not specified"),
+            "conviction_score": block.get("conviction_score")
+            if isinstance(block.get("conviction_score"), int)
+            else 50,
+            "time_horizon": _first_non_empty(
+                block.get("time_horizon"), fallback="Not specified"
+            ),
             "one_line_summary": _first_non_empty(
                 block.get("one_line_summary"),
                 block.get("summary"),
@@ -214,7 +228,9 @@ def _payload_from_decision_card_block(
             "key_risks": _coerce_string_list(block.get("key_risks")),
             "catalysts": _coerce_string_list(block.get("catalysts")),
             "watch_items": _coerce_string_list(block.get("watch_items")),
-            "data_quality_notes": _coerce_string_list(block.get("data_quality_notes"), max_items=20),
+            "data_quality_notes": _coerce_string_list(
+                block.get("data_quality_notes"), max_items=20
+            ),
         }
     )
     return payload
@@ -244,10 +260,16 @@ def _payload_from_highlights_block(
     payload.update(
         {
             "confidence": normalize_confidence(
-                str(block.get("signal_confidence")) if block.get("signal_confidence") is not None else None
+                str(block.get("signal_confidence"))
+                if block.get("signal_confidence") is not None
+                else None
             ),
-            "one_line_summary": _first_non_empty(block.get("summary"), fallback=payload["one_line_summary"]),
-            "thesis": _first_non_empty(decision_basis, block.get("summary"), fallback=payload["thesis"]),
+            "one_line_summary": _first_non_empty(
+                block.get("summary"), fallback=payload["one_line_summary"]
+            ),
+            "thesis": _first_non_empty(
+                decision_basis, block.get("summary"), fallback=payload["thesis"]
+            ),
             "key_reasons": _build_evidence_items(
                 [
                     {
@@ -269,7 +291,9 @@ def _payload_from_highlights_block(
     strategic_actions = block.get("strategic_actions")
     if isinstance(strategic_actions, list) and strategic_actions:
         first_action = strategic_actions[0]
-        if isinstance(first_action, dict) and isinstance(first_action.get("action"), str):
+        if isinstance(first_action, dict) and isinstance(
+            first_action.get("action"), str
+        ):
             payload["price_plan"]["add_condition"] = first_action["action"]
     return payload
 
@@ -292,7 +316,9 @@ def build_fallback_decision_card(
     )
     payload["action"] = "NO_ACTION"
     payload["confidence"] = "low"
-    payload["one_line_summary"] = "Structured decision card generation fell back to a low-confidence placeholder."
+    payload["one_line_summary"] = (
+        "Structured decision card generation fell back to a low-confidence placeholder."
+    )
     payload["thesis"] = (
         "The full markdown report was saved, but Diverge could not derive a complete structured decision card."
     )
@@ -347,7 +373,9 @@ def build_decision_card(
         )
         fallback.action = infer_action_from_rating(rating)
         fallback.one_line_summary = f"Final report text indicates a {rating} rating, but no structured decision card was provided."
-        fallback.thesis = _first_non_empty(final_decision[:600], fallback=fallback.thesis)
+        fallback.thesis = _first_non_empty(
+            final_decision[:600], fallback=fallback.thesis
+        )
         fallback.data_quality_notes.append(
             "DecisionCard was derived from unstructured final decision text."
         )

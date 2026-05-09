@@ -111,7 +111,9 @@ class SearchSession:
                     if not canonical_url or canonical_url in seen:
                         continue
                     seen.add(canonical_url)
-                    unique.append(result.model_copy(update={"canonical_url": canonical_url}))
+                    unique.append(
+                        result.model_copy(update={"canonical_url": canonical_url})
+                    )
         return unique
 
 

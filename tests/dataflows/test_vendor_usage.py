@@ -178,7 +178,9 @@ class VendorUsageTests(unittest.TestCase):
                 {"DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK": "true"},
                 clear=False,
             ),
-            patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()),
+            patch.object(
+                vendor_usage, "_database_store", return_value=BrokenDatabaseStore()
+            ),
         ):
             self.assertEqual(
                 vendor_usage.get_data_source_route(
@@ -210,7 +212,9 @@ class VendorUsageTests(unittest.TestCase):
 class VendorUsageDatabaseTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.database_url = f"sqlite+pysqlite:///{Path(self.temp_dir.name) / 'usage.db'}"
+        self.database_url = (
+            f"sqlite+pysqlite:///{Path(self.temp_dir.name) / 'usage.db'}"
+        )
         self.usage_path = Path(self.temp_dir.name) / "should-not-be-used.json"
         self.env_patch = patch.dict(
             os.environ,
@@ -283,7 +287,9 @@ class VendorUsageDatabaseTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"APP_ENV": "production"}, clear=False),
-            patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()),
+            patch.object(
+                vendor_usage, "_database_store", return_value=BrokenDatabaseStore()
+            ),
         ):
             with self.assertRaisesRegex(RuntimeError, "data-source governance"):
                 vendor_usage.is_data_source_available("alpha_vantage")

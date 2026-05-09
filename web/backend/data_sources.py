@@ -3,7 +3,17 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Index, Integer, String, delete, func, inspect, select
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    delete,
+    func,
+    inspect,
+    select,
+)
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from diverge.dataflows import vendor_usage as vendor_defaults
@@ -56,7 +66,9 @@ class DataSourceUsage(auth.Base):
     failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     hour_key: Mapped[str | None] = mapped_column(String(13), nullable=True)
     hour_total_calls: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    last_called_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_called_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -100,7 +112,9 @@ def ensure_data_source_tables(settings: auth.AuthSettings | None = None) -> None
 
     inspector = inspect(auth.get_engine(resolved_settings))
     missing_tables = [
-        table_name for table_name in DATA_SOURCE_TABLES if not inspector.has_table(table_name)
+        table_name
+        for table_name in DATA_SOURCE_TABLES
+        if not inspector.has_table(table_name)
     ]
     if missing_tables:
         joined = ", ".join(missing_tables)
@@ -153,7 +167,9 @@ def _default_config(vendor: str) -> dict[str, Any]:
 def _normalize_module(value: str) -> str:
     candidate = str(value or "").strip().lower()
     if candidate not in vendor_defaults.MODULE_ORDER:
-        raise ValueError(f"module must be one of {', '.join(vendor_defaults.MODULE_ORDER)}")
+        raise ValueError(
+            f"module must be one of {', '.join(vendor_defaults.MODULE_ORDER)}"
+        )
     return candidate
 
 
@@ -166,7 +182,12 @@ def _normalize_market(value: str) -> str:
 
 def _normalize_category(value: str) -> str:
     candidate = str(value or "").strip().lower()
-    if candidate not in {"core_stock_apis", "technical_indicators", "fundamental_data", "news_data"}:
+    if candidate not in {
+        "core_stock_apis",
+        "technical_indicators",
+        "fundamental_data",
+        "news_data",
+    }:
         raise ValueError(
             "category must be one of core_stock_apis, technical_indicators, fundamental_data, or news_data"
         )
@@ -195,7 +216,11 @@ def _serialize_vendor_chain(vendor_chain: list[str]) -> str:
 def _parse_vendor_chain(value: str | None) -> list[str]:
     if not value:
         return []
-    return [vendor for vendor in (item.strip().lower() for item in value.split(",")) if vendor]
+    return [
+        vendor
+        for vendor in (item.strip().lower() for item in value.split(","))
+        if vendor
+    ]
 
 
 def _default_route(module: str, market: str, category: str) -> list[str]:
@@ -224,7 +249,9 @@ def _route_payload(
 
 
 def _sorted_route_keys() -> list[tuple[str, str, str]]:
-    module_rank = {value: index for index, value in enumerate(vendor_defaults.MODULE_ORDER)}
+    module_rank = {
+        value: index for index, value in enumerate(vendor_defaults.MODULE_ORDER)
+    }
     market_rank = {"cn": 0, "us": 1, "global": 2}
     category_rank = {
         "core_stock_apis": 0,
@@ -289,8 +316,12 @@ def _sum_hour_usage(db: Session, vendor: str, usage_date: str, hour_key: str) ->
     return int(value or 0)
 
 
-def _module_usage(db: Session, vendor: str, usage_date: str, module: str) -> dict[str, int]:
-    row = db.scalar(select_usage_row(vendor=vendor, module=module, usage_date=usage_date))
+def _module_usage(
+    db: Session, vendor: str, usage_date: str, module: str
+) -> dict[str, int]:
+    row = db.scalar(
+        select_usage_row(vendor=vendor, module=module, usage_date=usage_date)
+    )
     if row is None:
         return {"total_calls": 0, "success_count": 0, "failure_count": 0}
     return {
@@ -312,7 +343,9 @@ def build_source_summary(db: Session, vendor: str, usage_date: str) -> dict[str,
     daily_limit = config["daily_limit"]
     hourly_limit = config["hourly_limit"]
     used_this_hour = _sum_hour_usage(db, vendor, usage_date, _current_hour_key())
-    remaining = None if daily_limit is None else max(daily_limit - usage["total_calls"], 0)
+    remaining = (
+        None if daily_limit is None else max(daily_limit - usage["total_calls"], 0)
+    )
     hourly_remaining = (
         None if hourly_limit is None else max(hourly_limit - used_this_hour, 0)
     )
@@ -391,7 +424,9 @@ def resolve_data_source_route(
             (normalized_module, normalized_market, normalized_category),
         )
         if row is None:
-            return _default_route(normalized_module, normalized_market, normalized_category)
+            return _default_route(
+                normalized_module, normalized_market, normalized_category
+            )
         return _parse_vendor_chain(row.vendor_chain)
 
 
@@ -454,7 +489,9 @@ def update_data_source_config(
                 label=default["label"],
                 enabled=bool(enabled),
                 daily_limit=normalized_limit,
-                hourly_limit=default["hourly_limit"] if preserve_hourly_limit else normalized_hourly_limit,
+                hourly_limit=default["hourly_limit"]
+                if preserve_hourly_limit
+                else normalized_hourly_limit,
                 updated_at=now,
             )
             db.add(row)
@@ -496,7 +533,9 @@ def record_data_source_call(
     now = _utcnow()
     hour_key = now.strftime("%Y-%m-%dT%H")
     with auth.db_session() as db:
-        row = db.scalar(select_usage_row(vendor=vendor, module=module, usage_date=usage_date))
+        row = db.scalar(
+            select_usage_row(vendor=vendor, module=module, usage_date=usage_date)
+        )
         if row is None:
             row = DataSourceUsage(
                 usage_date=usage_date,

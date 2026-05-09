@@ -1,6 +1,7 @@
 import json
 import logging
 
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_language_instruction,
@@ -60,7 +61,9 @@ def _format_transient_llm_warning(error: BaseException) -> dict[str, str]:
     }
 
 
-def _build_fallback_portfolio_decision(*, instrument_context: str, error: BaseException) -> str:
+def _build_fallback_portfolio_decision(
+    *, instrument_context: str, error: BaseException
+) -> str:
     error_note = str(error).strip()[:500] or error.__class__.__name__
     summary = (
         "Portfolio Manager LLM request failed before producing a final ruling; "
@@ -154,8 +157,10 @@ This fallback is intentionally conservative. It preserves the completed report a
 ```"""
 
 
-def create_portfolio_manager(llm, memory):
-    def portfolio_manager_node(state) -> dict:
+class PortfolioManager(DivergeAgentNode):
+    name = "portfolio_manager"
+
+    def run(self, state) -> dict:
         instrument_context = build_instrument_context(state["company_of_interest"])
 
         history = state["risk_debate_state"]["history"]
@@ -180,7 +185,7 @@ def create_portfolio_manager(llm, memory):
             f"{market_research_report}\n\n{sentiment_report}\n\n"
             f"{news_report}\n\n{fundamentals_report}"
         )
-        past_memories = memory.get_memories(curr_situation, n_matches=2)
+        past_memories = self.memory.get_memories(curr_situation, n_matches=2)
 
         past_memory_str = ""
         if past_memories:
@@ -294,7 +299,7 @@ Keep the `json-highlights` and `json-decision-card` fences, JSON keys, and enum 
 
         runtime_warnings = list(state.get("runtime_warnings") or [])
         try:
-            response = llm.invoke(AdkPrompt(system_message=prompt))
+            response = self.llm.invoke(AdkPrompt(system_message=prompt))
             response_content = response.content
         except Exception as exc:
             if not _is_transient_llm_error(exc):
@@ -331,4 +336,6 @@ Keep the `json-highlights` and `json-decision-card` fences, JSON keys, and enum 
             "runtime_warnings": runtime_warnings,
         }
 
-    return portfolio_manager_node
+
+def create_portfolio_manager(llm, memory):
+    return PortfolioManager(llm, memory)

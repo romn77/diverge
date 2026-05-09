@@ -64,10 +64,14 @@ class SearchQuotaBackendTests(unittest.TestCase):
                 summary = search_quota.get_search_quota_summary(db)
 
         brave = next(
-            provider for provider in summary["providers"] if provider["provider"] == "brave"
+            provider
+            for provider in summary["providers"]
+            if provider["provider"] == "brave"
         )
         tavily = next(
-            provider for provider in summary["providers"] if provider["provider"] == "tavily"
+            provider
+            for provider in summary["providers"]
+            if provider["provider"] == "tavily"
         )
         self.assertEqual(brave["key_status"], "configured")
         self.assertEqual(tavily["key_status"], "missing")
@@ -77,11 +81,15 @@ class SearchQuotaBackendTests(unittest.TestCase):
         with self._env():
             auth.create_all_for_testing()
             with auth.db_session() as db:
-                search_quota.record_search_provider_call(db, "brave", success=False, error="timeout")
+                search_quota.record_search_provider_call(
+                    db, "brave", success=False, error="timeout"
+                )
                 summary = search_quota.get_search_quota_summary(db)
 
         brave = next(
-            provider for provider in summary["providers"] if provider["provider"] == "brave"
+            provider
+            for provider in summary["providers"]
+            if provider["provider"] == "brave"
         )
         self.assertRegex(summary["month"], r"^\d{4}-\d{2}$")
         self.assertEqual(brave["used_this_month"], 1)

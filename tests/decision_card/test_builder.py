@@ -94,7 +94,9 @@ def test_build_decision_card_uses_text_rating_when_structured_blocks_are_absent(
 
 
 def test_build_decision_card_returns_low_confidence_fallback_without_signal():
-    card = build_decision_card(final_state={"final_trade_decision": "No clear call."}, symbol="QQQ")
+    card = build_decision_card(
+        final_state={"final_trade_decision": "No clear call."}, symbol="QQQ"
+    )
 
     assert card.rating == "HOLD"
     assert card.action == "NO_ACTION"

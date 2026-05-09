@@ -345,7 +345,9 @@ def _save_fundamental_snapshot(
     return sync_result
 
 
-def _normalize_simfin_tickers(value: list[str] | tuple[str, ...] | str | None) -> list[str] | None:
+def _normalize_simfin_tickers(
+    value: list[str] | tuple[str, ...] | str | None,
+) -> list[str] | None:
     if value is None:
         return None
     if isinstance(value, str):
@@ -397,10 +399,16 @@ def _latest_by_ticker(frame: pd.DataFrame) -> pd.DataFrame:
     if date_col is not None:
         working[date_col] = pd.to_datetime(working[date_col], errors="coerce")
         working = working.sort_values(date_col)
-    return working.groupby(working[ticker_col].astype(str).str.upper()).tail(1).reset_index(drop=True)
+    return (
+        working.groupby(working[ticker_col].astype(str).str.upper())
+        .tail(1)
+        .reset_index(drop=True)
+    )
 
 
-def _normalize_simfin_snapshot(frame: pd.DataFrame, *, as_of_date: str | None = None) -> pd.DataFrame:
+def _normalize_simfin_snapshot(
+    frame: pd.DataFrame, *, as_of_date: str | None = None
+) -> pd.DataFrame:
     latest = _latest_by_ticker(frame)
     if latest.empty:
         return pd.DataFrame(columns=["symbol", "market", "source", *FUNDAMENTAL_FIELDS])
@@ -465,7 +473,9 @@ def sync_us_simfin_fundamentals(
     )
 
 
-def _normalize_tushare_indicator_frame(frame: pd.DataFrame, *, as_of_date: str | None = None) -> pd.DataFrame:
+def _normalize_tushare_indicator_frame(
+    frame: pd.DataFrame, *, as_of_date: str | None = None
+) -> pd.DataFrame:
     if frame.empty:
         return pd.DataFrame(columns=["symbol", "market", "source", *FUNDAMENTAL_FIELDS])
     working = frame.copy()
@@ -492,7 +502,9 @@ def _normalize_tushare_indicator_frame(frame: pd.DataFrame, *, as_of_date: str |
     return pd.DataFrame(rows)
 
 
-def _normalize_tushare_daily_basic_frame(frame: pd.DataFrame, *, as_of_date: str | None = None) -> pd.DataFrame:
+def _normalize_tushare_daily_basic_frame(
+    frame: pd.DataFrame, *, as_of_date: str | None = None
+) -> pd.DataFrame:
     if frame.empty:
         return pd.DataFrame(columns=["symbol", "market", "source", *FUNDAMENTAL_FIELDS])
     working = frame.copy()
@@ -540,7 +552,9 @@ def sync_cn_tushare_fundamentals(
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> SyncResult:
     pro = get_tushare_pro_client()
-    normalized_symbols = [str(symbol).strip() for symbol in symbols if str(symbol).strip()]
+    normalized_symbols = [
+        str(symbol).strip() for symbol in symbols if str(symbol).strip()
+    ]
     if as_of_date:
         trade_date = as_of_date.replace("-", "")
         try:
@@ -592,7 +606,9 @@ def sync_cn_tushare_fundamentals(
             if progress_callback is not None:
                 progress_callback(index, len(normalized_symbols), symbol)
 
-    combined = pd.concat(rows, ignore_index=True, sort=False) if rows else pd.DataFrame()
+    combined = (
+        pd.concat(rows, ignore_index=True, sort=False) if rows else pd.DataFrame()
+    )
     snapshot = _normalize_tushare_indicator_frame(combined, as_of_date=as_of_date)
     result = SyncResult(
         sync_type="fundamentals",
@@ -680,9 +696,7 @@ def sync_ohlcv_cache(
     )
     ready_symbols = _ready_symbol_set(quality_rows)
     ready_histories = {
-        symbol: frame
-        for symbol, frame in histories.items()
-        if symbol in ready_symbols
+        symbol: frame for symbol, frame in histories.items() if symbol in ready_symbols
     }
     failed_symbols = _failed_symbols_from_quality_rows(quality_rows)
     reason_counts = _quality_reason_counts(quality_rows)

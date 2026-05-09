@@ -23,7 +23,9 @@ def _safe_zscore(series: pd.Series) -> pd.Series:
     return (numeric - numeric.mean()) / std
 
 
-def _marketwise_zscore(df: pd.DataFrame, raw_column: str, score_column: str) -> pd.DataFrame:
+def _marketwise_zscore(
+    df: pd.DataFrame, raw_column: str, score_column: str
+) -> pd.DataFrame:
     result = df.copy()
     result[score_column] = result.groupby("market")[raw_column].transform(_safe_zscore)
     return result
@@ -52,17 +54,33 @@ def _inverse_valuation(series: pd.Series, cap: float | None = None) -> pd.Series
 
 def _fundamental_raw(df: pd.DataFrame) -> pd.Series:
     components = pd.DataFrame(index=df.index)
-    components["valuation_pe"] = _inverse_valuation(_numeric_column(df, "pe_ttm"), cap=120)
-    components["valuation_ps"] = _inverse_valuation(_numeric_column(df, "ps_ttm"), cap=80)
+    components["valuation_pe"] = _inverse_valuation(
+        _numeric_column(df, "pe_ttm"), cap=120
+    )
+    components["valuation_ps"] = _inverse_valuation(
+        _numeric_column(df, "ps_ttm"), cap=80
+    )
     components["valuation_pb"] = _inverse_valuation(_numeric_column(df, "pb"), cap=80)
     components["valuation_peg"] = _inverse_valuation(_numeric_column(df, "peg"), cap=10)
     components["quality_roe"] = _positive_quality(_numeric_column(df, "roe"), cap=1.0)
-    components["quality_gross_margin"] = _positive_quality(_numeric_column(df, "gross_margin"), cap=1.0)
-    components["quality_net_margin"] = _positive_quality(_numeric_column(df, "net_margin"), cap=1.0)
-    components["growth_revenue"] = _positive_quality(_numeric_column(df, "revenue_growth_yoy"), cap=3.0)
-    components["growth_income"] = _positive_quality(_numeric_column(df, "net_income_growth_yoy"), cap=3.0)
-    components["balance_current"] = _positive_quality(_numeric_column(df, "current_ratio"), cap=5.0)
-    components["balance_debt"] = -_positive_quality(_numeric_column(df, "debt_to_assets"), cap=2.0)
+    components["quality_gross_margin"] = _positive_quality(
+        _numeric_column(df, "gross_margin"), cap=1.0
+    )
+    components["quality_net_margin"] = _positive_quality(
+        _numeric_column(df, "net_margin"), cap=1.0
+    )
+    components["growth_revenue"] = _positive_quality(
+        _numeric_column(df, "revenue_growth_yoy"), cap=3.0
+    )
+    components["growth_income"] = _positive_quality(
+        _numeric_column(df, "net_income_growth_yoy"), cap=3.0
+    )
+    components["balance_current"] = _positive_quality(
+        _numeric_column(df, "current_ratio"), cap=5.0
+    )
+    components["balance_debt"] = -_positive_quality(
+        _numeric_column(df, "debt_to_assets"), cap=2.0
+    )
     return components.mean(axis=1, skipna=True).fillna(0.0)
 
 
@@ -112,7 +130,9 @@ def _selected_breakout_types(config: ScreenRunConfig | None) -> set[str]:
     return {breakout_type for breakout_type in config.breakout_types}
 
 
-def _breakout_bonus_parts(row: pd.Series, enabled_breakouts: set[str]) -> tuple[float, float, float]:
+def _breakout_bonus_parts(
+    row: pd.Series, enabled_breakouts: set[str]
+) -> tuple[float, float, float]:
     breakout_type = row.get("breakout_type")
     if not enabled_breakouts:
         return 0.0, 0.0, 0.0
@@ -120,7 +140,9 @@ def _breakout_bonus_parts(row: pd.Series, enabled_breakouts: set[str]) -> tuple[
         return 0.0, 0.0, 0.0
 
     base_bonus = float(BREAKOUT_BASE_BONUS.get(str(breakout_type), 0.0))
-    volume_bonus = BREAKOUT_VOLUME_BONUS if bool(row.get("breakout_with_volume")) else 0.0
+    volume_bonus = (
+        BREAKOUT_VOLUME_BONUS if bool(row.get("breakout_with_volume")) else 0.0
+    )
     breakout_bonus = min(base_bonus + volume_bonus, BREAKOUT_BONUS_CAP)
     return base_bonus, volume_bonus, breakout_bonus
 
@@ -138,11 +160,19 @@ def _score_contributions(row: pd.Series, weights: dict[str, float] | None) -> st
     else:
         payload = {
             "trend": float(row.get("trend_score", 0.0) * weights.get("trend", 0.0)),
-            "momentum": float(row.get("momentum_score", 0.0) * weights.get("momentum", 0.0)),
-            "pattern": float(row.get("pattern_score", 0.0) * weights.get("pattern", 0.0)),
-            "liquidity": float(row.get("liquidity_score", 0.0) * weights.get("liquidity", 0.0)),
+            "momentum": float(
+                row.get("momentum_score", 0.0) * weights.get("momentum", 0.0)
+            ),
+            "pattern": float(
+                row.get("pattern_score", 0.0) * weights.get("pattern", 0.0)
+            ),
+            "liquidity": float(
+                row.get("liquidity_score", 0.0) * weights.get("liquidity", 0.0)
+            ),
             "risk": float(row.get("risk_score", 0.0) * weights.get("risk", 0.0)),
-            "fundamental": float(row.get("fundamental_score", 0.0) * weights.get("fundamental", 0.0)),
+            "fundamental": float(
+                row.get("fundamental_score", 0.0) * weights.get("fundamental", 0.0)
+            ),
         }
     return ",".join(
         f"{key}:{value:.4f}"
@@ -156,12 +186,19 @@ def score_candidates(
     config: ScreenRunConfig | None = None,
 ) -> pd.DataFrame:
     ranked = filtered_df.copy()
-    ranked["trend_raw"] = ((ranked["close"] / ranked["ma20"]) - 1 + (ranked["close"] / ranked["ma60"]) - 1) / 2
+    ranked["trend_raw"] = (
+        (ranked["close"] / ranked["ma20"]) - 1 + (ranked["close"] / ranked["ma60"]) - 1
+    ) / 2
     ranked["momentum_raw"] = (
-        ranked["ret_20"] + ranked["ret_60"] + ranked["macdh"] + (-abs(ranked["rsi"] - 55) / 100)
+        ranked["ret_20"]
+        + ranked["ret_60"]
+        + ranked["macdh"]
+        + (-abs(ranked["rsi"] - 55) / 100)
     ) / 4
     ranked["risk_raw"] = -ranked["atr_pct"]
-    ranked["liquidity_raw"] = (ranked["avg_amount_20d"] + ((ranked["close"] / ranked["vwma"]) - 1)) / 2
+    ranked["liquidity_raw"] = (
+        ranked["avg_amount_20d"] + ((ranked["close"] / ranked["vwma"]) - 1)
+    ) / 2
     ranked["pattern_raw"] = ranked.apply(_pattern_raw, axis=1)
     ranked["fundamental_raw"] = _fundamental_raw(ranked)
 
@@ -190,7 +227,9 @@ def score_candidates(
         "breakout_bonus",
     ]
     ranked[breakout_bonus_parts.columns] = breakout_bonus_parts
-    ranking_profile = resolve_ranking_profile(config.ranking_profile_id if config is not None else None)
+    ranking_profile = resolve_ranking_profile(
+        config.ranking_profile_id if config is not None else None
+    )
     weights = ranking_profile["weights"] if ranking_profile is not None else None
     ranked["technical_score"] = (ranked["trend_score"] + ranked["momentum_score"]) / 2
     if weights is None:
@@ -213,7 +252,9 @@ def score_candidates(
     ranked["strategy_tags"] = ranked.apply(_strategy_tags, axis=1)
     ranked["risk_flags"] = ranked.apply(_risk_flags, axis=1)
 
-    ranked = ranked.sort_values(["total_score", "symbol"], ascending=[False, True]).reset_index(drop=True)
+    ranked = ranked.sort_values(
+        ["total_score", "symbol"], ascending=[False, True]
+    ).reset_index(drop=True)
     ranked["global_rank"] = range(1, len(ranked) + 1)
     ranked["market_rank"] = ranked.groupby("market").cumcount() + 1
     return ranked

@@ -6,20 +6,17 @@ from typing import Protocol
 
 
 class StorageBackend(Protocol):
-    def put_bytes(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
-        ...
+    def put_bytes(
+        self, key: str, data: bytes, *, content_type: str | None = None
+    ) -> None: ...
 
-    def get_bytes(self, key: str) -> bytes:
-        ...
+    def get_bytes(self, key: str) -> bytes: ...
 
-    def list(self, prefix: str = "") -> list[str]:
-        ...
+    def list(self, prefix: str = "") -> list[str]: ...
 
-    def delete(self, key: str) -> None:
-        ...
+    def delete(self, key: str) -> None: ...
 
-    def presign(self, key: str, *, expires: int = 3600) -> str:
-        ...
+    def presign(self, key: str, *, expires: int = 3600) -> str: ...
 
     def put_text(self, key: str, text: str, *, content_type: str | None = None) -> None:
         self.put_bytes(key, text.encode("utf-8"), content_type=content_type)
@@ -47,7 +44,9 @@ class LocalStorage:
             raise ValueError("storage key escapes local storage root") from exc
         return candidate
 
-    def put_bytes(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
+    def put_bytes(
+        self, key: str, data: bytes, *, content_type: str | None = None
+    ) -> None:
         path = self._path(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
@@ -110,7 +109,9 @@ class TencentCOSStorage:
             return key[len(self.prefix) + 1 :]
         return key
 
-    def put_bytes(self, key: str, data: bytes, *, content_type: str | None = None) -> None:
+    def put_bytes(
+        self, key: str, data: bytes, *, content_type: str | None = None
+    ) -> None:
         kwargs = {
             "Bucket": self.bucket,
             "Key": self._key(key),
@@ -208,7 +209,11 @@ def get_storage() -> StorageBackend:
 
     backend = signature[0]
     if backend == "local":
-        root = os.environ.get("STORAGE_LOCAL_ROOT") or os.environ.get("DATA_DIR") or "./data"
+        root = (
+            os.environ.get("STORAGE_LOCAL_ROOT")
+            or os.environ.get("DATA_DIR")
+            or "./data"
+        )
         _STORAGE = LocalStorage(root)
         _STORAGE_SIGNATURE = signature
         return _STORAGE
@@ -221,7 +226,9 @@ def get_storage() -> StorageBackend:
         _STORAGE_SIGNATURE = signature
         return _STORAGE
     if backend == "s3_compatible":
-        raise NotImplementedError("s3_compatible storage is reserved for a future overseas adapter")
+        raise NotImplementedError(
+            "s3_compatible storage is reserved for a future overseas adapter"
+        )
     raise RuntimeError(f"Unsupported STORAGE_BACKEND '{backend}'")
 
 
@@ -232,7 +239,9 @@ def _required_env(name: str) -> str:
     return value
 
 
-def upload_directory(local_dir: Path, prefix: str, *, backend: StorageBackend | None = None) -> list[str]:
+def upload_directory(
+    local_dir: Path, prefix: str, *, backend: StorageBackend | None = None
+) -> list[str]:
     storage_backend = backend or get_storage()
     uploaded: list[str] = []
     for path in sorted(local_dir.rglob("*")):
@@ -244,7 +253,9 @@ def upload_directory(local_dir: Path, prefix: str, *, backend: StorageBackend | 
     return uploaded
 
 
-def download_prefix(prefix: str, local_dir: Path, *, backend: StorageBackend | None = None) -> list[Path]:
+def download_prefix(
+    prefix: str, local_dir: Path, *, backend: StorageBackend | None = None
+) -> list[Path]:
     storage_backend = backend or get_storage()
     normalized_prefix = normalize_key(prefix)
     downloaded: list[Path] = []

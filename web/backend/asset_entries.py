@@ -107,7 +107,9 @@ class AssetPosition(auth.Base):
     resolved_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     quote_currency: Mapped[str | None] = mapped_column(String(16), nullable=True)
     vendor: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    mapping_status: Mapped[str] = mapped_column(String(32), nullable=False, default="unresolved")
+    mapping_status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="unresolved"
+    )
     error_message: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     notes: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -181,7 +183,9 @@ def ensure_asset_tables(settings: auth.AuthSettings | None = None) -> None:
         "asset_valuation_snapshots",
     )
     missing_tables = [
-        table_name for table_name in required_tables if not inspector.has_table(table_name)
+        table_name
+        for table_name in required_tables
+        if not inspector.has_table(table_name)
     ]
     if missing_tables:
         joined = ", ".join(missing_tables)
@@ -220,12 +224,18 @@ def serialize_asset_account(account: AssetAccount) -> dict[str, Any]:
         "owner_user_id": account.owner_user_id,
         "platform_name": account.platform_name,
         "account_name": account.account_name,
-        "created_at": account.created_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "updated_at": account.updated_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "created_at": account.created_at.astimezone(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "updated_at": account.updated_at.astimezone(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
     }
 
 
-def serialize_asset_snapshot(snapshot: AssetValuationSnapshot | None) -> dict[str, Any] | None:
+def serialize_asset_snapshot(
+    snapshot: AssetValuationSnapshot | None,
+) -> dict[str, Any] | None:
     if snapshot is None:
         return None
     return {
@@ -241,7 +251,9 @@ def serialize_asset_snapshot(snapshot: AssetValuationSnapshot | None) -> dict[st
         "unrealized_pnl": snapshot.unrealized_pnl,
         "source": snapshot.source,
         "error_message": snapshot.error_message,
-        "captured_at": snapshot.captured_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "captured_at": snapshot.captured_at.astimezone(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
     }
 
 
@@ -257,7 +269,9 @@ def get_or_create_asset_account(
     normalized_tenant_id = _normalize_optional_text(tenant_id)
     if normalized_tenant_id is None:
         owner = db.get(auth.User, normalized_owner_user_id)
-        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        normalized_tenant_id = (
+            owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        )
     normalized_platform_name = _require_text(platform_name, "platform_name")
     normalized_account_name = _require_text(account_name, "account_name")
 
@@ -324,7 +338,9 @@ def get_asset_account_record(
         )
     record = db.scalar(statement)
     if record is None:
-        raise auth.AuthNotFoundError(f"Asset account '{normalized_account_id}' not found")
+        raise auth.AuthNotFoundError(
+            f"Asset account '{normalized_account_id}' not found"
+        )
     return record
 
 
@@ -370,7 +386,9 @@ def get_asset_position_record(
         )
     record = db.scalar(statement)
     if record is None:
-        raise auth.AuthNotFoundError(f"Asset position '{normalized_position_id}' not found")
+        raise auth.AuthNotFoundError(
+            f"Asset position '{normalized_position_id}' not found"
+        )
     return record
 
 
@@ -429,7 +447,9 @@ def add_asset_snapshot(
         unrealized_pnl=unrealized_pnl,
         source=_normalize_optional_text(source),
         error_message=_normalize_optional_text(error_message),
-        captured_at=captured_at.astimezone(timezone.utc) if captured_at is not None else _utcnow(),
+        captured_at=captured_at.astimezone(timezone.utc)
+        if captured_at is not None
+        else _utcnow(),
     )
     db.add(snapshot)
     db.flush()

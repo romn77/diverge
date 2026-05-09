@@ -86,7 +86,9 @@ def test_budget_exhausted_response_does_not_increment_budget_when_recorded():
     response = session.warning_response(
         agent="News Analyst",
         query="AAPL latest news",
-        warning=SearchWarning(reason="analysis_budget_exhausted", message="Budget exhausted."),
+        warning=SearchWarning(
+            reason="analysis_budget_exhausted", message="Budget exhausted."
+        ),
     )
 
     session.record(response, count_budget=False)

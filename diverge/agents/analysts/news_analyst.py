@@ -1,12 +1,12 @@
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
-    get_global_news,
     get_language_instruction,
-    get_news,
     get_research_note_style_instruction,
     get_trade_feedback_message,
-    web_search_evidence,
 )
+from diverge.agents.utils.news_data_tools import get_global_news, get_news
+from diverge.agents.utils.search_tools import web_search_evidence
 from diverge.research.earnings import (
     build_earnings_workflow_context,
     inject_earnings_section,
@@ -15,8 +15,10 @@ from diverge.research.search.session import current_search_context
 from diverge.runtime.messages import AdkPrompt
 
 
-def create_news_analyst(llm):
-    def news_analyst_node(state):
+class NewsAnalyst(DivergeAgentNode):
+    name = "news_analyst"
+
+    def run(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -95,7 +97,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
                 )
             )
         try:
-            result = llm.bind_tools(tools).invoke(prompt)
+            result = self.llm.bind_tools(tools).invoke(prompt)
         finally:
             if context_token is not None:
                 current_search_context.reset(context_token)
@@ -113,4 +115,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
             "news_report": report,
         }
 
-    return news_analyst_node
+
+def create_news_analyst(llm):
+    return NewsAnalyst(llm)

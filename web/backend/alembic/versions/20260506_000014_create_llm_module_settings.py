@@ -20,19 +20,43 @@ def upgrade() -> None:
     inspector = sa.inspect(bind)
     if inspector.has_table("llm_module_settings"):
         existing_columns = {
-            column["name"]
-            for column in inspector.get_columns("llm_module_settings")
+            column["name"] for column in inspector.get_columns("llm_module_settings")
         }
         expected_columns = {
             "module": sa.Column("module", sa.String(length=64), nullable=False),
-            "enabled": sa.Column("enabled", sa.Boolean(), nullable=False, server_default=sa.true()),
-            "model_profile": sa.Column("model_profile", sa.String(length=64), nullable=False, server_default="balanced"),
-            "output_language": sa.Column("output_language", sa.String(length=8), nullable=False, server_default="cn"),
-            "custom_provider": sa.Column("custom_provider", sa.String(length=64), nullable=True),
-            "custom_model": sa.Column("custom_model", sa.String(length=192), nullable=True),
-            "openai_reasoning_effort": sa.Column("openai_reasoning_effort", sa.String(length=16), nullable=True),
-            "google_thinking_level": sa.Column("google_thinking_level", sa.String(length=16), nullable=True),
-            "updated_at": sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+            "enabled": sa.Column(
+                "enabled", sa.Boolean(), nullable=False, server_default=sa.true()
+            ),
+            "model_profile": sa.Column(
+                "model_profile",
+                sa.String(length=64),
+                nullable=False,
+                server_default="balanced",
+            ),
+            "output_language": sa.Column(
+                "output_language",
+                sa.String(length=8),
+                nullable=False,
+                server_default="cn",
+            ),
+            "custom_provider": sa.Column(
+                "custom_provider", sa.String(length=64), nullable=True
+            ),
+            "custom_model": sa.Column(
+                "custom_model", sa.String(length=192), nullable=True
+            ),
+            "openai_reasoning_effort": sa.Column(
+                "openai_reasoning_effort", sa.String(length=16), nullable=True
+            ),
+            "google_thinking_level": sa.Column(
+                "google_thinking_level", sa.String(length=16), nullable=True
+            ),
+            "updated_at": sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
         }
         for name, column in expected_columns.items():
             if name not in existing_columns:
@@ -49,7 +73,12 @@ def upgrade() -> None:
         sa.Column("custom_model", sa.String(length=192), nullable=True),
         sa.Column("openai_reasoning_effort", sa.String(length=16), nullable=True),
         sa.Column("google_thinking_level", sa.String(length=16), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("module"),
     )
 

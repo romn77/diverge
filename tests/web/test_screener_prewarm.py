@@ -23,7 +23,9 @@ def _payload(market: str = "cn") -> dict:
     }
 
 
-def test_screener_presets_persist_user_configs_for_background_prewarm(tmp_path, monkeypatch):
+def test_screener_presets_persist_user_configs_for_background_prewarm(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr(app_config, "SCREENER_STATE_DIR", tmp_path / "state")
 
     saved = screener_presets.save_screener_presets(
@@ -36,7 +38,10 @@ def test_screener_presets_persist_user_configs_for_background_prewarm(tmp_path, 
     assert screener_presets.load_screener_presets("user-1")[0]["name"] == "Trend"
     configs = screener_presets.list_all_screener_preset_configs()
     assert configs[0]["owner_user_id"] == "user-1"
-    assert configs[0]["config"]["filter_preset_selections"]["ma20_position"] == "price_above_ma20"
+    assert (
+        configs[0]["config"]["filter_preset_selections"]["ma20_position"]
+        == "price_above_ma20"
+    )
 
 
 def test_collect_screener_prewarm_payloads_includes_default_and_matching_user_presets(
@@ -59,7 +64,9 @@ def test_collect_screener_prewarm_payloads_includes_default_and_matching_user_pr
 
     assert [payload["markets"] for payload in payloads] == [["cn"], ["cn"]]
     assert payloads[0]["filter_preset_selections"]["ma20_position"] == "any"
-    assert payloads[1]["filter_preset_selections"]["ma20_position"] == "price_above_ma20"
+    assert (
+        payloads[1]["filter_preset_selections"]["ma20_position"] == "price_above_ma20"
+    )
     assert all(payload["history_cache_policy"] == "cache_only" for payload in payloads)
 
 
@@ -119,7 +126,9 @@ def test_due_prewarm_syncs_history_before_enqueuing_screener(tmp_path, monkeypat
     ]
 
 
-def test_due_prewarm_syncs_fundamentals_when_presets_require_them(tmp_path, monkeypatch):
+def test_due_prewarm_syncs_fundamentals_when_presets_require_them(
+    tmp_path, monkeypatch
+):
     calls = []
 
     monkeypatch.setattr(app_config, "SCREENER_STATE_DIR", tmp_path / "state")

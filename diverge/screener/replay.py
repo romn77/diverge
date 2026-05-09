@@ -35,7 +35,11 @@ def _count_by_reason(df: pd.DataFrame) -> dict[str, int]:
         return {}
     return {
         str(key): int(value)
-        for key, value in df["drop_reason"].value_counts().sort_index().to_dict().items()
+        for key, value in df["drop_reason"]
+        .value_counts()
+        .sort_index()
+        .to_dict()
+        .items()
     }
 
 
@@ -94,8 +98,7 @@ def _hard_filter_rows(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=list(df.columns))
     reasons = df["drop_reason"].fillna("").astype(str)
     return df[
-        reasons.isin(HARD_FILTER_DROP_REASONS)
-        | reasons.str.startswith("preset_")
+        reasons.isin(HARD_FILTER_DROP_REASONS) | reasons.str.startswith("preset_")
     ].copy()
 
 
@@ -103,7 +106,9 @@ def _comparison_records(df: pd.DataFrame) -> list[dict]:
     if df.empty:
         return []
 
-    available_columns = [column for column in COMPARISON_COLUMNS if column in df.columns]
+    available_columns = [
+        column for column in COMPARISON_COLUMNS if column in df.columns
+    ]
     if not available_columns:
         return []
 
@@ -111,12 +116,18 @@ def _comparison_records(df: pd.DataFrame) -> list[dict]:
     for column in available_columns:
         comparable[column] = comparable[column].fillna("").astype(str)
 
-    comparable = comparable.drop_duplicates().sort_values(available_columns).reset_index(drop=True)
+    comparable = (
+        comparable.drop_duplicates()
+        .sort_values(available_columns)
+        .reset_index(drop=True)
+    )
     return comparable.to_dict(orient="records")
 
 
 def _comparison_key(record: dict) -> tuple[str, ...]:
-    return tuple(str(record[column]) for column in COMPARISON_COLUMNS if column in record)
+    return tuple(
+        str(record[column]) for column in COMPARISON_COLUMNS if column in record
+    )
 
 
 def replay_screen_hard_filters(
@@ -131,7 +142,9 @@ def replay_screen_hard_filters(
     run_meta = _load_run_meta(resolved_run_dir)
     config = _load_config(run_meta)
 
-    features_path = _resolve_artifact_path(resolved_run_dir, run_meta, "features", "features.csv")
+    features_path = _resolve_artifact_path(
+        resolved_run_dir, run_meta, "features", "features.csv"
+    )
     assert features_path is not None
     features_df = pd.read_csv(features_path)
 
@@ -149,7 +162,9 @@ def replay_screen_hard_filters(
         saved_hard_filter_df = _hard_filter_rows(saved_filtered_out_df)
         saved_filtered_out_present = True
     else:
-        saved_hard_filter_df = pd.DataFrame(columns=list(replay_filtered_out_df.columns))
+        saved_hard_filter_df = pd.DataFrame(
+            columns=list(replay_filtered_out_df.columns)
+        )
         saved_filtered_out_present = False
 
     if saved_filtered_out_present:

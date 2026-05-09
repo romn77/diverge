@@ -19,7 +19,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
         self.project_root = Path(self.temp_dir.name) / "project"
         self.project_root.mkdir(parents=True, exist_ok=True)
         self.project_env = self.project_root / ".env"
-        self.project_env.write_text("OPENAI_API_KEY=test-openai-key\n", encoding="utf-8")
+        self.project_env.write_text(
+            "OPENAI_API_KEY=test-openai-key\n", encoding="utf-8"
+        )
 
         self.original_reports_dir = app_config.REPORTS_DIR
         self.original_tmp_reports_dir = app_config.TMP_REPORTS_DIR
@@ -114,7 +116,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
         )
 
         with auth.db_session() as db:
-            metadata_payload = report_metadata.build_report_metadata(report_dir, report_id=report_id)
+            metadata_payload = report_metadata.build_report_metadata(
+                report_dir, report_id=report_id
+            )
             report_metadata.upsert_report_run(
                 db,
                 report_id=report_id,
@@ -167,7 +171,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
         async def scenario():
             with auth.db_session() as db:
                 owner = auth.get_user_by_id(db, self.owner_id)
-                other_tenant = auth.create_tenant(db, name="External Desk", slug="external-desk")
+                other_tenant = auth.create_tenant(
+                    db, name="External Desk", slug="external-desk"
+                )
                 other_user = auth.create_user(
                     db,
                     email="external@example.com",
@@ -208,7 +214,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
                     ["MSFT_20260420_093000"],
                 )
 
-                external_detail = await client.get("/api/reports/QQQ_20260420_101500/structure")
+                external_detail = await client.get(
+                    "/api/reports/QQQ_20260420_101500/structure"
+                )
                 self.assertEqual(external_detail.status_code, 404)
 
         asyncio.run(scenario())
@@ -232,19 +240,27 @@ class ReportMetadataAuthTests(unittest.TestCase):
                 )
                 self.assertEqual(login_response.status_code, 200)
 
-                structure_response = await client.get("/api/reports/MSFT_20260420_093000/structure")
+                structure_response = await client.get(
+                    "/api/reports/MSFT_20260420_093000/structure"
+                )
                 self.assertEqual(structure_response.status_code, 200)
                 structure_payload = structure_response.json()
 
-                self.assertEqual(structure_payload["categories"]["analysts"], ["market"])
-                self.assertEqual(structure_payload["artifacts"][0]["path"], "artifacts/thesis.json")
+                self.assertEqual(
+                    structure_payload["categories"]["analysts"], ["market"]
+                )
+                self.assertEqual(
+                    structure_payload["artifacts"][0]["path"], "artifacts/thesis.json"
+                )
 
                 content_response = await client.get(
                     "/api/reports/MSFT_20260420_093000/content",
                     params={"path": "1_analysts/market.md"},
                 )
                 self.assertEqual(content_response.status_code, 200)
-                self.assertIn("Momentum remains constructive", content_response.json()["content"])
+                self.assertIn(
+                    "Momentum remains constructive", content_response.json()["content"]
+                )
 
                 unindexed_response = await client.get(
                     "/api/reports/MSFT_20260420_093000/content",
@@ -270,7 +286,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
 
         final_state = {"type": "final_state_stub"}
 
-        def fake_run_analysis_streaming(_request, _temp_dir, *, reports_dir=None, visible_trade_ids=None):
+        def fake_run_analysis_streaming(
+            _request, _temp_dir, *, reports_dir=None, visible_trade_ids=None
+        ):
             self.assertEqual(reports_dir, self.reports_dir)
             self.assertEqual(visible_trade_ids, set())
             if False:  # pragma: no cover
@@ -298,11 +316,16 @@ class ReportMetadataAuthTests(unittest.TestCase):
             async with app_client(app) as client:
                 login_response = await client.post(
                     "/api/auth/login",
-                    json={"email": "operator@example.com", "password": "operator-password"},
+                    json={
+                        "email": "operator@example.com",
+                        "password": "operator-password",
+                    },
                 )
                 self.assertEqual(login_response.status_code, 200)
 
-                with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+                with patch(
+                    "web.backend.runtime.analysis_tasks.start_task_thread"
+                ) as start_task_thread:
                     response = await client.post("/api/tasks", json=payload)
                 start_task_thread.assert_called_once()
                 return response.json()
@@ -310,8 +333,14 @@ class ReportMetadataAuthTests(unittest.TestCase):
         task_body = asyncio.run(create_task())
         task_id = task_body["task_id"]
         with (
-            patch("web.backend.runtime.analysis_tasks.run_analysis_streaming", side_effect=fake_run_analysis_streaming),
-            patch("web.backend.runtime.analysis_tasks.save_report_to_disk", side_effect=fake_save_report_to_disk),
+            patch(
+                "web.backend.runtime.analysis_tasks.run_analysis_streaming",
+                side_effect=fake_run_analysis_streaming,
+            ),
+            patch(
+                "web.backend.runtime.analysis_tasks.save_report_to_disk",
+                side_effect=fake_save_report_to_disk,
+            ),
         ):
             analysis_tasks.run_task(task_id)
 
@@ -322,7 +351,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
             report_run = db.get(report_metadata.ReportRun, indexed_report_id)
             self.assertIsNotNone(report_run)
             self.assertEqual(report_run.owner_user_id, self.operator_id)
-            self.assertEqual(report_run.visibility, report_metadata.REPORT_VISIBILITY_PRIVATE)
+            self.assertEqual(
+                report_run.visibility, report_metadata.REPORT_VISIBILITY_PRIVATE
+            )
             self.assertEqual(report_run.ticker, "MSFT")
 
             file_entries = report_metadata.list_report_files(db, indexed_report_id)
@@ -345,7 +376,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
 
         final_state = {"type": "final_state_stub"}
 
-        def fake_run_analysis_streaming(_request, _temp_dir, *, reports_dir=None, visible_trade_ids=None):
+        def fake_run_analysis_streaming(
+            _request, _temp_dir, *, reports_dir=None, visible_trade_ids=None
+        ):
             if False:  # pragma: no cover
                 yield None
             return final_state
@@ -366,11 +399,16 @@ class ReportMetadataAuthTests(unittest.TestCase):
             async with app_client(app) as client:
                 login_response = await client.post(
                     "/api/auth/login",
-                    json={"email": "operator@example.com", "password": "operator-password"},
+                    json={
+                        "email": "operator@example.com",
+                        "password": "operator-password",
+                    },
                 )
                 self.assertEqual(login_response.status_code, 200)
 
-                with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task_thread:
+                with patch(
+                    "web.backend.runtime.analysis_tasks.start_task_thread"
+                ) as start_task_thread:
                     response = await client.post("/api/tasks", json=payload)
                 start_task_thread.assert_called_once()
                 self.assertEqual(response.status_code, 200)
@@ -379,8 +417,14 @@ class ReportMetadataAuthTests(unittest.TestCase):
         task_body = asyncio.run(create_task())
         task_id = task_body["task_id"]
         with (
-            patch("web.backend.runtime.analysis_tasks.run_analysis_streaming", side_effect=fake_run_analysis_streaming),
-            patch("web.backend.runtime.analysis_tasks.save_report_to_disk", side_effect=fake_save_report_to_disk),
+            patch(
+                "web.backend.runtime.analysis_tasks.run_analysis_streaming",
+                side_effect=fake_run_analysis_streaming,
+            ),
+            patch(
+                "web.backend.runtime.analysis_tasks.save_report_to_disk",
+                side_effect=fake_save_report_to_disk,
+            ),
         ):
             analysis_tasks.run_task(task_id)
 
@@ -390,7 +434,9 @@ class ReportMetadataAuthTests(unittest.TestCase):
         with auth.db_session() as db:
             report_run = db.get(report_metadata.ReportRun, indexed_report_id)
             self.assertIsNotNone(report_run)
-            self.assertEqual(report_run.visibility, report_metadata.REPORT_VISIBILITY_WORKSPACE)
+            self.assertEqual(
+                report_run.visibility, report_metadata.REPORT_VISIBILITY_WORKSPACE
+            )
 
 
 if __name__ == "__main__":

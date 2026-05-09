@@ -19,6 +19,11 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
   assert.match(source, /t\("home\.searchLabel", "Search reports"\)/);
   assert.match(source, /t\("home\.recentTickers", "Tracked Tickers"\)/);
   assert.match(source, /home\.metric\.trackedTickersMeta/);
+  assert.match(source, /home\.metric\.reportLibrarySecondary/);
+  assert.match(source, /home\.metric\.trackedTickersSecondary/);
+  assert.match(source, /home\.metric\.activeResearchSecondary/);
+  assert.match(source, /trendValue/);
+  assert.match(source, /trendDirection=\{activeTasks\.length > 0 \? "up" : "neutral"\}/);
   assert.doesNotMatch(source, /home\.coverageSnapshot/);
   assert.doesNotMatch(source, /home\.coverageMap/);
   assert.doesNotMatch(source, /t\("home\.launchAnalysis", "New Analysis"\)/);

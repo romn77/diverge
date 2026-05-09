@@ -14,7 +14,9 @@ from diverge.research.search.providers.tavily import TavilySearchProvider
 
 
 class FakeResponse:
-    def __init__(self, status_code: int = 200, payload: dict | None = None, text: str = ""):
+    def __init__(
+        self, status_code: int = 200, payload: dict | None = None, text: str = ""
+    ):
         self.status_code = status_code
         self._payload = payload if payload is not None else {}
         self.text = text

@@ -9,6 +9,7 @@ from typing import Any
 
 import pandas as pd
 import pytest
+from dotenv import load_dotenv
 
 
 DEFAULT_SAMPLE_TICKERS = ("AAPL", "MSFT", "NVDA", "GOOGL", "JPM", "XOM")
@@ -151,11 +152,11 @@ def _sample_tickers() -> tuple[str, ...]:
 def _normalize_tickers(tickers: tuple[str, ...] | list[str] | str) -> tuple[str, ...]:
     if isinstance(tickers, str):
         return tuple(
-            ticker.strip().upper()
-            for ticker in tickers.split(",")
-            if ticker.strip()
+            ticker.strip().upper() for ticker in tickers.split(",") if ticker.strip()
         )
-    return tuple(str(ticker).strip().upper() for ticker in tickers if str(ticker).strip())
+    return tuple(
+        str(ticker).strip().upper() for ticker in tickers if str(ticker).strip()
+    )
 
 
 def _import_simfin():
@@ -250,10 +251,10 @@ def _latest_rows_by_ticker(
         )
         filtered = filtered.sort_values(date_column)
 
-    filtered_tickers = _series_for_column(filtered, ticker_column).astype(str).str.upper()
-    for ticker, group in filtered.groupby(
-        filtered_tickers
-    ):
+    filtered_tickers = (
+        _series_for_column(filtered, ticker_column).astype(str).str.upper()
+    )
+    for ticker, group in filtered.groupby(filtered_tickers):
         rows[ticker] = group.iloc[-1].dropna().to_dict()
     return rows
 
@@ -322,8 +323,7 @@ def _values_by_ticker(result: SimfinCoverageResult) -> dict[str, dict[str, Any]]
     for ticker in result.tickers:
         row = result.latest_rows.get(ticker, {})
         values[ticker] = {
-            field: row.get(column)
-            for field, column in result.covered_fields.items()
+            field: row.get(column) for field, column in result.covered_fields.items()
         }
     return values
 
@@ -369,8 +369,6 @@ def test_simfin_can_cover_screener_v2_scope(tmp_path):
     assert result.field_coverage >= min_field_coverage, report
     assert not weak_tickers, {**report, "weak_tickers": weak_tickers}
 
-
-from dotenv import load_dotenv
 
 if __name__ == "__main__":
     load_dotenv()

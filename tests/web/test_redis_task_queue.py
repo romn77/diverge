@@ -6,7 +6,12 @@ from unittest.mock import Mock, patch
 
 from diverge.dataflows.vendor_usage import QuotaWaitRequired
 from diverge.runner import AnalysisRequest
-from web.backend.runtime import analysis_tasks, screener_tasks, task_scheduler, task_store
+from web.backend.runtime import (
+    analysis_tasks,
+    screener_tasks,
+    task_scheduler,
+    task_store,
+)
 
 
 class RedisTaskQueueTests(unittest.TestCase):
@@ -37,8 +42,12 @@ class RedisTaskQueueTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
-            patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_thread,
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
+            patch(
+                "web.backend.runtime.analysis_tasks.start_task_thread"
+            ) as start_thread,
         ):
             body = analysis_tasks.create_task(self._request(), owner_user_id="user-1")
             task = analysis_tasks.get_task(body["task_id"])
@@ -101,10 +110,16 @@ class RedisTaskQueueTests(unittest.TestCase):
                 },
                 clear=False,
             ),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
         ):
-            self.assertEqual(task_scheduler.claim_next_task(timeout=0), ("analysis", "a1"))
-            self.assertEqual(task_scheduler.claim_next_task(timeout=0), ("screener", "s1"))
+            self.assertEqual(
+                task_scheduler.claim_next_task(timeout=0), ("analysis", "a1")
+            )
+            self.assertEqual(
+                task_scheduler.claim_next_task(timeout=0), ("screener", "s1")
+            )
             self.assertIsNone(task_scheduler.claim_next_task(timeout=0))
 
         self.assertEqual(fake_store.get_task("analysis", "a1")["status"], "running")
@@ -146,9 +161,13 @@ class RedisTaskQueueTests(unittest.TestCase):
                 },
                 clear=False,
             ),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
         ):
-            self.assertEqual(task_scheduler.claim_next_task(timeout=0), ("screener", "s1"))
+            self.assertEqual(
+                task_scheduler.claim_next_task(timeout=0), ("screener", "s1")
+            )
 
         reserve_store = task_store.InMemoryTaskStore()
         reserve_store.save_task(
@@ -184,9 +203,14 @@ class RedisTaskQueueTests(unittest.TestCase):
                 },
                 clear=False,
             ),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=reserve_store),
+            patch(
+                "web.backend.runtime.task_store.get_task_store",
+                return_value=reserve_store,
+            ),
         ):
-            self.assertEqual(task_scheduler.claim_next_task(timeout=0), ("analysis", "a1"))
+            self.assertEqual(
+                task_scheduler.claim_next_task(timeout=0), ("analysis", "a1")
+            )
 
     def test_scheduler_promotes_due_delayed_tasks_before_claiming(self):
         fake_store = task_store.InMemoryTaskStore()
@@ -205,9 +229,13 @@ class RedisTaskQueueTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
         ):
-            self.assertEqual(task_scheduler.claim_next_task(timeout=0), ("analysis", "a1"))
+            self.assertEqual(
+                task_scheduler.claim_next_task(timeout=0), ("analysis", "a1")
+            )
 
         task = fake_store.get_task("analysis", "a1")
         self.assertEqual(task["status"], "running")
@@ -217,7 +245,9 @@ class RedisTaskQueueTests(unittest.TestCase):
         fake_store = task_store.InMemoryTaskStore()
         with (
             patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
-            patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
+            patch(
+                "web.backend.runtime.task_store.get_task_store", return_value=fake_store
+            ),
         ):
             body = analysis_tasks.create_task(self._request(), owner_user_id="user-1")
             analysis_tasks.cancel_task(body["task_id"])
@@ -232,9 +262,18 @@ class RedisTaskQueueTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             with (
                 patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=False),
-                patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
-                patch("web.backend.runtime.analysis_tasks.app_config.TMP_REPORTS_DIR", Path(temp_dir)),
-                patch("web.backend.runtime.analysis_tasks.access.visible_trade_ids_for_task", return_value=[]),
+                patch(
+                    "web.backend.runtime.task_store.get_task_store",
+                    return_value=fake_store,
+                ),
+                patch(
+                    "web.backend.runtime.analysis_tasks.app_config.TMP_REPORTS_DIR",
+                    Path(temp_dir),
+                ),
+                patch(
+                    "web.backend.runtime.analysis_tasks.access.visible_trade_ids_for_task",
+                    return_value=[],
+                ),
                 patch(
                     "web.backend.runtime.analysis_tasks.run_analysis_streaming",
                     side_effect=QuotaWaitRequired(
@@ -244,7 +283,9 @@ class RedisTaskQueueTests(unittest.TestCase):
                     ),
                 ),
             ):
-                body = analysis_tasks.create_task(self._request(), owner_user_id="user-1")
+                body = analysis_tasks.create_task(
+                    self._request(), owner_user_id="user-1"
+                )
                 claimed = task_scheduler.claim_next_task(timeout=0)
                 self.assertEqual(claimed, ("analysis", body["task_id"]))
                 analysis_tasks.run_task(body["task_id"])
@@ -275,7 +316,9 @@ class RedisTaskQueueTests(unittest.TestCase):
             "ta:test:analysis:task:task-1:events",
             '{"status":"running"}',
         )
-        self.assertEqual(store.list_events("analysis", "task-1"), [{"status": "running"}])
+        self.assertEqual(
+            store.list_events("analysis", "task-1"), [{"status": "running"}]
+        )
 
     def test_redis_store_uses_deduped_ids_processing_queue_and_terminal_ttl(self):
         client = Mock()
@@ -310,7 +353,12 @@ class RedisTaskQueueTests(unittest.TestCase):
 
     def test_redis_store_recovers_pending_processing_tasks(self):
         client = Mock()
-        client.lrange.return_value = [b"pending-1", b"done-1", b"missing-1", b"running-1"]
+        client.lrange.return_value = [
+            b"pending-1",
+            b"done-1",
+            b"missing-1",
+            b"running-1",
+        ]
 
         def get_value(key):
             payloads = {

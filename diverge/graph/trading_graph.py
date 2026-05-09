@@ -242,7 +242,9 @@ class DivergeGraph:
         }
 
         # Save to file
-        directory = Path(self.config["eval_results_dir"]) / self.ticker / "DivergeStrategy_logs"
+        directory = (
+            Path(self.config["eval_results_dir"]) / self.ticker / "DivergeStrategy_logs"
+        )
         directory.mkdir(parents=True, exist_ok=True)
 
         log_path = directory / f"full_states_log_{trade_date}.json"
