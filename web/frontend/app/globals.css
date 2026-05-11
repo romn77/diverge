@@ -84,6 +84,12 @@
   --chart-axis: rgba(214, 191, 161, 0.55);
   --chart-line: rgb(17, 63, 96);
   --chart-label: rgb(96, 118, 134);
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-overlay: 20;
+  --z-sidebar: 40;
+  --z-modal: 50;
+  --z-toast: 60;
 }
 
 html[data-theme="dark"] {
@@ -1691,6 +1697,56 @@ html[data-visual-style="stylful"] .stage-card[data-state="completed"] {
   100% {
     opacity: 0;
     transform: scale3d(1.75, 1.75, 1);
+  }
+}
+
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.skeleton-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 32%,
+    color-mix(in srgb, var(--surface) 88%, transparent) 50%,
+    transparent 68%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+}
+
+@keyframes skeleton-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.stagger-rise > * {
+  animation: rise-in 360ms cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+.stagger-rise > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-rise > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-rise > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-rise > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-rise > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-rise > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-rise > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-rise > *:nth-child(8) { animation-delay: 420ms; }
+.stagger-rise > *:nth-child(n + 9) { animation-delay: 480ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer::after,
+  .stagger-rise > *,
+  .fade-in {
+    animation: none;
   }
 }
 

@@ -44,8 +44,8 @@ export function PageHeader({
               </Button>
             ) : null}
             <div className="min-w-0">
-              <p className="sr-only">{eyebrow}</p>
-              <h1 className="sr-only">{title}</h1>
+              <p className="workbench-page-eyebrow">{eyebrow}</p>
+              <h1 className="workbench-page-title workbench-page-header-title">{title}</h1>
             </div>
           </div>
           {actions ? (

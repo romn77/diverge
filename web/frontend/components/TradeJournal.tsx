@@ -521,7 +521,7 @@ export function TradeJournal({
 
   return (
     <>
-      <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+      <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
         <div className="workbench-content-frame flex flex-col gap-6">
           <PageHeader
             eyebrow={t("sidebar.tradeJournal", "Trade Journal")}

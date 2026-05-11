@@ -17,14 +17,14 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn("fixed inset-0 z-50 bg-[rgba(17,24,39,0.42)] backdrop-blur-[6px]", className)}
+    className={cn("fixed inset-0 z-[var(--z-modal)] bg-[rgba(17,24,39,0.42)] backdrop-blur-[6px]", className)}
     {...props}
   />
 ));
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const sheetVariants = cva(
-  "fixed z-50 grid gap-4 border border-border bg-card p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] transition ease-in-out",
+  "fixed z-[var(--z-modal)] grid gap-4 border border-border bg-card p-6 shadow-[0_28px_80px_rgba(18,28,41,0.24)] transition ease-in-out",
   {
     variants: {
       side: {

@@ -64,23 +64,23 @@ test("Sidebar no longer renders browse-heavy report and screener modules inline"
   assert.doesNotMatch(source, /searchQuery/);
 });
 
-test("Sidebar preserves grouped structure in collapsed rail and keeps the floating desktop toggle", () => {
+test("Sidebar preserves grouped structure in collapsed rail and renders an in-header desktop toggle", () => {
   const source = readFileSync(sidebarPath, "utf8");
 
   assert.match(source, /const desktopShellClasses = \[/);
   assert.match(source, /hidden md:block md:shrink-0/);
-  assert.match(source, /md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-\[100svh\]/);
+  assert.match(source, /md:fixed md:left-0 md:top-0 md:z-\[var\(--z-sidebar\)\] md:flex md:h-\[100svh\]/);
   assert.match(source, /md:py-0/);
   assert.match(source, /md:h-\[var\(--workbench-topbar-height\)\]/);
   assert.doesNotMatch(source, /md:min-h-\[4\.25rem\]/);
-  assert.match(source, /const desktopToggleWrapperClasses = \[/);
-  assert.match(source, /pointer-events-none fixed top-1\/2 z-\[60\] hidden -translate-y-1\/2 md:flex/);
-  assert.match(source, /isDesktopCollapsed \? "left-\[4\.75rem\]" : "left-\[14\.5rem\]"/);
-  assert.match(source, /pointer-events-auto -translate-x-\[58%\]/);
-  assert.match(source, /<DesktopUtilityControl/);
-  assert.match(source, /h-12 w-5 items-center justify-center rounded-md/);
-  assert.match(source, /shadow-\[0_8px_16px_rgba\(18,28,41,0\.06\)\]/);
-  assert.match(source, /transition-colors hover:border-\[var\(--border-strong\)\] hover:bg-\[var\(--surface-hover\)\]/);
+  assert.match(source, /const desktopToggleClasses = \[/);
+  assert.match(source, /hidden h-8 w-8 items-center justify-center rounded-full border border-\[var\(--border\)\] bg-\[var\(--surface\)\]/);
+  assert.match(source, /shadow-\[0_8px_18px_rgba\(18,28,41,0\.06\)\] transition active:translate-y-px motion-reduce:active:translate-y-0/);
+  assert.match(source, /hover:border-\[var\(--border-strong\)\] hover:bg-\[var\(--surface-hover\)\] hover:text-\[var\(--primary\)\] md:inline-flex/);
+  assert.match(source, /isDesktopRail \? "" : "ml-auto"/);
+  assert.match(source, /aria-expanded=\{!isDesktopRail\}/);
+  assert.match(source, /flex flex-col items-center gap-2 md:py-3/);
+  assert.match(source, /h-16 flex items-center md:h-\[var\(--workbench-topbar-height\)\]/);
   assert.match(source, /viewBox="0 0 16 16"/);
   assert.match(source, /d="M9\.5 3\.5 5 8l4\.5 4\.5"/);
   assert.match(source, /d="M13 3\.5 8\.5 8 13 12\.5"/);
@@ -88,6 +88,9 @@ test("Sidebar preserves grouped structure in collapsed rail and keeps the floati
   assert.match(source, /h-px w-6 bg-\[rgba\(36,32,28,0\.14\)\]/);
   assert.match(source, /sidebar-nav-link/);
   assert.match(source, /sidebar-rail-link/);
+  assert.doesNotMatch(source, /DesktopUtilityControl/);
+  assert.doesNotMatch(source, /desktopToggleWrapperClasses/);
+  assert.doesNotMatch(source, /pointer-events-none fixed top-1\/2 z-\[var\(--z-toast\)\]/);
   assert.doesNotMatch(source, /rounded-full border border-\[rgba\(28,56,83,0\.12\)\] bg-white\/72/);
   assert.doesNotMatch(source, />\s*Rail\s*</);
   assert.doesNotMatch(source, /sidebar\.collapseShort/);

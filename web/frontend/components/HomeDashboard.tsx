@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   buildHomeHref,
   buildReportHref,
@@ -184,56 +185,58 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   }, [reportTickerGroups]);
 
   return (
-    <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+    <main className="analysis-density-page workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-5">
         <PageHeader
           eyebrow={t("sidebar.nav.analysis", "Analysis")}
           title={t("home.analysisWorkspace", "Analysis workspace")}
         >
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              className="analysis-overview-metric"
-              label={t("home.metric.reportLibrary", "Report Library")}
-              value={`${scopedReports.length}`}
-              trendLabel={t("home.metric.reportLibraryScope", "Scope")}
-              trendValue={t(REPORT_SCOPE_LABEL_KEYS[scopeFilter], scopeFilter)}
-            />
-            <MetricCard
-              className="analysis-overview-metric"
-              label={t("home.recentTickers", "Tracked Tickers")}
-              value={`${trackedTickers.length}`}
-              trendLabel={t("home.metric.groupedReports", "Grouped reports")}
-              trendValue={`${reportTickerGroups.length}`}
-            />
-            <MetricCard
-              className="analysis-overview-metric"
-              label={t("home.metric.activeResearch", "Active Research")}
-              value={`${activeTasks.length}`}
-              trendLabel={t("activity.title", "Background work")}
-              trendValue={
-                activeTasks.length > 0
-                  ? t("home.metric.activeResearchLive", "Live")
-                  : t("home.metric.activeResearchIdle", "Idle")
-              }
-              trendDirection={activeTasks.length > 0 ? "up" : "neutral"}
-            />
-          </div>
+          <div className="grid gap-5 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <MetricCard
+                className="analysis-overview-metric"
+                label={t("home.metric.reportLibrary", "Report Library")}
+                value={`${scopedReports.length}`}
+                trendLabel={t("home.metric.reportLibraryScope", "Scope")}
+                trendValue={t(REPORT_SCOPE_LABEL_KEYS[scopeFilter], scopeFilter)}
+              />
+              <MetricCard
+                className="analysis-overview-metric"
+                label={t("home.recentTickers", "Tracked Tickers")}
+                value={`${trackedTickers.length}`}
+                trendLabel={t("home.metric.groupedReports", "Grouped reports")}
+                trendValue={`${reportTickerGroups.length}`}
+              />
+              <MetricCard
+                className="analysis-overview-metric"
+                label={t("home.metric.activeResearch", "Active Research")}
+                value={`${activeTasks.length}`}
+                trendLabel={t("activity.title", "Background work")}
+                trendValue={
+                  activeTasks.length > 0
+                    ? t("home.metric.activeResearchLive", "Live")
+                    : t("home.metric.activeResearchIdle", "Idle")
+                }
+                trendDirection={activeTasks.length > 0 ? "up" : "neutral"}
+              />
+            </div>
 
-          <div className="analysis-overview-search mt-5 rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
-            <label
-              htmlFor="home-report-search"
-              className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
-            >
-              {t("home.searchLabel", "Search reports")}
-            </label>
-            <Input
-              id="home-report-search"
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
-              className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
-            />
+            <div className="analysis-overview-search rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
+              <label
+                htmlFor="home-report-search"
+                className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
+              >
+                {t("home.searchLabel", "Search reports")}
+              </label>
+              <Input
+                id="home-report-search"
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
+                className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
+              />
+            </div>
           </div>
         </PageHeader>
 
@@ -285,8 +288,18 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 {reportsError}
               </div>
             ) : loadingReports ? (
-              <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                {t("home.loadingReportIndex", "Loading report index...")}
+              <div
+                className="mt-5 space-y-3"
+                role="status"
+                aria-busy="true"
+                aria-live="polite"
+              >
+                <span className="sr-only">
+                  {t("home.loadingReportIndex", "Loading report index...")}
+                </span>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={index} className="h-[68px] w-full rounded-[24px]" />
+                ))}
               </div>
             ) : matchingReports.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">

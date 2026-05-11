@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -352,7 +353,7 @@ export function AssetsWorkspace() {
   }, [setTopbarActions, topbarActions]);
 
   return (
-    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+    <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-6">
         {error ? (
           <section className="rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-5 py-4 text-sm text-[var(--danger)]">
@@ -428,8 +429,17 @@ export function AssetsWorkspace() {
             </div>
 
             {loading ? (
-              <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                {t("assets.loadingSummary", "Loading asset summary...")}
+              <div
+                className="mt-5 space-y-3"
+                role="status"
+                aria-busy="true"
+                aria-live="polite"
+              >
+                <span className="sr-only">
+                  {t("assets.loadingSummary", "Loading asset summary...")}
+                </span>
+                <Skeleton className="h-24 w-full rounded-[24px]" />
+                <Skeleton className="h-24 w-full rounded-[24px]" />
               </div>
             ) : !summary || summary.groups.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
@@ -472,11 +482,11 @@ export function AssetsWorkspace() {
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-4 divide-y divide-[var(--border)]">
                       {group.accounts.map((account) => (
                         <div
                           key={account.account_id}
-                          className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4"
+                          className="pt-4 first:pt-0"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div>
@@ -511,11 +521,11 @@ export function AssetsWorkspace() {
                             </div>
                           </div>
 
-                          <div className="mt-4 space-y-2">
+                          <div className="mt-3 divide-y divide-[color:rgba(28,36,48,0.06)]">
                             {account.positions.map((position) => (
                               <div
                                 key={position.id}
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-white px-3 py-3"
+                                className="flex flex-wrap items-center justify-between gap-3 px-2 py-3 first:pt-0 transition hover:bg-[var(--surface-strong)]"
                               >
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-semibold text-slate-900">
