@@ -32,6 +32,7 @@ from web.backend.schemas.admin import (
     AdminLLMProfileRoutesUpdatePayload,
     AdminLLMProfileUpdatePayload,
     AdminLLMProviderUpdatePayload,
+    AdminLLMUiSettingUpdatePayload,
     AdminUserCreatePayload,
     AdminUserResetPasswordPayload,
     AdminUserUpdatePayload,
@@ -764,6 +765,35 @@ def update_admin_llm_module_setting(
                     "enabled": setting["enabled"],
                     "model_profile": setting["model_profile"],
                 },
+                request=request,
+            )
+    return {"setting": setting}
+
+
+@router.put("/api/admin/llm-models/ui-settings/{setting_key}")
+def update_admin_llm_ui_setting(
+    setting_key: str,
+    payload: AdminLLMUiSettingUpdatePayload,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    try:
+        setting = llm_models.update_ui_setting(
+            setting_key,
+            enabled=payload.enabled,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.llm_ui_setting.updated",
+                resource_type="llm_ui_setting",
+                resource_id=setting["setting_key"],
+                metadata={"enabled": setting["enabled"]},
                 request=request,
             )
     return {"setting": setting}

@@ -278,12 +278,20 @@ export interface AdminLLMModuleSetting {
   google_thinking_level: string | null;
 }
 
+export interface AdminLLMUiSetting {
+  setting_key: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+}
+
 export interface AdminLLMModelsResponse {
   date: string;
   providers: AdminLLMProvider[];
   models: AdminLLMModel[];
   profiles: AdminLLMProfile[];
   module_settings: AdminLLMModuleSetting[];
+  ui_settings: AdminLLMUiSetting[];
 }
 
 export interface AdminLLMProviderUpdateRequest {
@@ -322,6 +330,10 @@ export interface AdminLLMModuleSettingUpdateRequest {
   custom_model?: string | null;
   openai_reasoning_effort: string | null;
   google_thinking_level: string | null;
+}
+
+export interface AdminLLMUiSettingUpdateRequest {
+  enabled: boolean;
 }
 
 export interface AdminTaskQueueOwner {
@@ -769,6 +781,7 @@ export interface ConfigOptions {
   research_depth: ResearchDepthOption[];
   output_languages: SelectOption[];
   defaults: Record<string, never>;
+  ui_settings?: Record<string, boolean>;
   provider_settings: {
     openai?: { openai_reasoning_effort: SelectOption[] };
     google?: { google_thinking_level: SelectOption[] };
@@ -1534,6 +1547,16 @@ export async function updateAdminLLMModuleSetting(
 ): Promise<{ setting: AdminLLMModuleSetting }> {
   return requestJson<{ setting: AdminLLMModuleSetting }>(
     `/api/admin/llm-models/module-settings/${module}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function updateAdminLLMUiSetting(
+  settingKey: string,
+  payload: AdminLLMUiSettingUpdateRequest
+): Promise<{ setting: AdminLLMUiSetting }> {
+  return requestJson<{ setting: AdminLLMUiSetting }>(
+    `/api/admin/llm-models/ui-settings/${settingKey}`,
     createJsonRequestInit("PUT", payload)
   );
 }

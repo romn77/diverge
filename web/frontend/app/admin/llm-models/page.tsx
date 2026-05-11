@@ -24,11 +24,13 @@ import {
   updateAdminLLMModuleSetting,
   updateAdminLLMProfileRoutes,
   updateAdminLLMProvider,
+  updateAdminLLMUiSetting,
   type AdminLLMModel,
   type AdminLLMModuleSetting,
   type AdminLLMModelsResponse,
   type AdminLLMProfile,
   type AdminLLMProvider,
+  type AdminLLMUiSetting,
   type UserRole,
 } from "@/lib/api";
 
@@ -107,6 +109,7 @@ export default function AdminLLMModelsPage() {
   const [modelDrafts, setModelDrafts] = useState<Record<string, { enabled: boolean; cost_tier: string; visible_to_roles: string; daily_limit: string; weekly_limit: string }>>({});
   const [routeDrafts, setRouteDrafts] = useState<Record<string, string>>({});
   const [moduleDrafts, setModuleDrafts] = useState<Record<string, ModuleDraft>>({});
+  const [uiSettingDrafts, setUiSettingDrafts] = useState<Record<string, boolean>>({});
 
   const modelsByProvider = useMemo(() => {
     const grouped: Record<string, AdminLLMModel[]> = {};
@@ -156,6 +159,10 @@ export default function AdminLLMModelsPage() {
           openai_reasoning_effort: setting.openai_reasoning_effort ?? "",
           google_thinking_level: setting.google_thinking_level ?? "",
         },
+      ])));
+      setUiSettingDrafts(Object.fromEntries((nextPayload.ui_settings ?? []).map((setting) => [
+        setting.setting_key,
+        setting.enabled,
       ])));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to load LLM models.");
@@ -252,6 +259,20 @@ export default function AdminLLMModelsPage() {
     }
   };
 
+  const saveUiSetting = async (setting: AdminLLMUiSetting) => {
+    setSaving(`ui:${setting.setting_key}`);
+    try {
+      await updateAdminLLMUiSetting(setting.setting_key, {
+        enabled: uiSettingDrafts[setting.setting_key] ?? setting.enabled,
+      });
+      await load();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to save UI setting.");
+    } finally {
+      setSaving(null);
+    }
+  };
+
   return (
     <AdminConsolePage
       activeTab="llm-models"
@@ -338,6 +359,40 @@ export default function AdminLLMModelsPage() {
 
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Module Defaults</h2>
+          {(payload?.ui_settings ?? []).length > 0 ? (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {(payload?.ui_settings ?? []).map((setting) => (
+                <AdminPanel key={setting.setting_key} contentClassName="flex items-center justify-between gap-4 p-4">
+                  <div className="min-w-0">
+                    <h3 className="font-semibold">{setting.label}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{setting.description}</p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={uiSettingDrafts[setting.setting_key] ?? setting.enabled}
+                        onChange={(event) => setUiSettingDrafts((current) => ({
+                          ...current,
+                          [setting.setting_key]: event.target.checked,
+                        }))}
+                      />
+                      Enabled
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={saving === `ui:${setting.setting_key}`}
+                      onClick={() => void saveUiSetting(setting)}
+                    >
+                      <Save className="h-4 w-4" />
+                      Save
+                    </Button>
+                  </div>
+                </AdminPanel>
+              ))}
+            </div>
+          ) : null}
           <div className="grid gap-3 lg:grid-cols-2">
             {(payload?.module_settings ?? []).map((setting) => {
               const draft = moduleDrafts[setting.module];

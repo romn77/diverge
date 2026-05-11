@@ -25,6 +25,9 @@ test("admin LLM models page gives module defaults the analysis-style model picke
   assert.match(source, /MODULE_OUTPUT_LANGUAGE_OPTIONS/);
   assert.match(source, /OPENAI_REASONING_OPTIONS/);
   assert.match(source, /GOOGLE_THINKING_OPTIONS/);
+  assert.match(source, /ui_settings/);
+  assert.match(source, /updateAdminLLMUiSetting/);
+  assert.match(source, /saveUiSetting/);
   assert.match(source, /<Select value=\{value\} onValueChange=\{onChange\}>/);
   assert.match(source, /Only providers with configured API keys are shown/);
   assert.doesNotMatch(source, /<select[\s\S]{0,400}Model Profile/);

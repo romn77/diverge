@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 from dotenv import dotenv_values
+from fastapi import Request
 
 from diverge.analysis.options import ANALYST_OPTIONS
 from diverge.screener.presets import (
@@ -20,8 +21,7 @@ from diverge.llm_clients.model_profiles import (
     PROVIDER_API_KEY_ENV_VARS,
     list_model_profile_options,
 )
-from web.backend import app_config
-from web.backend import llm_models
+from web.backend import app_config, auth, llm_models
 
 RESEARCH_DEPTH_OPTIONS = [
     {
@@ -93,7 +93,19 @@ def get_provider_availability(provider: str) -> dict[str, str | bool | None]:
     }
 
 
-def get_config_options_payload() -> dict:
+def _request_user_role(request: Request | None) -> str | None:
+    if not auth.auth_enabled() or request is None:
+        return auth.UserRole.ADMIN.value
+    with auth.db_session() as db:
+        user = auth.get_request_user(db, request)
+        return user.role if user is not None else None
+
+
+def get_config_options_payload(request: Request | None = None) -> dict:
+    user_role = _request_user_role(request)
+    include_custom_profile = llm_models.custom_analysis_profile_visible_for_role(
+        user_role
+    )
     provider_options = [
         {
             "label": label,
@@ -118,17 +130,27 @@ def get_config_options_payload() -> dict:
     analyst_options = [
         {"label": label, "value": value.value} for label, value in ANALYST_OPTIONS
     ]
+    model_profile_options = (
+        llm_models.list_config_model_profiles(include_custom=include_custom_profile)
+        if llm_models.database_backed_llm_models_enabled()
+        else [
+            option
+            for option in list_model_profile_options(get_provider_availability)
+            if include_custom_profile or option.get("value") != "custom"
+        ]
+    )
 
     return {
         "providers": provider_options,
-        "model_profiles": llm_models.list_config_model_profiles()
-        if llm_models.database_backed_llm_models_enabled()
-        else list_model_profile_options(get_provider_availability),
+        "model_profiles": model_profile_options,
         "models": model_options,
         "analysts": analyst_options,
         "research_depth": RESEARCH_DEPTH_OPTIONS,
         "output_languages": OUTPUT_LANGUAGE_OPTIONS,
         "defaults": {},
+        "ui_settings": {
+            llm_models.SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING: include_custom_profile,
+        },
         "provider_settings": {
             "openai": {"openai_reasoning_effort": OPENAI_REASONING_OPTIONS},
             "google": {"google_thinking_level": GOOGLE_THINKING_OPTIONS},

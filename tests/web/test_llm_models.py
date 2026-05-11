@@ -181,6 +181,36 @@ class LLMModelConfigTests(unittest.TestCase):
         self.assertEqual(resolved["llm_provider"], "openai")
         self.assertEqual(resolved["model"], "gpt-5.5")
 
+    def test_custom_analysis_profile_visibility_is_admin_configurable(self):
+        with self._env():
+            auth.create_all_for_testing()
+
+            self.assertTrue(
+                llm_models.custom_analysis_profile_visible_for_role("admin")
+            )
+            self.assertFalse(
+                llm_models.custom_analysis_profile_visible_for_role("operator")
+            )
+
+            setting = llm_models.update_ui_setting(
+                llm_models.SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING,
+                enabled=False,
+            )
+
+            self.assertFalse(setting["enabled"])
+            self.assertFalse(
+                llm_models.custom_analysis_profile_visible_for_role("admin")
+            )
+            self.assertNotIn(
+                "custom",
+                {
+                    option["value"]
+                    for option in llm_models.list_config_model_profiles(
+                        include_custom=False
+                    )
+                },
+            )
+
     def test_default_profile_routes_can_be_saved(self):
         with self._env():
             auth.create_all_for_testing()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from web.backend import auth
 from web.backend.services.config import (
@@ -12,8 +12,8 @@ router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)]
 
 
 @router.get("/api/config/options")
-def get_config_options() -> dict:
-    return get_config_options_payload()
+def get_config_options(request: Request = None) -> dict:
+    return get_config_options_payload(request)
 
 
 @router.get("/api/screener/config/options")

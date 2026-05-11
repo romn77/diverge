@@ -43,6 +43,7 @@ LLM_MODEL_TABLES = (
     "llm_model_profiles",
     "llm_model_profile_routes",
     "llm_module_settings",
+    "llm_ui_settings",
     "llm_model_usage",
 )
 
@@ -53,6 +54,8 @@ VALID_MODULE_SETTINGS = {"trade_journal_review"}
 VALID_OUTPUT_LANGUAGES = {"en", "cn"}
 VALID_OPENAI_REASONING_EFFORTS = {"low", "medium", "high"}
 VALID_GOOGLE_THINKING_LEVELS = {"high", "minimal"}
+SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING = "show_custom_analysis_model_profile"
+VALID_UI_SETTINGS = {SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING}
 
 
 def _utcnow() -> datetime:
@@ -154,6 +157,21 @@ class LLMModuleSetting(auth.Base):
         String(16), nullable=True
     )
     google_thinking_level: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=_utcnow,
+        onupdate=_utcnow,
+    )
+
+
+class LLMUiSetting(auth.Base):
+    __tablename__ = "llm_ui_settings"
+
+    setting_key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    label: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str] = mapped_column(String(512), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -471,6 +489,17 @@ def _default_module_settings() -> dict[str, dict[str, Any]]:
     }
 
 
+def _default_ui_settings() -> dict[str, dict[str, Any]]:
+    return {
+        SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING: {
+            "setting_key": SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING,
+            "label": "Show Custom profile in analysis",
+            "description": "Allow admins to choose a concrete provider and model from the new analysis dialog. Non-admin users never see this option.",
+            "enabled": True,
+        }
+    }
+
+
 def _default_routes(profile_id: str) -> list[ModelRoute]:
     for profile in STATIC_MODEL_PROFILES:
         if profile.value == profile_id:
@@ -573,6 +602,16 @@ def _seed_llm_model_defaults(db: Session) -> None:
                     google_thinking_level=default["google_thinking_level"],
                 )
             )
+    for setting_key, default in _default_ui_settings().items():
+        if db.get(LLMUiSetting, setting_key) is None:
+            db.add(
+                LLMUiSetting(
+                    setting_key=setting_key,
+                    label=default["label"],
+                    description=default["description"],
+                    enabled=default["enabled"],
+                )
+            )
 
 
 def ensure_llm_model_defaults() -> None:
@@ -665,6 +704,18 @@ def _module_setting_payload(
     }
 
 
+def _ui_setting_payload(row: LLMUiSetting | None, setting_key: str) -> dict[str, Any]:
+    defaults = _default_ui_settings()[setting_key]
+    if row is None:
+        return dict(defaults)
+    return {
+        "setting_key": row.setting_key,
+        "label": row.label,
+        "description": row.description,
+        "enabled": row.enabled,
+    }
+
+
 def get_module_setting(module: str) -> dict[str, Any]:
     normalized = module.strip().lower()
     if normalized not in VALID_MODULE_SETTINGS:
@@ -735,6 +786,7 @@ def list_llm_model_summary() -> dict[str, Any]:
             "models": [],
             "profiles": [],
             "module_settings": list(_default_module_settings().values()),
+            "ui_settings": list(_default_ui_settings().values()),
         }
 
     ensure_llm_model_defaults()
@@ -793,12 +845,22 @@ def list_llm_model_summary() -> dict[str, Any]:
                 _module_setting_payload(db.get(LLMModuleSetting, module), module)
                 for module in sorted(VALID_MODULE_SETTINGS)
             ],
+            "ui_settings": [
+                _ui_setting_payload(db.get(LLMUiSetting, setting_key), setting_key)
+                for setting_key in sorted(VALID_UI_SETTINGS)
+            ],
         }
 
 
-def list_config_model_profiles() -> list[dict[str, object]]:
+def list_config_model_profiles(
+    *,
+    include_custom: bool = True,
+) -> list[dict[str, object]]:
     if not database_backed_llm_models_enabled():
-        return list_model_profile_options()
+        options = list_model_profile_options()
+        if include_custom:
+            return options
+        return [option for option in options if option.get("value") != "custom"]
 
     ensure_llm_model_defaults()
     with auth.db_session() as db:
@@ -849,8 +911,56 @@ def list_config_model_profiles() -> list[dict[str, object]]:
                     else None,
                 }
             )
-        options.append(serialize_model_profile(get_model_profile("custom")))
+        if include_custom:
+            options.append(serialize_model_profile(get_model_profile("custom")))
         return options
+
+
+def ui_setting_enabled(setting_key: str) -> bool:
+    normalized = setting_key.strip().lower()
+    if normalized not in VALID_UI_SETTINGS:
+        raise ValueError(f"Unknown LLM UI setting '{setting_key}'")
+    if not database_backed_llm_models_enabled():
+        return bool(_default_ui_settings()[normalized]["enabled"])
+
+    ensure_llm_model_defaults()
+    with auth.db_session() as db:
+        payload = _ui_setting_payload(db.get(LLMUiSetting, normalized), normalized)
+        return bool(payload["enabled"])
+
+
+def custom_analysis_profile_visible_for_role(role: str | None) -> bool:
+    if not database_backed_llm_models_enabled():
+        return True
+    return role == auth.UserRole.ADMIN.value and ui_setting_enabled(
+        SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING
+    )
+
+
+def update_ui_setting(setting_key: str, *, enabled: bool) -> dict[str, Any]:
+    normalized = setting_key.strip().lower()
+    if normalized not in VALID_UI_SETTINGS:
+        raise ValueError(f"Unknown LLM UI setting '{setting_key}'")
+    if not database_backed_llm_models_enabled():
+        return {
+            **_default_ui_settings()[normalized],
+            "enabled": enabled,
+        }
+
+    ensure_llm_model_defaults()
+    with auth.db_session() as db:
+        defaults = _default_ui_settings()[normalized]
+        row = db.get(LLMUiSetting, normalized)
+        if row is None:
+            row = LLMUiSetting(
+                setting_key=normalized,
+                label=defaults["label"],
+                description=defaults["description"],
+            )
+            db.add(row)
+        row.enabled = enabled
+        db.flush()
+        return _ui_setting_payload(row, normalized)
 
 
 def update_provider_config(

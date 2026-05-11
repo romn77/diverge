@@ -88,7 +88,7 @@ def _enforce_task_submission_capacity(current_user) -> None:
         )
 
 
-def _analysis_request_payload(payload: TaskCreatePayload) -> dict:
+def _analysis_request_payload(payload: TaskCreatePayload, current_user=None) -> dict:
     request_payload = payload.model_dump(exclude={"report_visibility"})
     profile = (payload.model_profile or "").strip().lower()
     if profile and profile != "custom":
@@ -117,6 +117,14 @@ def _analysis_request_payload(payload: TaskCreatePayload) -> dict:
         ):
             request_payload["google_thinking_level"] = "high"
     else:
+        custom_profile_allowed = llm_models.custom_analysis_profile_visible_for_role(
+            getattr(current_user, "role", None)
+        )
+        if profile == "custom" and not custom_profile_allowed:
+            raise HTTPException(
+                status_code=403,
+                detail="Custom analysis model selection is available to admins only.",
+            )
         request_payload["model_profile"] = profile or None
 
     missing = [
@@ -135,11 +143,13 @@ def _analysis_request_payload(payload: TaskCreatePayload) -> dict:
 
 @router.post("/api/tasks")
 def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
+    current_user = _current_user(request, permission=auth.PERMISSION_ANALYSIS_CREATE)
     try:
-        analysis_request = AnalysisRequest(**_analysis_request_payload(payload))
+        analysis_request = AnalysisRequest(
+            **_analysis_request_payload(payload, current_user=current_user)
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    current_user = _current_user(request, permission=auth.PERMISSION_ANALYSIS_CREATE)
     hydrate_provider_credentials(analysis_request.llm_provider)
     provider_availability = get_provider_availability(analysis_request.llm_provider)
     if not provider_availability["enabled"]:

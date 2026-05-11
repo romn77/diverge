@@ -87,6 +87,10 @@ class AdminLLMModuleSettingUpdatePayload(BaseModel):
     google_thinking_level: Optional[str] = None
 
 
+class AdminLLMUiSettingUpdatePayload(BaseModel):
+    enabled: bool
+
+
 class SearchGlobalUpdatePayload(BaseModel):
     enabled: bool
 
