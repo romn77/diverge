@@ -1,5 +1,7 @@
+import asyncio
 import sys
 import types
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -227,6 +229,33 @@ def test_sync_adk_invoke_flushes_litellm_logging_worker():
 
     assert result == "ok"
     assert worker.flushed is True
+
+
+def test_litellm_blocking_runner_reuses_one_loop_across_threads():
+    from diverge.runtime.model_factory import (
+        _run_coro_blocking,
+        _shutdown_litellm_loop_for_tests,
+    )
+
+    async def current_loop_id():
+        await asyncio.sleep(0)
+        return id(asyncio.get_running_loop())
+
+    try:
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            loop_ids = list(
+                executor.map(
+                    lambda _: _run_coro_blocking(
+                        current_loop_id(),
+                        persistent_loop=True,
+                    ),
+                    range(24),
+                )
+            )
+
+        assert len(set(loop_ids)) == 1
+    finally:
+        _shutdown_litellm_loop_for_tests()
 
 
 def test_adk_adapter_extracts_sub2api_textual_tool_calls():
