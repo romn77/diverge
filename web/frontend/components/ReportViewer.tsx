@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
 import type { DecisionCard as DecisionCardModel } from "@/lib/decisionCard";
@@ -515,22 +516,42 @@ export function ReportViewer({
 
   if (!structure) {
     return (
-      <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+      <main className="analysis-density-page workbench-page-shell flex min-h-dvh flex-1 flex-col">
         <div className="workbench-content-frame">
-          <div className="viewer-frame flex w-full items-center justify-center p-8 text-sm text-slate-600">
-            {isLoading
-              ? t("report.loadingReport", "Loading report...")
-              : error
+          {isLoading ? (
+            <div
+              className="viewer-frame w-full space-y-4 p-6 md:p-8"
+              role="status"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <span className="sr-only">
+                {t("report.loadingReport", "Loading report...")}
+              </span>
+              <Skeleton className="h-7 w-2/3 rounded-[16px]" />
+              <Skeleton className="h-4 w-1/3 rounded-[12px]" />
+              <div className="grid gap-3 md:grid-cols-3">
+                <Skeleton className="h-20 rounded-[20px]" />
+                <Skeleton className="h-20 rounded-[20px]" />
+                <Skeleton className="h-20 rounded-[20px]" />
+              </div>
+              <Skeleton className="h-40 w-full rounded-[24px]" />
+              <Skeleton className="h-40 w-full rounded-[24px]" />
+            </div>
+          ) : (
+            <div className="viewer-frame flex w-full items-center justify-center p-8 text-sm text-slate-600">
+              {error
                 ? `${t("report.errorPrefix", "Error")}: ${error}`
                 : t("report.noReportData", "No report data")}
-          </div>
+            </div>
+          )}
         </div>
       </main>
     );
   }
 
   return (
-    <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] min-w-0 flex-1 flex-col overflow-x-hidden">
+    <main className="analysis-density-page workbench-page-shell flex min-h-dvh min-w-0 flex-1 flex-col overflow-x-hidden">
       <div className="workbench-content-frame">
         <section
           id="report-content-panel"
@@ -690,7 +711,7 @@ export function ReportViewer({
             </div>
           </div>
 
-          <div className="sticky top-0 z-20 min-w-0 max-w-full bg-transparent">
+          <div className="sticky top-0 z-[var(--z-overlay)] min-w-0 max-w-full bg-transparent">
             <div className="report-tab-rail border-b border-[var(--border)] px-4 py-3 md:px-8 md:py-4">
               <div className="min-w-0 w-full max-w-full">
                 <Tabs value={selectedTab} onValueChange={handleTabChange}>

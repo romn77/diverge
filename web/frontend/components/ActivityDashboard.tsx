@@ -93,7 +93,7 @@ export function ActivityDashboard() {
   };
 
   return (
-    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+    <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-6">
         <PageHeader
           eyebrow={t("sidebar.nav.activity", "Activity")}

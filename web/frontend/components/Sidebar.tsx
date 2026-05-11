@@ -101,7 +101,7 @@ export function Sidebar({
   }, [isMobileDrawerOpen, onClose]);
 
   const desktopDrawerClasses = [
-    "sidebar-surface sidebar-surface--quiet hidden flex-col overflow-y-auto border-r border-[var(--border)] py-4 transition-[width,padding] duration-300 md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-[100svh] md:py-0",
+    "sidebar-surface sidebar-surface--quiet hidden flex-col overflow-y-auto border-r border-[var(--border)] py-4 transition-[width,padding] duration-300 md:fixed md:left-0 md:top-0 md:z-[var(--z-sidebar)] md:flex md:h-[100svh] md:py-0",
     isDesktopCollapsed
       ? "md:w-[4.75rem] md:max-w-none md:px-2.5"
       : "md:w-[14.5rem] md:max-w-none md:px-3",
@@ -112,7 +112,7 @@ export function Sidebar({
     isDesktopCollapsed ? "md:w-[4.75rem]" : "md:w-[14.5rem]",
   ].join(" ");
   const desktopToggleWrapperClasses = [
-    "pointer-events-none fixed top-1/2 z-[60] hidden -translate-y-1/2 md:flex md:transition-[left] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
+    "pointer-events-none fixed top-1/2 z-[var(--z-toast)] hidden -translate-y-1/2 md:flex md:transition-[left] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
     isDesktopCollapsed ? "left-[4.75rem]" : "left-[14.5rem]",
   ].join(" ");
   const headerClasses = [

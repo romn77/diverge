@@ -152,7 +152,7 @@ export const MarkdownContent = React.memo(function MarkdownContent({
     <div className="relative min-w-0 w-full max-w-full space-y-12 overflow-hidden">
       {showProgressBar && (
         <div
-          className="progress-slide pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-full bg-[var(--primary)]"
+          className="progress-slide pointer-events-none absolute inset-x-0 top-0 z-[var(--z-sticky)] h-0.5 rounded-full bg-[var(--primary)]"
           aria-hidden
         />
       )}

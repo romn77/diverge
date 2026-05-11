@@ -22,7 +22,7 @@ test("WorkspaceAccountMenu exposes a compact utility bar for the shell overlay",
   assert.match(source, /loggingOut:\s*boolean/);
   assert.match(source, /selectedOutputLanguage:\s*string \| null/);
   assert.match(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
-  assert.match(source, /className="workbench-account-menu pointer-events-auto relative z-\[40\] ml-auto flex shrink-0 items-center gap-2"/);
+  assert.match(source, /className="workbench-account-menu pointer-events-auto relative z-\[var\(--z-sidebar\)\] ml-auto flex shrink-0 items-center gap-2"/);
   assert.match(source, /pointer-events-auto/);
   assert.match(source, /inline-flex items-center gap-1\.5 rounded-full/);
   assert.match(source, /h-8 w-8/);

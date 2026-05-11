@@ -25,7 +25,7 @@ export function StatusPanel({
   tone = "primary",
 }: StatusPanelProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center px-6 py-10">
+    <main className="flex min-h-dvh items-center justify-center px-6 py-10">
       <Card className="w-full max-w-xl text-center">
         <CardHeader>
           <p

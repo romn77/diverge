@@ -70,7 +70,7 @@ export default function LoginPage() {
 
   if (authStatus === "loading") {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
+      <main className="flex min-h-dvh items-center justify-center px-6 py-10">
         <Card className="card-surface w-full max-w-lg text-center">
           <CardHeader>
             <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
@@ -88,7 +88,7 @@ export default function LoginPage() {
 
   if (authStatus === "error") {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
+      <main className="flex min-h-dvh items-center justify-center px-6 py-10">
         <Card className="card-surface w-full max-w-lg text-center">
           <CardHeader>
             <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
@@ -111,7 +111,7 @@ export default function LoginPage() {
 
   if (shouldSkipLogin) {
     return (
-      <main className="flex min-h-screen items-center justify-center px-6 py-10">
+      <main className="flex min-h-dvh items-center justify-center px-6 py-10">
         <Card className="card-surface w-full max-w-lg text-center">
           <CardHeader>
             <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
@@ -128,7 +128,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-8 text-foreground md:px-8">
+    <main className="flex min-h-dvh items-center justify-center px-4 py-8 text-foreground md:px-8">
       <div className="card-surface grid w-full max-w-6xl overflow-hidden rounded-[34px] backdrop-blur-sm md:grid-cols-[1.1fr_0.9fr]">
         <section className="diverge-login-panel relative overflow-hidden border-b border-border px-6 py-8 md:border-b-0 md:border-r md:px-10 md:py-12">
           <div className="relative flex min-h-full items-center justify-center">

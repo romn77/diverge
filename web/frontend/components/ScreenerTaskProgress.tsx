@@ -127,7 +127,7 @@ export function ScreenerTaskProgress({
   };
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4">
+    <main className="flex min-h-dvh flex-1 flex-col p-2 md:h-dvh md:overflow-hidden md:p-3 lg:p-4">
       <div className="w-full space-y-6">
         <Card className="fade-in rounded-[30px] bg-white/95">
           <CardContent className="p-6 md:p-8">

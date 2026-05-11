@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -190,11 +191,26 @@ export function TaskProgress({
 
   if (loading) {
     return (
-      <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+      <main className="flex min-h-dvh flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
         <div className="workbench-content-frame">
           <Card className="card-surface fade-in rounded-[30px]">
-            <CardContent className="p-8">
-            {t("task.loading", "Loading task progress...")}
+            <CardContent
+              className="space-y-4 p-8"
+              role="status"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <span className="sr-only">
+                {t("task.loading", "Loading task progress...")}
+              </span>
+              <Skeleton className="h-6 w-1/3 rounded-[14px]" />
+              <Skeleton className="h-4 w-1/2 rounded-[12px]" />
+              <div className="grid gap-3 md:grid-cols-3">
+                <Skeleton className="h-16 rounded-[18px]" />
+                <Skeleton className="h-16 rounded-[18px]" />
+                <Skeleton className="h-16 rounded-[18px]" />
+              </div>
+              <Skeleton className="h-36 w-full rounded-[20px]" />
             </CardContent>
           </Card>
         </div>
@@ -203,7 +219,7 @@ export function TaskProgress({
   }
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+    <main className="flex min-h-dvh flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
       <div className="workbench-content-frame space-y-6">
         <Card className="card-surface fade-in rounded-[30px]">
           <CardContent className="p-6 md:p-8">

@@ -69,12 +69,12 @@ test("Sidebar preserves grouped structure in collapsed rail and keeps the floati
 
   assert.match(source, /const desktopShellClasses = \[/);
   assert.match(source, /hidden md:block md:shrink-0/);
-  assert.match(source, /md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-\[100svh\]/);
+  assert.match(source, /md:fixed md:left-0 md:top-0 md:z-\[var\(--z-sidebar\)\] md:flex md:h-\[100svh\]/);
   assert.match(source, /md:py-0/);
   assert.match(source, /md:h-\[var\(--workbench-topbar-height\)\]/);
   assert.doesNotMatch(source, /md:min-h-\[4\.25rem\]/);
   assert.match(source, /const desktopToggleWrapperClasses = \[/);
-  assert.match(source, /pointer-events-none fixed top-1\/2 z-\[60\] hidden -translate-y-1\/2 md:flex/);
+  assert.match(source, /pointer-events-none fixed top-1\/2 z-\[var\(--z-toast\)\] hidden -translate-y-1\/2 md:flex/);
   assert.match(source, /isDesktopCollapsed \? "left-\[4\.75rem\]" : "left-\[14\.5rem\]"/);
   assert.match(source, /pointer-events-auto -translate-x-\[58%\]/);
   assert.match(source, /<DesktopUtilityControl/);

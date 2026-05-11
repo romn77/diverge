@@ -235,7 +235,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
   const RootTag = embedded ? "section" : "main";
   const rootClassName = embedded
     ? "flex flex-col"
-    : "flex min-h-[100vh] flex-1 flex-col p-2 md:h-screen md:overflow-hidden md:p-3 lg:p-4";
+    : "flex min-h-dvh flex-1 flex-col p-2 md:h-dvh md:overflow-hidden md:p-3 lg:p-4";
   const cardClassName = embedded
     ? "viewer-frame fade-in"
     : "fade-in rounded-[30px] bg-white/95";
