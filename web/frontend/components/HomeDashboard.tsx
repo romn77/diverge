@@ -191,8 +191,8 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
           eyebrow={t("sidebar.nav.analysis", "Analysis")}
           title={t("home.analysisWorkspace", "Analysis workspace")}
         >
-          <div className="grid gap-5 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid items-stretch gap-5 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <div className="grid h-full items-stretch gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
               <MetricCard
                 className="analysis-overview-metric"
                 label={t("home.metric.reportLibrary", "Report Library")}
@@ -221,7 +221,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               />
             </div>
 
-            <div className="analysis-overview-search rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
+            <div className="analysis-overview-search flex h-full flex-col justify-center rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
               <label
                 htmlFor="home-report-search"
                 className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"

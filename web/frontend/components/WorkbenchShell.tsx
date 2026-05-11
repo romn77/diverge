@@ -3,7 +3,6 @@
 import {
   Menu,
   Plus,
-  Search,
 } from "lucide-react";
 import {
   createContext,
@@ -12,7 +11,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  type FormEvent,
   type ReactNode,
 } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -25,7 +23,6 @@ import { WorkspaceAccountMenu } from "@/components/WorkspaceAccountMenu";
 import { StatusPanel } from "@/components/workbench/StatusPanel";
 import {
   buildLoginHref,
-  buildHomeHref,
   buildScreenerTaskHref,
   buildTaskHref,
 } from "@/lib/workbenchRoutes";
@@ -66,7 +63,6 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   const [activeDialog, setActiveDialog] = useState<"analysis" | "screener" | null>(
     null
   );
-  const [topbarSearchQuery, setTopbarSearchQuery] = useState("");
   const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
   const [defaultOutputLanguage, setDefaultOutputLanguage] = useState<string | null>(
     null
@@ -111,20 +107,6 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
     });
   }, [nextPath, router, shouldRedirectToLogin]);
 
-  useEffect(() => {
-    const rawQuery = searchParams.get("q") ?? "";
-    setTopbarSearchQuery(pathname === "/" ? rawQuery : "");
-  }, [pathname, searchParams]);
-
-  const handleTopbarSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const nextQuery = topbarSearchQuery.trim();
-
-    startTransition(() => {
-      router.push(buildHomeHref(nextQuery));
-    });
-  };
-  const showTopbarSearch = pathname === "/";
   const resolvedTopbarActions =
     topbarActions ??
     (pathname === "/" ? (
@@ -232,23 +214,6 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
                     <h1 className="workbench-topbar-title">{pageChrome.title}</h1>
                   </div>
                 </div>
-                {showTopbarSearch ? (
-                  <form
-                    className="workbench-topbar-search"
-                    role="search"
-                    onSubmit={handleTopbarSearch}
-                  >
-                    <Search className="size-4" aria-hidden />
-                    <input
-                      type="search"
-                      value={topbarSearchQuery}
-                      onChange={(event) => setTopbarSearchQuery(event.target.value)}
-                      placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
-                      aria-label={t("home.searchLabel", "Search reports")}
-                    />
-                    <kbd aria-hidden="true">/</kbd>
-                  </form>
-                ) : null}
                 {resolvedTopbarActions ? (
                   <div className="workbench-topbar-actions">{resolvedTopbarActions}</div>
                 ) : null}

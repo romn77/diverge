@@ -214,4 +214,6 @@ test("globals.css keeps report, chart, and form surfaces theme-token driven", ()
   assert.match(source, /\.report-panel\s*\{\s*background:\s*var\(--report-panel-bg\);/);
   assert.match(source, /\.ticker-price-panel\s*\{\s*background:\s*var\(--chart-panel-bg\);/);
   assert.match(source, /\.field-shell\s*\{\s*border-color:\s*var\(--border\);\s*background:\s*var\(--surface\);/);
+  assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?color-mix\(in srgb, var\(--surface\) 92%, transparent\)/);
+  assert.match(source, /\.analysis-report-list\s*\{[\s\S]*?color-mix\(in srgb, var\(--surface\) 84%, transparent\)/);
 });
