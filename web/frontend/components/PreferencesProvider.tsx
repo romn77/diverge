@@ -113,6 +113,18 @@ export function PreferencesProvider({
     );
   }, [visualStyle]);
 
+  useEffect(() => {
+    if (visualStyle !== "stylful") {
+      return;
+    }
+    void Promise.all([
+      import("@fontsource/caveat/600.css"),
+      import("@fontsource/caveat/700.css"),
+    ]).catch(() => {
+      // Caveat is decorative; ignore load failures so the rest of the UI keeps working.
+    });
+  }, [visualStyle]);
+
   const t = useCallback<PreferencesContextValue["t"]>(
     (key, fallback, params) => translate(language, key, fallback, params),
     [language]
