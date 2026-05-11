@@ -12,6 +12,8 @@ test("globals.css defines the simplified workbench surfaces and removes glass gr
   assert.match(source, /--surface-panel:/);
   assert.match(source, /--surface-elevated:/);
   assert.match(source, /--text-xs:/);
+  assert.match(source, /--workbench-topbar-height:\s*4rem;/);
+  assert.match(source, /--workbench-topbar-height:\s*4\.25rem;/);
   assert.match(source, /html\[data-visual-style="stylful"\]/);
   assert.match(source, /html\[data-theme="light"\]\[data-visual-style="stylful"\]/);
   assert.match(source, /html\[data-theme="dark"\]\[data-visual-style="stylful"\]/);
@@ -23,6 +25,16 @@ test("globals.css defines the simplified workbench surfaces and removes glass gr
   assert.equal(source.includes("body::before"), false);
   assert.equal(source.includes('"Inter"'), false);
   assert.equal(source.includes('"Noto Sans SC"'), false);
+});
+
+test("globals.css locks the workbench topbar to the shared chrome height", () => {
+  const source = readFileSync(globalsCssPath, "utf8");
+
+  assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?height:\s*var\(--workbench-topbar-height\);/);
+  assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?min-height:\s*var\(--workbench-topbar-height\);/);
+  assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?padding:\s*0 1rem;/);
+  assert.match(source, /@media \(min-width: 768px\)\s*\{[\s\S]*?:root\s*\{[\s\S]*?--workbench-topbar-height:\s*4\.25rem;/);
+  assert.doesNotMatch(source, /\.workbench-topbar\s*\{[\s\S]*?padding:\s*0\.7rem 1rem;/);
 });
 
 test("globals.css keeps markdown typography compact for dense report reading", () => {
@@ -56,8 +68,8 @@ test("globals.css provides a responsive capped workbench content frame", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 
   assert.match(source, /\.workbench-content-frame\s*\{/);
-  assert.match(source, /width:\s*min\(100%, clamp\(72rem, 92vw, 100rem\)\);/);
-  assert.match(source, /margin-inline:\s*auto;/);
+  assert.match(source, /width:\s*min\(100%, 96rem\);/);
+  assert.match(source, /margin-inline:\s*0 auto;/);
 });
 
 test("globals.css keeps the page background stable across long scrolling pages", () => {
@@ -78,9 +90,10 @@ test("globals.css keeps analysis pages on the shared workbench content width", (
   const source = readFileSync(globalsCssPath, "utf8");
 
   assert.doesNotMatch(source, /\.analysis-density-page \.workbench-content-frame\s*\{/);
-  assert.match(source, /width:\s*min\(100%, clamp\(72rem, 92vw, 100rem\)\);/);
+  assert.match(source, /width:\s*min\(100%, 96rem\);/);
   assert.match(source, /\.analysis-overview-title\s*\{[\s\S]*?font-size:\s*2rem;/);
   assert.match(source, /\.analysis-overview-metric \.metric-card-value\s*\{[\s\S]*?font-size:\s*1\.55rem;/);
+  assert.match(source, /\.analysis-reports-title\s*\{[\s\S]*?font-size:\s*1\.55rem;/);
   assert.match(source, /\.analysis-report-list\s*\{[\s\S]*?border-radius:\s*14px;/);
   assert.match(source, /\.analysis-report-group\s*\{[\s\S]*?border-top:\s*1px solid color-mix/);
   assert.doesNotMatch(source, /\.analysis-report-group\s*\{[^}]*box-shadow:/);

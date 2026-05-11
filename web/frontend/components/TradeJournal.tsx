@@ -964,12 +964,16 @@ export function TradeJournal({
                         label={t("journal.strategyTags", "Strategy Tags")}
                         value={formatStrategyTags(
                           tradeDetail.record.strategy_tags,
-                          t("common.notSet", "Not set")
+                          t("common.notSet", "Not set"),
+                          t
                         )}
                       />
                       <MetaCard
                         label={t("journal.plannedHorizon", "Planned Horizon")}
-                        value={tradeDetail.record.planned_horizon}
+                        value={t(
+                          `tradeRecord.plannedHorizon.${tradeDetail.record.planned_horizon}`,
+                          tradeDetail.record.planned_horizon.replaceAll("_", " ")
+                        )}
                       />
                       <MetaCard
                         label={t("journal.size", "Size")}
@@ -1072,7 +1076,10 @@ export function TradeJournal({
                           {t("journal.planExecution", "Plan Execution")}
                         </p>
                         <p className="mt-3 text-sm leading-7 text-slate-700">
-                          {tradeDetail.record.plan_execution.replaceAll("_", " ")}
+                          {t(
+                            `tradeRecord.planExecution.${tradeDetail.record.plan_execution}`,
+                            tradeDetail.record.plan_execution.replaceAll("_", " ")
+                          )}
                         </p>
                       </section>
                     </div>
@@ -1816,8 +1823,16 @@ function formatPercent(value: number | null, locale: string, notSetLabel: string
   }).format(value)}%`;
 }
 
-function formatStrategyTags(values: string[], notSetLabel: string): string {
-  return values.length > 0 ? values.join(", ") : notSetLabel;
+function formatStrategyTags(
+  values: string[],
+  notSetLabel: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return values.length > 0
+    ? values
+        .map((value) => t(`tradeRecord.strategy.${value}`, value.replaceAll("_", " ")))
+        .join(", ")
+    : notSetLabel;
 }
 
 function formatDateTime(value: string | null, locale: string, notSetLabel: string): string {

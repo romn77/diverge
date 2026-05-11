@@ -325,7 +325,7 @@ export function TradeRecordForm({
                       }))
                     }
                   >
-                    {tag.replaceAll("_", " ")}
+                    {t(`tradeRecord.strategy.${tag}`, tag.replaceAll("_", " "))}
                   </button>
                 );
               })}
@@ -363,7 +363,7 @@ export function TradeRecordForm({
                 <SelectContent>
                   {PLANNED_HORIZONS.map((horizon) => (
                     <SelectItem key={horizon} value={horizon}>
-                      {horizon.replaceAll("_", " ")}
+                      {t(`tradeRecord.plannedHorizon.${horizon}`, horizon.replaceAll("_", " "))}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -70,9 +70,12 @@ test("Sidebar preserves grouped structure in collapsed rail and keeps the floati
   assert.match(source, /const desktopShellClasses = \[/);
   assert.match(source, /hidden md:block md:shrink-0/);
   assert.match(source, /md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-\[100svh\]/);
+  assert.match(source, /md:py-0/);
+  assert.match(source, /md:h-\[var\(--workbench-topbar-height\)\]/);
+  assert.doesNotMatch(source, /md:min-h-\[4\.25rem\]/);
   assert.match(source, /const desktopToggleWrapperClasses = \[/);
   assert.match(source, /pointer-events-none fixed top-1\/2 z-\[60\] hidden -translate-y-1\/2 md:flex/);
-  assert.match(source, /isDesktopCollapsed \? "left-\[5\.5rem\]" : "left-\[18rem\]"/);
+  assert.match(source, /isDesktopCollapsed \? "left-\[4\.75rem\]" : "left-\[14\.5rem\]"/);
   assert.match(source, /pointer-events-auto -translate-x-\[58%\]/);
   assert.match(source, /<DesktopUtilityControl/);
   assert.match(source, /h-12 w-5 items-center justify-center rounded-md/);
@@ -82,7 +85,7 @@ test("Sidebar preserves grouped structure in collapsed rail and keeps the floati
   assert.match(source, /d="M9\.5 3\.5 5 8l4\.5 4\.5"/);
   assert.match(source, /d="M13 3\.5 8\.5 8 13 12\.5"/);
   assert.match(source, /my-1\.5 flex justify-center/);
-  assert.match(source, /h-px w-6 bg-\[rgba\(28,56,83,0\.14\)\]/);
+  assert.match(source, /h-px w-6 bg-\[rgba\(36,32,28,0\.14\)\]/);
   assert.match(source, /sidebar-nav-link/);
   assert.match(source, /sidebar-rail-link/);
   assert.doesNotMatch(source, /rounded-full border border-\[rgba\(28,56,83,0\.12\)\] bg-white\/72/);

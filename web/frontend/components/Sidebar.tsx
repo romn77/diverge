@@ -101,22 +101,22 @@ export function Sidebar({
   }, [isMobileDrawerOpen, onClose]);
 
   const desktopDrawerClasses = [
-    "sidebar-surface sidebar-surface--quiet hidden flex-col overflow-y-auto border-r border-[var(--border)] py-4 transition-[width,padding] duration-300 md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-[100svh] md:py-3",
+    "sidebar-surface sidebar-surface--quiet hidden flex-col overflow-y-auto border-r border-[var(--border)] py-4 transition-[width,padding] duration-300 md:fixed md:left-0 md:top-0 md:z-40 md:flex md:h-[100svh] md:py-0",
     isDesktopCollapsed
-      ? "md:w-[5.5rem] md:max-w-none md:px-3"
-      : "md:w-[18rem] md:max-w-none md:px-4",
+      ? "md:w-[4.75rem] md:max-w-none md:px-2.5"
+      : "md:w-[14.5rem] md:max-w-none md:px-3",
     "md:border-r-0",
   ].join(" ");
   const desktopShellClasses = [
     "hidden md:block md:shrink-0 md:transition-[width] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
-    isDesktopCollapsed ? "md:w-[5.5rem]" : "md:w-[18rem]",
+    isDesktopCollapsed ? "md:w-[4.75rem]" : "md:w-[14.5rem]",
   ].join(" ");
   const desktopToggleWrapperClasses = [
     "pointer-events-none fixed top-1/2 z-[60] hidden -translate-y-1/2 md:flex md:transition-[left] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
-    isDesktopCollapsed ? "left-[5.5rem]" : "left-[18rem]",
+    isDesktopCollapsed ? "left-[4.75rem]" : "left-[14.5rem]",
   ].join(" ");
   const headerClasses = [
-    "border-b border-[var(--border)] pb-3 md:pb-2.5",
+    "h-16 border-b border-[var(--border)] py-2.5 md:h-[var(--workbench-topbar-height)] md:py-0",
     isDesktopRail ? "flex justify-center" : "flex items-center",
   ].join(" ");
 
@@ -133,13 +133,13 @@ export function Sidebar({
   const sidebarBody = (
     <div className="flex min-h-full flex-col">
       <div className={headerClasses}>
-        <Link href={buildHomeHref()} className="flex min-w-0 items-center gap-2.5">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-[var(--border)] bg-white/70 text-[var(--primary)]">
-            <DivergeMark className="h-7 w-7" />
+        <Link href={buildHomeHref()} className="flex min-w-0 items-center gap-2">
+          <div className="grid h-[2.15rem] w-[2.15rem] shrink-0 place-items-center rounded-md border border-[var(--border)] bg-white/70 text-[var(--primary)]">
+            <DivergeMark className="h-6 w-6" />
           </div>
           {!isDesktopRail ? (
             <div className="min-w-0">
-              <p className="font-heading text-[15px] font-semibold leading-5 text-slate-900">Diverge</p>
+              <p className="font-heading text-[14px] font-bold leading-5 text-slate-900">Diverge</p>
             </div>
           ) : null}
         </Link>
@@ -166,7 +166,7 @@ export function Sidebar({
       </div>
 
       {isDesktopRail ? (
-        <div className="mt-4 flex flex-1 flex-col items-center">
+        <div className="mt-3 flex flex-1 flex-col items-center">
           <div className="flex flex-col items-center gap-1.5">
             <div className="flex flex-col items-center gap-1.5">
               <RailLinkButton
@@ -190,7 +190,7 @@ export function Sidebar({
             </div>
 
             <div className="my-1.5 flex justify-center" aria-hidden="true">
-              <span className="h-px w-6 bg-[rgba(28,56,83,0.14)]" />
+              <span className="h-px w-6 bg-[rgba(36,32,28,0.14)]" />
             </div>
 
             <div className="flex flex-col items-center gap-1.5">
@@ -217,7 +217,7 @@ export function Sidebar({
 
           <div className="mt-auto w-full border-t border-[var(--border)] pt-3">
             <div className="mb-2.5 flex justify-center" aria-hidden="true">
-              <span className="h-4 w-px bg-[rgba(28,56,83,0.14)]" />
+              <span className="h-4 w-px bg-[rgba(36,32,28,0.14)]" />
             </div>
             <div className="flex justify-center">
               <RailLinkButton
@@ -234,8 +234,8 @@ export function Sidebar({
           </div>
         </div>
       ) : (
-        <div className="mt-4 flex flex-1 flex-col">
-          <nav className="space-y-3.5" aria-label={t("sidebar.primaryNavigation", "Primary")}>
+        <div className="mt-3 flex flex-1 flex-col">
+          <nav className="space-y-3" aria-label={t("sidebar.primaryNavigation", "Primary")}>
             <SidebarSection title={t("sidebar.section.research", "Research")}>
               <SidebarNavLink
                 href={buildHomeHref()}
@@ -279,7 +279,7 @@ export function Sidebar({
             </SidebarSection>
           </nav>
 
-          <div className="mt-auto border-t border-[var(--border)] pt-3">
+          <div className="mt-auto border-t border-[var(--border)] pt-2.5">
             <SidebarSectionHeading title={t("sidebar.section.operations", "Operations")} muted />
             <SidebarUtilityLink
               href={buildActivityHref()}
@@ -356,7 +356,7 @@ function DesktopUtilityControl({
   return (
     <button
       type="button"
-      className="focus-ring inline-flex h-12 w-5 items-center justify-center rounded-md border border-[rgba(28,56,83,0.14)] bg-white/90 text-slate-500 shadow-[0_8px_16px_rgba(18,28,41,0.06)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)]"
+      className="focus-ring inline-flex h-12 w-5 items-center justify-center rounded-md border border-[rgba(36,32,28,0.14)] bg-white/90 text-slate-500 shadow-[0_8px_16px_rgba(18,28,41,0.06)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)]"
       onClick={onToggle}
       aria-label={label}
       aria-expanded={!isDesktopRail}
@@ -397,7 +397,7 @@ function SidebarSection({
   return (
     <section>
       <SidebarSectionHeading title={title} />
-      <div className="mt-1.5 space-y-1">{children}</div>
+      <div className="mt-1 space-y-1">{children}</div>
     </section>
   );
 }
@@ -411,7 +411,7 @@ function SidebarSectionHeading({
 }) {
   return (
     <div
-      className={`px-2 text-[10px] font-semibold uppercase tracking-[0.18em] ${
+      className={`px-1.5 text-[9px] font-bold uppercase tracking-[0.14em] ${
         muted ? "text-slate-400" : "text-slate-500"
       }`}
     >
@@ -439,7 +439,7 @@ function SidebarNavLink({
     <Link
       href={href}
       data-active={active}
-      className={`sidebar-nav-link focus-ring group flex items-center gap-2.5 rounded-lg border px-2.5 py-2 transition ${
+      className={`sidebar-nav-link focus-ring group flex items-center gap-2 rounded-md border px-2 py-1.5 transition ${
         active
           ? "border-[var(--border-strong)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
           : "border-transparent bg-white/50 text-slate-700 hover:border-[var(--border)] hover:bg-white/75"
@@ -447,7 +447,7 @@ function SidebarNavLink({
       onClick={onClick}
     >
       <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md border ${
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
           active
             ? "border-[rgba(93,116,112,0.24)] bg-white/80 text-[var(--primary-strong)]"
             : "border-[var(--border)] bg-white/70 text-slate-500"
@@ -456,8 +456,8 @@ function SidebarNavLink({
         {children}
       </div>
       <div className="min-w-0">
-        <div className="block text-[13px] font-semibold leading-5">{label}</div>
-        <div className="block text-[11px] leading-4 text-slate-500">{meta}</div>
+        <div className="block text-[12px] font-bold leading-4">{label}</div>
+        <div className="block text-[10px] leading-3.5 text-slate-500">{meta}</div>
       </div>
     </Link>
   );
@@ -484,20 +484,20 @@ function SidebarUtilityLink({
     <Link
       href={href}
       data-active={active}
-      className={`sidebar-utility-link focus-ring flex items-center justify-between gap-2.5 rounded-lg border px-2.5 py-2 transition ${
+      className={`sidebar-utility-link focus-ring flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition ${
         active
           ? "border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900"
           : "border-[var(--border)] bg-white/58 text-slate-700 hover:border-[var(--border-strong)] hover:bg-white/80"
       }`}
       onClick={onClick}
     >
-      <div className="flex min-w-0 items-center gap-2.5">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-white/70 text-slate-500">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-white/70 text-slate-500">
           {children}
         </div>
         <div className="min-w-0">
-          <div className="block text-[13px] font-semibold leading-5">{label}</div>
-          <div className="block truncate text-[11px] leading-4 text-slate-500">{meta}</div>
+          <div className="block text-[12px] font-bold leading-4">{label}</div>
+          <div className="block truncate text-[10px] leading-3.5 text-slate-500">{meta}</div>
         </div>
       </div>
       {badge ? (
@@ -550,7 +550,7 @@ function RailLinkButton({
 
 function AnalysisIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
       <path
         d="M4.75 14.25 8 10.5l2.25 2.25L15.25 6.5"
         stroke="currentColor"
@@ -569,7 +569,7 @@ function AnalysisIcon() {
 
 function ScreenerIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
       <rect x="4" y="4" width="12" height="12" rx="3" stroke="currentColor" strokeWidth="1.6" />
       <path
         d="M7 7.5h6M7 10h6M7 12.5h4"
@@ -583,7 +583,7 @@ function ScreenerIcon() {
 
 function AssetsIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
       <path
         d="M4.5 6.5h11M4.5 10h11M4.5 13.5h11"
         stroke="currentColor"
@@ -605,7 +605,7 @@ function AssetsIcon() {
 
 function JournalIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
       <path
         d="M6 4.75h7.5A1.75 1.75 0 0 1 15.25 6.5v8.75H6A1.75 1.75 0 0 0 4.25 17V6.5A1.75 1.75 0 0 1 6 4.75Z"
         stroke="currentColor"
@@ -624,7 +624,7 @@ function JournalIcon() {
 
 function ActivityIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" aria-hidden>
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
       <path
         d="M4.5 10h2.75l1.5-3 2.5 6 1.5-3H15.5"
         stroke="currentColor"

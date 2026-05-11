@@ -162,7 +162,7 @@ export function CloseTradeForm({
               <SelectContent>
                 {PLAN_EXECUTIONS.map((value) => (
                   <SelectItem key={value} value={value}>
-                    {value.replaceAll("_", " ")}
+                    {t(`tradeRecord.planExecution.${value}`, value.replaceAll("_", " "))}
                   </SelectItem>
                 ))}
               </SelectContent>

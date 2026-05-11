@@ -5,8 +5,8 @@
     "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui,
     sans-serif;
   --font-heading:
-    "Playfair Display", "Bodoni 72", "Didot", "Iowan Old Style", "Songti SC", "STSong",
-    serif;
+    "Avenir Next", "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui,
+    sans-serif;
   --font-mono: "SFMono-Regular", "JetBrains Mono", "Consolas", "Liberation Mono", monospace;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
@@ -14,6 +14,7 @@
   --text-lg: 1.25rem;
   --text-xl: 1.75rem;
   --text-2xl: 2.5rem;
+  --workbench-topbar-height: 4rem;
   --bg: #f5f2ec;
   --surface: #fffdf8;
   --surface-strong: #f5f2ec;
@@ -21,12 +22,12 @@
   --surface-page: var(--bg);
   --surface-panel: var(--surface);
   --surface-elevated: var(--surface-strong);
-  --text: #1c2430;
-  --muted: #5d7470;
-  --border: rgba(28, 36, 48, 0.1);
-  --border-strong: rgba(28, 36, 48, 0.2);
-  --primary: #1c2430;
-  --primary-strong: #111923;
+  --text: #24201c;
+  --muted: #6f675d;
+  --border: rgba(36, 32, 28, 0.1);
+  --border-strong: rgba(36, 32, 28, 0.2);
+  --primary: #24201c;
+  --primary-strong: #17130f;
   --primary-foreground: #f5f2ec;
   --primary-soft: rgba(93, 116, 112, 0.14);
   --accent: #5d7470;
@@ -54,7 +55,7 @@
   --shadow-hover:
     0 16px 34px rgba(18, 28, 41, 0.065),
     0 1px 0 rgba(255, 255, 255, 0.78) inset;
-  --button-primary-shadow: 0 8px 18px rgba(28, 36, 48, 0.12);
+  --button-primary-shadow: 0 8px 18px rgba(36, 32, 28, 0.12);
   --button-secondary-shadow: 0 6px 14px rgba(18, 28, 41, 0.045);
   --body-radial-primary: transparent;
   --body-radial-secondary: transparent;
@@ -618,8 +619,8 @@ input {
 }
 
 .workbench-content-frame {
-  width: min(100%, clamp(72rem, 92vw, 100rem));
-  margin-inline: auto;
+  width: min(100%, 96rem);
+  margin-inline: 0 auto;
 }
 
 .workbench-page-shell {
@@ -631,7 +632,8 @@ input {
   top: 0;
   z-index: 45;
   display: flex;
-  min-height: 4rem;
+  height: var(--workbench-topbar-height);
+  min-height: var(--workbench-topbar-height);
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
@@ -639,7 +641,7 @@ input {
   background:
     linear-gradient(180deg, rgba(255, 253, 248, 0.92) 0%, rgba(255, 248, 238, 0.82) 100%),
     var(--surface-page);
-  padding: 0.7rem 1rem;
+  padding: 0 1rem;
   backdrop-filter: blur(18px);
 }
 
@@ -659,8 +661,8 @@ input {
   overflow: hidden;
   color: var(--text);
   font-family: var(--font-heading);
-  font-size: clamp(1.15rem, 1.15vw + 0.9rem, 1.55rem);
-  font-weight: 600;
+  font-size: clamp(1.05rem, 0.65vw + 0.9rem, 1.28rem);
+  font-weight: 700;
   letter-spacing: 0;
   line-height: 1.05;
   text-overflow: ellipsis;
@@ -825,9 +827,9 @@ input {
 
 .workbench-page-title {
   font-family: var(--font-heading);
-  font-size: 2.12rem;
-  font-weight: 600;
-  line-height: 1.04;
+  font-size: 1.58rem;
+  font-weight: 700;
+  line-height: 1.12;
   letter-spacing: 0;
   color: var(--text);
 }
@@ -881,13 +883,16 @@ input {
 }
 
 @media (min-width: 768px) {
+  :root {
+    --workbench-topbar-height: 4.25rem;
+  }
+
   .workbench-page-shell {
     padding-inline: 1.25rem;
     padding-top: 0.9rem;
   }
 
   .workbench-topbar {
-    min-height: 4.25rem;
     padding-inline: 1.25rem;
   }
 
@@ -900,7 +905,7 @@ input {
   }
 
   .workbench-page-title {
-    font-size: 2.55rem;
+    font-size: 1.9rem;
   }
 }
 
@@ -1019,7 +1024,7 @@ input {
 }
 
 .analysis-reports-title {
-  font-size: 2.25rem;
+  font-size: 1.55rem;
 }
 
 .analysis-report-list {
@@ -2731,6 +2736,20 @@ html[data-theme="dark"] .focus-ring:focus-visible {
   box-shadow:
     0 0 0 2px var(--surface),
     0 0 0 5px var(--ring-strong);
+}
+
+html[data-theme="light"] .text-slate-950,
+html[data-theme="light"] .text-slate-900,
+html[data-theme="light"] .text-slate-800,
+html[data-theme="light"] .text-slate-700,
+html[data-theme="light"] .text-slate-600 {
+  color: var(--text) !important;
+}
+
+html[data-theme="light"] .text-slate-500,
+html[data-theme="light"] .text-slate-400,
+html[data-theme="light"] .text-slate-300 {
+  color: var(--muted) !important;
 }
 
 html[data-theme="dark"] .bg-white,
