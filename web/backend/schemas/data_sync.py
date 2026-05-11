@@ -23,7 +23,3 @@ class DataSyncFundamentalsPayload(BaseModel):
     as_of_date: str | None = None
     data_dir: str | None = None
     manifest_path: str | None = None
-    include_profile: bool = True
-    profile_parts: int = Field(default=1, ge=1)
-    batch_size: int = Field(default=60, ge=1)
-    request_interval_seconds: float = Field(default=0.12, ge=0)

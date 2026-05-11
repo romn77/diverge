@@ -22,7 +22,7 @@ VALID_US_DATA_SOURCES = {"akshare", "alpha_vantage", "massive", "tushare", "yfin
 VALID_HISTORY_CACHE_POLICIES = {"refresh_missing", "cache_only"}
 VALID_FUNDAMENTAL_SOURCES = {
     "cn": {"tushare"},
-    "us": {"fmp", "simfin", "tencent"},
+    "us": {"simfin"},
 }
 VALID_BREAKOUT_TYPES = {
     "platform_breakout",
@@ -183,9 +183,7 @@ class ScreenRunConfig:
         if self.cn_fundamental_source not in VALID_FUNDAMENTAL_SOURCES["cn"]:
             raise ValueError("cn_fundamental_source must be one of {'tushare'}")
         if self.us_fundamental_source not in VALID_FUNDAMENTAL_SOURCES["us"]:
-            raise ValueError(
-                "us_fundamental_source must be one of {'fmp', 'simfin', 'tencent'}"
-            )
+            raise ValueError("us_fundamental_source must be one of {'simfin'}")
         if any(
             source not in VALID_US_DATA_SOURCES
             for source in self.us_data_source_fallbacks

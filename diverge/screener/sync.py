@@ -17,12 +17,6 @@ from diverge.data_layout import (
     resolve_screener_cache_dir,
 )
 from diverge.dataflows.vendors.tushare.common import get_tushare_pro_client
-from diverge.dataflows.vendors.fmp.screener import (
-    fetch_key_metrics_ttm_bulk,
-    fetch_profile_bulk,
-    fetch_ratios_ttm_bulk,
-)
-from diverge.dataflows.vendors.tencent.quote import fetch_us_quote_rows
 from diverge.market_data.history_cache import (
     classify_history_cache_coverage,
     load_history_cache,
@@ -129,42 +123,6 @@ SIMFIN_FIELD_MAP = {
     "Current Ratio": "current_ratio",
     "Free Cash Flow": "free_cashflow",
     "Operating Cash Flow / Net Income": "operating_cashflow_quality",
-}
-
-FMP_RATIO_FIELD_MAP = {
-    "peRatioTTM": "pe_ttm",
-    "priceEarningsRatioTTM": "pe_ttm",
-    "priceToSalesRatioTTM": "ps_ttm",
-    "priceToBookRatioTTM": "pb",
-    "priceEarningsToGrowthRatioTTM": "peg",
-    "pegRatioTTM": "peg",
-    "returnOnEquityTTM": "roe",
-    "returnOnAssetsTTM": "roa",
-    "grossProfitMarginTTM": "gross_margin",
-    "netProfitMarginTTM": "net_margin",
-    "debtRatioTTM": "debt_to_assets",
-    "currentRatioTTM": "current_ratio",
-}
-
-FMP_KEY_METRICS_FIELD_MAP = {
-    "marketCapTTM": "market_cap",
-    "enterpriseValueTTM": "enterprise_value",
-    "peRatioTTM": "pe_ttm",
-    "priceToSalesRatioTTM": "ps_ttm",
-    "pbRatioTTM": "pb",
-    "ptbRatioTTM": "pb",
-    "freeCashFlowPerShareTTM": "free_cashflow_per_share",
-    "operatingCashFlowPerShareTTM": "operating_cashflow_per_share",
-}
-
-FMP_PROFILE_FIELD_MAP = {
-    "price": "price",
-    "marketCap": "market_cap",
-    "volAvg": "avg_volume_20d",
-    "companyName": "name",
-    "exchangeShortName": "exchange",
-    "sector": "sector",
-    "industry": "industry",
 }
 
 TUSHARE_FIELD_MAP = {
@@ -610,121 +568,6 @@ def _normalize_simfin_snapshot(
     return pd.DataFrame(rows)
 
 
-def _frame_from_records(
-    records: list[dict[str, Any]], symbol_key: str = "symbol"
-) -> pd.DataFrame:
-    if not records:
-        return pd.DataFrame()
-    frame = pd.DataFrame(records)
-    if symbol_key not in frame.columns:
-        return pd.DataFrame()
-    frame = frame.copy()
-    frame[symbol_key] = frame[symbol_key].astype(str).str.strip().str.upper()
-    return frame
-
-
-def _latest_fmp_rows(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    frame = _frame_from_records(records)
-    if frame.empty:
-        return {}
-    if "date" in frame.columns:
-        frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
-        frame = frame.sort_values("date")
-    return {
-        str(symbol): group.iloc[-1].to_dict()
-        for symbol, group in frame.groupby(frame["symbol"].astype(str))
-    }
-
-
-def _fmp_row_date(row: dict[str, Any], as_of_date: str | None) -> str:
-    value = row.get("date") or row.get("calendarYear") or row.get("fiscalDateEnding")
-    if hasattr(value, "strftime") and not pd.isna(value):
-        return value.strftime("%Y-%m-%d")
-    if value:
-        return str(value)[:10]
-    return as_of_date or _utc_iso()[:10]
-
-
-def _normalize_fmp_bulk_snapshots(
-    *,
-    ratios: list[dict[str, Any]],
-    key_metrics: list[dict[str, Any]],
-    profiles: list[dict[str, Any]],
-    symbols: list[str] | None = None,
-    as_of_date: str | None = None,
-) -> pd.DataFrame:
-    ratio_rows = _latest_fmp_rows(ratios)
-    metric_rows = _latest_fmp_rows(key_metrics)
-    profile_rows = _latest_fmp_rows(profiles)
-    symbol_set = {symbol.strip().upper() for symbol in symbols or [] if symbol.strip()}
-    all_symbols = sorted(set(ratio_rows) | set(metric_rows) | set(profile_rows))
-    if symbol_set:
-        all_symbols = [symbol for symbol in all_symbols if symbol in symbol_set]
-
-    rows: list[dict[str, Any]] = []
-    for symbol in all_symbols:
-        ratio_row = ratio_rows.get(symbol, {})
-        metric_row = metric_rows.get(symbol, {})
-        profile_row = profile_rows.get(symbol, {})
-        report_period = _fmp_row_date(ratio_row or metric_row, as_of_date)
-        payload: dict[str, Any] = {
-            "symbol": symbol,
-            "market": "us",
-            "source": "fmp",
-            "as_of_date": as_of_date or _utc_iso()[:10],
-            "report_period": report_period,
-            "updated_at": _utc_iso(),
-            "currency": str(profile_row.get("currency") or "USD").upper(),
-        }
-        for source_column, target_column in FMP_RATIO_FIELD_MAP.items():
-            if source_column in ratio_row:
-                payload[target_column] = _safe_numeric(ratio_row.get(source_column))
-        for source_column, target_column in FMP_KEY_METRICS_FIELD_MAP.items():
-            if source_column in metric_row:
-                payload[target_column] = _safe_numeric(metric_row.get(source_column))
-        for source_column, target_column in FMP_PROFILE_FIELD_MAP.items():
-            if source_column in profile_row:
-                value = profile_row.get(source_column)
-                payload[target_column] = (
-                    _safe_numeric(value)
-                    if target_column in MARKET_SNAPSHOT_FIELDS
-                    else value
-                )
-        _finalize_fundamental_row(payload)
-        rows.append(payload)
-    return pd.DataFrame(rows)
-
-
-def _normalize_tencent_quote_snapshot(
-    rows: list[dict[str, Any]], *, as_of_date: str | None = None
-) -> pd.DataFrame:
-    snapshot_rows: list[dict[str, Any]] = []
-    for row in rows:
-        symbol = str(row.get("symbol") or "").strip().upper()
-        if not symbol:
-            continue
-        payload: dict[str, Any] = {
-            "symbol": symbol,
-            "market": "us",
-            "source": "tencent",
-            "as_of_date": as_of_date or _utc_iso()[:10],
-            "updated_at": _utc_iso(),
-            "currency": str(row.get("currency") or "USD").upper(),
-        }
-        for field_name in [
-            "name",
-            "exchange",
-            "sector",
-            "industry",
-            *MARKET_SNAPSHOT_FIELDS,
-        ]:
-            if field_name in row:
-                payload[field_name] = row.get(field_name)
-        _finalize_fundamental_row(payload, fields=MARKET_SNAPSHOT_FIELDS)
-        snapshot_rows.append(payload)
-    return pd.DataFrame(snapshot_rows)
-
-
 def sync_us_simfin_fundamentals(
     *,
     api_key: str,
@@ -777,96 +620,6 @@ def sync_us_simfin_fundamentals(
         snapshot_type="financial",
     )
     result.rows_written = market_rows + financial_rows
-    return result
-
-
-def sync_us_fmp_fundamentals(
-    *,
-    symbols: list[str] | tuple[str, ...] | str | None = None,
-    output_dir: str | Path | None = None,
-    as_of_date: str | None = None,
-    include_profile: bool = True,
-    profile_parts: int = 1,
-) -> SyncResult:
-    normalized_symbols = _normalize_simfin_tickers(symbols) or []
-    ratios = fetch_ratios_ttm_bulk()
-    key_metrics = fetch_key_metrics_ttm_bulk()
-    profiles: list[dict[str, Any]] = []
-    if include_profile:
-        for part in range(max(int(profile_parts), 0)):
-            profiles.extend(fetch_profile_bulk(part=part))
-    snapshot = _normalize_fmp_bulk_snapshots(
-        ratios=ratios,
-        key_metrics=key_metrics,
-        profiles=profiles,
-        symbols=normalized_symbols or None,
-        as_of_date=as_of_date,
-    )
-    result = SyncResult(
-        sync_type="fundamentals",
-        markets=["us"],
-        source="fmp",
-        status="completed",
-        symbols_total=len(normalized_symbols or snapshot.index),
-        symbols_success=int(len(snapshot)),
-    )
-    result.symbols_failed = max(result.symbols_total - result.symbols_success, 0)
-    market_snapshot = _snapshot_subset(snapshot, snapshot_type="market")
-    financial_snapshot = _snapshot_subset(snapshot, snapshot_type="financial")
-    market_rows = int(len(market_snapshot))
-    financial_rows = int(len(financial_snapshot))
-    _save_fundamental_snapshot(
-        market_snapshot,
-        base_dir=output_dir,
-        market="us",
-        source="fmp",
-        sync_result=result,
-        snapshot_type="market",
-    )
-    _save_fundamental_snapshot(
-        financial_snapshot,
-        base_dir=output_dir,
-        market="us",
-        source="fmp",
-        sync_result=result,
-        snapshot_type="financial",
-    )
-    result.rows_written = market_rows + financial_rows
-    return result
-
-
-def sync_us_tencent_market_snapshot(
-    *,
-    symbols: list[str] | tuple[str, ...] | str,
-    output_dir: str | Path | None = None,
-    as_of_date: str | None = None,
-    batch_size: int = 60,
-    request_interval_seconds: float = 0.12,
-) -> SyncResult:
-    normalized_symbols = _normalize_simfin_tickers(symbols) or []
-    rows = fetch_us_quote_rows(
-        normalized_symbols,
-        batch_size=batch_size,
-        request_interval_seconds=request_interval_seconds,
-    )
-    snapshot = _normalize_tencent_quote_snapshot(rows, as_of_date=as_of_date)
-    result = SyncResult(
-        sync_type="fundamentals",
-        markets=["us"],
-        source="tencent",
-        status="completed",
-        symbols_total=len(normalized_symbols),
-        symbols_success=int(len(snapshot)),
-        symbols_failed=max(len(normalized_symbols) - int(len(snapshot)), 0),
-    )
-    _save_fundamental_snapshot(
-        snapshot,
-        base_dir=output_dir,
-        market="us",
-        source="tencent",
-        sync_result=result,
-        snapshot_type="market",
-    )
     return result
 
 

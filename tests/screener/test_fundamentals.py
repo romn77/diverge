@@ -59,14 +59,14 @@ def test_enrich_features_with_fundamentals_reads_cached_snapshot(tmp_path):
 
 
 def test_enrich_features_with_fundamentals_merges_split_snapshots_by_field(tmp_path):
-    tencent_dir = tmp_path / "tencent" / "us"
-    tencent_dir.mkdir(parents=True)
+    snapshot_dir = tmp_path / "simfin" / "us"
+    snapshot_dir.mkdir(parents=True)
     pd.DataFrame(
         [
             {
                 "symbol": "MSFT",
                 "market": "us",
-                "source": "tencent",
+                "source": "simfin",
                 "as_of_date": "2026-04-28",
                 "market_cap": 120.0,
                 "pe_ttm": 24.0,
@@ -74,15 +74,13 @@ def test_enrich_features_with_fundamentals_merges_split_snapshots_by_field(tmp_p
                 "currency": "USD",
             }
         ]
-    ).to_csv(tencent_dir / "market_snapshots.csv", index=False)
-    fmp_dir = tmp_path / "fmp" / "us"
-    fmp_dir.mkdir(parents=True)
+    ).to_csv(snapshot_dir / "market_snapshots.csv", index=False)
     pd.DataFrame(
         [
             {
                 "symbol": "MSFT",
                 "market": "us",
-                "source": "fmp",
+                "source": "simfin",
                 "report_period": "2025-12-31",
                 "roe": 0.20,
                 "gross_margin": 0.68,
@@ -90,7 +88,7 @@ def test_enrich_features_with_fundamentals_merges_split_snapshots_by_field(tmp_p
                 "currency": "USD",
             }
         ]
-    ).to_csv(fmp_dir / "financial_snapshots.csv", index=False)
+    ).to_csv(snapshot_dir / "financial_snapshots.csv", index=False)
     features = pd.DataFrame([{"symbol": "MSFT", "market": "us"}])
     config = ScreenRunConfig(
         markets=["us"],
@@ -105,28 +103,28 @@ def test_enrich_features_with_fundamentals_merges_split_snapshots_by_field(tmp_p
 
     row = enriched.iloc[0]
     assert row["market_cap"] == 120.0
-    assert row["market_cap_source"] == "tencent"
+    assert row["market_cap_source"] == "simfin"
     assert row["roe"] == 0.20
-    assert row["roe_source"] == "fmp"
+    assert row["roe_source"] == "simfin"
     assert row["market_snapshot_coverage"] > 0
     assert row["financial_snapshot_coverage"] > 0
     assert row["fundamental_data_status"] == "partial"
 
 
 def test_load_fundamental_snapshots_ignores_expired_financial_fields(tmp_path):
-    fmp_dir = tmp_path / "fmp" / "us"
-    fmp_dir.mkdir(parents=True)
+    snapshot_dir = tmp_path / "simfin" / "us"
+    snapshot_dir.mkdir(parents=True)
     pd.DataFrame(
         [
             {
                 "symbol": "MSFT",
                 "market": "us",
-                "source": "fmp",
+                "source": "simfin",
                 "report_period": "2022-03-31",
                 "roe": 0.20,
             }
         ]
-    ).to_csv(fmp_dir / "financial_snapshots.csv", index=False)
+    ).to_csv(snapshot_dir / "financial_snapshots.csv", index=False)
     config = ScreenRunConfig(
         markets=["us"],
         as_of_date="2026-04-28",

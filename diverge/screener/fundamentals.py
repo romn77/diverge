@@ -15,13 +15,13 @@ from .sync import (
 
 
 MARKET_SNAPSHOT_SOURCE_PRIORITY = {
-    "cn": ["tushare", "tencent"],
-    "us": ["tencent", "fmp", "simfin", "yfinance"],
+    "cn": ["tushare"],
+    "us": ["simfin", "yfinance"],
 }
 
 FINANCIAL_SNAPSHOT_SOURCE_PRIORITY = {
     "cn": ["tushare"],
-    "us": ["fmp", "simfin", "yfinance"],
+    "us": ["simfin", "yfinance"],
 }
 
 MARKET_COVERAGE_FIELDS = [
