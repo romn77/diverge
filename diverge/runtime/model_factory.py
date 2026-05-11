@@ -4,11 +4,13 @@ import asyncio
 import atexit
 import contextlib
 import json
+import logging
 import os
 import re
 import shlex
 import sys
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Iterable, Optional
@@ -21,6 +23,10 @@ from google.genai import types
 
 from diverge.runtime.messages import message_content, message_role
 
+logger = logging.getLogger(__name__)
+
+DEFAULT_ADK_MODEL_TIMEOUT_SECONDS = 300.0
+ADK_MODEL_TIMEOUT_ENV = "DIVERGE_LLM_TIMEOUT_SECONDS"
 _LITELLM_LOOP_START_TIMEOUT_SECONDS = 5.0
 _LITELLM_LOOP_SHUTDOWN_TIMEOUT_SECONDS = 5.0
 
@@ -128,6 +134,25 @@ def _litellm_kwargs(
     return kwargs
 
 
+def _coerce_timeout_seconds(value: Any) -> float | None:
+    if value is None:
+        return None
+    try:
+        timeout = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"{ADK_MODEL_TIMEOUT_ENV} must be a number") from exc
+    if timeout <= 0:
+        return None
+    return timeout
+
+
+def _default_adk_model_timeout_seconds() -> float | None:
+    raw_value = os.environ.get(ADK_MODEL_TIMEOUT_ENV)
+    if raw_value is None or not raw_value.strip():
+        return DEFAULT_ADK_MODEL_TIMEOUT_SECONDS
+    return _coerce_timeout_seconds(raw_value.strip())
+
+
 def create_adk_model(
     *,
     provider: str,
@@ -140,6 +165,11 @@ def create_adk_model(
 ) -> Gemini | LiteLlm:
     """Create the ADK 2.0 model object for Diverge's provider config."""
     provider = provider.lower().strip()
+    resolved_timeout = (
+        _default_adk_model_timeout_seconds()
+        if timeout is None
+        else _coerce_timeout_seconds(timeout)
+    )
     if provider == "google":
         retry_options = kwargs.get("retry_options")
         gemini_kwargs: dict[str, Any] = {}
@@ -147,18 +177,22 @@ def create_adk_model(
             gemini_kwargs["base_url"] = base_url
         if retry_options is not None:
             gemini_kwargs["retry_options"] = retry_options
-        return Gemini(model=model, **gemini_kwargs)
+        gemini_model = Gemini(model=model, **gemini_kwargs)
+        setattr(gemini_model, "_diverge_timeout_seconds", resolved_timeout)
+        return gemini_model
 
     litellm_model = _prefixed_litellm_model(provider, model)
     litellm_kwargs = _litellm_kwargs(
         provider,
         base_url=base_url,
         api_key=api_key,
-        timeout=timeout,
+        timeout=resolved_timeout,
         max_retries=max_retries,
         extra=kwargs,
     )
-    return LiteLlm(model=litellm_model, **litellm_kwargs)
+    model_object = LiteLlm(model=litellm_model, **litellm_kwargs)
+    setattr(model_object, "_diverge_timeout_seconds", resolved_timeout)
+    return model_object
 
 
 def create_adk_generation_config(
@@ -444,9 +478,20 @@ class _BoundAdkChatModel:
 class AdkChatModel:
     """LangChain-prompt compatible adapter backed by an ADK 2.0 model."""
 
-    def __init__(self, model: Gemini | LiteLlm, *, generation_config: Any = None):
+    def __init__(
+        self,
+        model: Gemini | LiteLlm,
+        *,
+        generation_config: Any = None,
+        timeout: float | None = None,
+    ):
         self.model = model
         self.generation_config = generation_config
+        self.timeout = (
+            _coerce_timeout_seconds(timeout)
+            if timeout is not None
+            else getattr(model, "_diverge_timeout_seconds", None)
+        )
 
     def bind_tools(self, tools: Iterable[Any]):
         try:
@@ -475,14 +520,74 @@ class AdkChatModel:
         if self.generation_config is not None:
             request.config = self.generation_config
 
-        final_response = None
-        async for response in self.model.generate_content_async(request, stream=False):
-            final_response = response
+        model_name = str(getattr(self.model, "model", None) or request.model or "")
+        content_count = len(request.contents or [])
+        tool_count = len(tool_registry)
+        start_time = time.monotonic()
+        logger.info(
+            "adk_model_call_start model=%s timeout=%s contents=%s tools=%s",
+            model_name,
+            self.timeout,
+            content_count,
+            tool_count,
+        )
+        try:
+            final_response = await self._collect_final_response(request)
+        except TimeoutError:
+            duration = time.monotonic() - start_time
+            logger.exception(
+                "adk_model_call_timeout model=%s timeout=%s duration=%.2fs contents=%s tools=%s",
+                model_name,
+                self.timeout,
+                duration,
+                content_count,
+                tool_count,
+            )
+            raise
+        except Exception:
+            duration = time.monotonic() - start_time
+            logger.exception(
+                "adk_model_call_error model=%s duration=%.2fs contents=%s tools=%s",
+                model_name,
+                duration,
+                content_count,
+                tool_count,
+            )
+            raise
+
+        duration = time.monotonic() - start_time
+        logger.info(
+            "adk_model_call_finish model=%s duration=%.2fs response=%s",
+            model_name,
+            duration,
+            final_response is not None,
+        )
         if final_response is None:
             return _build_ai_message("", [])
 
         text, tool_calls = _response_text_and_tools(final_response, tools)
         return _build_ai_message(text, tool_calls)
+
+    async def _collect_final_response(self, request: LlmRequest):
+        async def collect():
+            final_response = None
+            async for response in self.model.generate_content_async(
+                request,
+                stream=False,
+            ):
+                final_response = response
+            return final_response
+
+        if self.timeout is None:
+            return await collect()
+
+        try:
+            return await asyncio.wait_for(collect(), timeout=self.timeout)
+        except asyncio.TimeoutError as exc:
+            model_name = str(getattr(self.model, "model", None) or request.model or "")
+            raise TimeoutError(
+                f"ADK model call timed out after {self.timeout:g}s for {model_name}"
+            ) from exc
 
 
 def _run_coro_blocking(

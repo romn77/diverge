@@ -1,10 +1,13 @@
-import asyncio
+import os
 import sys
 import types
+import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
+
+import pytest
 
 from diverge.graph.trading_graph import DivergeGraph
 
@@ -174,12 +177,45 @@ def test_adk_model_factory_uses_gemini_for_google_and_litellm_for_others():
     assert google_model.model == "gemini-3.1-pro-preview"
     assert isinstance(openai_model, LiteLlm)
     assert openai_model.model == "openai/gpt-5.4-mini"
+    assert getattr(openai_model, "_diverge_timeout_seconds") == 300.0
 
     google_config = create_adk_generation_config(
         provider="google",
         thinking_level="high",
     )
     assert google_config.thinking_config.thinking_level == types.ThinkingLevel.HIGH
+
+
+def test_adk_model_factory_uses_env_timeout_fallback():
+    from diverge.runtime.model_factory import create_adk_model
+
+    with patch.dict(os.environ, {"DIVERGE_LLM_TIMEOUT_SECONDS": "12.5"}):
+        model = create_adk_model(
+            provider="openai",
+            model="gpt-5.4-mini",
+            base_url="https://api.openai.com/v1",
+        )
+
+    assert getattr(model, "_diverge_timeout_seconds") == 12.5
+
+
+def test_adk_chat_model_times_out_stalled_async_generator():
+    from diverge.runtime.model_factory import AdkChatModel
+
+    class SlowModel:
+        model = "slow/test"
+
+        async def generate_content_async(self, _request, *, stream):
+            await asyncio.sleep(0.05)
+            if False:
+                yield None
+
+    chat_model = AdkChatModel(SlowModel(), timeout=0.01)
+
+    with pytest.raises(TimeoutError, match="timed out"):
+        asyncio.run(
+            chat_model._collect_final_response(SimpleNamespace(model="slow/test"))
+        )
 
 
 def test_sub2api_litellm_api_base_uses_openai_compatible_v1_endpoint():
