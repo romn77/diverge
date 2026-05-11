@@ -17,6 +17,12 @@ from diverge.data_layout import (
     resolve_screener_cache_dir,
 )
 from diverge.dataflows.vendors.tushare.common import get_tushare_pro_client
+from diverge.dataflows.vendors.fmp.screener import (
+    fetch_key_metrics_ttm_bulk,
+    fetch_profile_bulk,
+    fetch_ratios_ttm_bulk,
+)
+from diverge.dataflows.vendors.tencent.quote import fetch_us_quote_rows
 from diverge.market_data.history_cache import (
     classify_history_cache_coverage,
     load_history_cache,
@@ -27,12 +33,29 @@ from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.stages import prepare_universe_stage
 
 
-FUNDAMENTAL_FIELDS = [
+MARKET_SNAPSHOT_FIELDS = [
     "market_cap",
+    "free_float_market_cap",
     "pe_ttm",
     "ps_ttm",
     "pb",
     "peg",
+    "price",
+    "prev_close",
+    "open",
+    "high",
+    "low",
+    "volume",
+    "turnover_value",
+    "change_pct",
+    "avg_volume_20d",
+    "avg_turnover_value_20d",
+    "turnover_rate",
+    "free_float_turnover_rate",
+    "volume_ratio",
+]
+
+FINANCIAL_SNAPSHOT_FIELDS = [
     "roe",
     "roa",
     "gross_margin",
@@ -44,6 +67,51 @@ FUNDAMENTAL_FIELDS = [
     "free_cashflow",
     "operating_cashflow_quality",
 ]
+
+FUNDAMENTAL_FIELDS = [
+    *MARKET_SNAPSHOT_FIELDS,
+    *FINANCIAL_SNAPSHOT_FIELDS,
+]
+
+SNAPSHOT_TYPE_FIELDS = {
+    "market": MARKET_SNAPSHOT_FIELDS,
+    "financial": FINANCIAL_SNAPSHOT_FIELDS,
+    "legacy": FUNDAMENTAL_FIELDS,
+}
+
+SNAPSHOT_SCHEMA_VERSION = "fundamental_snapshot.v1"
+
+FIELD_UNITS = {
+    "market_cap": "native_currency",
+    "free_float_market_cap": "native_currency",
+    "price": "native_currency",
+    "prev_close": "native_currency",
+    "open": "native_currency",
+    "high": "native_currency",
+    "low": "native_currency",
+    "turnover_value": "native_currency",
+    "avg_turnover_value_20d": "native_currency",
+    "free_cashflow": "native_currency",
+    "pe_ttm": "multiple",
+    "ps_ttm": "multiple",
+    "pb": "multiple",
+    "peg": "multiple",
+    "volume": "shares",
+    "avg_volume_20d": "shares",
+    "change_pct": "decimal",
+    "turnover_rate": "decimal",
+    "free_float_turnover_rate": "decimal",
+    "volume_ratio": "ratio",
+    "roe": "decimal",
+    "roa": "decimal",
+    "gross_margin": "decimal",
+    "net_margin": "decimal",
+    "revenue_growth_yoy": "decimal",
+    "net_income_growth_yoy": "decimal",
+    "debt_to_assets": "decimal",
+    "current_ratio": "ratio",
+    "operating_cashflow_quality": "ratio",
+}
 
 SIMFIN_FIELD_MAP = {
     "Market-Cap": "market_cap",
@@ -63,6 +131,42 @@ SIMFIN_FIELD_MAP = {
     "Operating Cash Flow / Net Income": "operating_cashflow_quality",
 }
 
+FMP_RATIO_FIELD_MAP = {
+    "peRatioTTM": "pe_ttm",
+    "priceEarningsRatioTTM": "pe_ttm",
+    "priceToSalesRatioTTM": "ps_ttm",
+    "priceToBookRatioTTM": "pb",
+    "priceEarningsToGrowthRatioTTM": "peg",
+    "pegRatioTTM": "peg",
+    "returnOnEquityTTM": "roe",
+    "returnOnAssetsTTM": "roa",
+    "grossProfitMarginTTM": "gross_margin",
+    "netProfitMarginTTM": "net_margin",
+    "debtRatioTTM": "debt_to_assets",
+    "currentRatioTTM": "current_ratio",
+}
+
+FMP_KEY_METRICS_FIELD_MAP = {
+    "marketCapTTM": "market_cap",
+    "enterpriseValueTTM": "enterprise_value",
+    "peRatioTTM": "pe_ttm",
+    "priceToSalesRatioTTM": "ps_ttm",
+    "pbRatioTTM": "pb",
+    "ptbRatioTTM": "pb",
+    "freeCashFlowPerShareTTM": "free_cashflow_per_share",
+    "operatingCashFlowPerShareTTM": "operating_cashflow_per_share",
+}
+
+FMP_PROFILE_FIELD_MAP = {
+    "price": "price",
+    "marketCap": "market_cap",
+    "volAvg": "avg_volume_20d",
+    "companyName": "name",
+    "exchangeShortName": "exchange",
+    "sector": "sector",
+    "industry": "industry",
+}
+
 TUSHARE_FIELD_MAP = {
     "roe": "roe",
     "roa": "roa",
@@ -71,6 +175,14 @@ TUSHARE_FIELD_MAP = {
     "current_ratio": "current_ratio",
     "debt_to_assets": "debt_to_assets",
     "ocfps": "operating_cashflow_quality",
+}
+
+TUSHARE_PERCENT_FIELD_MAP = {
+    "roe",
+    "roa",
+    "grossprofit_margin",
+    "netprofit_margin",
+    "debt_to_assets",
 }
 
 TUSHARE_DAILY_BASIC_FIELD_MAP = {
@@ -82,6 +194,11 @@ TUSHARE_DAILY_BASIC_FIELD_MAP = {
     "turnover_rate": "turnover_rate",
     "turnover_rate_f": "free_float_turnover_rate",
     "volume_ratio": "volume_ratio",
+}
+
+TUSHARE_DAILY_BASIC_PERCENT_FIELDS = {
+    "turnover_rate",
+    "turnover_rate_f",
 }
 
 OHLCV_SYNC_RETRY_ROUNDS = 3
@@ -100,6 +217,8 @@ class SyncResult:
     rows_written: int = 0
     snapshot_path: str | None = None
     meta_path: str | None = None
+    snapshot_paths: dict[str, str] = field(default_factory=dict)
+    meta_paths: dict[str, str] = field(default_factory=dict)
     field_coverage: float | None = None
     missing_fields: list[str] = field(default_factory=list)
     failed_symbols: list[dict[str, str]] = field(default_factory=list)
@@ -278,11 +397,21 @@ def _safe_numeric(value: Any) -> float | None:
     return float(parsed)
 
 
-def _finalize_fundamental_row(payload: dict[str, Any]) -> None:
+def _safe_decimal_percent(value: Any) -> float | None:
+    parsed = _safe_numeric(value)
+    if parsed is None:
+        return None
+    return parsed / 100
+
+
+def _finalize_fundamental_row(
+    payload: dict[str, Any],
+    *,
+    fields: list[str] | None = None,
+) -> None:
+    field_names = fields or FUNDAMENTAL_FIELDS
     missing = [
-        field_name
-        for field_name in FUNDAMENTAL_FIELDS
-        if payload.get(field_name) is None
+        field_name for field_name in field_names if payload.get(field_name) is None
     ]
     payload["missing_fields"] = ",".join(missing)
     payload["data_status"] = "partial" if missing else "fresh"
@@ -293,9 +422,20 @@ def _snapshot_paths(
     base_dir: str | Path | None,
     market: str,
     source: str,
+    snapshot_type: str = "legacy",
 ) -> tuple[Path, Path]:
     root = Path(base_dir) if base_dir is not None else resolve_fundamentals_dir()
     snapshot_dir = root / source / market
+    if snapshot_type == "market":
+        return (
+            snapshot_dir / "market_snapshots.csv",
+            snapshot_dir / "market_snapshots_meta.json",
+        )
+    if snapshot_type == "financial":
+        return (
+            snapshot_dir / "financial_snapshots.csv",
+            snapshot_dir / "financial_snapshots_meta.json",
+        )
     return snapshot_dir / "snapshots.csv", snapshot_dir / "sync_meta.json"
 
 
@@ -306,33 +446,79 @@ def _save_fundamental_snapshot(
     market: str,
     source: str,
     sync_result: SyncResult,
+    snapshot_type: str = "legacy",
 ) -> SyncResult:
+    field_names = SNAPSHOT_TYPE_FIELDS.get(snapshot_type, FUNDAMENTAL_FIELDS)
     snapshot_path, meta_path = _snapshot_paths(
         base_dir=base_dir,
         market=market,
         source=source,
+        snapshot_type=snapshot_type,
     )
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(snapshot_path, index=False)
 
     present_fields = [
         field_name
-        for field_name in FUNDAMENTAL_FIELDS
+        for field_name in field_names
         if field_name in frame.columns and frame[field_name].notna().any()
     ]
     missing_fields = [
-        field_name
-        for field_name in FUNDAMENTAL_FIELDS
-        if field_name not in present_fields
+        field_name for field_name in field_names if field_name not in present_fields
     ]
     sync_result.rows_written = int(len(frame))
     sync_result.snapshot_path = str(snapshot_path)
     sync_result.meta_path = str(meta_path)
-    sync_result.field_coverage = len(present_fields) / len(FUNDAMENTAL_FIELDS)
+    sync_result.snapshot_paths[snapshot_type] = str(snapshot_path)
+    sync_result.meta_paths[snapshot_type] = str(meta_path)
+    sync_result.field_coverage = len(present_fields) / len(field_names)
     sync_result.missing_fields = missing_fields
     sync_result.updated_at = _utc_iso()
-    write_json_atomic(meta_path, asdict(sync_result))
+    meta_payload = asdict(sync_result)
+    meta_payload.update(
+        {
+            "schema_version": SNAPSHOT_SCHEMA_VERSION,
+            "snapshot_type": snapshot_type,
+            "field_units": {
+                field_name: FIELD_UNITS.get(field_name, "unknown")
+                for field_name in field_names
+            },
+        }
+    )
+    write_json_atomic(meta_path, meta_payload)
     return sync_result
+
+
+def _snapshot_subset(frame: pd.DataFrame, *, snapshot_type: str) -> pd.DataFrame:
+    fields = SNAPSHOT_TYPE_FIELDS[snapshot_type]
+    metadata = [
+        "symbol",
+        "market",
+        "source",
+        "as_of_date",
+        "report_period",
+        "updated_at",
+        "currency",
+        "name",
+        "exchange",
+        "sector",
+        "industry",
+        "listing_date",
+        "missing_fields",
+        "data_status",
+    ]
+    if frame.empty:
+        return pd.DataFrame(columns=[*metadata, *fields])
+    columns = [column for column in [*metadata, *fields] if column in frame.columns]
+    subset = frame.loc[:, columns].copy() if columns else pd.DataFrame()
+    if subset.empty:
+        return subset
+    for row_index, row in subset.iterrows():
+        payload = row.to_dict()
+        _finalize_fundamental_row(payload, fields=fields)
+        for column, value in payload.items():
+            subset.at[row_index, column] = value
+    return subset
 
 
 def _normalize_simfin_tickers(
@@ -414,6 +600,7 @@ def _normalize_simfin_snapshot(
             "as_of_date": as_of_date or _utc_iso()[:10],
             "report_period": str(row.get(date_col) or "")[:10] if date_col else "",
             "updated_at": _utc_iso(),
+            "currency": "USD",
         }
         for source_column, target_column in SIMFIN_FIELD_MAP.items():
             if source_column in latest.columns:
@@ -421,6 +608,121 @@ def _normalize_simfin_snapshot(
         _finalize_fundamental_row(payload)
         rows.append(payload)
     return pd.DataFrame(rows)
+
+
+def _frame_from_records(
+    records: list[dict[str, Any]], symbol_key: str = "symbol"
+) -> pd.DataFrame:
+    if not records:
+        return pd.DataFrame()
+    frame = pd.DataFrame(records)
+    if symbol_key not in frame.columns:
+        return pd.DataFrame()
+    frame = frame.copy()
+    frame[symbol_key] = frame[symbol_key].astype(str).str.strip().str.upper()
+    return frame
+
+
+def _latest_fmp_rows(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    frame = _frame_from_records(records)
+    if frame.empty:
+        return {}
+    if "date" in frame.columns:
+        frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+        frame = frame.sort_values("date")
+    return {
+        str(symbol): group.iloc[-1].to_dict()
+        for symbol, group in frame.groupby(frame["symbol"].astype(str))
+    }
+
+
+def _fmp_row_date(row: dict[str, Any], as_of_date: str | None) -> str:
+    value = row.get("date") or row.get("calendarYear") or row.get("fiscalDateEnding")
+    if hasattr(value, "strftime") and not pd.isna(value):
+        return value.strftime("%Y-%m-%d")
+    if value:
+        return str(value)[:10]
+    return as_of_date or _utc_iso()[:10]
+
+
+def _normalize_fmp_bulk_snapshots(
+    *,
+    ratios: list[dict[str, Any]],
+    key_metrics: list[dict[str, Any]],
+    profiles: list[dict[str, Any]],
+    symbols: list[str] | None = None,
+    as_of_date: str | None = None,
+) -> pd.DataFrame:
+    ratio_rows = _latest_fmp_rows(ratios)
+    metric_rows = _latest_fmp_rows(key_metrics)
+    profile_rows = _latest_fmp_rows(profiles)
+    symbol_set = {symbol.strip().upper() for symbol in symbols or [] if symbol.strip()}
+    all_symbols = sorted(set(ratio_rows) | set(metric_rows) | set(profile_rows))
+    if symbol_set:
+        all_symbols = [symbol for symbol in all_symbols if symbol in symbol_set]
+
+    rows: list[dict[str, Any]] = []
+    for symbol in all_symbols:
+        ratio_row = ratio_rows.get(symbol, {})
+        metric_row = metric_rows.get(symbol, {})
+        profile_row = profile_rows.get(symbol, {})
+        report_period = _fmp_row_date(ratio_row or metric_row, as_of_date)
+        payload: dict[str, Any] = {
+            "symbol": symbol,
+            "market": "us",
+            "source": "fmp",
+            "as_of_date": as_of_date or _utc_iso()[:10],
+            "report_period": report_period,
+            "updated_at": _utc_iso(),
+            "currency": str(profile_row.get("currency") or "USD").upper(),
+        }
+        for source_column, target_column in FMP_RATIO_FIELD_MAP.items():
+            if source_column in ratio_row:
+                payload[target_column] = _safe_numeric(ratio_row.get(source_column))
+        for source_column, target_column in FMP_KEY_METRICS_FIELD_MAP.items():
+            if source_column in metric_row:
+                payload[target_column] = _safe_numeric(metric_row.get(source_column))
+        for source_column, target_column in FMP_PROFILE_FIELD_MAP.items():
+            if source_column in profile_row:
+                value = profile_row.get(source_column)
+                payload[target_column] = (
+                    _safe_numeric(value)
+                    if target_column in MARKET_SNAPSHOT_FIELDS
+                    else value
+                )
+        _finalize_fundamental_row(payload)
+        rows.append(payload)
+    return pd.DataFrame(rows)
+
+
+def _normalize_tencent_quote_snapshot(
+    rows: list[dict[str, Any]], *, as_of_date: str | None = None
+) -> pd.DataFrame:
+    snapshot_rows: list[dict[str, Any]] = []
+    for row in rows:
+        symbol = str(row.get("symbol") or "").strip().upper()
+        if not symbol:
+            continue
+        payload: dict[str, Any] = {
+            "symbol": symbol,
+            "market": "us",
+            "source": "tencent",
+            "as_of_date": as_of_date or _utc_iso()[:10],
+            "updated_at": _utc_iso(),
+            "currency": str(row.get("currency") or "USD").upper(),
+        }
+        for field_name in [
+            "name",
+            "exchange",
+            "sector",
+            "industry",
+            *MARKET_SNAPSHOT_FIELDS,
+        ]:
+            if field_name in row:
+                payload[field_name] = row.get(field_name)
+        _finalize_fundamental_row(payload, fields=MARKET_SNAPSHOT_FIELDS)
+        snapshot_rows.append(payload)
+    return pd.DataFrame(snapshot_rows)
 
 
 def sync_us_simfin_fundamentals(
@@ -454,13 +756,118 @@ def sync_us_simfin_fundamentals(
         symbols_success=int(len(snapshot)),
     )
     result.symbols_failed = max(result.symbols_total - result.symbols_success, 0)
-    return _save_fundamental_snapshot(
-        snapshot,
+    market_snapshot = _snapshot_subset(snapshot, snapshot_type="market")
+    financial_snapshot = _snapshot_subset(snapshot, snapshot_type="financial")
+    market_rows = int(len(market_snapshot))
+    financial_rows = int(len(financial_snapshot))
+    _save_fundamental_snapshot(
+        market_snapshot,
         base_dir=output_dir,
         market="us",
         source="simfin",
         sync_result=result,
+        snapshot_type="market",
     )
+    _save_fundamental_snapshot(
+        financial_snapshot,
+        base_dir=output_dir,
+        market="us",
+        source="simfin",
+        sync_result=result,
+        snapshot_type="financial",
+    )
+    result.rows_written = market_rows + financial_rows
+    return result
+
+
+def sync_us_fmp_fundamentals(
+    *,
+    symbols: list[str] | tuple[str, ...] | str | None = None,
+    output_dir: str | Path | None = None,
+    as_of_date: str | None = None,
+    include_profile: bool = True,
+    profile_parts: int = 1,
+) -> SyncResult:
+    normalized_symbols = _normalize_simfin_tickers(symbols) or []
+    ratios = fetch_ratios_ttm_bulk()
+    key_metrics = fetch_key_metrics_ttm_bulk()
+    profiles: list[dict[str, Any]] = []
+    if include_profile:
+        for part in range(max(int(profile_parts), 0)):
+            profiles.extend(fetch_profile_bulk(part=part))
+    snapshot = _normalize_fmp_bulk_snapshots(
+        ratios=ratios,
+        key_metrics=key_metrics,
+        profiles=profiles,
+        symbols=normalized_symbols or None,
+        as_of_date=as_of_date,
+    )
+    result = SyncResult(
+        sync_type="fundamentals",
+        markets=["us"],
+        source="fmp",
+        status="completed",
+        symbols_total=len(normalized_symbols or snapshot.index),
+        symbols_success=int(len(snapshot)),
+    )
+    result.symbols_failed = max(result.symbols_total - result.symbols_success, 0)
+    market_snapshot = _snapshot_subset(snapshot, snapshot_type="market")
+    financial_snapshot = _snapshot_subset(snapshot, snapshot_type="financial")
+    market_rows = int(len(market_snapshot))
+    financial_rows = int(len(financial_snapshot))
+    _save_fundamental_snapshot(
+        market_snapshot,
+        base_dir=output_dir,
+        market="us",
+        source="fmp",
+        sync_result=result,
+        snapshot_type="market",
+    )
+    _save_fundamental_snapshot(
+        financial_snapshot,
+        base_dir=output_dir,
+        market="us",
+        source="fmp",
+        sync_result=result,
+        snapshot_type="financial",
+    )
+    result.rows_written = market_rows + financial_rows
+    return result
+
+
+def sync_us_tencent_market_snapshot(
+    *,
+    symbols: list[str] | tuple[str, ...] | str,
+    output_dir: str | Path | None = None,
+    as_of_date: str | None = None,
+    batch_size: int = 60,
+    request_interval_seconds: float = 0.12,
+) -> SyncResult:
+    normalized_symbols = _normalize_simfin_tickers(symbols) or []
+    rows = fetch_us_quote_rows(
+        normalized_symbols,
+        batch_size=batch_size,
+        request_interval_seconds=request_interval_seconds,
+    )
+    snapshot = _normalize_tencent_quote_snapshot(rows, as_of_date=as_of_date)
+    result = SyncResult(
+        sync_type="fundamentals",
+        markets=["us"],
+        source="tencent",
+        status="completed",
+        symbols_total=len(normalized_symbols),
+        symbols_success=int(len(snapshot)),
+        symbols_failed=max(len(normalized_symbols) - int(len(snapshot)), 0),
+    )
+    _save_fundamental_snapshot(
+        snapshot,
+        base_dir=output_dir,
+        market="us",
+        source="tencent",
+        sync_result=result,
+        snapshot_type="market",
+    )
+    return result
 
 
 def _normalize_tushare_indicator_frame(
@@ -483,11 +890,17 @@ def _normalize_tushare_indicator_frame(
             "as_of_date": as_of_date or _utc_iso()[:10],
             "report_period": str(row.get("end_date") or "")[:10],
             "updated_at": _utc_iso(),
+            "currency": "CNY",
         }
         for source_column, target_column in TUSHARE_FIELD_MAP.items():
             if source_column in working.columns:
-                payload[target_column] = _safe_numeric(row.get(source_column))
-        _finalize_fundamental_row(payload)
+                if source_column in TUSHARE_PERCENT_FIELD_MAP:
+                    payload[target_column] = _safe_decimal_percent(
+                        row.get(source_column)
+                    )
+                else:
+                    payload[target_column] = _safe_numeric(row.get(source_column))
+        _finalize_fundamental_row(payload, fields=FINANCIAL_SNAPSHOT_FIELDS)
         rows.append(payload)
     return pd.DataFrame(rows)
 
@@ -518,18 +931,23 @@ def _normalize_tushare_daily_basic_frame(
         payload: dict[str, Any] = {
             "symbol": str(symbol),
             "market": "cn",
-            "source": "tushare_daily_basic",
+            "source": "tushare",
             "as_of_date": as_of_date or report_period or _utc_iso()[:10],
             "report_period": report_period,
             "updated_at": _utc_iso(),
+            "currency": "CNY",
         }
         for source_column, target_column in TUSHARE_DAILY_BASIC_FIELD_MAP.items():
             if source_column in working.columns:
-                value = _safe_numeric(row.get(source_column))
+                value = (
+                    _safe_decimal_percent(row.get(source_column))
+                    if source_column in TUSHARE_DAILY_BASIC_PERCENT_FIELDS
+                    else _safe_numeric(row.get(source_column))
+                )
                 if source_column in {"total_mv", "circ_mv"} and value is not None:
                     value *= 10_000
                 payload[target_column] = value
-        _finalize_fundamental_row(payload)
+        _finalize_fundamental_row(payload, fields=MARKET_SNAPSHOT_FIELDS)
         rows.append(payload)
     return pd.DataFrame(rows)
 
@@ -545,6 +963,14 @@ def sync_cn_tushare_fundamentals(
     normalized_symbols = [
         str(symbol).strip() for symbol in symbols if str(symbol).strip()
     ]
+    result = SyncResult(
+        sync_type="fundamentals",
+        markets=["cn"],
+        source="tushare",
+        status="completed",
+        symbols_total=len(normalized_symbols),
+    )
+    market_snapshot = pd.DataFrame()
     if as_of_date:
         trade_date = as_of_date.replace("-", "")
         try:
@@ -560,25 +986,17 @@ def sync_cn_tushare_fundamentals(
             daily_basic = pd.DataFrame()
         if daily_basic is not None and not daily_basic.empty:
             symbol_set = set(normalized_symbols)
-            snapshot = _normalize_tushare_daily_basic_frame(
+            market_snapshot = _normalize_tushare_daily_basic_frame(
                 daily_basic.loc[daily_basic["ts_code"].astype(str).isin(symbol_set)],
                 as_of_date=as_of_date,
             )
-            result = SyncResult(
-                sync_type="fundamentals",
-                markets=["cn"],
-                source="tushare_daily_basic",
-                status="completed",
-                symbols_total=len(normalized_symbols),
-                symbols_success=int(len(snapshot)),
-                symbols_failed=max(len(normalized_symbols) - int(len(snapshot)), 0),
-            )
-            return _save_fundamental_snapshot(
-                snapshot,
+            _save_fundamental_snapshot(
+                market_snapshot,
                 base_dir=output_dir,
                 market="cn",
                 source="tushare",
                 sync_result=result,
+                snapshot_type="market",
             )
 
     rows: list[pd.DataFrame] = []
@@ -599,24 +1017,29 @@ def sync_cn_tushare_fundamentals(
     combined = (
         pd.concat(rows, ignore_index=True, sort=False) if rows else pd.DataFrame()
     )
-    snapshot = _normalize_tushare_indicator_frame(combined, as_of_date=as_of_date)
-    result = SyncResult(
-        sync_type="fundamentals",
-        markets=["cn"],
-        source="tushare",
-        status="completed",
-        symbols_total=len(normalized_symbols),
-        symbols_success=int(len(snapshot)),
-        symbols_failed=len(failed_symbols),
-        failed_symbols=failed_symbols,
+    financial_snapshot = _normalize_tushare_indicator_frame(
+        combined, as_of_date=as_of_date
     )
-    return _save_fundamental_snapshot(
-        snapshot,
+    _save_fundamental_snapshot(
+        financial_snapshot,
         base_dir=output_dir,
         market="cn",
         source="tushare",
         sync_result=result,
+        snapshot_type="financial",
     )
+    successful_symbols = {
+        str(symbol)
+        for frame in (market_snapshot, financial_snapshot)
+        if not frame.empty and "symbol" in frame.columns
+        for symbol in frame["symbol"].dropna().tolist()
+    }
+    result.symbols_success = len(successful_symbols)
+    result.symbols_failed = max(len(normalized_symbols) - result.symbols_success, 0)
+    if failed_symbols:
+        result.failed_symbols = failed_symbols
+    result.rows_written = int(len(market_snapshot) + len(financial_snapshot))
+    return result
 
 
 def sync_ohlcv_cache(

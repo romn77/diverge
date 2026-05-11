@@ -22,7 +22,9 @@ from diverge.screener.schema import ScreenRunConfig
 from diverge.screener.sync import (
     sync_cn_tushare_fundamentals,
     sync_ohlcv_cache,
+    sync_us_fmp_fundamentals,
     sync_us_simfin_fundamentals,
+    sync_us_tencent_market_snapshot,
 )
 from diverge.screener.stages import prepare_universe_stage
 from diverge.screener.universe import (
@@ -75,6 +77,10 @@ class DataSyncTask:
 data_sync_tasks: dict[str, DataSyncTask] = {}
 data_sync_tasks_lock = threading.Lock()
 DEFAULT_SIMFIN_DAILY_TICKER_LIMIT = 2500
+DEFAULT_FMP_PROFILE_PART_LIMIT = 1
+DEFAULT_TENCENT_DAILY_SYMBOL_LIMIT = 1000
+DEFAULT_TENCENT_BATCH_SIZE = 60
+DEFAULT_TENCENT_REQUEST_INTERVAL_SECONDS = 0.12
 OHLCV_READY_CHECKS = {
     ("cn", "tushare"): {
         "vendor_label": "Tushare",
@@ -579,6 +585,59 @@ def _simfin_daily_ticker_limit() -> int:
     return parsed
 
 
+def _positive_int_env(name: str, default_value: int) -> int:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default_value
+    try:
+        parsed = int(raw_value.strip())
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer") from exc
+    if parsed <= 0:
+        raise RuntimeError(f"{name} must be greater than zero")
+    return parsed
+
+
+def _fmp_profile_part_limit() -> int:
+    return _positive_int_env("FMP_PROFILE_PART_LIMIT", DEFAULT_FMP_PROFILE_PART_LIMIT)
+
+
+def _tencent_daily_symbol_limit() -> int:
+    return _positive_int_env(
+        "TENCENT_DAILY_SYMBOL_LIMIT", DEFAULT_TENCENT_DAILY_SYMBOL_LIMIT
+    )
+
+
+def _requested_positive_int(
+    payload: dict[str, Any],
+    key: str,
+    default_value: int,
+) -> int:
+    raw_value = payload.get(key, default_value)
+    try:
+        parsed = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"{key} must be an integer") from exc
+    if parsed <= 0:
+        raise RuntimeError(f"{key} must be greater than zero")
+    return parsed
+
+
+def _requested_non_negative_float(
+    payload: dict[str, Any],
+    key: str,
+    default_value: float,
+) -> float:
+    raw_value = payload.get(key, default_value)
+    try:
+        parsed = float(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"{key} must be a number") from exc
+    if parsed < 0:
+        raise RuntimeError(f"{key} must be non-negative")
+    return parsed
+
+
 def _dedupe_symbols(symbols: list[Any]) -> list[str]:
     return list(
         dict.fromkeys(
@@ -689,6 +748,59 @@ def run_fundamental_sync_payload(
             data_dir=payload.get("data_dir"),
             output_dir=str(app_config.FUNDAMENTALS_DIR),
             as_of_date=payload.get("as_of_date"),
+        )
+        return asdict(result)
+    if market == "us" and source == "fmp":
+        if not symbols:
+            raise RuntimeError(
+                "symbols are required for US FMP fundamental sync. "
+                "Pass symbols, manifest_path, or set SCREEN_US_MANIFEST_PATH."
+            )
+        if not os.environ.get("FMP_API_KEY"):
+            raise RuntimeError("FMP_API_KEY is required for US FMP fundamental sync.")
+        requested_profile_parts = _requested_positive_int(
+            payload, "profile_parts", DEFAULT_FMP_PROFILE_PART_LIMIT
+        )
+        profile_part_limit = _fmp_profile_part_limit()
+        if requested_profile_parts > profile_part_limit:
+            raise RuntimeError(
+                f"US FMP fundamental sync requested profile_parts={requested_profile_parts}, "
+                f"which exceeds FMP_PROFILE_PART_LIMIT={profile_part_limit}. "
+                "Lower profile_parts to protect free-tier daily request quota."
+            )
+        result = sync_us_fmp_fundamentals(
+            symbols=symbols,
+            output_dir=str(app_config.FUNDAMENTALS_DIR),
+            as_of_date=payload.get("as_of_date"),
+            include_profile=bool(payload.get("include_profile", True)),
+            profile_parts=requested_profile_parts,
+        )
+        return asdict(result)
+    if market == "us" and source == "tencent":
+        if not symbols:
+            raise RuntimeError(
+                "symbols are required for US Tencent market snapshot sync. "
+                "Pass symbols, manifest_path, or set SCREEN_US_MANIFEST_PATH."
+            )
+        symbol_limit = _tencent_daily_symbol_limit()
+        if len(symbols) > symbol_limit:
+            raise RuntimeError(
+                f"US Tencent market snapshot sync requested {len(symbols)} symbols, "
+                f"which exceeds TENCENT_DAILY_SYMBOL_LIMIT={symbol_limit}. "
+                "Reduce the symbol list to lower IP-ban and free-endpoint quota risk."
+            )
+        result = sync_us_tencent_market_snapshot(
+            symbols=symbols,
+            output_dir=str(app_config.FUNDAMENTALS_DIR),
+            as_of_date=payload.get("as_of_date"),
+            batch_size=_requested_positive_int(
+                payload, "batch_size", DEFAULT_TENCENT_BATCH_SIZE
+            ),
+            request_interval_seconds=_requested_non_negative_float(
+                payload,
+                "request_interval_seconds",
+                DEFAULT_TENCENT_REQUEST_INTERVAL_SECONDS,
+            ),
         )
         return asdict(result)
     if market == "cn" and source == "tushare":

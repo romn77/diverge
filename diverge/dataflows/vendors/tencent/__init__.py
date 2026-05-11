@@ -1,0 +1,1 @@
+"""Tencent Finance vendor adapters."""

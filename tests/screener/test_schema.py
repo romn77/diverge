@@ -327,6 +327,18 @@ def test_screen_run_config_accepts_cache_only_and_fundamental_sources(tmp_path):
     assert config.include_fundamentals is True
     assert config.fundamental_dir == str(tmp_path)
 
+    fmp_config = ScreenRunConfig(
+        markets=["us"],
+        as_of_date="2026-03-24",
+        top_k=20,
+        us_manifest_path="/tmp/us.csv",
+        include_fundamentals=True,
+        fundamental_dir=str(tmp_path),
+        us_fundamental_source="fmp",
+    )
+
+    assert fmp_config.us_fundamental_source == "fmp"
+
 
 def test_screen_run_config_rejects_unknown_history_cache_policy():
     with pytest.raises(ValueError, match="history_cache_policy"):

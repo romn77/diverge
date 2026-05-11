@@ -376,6 +376,103 @@ def test_us_simfin_fundamental_sync_rejects_symbols_over_daily_limit(monkeypatch
         )
 
 
+def test_us_fmp_fundamental_sync_routes_bulk_with_profile_limit(monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "test-key")
+    monkeypatch.setenv("FMP_PROFILE_PART_LIMIT", "1")
+    captured = {}
+
+    def fake_sync(**kwargs):
+        captured.update(kwargs)
+        return SyncResult(
+            sync_type="fundamentals",
+            markets=["us"],
+            source="fmp",
+            status="completed",
+            symbols_total=2,
+            symbols_success=2,
+        )
+
+    monkeypatch.setattr(data_sync_tasks, "sync_us_fmp_fundamentals", fake_sync)
+
+    result = data_sync_tasks.run_fundamental_sync_payload(
+        {
+            "market": "us",
+            "source": "fmp",
+            "symbols": ["AAPL", "MSFT"],
+            "as_of_date": "2026-04-28",
+            "profile_parts": 1,
+        }
+    )
+
+    assert result["status"] == "completed"
+    assert captured["symbols"] == ["AAPL", "MSFT"]
+    assert captured["profile_parts"] == 1
+
+
+def test_us_fmp_fundamental_sync_rejects_profile_parts_over_limit(monkeypatch):
+    monkeypatch.setenv("FMP_API_KEY", "test-key")
+    monkeypatch.setenv("FMP_PROFILE_PART_LIMIT", "1")
+
+    with pytest.raises(RuntimeError, match="exceeds FMP_PROFILE_PART_LIMIT=1"):
+        data_sync_tasks.run_fundamental_sync_payload(
+            {
+                "market": "us",
+                "source": "fmp",
+                "symbols": ["AAPL"],
+                "as_of_date": "2026-04-28",
+                "profile_parts": 2,
+            }
+        )
+
+
+def test_us_tencent_market_snapshot_sync_rejects_symbols_over_limit(monkeypatch):
+    monkeypatch.setenv("TENCENT_DAILY_SYMBOL_LIMIT", "2")
+
+    with pytest.raises(RuntimeError, match="exceeds TENCENT_DAILY_SYMBOL_LIMIT=2"):
+        data_sync_tasks.run_fundamental_sync_payload(
+            {
+                "market": "us",
+                "source": "tencent",
+                "symbols": ["AAPL", "MSFT", "NVDA"],
+                "as_of_date": "2026-04-28",
+            }
+        )
+
+
+def test_us_tencent_market_snapshot_sync_routes_with_batch_controls(monkeypatch):
+    monkeypatch.setenv("TENCENT_DAILY_SYMBOL_LIMIT", "10")
+    captured = {}
+
+    def fake_sync(**kwargs):
+        captured.update(kwargs)
+        return SyncResult(
+            sync_type="fundamentals",
+            markets=["us"],
+            source="tencent",
+            status="completed",
+            symbols_total=2,
+            symbols_success=2,
+        )
+
+    monkeypatch.setattr(data_sync_tasks, "sync_us_tencent_market_snapshot", fake_sync)
+
+    result = data_sync_tasks.run_fundamental_sync_payload(
+        {
+            "market": "us",
+            "source": "tencent",
+            "symbols": ["AAPL", "MSFT"],
+            "as_of_date": "2026-04-28",
+            "batch_size": 2,
+            "request_interval_seconds": 0.2,
+        }
+    )
+
+    assert result["status"] == "completed"
+    assert captured["symbols"] == ["AAPL", "MSFT"]
+    assert captured["batch_size"] == 2
+    assert captured["request_interval_seconds"] == 0.2
+
+
 def test_tushare_ohlcv_sync_rejects_today_before_ready_cutoff(monkeypatch):
     monkeypatch.setattr(
         data_sync_tasks,

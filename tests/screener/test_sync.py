@@ -39,7 +39,7 @@ def test_normalize_simfin_snapshot_keeps_latest_values_and_optional_missing_fiel
     assert "pb" in row["missing_fields"]
 
 
-def test_save_fundamental_snapshot_writes_csv_and_meta(tmp_path):
+def test_save_fundamental_snapshot_writes_split_csv_and_meta(tmp_path):
     frame = pd.DataFrame(
         [
             {
@@ -64,6 +64,7 @@ def test_save_fundamental_snapshot_writes_csv_and_meta(tmp_path):
         market="us",
         source="simfin",
         sync_result=result,
+        snapshot_type="market",
     )
 
     assert saved.rows_written == 1
@@ -71,8 +72,11 @@ def test_save_fundamental_snapshot_writes_csv_and_meta(tmp_path):
     assert saved.meta_path is not None
     assert pd.read_csv(saved.snapshot_path)["symbol"].tolist() == ["AAPL"]
     meta = json.loads(open(saved.meta_path, encoding="utf-8").read())
+    assert meta["schema_version"] == "fundamental_snapshot.v1"
+    assert meta["snapshot_type"] == "market"
     assert meta["field_coverage"] > 0
     assert "peg" in meta["missing_fields"]
+    assert saved.snapshot_paths["market"] == saved.snapshot_path
 
 
 def test_normalize_tushare_indicator_frame_maps_cn_fields():
@@ -81,11 +85,11 @@ def test_normalize_tushare_indicator_frame_maps_cn_fields():
             {
                 "ts_code": "600519.SH",
                 "end_date": "20231231",
-                "roe": 0.30,
-                "grossprofit_margin": 0.92,
-                "netprofit_margin": 0.52,
+                "roe": 30.0,
+                "grossprofit_margin": 92.0,
+                "netprofit_margin": 52.0,
                 "current_ratio": 2.1,
-                "debt_to_assets": 0.20,
+                "debt_to_assets": 20.0,
             }
         ]
     )
@@ -107,7 +111,7 @@ def test_normalize_tushare_daily_basic_frame_maps_screening_fields():
             {
                 "ts_code": "600519.SH",
                 "trade_date": "20260428",
-                "turnover_rate": 0.45,
+                "turnover_rate": 45.0,
                 "pe_ttm": 24.0,
                 "pb": 8.5,
                 "ps_ttm": 12.0,
@@ -125,8 +129,70 @@ def test_normalize_tushare_daily_basic_frame_maps_screening_fields():
     row = snapshot.iloc[0]
     assert row["symbol"] == "600519.SH"
     assert row["market"] == "cn"
-    assert row["source"] == "tushare_daily_basic"
+    assert row["source"] == "tushare"
     assert row["pe_ttm"] == 24.0
     assert row["pb"] == 8.5
     assert row["ps_ttm"] == 12.0
     assert row["market_cap"] == 21000000000.0
+    assert row["turnover_rate"] == 0.45
+
+
+def test_normalize_fmp_bulk_snapshots_maps_market_and_financial_fields():
+    snapshot = sync._normalize_fmp_bulk_snapshots(
+        ratios=[
+            {
+                "symbol": "AAPL",
+                "date": "2025-12-31",
+                "peRatioTTM": 25.0,
+                "returnOnEquityTTM": 0.35,
+                "grossProfitMarginTTM": 0.44,
+            }
+        ],
+        key_metrics=[{"symbol": "AAPL", "marketCapTTM": 3_000_000_000_000}],
+        profiles=[
+            {
+                "symbol": "AAPL",
+                "companyName": "Apple Inc.",
+                "price": 200.0,
+                "currency": "USD",
+                "exchangeShortName": "NASDAQ",
+            }
+        ],
+        symbols=["AAPL"],
+        as_of_date="2026-04-28",
+    )
+
+    row = snapshot.iloc[0]
+    assert row["symbol"] == "AAPL"
+    assert row["source"] == "fmp"
+    assert row["market_cap"] == 3_000_000_000_000
+    assert row["price"] == 200.0
+    assert row["pe_ttm"] == 25.0
+    assert row["roe"] == 0.35
+    assert row["gross_margin"] == 0.44
+    assert row["name"] == "Apple Inc."
+
+
+def test_normalize_tencent_quote_snapshot_maps_market_fields():
+    snapshot = sync._normalize_tencent_quote_snapshot(
+        [
+            {
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "price": 200.0,
+                "market_cap": 3_000_000_000_000,
+                "pe_ttm": 25.0,
+                "change_pct": 0.012,
+                "currency": "USD",
+            }
+        ],
+        as_of_date="2026-04-28",
+    )
+
+    row = snapshot.iloc[0]
+    assert row["symbol"] == "AAPL"
+    assert row["source"] == "tencent"
+    assert row["price"] == 200.0
+    assert row["market_cap"] == 3_000_000_000_000
+    assert row["pe_ttm"] == 25.0
+    assert "roe" not in snapshot.columns
