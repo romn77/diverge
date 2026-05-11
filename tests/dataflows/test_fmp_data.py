@@ -4,8 +4,9 @@ import json
 from unittest.mock import patch
 
 import pytest
+import requests
 
-from diverge.dataflows.vendor_errors import VendorDataEmptyError
+from diverge.dataflows.vendor_errors import VendorAuthError, VendorDataEmptyError
 
 
 class _Response:
@@ -86,3 +87,26 @@ def test_fmp_empty_payload_raises_empty_data_for_vendor_fallback(monkeypatch):
     ):
         with pytest.raises(VendorDataEmptyError):
             get_fundamentals("AAPL", "2026-04-26")
+
+
+def test_fmp_http_error_redacts_api_key(monkeypatch):
+    from diverge.dataflows.vendors.fmp.common import _make_api_request
+
+    monkeypatch.setenv("FMP_API_KEY", "secret-key")
+    response = requests.Response()
+    response.status_code = 402
+    response.url = (
+        "https://financialmodelingprep.com/stable/ratios-ttm-bulk?apikey=secret-key"
+    )
+
+    with patch(
+        "diverge.dataflows.vendors.fmp.common.requests.get",
+        side_effect=requests.HTTPError(
+            f"402 Client Error for url: {response.url}", response=response
+        ),
+    ):
+        with pytest.raises(VendorAuthError) as exc_info:
+            _make_api_request("/stable/ratios-ttm-bulk")
+
+    assert "secret-key" not in str(exc_info.value)
+    assert "apikey=<redacted>" in str(exc_info.value)

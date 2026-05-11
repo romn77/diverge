@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Any
 
 import requests
@@ -11,6 +12,10 @@ from ...vendor_errors import VendorAuthError, VendorDataEmptyError, VendorRetrya
 
 FMP_BASE_URL = "https://financialmodelingprep.com"
 FMP_TIMEOUT_SECONDS = 30
+
+
+def _redact_secret_text(value: Any) -> str:
+    return re.sub(r"([?&]apikey=)[^&\s]+", r"\1<redacted>", str(value))
 
 
 def get_api_key() -> str:
@@ -29,10 +34,20 @@ def _make_api_request(path: str, params: dict[str, Any] | None = None) -> Any:
     try:
         response = requests.get(url, params=api_params, timeout=FMP_TIMEOUT_SECONDS)
         response.raise_for_status()
+    except requests.HTTPError as exc:
+        status_code = exc.response.status_code if exc.response is not None else None
+        message = _redact_secret_text(exc)
+        if status_code in {401, 402, 403}:
+            raise VendorAuthError(f"FMP request is not permitted: {message}") from exc
+        raise VendorRetryableError(f"FMP request failed: {message}") from exc
     except requests.RequestException as exc:
-        raise VendorRetryableError(f"FMP request failed: {exc}") from exc
+        raise VendorRetryableError(
+            f"FMP request failed: {_redact_secret_text(exc)}"
+        ) from exc
     except Exception as exc:
-        raise VendorRetryableError(f"FMP request failed: {exc}") from exc
+        raise VendorRetryableError(
+            f"FMP request failed: {_redact_secret_text(exc)}"
+        ) from exc
 
     try:
         payload = response.json()
@@ -50,8 +65,12 @@ def _make_api_request(path: str, params: dict[str, Any] | None = None) -> Any:
         if message:
             lowered = str(message).lower()
             if "limit" in lowered or "apikey" in lowered or "api key" in lowered:
-                raise VendorAuthError(f"FMP rejected the request: {message}")
-            raise VendorRetryableError(f"FMP rejected the request: {message}")
+                raise VendorAuthError(
+                    f"FMP rejected the request: {_redact_secret_text(message)}"
+                )
+            raise VendorRetryableError(
+                f"FMP rejected the request: {_redact_secret_text(message)}"
+            )
 
     return payload
 
