@@ -111,14 +111,19 @@ export function Sidebar({
     "hidden md:block md:shrink-0 md:transition-[width] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
     isDesktopCollapsed ? "md:w-[4.75rem]" : "md:w-[14.5rem]",
   ].join(" ");
-  const desktopToggleWrapperClasses = [
-    "pointer-events-none fixed top-1/2 z-[var(--z-toast)] hidden -translate-y-1/2 md:flex md:transition-[left] md:duration-300 md:ease-[cubic-bezier(0.2,0.75,0.2,1)]",
-    isDesktopCollapsed ? "left-[4.75rem]" : "left-[14.5rem]",
-  ].join(" ");
   const headerClasses = [
-    "h-16 border-b border-[var(--border)] py-2.5 md:h-[var(--workbench-topbar-height)] md:py-0",
-    isDesktopRail ? "flex justify-center" : "flex items-center",
+    "border-b border-[var(--border)] py-2.5 md:py-0",
+    isDesktopRail
+      ? "flex flex-col items-center gap-2 md:py-3"
+      : "h-16 flex items-center md:h-[var(--workbench-topbar-height)]",
   ].join(" ");
+  const desktopToggleClasses = [
+    "focus-ring hidden h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-slate-500 shadow-[0_8px_18px_rgba(18,28,41,0.06)] transition active:translate-y-px motion-reduce:active:translate-y-0 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)] md:inline-flex",
+    isDesktopRail ? "" : "ml-auto",
+  ].join(" ");
+  const collapseLabel = t("sidebar.collapse", "Collapse sidebar");
+  const expandLabel = t("sidebar.expand", "Expand sidebar");
+  const desktopToggleLabel = isDesktopCollapsed ? expandLabel : collapseLabel;
 
   const handleNavSelection = () => {
     if (isMobileDrawerOpen) {
@@ -149,7 +154,7 @@ export function Sidebar({
             type="button"
             variant="secondary"
             size="icon"
-            className="h-8 w-8 rounded-md md:hidden"
+            className="ml-auto h-8 w-8 rounded-md md:hidden"
             onClick={onClose}
             aria-label={t("sidebar.closeSidebar", "Close sidebar")}
           >
@@ -163,6 +168,37 @@ export function Sidebar({
             </svg>
           </Button>
         ) : null}
+
+        <button
+          type="button"
+          className={desktopToggleClasses}
+          onClick={toggleDesktopCollapse}
+          aria-label={desktopToggleLabel}
+          aria-expanded={!isDesktopRail}
+          title={desktopToggleLabel}
+        >
+          <svg
+            viewBox="0 0 16 16"
+            className={`h-4 w-4 transition-transform ${isDesktopRail ? "rotate-180" : ""}`}
+            fill="none"
+            aria-hidden
+          >
+            <path
+              d="M9.5 3.5 5 8l4.5 4.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M13 3.5 8.5 8 13 12.5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
 
       {isDesktopRail ? (
@@ -324,66 +360,8 @@ export function Sidebar({
         >
           {sidebarBody}
         </aside>
-
-        <div className={desktopToggleWrapperClasses}>
-          <div className="pointer-events-auto -translate-x-[58%]">
-            <DesktopUtilityControl
-              isDesktopRail={isDesktopRail}
-              onToggle={toggleDesktopCollapse}
-              expandLabel={t("sidebar.expand", "Expand sidebar")}
-              collapseLabel={t("sidebar.collapse", "Collapse sidebar")}
-            />
-          </div>
-        </div>
       </div>
     </>
-  );
-}
-
-function DesktopUtilityControl({
-  isDesktopRail,
-  onToggle,
-  expandLabel,
-  collapseLabel,
-}: {
-  isDesktopRail: boolean;
-  onToggle: () => void;
-  expandLabel: string;
-  collapseLabel: string;
-}) {
-  const label = isDesktopRail ? expandLabel : collapseLabel;
-
-  return (
-    <button
-      type="button"
-      className="focus-ring inline-flex h-12 w-5 items-center justify-center rounded-md border border-[rgba(36,32,28,0.14)] bg-white/90 text-slate-500 shadow-[0_8px_16px_rgba(18,28,41,0.06)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)]"
-      onClick={onToggle}
-      aria-label={label}
-      aria-expanded={!isDesktopRail}
-      title={label}
-    >
-      <svg
-        viewBox="0 0 16 16"
-        className={`h-3.5 w-3.5 transition-transform ${isDesktopRail ? "rotate-180" : ""}`}
-        fill="none"
-        aria-hidden
-      >
-        <path
-          d="M9.5 3.5 5 8l4.5 4.5"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M13 3.5 8.5 8 13 12.5"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </button>
   );
 }
 
