@@ -23,9 +23,14 @@ from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
 from diverge.agents.risk_mgmt.debate_phase import get_total_risk_turn_limit
 from diverge.agents.trader.trader import Trader
 from diverge.common.dates import days_before_or_original
+from diverge.common.market_calendar import last_n_trading_days
+from diverge.common.symbols import resolve_symbol_market
 from diverge.runtime.messages import AdkMessage
 from diverge.runtime.tools import AdkToolCollection, create_adk_tool_collections
 
+
+DEFAULT_STOCK_DATA_TRADING_DAYS = 90
+DEFAULT_STOCK_DATA_CALENDAR_FALLBACK_DAYS = 126
 
 ANALYST_NODE_CLASSES: dict[str, type[DivergeAgentNode]] = {
     "market": MarketAnalyst,
@@ -354,9 +359,17 @@ def _contextual_tool_args(
         if "symbol" not in normalized and ticker:
             normalized["symbol"] = ticker
 
-    if tool_name in {"get_news", "get_stock_data"} and trade_date:
+    if tool_name == "get_news" and trade_date:
         normalized.setdefault("end_date", trade_date)
         normalized.setdefault("start_date", _date_days_before(trade_date, 7))
+
+    if tool_name == "get_stock_data":
+        if trade_date:
+            normalized.setdefault("end_date", trade_date)
+        end_date = str(normalized.get("end_date") or "").strip()
+        if "start_date" not in normalized and end_date:
+            symbol = str(normalized.get("symbol") or ticker).strip()
+            normalized["start_date"] = _stock_data_start_date(symbol, end_date)
 
     if tool_name == "get_global_news" and trade_date:
         normalized.setdefault("curr_date", trade_date)
@@ -369,6 +382,23 @@ def _contextual_tool_args(
 
 def _date_days_before(date_text: str, days: int) -> str:
     return days_before_or_original(date_text, days)
+
+
+def _stock_data_start_date(symbol: str, end_date: str) -> str:
+    market = "us"
+    if symbol:
+        try:
+            market = resolve_symbol_market(symbol)
+        except ValueError:
+            market = "us"
+    trading_days = last_n_trading_days(
+        market,
+        end_date,
+        DEFAULT_STOCK_DATA_TRADING_DAYS,
+    )
+    if trading_days:
+        return trading_days[0].isoformat()
+    return days_before_or_original(end_date, DEFAULT_STOCK_DATA_CALENDAR_FALLBACK_DAYS)
 
 
 def _looks_like_incomplete_tool_preface(message: Any) -> bool:

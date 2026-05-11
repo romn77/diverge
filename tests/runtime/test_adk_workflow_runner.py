@@ -87,6 +87,8 @@ def test_contextual_tool_args_repair_textual_sub2api_tool_arguments():
     assert args["start_date"] == "2026-05-01"
     assert args["end_date"] == "2026-05-08"
     assert stock_args["symbol"] == "spy"
+    assert stock_args["start_date"] == "2025-12-30"
+    assert stock_args["end_date"] == "2026-05-08"
 
 
 def test_incomplete_tool_preface_is_not_accepted_as_final_report():
