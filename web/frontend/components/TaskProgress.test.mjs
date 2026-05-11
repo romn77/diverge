@@ -63,4 +63,7 @@ test("TaskProgress subscribes to backend task snapshots and renders the six-stag
   assert.equal(source.includes("max-w-5xl"), false);
   assert.match(source, /workbench-content-frame space-y-6/);
   assert.match(source, /task-event-item/);
+  assert.doesNotMatch(source, /\.filter\(\(event\) => event\.message\)/);
+  assert.match(source, /describeProgressEvent\(event, t\)/);
+  assert.match(source, /task\.progress\.agentStatus/);
 });

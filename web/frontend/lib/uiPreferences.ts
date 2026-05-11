@@ -672,6 +672,10 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "task.eventLog": "事件日志",
   "task.liveFeed": "实时进度流",
   "task.waitingUpdate": "正在等待第一条流式更新...",
+  "task.progress.agentStatus":
+    ({ agent, status }) => `System: ${agent ?? "Agent"} ${status ?? ""}。`,
+  "task.progress.status":
+    ({ status }) => `System: 任务${status ?? ""}。`,
   "task.status.pending": "待处理",
   "task.status.queued": "排队中",
   "task.status.waiting_for_quota": "等待额度",

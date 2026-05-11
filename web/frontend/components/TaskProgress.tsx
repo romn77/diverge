@@ -159,7 +159,6 @@ export function TaskProgress({
   const eventLog = useMemo(
     () =>
       events
-        .filter((event) => event.message)
         .slice()
         .reverse()
         .slice(0, 12),
@@ -393,7 +392,7 @@ export function TaskProgress({
                     {event.current_agent ? <span>{event.current_agent}</span> : null}
                   </div>
                   <p className="ml-3 mt-2 text-sm leading-6 text-slate-700">
-                    {event.message}
+                    {describeProgressEvent(event, t)}
                   </p>
                 </div>
               ))
@@ -409,6 +408,48 @@ export function TaskProgress({
 
 function buildEventKey(event: ProgressEvent): string {
   return `${event.timestamp}|${event.status}|${event.current_agent ?? ""}|${event.message ?? ""}`;
+}
+
+function describeProgressEvent(
+  event: ProgressEvent,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  if (event.message) {
+    return event.message;
+  }
+
+  const currentAgent = event.current_agent?.trim();
+  if (currentAgent) {
+    return t(
+      "task.progress.agentStatus",
+      ({ agent, status }) => `System: ${agent} is ${status}.`,
+      {
+        agent: currentAgent,
+        status: t(
+          `task.status.${event.status}`,
+          formatTaskStatusInline(event.status)
+        ),
+      }
+    );
+  }
+
+  return t(
+    "task.progress.status",
+    ({ status }) => `System: Task is ${status}.`,
+    {
+      status: t(
+        `task.status.${event.status}`,
+        formatTaskStatusInline(event.status)
+      ),
+    }
+  );
+}
+
+function formatTaskStatusInline(status: TaskStatus): string {
+  if (status === "waiting_for_quota") {
+    return "waiting for quota";
+  }
+  return status.replaceAll("_", " ");
 }
 
 function isTerminalTaskStatus(status: TaskStatus): boolean {
