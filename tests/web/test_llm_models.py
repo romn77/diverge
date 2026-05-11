@@ -107,6 +107,40 @@ class LLMModelConfigTests(unittest.TestCase):
 
         self.assertEqual(resolved.llm_provider, "sub2api")
 
+    def test_model_usage_upsert_accumulates_and_resets_hour_bucket(self):
+        with self._env():
+            auth.create_all_for_testing()
+            llm_models.record_model_usage("openai", "gpt-5.4-mini", module="analysis")
+            llm_models.record_model_usage(
+                "openai", "gpt-5.4-mini", module="analysis", success=False
+            )
+
+            usage_date = llm_models._today_key()
+            with auth.db_session() as db:
+                row = db.get(
+                    llm_models.LLMModelUsage,
+                    (usage_date, "openai", "gpt-5.4-mini", "analysis"),
+                )
+                self.assertIsNotNone(row)
+                self.assertEqual(row.total_calls, 2)
+                self.assertEqual(row.success_count, 1)
+                self.assertEqual(row.failure_count, 1)
+                self.assertEqual(row.hour_total_calls, 2)
+                row.hour_key = "2000-01-01T00"
+                row.hour_total_calls = 9
+
+            llm_models.record_model_usage("openai", "gpt-5.4-mini", module="analysis")
+            with auth.db_session() as db:
+                row = db.get(
+                    llm_models.LLMModelUsage,
+                    (usage_date, "openai", "gpt-5.4-mini", "analysis"),
+                )
+                self.assertEqual(row.total_calls, 3)
+                self.assertEqual(row.success_count, 2)
+                self.assertEqual(row.failure_count, 1)
+                self.assertEqual(row.hour_total_calls, 1)
+                self.assertNotEqual(row.hour_key, "2000-01-01T00")
+
     def test_admin_module_setting_resolves_trade_journal_review_model(self):
         with self._env({"OPENAI_API_KEY": "secret-value"}):
             auth.create_all_for_testing()

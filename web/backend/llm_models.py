@@ -4,7 +4,18 @@ import os
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Index, Integer, String, func, inspect, select
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    Index,
+    Integer,
+    String,
+    case,
+    func,
+    inspect,
+    select,
+)
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from diverge.llm_clients.model_config import (
@@ -1110,6 +1121,50 @@ def record_model_usage(
     now = _utcnow()
     hour_key = now.strftime("%Y-%m-%dT%H")
     with auth.db_session() as db:
+        dialect_name = db.get_bind().dialect.name
+        if dialect_name in {"postgresql", "sqlite"}:
+            table = LLMModelUsage.__table__
+            insert_factory = (
+                postgresql.insert if dialect_name == "postgresql" else sqlite.insert
+            )
+            statement = insert_factory(table).values(
+                usage_date=usage_date,
+                provider=provider,
+                model_id=model_id,
+                module=module,
+                total_calls=1,
+                success_count=1 if success else 0,
+                failure_count=0 if success else 1,
+                hour_key=hour_key,
+                hour_total_calls=1,
+                last_called_at=now,
+                updated_at=now,
+            )
+            db.execute(
+                statement.on_conflict_do_update(
+                    index_elements=["usage_date", "provider", "model_id", "module"],
+                    set_={
+                        "total_calls": table.c.total_calls + 1,
+                        "success_count": table.c.success_count
+                        + (1 if success else 0),
+                        "failure_count": table.c.failure_count
+                        + (0 if success else 1),
+                        "hour_key": hour_key,
+                        "hour_total_calls": case(
+                            (
+                                table.c.hour_key == hour_key,
+                                table.c.hour_total_calls + 1,
+                            ),
+                            else_=1,
+                        ),
+                        "last_called_at": now,
+                        "updated_at": now,
+                    },
+                )
+            )
+            db.flush()
+            return
+
         row = db.get(LLMModelUsage, (usage_date, provider, model_id, module))
         if row is None:
             row = LLMModelUsage(
@@ -1135,3 +1190,4 @@ def record_model_usage(
         else:
             row.failure_count += 1
         row.updated_at = now
+        db.flush()

@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy import (
     Boolean,
+    case,
     DateTime,
     Index,
     Integer,
@@ -14,6 +15,7 @@ from sqlalchemy import (
     inspect,
     select,
 )
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from diverge.dataflows import vendor_usage as vendor_defaults
@@ -533,6 +535,50 @@ def record_data_source_call(
     now = _utcnow()
     hour_key = now.strftime("%Y-%m-%dT%H")
     with auth.db_session() as db:
+        dialect_name = db.get_bind().dialect.name
+        if dialect_name in {"postgresql", "sqlite"}:
+            table = DataSourceUsage.__table__
+            insert_factory = (
+                postgresql.insert if dialect_name == "postgresql" else sqlite.insert
+            )
+            statement = insert_factory(table).values(
+                usage_date=usage_date,
+                vendor=vendor,
+                module=module,
+                total_calls=1,
+                success_count=1 if success else 0,
+                failure_count=0 if success else 1,
+                hour_key=hour_key,
+                hour_total_calls=1,
+                last_called_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            db.execute(
+                statement.on_conflict_do_update(
+                    index_elements=["usage_date", "vendor", "module"],
+                    set_={
+                        "total_calls": table.c.total_calls + 1,
+                        "success_count": table.c.success_count
+                        + (1 if success else 0),
+                        "failure_count": table.c.failure_count
+                        + (0 if success else 1),
+                        "hour_key": hour_key,
+                        "hour_total_calls": case(
+                            (
+                                table.c.hour_key == hour_key,
+                                table.c.hour_total_calls + 1,
+                            ),
+                            else_=1,
+                        ),
+                        "last_called_at": now,
+                        "updated_at": now,
+                    },
+                )
+            )
+            db.flush()
+            return build_source_summary(db, vendor, usage_date)
+
         row = db.scalar(
             select_usage_row(vendor=vendor, module=module, usage_date=usage_date)
         )

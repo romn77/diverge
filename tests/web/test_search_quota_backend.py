@@ -96,6 +96,25 @@ class SearchQuotaBackendTests(unittest.TestCase):
         self.assertEqual(brave["failure_count"], 1)
         self.assertEqual(brave["last_error"], "timeout")
 
+    def test_provider_usage_upsert_accumulates_success_failure_and_last_error(self):
+        with self._env():
+            auth.create_all_for_testing()
+            with auth.db_session() as db:
+                search_quota.record_search_provider_call(db, "brave", success=True)
+                search_quota.record_search_provider_call(
+                    db, "brave", success=False, error="timeout"
+                )
+                row = db.get(
+                    search_quota.SearchProviderUsage,
+                    (search_quota.current_usage_month(), "brave"),
+                )
+
+                self.assertIsNotNone(row)
+                self.assertEqual(row.total_calls, 2)
+                self.assertEqual(row.success_count, 1)
+                self.assertEqual(row.failure_count, 1)
+                self.assertEqual(row.last_error, "timeout")
+
 
 if __name__ == "__main__":
     unittest.main()

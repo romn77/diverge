@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import Boolean, DateTime, Index, Integer, String, delete, inspect
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
 from web.backend import auth
@@ -324,6 +325,37 @@ def record_search_provider_call(
     normalized = _normalize_provider(provider)
     usage_month = current_usage_month()
     now = _utcnow()
+    dialect_name = db.get_bind().dialect.name
+    truncated_error = str(error)[:512] if error else None
+    if dialect_name in {"postgresql", "sqlite"}:
+        table = SearchProviderUsage.__table__
+        insert_factory = (
+            postgresql.insert if dialect_name == "postgresql" else sqlite.insert
+        )
+        statement = insert_factory(table).values(
+            usage_month=usage_month,
+            provider=normalized,
+            total_calls=1,
+            success_count=1 if success else 0,
+            failure_count=0 if success else 1,
+            last_called_at=now,
+            last_error=truncated_error,
+        )
+        db.execute(
+            statement.on_conflict_do_update(
+                index_elements=["usage_month", "provider"],
+                set_={
+                    "total_calls": table.c.total_calls + 1,
+                    "success_count": table.c.success_count + (1 if success else 0),
+                    "failure_count": table.c.failure_count + (0 if success else 1),
+                    "last_called_at": now,
+                    "last_error": truncated_error,
+                },
+            )
+        )
+        db.flush()
+        return
+
     row = _usage_row(db, normalized, usage_month)
     if row is None:
         row = SearchProviderUsage(
@@ -340,7 +372,7 @@ def record_search_provider_call(
     else:
         row.failure_count += 1
     row.last_called_at = now
-    row.last_error = str(error)[:512] if error else None
+    row.last_error = truncated_error
     db.flush()
 
 
