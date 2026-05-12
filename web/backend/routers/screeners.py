@@ -138,14 +138,15 @@ def create_screener_task(
         if manifest_path:
             config_payload["cn_manifest_path"] = str(manifest_path)
     if "us" in request_payload["markets"]:
-        manifest_path = app_config.resolve_manifest_path("us", app_config.PROJECT_ROOT)
+        manifest_path = app_config.resolve_manifest_path(
+            "us",
+            app_config.PROJECT_ROOT,
+            allow_default=False,
+        )
         if not manifest_path:
             raise HTTPException(
                 status_code=400,
-                detail=(
-                    "US screening requires a manifest at DATA_DIR/manifest/us.csv "
-                    "or SCREEN_US_MANIFEST_PATH."
-                ),
+                detail="US screening requires SCREEN_US_MANIFEST_PATH on the backend.",
             )
         config_payload["us_manifest_path"] = str(manifest_path)
 

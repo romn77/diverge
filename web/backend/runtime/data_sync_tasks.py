@@ -728,7 +728,9 @@ def resolve_fundamental_symbols(payload: dict[str, Any]) -> list[str]:
     manifest_path = payload.get("manifest_path")
     if market == "us":
         manifest_path = manifest_path or app_config.resolve_manifest_path(
-            "us", app_config.PROJECT_ROOT
+            "us",
+            app_config.PROJECT_ROOT,
+            allow_default=False,
         )
         if not manifest_path:
             return []
@@ -811,7 +813,7 @@ def run_fundamental_sync_payload(
         if not symbols:
             raise RuntimeError(
                 "symbols are required for US SimFin fundamental sync. "
-                "Pass symbols, manifest_path, or place a manifest at DATA_DIR/manifest/us.csv."
+                "Pass symbols, manifest_path, or set SCREEN_US_MANIFEST_PATH."
             )
         if len(symbols) > ticker_limit:
             raise RuntimeError(

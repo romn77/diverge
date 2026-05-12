@@ -7,9 +7,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from diverge.data_layout import (
+    default_manifest_path as default_manifest_path,
     resolve_history_dir,
     resolve_fundamentals_dir,
     resolve_manifest_dir,
+    resolve_manifest_path as _resolve_manifest_path,
     resolve_reports_dir,
     resolve_screener_cache_dir,
     resolve_screener_runs_dir,
@@ -49,6 +51,32 @@ SCREENER_ARTIFACT_FILENAMES = {
 }
 
 DEFAULT_FRONTEND_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+def resolve_manifest_path(
+    market: str,
+    project_root: Path | None = None,
+    *,
+    require_exists: bool = False,
+    allow_default: bool = True,
+) -> Path | None:
+    if allow_default:
+        return _resolve_manifest_path(
+            market,
+            project_root,
+            require_exists=require_exists,
+        )
+
+    normalized_market = str(market).strip().lower()
+    env_name = f"SCREEN_{normalized_market.upper()}_MANIFEST_PATH"
+    configured = os.environ.get(env_name)
+    if not configured or not configured.strip():
+        return None
+
+    configured_path = Path(configured).resolve()
+    if require_exists and not configured_path.is_file():
+        return None
+    return configured_path
 
 
 def get_frontend_origins() -> list[str]:
