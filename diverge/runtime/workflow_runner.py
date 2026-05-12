@@ -217,7 +217,25 @@ class AdkWorkflowRunner:
                 continue
             if state.get(report_key) or not tool_calls:
                 return
-            self._append_tool_results(state, analyst, tool_calls)
+            tool_names = _tool_call_names(tool_calls)
+            _append_runtime_progress_event(
+                state,
+                current_agent=_agent_display_name(node),
+                message=(
+                    f"{_agent_display_name(node)} requested tools: "
+                    f"{', '.join(tool_names)}."
+                ),
+            )
+            yield _snapshot(state)
+            tool_summaries = self._append_tool_results(state, analyst, tool_calls)
+            _append_runtime_progress_event(
+                state,
+                current_agent=_agent_display_name(node),
+                message=(
+                    f"{_agent_display_name(node)} tool results ready: "
+                    f"{'; '.join(tool_summaries)}."
+                ),
+            )
             yield _snapshot(state)
 
         warning = {
@@ -232,8 +250,20 @@ class AdkWorkflowRunner:
         state: dict[str, Any],
         node: Callable[..., dict[str, Any]],
     ) -> Generator[dict[str, Any], None, None]:
+        agent_name = _agent_display_name(node)
+        _append_runtime_progress_event(
+            state,
+            current_agent=agent_name,
+            message=f"{agent_name} started.",
+        )
+        yield _snapshot(state)
         delta = node(state)
         _merge_state_delta(state, delta or {})
+        _append_runtime_progress_event(
+            state,
+            current_agent=agent_name,
+            message=f"{agent_name} completed{_delta_summary(delta or {})}.",
+        )
         yield _snapshot(state)
 
     def _append_tool_results(
@@ -241,12 +271,14 @@ class AdkWorkflowRunner:
         state: dict[str, Any],
         analyst: str,
         tool_calls: list[dict[str, Any]],
-    ) -> None:
+    ) -> list[str]:
         collection = self.tool_nodes[analyst]
+        summaries: list[str] = []
         for tool_call in tool_calls:
             tool_name = str(tool_call.get("name") or "")
             if tool_name not in collection.tools_by_name:
                 content = f"Tool `{tool_name}` is not registered for {analyst}."
+                summaries.append(f"{tool_name or 'unknown tool'} unavailable")
             else:
                 try:
                     content = collection.invoke(
@@ -257,8 +289,10 @@ class AdkWorkflowRunner:
                             _normalize_tool_args(tool_call.get("args")),
                         ),
                     )
+                    summaries.append(f"{tool_name} returned {len(str(content))} chars")
                 except Exception as exc:
                     content = f"Tool `{tool_name}` failed: {exc}"
+                    summaries.append(f"{tool_name} failed")
             state.setdefault("messages", []).append(
                 _tool_message(
                     content,
@@ -266,6 +300,7 @@ class AdkWorkflowRunner:
                     tool_call_id=str(tool_call.get("id") or tool_name or "tool"),
                 )
             )
+        return summaries
 
     def _clear_messages(self, state: dict[str, Any]) -> None:
         messages: list[Any] = []
@@ -288,6 +323,77 @@ class AdkWorkflowRunner:
 
 def _function_node(agent: DivergeAgentNode) -> FunctionNode:
     return FunctionNode(func=agent, name=agent.name)
+
+
+_AGENT_DISPLAY_NAMES = {
+    "market_analyst": "Market Analyst",
+    "social_media_analyst": "Social Analyst",
+    "news_analyst": "News Analyst",
+    "fundamentals_analyst": "Fundamentals Analyst",
+    "bull_researcher": "Bull Researcher",
+    "bear_researcher": "Bear Researcher",
+    "research_manager": "Research Manager",
+    "trader": "Trader",
+    "aggressive_analyst": "Aggressive Analyst",
+    "conservative_analyst": "Conservative Analyst",
+    "neutral_analyst": "Neutral Analyst",
+    "portfolio_manager": "Portfolio Manager",
+    "summary_agent": "Summary Agent",
+}
+
+_DELTA_REPORT_LABELS = {
+    "market_report": "market report",
+    "sentiment_report": "sentiment report",
+    "news_report": "news report",
+    "fundamentals_report": "fundamentals report",
+    "investment_plan": "research decision",
+    "trader_investment_plan": "trading plan",
+    "final_trade_decision": "portfolio decision",
+    "report_summary": "summary",
+}
+
+
+def _agent_display_name(node: Callable[..., dict[str, Any]]) -> str:
+    raw_name = str(getattr(node, "name", "") or node.__class__.__name__)
+    if raw_name in _AGENT_DISPLAY_NAMES:
+        return _AGENT_DISPLAY_NAMES[raw_name]
+    return raw_name.replace("_", " ").strip().title() or "Agent"
+
+
+def _append_runtime_progress_event(
+    state: dict[str, Any],
+    *,
+    current_agent: str,
+    message: str,
+) -> None:
+    events = state.setdefault("runtime_progress_events", [])
+    if not isinstance(events, list):
+        events = []
+        state["runtime_progress_events"] = events
+    events.append(
+        {
+            "id": f"runtime-progress-{len(events) + 1}",
+            "current_agent": current_agent,
+            "message": message,
+        }
+    )
+
+
+def _tool_call_names(tool_calls: list[dict[str, Any]]) -> list[str]:
+    names = [str(tool_call.get("name") or "").strip() for tool_call in tool_calls]
+    return [name for name in names if name] or ["unknown tool"]
+
+
+def _delta_summary(delta: dict[str, Any]) -> str:
+    labels: list[str] = []
+    for key, label in _DELTA_REPORT_LABELS.items():
+        value = delta.get(key)
+        if isinstance(value, str) and value.strip():
+            labels.append(label)
+
+    if not labels:
+        return ""
+    return f" with {', '.join(labels)}"
 
 
 def _analyst_report_key(analyst: str) -> str:

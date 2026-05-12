@@ -66,6 +66,32 @@ def test_adk_workflow_runner_preserves_round_limits_and_final_state_schema():
     assert final_state["report_summary"]
 
 
+def test_adk_workflow_runner_emits_runtime_progress_events():
+    runner = AdkWorkflowRunner(
+        selected_analysts=["market"],
+        quick_llm=FakeLlm(),
+        deep_llm=FakeLlm(),
+        bull_memory=FakeMemory(),
+        bear_memory=FakeMemory(),
+        trader_memory=FakeMemory(),
+        invest_judge_memory=FakeMemory(),
+        portfolio_manager_memory=FakeMemory(),
+        max_debate_rounds=1,
+        max_risk_discuss_rounds=1,
+    )
+
+    chunks = list(runner.stream(create_initial_state("MSFT", "2026-03-20")))
+    messages = [
+        event["message"]
+        for chunk in chunks
+        for event in chunk.get("runtime_progress_events", [])
+    ]
+
+    assert "Market Analyst started." in messages
+    assert "Market Analyst completed with market report." in messages
+    assert "Research Manager completed with research decision." in messages
+
+
 def test_contextual_tool_args_repair_textual_sub2api_tool_arguments():
     state = {
         "company_of_interest": "SPY",

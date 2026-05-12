@@ -185,6 +185,43 @@ class AnalysisTrackerTests(unittest.TestCase):
             self.assertIn("Warning:", progress.message)
             self.assertEqual(progress.warnings[0]["stage"], "Portfolio Manager")
 
+    def test_tracker_surfaces_adk_runtime_progress_events(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tracker = AnalysisTracker(["market"], Path(temp_dir))
+
+            progress = tracker.consume_chunk(
+                {
+                    "runtime_progress_events": [
+                        {
+                            "id": "runtime-progress-1",
+                            "current_agent": "Market Analyst",
+                            "message": "Market Analyst requested tools: get_stock_data.",
+                        }
+                    ]
+                },
+                status="running",
+            )
+            duplicate = tracker.consume_chunk(
+                {
+                    "runtime_progress_events": [
+                        {
+                            "id": "runtime-progress-1",
+                            "current_agent": "Market Analyst",
+                            "message": "Market Analyst requested tools: get_stock_data.",
+                        }
+                    ]
+                },
+                status="running",
+            )
+
+            self.assertIsNotNone(progress)
+            self.assertEqual(
+                progress.message,
+                "Market Analyst requested tools: get_stock_data.",
+            )
+            self.assertEqual(progress.current_agent, "Market Analyst")
+            self.assertIsNone(duplicate)
+
     def test_save_report_to_disk_keeps_fundamentals_report_and_writes_thesis_artifact(
         self,
     ):

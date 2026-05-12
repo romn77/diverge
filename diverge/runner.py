@@ -237,6 +237,7 @@ class AnalysisTracker:
     current_agent: Optional[str] = field(default=None, init=False)
     report_sections: dict[str, Optional[str]] = field(init=False)
     _last_message_id: Optional[str] = field(default=None, init=False)
+    _seen_runtime_progress_ids: set[str] = field(default_factory=set, init=False)
 
     def __post_init__(self) -> None:
         normalized = []
@@ -310,6 +311,11 @@ class AnalysisTracker:
             message = warning_message
             dirty = True
 
+        runtime_message = self._consume_runtime_progress_events(chunk)
+        if runtime_message:
+            message = runtime_message
+            dirty = True
+
         if self._update_analyst_statuses(chunk):
             dirty = True
 
@@ -357,6 +363,30 @@ class AnalysisTracker:
             latest_message = normalized.get("message") or "Runtime warning recorded."
 
         return f"Warning: {latest_message}" if latest_message else None
+
+    def _consume_runtime_progress_events(self, chunk: dict) -> Optional[str]:
+        incoming = chunk.get("runtime_progress_events")
+        if not isinstance(incoming, list):
+            return None
+
+        latest_message = None
+        for event in incoming:
+            if not isinstance(event, dict):
+                continue
+            event_id = str(event.get("id") or "")
+            if event_id and event_id in self._seen_runtime_progress_ids:
+                continue
+            if event_id:
+                self._seen_runtime_progress_ids.add(event_id)
+
+            current_agent = str(event.get("current_agent") or "").strip()
+            if current_agent in self.agent_status:
+                self.current_agent = current_agent
+            message = str(event.get("message") or "").strip()
+            if message:
+                latest_message = message
+
+        return latest_message
 
     def _build_stage_status(self) -> dict[str, str]:
         stage_status = {}
