@@ -190,11 +190,11 @@ def build_screener_config_payload(request_payload: dict[str, Any]) -> dict[str, 
     config_payload["history_dir"] = str(app_config.STOCK_HISTORY_DIR)
     config_payload["fundamental_dir"] = str(app_config.FUNDAMENTALS_DIR)
     if "cn" in config_payload["markets"]:
-        manifest_path = app_config.resolve_manifest_path("cn")
+        manifest_path = app_config.resolve_manifest_path("cn", require_exists=True)
         if manifest_path:
             config_payload["cn_manifest_path"] = str(manifest_path)
     if "us" in config_payload["markets"]:
-        manifest_path = app_config.resolve_manifest_path("us")
+        manifest_path = app_config.resolve_manifest_path("us", require_exists=True)
         if not manifest_path:
             default_path = app_config.default_manifest_path("us")
             raise RuntimeError(
@@ -215,11 +215,11 @@ def build_ohlcv_sync_payload(market: str, as_of_date: str) -> dict[str, Any]:
     }
     payload.update(_resolve_screener_data_sources())
     if market == "cn":
-        manifest_path = app_config.resolve_manifest_path("cn")
+        manifest_path = app_config.resolve_manifest_path("cn", require_exists=True)
         if manifest_path:
             payload["cn_manifest_path"] = str(manifest_path)
     if market == "us":
-        manifest_path = app_config.resolve_manifest_path("us")
+        manifest_path = app_config.resolve_manifest_path("us", require_exists=True)
         if not manifest_path:
             default_path = app_config.default_manifest_path("us")
             raise RuntimeError(

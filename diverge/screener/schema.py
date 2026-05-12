@@ -4,11 +4,11 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
 
-from diverge.data_layout import (
-    DEFAULT_FUNDAMENTALS_DIR,
-    DEFAULT_HISTORY_DIR,
-    DEFAULT_SCREENER_CACHE_DIR,
-    DEFAULT_SCREENER_RUNS_DIR,
+from diverge.config.paths import (
+    resolve_fundamentals_dir,
+    resolve_history_dir,
+    resolve_screener_cache_dir,
+    resolve_screener_runs_dir,
 )
 from diverge.screener.presets import (
     normalize_filter_preset_selections,
@@ -30,6 +30,22 @@ VALID_BREAKOUT_TYPES = {
     "wedge_breakout",
 }
 MAX_TOP_K = 100
+
+
+def _default_screener_runs_dir() -> str:
+    return str(resolve_screener_runs_dir())
+
+
+def _default_screener_cache_dir() -> str:
+    return str(resolve_screener_cache_dir())
+
+
+def _default_history_dir() -> str:
+    return str(resolve_history_dir())
+
+
+def _default_fundamentals_dir() -> str:
+    return str(resolve_fundamentals_dir())
 
 
 def build_cn_source_chain(
@@ -71,9 +87,9 @@ class ScreenRunConfig:
     min_trading_days_20d: int = 18
     cn_universe_cap: int | None = None
     us_universe_cap: int | None = 3000
-    output_dir: str = DEFAULT_SCREENER_RUNS_DIR
-    cache_dir: str = DEFAULT_SCREENER_CACHE_DIR
-    history_dir: str = DEFAULT_HISTORY_DIR
+    output_dir: str = field(default_factory=_default_screener_runs_dir)
+    cache_dir: str = field(default_factory=_default_screener_cache_dir)
+    history_dir: str = field(default_factory=_default_history_dir)
     history_cache_policy: str = "refresh_missing"
     cn_data_source: str = "tushare"
     cn_data_source_fallbacks: list[str] = field(default_factory=list)
@@ -84,7 +100,7 @@ class ScreenRunConfig:
     filter_preset_selections: dict[str, str] = field(default_factory=dict)
     ranking_profile_id: str | None = None
     include_fundamentals: bool = False
-    fundamental_dir: str = DEFAULT_FUNDAMENTALS_DIR
+    fundamental_dir: str = field(default_factory=_default_fundamentals_dir)
     cn_fundamental_source: str = "tushare"
     us_fundamental_source: str = "simfin"
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Callable, Iterator, TypeVar
 
 from diverge.common.json_io import write_json_atomic
-from diverge.data_layout import resolve_data_dir
+from diverge.config.paths import resolve_data_source_usage_path
 
 
 VENDOR_ORDER = (
@@ -126,10 +126,7 @@ class QuotaWaitRequired(Exception):
 
 
 def _usage_path() -> Path:
-    configured = os.environ.get("DATA_SOURCE_USAGE_PATH")
-    if configured:
-        return Path(configured).resolve()
-    return (resolve_data_dir() / "data_source_usage.json").resolve()
+    return resolve_data_source_usage_path()
 
 
 @contextlib.contextmanager

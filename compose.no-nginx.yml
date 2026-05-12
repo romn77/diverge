@@ -41,6 +41,7 @@ services:
       - ./.env:/app/.env:ro
     environment:
       APP_ENV: production
+      DATA_DIR: /app/data
       TASK_BACKEND: redis
       TASK_QUEUE_LIMIT: ${TASK_QUEUE_LIMIT:-2}
       TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}
@@ -96,6 +97,7 @@ services:
       - ./.env:/app/.env:ro
     environment:
       APP_ENV: production
+      DATA_DIR: /app/data
       TASK_BACKEND: redis
       TASK_QUEUE_LIMIT: ${TASK_QUEUE_LIMIT:-2}
       TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}

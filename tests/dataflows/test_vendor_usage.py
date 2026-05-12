@@ -14,13 +14,14 @@ from web.backend.schemas.admin import AdminDataSourceRouteUpdatePayload
 class VendorUsageTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.usage_path = os.path.join(self.temp_dir.name, "vendor_usage.json")
+        self.data_dir = Path(self.temp_dir.name) / "data"
+        self.usage_path = self.data_dir / "data_source_usage.json"
         self.env_patch = patch.dict(
             os.environ,
             {
                 "AUTH_ENABLED": "false",
                 "AUTH_MODE": "disabled",
-                "DATA_SOURCE_USAGE_PATH": self.usage_path,
+                "DATA_DIR": str(self.data_dir),
             },
             clear=False,
         )
@@ -215,14 +216,15 @@ class VendorUsageDatabaseTests(unittest.TestCase):
         self.database_url = (
             f"sqlite+pysqlite:///{Path(self.temp_dir.name) / 'usage.db'}"
         )
-        self.usage_path = Path(self.temp_dir.name) / "should-not-be-used.json"
+        self.data_dir = Path(self.temp_dir.name) / "data"
+        self.usage_path = self.data_dir / "data_source_usage.json"
         self.env_patch = patch.dict(
             os.environ,
             {
                 "AUTH_ENABLED": "true",
                 "AUTH_MODE": "required",
                 "DATABASE_URL": self.database_url,
-                "DATA_SOURCE_USAGE_PATH": str(self.usage_path),
+                "DATA_DIR": str(self.data_dir),
             },
             clear=False,
         )

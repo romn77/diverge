@@ -159,7 +159,7 @@ def get_config_options_payload(request: Request | None = None) -> dict:
 
 
 def get_screener_config_options_payload() -> dict:
-    us_manifest_path = app_config.resolve_manifest_path("us", allow_default=False)
+    us_manifest_path = app_config.resolve_manifest_path("us", require_exists=True)
     return {
         "markets": [
             {"label": "A-Share (cn)", "value": "cn", "enabled": True},
@@ -170,7 +170,8 @@ def get_screener_config_options_payload() -> dict:
                 "disabled_reason": None
                 if us_manifest_path is not None
                 else (
-                    "Set SCREEN_US_MANIFEST_PATH on the backend to enable US screening."
+                    "Add a US manifest at DATA_DIR/manifest/us.csv to enable US screening. "
+                    "SCREEN_US_MANIFEST_PATH remains available as a compatibility override."
                 ),
             },
         ],

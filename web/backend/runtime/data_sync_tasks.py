@@ -631,7 +631,9 @@ def build_ohlcv_config_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "us_manifest_path": payload.get("us_manifest_path"),
     }
     if "cn" in payload["markets"] and not config_payload["cn_manifest_path"]:
-        manifest_path = app_config.resolve_manifest_path("cn", app_config.PROJECT_ROOT)
+        manifest_path = app_config.resolve_manifest_path(
+            "cn", app_config.PROJECT_ROOT, require_exists=True
+        )
         config_payload["cn_manifest_path"] = (
             str(manifest_path) if manifest_path else None
         )
@@ -730,14 +732,14 @@ def resolve_fundamental_symbols(payload: dict[str, Any]) -> list[str]:
         manifest_path = manifest_path or app_config.resolve_manifest_path(
             "us",
             app_config.PROJECT_ROOT,
-            allow_default=False,
+            require_exists=True,
         )
         if not manifest_path:
             return []
         universe_df = load_us_universe(str(manifest_path))
     elif market == "cn":
         manifest_path = manifest_path or app_config.resolve_manifest_path(
-            "cn", app_config.PROJECT_ROOT
+            "cn", app_config.PROJECT_ROOT, require_exists=True
         )
         if not manifest_path:
             return []
@@ -813,7 +815,8 @@ def run_fundamental_sync_payload(
         if not symbols:
             raise RuntimeError(
                 "symbols are required for US SimFin fundamental sync. "
-                "Pass symbols, manifest_path, or set SCREEN_US_MANIFEST_PATH."
+                "Pass symbols, manifest_path, add DATA_DIR/manifest/us.csv, "
+                "or set SCREEN_US_MANIFEST_PATH as a compatibility override."
             )
         if len(symbols) > ticker_limit:
             raise RuntimeError(

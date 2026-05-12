@@ -17,14 +17,6 @@ if [ -z "${PYTHON_BIN:-}" ]; then
     fi
 fi
 DATA_DIR="${DATA_DIR:-$ROOT_DIR/data}"
-REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"
-SCREENER_RUNS_DIR="${SCREENER_RUNS_DIR:-$DATA_DIR/screener/runs}"
-SCREENER_STATE_DIR="${SCREENER_STATE_DIR:-$DATA_DIR/screener/state}"
-SCREENER_TASKS_DIR="${SCREENER_TASKS_DIR:-$DATA_DIR/screener/tasks}"
-SCREENER_CACHE_DIR="${SCREENER_CACHE_DIR:-$DATA_DIR/cache/screener}"
-STOCK_HISTORY_DIR="${STOCK_HISTORY_DIR:-$DATA_DIR/history}"
-FUNDAMENTALS_DIR="${FUNDAMENTALS_DIR:-$DATA_DIR/fundamentals}"
-MANIFEST_DIR="${MANIFEST_DIR:-$DATA_DIR/manifest}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}}"
@@ -51,7 +43,6 @@ START_REDIS_DOCKER="${START_REDIS_DOCKER:-false}"
 REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-diverge-redis}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 STORAGE_BACKEND="${STORAGE_BACKEND:-local}"
-STORAGE_LOCAL_ROOT="${STORAGE_LOCAL_ROOT:-$DATA_DIR}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -159,7 +150,15 @@ echo -e "${BLUE}Starting Diverge Report Viewer...${NC}"
 echo
 
 # Ensure runtime data directories exist
-mkdir -p "$REPORTS_DIR" "$SCREENER_RUNS_DIR" "$SCREENER_STATE_DIR" "$SCREENER_TASKS_DIR" "$SCREENER_CACHE_DIR" "$STOCK_HISTORY_DIR" "$FUNDAMENTALS_DIR" "$MANIFEST_DIR"
+mkdir -p \
+    "$DATA_DIR/reports" \
+    "$DATA_DIR/screener/runs" \
+    "$DATA_DIR/screener/state" \
+    "$DATA_DIR/screener/tasks" \
+    "$DATA_DIR/cache/screener" \
+    "$DATA_DIR/history" \
+    "$DATA_DIR/fundamentals" \
+    "$DATA_DIR/manifest"
 mkdir -p "$(dirname "$BACKEND_LOG")" "$(dirname "$FRONTEND_LOG")" "$(dirname "$WORKER_LOG")"
 
 # Kill any lingering processes on ports 8000, 3000
@@ -201,14 +200,6 @@ echo -e "${BLUE}Starting backend...${NC}"
 cd "$SCRIPT_DIR/backend"
 "$PYTHON_BIN" -m pip install -r requirements.txt -q 2>/dev/null || "$PYTHON_BIN" -m pip install -r requirements.txt > /dev/null 2>&1
 export DATA_DIR="$DATA_DIR"
-export REPORTS_DIR="$REPORTS_DIR"
-export SCREENER_RUNS_DIR="$SCREENER_RUNS_DIR"
-export SCREENER_STATE_DIR="$SCREENER_STATE_DIR"
-export SCREENER_TASKS_DIR="$SCREENER_TASKS_DIR"
-export SCREENER_CACHE_DIR="$SCREENER_CACHE_DIR"
-export STOCK_HISTORY_DIR="$STOCK_HISTORY_DIR"
-export FUNDAMENTALS_DIR="$FUNDAMENTALS_DIR"
-export MANIFEST_DIR="$MANIFEST_DIR"
 export FRONTEND_ORIGIN="$FRONTEND_ORIGIN"
 export AUTH_ENABLED="$AUTH_ENABLED"
 export AUTH_MODE="$AUTH_MODE"
@@ -222,7 +213,6 @@ export TASK_USER_PENDING_LIMIT_OPERATOR="$TASK_USER_PENDING_LIMIT_OPERATOR"
 export TASK_USER_PENDING_LIMIT_VIEWER="$TASK_USER_PENDING_LIMIT_VIEWER"
 export REDIS_URL="$REDIS_URL"
 export STORAGE_BACKEND="$STORAGE_BACKEND"
-export STORAGE_LOCAL_ROOT="$STORAGE_LOCAL_ROOT"
 export LOG_LEVEL="$BACKEND_LOG_LEVEL"
 ensure_redis_available
 if [ "$AUTH_ENABLED" = "true" ]; then
@@ -298,7 +288,7 @@ echo -e "${GREEN}=== Diverge Report Viewer ===${NC}"
 echo -e "Backend:  ${BLUE}http://localhost:${BACKEND_PORT}${NC}"
 echo -e "Frontend: ${BLUE}http://localhost:${FRONTEND_PORT}${NC}"
 echo
-echo "Reports found: $(find "$REPORTS_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)"
+echo "Reports found: $(find "$DATA_DIR/reports" -mindepth 1 -maxdepth 1 -type d | wc -l)"
 echo "Frontend origin: $FRONTEND_ORIGIN"
 echo "Frontend API target: $NEXT_PUBLIC_API_BASE_URL"
 echo "Task backend: $TASK_BACKEND"

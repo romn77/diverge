@@ -4,6 +4,8 @@ import os
 from pathlib import Path
 from typing import Protocol
 
+from diverge.config.paths import resolve_data_dir
+
 
 class StorageBackend(Protocol):
     def put_bytes(
@@ -198,7 +200,6 @@ def get_storage() -> StorageBackend:
     global _STORAGE_SIGNATURE
     signature = (
         os.environ.get("STORAGE_BACKEND", "local").strip().lower(),
-        os.environ.get("STORAGE_LOCAL_ROOT", ""),
         os.environ.get("DATA_DIR", ""),
         os.environ.get("COS_BUCKET", ""),
         os.environ.get("COS_REGION", ""),
@@ -209,12 +210,7 @@ def get_storage() -> StorageBackend:
 
     backend = signature[0]
     if backend == "local":
-        root = (
-            os.environ.get("STORAGE_LOCAL_ROOT")
-            or os.environ.get("DATA_DIR")
-            or "./data"
-        )
-        _STORAGE = LocalStorage(root)
+        _STORAGE = LocalStorage(resolve_data_dir())
         _STORAGE_SIGNATURE = signature
         return _STORAGE
     if backend == "tencent_cos":

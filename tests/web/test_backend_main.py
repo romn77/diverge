@@ -50,6 +50,7 @@ class BackendMainTests(unittest.TestCase):
         auth.reset_runtime_state()
         self.temp_dir = tempfile.TemporaryDirectory()
         self.empty_project_dir = tempfile.TemporaryDirectory()
+        self.data_dir = Path(self.temp_dir.name) / "data"
         self.original_reports_dir = backend_config.REPORTS_DIR
         self.original_screener_results_dir = backend_config.SCREENER_RESULTS_DIR
         self.original_screener_state_dir = backend_config.SCREENER_STATE_DIR
@@ -59,29 +60,17 @@ class BackendMainTests(unittest.TestCase):
         self.original_tmp_reports_dir = backend_config.TMP_REPORTS_DIR
         self.vendor_usage_env_patch = patch.dict(
             os.environ,
-            {
-                "DATA_SOURCE_USAGE_PATH": str(
-                    Path(self.temp_dir.name) / "vendor_usage.json"
-                )
-            },
+            {"DATA_DIR": str(self.data_dir)},
             clear=False,
         )
         self.vendor_usage_env_patch.start()
         vendor_usage.reset_data_source_usage_state()
-        backend_config.REPORTS_DIR = Path(self.temp_dir.name) / "data" / "reports"
-        backend_config.SCREENER_RESULTS_DIR = (
-            Path(self.temp_dir.name) / "data" / "screener" / "runs"
-        )
-        backend_config.SCREENER_STATE_DIR = (
-            Path(self.temp_dir.name) / "data" / "screener" / "state"
-        )
-        backend_config.SCREENER_TASKS_DIR = (
-            Path(self.temp_dir.name) / "data" / "screener" / "tasks"
-        )
-        backend_config.SCREENER_CACHE_DIR = (
-            Path(self.temp_dir.name) / "data" / "cache" / "screener"
-        )
-        backend_config.STOCK_HISTORY_DIR = Path(self.temp_dir.name) / "data" / "history"
+        backend_config.REPORTS_DIR = self.data_dir / "reports"
+        backend_config.SCREENER_RESULTS_DIR = self.data_dir / "screener" / "runs"
+        backend_config.SCREENER_STATE_DIR = self.data_dir / "screener" / "state"
+        backend_config.SCREENER_TASKS_DIR = self.data_dir / "screener" / "tasks"
+        backend_config.SCREENER_CACHE_DIR = self.data_dir / "cache" / "screener"
+        backend_config.STOCK_HISTORY_DIR = self.data_dir / "history"
         backend_config.TMP_REPORTS_DIR = backend_config.REPORTS_DIR / ".tmp"
         self.empty_project_root = Path(self.empty_project_dir.name)
         self.empty_project_env = self.empty_project_root / ".env"
@@ -105,6 +94,21 @@ class BackendMainTests(unittest.TestCase):
         self.auth_env_patch.stop()
         self.empty_project_dir.cleanup()
         self.temp_dir.cleanup()
+
+    def _write_data_dir_manifest(
+        self, market: str, text: str = "symbol\nAAPL\n"
+    ) -> Path:
+        path = self.data_dir / "manifest" / f"{market}.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+        return path
+
+    def _write_manifest_override(
+        self, name: str, text: str = "symbol\nAAPL\n"
+    ) -> Path:
+        path = Path(self.temp_dir.name) / name
+        path.write_text(text, encoding="utf-8")
+        return path
 
     def _write_screener_run(
         self,
@@ -668,6 +672,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertNotIn("limit_per_market", task_status["config_payload"])
 
     def test_post_screener_tasks_forces_fixed_sources_for_us_market(self):
+        manifest_path = self._write_manifest_override("us.csv")
         payload = {
             "markets": ["us"],
             "as_of_date": "2026-03-24",
@@ -678,7 +683,9 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch.dict(
-                os.environ, {"SCREEN_US_MANIFEST_PATH": "/tmp/us.csv"}, clear=False
+                os.environ,
+                {"SCREEN_US_MANIFEST_PATH": str(manifest_path)},
+                clear=False,
             ),
             patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
             patch(
@@ -710,6 +717,36 @@ class BackendMainTests(unittest.TestCase):
             [option["value"] for option in payload["us_data_sources"]],
             ["massive"],
         )
+
+    def test_get_screener_config_options_enables_us_from_data_dir_manifest(self):
+        self._write_data_dir_manifest("us")
+
+        with patch.dict(
+            os.environ,
+            {"DATA_DIR": str(self.data_dir)},
+            clear=True,
+        ):
+            payload = config_service.get_screener_config_options_payload()
+
+        us_market = next(
+            market for market in payload["markets"] if market["value"] == "us"
+        )
+        self.assertTrue(us_market["enabled"])
+        self.assertIsNone(us_market["disabled_reason"])
+
+    def test_get_screener_config_options_ignores_missing_us_manifest_override(self):
+        with patch.dict(
+            os.environ,
+            {"SCREEN_US_MANIFEST_PATH": str(Path(self.temp_dir.name) / "missing.csv")},
+            clear=True,
+        ):
+            payload = config_service.get_screener_config_options_payload()
+
+        us_market = next(
+            market for market in payload["markets"] if market["value"] == "us"
+        )
+        self.assertFalse(us_market["enabled"])
+        self.assertIn("DATA_DIR/manifest/us.csv", us_market["disabled_reason"])
 
     def test_get_config_options_uses_automatic_analysis_market_data_routing(self):
         payload = config_service.get_config_options_payload()
@@ -981,6 +1018,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(context.exception.status_code, 404)
 
     def test_post_screener_tasks_forces_us_data_source_selection(self):
+        manifest_path = self._write_manifest_override("us_manifest.csv")
         payload = {
             "markets": ["us"],
             "as_of_date": "2026-03-24",
@@ -991,7 +1029,7 @@ class BackendMainTests(unittest.TestCase):
         with (
             patch.dict(
                 os.environ,
-                {"SCREEN_US_MANIFEST_PATH": "/tmp/us_manifest.csv"},
+                {"SCREEN_US_MANIFEST_PATH": str(manifest_path)},
                 clear=True,
             ),
             patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
@@ -1011,10 +1049,47 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(task_status["request_payload"]["us_data_source"], "massive")
         self.assertEqual(task_status["config_payload"]["us_data_source"], "massive")
         self.assertEqual(
-            task_status["config_payload"]["us_manifest_path"], "/tmp/us_manifest.csv"
+            task_status["config_payload"]["us_manifest_path"],
+            str(manifest_path.resolve()),
+        )
+
+    def test_post_screener_tasks_injects_data_dir_us_manifest(self):
+        manifest_path = self._write_data_dir_manifest("us")
+        payload = {
+            "markets": ["us"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+        }
+
+        with (
+            patch.dict(
+                os.environ,
+                {"DATA_DIR": str(self.data_dir)},
+                clear=True,
+            ),
+            patch("web.backend.services.screeners.ensure_screener_cache_coverage"),
+            patch(
+                "web.backend.runtime.screener_tasks.start_screener_task_thread"
+            ) as start_task_thread,
+        ):
+            body = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
+
+        self.assertEqual(body["status"], "pending")
+        start_task_thread.assert_called_once()
+
+        task_status = screeners_router.get_screener_task_status(body["task_id"])
+        self.assertNotIn("us_manifest_path", task_status["request_payload"])
+        self.assertEqual(
+            task_status["config_payload"]["us_manifest_path"],
+            str(manifest_path.resolve()),
         )
 
     def test_post_screener_tasks_injects_backend_cn_manifest_when_configured(self):
+        manifest_path = self._write_manifest_override(
+            "cn_manifest.csv", "symbol\n600519.SH\n"
+        )
         payload = {
             "markets": ["cn"],
             "as_of_date": "2026-03-24",
@@ -1023,7 +1098,7 @@ class BackendMainTests(unittest.TestCase):
 
         with patch.dict(
             os.environ,
-            {"SCREEN_CN_MANIFEST_PATH": "/tmp/cn_manifest.csv"},
+            {"SCREEN_CN_MANIFEST_PATH": str(manifest_path)},
             clear=True,
         ):
             with (
@@ -1044,7 +1119,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertNotIn("cn_manifest_path", task_status["request_payload"])
         self.assertEqual(
             task_status["config_payload"]["cn_manifest_path"],
-            "/tmp/cn_manifest.csv",
+            str(manifest_path.resolve()),
         )
 
     def test_post_screener_tasks_rejects_us_market_without_backend_manifest(self):
@@ -1054,14 +1129,38 @@ class BackendMainTests(unittest.TestCase):
             "top_k": 20,
         }
 
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(
+            os.environ,
+            {"DATA_DIR": str(self.data_dir)},
+            clear=True,
+        ):
             with self.assertRaises(HTTPException) as context:
                 screeners_router.create_screener_task(
                     ScreenTaskCreatePayload(**payload)
                 )
 
         self.assertEqual(context.exception.status_code, 400)
-        self.assertIn("SCREEN_US_MANIFEST_PATH", context.exception.detail)
+        self.assertIn("DATA_DIR/manifest/us.csv", context.exception.detail)
+
+    def test_post_screener_tasks_rejects_missing_us_manifest_override(self):
+        payload = {
+            "markets": ["us"],
+            "as_of_date": "2026-03-24",
+            "top_k": 20,
+        }
+
+        with patch.dict(
+            os.environ,
+            {"SCREEN_US_MANIFEST_PATH": str(Path(self.temp_dir.name) / "missing.csv")},
+            clear=True,
+        ):
+            with self.assertRaises(HTTPException) as context:
+                screeners_router.create_screener_task(
+                    ScreenTaskCreatePayload(**payload)
+                )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("DATA_DIR/manifest/us.csv", context.exception.detail)
 
     def test_post_screener_tasks_rejects_when_combined_queue_limit_is_full(self):
         analysis_request = AnalysisRequest(

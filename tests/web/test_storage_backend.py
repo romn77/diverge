@@ -36,7 +36,7 @@ class StorageBackendTests(unittest.TestCase):
             storage.os.environ,
             {
                 "STORAGE_BACKEND": "local",
-                "STORAGE_LOCAL_ROOT": "/tmp/diverge-storage",
+                "DATA_DIR": "/tmp/diverge-storage",
             },
             clear=True,
         ):
@@ -116,7 +116,7 @@ class StorageBackendTests(unittest.TestCase):
                     storage.os.environ,
                     {
                         "STORAGE_BACKEND": "local",
-                        "STORAGE_LOCAL_ROOT": storage_dir,
+                        "DATA_DIR": storage_dir,
                     },
                     clear=True,
                 ):

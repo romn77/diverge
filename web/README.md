@@ -107,8 +107,8 @@ Then open http://localhost:3000 in your browser.
 - Set `DATA_DIR` as the single standard data path; reports, screener state/cache, history, fundamentals, and manifests are derived from it
 - Standard screener manifests live under `DATA_DIR/manifest/`: `cn.csv` and `us.csv`
 - CN screening uses `DATA_DIR/manifest/cn.csv` when present; otherwise it falls back to live CN universe loading
-- US screening requires `DATA_DIR/manifest/us.csv`; `SCREEN_US_MANIFEST_PATH` is available as an advanced backend override
-- `MANIFEST_DIR`, `SCREEN_CN_MANIFEST_PATH`, and `SCREEN_US_MANIFEST_PATH` can override the standard manifest layout for non-default deployments
+- US screening requires `DATA_DIR/manifest/us.csv`
+- `SCREEN_CN_MANIFEST_PATH` and `SCREEN_US_MANIFEST_PATH` are still accepted for compatibility, but new deployments should configure `DATA_DIR` only
 - LLM analysis happens after screener output, not during screener execution
 - Shared screener cache and recovery checkpoints live under `DATA_DIR/cache/screener/`
 - Admin data-sync blocks same-day OHLCV refreshes until the vendor-local readiness cutoff:

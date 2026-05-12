@@ -229,13 +229,26 @@ def test_worker_startup_restores_data_sync_tasks_when_redis_enabled(monkeypatch)
 
 def test_ohlcv_sync_requires_existing_us_manifest(tmp_path, monkeypatch):
     monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
-    monkeypatch.delenv("MANIFEST_DIR", raising=False)
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
 
     with pytest.raises(RuntimeError, match="US data sync requires a manifest"):
         data_sync_tasks.build_ohlcv_config_payload(
             {"markets": ["us"], "as_of_date": "2026-04-28"}
         )
+
+
+def test_ohlcv_sync_uses_data_dir_us_manifest(tmp_path, monkeypatch):
+    manifest_path = tmp_path / "data" / "manifest" / "us.csv"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text("symbol\nAAPL\n", encoding="utf-8")
+    monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    config_payload = data_sync_tasks.build_ohlcv_config_payload(
+        {"markets": ["us"], "as_of_date": "2026-04-28"}
+    )
+
+    assert config_payload["us_manifest_path"] == str(manifest_path)
 
 
 def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
@@ -377,8 +390,9 @@ def test_fundamental_sync_can_build_symbols_from_us_manifest(tmp_path, monkeypat
     assert captured["tickers"] == ["AAPL", "MSFT"]
 
 
-def test_us_simfin_fundamental_sync_rejects_empty_symbol_list(monkeypatch):
+def test_us_simfin_fundamental_sync_rejects_empty_symbol_list(tmp_path, monkeypatch):
     monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     with pytest.raises(RuntimeError, match="symbols are required"):
         data_sync_tasks.run_fundamental_sync_payload(
             {
@@ -388,6 +402,54 @@ def test_us_simfin_fundamental_sync_rejects_empty_symbol_list(monkeypatch):
                 "as_of_date": "2026-04-28",
             }
         )
+
+
+def test_us_simfin_fundamental_sync_uses_data_dir_manifest(tmp_path, monkeypatch):
+    manifest_path = tmp_path / "data" / "manifest" / "us.csv"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        "symbol,name,exchange,sector,list_date,mktcap\n"
+        "AAPL,Apple,NASDAQ,Technology,19801212,100\n"
+        "MSFT,Microsoft,NASDAQ,Technology,19860313,90\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("SIMFIN_API_KEY", "test-key")
+    captured = {}
+
+    def fake_sync(**kwargs):
+        captured.update(kwargs)
+        return SyncResult(
+            sync_type="fundamentals",
+            markets=["us"],
+            source="simfin",
+            status="completed",
+            symbols_total=2,
+            symbols_success=2,
+            symbols_failed=0,
+            rows_written=2,
+            snapshot_path=None,
+            meta_path=None,
+            field_coverage=None,
+            missing_fields=[],
+            failed_symbols=[],
+            updated_at="",
+        )
+
+    monkeypatch.setattr(data_sync_tasks, "sync_us_simfin_fundamentals", fake_sync)
+
+    result = data_sync_tasks.run_fundamental_sync_payload(
+        {
+            "market": "us",
+            "source": "simfin",
+            "symbols": [],
+            "as_of_date": "2026-04-28",
+        }
+    )
+
+    assert result["status"] == "completed"
+    assert captured["tickers"] == ["AAPL", "MSFT"]
 
 
 def test_us_simfin_fundamental_sync_rejects_symbols_over_daily_limit(monkeypatch):

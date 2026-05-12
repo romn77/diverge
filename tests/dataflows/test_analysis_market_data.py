@@ -10,6 +10,11 @@ from diverge.agents.utils.technical_indicators_tools import get_indicators
 from diverge.market_data.history_cache import save_history_cache
 
 
+def _use_data_dir_history(tmp_path, monkeypatch):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    return tmp_path / "history"
+
+
 def _history_rows(start: str, periods: int) -> pd.DataFrame:
     rows = []
     for index, day in enumerate(pd.date_range(start, periods=periods, freq="D")):
@@ -31,9 +36,9 @@ def _history_rows(start: str, periods: int) -> pd.DataFrame:
 def test_analysis_stock_data_uses_shared_history_cache_before_vendor_route(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
+    history_dir = _use_data_dir_history(tmp_path, monkeypatch)
     save_history_cache(
-        tmp_path,
+        history_dir,
         "us",
         "AAPL",
         pd.DataFrame(
@@ -72,9 +77,9 @@ def test_analysis_stock_data_uses_shared_history_cache_before_vendor_route(
 
 
 def test_analysis_stock_data_uses_latest_cache_for_weekend_as_of(tmp_path, monkeypatch):
-    monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
+    history_dir = _use_data_dir_history(tmp_path, monkeypatch)
     save_history_cache(
-        tmp_path,
+        history_dir,
         "us",
         "AAPL",
         pd.DataFrame(
@@ -115,8 +120,8 @@ def test_analysis_stock_data_uses_latest_cache_for_weekend_as_of(tmp_path, monke
 def test_analysis_indicators_are_computed_locally_from_shared_history_cache(
     tmp_path, monkeypatch
 ):
-    monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
-    save_history_cache(tmp_path, "us", "AAPL", _history_rows("2025-01-01", 380))
+    history_dir = _use_data_dir_history(tmp_path, monkeypatch)
+    save_history_cache(history_dir, "us", "AAPL", _history_rows("2025-01-01", 380))
 
     with patch(
         "diverge.dataflows.interface.execute_vendor_chain",
@@ -135,8 +140,8 @@ def test_analysis_indicators_are_computed_locally_from_shared_history_cache(
 
 
 def test_analysis_indicators_use_latest_cache_for_weekend_as_of(tmp_path, monkeypatch):
-    monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path))
-    save_history_cache(tmp_path, "us", "AAPL", _history_rows("2025-01-01", 374))
+    history_dir = _use_data_dir_history(tmp_path, monkeypatch)
+    save_history_cache(history_dir, "us", "AAPL", _history_rows("2025-01-01", 374))
 
     with patch(
         "diverge.market_data.price_history.fetch_price_history",

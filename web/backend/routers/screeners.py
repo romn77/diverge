@@ -134,19 +134,24 @@ def create_screener_task(
     config_payload["history_dir"] = str(app_config.STOCK_HISTORY_DIR)
     config_payload["fundamental_dir"] = str(app_config.FUNDAMENTALS_DIR)
     if "cn" in request_payload["markets"]:
-        manifest_path = app_config.resolve_manifest_path("cn", app_config.PROJECT_ROOT)
+        manifest_path = app_config.resolve_manifest_path(
+            "cn", app_config.PROJECT_ROOT, require_exists=True
+        )
         if manifest_path:
             config_payload["cn_manifest_path"] = str(manifest_path)
     if "us" in request_payload["markets"]:
         manifest_path = app_config.resolve_manifest_path(
             "us",
             app_config.PROJECT_ROOT,
-            allow_default=False,
+            require_exists=True,
         )
         if not manifest_path:
             raise HTTPException(
                 status_code=400,
-                detail="US screening requires SCREEN_US_MANIFEST_PATH on the backend.",
+                detail=(
+                    "US screening requires a manifest at DATA_DIR/manifest/us.csv. "
+                    "SCREEN_US_MANIFEST_PATH remains available as a compatibility override."
+                ),
             )
         config_payload["us_manifest_path"] = str(manifest_path)
 

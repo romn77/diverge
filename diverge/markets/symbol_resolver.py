@@ -12,11 +12,9 @@ from diverge.common.symbols import (
     normalize_ticker_symbol,
     parse_and_normalize_cn_ticker,
 )
+from diverge.config.paths import resolve_manifest_path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_CN_MANIFEST = PROJECT_ROOT / "diverge" / "data" / "cn_manifest.csv"
-DEFAULT_US_MANIFEST = PROJECT_ROOT / "diverge" / "data" / "us_manifest.csv"
 SUPPORTED_MARKETS = {"cn", "us", "unknown"}
 SUPPORTED_ASSET_TYPES = {"equity", "etf", "unknown"}
 
@@ -121,9 +119,17 @@ def _find_manifest_match(
 ) -> dict[str, Any] | None:
     normalized_candidates = _manifest_candidates(raw_symbol)
     for market, path in (
-        ("cn", Path(cn_manifest_path) if cn_manifest_path else DEFAULT_CN_MANIFEST),
-        ("us", Path(us_manifest_path) if us_manifest_path else DEFAULT_US_MANIFEST),
+        (
+            "cn",
+            Path(cn_manifest_path) if cn_manifest_path else resolve_manifest_path("cn"),
+        ),
+        (
+            "us",
+            Path(us_manifest_path) if us_manifest_path else resolve_manifest_path("us"),
+        ),
     ):
+        if path is None:
+            continue
         rows = _load_manifest(path)
         for candidate in normalized_candidates:
             row = rows.get(candidate)
@@ -155,10 +161,25 @@ def _manifest_candidates(raw_symbol: str) -> list[str]:
     return sorted(candidates)
 
 
-@lru_cache(maxsize=8)
 def _load_manifest(path: Path) -> dict[str, dict[str, str]]:
-    if not path.is_file():
+    resolved_path = Path(path).resolve()
+    try:
+        stat_result = resolved_path.stat()
+    except OSError:
         return {}
+    return _load_manifest_snapshot(
+        resolved_path,
+        stat_result.st_mtime_ns,
+        stat_result.st_size,
+    )
+
+
+@lru_cache(maxsize=16)
+def _load_manifest_snapshot(
+    path: Path,
+    mtime_ns: int,
+    size: int,
+) -> dict[str, dict[str, str]]:
     rows: dict[str, dict[str, str]] = {}
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)

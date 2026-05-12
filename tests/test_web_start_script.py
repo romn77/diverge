@@ -17,6 +17,9 @@ class WebStartScriptTests(unittest.TestCase):
         source = script.read_text(encoding="utf-8")
 
         self.assertIn('ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"', source)
+        self.assertIn('DATA_DIR="${DATA_DIR:-$ROOT_DIR/data}"', source)
+        self.assertNotIn('REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"', source)
+        self.assertNotIn('export REPORTS_DIR="$REPORTS_DIR"', source)
         self.assertIn('BACKEND_PORT="${BACKEND_PORT:-8000}"', source)
         self.assertIn('FRONTEND_PORT="${FRONTEND_PORT:-3000}"', source)
         self.assertIn(
@@ -33,11 +36,14 @@ class WebStartScriptTests(unittest.TestCase):
         self.assertIn('kill_port "$BACKEND_PORT"', source)
         self.assertIn('kill_port "$FRONTEND_PORT"', source)
         self.assertIn("alembic -c alembic.ini upgrade head", source)
-        self.assertIn("python -m web.backend.devops.bootstrap_admin", source)
-        self.assertIn("python -m web.backend.devops.backfill_metadata", source)
+        self.assertIn('"$PYTHON_BIN" -m web.backend.devops.bootstrap_admin', source)
+        self.assertIn('"$PYTHON_BIN" -m web.backend.devops.backfill_metadata', source)
         self.assertIn('if [ "$AUTH_MODE" = "optional" ]; then', source)
         self.assertIn('cd "$ROOT_DIR"', source)
-        self.assertIn('uvicorn web.backend.main:app --port "$BACKEND_PORT"', source)
+        self.assertIn(
+            '"$PYTHON_BIN" -m uvicorn web.backend.main:app --port "$BACKEND_PORT"',
+            source,
+        )
         self.assertIn('npm run dev -- --port "$FRONTEND_PORT"', source)
         self.assertIn(
             'wait_for_http "http://localhost:${BACKEND_PORT}/api/healthz"', source
@@ -87,7 +93,7 @@ class WebStartScriptTests(unittest.TestCase):
             'export TASK_GLOBAL_PENDING_LIMIT="$TASK_GLOBAL_PENDING_LIMIT"', source
         )
         self.assertIn('export REDIS_URL="$REDIS_URL"', source)
-        self.assertIn("python -m web.backend.worker", source)
+        self.assertIn('"$PYTHON_BIN" -m web.backend.worker', source)
         self.assertIn("WORKER_PID=$!", source)
         self.assertIn("Task backend: $TASK_BACKEND", source)
         self.assertIn(
@@ -145,18 +151,22 @@ class WebStartScriptTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (temp_backend_dir / "requirements.txt").write_text("", encoding="utf-8")
-            (temp_bin_dir / "pip").write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
-            (temp_bin_dir / "alembic").write_text(
+            fake_python = temp_bin_dir / "python"
+            fake_python.write_text(
                 "#!/bin/bash\n"
-                "echo 'simulated alembic failure: postgres unavailable' >&2\n"
+                "if [ \"${1:-}\" = \"-m\" ] && [ \"${2:-}\" = \"pip\" ]; then exit 0; fi\n"
+                "if [ \"${1:-}\" = \"-m\" ] && [ \"${2:-}\" = \"alembic\" ]; then\n"
+                "  echo 'simulated alembic failure: postgres unavailable' >&2\n"
+                "  exit 1\n"
+                "fi\n"
                 "exit 1\n",
                 encoding="utf-8",
             )
-            os.chmod(temp_bin_dir / "pip", 0o755)
-            os.chmod(temp_bin_dir / "alembic", 0o755)
+            os.chmod(fake_python, 0o755)
 
             env = os.environ.copy()
             env["PATH"] = f"{temp_bin_dir}:{env['PATH']}"
+            env["PYTHON_BIN"] = str(fake_python)
 
             result = subprocess.run(
                 ["bash", str(temp_script)],

@@ -44,8 +44,9 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("${FRONTEND_PORT:-3000}:3000", source)
         self.assertIn("./data:/app/data", source)
         self.assertIn("./.env:/app/.env:ro", source)
-        self.assertIn("REPORTS_DIR: /app/data/reports", source)
-        self.assertIn("SCREENER_RUNS_DIR: /app/data/screener/runs", source)
+        self.assertIn("DATA_DIR: /app/data", source)
+        self.assertNotIn("REPORTS_DIR: /app/data/reports", source)
+        self.assertNotIn("SCREENER_RUNS_DIR: /app/data/screener/runs", source)
         self.assertIn("FRONTEND_ORIGIN", source)
         self.assertIn("AUTH_ENABLED: ${AUTH_ENABLED:-true}", source)
         self.assertIn("AUTH_MODE", source)
@@ -147,7 +148,9 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("FRONTEND_PORT=3000", source)
         self.assertIn("FRONTEND_ORIGIN=http://localhost:3000", source)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL=http://localhost:8000", source)
-        self.assertIn("DIVERGE_EVAL_RESULTS_DIR=./data/eval_results", source)
+        self.assertIn("DATA_DIR=./data", source)
+        self.assertNotIn("DIVERGE_EVAL_RESULTS_DIR=./data/eval_results", source)
+        self.assertNotIn("STORAGE_LOCAL_ROOT=./data", source)
         self.assertIn("POSTGRES_PASSWORD=", source)
         self.assertIn("AUTH_ENABLED=true", source)
         self.assertIn("AUTH_MODE=required", source)
@@ -165,7 +168,15 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
 
         source = deploy_script.read_text(encoding="utf-8")
         self.assertIn('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"', source)
-        self.assertIn('REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"', source)
+        self.assertIn('mkdir -p "$DATA_DIR/reports" "$DATA_DIR/manifest"', source)
+        self.assertLess(
+            source.index('source "$ENV_FILE"'),
+            source.index('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"'),
+        )
+        self.assertLess(
+            source.index('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"'),
+            source.index('mkdir -p "$DATA_DIR/reports" "$DATA_DIR/manifest"'),
+        )
         self.assertNotIn("$PROJECT_ROOT/reports", source)
         self.assertIn("docker compose build", source)
         self.assertIn("docker compose up -d", source)
