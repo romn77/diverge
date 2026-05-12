@@ -104,6 +104,24 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
             }
         )
 
+    decision_delta_path = artifacts_dir / "decision_delta.json"
+    if decision_delta_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(decision_delta_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = payload.get("summary")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "decision_delta",
+                "path": "artifacts/decision_delta.json",
+                "summary": summary,
+            }
+        )
+
     trade_feedback_path = artifacts_dir / "trade_feedback.json"
     if trade_feedback_path.is_file():
         summary = None

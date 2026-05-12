@@ -95,7 +95,7 @@ def _build_fallback_portfolio_decision(
         ],
     }
     decision_card = {
-        "card_version": "1.0",
+        "card_version": "1.1",
         "rating": "HOLD",
         "action": "NO_ACTION",
         "confidence": "low",
@@ -135,6 +135,32 @@ def _build_fallback_portfolio_decision(
             "Fallback decision generated after transient LLM connection failure.",
             f"Upstream error: {error_note}",
         ],
+        "trade_readiness": "DATA_INSUFFICIENT",
+        "trade_readiness_reason": "Structured Portfolio Manager synthesis was unavailable, so no execution call is reliable.",
+        "blocking_items": ["Regenerate the Portfolio Manager decision."],
+        "data_quality_level": "insufficient",
+        "data_quality_summary": "The final decision is a fallback because Portfolio Manager synthesis failed.",
+        "why_not": {
+            "why_not_more_bullish": "The final Portfolio Manager synthesis did not complete.",
+            "why_not_more_bearish": "The completed analyst sections still need manual review before a stronger negative ruling.",
+            "why_not_act_now": "The structured final ruling is unavailable and should be regenerated first.",
+        },
+        "action_playbook": {
+            "do_now": ["Review the full report manually before taking action."],
+            "trigger_to_act": [
+                "Regenerate the Portfolio Manager decision successfully."
+            ],
+            "invalidation": [
+                "A reliable Portfolio Manager final ruling is regenerated successfully."
+            ],
+            "execution_notes": ["No trading action should rely on this fallback card."],
+        },
+        "position_guidance": {
+            "suggested_exposure": "No new risk exposure should be based on this fallback card.",
+            "max_exposure": None,
+            "sizing_rationale": "Final synthesis failed before reliable sizing guidance was available.",
+            "risk_budget_note": "Generic risk guidance; not based on the user's actual holdings.",
+        },
     }
 
     return f"""## Portfolio Manager Fallback Decision
@@ -217,7 +243,7 @@ Guidelines for Decision-Making:
 2. **Provide Rationale**: Support your recommendation with direct evidence and counterarguments from the debate.
 3. **Refine the Trader's Plan**: Start with the trader's original plan, **{trader_plan}**, and adjust it based on the analysts' insights.
 4. **Learn from Past Mistakes**: Use lessons from **{past_memory_str}** to address prior misjudgments and improve the decision you are making now.
-5. **Size Relative to Current Exposure**: Interpret Buy / Overweight / Hold / Underweight / Sell relative to the current portfolio. If the user already owns the name or related exposure, say whether to add, trim, or maintain rather than reasoning as if the book were empty.
+5. **Use Portfolio Context Carefully**: If portfolio context is provided, you may use it to calibrate the final rating/action and narrative. For the structured DecisionCard intelligence fields, do not assume or disclose user-specific current exposure. Position guidance must be generic, risk-based, and suitable for a user who may have no recorded position.
 6. **Keep Internal Context Private**: Use the portfolio context only to adjust exposure-aware advice. Do not quote raw ledger lines, account names, JSON/code-fence names, prompt labels, or internal implementation terms in user-facing prose. For Chinese output, describe this naturally as "持仓参考" or "现有持仓".
 
 ---
@@ -272,7 +298,7 @@ After the json-highlights block, append a second structured block:
 
 ```json-decision-card
 {{
-  "card_version": "1.0",
+  "card_version": "1.1",
   "rating": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "action": "OPEN or ADD or MAINTAIN or TRIM or EXIT or WATCH or NO_ACTION or AVOID",
   "confidence": "high or medium or low",
@@ -305,11 +331,34 @@ After the json-highlights block, append a second structured block:
   "key_risks": ["risk 1", "risk 2"],
   "catalysts": ["catalyst 1"],
   "watch_items": ["what to monitor next"],
-  "data_quality_notes": ["data limitation, missing input, or stale source warning"]
+  "data_quality_notes": ["data limitation, missing input, or stale source warning"],
+  "trade_readiness": "READY or WAITING_FOR_TRIGGER or BLOCKED_BY_RISK or DATA_INSUFFICIENT or NO_ACTION_REQUIRED",
+  "trade_readiness_reason": "one sentence explaining whether the setup is actionable now",
+  "blocking_items": ["items preventing action now"],
+  "data_quality_level": "complete or partial or weak or insufficient",
+  "data_quality_summary": "one sentence explaining how data quality affects the decision",
+  "why_not": {{
+    "why_not_more_bullish": "why the ruling is not more bullish",
+    "why_not_more_bearish": "why the ruling is not more bearish",
+    "why_not_act_now": "why the user should not act more aggressively right now"
+  }},
+  "action_playbook": {{
+    "do_now": ["immediate action or no-action instruction"],
+    "trigger_to_act": ["condition that would justify action"],
+    "invalidation": ["condition that invalidates the thesis or action plan"],
+    "execution_notes": ["generic execution note, optional"]
+  }},
+  "position_guidance": {{
+    "suggested_exposure": "generic risk-based sizing guidance, or null",
+    "max_exposure": "generic maximum exposure guidance, or null",
+    "sizing_rationale": "generic sizing rationale, or null",
+    "risk_budget_note": "generic risk budget note, not user-specific"
+  }}
 }}
 ```
 
 Keep the `json-highlights` and `json-decision-card` fences, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language. Do not invent exact price levels if the reports do not provide reliable current price or technical levels. If price levels are unavailable, use null and explain the limitation in data_quality_notes. Rating and action are different concepts. Conviction_score reflects opportunity, risk, evidence strength, and data quality. Key_reasons must cite concrete evidence from analyst reports.
+Do not generate Portfolio Fit, Decision Journal, Opportunity Queue, or Conviction Breakdown fields. Do not write phrases such as "your current position", "your portfolio", "你当前仓位", or "你的组合" inside `position_guidance`; keep it generic and risk-based.
 
 {style_instruction}
 {language_instruction}"""

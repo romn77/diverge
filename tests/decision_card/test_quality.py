@@ -95,3 +95,51 @@ def test_confidence_downgrades_when_quality_issues_accumulate():
     )
 
     assert card.confidence == "low"
+
+
+def test_watch_card_readiness_is_waiting_for_trigger_even_if_model_says_ready():
+    card = apply_quality_gates(
+        _card(
+            action="WATCH",
+            trade_readiness="READY",
+            trade_readiness_reason="Model said ready.",
+        )
+    )
+
+    assert card.trade_readiness == "WAITING_FOR_TRIGGER"
+    assert "trigger" in card.trade_readiness_reason.lower()
+
+
+def test_fallback_quality_for_missing_evidence_is_insufficient():
+    card = apply_quality_gates(_card(key_reasons=[], data_quality_notes=[]))
+
+    assert card.data_quality_level == "insufficient"
+    assert card.trade_readiness == "DATA_INSUFFICIENT"
+
+
+def test_why_not_and_playbook_are_filled_when_missing():
+    card = apply_quality_gates(_card(action="WATCH"))
+
+    assert card.why_not is not None
+    assert card.why_not.why_not_more_bullish
+    assert card.why_not.why_not_more_bearish
+    assert card.why_not.why_not_act_now
+    assert card.action_playbook is not None
+    assert card.action_playbook.do_now
+    assert card.action_playbook.trigger_to_act
+    assert card.action_playbook.invalidation
+
+
+def test_position_guidance_removes_user_specific_portfolio_wording():
+    card = apply_quality_gates(
+        _card(
+            position_guidance={
+                "suggested_exposure": "Your current position is too high.",
+                "risk_budget_note": "Generic risk guidance.",
+            }
+        )
+    )
+
+    assert card.position_guidance is not None
+    assert "current position" not in card.position_guidance.suggested_exposure.lower()
+    assert "user-specific portfolio" in " ".join(card.data_quality_notes)

@@ -42,6 +42,42 @@ def test_valid_decision_card_passes_validation():
 
     assert card.rating == "OVERWEIGHT"
     assert card.action == "WATCH"
+    assert card.card_version == "1.1"
+
+
+def test_decision_card_accepts_v1_1_intelligence_fields():
+    card = DecisionCard(
+        **_card_payload(
+            trade_readiness="WAITING_FOR_TRIGGER",
+            trade_readiness_reason="Wait for confirmation.",
+            blocking_items=["Breakout not confirmed"],
+            data_quality_level="partial",
+            data_quality_summary="Some price context is missing.",
+            why_not={
+                "why_not_more_bullish": "Valuation is not compelling.",
+                "why_not_more_bearish": "The thesis is still intact.",
+                "why_not_act_now": "The trigger has not fired.",
+            },
+            action_playbook={
+                "do_now": ["Watch"],
+                "trigger_to_act": ["Breakout confirmation"],
+                "invalidation": ["Trend fails"],
+                "execution_notes": ["Stage execution"],
+            },
+            position_guidance={
+                "suggested_exposure": "Small staged exposure after trigger.",
+                "max_exposure": None,
+                "sizing_rationale": "Data quality is partial.",
+                "risk_budget_note": "Generic risk guidance.",
+            },
+        )
+    )
+
+    assert card.trade_readiness == "WAITING_FOR_TRIGGER"
+    assert card.data_quality_level == "partial"
+    assert card.why_not is not None
+    assert card.action_playbook is not None
+    assert card.position_guidance is not None
 
 
 def test_invalid_rating_is_rejected():

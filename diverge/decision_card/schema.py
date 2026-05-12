@@ -27,6 +27,16 @@ PortfolioAction = Literal[
 
 ConfidenceLevel = Literal["high", "medium", "low"]
 
+TradeReadiness = Literal[
+    "READY",
+    "WAITING_FOR_TRIGGER",
+    "BLOCKED_BY_RISK",
+    "DATA_INSUFFICIENT",
+    "NO_ACTION_REQUIRED",
+]
+
+DataQualityLevel = Literal["complete", "partial", "weak", "insufficient"]
+
 EvidencePillar = Literal[
     "technical",
     "fundamentals",
@@ -60,8 +70,28 @@ class PricePlan(BaseModel):
     risk_reward_note: str | None = None
 
 
+class WhyNot(BaseModel):
+    why_not_more_bullish: str | None = None
+    why_not_more_bearish: str | None = None
+    why_not_act_now: str | None = None
+
+
+class ActionPlaybook(BaseModel):
+    do_now: list[str] = Field(default_factory=list, max_length=5)
+    trigger_to_act: list[str] = Field(default_factory=list, max_length=5)
+    invalidation: list[str] = Field(default_factory=list, max_length=5)
+    execution_notes: list[str] = Field(default_factory=list, max_length=5)
+
+
+class PositionGuidance(BaseModel):
+    suggested_exposure: str | None = None
+    max_exposure: str | None = None
+    sizing_rationale: str | None = None
+    risk_budget_note: str | None = None
+
+
 class DecisionCard(BaseModel):
-    card_version: str = "1.0"
+    card_version: str = "1.1"
 
     report_id: str | None = None
     symbol: str
@@ -92,3 +122,14 @@ class DecisionCard(BaseModel):
     source_report_paths: list[str] = Field(default_factory=list)
 
     raw_signal: str | None = None
+
+    trade_readiness: TradeReadiness | None = None
+    trade_readiness_reason: str | None = None
+    blocking_items: list[str] = Field(default_factory=list, max_length=5)
+
+    data_quality_level: DataQualityLevel | None = None
+    data_quality_summary: str | None = None
+
+    why_not: WhyNot | None = None
+    action_playbook: ActionPlaybook | None = None
+    position_guidance: PositionGuidance | None = None

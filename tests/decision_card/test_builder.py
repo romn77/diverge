@@ -36,7 +36,26 @@ def test_build_decision_card_prefers_json_decision_card():
     }
   ],
   "key_risks": ["Valuation reset"],
-  "watch_items": ["Breakout volume"]
+  "watch_items": ["Breakout volume"],
+  "trade_readiness": "READY",
+  "data_quality_level": "complete",
+  "why_not": {
+    "why_not_more_bullish": "Valuation still matters.",
+    "why_not_more_bearish": "The thesis remains intact.",
+    "why_not_act_now": "The trigger has not fired."
+  },
+  "action_playbook": {
+    "do_now": ["Watch the setup."],
+    "trigger_to_act": ["Breakout volume"],
+    "invalidation": ["Breaks below trend support"],
+    "execution_notes": ["Keep sizing staged."]
+  },
+  "position_guidance": {
+    "suggested_exposure": "No added exposure before trigger confirmation.",
+    "max_exposure": null,
+    "sizing_rationale": "Setup needs confirmation.",
+    "risk_budget_note": "Generic risk guidance."
+  }
 }
 ```
 """,
@@ -58,7 +77,58 @@ def test_build_decision_card_prefers_json_decision_card():
     assert card.key_reasons[0].limitation == "Segment margins unavailable"
     assert card.price_plan.stop_loss is None
     assert card.price_plan.take_profit is None
+    assert card.card_version == "1.1"
+    assert card.trade_readiness == "WAITING_FOR_TRIGGER"
+    assert card.data_quality_level == "partial"
+    assert card.why_not is not None
+    assert card.action_playbook is not None
+    assert card.position_guidance is not None
     assert "Price levels were removed" in " ".join(card.data_quality_notes)
+
+
+def test_build_decision_card_uses_language_aware_fallbacks():
+    card = build_decision_card(
+        final_state={
+            "final_trade_decision": """Final ruling.
+
+```json-decision-card
+{
+  "rating": "OVERWEIGHT",
+  "action": "WATCH",
+  "confidence": "medium",
+  "conviction_score": 73,
+  "time_horizon": "5-20 trading days",
+  "one_line_summary": "等待触发条件。",
+  "thesis": "质量仍强，但需要确认。",
+  "price_plan": {
+    "current_price": null,
+    "entry_zone": null,
+    "add_condition": "等待放量突破。",
+    "stop_loss": null,
+    "take_profit": null,
+    "invalidation": ["跌破趋势支撑"],
+    "risk_reward_note": null
+  },
+  "key_reasons": [
+    {
+      "pillar": "technical",
+      "point": "趋势仍强",
+      "evidence": "技术报告显示趋势保持。",
+      "strength": "medium"
+    }
+  ],
+  "key_risks": ["估值风险"]
+}
+```
+"""
+        },
+        symbol="AAPL",
+        output_language="cn",
+    )
+
+    assert card.trade_readiness == "WAITING_FOR_TRIGGER"
+    assert card.why_not is not None
+    assert "当前" in card.why_not.why_not_act_now
 
 
 def test_build_decision_card_falls_back_to_json_highlights():

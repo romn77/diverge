@@ -21,6 +21,11 @@ from diverge.decision_card.builder import (
     build_decision_card,
     build_fallback_decision_card,
 )
+from diverge.decision_card.delta import (
+    build_decision_delta,
+    find_previous_decision_card,
+    save_decision_delta,
+)
 from diverge.decision_card.storage import save_decision_card
 from diverge.research.search.evidence import build_search_evidence_artifact
 from diverge.research.search.session import search_sessions
@@ -132,6 +137,71 @@ def report_output_dir(report_id: str) -> Path:
             "Report output directory must remain inside the reports root"
         ) from exc
     return report_dir
+
+
+def _local_previous_report_dirs(task: Task, current_report_id: str) -> list[Path]:
+    if not app_config.REPORTS_DIR.is_dir():
+        return []
+
+    if auth.auth_enabled() and task.owner_user_id:
+        try:
+            with auth.db_session() as db:
+                user = db.get(auth.User, task.owner_user_id)
+                owner_scope = access.owner_scope_for_user(user)
+                records = report_metadata.list_report_runs(
+                    db,
+                    tenant_id=task.tenant_id,
+                    owner_user_id=owner_scope,
+                    include_workspace=owner_scope is not None,
+                )
+        except Exception:
+            logger.exception(
+                "Failed to list previous report metadata for decision delta."
+            )
+            return []
+
+        report_dirs = []
+        for record in records:
+            if record.id == current_report_id:
+                continue
+            report_dir = app_config.REPORTS_DIR / record.storage_path
+            if report_dir.is_dir():
+                report_dirs.append(report_dir)
+        return report_dirs
+
+    return [
+        path
+        for path in app_config.REPORTS_DIR.iterdir()
+        if path.is_dir()
+        and not path.name.startswith(".")
+        and path.name != current_report_id
+    ]
+
+
+def _write_decision_delta_if_available(
+    *,
+    task: Task,
+    current_report_id: str,
+    current_report_dir: Path,
+    decision_card,
+) -> None:
+    try:
+        previous_card = find_previous_decision_card(
+            current_card=decision_card,
+            candidate_report_dirs=_local_previous_report_dirs(task, current_report_id),
+            current_report_id=current_report_id,
+        )
+        if previous_card is None:
+            return
+        delta = build_decision_delta(
+            current_card=decision_card,
+            previous_card=previous_card,
+            current_report_id=current_report_id,
+            output_language=task.request.output_language,
+        )
+        save_decision_delta(delta, current_report_dir)
+    except Exception:
+        logger.exception("Failed to build decision delta for %s", current_report_id)
 
 
 def write_search_evidence_artifact(task_id: str, report_dir: Path) -> Path | None:
@@ -607,8 +677,15 @@ def run_task(task_id: str) -> None:
                 symbol=task.request.ticker,
                 report_id=report_id,
                 analysis_date=str(task.request.analysis_date),
+                output_language=task.request.output_language,
             )
             save_decision_card(decision_card, temp_dir)
+            _write_decision_delta_if_available(
+                task=task,
+                current_report_id=report_id,
+                current_report_dir=temp_dir,
+                decision_card=decision_card,
+            )
         except Exception as exc:
             logger.exception("Failed to build decision card for %s", report_id)
             fallback_card = build_fallback_decision_card(
@@ -621,6 +698,7 @@ def run_task(task_id: str) -> None:
                     else None
                 ),
                 error=str(exc),
+                output_language=task.request.output_language,
             )
             save_decision_card(fallback_card, temp_dir)
         check_task_canceled(task_id)

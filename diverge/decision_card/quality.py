@@ -1,5 +1,10 @@
 from __future__ import annotations
 
+from diverge.decision_card.enrichment import (
+    apply_decision_intelligence,
+    ensure_position_guidance,
+    validate_trade_readiness,
+)
 from diverge.decision_card.schema import DecisionCard
 
 
@@ -91,10 +96,15 @@ def calibrate_conviction_score(card: DecisionCard) -> DecisionCard:
     return card
 
 
-def apply_quality_gates(card: DecisionCard) -> DecisionCard:
+def apply_quality_gates(
+    card: DecisionCard, *, output_language: str | None = None
+) -> DecisionCard:
     card = validate_rating_action_consistency(card)
     card = validate_price_plan(card)
     card = validate_evidence_and_risk(card)
+    card = apply_decision_intelligence(card, output_language=output_language)
     card = downgrade_confidence_for_quality(card)
     card = calibrate_conviction_score(card)
+    card = validate_trade_readiness(card, output_language=output_language)
+    card = ensure_position_guidance(card, output_language=output_language)
     return card

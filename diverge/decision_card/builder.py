@@ -15,7 +15,11 @@ from diverge.decision_card.parser import (
     normalize_rating,
 )
 from diverge.decision_card.quality import apply_quality_gates
-from diverge.decision_card.schema import DecisionCard, EvidenceItem, PortfolioRating
+from diverge.decision_card.schema import (
+    DecisionCard,
+    EvidenceItem,
+    PortfolioRating,
+)
 
 
 SOURCE_REPORT_PATHS = [
@@ -53,6 +57,13 @@ def _coerce_string_list(value: Any, *, max_items: int = 5) -> list[str]:
     return result
 
 
+def _clean_optional_string(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
 def _infer_market(symbol: str) -> str:
     normalized = symbol.strip().upper()
     if normalized.endswith(".HK"):
@@ -84,6 +95,71 @@ def _normalize_float(value: Any) -> float | None:
     if isinstance(value, (int, float)):
         return float(value)
     return None
+
+
+def _normalize_trade_readiness(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    candidate = value.strip().upper().replace("-", "_").replace(" ", "_")
+    if candidate in {
+        "READY",
+        "WAITING_FOR_TRIGGER",
+        "BLOCKED_BY_RISK",
+        "DATA_INSUFFICIENT",
+        "NO_ACTION_REQUIRED",
+    }:
+        return candidate
+    return None
+
+
+def _normalize_data_quality_level(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    candidate = value.strip().lower().replace("-", "_").replace(" ", "_")
+    if candidate in {"complete", "partial", "weak", "insufficient"}:
+        return candidate
+    return None
+
+
+def _build_why_not(value: Any) -> dict[str, str | None] | None:
+    if not isinstance(value, dict):
+        return None
+    item = {
+        "why_not_more_bullish": _clean_optional_string(
+            value.get("why_not_more_bullish")
+        ),
+        "why_not_more_bearish": _clean_optional_string(
+            value.get("why_not_more_bearish")
+        ),
+        "why_not_act_now": _clean_optional_string(value.get("why_not_act_now")),
+    }
+    return item if any(item.values()) else None
+
+
+def _build_action_playbook(value: Any) -> dict[str, list[str]] | None:
+    if not isinstance(value, dict):
+        return None
+    item = {
+        "do_now": _coerce_string_list(value.get("do_now")),
+        "trigger_to_act": _coerce_string_list(value.get("trigger_to_act")),
+        "invalidation": _coerce_string_list(value.get("invalidation")),
+        "execution_notes": _coerce_string_list(value.get("execution_notes")),
+    }
+    return item if any(item.values()) else None
+
+
+def _build_position_guidance(value: Any) -> dict[str, str | None] | None:
+    if not isinstance(value, dict):
+        return None
+    item = {
+        "suggested_exposure": _clean_optional_string(
+            value.get("suggested_exposure")
+        ),
+        "max_exposure": _clean_optional_string(value.get("max_exposure")),
+        "sizing_rationale": _clean_optional_string(value.get("sizing_rationale")),
+        "risk_budget_note": _clean_optional_string(value.get("risk_budget_note")),
+    }
+    return item if any(item.values()) else None
 
 
 def _build_evidence_items(value: Any) -> list[dict[str, str]]:
@@ -137,7 +213,7 @@ def _base_payload(
     raw_signal: str | None,
 ) -> dict[str, Any]:
     return {
-        "card_version": "1.0",
+        "card_version": "1.1",
         "report_id": report_id,
         "symbol": symbol,
         "name": None,
@@ -168,6 +244,14 @@ def _base_payload(
         "data_quality_notes": [],
         "source_report_paths": SOURCE_REPORT_PATHS,
         "raw_signal": raw_signal,
+        "trade_readiness": None,
+        "trade_readiness_reason": None,
+        "blocking_items": [],
+        "data_quality_level": None,
+        "data_quality_summary": None,
+        "why_not": None,
+        "action_playbook": None,
+        "position_guidance": None,
     }
 
 
@@ -194,7 +278,7 @@ def _payload_from_decision_card_block(
     )
     payload.update(
         {
-            "card_version": block.get("card_version") or "1.0",
+            "card_version": block.get("card_version") or "1.1",
             "name": block.get("name") if isinstance(block.get("name"), str) else None,
             "market": block.get("market")
             if block.get("market") in {"cn", "us", "hk", "unknown"}
@@ -242,6 +326,26 @@ def _payload_from_decision_card_block(
             "watch_items": _coerce_string_list(block.get("watch_items")),
             "data_quality_notes": _coerce_string_list(
                 block.get("data_quality_notes"), max_items=20
+            ),
+            "trade_readiness": _normalize_trade_readiness(
+                block.get("trade_readiness")
+            ),
+            "trade_readiness_reason": _clean_optional_string(
+                block.get("trade_readiness_reason")
+            ),
+            "blocking_items": _coerce_string_list(block.get("blocking_items")),
+            "data_quality_level": _normalize_data_quality_level(
+                block.get("data_quality_level")
+            ),
+            "data_quality_summary": _clean_optional_string(
+                block.get("data_quality_summary")
+            ),
+            "why_not": _build_why_not(block.get("why_not")),
+            "action_playbook": _build_action_playbook(
+                block.get("action_playbook")
+            ),
+            "position_guidance": _build_position_guidance(
+                block.get("position_guidance")
             ),
         }
     )
@@ -318,6 +422,7 @@ def build_fallback_decision_card(
     rating: PortfolioRating = "HOLD",
     raw_signal: str | None = None,
     error: str | None = None,
+    output_language: str | None = None,
 ) -> DecisionCard:
     payload = _base_payload(
         symbol=symbol,
@@ -339,7 +444,7 @@ def build_fallback_decision_card(
     ]
     if error:
         payload["data_quality_notes"].append(f"Fallback reason: {error}")
-    return apply_quality_gates(DecisionCard(**payload))
+    return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
 
 
 def build_decision_card(
@@ -348,6 +453,7 @@ def build_decision_card(
     symbol: str,
     report_id: str | None = None,
     analysis_date: str | None = None,
+    output_language: str | None = None,
 ) -> DecisionCard:
     final_decision = _as_text(final_state.get("final_trade_decision"))
     raw_signal = final_decision or None
@@ -361,7 +467,7 @@ def build_decision_card(
             analysis_date=analysis_date,
             raw_signal=raw_signal,
         )
-        return apply_quality_gates(DecisionCard(**payload))
+        return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
 
     highlights_block = extract_highlights_block(final_decision)
     if highlights_block:
@@ -372,7 +478,7 @@ def build_decision_card(
             analysis_date=analysis_date,
             raw_signal=raw_signal,
         )
-        return apply_quality_gates(DecisionCard(**payload))
+        return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
 
     rating = extract_rating_from_text(final_decision)
     if rating:
@@ -382,6 +488,7 @@ def build_decision_card(
             analysis_date=analysis_date,
             rating=rating,
             raw_signal=raw_signal,
+            output_language=output_language,
         )
         fallback.action = infer_action_from_rating(rating)
         fallback.one_line_summary = f"Final report text indicates a {rating} rating, but no structured decision card was provided."
@@ -391,11 +498,12 @@ def build_decision_card(
         fallback.data_quality_notes.append(
             "DecisionCard was derived from unstructured final decision text."
         )
-        return apply_quality_gates(fallback)
+        return apply_quality_gates(fallback, output_language=output_language)
 
     return build_fallback_decision_card(
         symbol=symbol,
         report_id=report_id,
         analysis_date=analysis_date,
         raw_signal=raw_signal,
+        output_language=output_language,
     )

@@ -16,8 +16,11 @@ import {
   type ReportStructure,
   type ReportVisibility,
 } from "@/lib/api";
-import type { DecisionCard as DecisionCardModel } from "@/lib/decisionCard";
-import { fetchDecisionCard } from "@/lib/fetchDecisionCard";
+import type {
+  DecisionCard as DecisionCardModel,
+  DecisionDelta,
+} from "@/lib/decisionCard";
+import { fetchDecisionCard, fetchDecisionDelta } from "@/lib/fetchDecisionCard";
 import { DecisionCard as DecisionCardView } from "./DecisionCard";
 import { DecisionCardSkeleton } from "./DecisionCardSkeleton";
 import { MarkdownContent } from "./MarkdownContent";
@@ -57,8 +60,11 @@ const FILE_LABELS: Record<string, string> = {
 
 const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
 
-function formatDecisionCardJson(card: DecisionCardModel): string {
-  return JSON.stringify(card, null, 2);
+function formatDecisionCardJson(
+  card: DecisionCardModel,
+  delta: DecisionDelta | null
+): string {
+  return JSON.stringify(delta ? { decision_card: card, decision_delta: delta } : card, null, 2);
 }
 
 function localizeFileLabel(
@@ -284,6 +290,7 @@ export function ReportViewer({
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [decisionCard, setDecisionCard] = useState<DecisionCardModel | null>(null);
+  const [decisionDelta, setDecisionDelta] = useState<DecisionDelta | null>(null);
   const [isDecisionCardLoading, setIsDecisionCardLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -295,6 +302,13 @@ export function ReportViewer({
     () =>
       structure?.artifacts.find(
         (artifact) => artifact.type.toLowerCase() === "decision_card"
+      )?.path ?? null,
+    [structure]
+  );
+  const decisionDeltaPath = useMemo(
+    () =>
+      structure?.artifacts.find(
+        (artifact) => artifact.type.toLowerCase() === "decision_delta"
       )?.path ?? null,
     [structure]
   );
@@ -350,6 +364,7 @@ export function ReportViewer({
 
     if (!decisionCardPath) {
       setDecisionCard(null);
+      setDecisionDelta(null);
       setIsDecisionCardLoading(false);
       return () => {
         isActive = false;
@@ -380,6 +395,36 @@ export function ReportViewer({
       isActive = false;
     };
   }, [decisionCardPath, reportId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!decisionDeltaPath) {
+      setDecisionDelta(null);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadDecisionDelta = async () => {
+      try {
+        const delta = await fetchDecisionDelta(reportId, decisionDeltaPath);
+        if (isActive) {
+          setDecisionDelta(delta);
+        }
+      } catch {
+        if (isActive) {
+          setDecisionDelta(null);
+        }
+      }
+    };
+
+    loadDecisionDelta();
+
+    return () => {
+      isActive = false;
+    };
+  }, [decisionDeltaPath, reportId]);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -872,7 +917,7 @@ export function ReportViewer({
                   {isDecisionCardLoading && <DecisionCardSkeleton />}
                   {decisionCard && (
                     <>
-                      <DecisionCardView card={decisionCard} />
+                      <DecisionCardView card={decisionCard} delta={decisionDelta} />
                       <details className="decision-raw-details">
                         <summary>
                           <span>
@@ -889,7 +934,7 @@ export function ReportViewer({
                           </span>
                         </summary>
                         <pre>
-                          <code>{formatDecisionCardJson(decisionCard)}</code>
+                          <code>{formatDecisionCardJson(decisionCard, decisionDelta)}</code>
                         </pre>
                       </details>
                     </>
