@@ -209,14 +209,14 @@ class ModelConfigTests(unittest.TestCase):
             provider_map["sub2api"], ("Sub2API", "https://cc.z2blog.com/v1")
         )
 
-        quick_models = {model for _label, model in QUICK_MODEL_OPTIONS["sub2api"]}
-        deep_models = {model for _label, model in DEEP_MODEL_OPTIONS["sub2api"]}
+        quick_models = [model for _label, model in QUICK_MODEL_OPTIONS["sub2api"]]
+        deep_models = [model for _label, model in DEEP_MODEL_OPTIONS["sub2api"]]
 
-        self.assertIn("gpt-5.4-mini", quick_models)
-        self.assertIn("gpt-5.4", quick_models)
-        self.assertIn("gpt-5.4", deep_models)
-        self.assertIn("gpt-5.4-pro", deep_models)
+        self.assertEqual(quick_models, ["gpt-5.4-mini", "gpt-5.2"])
+        self.assertEqual(deep_models, ["gpt-5.4", "gpt-5.5"])
         self.assertTrue(validate_model("sub2api", "gpt-5.4"))
+        self.assertTrue(validate_model("sub2api", "gpt-5.5"))
+        self.assertFalse(validate_model("sub2api", "gpt-4.1"))
 
     def test_mimo_provider_exposes_openai_compatible_models(self):
         provider_map = {
@@ -230,9 +230,18 @@ class ModelConfigTests(unittest.TestCase):
         quick_models = {model for _label, model in QUICK_MODEL_OPTIONS["mimo"]}
         deep_models = {model for _label, model in DEEP_MODEL_OPTIONS["mimo"]}
 
-        self.assertEqual(quick_models, {"mimo-v2.5", "mimo-v2.5-pro"})
-        self.assertEqual(deep_models, {"mimo-v2.5", "mimo-v2.5-pro"})
+        expected_models = {
+            "mimo-v2-flash",
+            "mimo-v2.5",
+            "mimo-v2-omni",
+            "mimo-v2.5-pro",
+            "mimo-v2-pro",
+        }
+        self.assertEqual(quick_models, expected_models)
+        self.assertEqual(deep_models, expected_models)
+        self.assertEqual(QUICK_MODEL_OPTIONS["mimo"][0][1], "mimo-v2-flash")
         self.assertTrue(validate_model("mimo", "mimo-v2.5-pro"))
+        self.assertTrue(validate_model("mimo", "mimo-v2-flash"))
 
 
 if __name__ == "__main__":

@@ -70,6 +70,36 @@ class LLMModelConfigTests(unittest.TestCase):
             sum(len(profile["routes"]) * 2 for profile in summary["profiles"]),
         )
 
+    def test_summary_hides_models_removed_from_shared_catalog(self):
+        with self._env({"SUB2API_API_KEY": "secret-value"}):
+            auth.create_all_for_testing()
+            llm_models.ensure_llm_model_defaults()
+            with auth.db_session() as db:
+                db.add(
+                    llm_models.LLMModelConfig(
+                        id=llm_models._model_pk("sub2api", "gpt-4.1"),
+                        provider="sub2api",
+                        model_id="gpt-4.1",
+                        label="GPT-4.1 - Stale model",
+                        enabled=True,
+                        supports_quick=True,
+                        supports_deep=True,
+                        cost_tier="medium",
+                        visible_to_roles="admin,operator,viewer",
+                    )
+                )
+            summary = llm_models.list_llm_model_summary()
+
+        sub2api_models = {
+            model["model_id"]
+            for model in summary["models"]
+            if model["provider"] == "sub2api"
+        }
+        self.assertEqual(
+            sub2api_models, {"gpt-5.4-mini", "gpt-5.4", "gpt-5.2", "gpt-5.5"}
+        )
+        self.assertNotIn("gpt-4.1", sub2api_models)
+
     def test_disabled_model_blocks_profile_resolution(self):
         with self._env(
             {"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}

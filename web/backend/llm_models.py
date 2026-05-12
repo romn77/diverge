@@ -343,6 +343,8 @@ def _provider_payload(db: Session, provider: str) -> dict[str, Any]:
 
 def _model_payload(db: Session, provider: str, model_id: str) -> dict[str, Any] | None:
     key = _model_pk(provider, model_id)
+    if key not in _default_models():
+        return None
     row = db.get(LLMModelConfig, key)
     if row is None:
         return None

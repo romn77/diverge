@@ -60,7 +60,7 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
         cost_tier="medium",
         routes=(
             ModelRoute("openai", "gpt-5.4-mini", "gpt-5.2"),
-            ModelRoute("sub2api", "gpt-5.4-mini", "gpt-5.2"),
+            ModelRoute("sub2api", "gpt-5.4-mini", "gpt-5.4"),
             ModelRoute("xiaohumini", "gpt-5.4-mini", "gpt-5.2"),
             ModelRoute("mimo", "mimo-v2.5", "mimo-v2.5-pro"),
         ),
@@ -72,9 +72,9 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
         cost_tier="low",
         routes=(
             ModelRoute("openai", "gpt-5.4-nano", "gpt-5-mini"),
-            ModelRoute("sub2api", "gpt-5.4-nano", "gpt-5-mini"),
+            ModelRoute("sub2api", "gpt-5.2", "gpt-5.4"),
             ModelRoute("xiaohumini", "gpt-5.4-nano", "gpt-5-mini"),
-            ModelRoute("mimo", "mimo-v2.5", "mimo-v2.5"),
+            ModelRoute("mimo", "mimo-v2-flash", "mimo-v2-flash"),
         ),
     ),
     ModelProfile(
@@ -84,7 +84,7 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
         cost_tier="high",
         routes=(
             ModelRoute("openai", "gpt-5.4", "gpt-5.5"),
-            ModelRoute("sub2api", "gpt-5.4", "gpt-5.5"),
+            ModelRoute("sub2api", "gpt-5.2", "gpt-5.5"),
             ModelRoute("xiaohumini", "gpt-5.4", "gpt-5.5"),
             ModelRoute("mimo", "mimo-v2.5-pro", "mimo-v2.5-pro"),
         ),

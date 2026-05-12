@@ -35,11 +35,9 @@ import {
 } from "@/lib/api";
 
 const ROLE_OPTIONS: UserRole[] = ["admin", "operator", "viewer"];
-const CUSTOM_PROFILE_ID = "custom";
 
 type ModuleDraft = {
   enabled: boolean;
-  model_profile: string;
   output_language: string;
   custom_provider: string;
   custom_model: string;
@@ -100,6 +98,38 @@ function parseRouteDraft(value: string) {
     });
 }
 
+function moduleDraft(
+  setting: AdminLLMModuleSetting,
+  payload: AdminLLMModelsResponse
+): ModuleDraft {
+  const route = payload.profiles
+    .find((profile) => profile.profile_id === setting.model_profile)
+    ?.routes.find((profileRoute) => profileRoute.available);
+  const fallbackProvider =
+    setting.custom_provider ??
+    route?.provider ??
+    payload.providers.find(
+      (provider) => provider.enabled && provider.key_status === "configured"
+    )?.provider ??
+    "";
+  const configuredModel =
+    setting.custom_model ??
+    (route?.provider === fallbackProvider ? route.deep_model : "");
+  const fallbackModel =
+    configuredModel ||
+    getEnabledDeepModels(payload.models, fallbackProvider)[0]?.model_id ||
+    "";
+
+  return {
+    enabled: setting.enabled,
+    output_language: setting.output_language,
+    custom_provider: fallbackProvider,
+    custom_model: fallbackModel,
+    openai_reasoning_effort: setting.openai_reasoning_effort ?? "",
+    google_thinking_level: setting.google_thinking_level ?? "",
+  };
+}
+
 export default function AdminLLMModelsPage() {
   const [payload, setPayload] = useState<AdminLLMModelsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,15 +180,7 @@ export default function AdminLLMModelsPage() {
       ])));
       setModuleDrafts(Object.fromEntries((nextPayload.module_settings ?? []).map((setting) => [
         setting.module,
-        {
-          enabled: setting.enabled,
-          model_profile: setting.model_profile,
-          output_language: setting.output_language,
-          custom_provider: setting.custom_provider ?? nextPayload.providers.find((provider) => provider.enabled)?.provider ?? "",
-          custom_model: setting.custom_model ?? "",
-          openai_reasoning_effort: setting.openai_reasoning_effort ?? "",
-          google_thinking_level: setting.google_thinking_level ?? "",
-        },
+        moduleDraft(setting, nextPayload),
       ])));
       setUiSettingDrafts(Object.fromEntries((nextPayload.ui_settings ?? []).map((setting) => [
         setting.setting_key,
@@ -244,10 +266,10 @@ export default function AdminLLMModelsPage() {
     try {
       await updateAdminLLMModuleSetting(setting.module, {
         enabled: draft.enabled,
-        model_profile: draft.model_profile,
+        model_profile: "custom",
         output_language: draft.output_language,
-        custom_provider: draft.model_profile === "custom" ? draft.custom_provider : null,
-        custom_model: draft.model_profile === "custom" ? draft.custom_model : null,
+        custom_provider: draft.custom_provider,
+        custom_model: draft.custom_model,
         openai_reasoning_effort: draft.openai_reasoning_effort.trim() || null,
         google_thinking_level: draft.google_thinking_level.trim() || null,
       });
@@ -401,7 +423,6 @@ export default function AdminLLMModelsPage() {
                   key={setting.module}
                   draft={draft}
                   moduleSetting={setting}
-                  profiles={payload?.profiles ?? []}
                   providers={payload?.providers ?? []}
                   models={payload?.models ?? []}
                   saving={saving === `module:${setting.module}`}
@@ -525,7 +546,6 @@ export default function AdminLLMModelsPage() {
 function ModuleSettingCard({
   draft,
   moduleSetting,
-  profiles,
   providers,
   models,
   saving,
@@ -534,7 +554,6 @@ function ModuleSettingCard({
 }: {
   draft: ModuleDraft | undefined;
   moduleSetting: AdminLLMModuleSetting;
-  profiles: AdminLLMProfile[];
   providers: AdminLLMProvider[];
   models: AdminLLMModel[];
   saving: boolean;
@@ -545,31 +564,10 @@ function ModuleSettingCard({
     return null;
   }
 
-  const profileOptions = [
-    ...profiles,
-    {
-      profile_id: CUSTOM_PROFILE_ID,
-      label: "Custom",
-      description: "Choose a configured provider and concrete review model manually.",
-      enabled: true,
-      default_for_roles: "",
-      sort_order: 999,
-      routes: [],
-    },
-  ];
   const enabledProviders = providers.filter(
     (provider) => provider.enabled && provider.key_status === "configured"
   );
-  const isCustomModelProfile = draft.model_profile === CUSTOM_PROFILE_ID;
-  const selectedProfile = profileOptions.find(
-    (profile) => profile.profile_id === draft.model_profile
-  );
-  const selectedProvider = isCustomModelProfile
-    ? draft.custom_provider
-    : selectedProfile?.routes.find((route) => route.available)?.provider ?? "";
-  const selectedProviderLabel =
-    providers.find((provider) => provider.provider === selectedProvider)?.label ??
-    selectedProvider;
+  const selectedProvider = draft.custom_provider;
   const selectedCustomModels = getEnabledDeepModels(models, draft.custom_provider);
 
   const updateDraft = (patch: Partial<ModuleDraft>) => {
@@ -577,24 +575,6 @@ function ModuleSettingCard({
       ...draft,
       ...patch,
     });
-  };
-  const updateProfile = (profileId: string) => {
-    if (profileId === CUSTOM_PROFILE_ID) {
-      const fallbackProvider =
-        draft.custom_provider || enabledProviders[0]?.provider || "";
-      const fallbackModel =
-        draft.custom_model ||
-        getEnabledDeepModels(models, fallbackProvider)[0]?.model_id ||
-        "";
-      updateDraft({
-        model_profile: CUSTOM_PROFILE_ID,
-        custom_provider: fallbackProvider,
-        custom_model: fallbackModel,
-      });
-      return;
-    }
-
-    updateDraft({ model_profile: profileId });
   };
   const updateProvider = (provider: string) => {
     updateDraft({
@@ -607,6 +587,9 @@ function ModuleSettingCard({
     <AdminPanel contentClassName="space-y-5 p-5">
       <div>
         <h3 className="text-lg font-semibold">{moduleSetting.label}</h3>
+        <p className="mt-1 text-sm text-slate-500">
+          Global default for all users.
+        </p>
       </div>
 
       <label className="flex items-center gap-3 text-sm font-medium text-slate-700">
@@ -619,64 +602,23 @@ function ModuleSettingCard({
         Auto-generate after journal saves
       </label>
 
-      <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-        <p className="text-sm font-semibold text-[var(--text-primary)]">
-          Model Profile
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {profileOptions.map((profile) => {
-            const active = draft.model_profile === profile.profile_id;
-            const disabled = !profile.enabled;
-            return (
-              <Button
-                key={profile.profile_id}
-                type="button"
-                variant={active ? "default" : "secondary"}
-                disabled={disabled}
-                className={`h-auto min-h-[116px] w-full flex-col items-stretch justify-start overflow-hidden rounded-[20px] p-4 text-left whitespace-normal ${
-                  active
-                    ? "bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
-                    : "text-slate-600"
-                }`}
-                onClick={() => updateProfile(profile.profile_id)}
-              >
-                <span className="min-w-0 text-sm font-semibold">
-                  {profile.label}
-                </span>
-              </Button>
-            );
-          })}
-        </div>
-      </section>
-
       <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:grid-cols-2">
-        {isCustomModelProfile ? (
-          <ModuleSelectField
-            label="LLM Provider"
-            value={draft.custom_provider}
-            onChange={updateProvider}
-            hint={
-              enabledProviders.length > 0
-                ? "Only providers with configured API keys are shown."
-                : "No configured LLM providers are available."
-            }
-          >
-            {enabledProviders.map((provider) => (
-              <SelectItem key={provider.provider} value={provider.provider}>
-                {provider.label}
-              </SelectItem>
-            ))}
-          </ModuleSelectField>
-        ) : (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-              Routed Provider
-            </p>
-            <p className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-3 text-sm font-semibold text-slate-900">
-              {selectedProviderLabel || "Profile route"}
-            </p>
-          </div>
-        )}
+        <ModuleSelectField
+          label="LLM Provider"
+          value={draft.custom_provider}
+          onChange={updateProvider}
+          hint={
+            enabledProviders.length > 0
+              ? "Only providers with configured API keys are shown."
+              : "No configured LLM providers are available."
+          }
+        >
+          {enabledProviders.map((provider) => (
+            <SelectItem key={provider.provider} value={provider.provider}>
+              {provider.label}
+            </SelectItem>
+          ))}
+        </ModuleSelectField>
 
         <ModuleSelectField
           label="Output Language"
@@ -690,25 +632,23 @@ function ModuleSettingCard({
           ))}
         </ModuleSelectField>
 
-        {isCustomModelProfile ? (
-          <ModuleSelectField
-            label="Review Model"
-            value={draft.custom_model}
-            onChange={(value) => updateDraft({ custom_model: value })}
-            hint="Trade journal reviews use the selected model for coach-style entry and exit review generation."
-          >
-            {selectedCustomModels.length === 0 ? (
-              <SelectItem value="__none" disabled>
-                No enabled review models
-              </SelectItem>
-            ) : null}
-            {selectedCustomModels.map((model) => (
-              <SelectItem key={model.id} value={model.model_id}>
-                {model.label}
-              </SelectItem>
-            ))}
-          </ModuleSelectField>
-        ) : null}
+        <ModuleSelectField
+          label="Review Model"
+          value={draft.custom_model}
+          onChange={(value) => updateDraft({ custom_model: value })}
+          hint="Used by all users for journal entry and exit reviews."
+        >
+          {selectedCustomModels.length === 0 ? (
+            <SelectItem value="__none" disabled>
+              No enabled review models
+            </SelectItem>
+          ) : null}
+          {selectedCustomModels.map((model) => (
+            <SelectItem key={model.id} value={model.model_id}>
+              {model.label}
+            </SelectItem>
+          ))}
+        </ModuleSelectField>
       </section>
 
       {selectedProvider === "openai" ? (
@@ -745,15 +685,14 @@ function ModuleSettingCard({
         type="button"
         disabled={
           saving ||
-          (isCustomModelProfile &&
-            (!draft.custom_provider ||
-              !draft.custom_model ||
-              draft.custom_model === "__none"))
+          !draft.custom_provider ||
+          !draft.custom_model ||
+          draft.custom_model === "__none"
         }
         onClick={onSave}
       >
         <Save className="h-4 w-4" />
-        Save Module Default
+        Save Global Module Default
       </Button>
     </AdminPanel>
   );

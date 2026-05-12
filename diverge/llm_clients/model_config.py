@@ -45,17 +45,29 @@ OPENAI_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("GPT-5 Nano - High-throughput simple tasks", "gpt-5-nano"),
 )
 
-SUB2API_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = OPENAI_QUICK_MODEL_OPTIONS
-SUB2API_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = OPENAI_DEEP_MODEL_OPTIONS
+SUB2API_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("GPT-5.4 Mini - Fast, strong coding and tool use", "gpt-5.4-mini"),
+    ("GPT-5.2 - Strong reasoning", "gpt-5.2"),
+)
+SUB2API_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("GPT-5.4 - Frontier model, 1M context", "gpt-5.4"),
+    ("GPT-5.5 - Latest frontier for complex reasoning and coding", "gpt-5.5"),
+)
 
 MIMO_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("MiMo V2 Flash - Fast agent model", "mimo-v2-flash"),
     ("MiMo V2.5 - Omni-modal agent foundation", "mimo-v2.5"),
+    ("MiMo V2 Omni - 256K omni-modal agent model", "mimo-v2-omni"),
     ("MiMo V2.5 Pro - Flagship agent and coding model", "mimo-v2.5-pro"),
+    ("MiMo V2 Pro - Flagship long-context agent model", "mimo-v2-pro"),
 )
 
 MIMO_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("MiMo V2.5 Pro - Flagship agent and coding model", "mimo-v2.5-pro"),
+    ("MiMo V2 Pro - Flagship long-context agent model", "mimo-v2-pro"),
     ("MiMo V2.5 - Omni-modal agent foundation", "mimo-v2.5"),
+    ("MiMo V2 Omni - 256K omni-modal agent model", "mimo-v2-omni"),
+    ("MiMo V2 Flash - Fast agent model", "mimo-v2-flash"),
 )
 
 ANTHROPIC_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (

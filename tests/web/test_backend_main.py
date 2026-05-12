@@ -1597,9 +1597,13 @@ class BackendMainTests(unittest.TestCase):
             "gpt-5-mini",
             {option["value"] for option in payload["models"]["openai"]["quick"]},
         )
-        self.assertIn(
-            "gpt-5.4",
-            {option["value"] for option in payload["models"]["sub2api"]["deep"]},
+        self.assertEqual(
+            [option["value"] for option in payload["models"]["sub2api"]["quick"]],
+            ["gpt-5.4-mini", "gpt-5.2"],
+        )
+        self.assertEqual(
+            [option["value"] for option in payload["models"]["sub2api"]["deep"]],
+            ["gpt-5.4", "gpt-5.5"],
         )
         self.assertIn(
             "deepseek-ai/DeepSeek-V4-Flash",

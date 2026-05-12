@@ -41,7 +41,7 @@ class ModelProfileTests(unittest.TestCase):
 
         self.assertEqual(resolved.llm_provider, "sub2api")
         self.assertEqual(resolved.quick_think_llm, "gpt-5.4-mini")
-        self.assertEqual(resolved.deep_think_llm, "gpt-5.2")
+        self.assertEqual(resolved.deep_think_llm, "gpt-5.4")
 
     def test_resolver_can_use_mimo_profile_route(self):
         resolved = resolve_model_profile("balanced", _only_mimo)
@@ -49,6 +49,20 @@ class ModelProfileTests(unittest.TestCase):
         self.assertEqual(resolved.llm_provider, "mimo")
         self.assertEqual(resolved.quick_think_llm, "mimo-v2.5")
         self.assertEqual(resolved.deep_think_llm, "mimo-v2.5-pro")
+
+    def test_low_cost_profile_uses_supported_sub2api_route(self):
+        resolved = resolve_model_profile("low_cost", _only_sub2api)
+
+        self.assertEqual(resolved.llm_provider, "sub2api")
+        self.assertEqual(resolved.quick_think_llm, "gpt-5.2")
+        self.assertEqual(resolved.deep_think_llm, "gpt-5.4")
+
+    def test_low_cost_profile_uses_mimo_flash_route(self):
+        resolved = resolve_model_profile("low_cost", _only_mimo)
+
+        self.assertEqual(resolved.llm_provider, "mimo")
+        self.assertEqual(resolved.quick_think_llm, "mimo-v2-flash")
+        self.assertEqual(resolved.deep_think_llm, "mimo-v2-flash")
 
     def test_resolver_rejects_profile_without_available_route(self):
         with self.assertRaisesRegex(ValueError, "no available provider route"):
