@@ -38,7 +38,7 @@ test("TradeRecordForm derives report and full-state-log paths from the MAY-8 con
   assert.match(source, /data\/reports\/\$?\{?report\.id\}?\/complete_report\.md/);
   assert.match(source, /full_state_log_path:\s*""/);
   assert.match(source, /normalizeAnalysisReferences/);
-  assert.match(source, /Snapshot reference \${index \+ 1} is incomplete\./);
+  assert.match(source, /tradeRecord\.error\.snapshotIncomplete/);
   assert.match(source, /!analysisDate \|\| !reportPath/);
 });
 

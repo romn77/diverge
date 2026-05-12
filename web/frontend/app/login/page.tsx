@@ -74,11 +74,11 @@ export default function LoginPage() {
         <Card className="card-surface w-full max-w-lg text-center">
           <CardHeader>
             <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
-              Session Bootstrap
+              {t("auth.sessionBootstrap", "Session Bootstrap")}
             </p>
-            <CardTitle>Preparing secure sign-in</CardTitle>
+            <CardTitle>{t("auth.preparingSignIn", "Preparing secure sign-in")}</CardTitle>
             <CardDescription>
-              Checking for an existing session.
+              {t("auth.checkingSession", "Checking for an existing session.")}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -92,16 +92,16 @@ export default function LoginPage() {
         <Card className="card-surface w-full max-w-lg text-center">
           <CardHeader>
             <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
-              Auth Unavailable
+              {t("auth.unavailable", "Auth Unavailable")}
             </p>
-            <CardTitle>Unable to reach the auth service</CardTitle>
+            <CardTitle>{t("auth.unavailableTitle", "Unable to reach the auth service")}</CardTitle>
             <CardDescription>
-              {authError ?? "We couldn't verify your session."}
+              {authError ?? t("auth.verifyFallback", "We couldn't verify your session.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center pt-0">
             <Button type="button" onClick={() => void refreshSession()}>
-              Retry Auth Bootstrap
+              {t("auth.retryBootstrap", "Retry Auth Bootstrap")}
             </Button>
           </CardContent>
         </Card>
@@ -115,11 +115,11 @@ export default function LoginPage() {
         <Card className="card-surface w-full max-w-lg text-center">
           <CardHeader>
             <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
-              Session Ready
+              {t("auth.sessionReady", "Session Ready")}
             </p>
-            <CardTitle>Redirecting back to the workbench</CardTitle>
+            <CardTitle>{t("auth.redirectingWorkbench", "Redirecting back to the workbench")}</CardTitle>
             <CardDescription>
-              Returning to your destination.
+              {t("auth.returningDestination", "Returning to your destination.")}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -144,16 +144,16 @@ export default function LoginPage() {
         <section className="px-6 py-8 md:px-10 md:py-12">
           <div className="mx-auto w-full max-w-md">
             <p className="text-[12px] font-semibold uppercase tracking-[0.34em] text-muted-foreground">
-              Login
+              {t("auth.login", "Login")}
             </p>
             <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-foreground">
-              Workspace credentials
+              {t("auth.workspaceCredentials", "Workspace credentials")}
             </h2>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
               <label className="block">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
-                  Email
+                  {t("auth.email", "Email")}
                 </span>
                 <Input
                   type="email"
@@ -168,7 +168,7 @@ export default function LoginPage() {
 
               <label className="block">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
-                  Password
+                  {t("auth.password", "Password")}
                 </span>
                 <Input
                   type="password"
@@ -177,7 +177,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   className="mt-2"
-                  placeholder="Enter your password"
+                  placeholder={t("auth.passwordPlaceholder", "Enter your password")}
                 />
               </label>
 
@@ -195,17 +195,19 @@ export default function LoginPage() {
               ) : null}
 
               <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting ? "Signing In" : "Sign In"}
+                {isSubmitting
+                  ? t("auth.signingIn", "Signing In")
+                  : t("auth.signIn", "Sign In")}
               </Button>
             </form>
 
             <div className="card-surface mt-6 rounded-[24px] border-dashed px-4 py-4 text-sm text-muted-foreground">
-              Need access help? Ask your workspace admin.
+              {t("auth.accessHelp", "Need access help? Ask your workspace admin.")}
             </div>
 
             <div className="mt-4 flex justify-end text-sm text-muted-foreground">
               <Button asChild variant="ghost" size="sm" className="h-auto px-0 py-0 text-[var(--primary)]">
-                <Link href="/">Back to workbench</Link>
+                <Link href="/">{t("auth.backToWorkbench", "Back to workbench")}</Link>
               </Button>
             </div>
           </div>

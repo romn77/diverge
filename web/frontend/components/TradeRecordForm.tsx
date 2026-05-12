@@ -152,7 +152,11 @@ export function TradeRecordForm({
         .catch((resolveError) => {
           if (isActive) {
             setMarketResolution(null);
-            setError(resolveError instanceof Error ? resolveError.message : "Unable to resolve market");
+            setError(
+              resolveError instanceof Error
+                ? resolveError.message
+                : t("tradeRecord.error.resolveMarket", "Unable to resolve market")
+            );
           }
         })
         .finally(() => {
@@ -171,6 +175,7 @@ export function TradeRecordForm({
     formState.market_override,
     formState.raw_symbol,
     isOpen,
+    t,
   ]);
 
   const suggestedReports = useMemo(() => {
@@ -535,31 +540,34 @@ function MarketResolutionPanel({
   onMarketOverrideChange: (value: "auto" | MarketResolutionMarket) => void;
   onExchangeOverrideChange: (value: string) => void;
 }) {
+  const { t } = usePreferences();
   const needsOverride = resolution?.market === "unknown" || resolution?.confidence === "low";
   return (
     <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
-            Market Resolution
+            {t("tradeRecord.marketResolution", "Market Resolution")}
           </p>
           <h3 className="mt-2 text-xl font-semibold text-slate-900">
             {resolving
-              ? "Resolving symbol..."
+              ? t("tradeRecord.resolvingSymbol", "Resolving symbol...")
               : resolution
                 ? `${resolution.display_symbol} · ${resolution.market.toUpperCase()}`
-                : "Enter a ticker to resolve"}
+                : t("tradeRecord.enterTickerToResolve", "Enter a ticker to resolve")}
           </h3>
           {resolution ? (
             <p className="mt-2 text-sm leading-6 text-slate-600">
-              {resolution.asset_type} · {resolution.exchange ?? "no exchange"} · {resolution.source} ·{" "}
+              {resolution.asset_type} · {resolution.exchange ?? t("tradeRecord.noExchange", "no exchange")} · {resolution.source} ·{" "}
               {resolution.confidence}
             </p>
           ) : null}
         </div>
         {resolution ? (
           <Badge variant={needsOverride ? "destructive" : "secondary"}>
-            {needsOverride ? "needs review" : "resolved"}
+            {needsOverride
+              ? t("tradeRecord.needsReview", "needs review")
+              : t("tradeRecord.resolved", "resolved")}
           </Badge>
         ) : null}
       </div>
@@ -574,23 +582,23 @@ function MarketResolutionPanel({
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Market Override
+              {t("tradeRecord.marketOverride", "Market Override")}
             </span>
             <Select value={marketOverride} onValueChange={(value) => onMarketOverrideChange(value as "auto" | MarketResolutionMarket)}>
               <SelectTrigger className="mt-2 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">auto</SelectItem>
-                <SelectItem value="cn">cn</SelectItem>
-                <SelectItem value="us">us</SelectItem>
-                <SelectItem value="unknown">unknown</SelectItem>
+                <SelectItem value="auto">{t("tradeRecord.market.auto", "auto")}</SelectItem>
+                <SelectItem value="cn">{t("tradeRecord.market.cn", "cn")}</SelectItem>
+                <SelectItem value="us">{t("tradeRecord.market.us", "us")}</SelectItem>
+                <SelectItem value="unknown">{t("tradeRecord.market.unknown", "unknown")}</SelectItem>
               </SelectContent>
             </Select>
           </label>
           <label className="block">
             <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Exchange Override
+              {t("tradeRecord.exchangeOverride", "Exchange Override")}
             </span>
             <Input
               value={exchangeOverride}
@@ -614,15 +622,16 @@ function SnapshotReferences({
   suggestedReports: Report[];
   setFormState: Dispatch<SetStateAction<TradeRecordFormState>>;
 }) {
+  const { t } = usePreferences();
   return (
     <section className="rounded-[28px] border border-[var(--border)] bg-white/85 p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
-            Snapshot References
+            {t("tradeRecord.snapshots", "Snapshot References")}
           </p>
           <h3 className="mt-2 text-lg font-semibold text-slate-900">
-            Optional analysis context
+            {t("tradeRecord.optionalAnalysisContext", "Optional analysis context")}
           </h3>
         </div>
         <Button
@@ -635,7 +644,7 @@ function SnapshotReferences({
             }))
           }
         >
-          Add Blank Reference
+          {t("tradeRecord.addBlankReference", "Add Blank Reference")}
         </Button>
       </div>
 
@@ -675,7 +684,9 @@ function SnapshotReferences({
           >
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Snapshot {index + 1}
+                {t("tradeRecord.snapshot", ({ index: itemIndex }) => `Snapshot ${itemIndex}`, {
+                  index: index + 1,
+                })}
               </p>
               <button
                 type="button"
@@ -689,7 +700,7 @@ function SnapshotReferences({
                   }))
                 }
               >
-                Remove
+                {t("tradeRecord.remove", "Remove")}
               </button>
             </div>
             <div className="mt-4 grid gap-4">
@@ -778,48 +789,57 @@ function buildPayload(
   record: TradeRecord | null,
   t: ReturnType<typeof usePreferences>["t"]
 ): TradeRecordCreateRequest {
-  const strategyTags = normalizeStrategyTags(state);
+  const strategyTags = normalizeStrategyTags(state, t);
   return {
-    raw_symbol: requireText(state.raw_symbol, t("analysis.ticker", "Ticker")).toUpperCase(),
+    raw_symbol: requireText(state.raw_symbol, t("analysis.ticker", "Ticker"), t).toUpperCase(),
     side: state.side,
     entry_timestamp: normalizeRequiredTimestamp(
       state.entry_timestamp,
       t("tradeRecord.entryTime", "Entry time"),
-      record?.entry_timestamp ?? null
+      record?.entry_timestamp ?? null,
+      t
     ),
     entry_price: parseRequiredNumber(
       state.entry_price,
-      t("tradeRecord.entryPrice", "Entry price")
+      t("tradeRecord.entryPrice", "Entry price"),
+      t
     ),
-    size: parseRequiredNumber(state.size, t("tradeRecord.size", "Size")),
+    size: parseRequiredNumber(state.size, t("tradeRecord.size", "Size"), t),
     strategy_tags: strategyTags,
     entry_reason: requireText(
       state.entry_reason,
-      t("tradeRecord.entryReason", "Entry reason")
+      t("tradeRecord.entryReason", "Entry reason"),
+      t
     ),
     invalidation_condition: requireText(
       state.invalidation_condition,
-      t("tradeRecord.invalidationCondition", "Invalidation condition")
+      t("tradeRecord.invalidationCondition", "Invalidation condition"),
+      t
     ),
     planned_horizon: state.planned_horizon || "unknown",
     stop_loss: parseOptionalNumber(
       state.stop_loss,
-      t("tradeRecord.stopLoss", "Stop loss")
+      t("tradeRecord.stopLoss", "Stop loss"),
+      t
     ),
     take_profit: parseOptionalNumber(
       state.take_profit,
-      t("tradeRecord.takeProfit", "Take profit")
+      t("tradeRecord.takeProfit", "Take profit"),
+      t
     ),
     initial_thesis: state.initial_thesis.trim(),
     market_resolution:
       state.market_override !== "auto" && marketResolution
         ? { ...marketResolution, source: "manual", confidence: "manual" }
         : marketResolution,
-    analysis_references: normalizeAnalysisReferences(state.analysis_references),
+    analysis_references: normalizeAnalysisReferences(state.analysis_references, t),
   };
 }
 
-function normalizeStrategyTags(state: TradeRecordFormState): string[] {
+function normalizeStrategyTags(
+  state: TradeRecordFormState,
+  t: ReturnType<typeof usePreferences>["t"]
+): string[] {
   const values = [...state.strategy_tags];
   const customTags = state.custom_strategy_tag
     .split(",")
@@ -830,18 +850,33 @@ function normalizeStrategyTags(state: TradeRecordFormState): string[] {
     new Set(values.map((tag) => tag.toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^_+|_+$/g, "")))
   ).filter(Boolean);
   if (normalized.length === 0) {
-    throw new Error("Strategy tags are required.");
+    throw new Error(
+      t("tradeRecord.error.strategyTagsRequired", "Strategy tags are required.")
+    );
   }
   if (normalized.includes("other") && normalized.length === 1 && state.entry_reason.trim().length < 12) {
-    throw new Error("Other strategy requires a custom tag or a specific entry reason.");
+    throw new Error(
+      t(
+        "tradeRecord.error.otherStrategyRequiresDetail",
+        "Other strategy requires a custom tag or a specific entry reason."
+      )
+    );
   }
   return normalized;
 }
 
-function requireText(value: string, fieldName: string): string {
+function requireText(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      t("common.required", ({ field }) => `${field} is required.`, {
+        field: fieldName,
+      })
+    );
   }
   return normalized;
 }
@@ -849,40 +884,62 @@ function requireText(value: string, fieldName: string): string {
 function normalizeRequiredTimestamp(
   value: string,
   fieldName: string,
-  originalValue: string | null
+  originalValue: string | null,
+  t: ReturnType<typeof usePreferences>["t"]
 ): string {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      t("common.required", ({ field }) => `${field} is required.`, {
+        field: fieldName,
+      })
+    );
   }
   if (originalValue && normalized === toDateTimeLocalValue(originalValue)) {
     return originalValue;
   }
-  return toOffsetDateTimeString(parseDateTimeLocalValue(normalized, fieldName));
+  return toOffsetDateTimeString(parseDateTimeLocalValue(normalized, fieldName, t));
 }
 
-function parseRequiredNumber(value: string, fieldName: string): number {
-  const parsed = parseOptionalNumber(value, fieldName);
+function parseRequiredNumber(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): number {
+  const parsed = parseOptionalNumber(value, fieldName, t);
   if (parsed === null) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      t("common.required", ({ field }) => `${field} is required.`, {
+        field: fieldName,
+      })
+    );
   }
   return parsed;
 }
 
-function parseOptionalNumber(value: string, fieldName: string): number | null {
+function parseOptionalNumber(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): number | null {
   const normalized = value.trim();
   if (!normalized) {
     return null;
   }
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) {
-    throw new Error(`${fieldName} must be numeric.`);
+    throw new Error(
+      t("common.mustBeNumeric", ({ field }) => `${field} must be numeric.`, {
+        field: fieldName,
+      })
+    );
   }
   return parsed;
 }
 
 function normalizeAnalysisReferences(
-  references: AnalysisReference[]
+  references: AnalysisReference[],
+  t: ReturnType<typeof usePreferences>["t"]
 ): AnalysisReference[] {
   return references.reduce<AnalysisReference[]>((accumulator, reference, index) => {
     const analysisDate = reference.analysis_date.trim();
@@ -894,7 +951,13 @@ function normalizeAnalysisReferences(
     }
 
     if (!analysisDate || !reportPath) {
-      throw new Error(`Snapshot reference ${index + 1} is incomplete.`);
+      throw new Error(
+        t(
+          "tradeRecord.error.snapshotIncomplete",
+          ({ index: itemIndex }) => `Snapshot reference ${itemIndex} is incomplete.`,
+          { index: index + 1 }
+        )
+      );
     }
 
     accumulator.push({
@@ -986,10 +1049,20 @@ function toInputNumber(value: number | null): string {
   return typeof value === "number" ? String(value) : "";
 }
 
-function parseDateTimeLocalValue(value: string, fieldName: string): Date {
+function parseDateTimeLocalValue(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): Date {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
   if (!match) {
-    throw new Error(`${fieldName} must use YYYY-MM-DDTHH:MM format.`);
+    throw new Error(
+      t(
+        "common.invalidDateTimeFormat",
+        ({ field }) => `${field} must use YYYY-MM-DDTHH:MM format.`,
+        { field: fieldName }
+      )
+    );
   }
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -1005,7 +1078,13 @@ function parseDateTimeLocalValue(value: string, fieldName: string): Date {
     parsed.getHours() !== hour ||
     parsed.getMinutes() !== minute
   ) {
-    throw new Error(`${fieldName} must be a valid date and time.`);
+    throw new Error(
+      t(
+        "common.invalidDateTime",
+        ({ field }) => `${field} must be a valid date and time.`,
+        { field: fieldName }
+      )
+    );
   }
   return parsed;
 }

@@ -33,16 +33,33 @@ function ratingClass(rating: PortfolioRating): string {
   }
 }
 
-function formatMarket(value: DecisionCardModel["market"]): string {
-  return value === "unknown" ? "Market unknown" : `${value.toUpperCase()} Market`;
+function formatMarket(
+  value: DecisionCardModel["market"],
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return value === "unknown"
+    ? t("decisionCard.marketUnknown", "Market unknown")
+    : t("decisionCard.marketLabel", ({ market }) => `${market} Market`, {
+        market: value.toUpperCase(),
+      });
 }
 
-function formatPrice(value: number | null | undefined): string {
-  return typeof value === "number" ? String(value) : "Not provided";
+function formatPrice(
+  value: number | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return typeof value === "number"
+    ? String(value)
+    : t("decisionCard.notProvided", "Not provided");
 }
 
-function formatNumberList(values: number[] | null | undefined): string {
-  return values && values.length > 0 ? values.join(" / ") : "Not provided";
+function formatNumberList(
+  values: number[] | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return values && values.length > 0
+    ? values.join(" / ")
+    : t("decisionCard.notProvided", "Not provided");
 }
 
 function renderList(items: string[], emptyLabel: string) {
@@ -76,7 +93,7 @@ export function DecisionCard({ card }: DecisionCardProps) {
           </p>
           <h3 className="decision-card-title">{displayName}</h3>
           <p className="decision-card-meta">
-            {formatMarket(card.market)}
+            {formatMarket(card.market, t)}
             {card.analysis_date ? ` / ${card.analysis_date}` : ""}
           </p>
         </div>
@@ -89,7 +106,14 @@ export function DecisionCard({ card }: DecisionCardProps) {
 
       <div className="decision-card-grid">
         <div className="decision-score-panel">
-          <div className="decision-score-ring" aria-label={`Conviction ${card.conviction_score} out of 100`}>
+          <div
+            className="decision-score-ring"
+            aria-label={t(
+              "decisionCard.convictionScore",
+              ({ score }) => `Conviction ${score} out of 100`,
+              { score: card.conviction_score }
+            )}
+          >
             <Gauge className="size-5" aria-hidden />
             <span>{card.conviction_score}</span>
           </div>
@@ -126,15 +150,15 @@ export function DecisionCard({ card }: DecisionCardProps) {
           <dl className="decision-plan-list">
             <div>
               <dt>{t("decisionCard.entryAdd", "Entry / Add")}</dt>
-              <dd>{plan.add_condition || formatNumberList(plan.entry_zone)}</dd>
+              <dd>{plan.add_condition || formatNumberList(plan.entry_zone, t)}</dd>
             </div>
             <div>
               <dt>{t("decisionCard.stopLoss", "Stop Loss")}</dt>
-              <dd>{formatPrice(plan.stop_loss)}</dd>
+              <dd>{formatPrice(plan.stop_loss, t)}</dd>
             </div>
             <div>
               <dt>{t("decisionCard.takeProfit", "Take Profit")}</dt>
-              <dd>{formatNumberList(plan.take_profit)}</dd>
+              <dd>{formatNumberList(plan.take_profit, t)}</dd>
             </div>
             {plan.risk_reward_note && (
               <div>

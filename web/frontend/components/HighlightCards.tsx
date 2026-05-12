@@ -176,7 +176,7 @@ function renderPanelContent(panel: TerminalPanel) {
 
 export function HighlightCards({ highlights }: HighlightCardsProps) {
   const { t } = usePreferences();
-  const deck = buildHighlightDeck(highlights);
+  const deck = buildHighlightDeck(highlights, t);
   const panels = deck.consoles.flatMap((consolePanel) => consolePanel.panels);
 
   return (
