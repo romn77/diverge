@@ -152,3 +152,22 @@ def test_analysis_indicators_use_latest_cache_for_weekend_as_of(tmp_path, monkey
     assert "## close_10_ema values from 2026-01-07 to 2026-01-10" in result
     assert "2026-01-10: N/A: Not a trading day" in result
     assert "2026-01-09:" in result
+
+
+def test_analysis_indicators_fall_back_to_local_cache_when_incremental_fetch_fails(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("STOCK_HISTORY_DIR", str(tmp_path / "history"))
+    history_dir = tmp_path / "history"
+    save_history_cache(history_dir, "us", "SMH", _history_rows("2025-12-31", 132))
+
+    with patch(
+        "diverge.dataflows.vendors.local.analysis_market_data.fetch_ticker_history",
+        side_effect=RuntimeError("network unavailable"),
+    ):
+        result = get_indicators.func("SMH", "rsi", "2026-05-11", 30)
+
+    assert "## rsi values from 2026-04-11 to 2026-05-11" in result
+    assert "2026-05-11:" in result
+    assert "computed from cached local history only" in result

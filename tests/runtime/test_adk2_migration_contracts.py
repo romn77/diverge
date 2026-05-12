@@ -218,6 +218,43 @@ def test_adk_chat_model_times_out_stalled_async_generator():
         )
 
 
+def test_adk_chat_model_retries_transient_gateway_timeout():
+    from diverge.runtime.model_factory import AdkChatModel
+
+    class FlakyGatewayModel:
+        model = "openai/flaky"
+
+        def __init__(self):
+            self.calls = 0
+
+        async def generate_content_async(self, _request, *, stream):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError(
+                    "litellm.Timeout: Timeout Error: OpenAIException - "
+                    "<html><title>504 Gateway Time-out</title></html>"
+                )
+            yield "ok"
+
+    model = FlakyGatewayModel()
+    with patch.dict(
+        os.environ,
+        {
+            "LLM_TRANSIENT_MAX_RETRIES": "2",
+            "LLM_TRANSIENT_RETRY_BASE_DELAY": "0",
+            "LLM_TRANSIENT_RETRY_MAX_DELAY": "0",
+        },
+    ):
+        chat_model = AdkChatModel(model, timeout=1)
+
+    result = asyncio.run(
+        chat_model._collect_final_response(SimpleNamespace(model="openai/flaky"))
+    )
+
+    assert result == "ok"
+    assert model.calls == 2
+
+
 def test_sub2api_litellm_api_base_uses_openai_compatible_v1_endpoint():
     from diverge.runtime.model_factory import _litellm_kwargs
 

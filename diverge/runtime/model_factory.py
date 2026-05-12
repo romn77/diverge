@@ -27,8 +27,15 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_ADK_MODEL_TIMEOUT_SECONDS = 300.0
 ADK_MODEL_TIMEOUT_ENV = "DIVERGE_LLM_TIMEOUT_SECONDS"
+ADK_TRANSIENT_MAX_RETRIES_ENV = "LLM_TRANSIENT_MAX_RETRIES"
+ADK_TRANSIENT_RETRY_BASE_DELAY_ENV = "LLM_TRANSIENT_RETRY_BASE_DELAY"
+ADK_TRANSIENT_RETRY_MAX_DELAY_ENV = "LLM_TRANSIENT_RETRY_MAX_DELAY"
+DEFAULT_ADK_TRANSIENT_MAX_RETRIES = 2
+DEFAULT_ADK_TRANSIENT_RETRY_BASE_DELAY_SECONDS = 1.0
+DEFAULT_ADK_TRANSIENT_RETRY_MAX_DELAY_SECONDS = 8.0
 _LITELLM_LOOP_START_TIMEOUT_SECONDS = 5.0
 _LITELLM_LOOP_SHUTDOWN_TIMEOUT_SECONDS = 5.0
+_RETRYABLE_LLM_STATUS_CODES = {408, 409, 429, 500, 502, 503, 504}
 
 _litellm_loop_lock = threading.Lock()
 _litellm_loop: asyncio.AbstractEventLoop | None = None
@@ -148,11 +155,80 @@ def _coerce_timeout_seconds(value: Any) -> float | None:
     return timeout
 
 
+def _coerce_non_negative_int(value: Any, fallback: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(0, parsed)
+
+
+def _coerce_non_negative_float(value: Any, fallback: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(0.0, parsed)
+
+
 def _default_adk_model_timeout_seconds() -> float | None:
     raw_value = os.environ.get(ADK_MODEL_TIMEOUT_ENV)
     if raw_value is None or not raw_value.strip():
         return DEFAULT_ADK_MODEL_TIMEOUT_SECONDS
     return _coerce_timeout_seconds(raw_value.strip())
+
+
+def _default_adk_transient_max_retries() -> int:
+    return _coerce_non_negative_int(
+        os.environ.get(ADK_TRANSIENT_MAX_RETRIES_ENV),
+        DEFAULT_ADK_TRANSIENT_MAX_RETRIES,
+    )
+
+
+def _default_adk_transient_retry_base_delay_seconds() -> float:
+    return _coerce_non_negative_float(
+        os.environ.get(ADK_TRANSIENT_RETRY_BASE_DELAY_ENV),
+        DEFAULT_ADK_TRANSIENT_RETRY_BASE_DELAY_SECONDS,
+    )
+
+
+def _default_adk_transient_retry_max_delay_seconds() -> float:
+    return _coerce_non_negative_float(
+        os.environ.get(ADK_TRANSIENT_RETRY_MAX_DELAY_ENV),
+        DEFAULT_ADK_TRANSIENT_RETRY_MAX_DELAY_SECONDS,
+    )
+
+
+def _error_status_code(error: BaseException) -> int | None:
+    status_code = getattr(error, "status_code", None)
+    if isinstance(status_code, int):
+        return status_code
+
+    response = getattr(error, "response", None)
+    response_status = getattr(response, "status_code", None)
+    if isinstance(response_status, int):
+        return response_status
+
+    return None
+
+
+def _is_retryable_adk_model_error(error: BaseException) -> bool:
+    status_code = _error_status_code(error)
+    if status_code in _RETRYABLE_LLM_STATUS_CODES:
+        return True
+
+    message = str(error).lower()
+    return (
+        "gateway time-out" in message
+        or "gateway timeout" in message
+        or "bad gateway" in message
+        or "service unavailable" in message
+        or "connection error" in message
+        or "connection reset" in message
+        or "unexpected_eof_while_reading" in message
+        or "eof occurred in violation of protocol" in message
+        or "temporarily unavailable" in message
+    )
 
 
 def create_adk_model(
@@ -494,6 +570,11 @@ class AdkChatModel:
             if timeout is not None
             else getattr(model, "_diverge_timeout_seconds", None)
         )
+        self.transient_max_retries = _default_adk_transient_max_retries()
+        self.transient_retry_base_delay = (
+            _default_adk_transient_retry_base_delay_seconds()
+        )
+        self.transient_retry_max_delay = _default_adk_transient_retry_max_delay_seconds()
 
     def bind_tools(self, tools: Iterable[Any]):
         try:
@@ -580,16 +661,46 @@ class AdkChatModel:
                 final_response = response
             return final_response
 
-        if self.timeout is None:
-            return await collect()
+        async def collect_with_timeout():
+            if self.timeout is None:
+                return await collect()
 
-        try:
-            return await asyncio.wait_for(collect(), timeout=self.timeout)
-        except asyncio.TimeoutError as exc:
-            model_name = str(getattr(self.model, "model", None) or request.model or "")
-            raise TimeoutError(
-                f"ADK model call timed out after {self.timeout:g}s for {model_name}"
-            ) from exc
+            try:
+                return await asyncio.wait_for(collect(), timeout=self.timeout)
+            except asyncio.TimeoutError as exc:
+                model_name = str(
+                    getattr(self.model, "model", None) or request.model or ""
+                )
+                raise TimeoutError(
+                    f"ADK model call timed out after {self.timeout:g}s for {model_name}"
+                ) from exc
+
+        model_name = str(getattr(self.model, "model", None) or request.model or "")
+        max_retries = self.transient_max_retries
+        base_delay = self.transient_retry_base_delay
+        max_delay = self.transient_retry_max_delay
+        for attempt in range(max_retries + 1):
+            try:
+                return await collect_with_timeout()
+            except Exception as exc:
+                if attempt >= max_retries or not _is_retryable_adk_model_error(exc):
+                    raise
+
+                delay = min(max_delay, base_delay * (2**attempt))
+                logger.warning(
+                    "Retrying transient ADK model error model=%s status=%s "
+                    "attempt=%s/%s delay=%.1fs: %s",
+                    model_name,
+                    _error_status_code(exc),
+                    attempt + 1,
+                    max_retries,
+                    delay,
+                    exc,
+                )
+                if delay > 0:
+                    await asyncio.sleep(delay)
+
+        raise RuntimeError("unreachable ADK model retry state")
 
 
 def _run_coro_blocking(
