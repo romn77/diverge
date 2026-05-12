@@ -23,7 +23,7 @@ class MassiveApiIntegrationTests(unittest.TestCase):
             f"{base_url}/market/stocks/bars",
             headers={"X-API-KEY": api_key},
             params={
-                "tickers": ["NVDA"],
+                "tickers": ["SMH"],
                 "interval": "1Day",
                 "start_time": "2016-01-01T00:00:00Z",
             },
