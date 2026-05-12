@@ -457,7 +457,6 @@ _PASSTHROUGH_KWARGS = (
 # Provider base URLs and API key env vars
 _PROVIDER_CONFIG = {
     "xai": ("https://api.x.ai/v1", "XAI_API_KEY"),
-    "deepseek": ("https://api.deepseek.com", "DEEPSEEK_API_KEY"),
     "qwen": (
         "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         "DASHSCOPE_API_KEY",
@@ -467,11 +466,18 @@ _PROVIDER_CONFIG = {
     "siliconflow": ("https://api.siliconflow.cn/v1", "SILICONFLOW_API_KEY"),
     "xiaohumini": ("https://xiaohumini.site/v1", "XIAOHUMINI_API_KEY"),
     "sub2api": ("https://cc.z2blog.com/v1", "SUB2API_API_KEY"),
+    "mimo": ("https://api.xiaomimimo.com/v1", "MIMO_API_KEY"),
     "deepseek": ("https://api.deepseek.com/v1", "DEEPSEEK_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
 }
 
-_REASONING_CONTENT_PROVIDERS = {"deepseek", "qwen", "siliconflow", "xiaohumini"}
+_REASONING_CONTENT_PROVIDERS = {
+    "deepseek",
+    "qwen",
+    "siliconflow",
+    "xiaohumini",
+    "mimo",
+}
 _RESPONSES_API_PROVIDERS = {"openai", "sub2api"}
 
 
@@ -482,7 +488,7 @@ class OpenAIClient(BaseLLMClient):
     supports reasoning_effort with function tools across all model families
     (GPT-4.1, GPT-5). Sub2API also uses the Responses wire API. Other
     third-party compatible providers (xAI, OpenRouter, DeepSeek, SiliconFlow,
-    XiaoHuMini, Ollama) use standard Chat Completions.
+    XiaoHuMini, MiMo, Ollama) use standard Chat Completions.
     """
 
     def __init__(

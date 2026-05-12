@@ -40,6 +40,7 @@ _OPENAI_COMPATIBLE_PROVIDERS = {
     "siliconflow",
     "sub2api",
     "xiaohumini",
+    "mimo",
 }
 
 _LITELLM_PROVIDER_PREFIX = {
@@ -59,6 +60,7 @@ _PROVIDER_API_KEY_ENV = {
     "siliconflow": "SILICONFLOW_API_KEY",
     "xiaohumini": "XIAOHUMINI_API_KEY",
     "sub2api": "SUB2API_API_KEY",
+    "mimo": "MIMO_API_KEY",
 }
 
 
@@ -676,7 +678,9 @@ def _run_litellm_loop_forever(
             task.cancel()
         if pending:
             with contextlib.suppress(Exception):
-                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                loop.run_until_complete(
+                    asyncio.gather(*pending, return_exceptions=True)
+                )
         with contextlib.suppress(Exception):
             loop.run_until_complete(loop.shutdown_asyncgens())
         with contextlib.suppress(Exception):

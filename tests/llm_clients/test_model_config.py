@@ -84,6 +84,10 @@ class ModelConfigTests(unittest.TestCase):
         self.assertIs(
             DEEP_MODEL_OPTIONS["sub2api"], model_config.SUB2API_DEEP_MODEL_OPTIONS
         )
+        self.assertIs(
+            QUICK_MODEL_OPTIONS["mimo"], model_config.MIMO_QUICK_MODEL_OPTIONS
+        )
+        self.assertIs(DEEP_MODEL_OPTIONS["mimo"], model_config.MIMO_DEEP_MODEL_OPTIONS)
 
     def test_validators_accept_all_shared_models_for_strict_providers(self):
         for provider in STRICT_VALIDATION_PROVIDERS:
@@ -213,6 +217,22 @@ class ModelConfigTests(unittest.TestCase):
         self.assertIn("gpt-5.4", deep_models)
         self.assertIn("gpt-5.4-pro", deep_models)
         self.assertTrue(validate_model("sub2api", "gpt-5.4"))
+
+    def test_mimo_provider_exposes_openai_compatible_models(self):
+        provider_map = {
+            provider: (label, base_url)
+            for provider, label, base_url in PROVIDER_OPTIONS
+        }
+        self.assertEqual(
+            provider_map["mimo"], ("MiMo", "https://api.xiaomimimo.com/v1")
+        )
+
+        quick_models = {model for _label, model in QUICK_MODEL_OPTIONS["mimo"]}
+        deep_models = {model for _label, model in DEEP_MODEL_OPTIONS["mimo"]}
+
+        self.assertEqual(quick_models, {"mimo-v2.5", "mimo-v2.5-pro"})
+        self.assertEqual(deep_models, {"mimo-v2.5", "mimo-v2.5-pro"})
+        self.assertTrue(validate_model("mimo", "mimo-v2.5-pro"))
 
 
 if __name__ == "__main__":

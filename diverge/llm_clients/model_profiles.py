@@ -23,6 +23,7 @@ PROVIDER_API_KEY_ENV_VARS: Final[dict[str, str | None]] = {
     "ollama": None,
     "xiaohumini": "XIAOHUMINI_API_KEY",
     "sub2api": "SUB2API_API_KEY",
+    "mimo": "MIMO_API_KEY",
 }
 
 
@@ -61,6 +62,7 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
             ModelRoute("openai", "gpt-5.4-mini", "gpt-5.2"),
             ModelRoute("sub2api", "gpt-5.4-mini", "gpt-5.2"),
             ModelRoute("xiaohumini", "gpt-5.4-mini", "gpt-5.2"),
+            ModelRoute("mimo", "mimo-v2.5", "mimo-v2.5-pro"),
         ),
     ),
     ModelProfile(
@@ -72,6 +74,7 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
             ModelRoute("openai", "gpt-5.4-nano", "gpt-5-mini"),
             ModelRoute("sub2api", "gpt-5.4-nano", "gpt-5-mini"),
             ModelRoute("xiaohumini", "gpt-5.4-nano", "gpt-5-mini"),
+            ModelRoute("mimo", "mimo-v2.5", "mimo-v2.5"),
         ),
     ),
     ModelProfile(
@@ -83,6 +86,7 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
             ModelRoute("openai", "gpt-5.4", "gpt-5.5"),
             ModelRoute("sub2api", "gpt-5.4", "gpt-5.5"),
             ModelRoute("xiaohumini", "gpt-5.4", "gpt-5.5"),
+            ModelRoute("mimo", "mimo-v2.5-pro", "mimo-v2.5-pro"),
         ),
     ),
 )

@@ -34,6 +34,14 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
 
         self.assertIsInstance(client, OpenAIClient)
 
+    def test_factory_routes_mimo_to_openai_compatible_client(self):
+        client = create_llm_client(
+            "mimo",
+            "mimo-v2.5-pro",
+        )
+
+        self.assertIsInstance(client, OpenAIClient)
+
     def test_siliconflow_client_uses_provider_base_url_and_api_key(self):
         client = OpenAIClient(
             "deepseek-ai/DeepSeek-V4-Flash",
@@ -81,6 +89,27 @@ class OpenAICompatibleProviderTests(unittest.TestCase):
         self.assertEqual(kwargs["base_url"], "https://cc.z2blog.com/v1")
         self.assertEqual(kwargs["api_key"], "test-sub2api-key")
         self.assertTrue(kwargs["use_responses_api"])
+
+    def test_mimo_client_uses_chat_completions_base_url_and_api_key(self):
+        client = OpenAIClient(
+            "mimo-v2.5-pro",
+            provider="mimo",
+        )
+
+        with (
+            patch.dict("os.environ", {"MIMO_API_KEY": "test-mimo-key"}, clear=True),
+            patch(
+                "diverge.llm_clients.openai_client.NormalizedChatOpenAI"
+            ) as chat_openai,
+        ):
+            client.get_llm()
+
+        chat_openai.assert_called_once()
+        kwargs = chat_openai.call_args.kwargs
+        self.assertEqual(kwargs["model"], "mimo-v2.5-pro")
+        self.assertEqual(kwargs["base_url"], "https://api.xiaomimimo.com/v1")
+        self.assertEqual(kwargs["api_key"], "test-mimo-key")
+        self.assertNotIn("use_responses_api", kwargs)
 
     def test_openai_client_sets_transient_retry_defaults(self):
         client = OpenAIClient(

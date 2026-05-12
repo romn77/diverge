@@ -16,6 +16,10 @@ def _only_sub2api(provider: str) -> dict[str, object]:
     return {"enabled": provider == "sub2api", "disabled_reason": None}
 
 
+def _only_mimo(provider: str) -> dict[str, object]:
+    return {"enabled": provider == "mimo", "disabled_reason": None}
+
+
 def _none(_provider: str) -> dict[str, object]:
     return {"enabled": False, "disabled_reason": "missing key"}
 
@@ -38,6 +42,13 @@ class ModelProfileTests(unittest.TestCase):
         self.assertEqual(resolved.llm_provider, "sub2api")
         self.assertEqual(resolved.quick_think_llm, "gpt-5.4-mini")
         self.assertEqual(resolved.deep_think_llm, "gpt-5.2")
+
+    def test_resolver_can_use_mimo_profile_route(self):
+        resolved = resolve_model_profile("balanced", _only_mimo)
+
+        self.assertEqual(resolved.llm_provider, "mimo")
+        self.assertEqual(resolved.quick_think_llm, "mimo-v2.5")
+        self.assertEqual(resolved.deep_think_llm, "mimo-v2.5-pro")
 
     def test_resolver_rejects_profile_without_available_route(self):
         with self.assertRaisesRegex(ValueError, "no available provider route"):

@@ -17,6 +17,7 @@ PROVIDER_OPTIONS: Final[tuple[ProviderOption, ...]] = (
     ("siliconflow", "SiliconFlow", "https://api.siliconflow.cn/v1"),
     ("xiaohumini", "Xiaohumini", "https://xiaohumini.site/v1"),
     ("sub2api", "Sub2API", "https://cc.z2blog.com/v1"),
+    ("mimo", "MiMo", "https://api.xiaomimimo.com/v1"),
 )
 
 OPENAI_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
@@ -46,6 +47,16 @@ OPENAI_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
 
 SUB2API_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = OPENAI_QUICK_MODEL_OPTIONS
 SUB2API_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = OPENAI_DEEP_MODEL_OPTIONS
+
+MIMO_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("MiMo V2.5 - Omni-modal agent foundation", "mimo-v2.5"),
+    ("MiMo V2.5 Pro - Flagship agent and coding model", "mimo-v2.5-pro"),
+)
+
+MIMO_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
+    ("MiMo V2.5 Pro - Flagship agent and coding model", "mimo-v2.5-pro"),
+    ("MiMo V2.5 - Omni-modal agent foundation", "mimo-v2.5"),
+)
 
 ANTHROPIC_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("Claude Sonnet 4.6 - Best speed and intelligence balance", "claude-sonnet-4-6"),
@@ -248,6 +259,7 @@ QUICK_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     "siliconflow": SILICONFLOW_QUICK_MODEL_OPTIONS,
     "xiaohumini": XIAOHUMINI_QUICK_MODEL_OPTIONS,
     "sub2api": SUB2API_QUICK_MODEL_OPTIONS,
+    "mimo": MIMO_QUICK_MODEL_OPTIONS,
 }
 
 DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
@@ -260,6 +272,7 @@ DEEP_MODEL_OPTIONS: Final[dict[str, tuple[ModelOption, ...]]] = {
     "siliconflow": SILICONFLOW_DEEP_MODEL_OPTIONS,
     "xiaohumini": XIAOHUMINI_DEEP_MODEL_OPTIONS,
     "sub2api": SUB2API_DEEP_MODEL_OPTIONS,
+    "mimo": MIMO_DEEP_MODEL_OPTIONS,
 }
 
 EXTRA_VALIDATED_MODELS: Final[dict[str, tuple[str, ...]]] = {
@@ -297,6 +310,7 @@ EXTRA_VALIDATED_MODELS: Final[dict[str, tuple[str, ...]]] = {
     "openrouter": (),
     # "ollama": (),
     "xiaohumini": (),
+    "mimo": (),
 }
 
 ALLOW_ANY_MODEL_PROVIDERS: Final[frozenset[str]] = frozenset(

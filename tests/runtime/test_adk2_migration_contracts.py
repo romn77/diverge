@@ -242,6 +242,25 @@ def test_sub2api_litellm_api_base_uses_openai_compatible_v1_endpoint():
     assert already_versioned_kwargs["api_base"] == "https://cc.z2blog.com/v1"
 
 
+def test_mimo_litellm_uses_openai_compatible_base_and_api_key_env():
+    from diverge.runtime.model_factory import _litellm_kwargs, _prefixed_litellm_model
+
+    with patch.dict(os.environ, {"MIMO_API_KEY": "test-mimo-key"}, clear=True):
+        kwargs = _litellm_kwargs(
+            "mimo",
+            base_url="https://api.xiaomimimo.com/v1",
+            api_key=None,
+            timeout=None,
+            max_retries=None,
+            extra={},
+        )
+
+    assert _prefixed_litellm_model("mimo", "mimo-v2.5-pro") == "openai/mimo-v2.5-pro"
+    assert kwargs["api_base"] == "https://api.xiaomimimo.com/v1"
+    assert kwargs["api_key"] == "test-mimo-key"
+    assert kwargs["custom_llm_provider"] == "openai"
+
+
 def test_sync_adk_invoke_flushes_litellm_logging_worker():
     import asyncio
 
