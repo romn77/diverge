@@ -98,6 +98,53 @@ test("parseHighlights accepts portfolio five-level rating signals", () => {
   assert.equal(result.highlights?.final_decision, "UNDERWEIGHT");
 });
 
+test("parseHighlights accepts compatible stance, evidence blocks, and risk budget fields", () => {
+  const { parseHighlights } = loadHighlightsModule();
+  const markdown = [
+    "Risk debate.",
+    "```json-highlights",
+    JSON.stringify({
+      category: "risk_neutral",
+      signal: "HOLD",
+      signal_confidence: "medium",
+      summary: "Wait for confirmation while preserving optionality.",
+      stance: "mixed",
+      stance_label: "Neutral",
+      core_argument: "The setup needs confirmation before adding risk.",
+      risk_assessment: "moderate",
+      key_recommendations: ["Watch event risk"],
+      risk_budget: {
+        max_position_size: "2% NAV",
+        portfolio_exposure_impact: "Caps single-name exposure",
+        stop_or_invalidation: ["Close below 50DMA"],
+        liquidity_risk: "unknown",
+        event_risk: ["earnings"],
+        correlation_or_factor_risk: ["mega-cap tech"],
+        required_pm_adjustment: "WATCH",
+      },
+      evidence_blocks: [
+        {
+          claim: "Event risk is material.",
+          evidence: "Earnings are the next major catalyst.",
+          source: "news_analyst",
+          data_date: "2026-05-07",
+          confidence: "medium",
+          limitation: null,
+        },
+      ],
+      unknowns: ["Current liquidity profile"],
+    }),
+    "```",
+  ].join("\n");
+
+  const result = parseHighlights(markdown);
+
+  assert.equal(result.highlights?.category, "risk_neutral");
+  assert.equal(result.highlights?.stance, "mixed");
+  assert.equal(result.highlights?.evidence_blocks?.[0]?.source, "news_analyst");
+  assert.equal(result.highlights?.risk_budget?.required_pm_adjustment, "WATCH");
+});
+
 test("parseHighlights strips json-decision-card blocks from markdown output", () => {
   const { parseHighlights } = loadHighlightsModule();
   const markdown = [

@@ -4,6 +4,7 @@ import logging
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
+    get_evidence_rules_instruction,
     get_language_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
@@ -180,6 +181,7 @@ class PortfolioManager(DivergeAgentNode):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
         portfolio_context = (state.get("portfolio_context") or "").strip()
         portfolio_context_block = (
             portfolio_context
@@ -201,6 +203,10 @@ class PortfolioManager(DivergeAgentNode):
             past_memory_str = "No past memories found."
 
         prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
+
+Final decision authority: you are the only agent allowed to issue the user-facing portfolio rating and action. Treat upstream `signal` values as legacy directional inputs, not final verdicts. Base the final DecisionCard on evidence quality, portfolio context, risk budget, and data limitations.
+
+{evidence_rules_instruction}
 
 {instrument_context}
 
@@ -289,7 +295,11 @@ After the json-highlights block, append a second structured block:
       "pillar": "technical or fundamentals or valuation or news or sentiment or risk or portfolio or macro",
       "point": "short reason",
       "evidence": "specific evidence from the analysts' reports",
-      "strength": "strong or medium or weak"
+      "strength": "strong or medium or weak",
+      "source": "agent/report/tool source, or unknown",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
     }}
   ],
   "key_risks": ["risk 1", "risk 2"],

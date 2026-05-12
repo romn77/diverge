@@ -5,11 +5,34 @@ export type TradeSignal =
   | "UNDERWEIGHT"
   | "SELL";
 export type SignalConfidence = "high" | "medium" | "low";
+export type ResearchStance = "bullish" | "neutral" | "bearish" | "mixed";
+
+export interface EvidenceBlock {
+  claim: string;
+  evidence: string;
+  source?: string | null;
+  data_date?: string | null;
+  confidence?: SignalConfidence;
+  limitation?: string | null;
+}
+
+export interface RiskBudget {
+  max_position_size?: string;
+  portfolio_exposure_impact?: string;
+  stop_or_invalidation?: string[];
+  liquidity_risk?: "low" | "medium" | "high" | "unknown";
+  event_risk?: string[];
+  correlation_or_factor_risk?: string[];
+  required_pm_adjustment?: string;
+}
 
 export interface BaseHighlights {
   signal: TradeSignal;
   signal_confidence?: SignalConfidence;
   summary: string;
+  stance?: ResearchStance;
+  evidence_blocks?: EvidenceBlock[];
+  unknowns?: string[];
 }
 
 export interface MarketHighlights extends BaseHighlights {
@@ -78,10 +101,14 @@ export interface TraderHighlights extends BaseHighlights {
   decision: TradeSignal;
   entry_exit: {
     action: string;
+    entry_condition?: string;
     exit_target?: string;
     stop_loss?: string;
+    invalidation?: string;
     re_entry?: string;
   };
+  position_sizing?: string;
+  risk_budget?: string;
   risk_factors: string[];
 }
 
@@ -91,6 +118,7 @@ export interface RiskDebateHighlights extends BaseHighlights {
   core_argument: string;
   risk_assessment: "high" | "moderate" | "low";
   key_recommendations: string[];
+  risk_budget?: RiskBudget;
 }
 
 export interface PortfolioDecisionHighlights extends BaseHighlights {
@@ -143,8 +171,67 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every(isString);
 }
 
+function isStringOrNull(value: unknown): value is string | null {
+  return value === null || isString(value);
+}
+
 function isEnumValue<T extends string>(value: unknown, allowed: readonly T[]): value is T {
   return isString(value) && (allowed as readonly string[]).includes(value);
+}
+
+function validateEvidenceBlock(value: unknown): value is EvidenceBlock {
+  if (!isObject(value) || !isString(value.claim) || !isString(value.evidence)) {
+    return false;
+  }
+
+  if (value.source !== undefined && !isStringOrNull(value.source)) {
+    return false;
+  }
+
+  if (value.data_date !== undefined && !isStringOrNull(value.data_date)) {
+    return false;
+  }
+
+  if (
+    value.confidence !== undefined &&
+    !isEnumValue(value.confidence, ["high", "medium", "low"] as const)
+  ) {
+    return false;
+  }
+
+  return value.limitation === undefined || isStringOrNull(value.limitation);
+}
+
+function validateEvidenceBlocks(value: unknown): value is EvidenceBlock[] {
+  return Array.isArray(value) && value.every(validateEvidenceBlock);
+}
+
+function validateRiskBudget(value: unknown): value is RiskBudget {
+  if (!isObject(value)) {
+    return false;
+  }
+
+  const stringFieldsValid =
+    (value.max_position_size === undefined || isString(value.max_position_size)) &&
+    (value.portfolio_exposure_impact === undefined || isString(value.portfolio_exposure_impact)) &&
+    (value.required_pm_adjustment === undefined || isString(value.required_pm_adjustment));
+
+  if (!stringFieldsValid) {
+    return false;
+  }
+
+  if (
+    value.liquidity_risk !== undefined &&
+    !isEnumValue(value.liquidity_risk, ["low", "medium", "high", "unknown"] as const)
+  ) {
+    return false;
+  }
+
+  return (
+    (value.stop_or_invalidation === undefined || isStringArray(value.stop_or_invalidation)) &&
+    (value.event_risk === undefined || isStringArray(value.event_risk)) &&
+    (value.correlation_or_factor_risk === undefined || isStringArray(value.correlation_or_factor_risk))
+  );
 }
 
 function extractSignalFromMarkdown(markdown: string): TradeSignal | null {
@@ -177,6 +264,21 @@ function validateBaseHighlights(value: unknown): value is BaseHighlights {
     value.signal_confidence !== undefined &&
     !isEnumValue(value.signal_confidence, ["high", "medium", "low"] as const)
   ) {
+    return false;
+  }
+
+  if (
+    value.stance !== undefined &&
+    !isEnumValue(value.stance, ["bullish", "neutral", "bearish", "mixed"] as const)
+  ) {
+    return false;
+  }
+
+  if (value.evidence_blocks !== undefined && !validateEvidenceBlocks(value.evidence_blocks)) {
+    return false;
+  }
+
+  if (value.unknowns !== undefined && !isStringArray(value.unknowns)) {
     return false;
   }
 
@@ -330,11 +432,18 @@ function validateTraderHighlights(value: unknown): value is TraderHighlights {
   }
 
   const hasOptionalEntryExitValues =
+    (value.entry_exit.entry_condition === undefined || isString(value.entry_exit.entry_condition)) &&
     (value.entry_exit.exit_target === undefined || isString(value.entry_exit.exit_target)) &&
     (value.entry_exit.stop_loss === undefined || isString(value.entry_exit.stop_loss)) &&
+    (value.entry_exit.invalidation === undefined || isString(value.entry_exit.invalidation)) &&
     (value.entry_exit.re_entry === undefined || isString(value.entry_exit.re_entry));
 
-  return hasOptionalEntryExitValues && isStringArray(value.risk_factors);
+  return (
+    hasOptionalEntryExitValues &&
+    (value.position_sizing === undefined || isString(value.position_sizing)) &&
+    (value.risk_budget === undefined || isString(value.risk_budget)) &&
+    isStringArray(value.risk_factors)
+  );
 }
 
 function validateRiskDebateHighlights(value: unknown): value is RiskDebateHighlights {
@@ -347,7 +456,8 @@ function validateRiskDebateHighlights(value: unknown): value is RiskDebateHighli
     isString(value.stance_label) &&
     isString(value.core_argument) &&
     isEnumValue(value.risk_assessment, ["high", "moderate", "low"] as const) &&
-    isStringArray(value.key_recommendations)
+    isStringArray(value.key_recommendations) &&
+    (value.risk_budget === undefined || validateRiskBudget(value.risk_budget))
   );
 }
 

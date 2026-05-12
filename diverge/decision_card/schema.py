@@ -44,6 +44,10 @@ class EvidenceItem(BaseModel):
     point: str
     evidence: str
     strength: Literal["strong", "medium", "weak"] = "medium"
+    source: str | None = None
+    data_date: str | None = None
+    confidence: ConfidenceLevel | None = None
+    limitation: str | None = None
 
 
 class PricePlan(BaseModel):

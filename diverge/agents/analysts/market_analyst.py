@@ -1,9 +1,12 @@
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
+    get_analyst_evidence_role_instruction,
+    get_evidence_rules_instruction,
     get_language_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
+    get_upstream_decision_boundary_instruction,
 )
 from diverge.agents.utils.core_stock_tools import get_stock_data
 from diverge.agents.utils.technical_indicators_tools import get_indicators
@@ -21,6 +24,9 @@ class MarketAnalyst(DivergeAgentNode):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
+        role_instruction = get_analyst_evidence_role_instruction("market/technical")
+        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
 
         tools = [
             get_stock_data,
@@ -53,6 +59,7 @@ Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
 - Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. When calling get_stock_data, request only the past 120 trading days ending at the current date; do not request a longer price-history window. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
+            + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. After the markdown table, also append a structured highlights block in the following exact format (replace values with your actual analysis findings). This block MUST use the json-highlights code fence:
 
 ```json-highlights
@@ -61,6 +68,7 @@ Volume-Based Indicators:
   "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your analysis",
+  "stance": "bullish or neutral or bearish or mixed",
   "trend_direction": "bullish or bearish or neutral or mixed",
   "key_levels": {
     "support": ["level1", "level2"],
@@ -69,7 +77,18 @@ Volume-Based Indicators:
   "indicators": [
     {"name": "indicator name", "value": "current value", "interpretation": "brief meaning"}
   ],
-  "volatility": "high or moderate or low"
+  "volatility": "high or moderate or low",
+  "evidence_blocks": [
+    {
+      "claim": "technical claim",
+      "evidence": "specific OHLC/indicator evidence",
+      "source": "get_stock_data or get_indicators",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
+    }
+  ],
+  "unknowns": ["material technical unknown or unavailable input"]
 }
 ```
 
@@ -82,8 +101,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
                 " Use the provided tools to progress towards answering the question."
                 " If you are unable to fully answer, that's OK; another assistant with different tools"
                 " will help where you left off. Execute what you can to make progress."
-                " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** or deliverable,"
-                " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** so the team knows to stop."
                 f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"

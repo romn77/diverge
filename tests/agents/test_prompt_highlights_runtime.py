@@ -146,6 +146,26 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 result = node(state)
                 self.assertIsInstance(result, dict)
 
+    def test_upstream_prompts_define_evidence_contracts_without_final_verdict(self):
+        trader_llm = _FakeLLM()
+        create_trader(trader_llm, _FakeMemory())(_base_state())
+        trader_prompt = trader_llm.prompts[0].to_string()
+
+        self.assertIn("execution planner", trader_prompt)
+        self.assertIn('"evidence_blocks"', trader_prompt)
+        self.assertIn('"risk_budget"', trader_prompt)
+        self.assertIn("Do not write `FINAL TRANSACTION PROPOSAL`", trader_prompt)
+        self.assertNotIn("Conclude your narrative analysis", trader_prompt)
+
+        risk_llm = _FakeLLM()
+        create_aggressive_debator(risk_llm)(_base_state())
+        risk_prompt = risk_llm.prompts[0].to_string()
+
+        self.assertIn('"risk_budget"', risk_prompt)
+        self.assertIn('"required_pm_adjustment"', risk_prompt)
+        self.assertIn('"evidence_blocks"', risk_prompt)
+        self.assertIn("Do not write `FINAL TRANSACTION PROPOSAL`", risk_prompt)
+
     @patch(
         "diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals"
     )

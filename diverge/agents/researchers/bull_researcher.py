@@ -1,8 +1,11 @@
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
+    get_evidence_rules_instruction,
     get_language_instruction,
     get_research_note_style_instruction,
+    get_thesis_stress_test_instruction,
     get_trade_feedback_message,
+    get_upstream_decision_boundary_instruction,
 )
 from diverge.runtime.messages import AdkPrompt
 
@@ -20,6 +23,9 @@ class BullResearcher(DivergeAgentNode):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
+        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+        stress_test_instruction = get_thesis_stress_test_instruction("bullish")
         market_research_report = state["market_report"]
         sentiment_report = state["sentiment_report"]
         news_report = state["news_report"]
@@ -32,7 +38,11 @@ class BullResearcher(DivergeAgentNode):
         for i, rec in enumerate(past_memories, 1):
             past_memory_str += rec["recommendation"] + "\n\n"
 
-        prompt = f"""You are a Bull Analyst advocating for investing in the stock. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
+        prompt = f"""You are a Bull Analyst stress-testing the bullish case for the stock. Your task is to build a strong, evidence-based case emphasizing growth potential, competitive advantages, and positive market indicators while clearly acknowledging material contrary evidence. Leverage the provided research and data to address concerns and counter bearish arguments effectively.
+
+{stress_test_instruction}
+{decision_boundary_instruction}
+{evidence_rules_instruction}
 
 Key points to focus on:
 - Growth Potential: Highlight the company's market opportunities, revenue projections, and scalability.
@@ -61,10 +71,22 @@ After your complete analysis, append a structured highlights block in the follow
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your bull case",
   "stance": "bullish",
+  "contrary_evidence": ["strongest evidence against the bull case"],
   "key_arguments": [
     {{"point": "core argument title", "evidence": "supporting evidence or data"}}
   ],
-  "counterpoints": ["rebuttal to bear argument 1", "rebuttal 2"]
+  "counterpoints": ["rebuttal to bear argument 1", "rebuttal 2"],
+  "evidence_blocks": [
+    {{
+      "claim": "bullish claim",
+      "evidence": "specific report-backed fact",
+      "source": "analyst report or memory source",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
+    }}
+  ],
+  "unknowns": ["material unresolved question"]
 }}
 ```
 Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.

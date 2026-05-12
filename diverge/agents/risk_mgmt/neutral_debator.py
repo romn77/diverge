@@ -1,8 +1,11 @@
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
+    get_evidence_rules_instruction,
     get_language_instruction,
+    get_risk_budget_role_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
+    get_upstream_decision_boundary_instruction,
 )
 from diverge.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
@@ -36,6 +39,9 @@ class NeutralDebator(DivergeAgentNode):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
+        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+        risk_budget_instruction = get_risk_budget_role_instruction("neutral")
         debate_mode = get_risk_debate_mode(risk_debate_state.get("count", 0))
 
         if debate_mode == REBUTTAL_MODE:
@@ -68,6 +74,10 @@ This is the opening cycle of the risk debate. Lead with your own neutral thesis 
 
         prompt = f"""As the Neutral Risk Analyst, your role is to provide a balanced perspective, weighing both the potential benefits and risks of the trader's decision or plan. You prioritize a well-rounded approach, evaluating the upsides and downsides while factoring in broader market trends, potential economic shifts, and diversification strategies.
 
+{risk_budget_instruction}
+{decision_boundary_instruction}
+{evidence_rules_instruction}
+
 {mode_instruction}
 
 Here is the trader's decision:
@@ -91,14 +101,33 @@ After your complete argument, append a structured highlights block:
 
 ```json-highlights
 {{
-            "category": "risk_neutral",
+  "category": "risk_neutral",
   "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence summary of your neutral risk stance",
   "stance_label": "Neutral",
   "core_argument": "one sentence core thesis",
   "risk_assessment": "high or moderate or low",
-  "key_recommendations": ["recommendation 1", "recommendation 2"]
+  "key_recommendations": ["recommendation 1", "recommendation 2"],
+  "risk_budget": {{
+    "max_position_size": "position size limit or unknown",
+    "portfolio_exposure_impact": "expected exposure impact",
+    "stop_or_invalidation": ["condition, not invented price level"],
+    "liquidity_risk": "low or medium or high or unknown",
+    "event_risk": ["event risk"],
+    "correlation_or_factor_risk": ["factor or concentration risk"],
+    "required_pm_adjustment": "ADD or MAINTAIN or TRIM or WATCH or AVOID"
+  }},
+  "evidence_blocks": [
+    {{
+      "claim": "risk claim",
+      "evidence": "specific report-backed fact",
+      "source": "analyst report or trader plan",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
+    }}
+  ]
 }}
 ```
 

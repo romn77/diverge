@@ -1,9 +1,12 @@
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
+    get_analyst_evidence_role_instruction,
+    get_evidence_rules_instruction,
     get_language_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
+    get_upstream_decision_boundary_instruction,
 )
 from diverge.agents.utils.news_data_tools import get_global_news, get_news
 from diverge.agents.utils.search_tools import web_search_evidence
@@ -26,6 +29,9 @@ class NewsAnalyst(DivergeAgentNode):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
+        role_instruction = get_analyst_evidence_role_instruction("news/macro")
+        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
         earnings_context = build_earnings_workflow_context(
             trade_date=current_date,
             ticker=ticker,
@@ -44,6 +50,7 @@ class NewsAnalyst(DivergeAgentNode):
             "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(ticker, start_date, end_date) for company-specific news, get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news, and web_search_evidence(query, purpose, max_results) when you need a targeted search-style query or source-backed supplement. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + f"\n\n{web_search_instruction}"
+            + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
             + f"\n\n{earnings_context.prompt_instruction}"
             + """ After the markdown table, append exactly one structured highlights block in this exact format:
 
@@ -53,6 +60,7 @@ class NewsAnalyst(DivergeAgentNode):
   "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "medium",
   "summary": "concise summary of the key news implications",
+  "stance": "bullish or neutral or bearish or mixed",
   "market_impact": "mixed",
   "key_events": [
     {
@@ -60,11 +68,22 @@ class NewsAnalyst(DivergeAgentNode):
       "impact": "description of market impact"
     }
   ],
-  "macro_outlook": "forward-looking macro outlook"
+  "macro_outlook": "forward-looking macro outlook",
+  "evidence_blocks": [
+    {
+      "claim": "news or macro claim",
+      "evidence": "specific source-backed fact",
+      "source": "get_news, get_global_news, or web_search_evidence result",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
+    }
+  ],
+  "unknowns": ["material news or macro unknown"]
 }
 ```
 
-Keep the `json-highlights` fence, JSON keys, and enum literals in English constants exactly as shown (`category` must be `news`; `signal` must be one of `BUY`, `OVERWEIGHT`, `HOLD`, `UNDERWEIGHT`, `SELL`; `signal_confidence` must be one of `high`, `medium`, `low`; `market_impact` must be one of `positive`, `negative`, `neutral`, `mixed`). Free-form string values should follow the report language. `signal_confidence` and `macro_outlook` are optional when uncertain."""
+Keep the `json-highlights` fence, JSON keys, and enum literals in English constants exactly as shown (`category` must be `news`; `signal` must be one of `BUY`, `OVERWEIGHT`, `HOLD`, `UNDERWEIGHT`, `SELL`; `signal_confidence` must be one of `high`, `medium`, `low`; `stance` must be one of `bullish`, `neutral`, `bearish`, `mixed`; `market_impact` must be one of `positive`, `negative`, `neutral`, `mixed`). Free-form string values should follow the report language. `signal_confidence` and `macro_outlook` are optional when uncertain."""
         )
 
         prompt = AdkPrompt(
@@ -73,8 +92,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
                 " Use the provided tools to progress towards answering the question."
                 " If you are unable to fully answer, that's OK; another assistant with different tools"
                 " will help where you left off. Execute what you can to make progress."
-                " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** or deliverable,"
-                " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL** so the team knows to stop."
                 f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"

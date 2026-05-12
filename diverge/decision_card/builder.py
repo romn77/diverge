@@ -99,17 +99,29 @@ def _build_evidence_items(value: Any) -> list[dict[str, str]]:
             continue
         pillar = raw.get("pillar")
         strength = raw.get("strength")
+        confidence = raw.get("confidence")
         item = {
             "pillar": pillar if isinstance(pillar, str) else "portfolio",
             "point": point.strip(),
             "evidence": evidence.strip() if isinstance(evidence, str) else "",
             "strength": strength if isinstance(strength, str) else "medium",
+            "source": raw.get("source") if isinstance(raw.get("source"), str) else None,
+            "data_date": raw.get("data_date")
+            if isinstance(raw.get("data_date"), str)
+            else None,
+            "confidence": normalize_confidence(confidence)
+            if isinstance(confidence, str)
+            else None,
+            "limitation": raw.get("limitation")
+            if isinstance(raw.get("limitation"), str)
+            else None,
         }
         try:
             EvidenceItem(**item)
         except ValidationError:
             item["pillar"] = "portfolio"
             item["strength"] = "medium"
+            item["confidence"] = None
         items.append(item)
         if len(items) >= 5:
             break

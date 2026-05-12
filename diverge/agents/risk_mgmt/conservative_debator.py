@@ -1,8 +1,11 @@
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
+    get_evidence_rules_instruction,
     get_language_instruction,
+    get_risk_budget_role_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
+    get_upstream_decision_boundary_instruction,
 )
 from diverge.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
@@ -34,6 +37,9 @@ class ConservativeDebator(DivergeAgentNode):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
+        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+        risk_budget_instruction = get_risk_budget_role_instruction("conservative")
         debate_mode = get_risk_debate_mode(risk_debate_state.get("count", 0))
 
         if debate_mode == REBUTTAL_MODE:
@@ -66,6 +72,10 @@ This is the opening cycle of the risk debate. Lead with your own conservative th
 
         prompt = f"""As the Conservative Risk Analyst, your primary objective is to protect assets, minimize volatility, and ensure steady, reliable growth. You prioritize stability, security, and risk mitigation, carefully assessing potential losses, economic downturns, and market volatility. When evaluating the trader's decision or plan, critically examine high-risk elements, pointing out where the decision may expose the firm to undue risk and where more cautious alternatives could secure long-term gains.
 
+{risk_budget_instruction}
+{decision_boundary_instruction}
+{evidence_rules_instruction}
+
 {mode_instruction}
 
 Here is the trader's decision:
@@ -95,7 +105,26 @@ After your complete argument, append a structured highlights block:
   "stance_label": "Conservative",
   "core_argument": "one sentence core thesis",
   "risk_assessment": "high or moderate or low",
-  "key_recommendations": ["recommendation 1", "recommendation 2"]
+  "key_recommendations": ["recommendation 1", "recommendation 2"],
+  "risk_budget": {{
+    "max_position_size": "position size limit or unknown",
+    "portfolio_exposure_impact": "expected exposure impact",
+    "stop_or_invalidation": ["condition, not invented price level"],
+    "liquidity_risk": "low or medium or high or unknown",
+    "event_risk": ["event risk"],
+    "correlation_or_factor_risk": ["factor or concentration risk"],
+    "required_pm_adjustment": "ADD or MAINTAIN or TRIM or WATCH or AVOID"
+  }},
+  "evidence_blocks": [
+    {{
+      "claim": "risk claim",
+      "evidence": "specific report-backed fact",
+      "source": "analyst report or trader plan",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
+    }}
+  ]
 }}
 ```
 Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.

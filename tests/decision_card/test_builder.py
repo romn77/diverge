@@ -28,7 +28,11 @@ def test_build_decision_card_prefers_json_decision_card():
       "pillar": "fundamentals",
       "point": "Durable quality",
       "evidence": "Analysts cited resilient margins.",
-      "strength": "strong"
+      "strength": "strong",
+      "source": "fundamentals_analyst",
+      "data_date": "2026-05-07",
+      "confidence": "high",
+      "limitation": "Segment margins unavailable"
     }
   ],
   "key_risks": ["Valuation reset"],
@@ -48,6 +52,10 @@ def test_build_decision_card_prefers_json_decision_card():
     assert card.rating == "OVERWEIGHT"
     assert card.action == "WATCH"
     assert card.conviction_score == 88
+    assert card.key_reasons[0].source == "fundamentals_analyst"
+    assert card.key_reasons[0].data_date == "2026-05-07"
+    assert card.key_reasons[0].confidence == "high"
+    assert card.key_reasons[0].limitation == "Segment margins unavailable"
     assert card.price_plan.stop_loss is None
     assert card.price_plan.take_profit is None
     assert "Price levels were removed" in " ".join(card.data_quality_notes)

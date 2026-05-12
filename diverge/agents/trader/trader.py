@@ -1,9 +1,12 @@
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.agents.utils.agent_utils import (
+    get_evidence_rules_instruction,
     get_language_instruction,
     get_research_note_style_instruction,
+    get_trader_execution_role_instruction,
     get_trade_feedback_message,
+    get_upstream_decision_boundary_instruction,
 )
 from diverge.runtime.messages import AdkPrompt
 
@@ -24,6 +27,9 @@ class Trader(DivergeAgentNode):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
+        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+        execution_role_instruction = get_trader_execution_role_instruction()
 
         curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
         past_memories = self.memory.get_memories(curr_situation, n_matches=2)
@@ -40,13 +46,15 @@ class Trader(DivergeAgentNode):
             "content": f"Based on a comprehensive analysis by a team of analysts, here is an investment plan tailored for {company_name}. {instrument_context} This plan incorporates insights from current technical market trends, macroeconomic indicators, and social media sentiment. Use this plan as a foundation for evaluating your next trading decision.\n\nProposed Investment Plan: {investment_plan}\n\nLeverage these insights to make an informed and strategic decision.",
         }
 
-        system_prompt = f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. Apply lessons from past decisions to strengthen your analysis. Here are reflections from similar situations you traded in and the lessons learned: {past_memory_str}
+        system_prompt = f"""You are a trading execution planner translating the research plan into an actionable trade framework for the Portfolio Manager. Provide a provisional directional read for compatibility, but focus on execution conditions, invalidation, sizing, and risk controls. Apply lessons from past decisions to strengthen your analysis. Here are reflections from similar situations you traded in and the lessons learned: {past_memory_str}
+
+{execution_role_instruction}
+{decision_boundary_instruction}
+{evidence_rules_instruction}
 
 {trade_feedback_message}
 
-Conclude your narrative analysis with 'FINAL TRANSACTION PROPOSAL: **BUY/OVERWEIGHT/HOLD/UNDERWEIGHT/SELL**' as your final narrative line.
-
-Then append a structured highlights block at the end of your response:
+Append a structured highlights block at the end of your response:
 
 ```json-highlights
 {{
@@ -54,14 +62,30 @@ Then append a structured highlights block at the end of your response:
   "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your trading decision",
+  "stance": "bullish or neutral or bearish or mixed",
   "decision": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "entry_exit": {{
     "action": "core trading action description",
-    "exit_target": "target exit price or condition",
-    "stop_loss": "stop loss level",
+    "entry_condition": "entry or add condition",
+    "exit_target": "target condition, or null/unknown if unsupported",
+    "stop_loss": "stop condition, or null/unknown if unsupported",
+    "invalidation": "condition that invalidates the setup",
     "re_entry": "conditions for re-entry"
   }},
-  "risk_factors": ["risk 1", "risk 2"]
+  "position_sizing": "sizing guidance or unknown",
+  "risk_budget": "risk budget or unknown",
+  "risk_factors": ["risk 1", "risk 2"],
+  "evidence_blocks": [
+    {{
+      "claim": "execution claim",
+      "evidence": "specific report-backed fact",
+      "source": "research manager plan or analyst report",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
+    }}
+  ],
+  "unknowns": ["missing current price, ATR, liquidity, or other execution input"]
 }}
 ```
 
