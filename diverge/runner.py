@@ -16,6 +16,7 @@ from diverge.llm_clients.model_config import (
 from diverge.llm_clients.validators import validate_model
 from diverge.common.market_calendar import resolve_market_trading_date
 from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
+from diverge.agents.managers.summary_agent import sanitize_report_summary_output
 from diverge.research.thesis_tracker import build_thesis_artifact
 from diverge.research.search.session import (
     SearchToolContext,
@@ -829,10 +830,11 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         encoding="utf-8",
     )
     if final_state.get("report_summary"):
+        summary_text = sanitize_report_summary_output(final_state["report_summary"])
         summary_artifact = {
             "type": "summary",
             "ticker": ticker,
-            "summary": str(final_state["report_summary"]).strip(),
+            "summary": summary_text,
         }
         (artifacts_dir / "summary.json").write_text(
             json.dumps(summary_artifact, ensure_ascii=False, indent=2),

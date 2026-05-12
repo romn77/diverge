@@ -1,3 +1,6 @@
+import re
+from typing import Any
+
 from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import get_language_instruction
 from diverge.runtime.messages import AdkPrompt
@@ -10,6 +13,144 @@ def _section(title: str, content: str | None, limit: int = 8000) -> str:
     if len(text) > limit:
         text = text[:limit].rstrip() + "\n...[truncated]"
     return f"## {title}\n{text}"
+
+
+_THINKING_BLOCK_RE = re.compile(
+    r"(?is)<(?:think|thinking|analysis|reasoning)>.*?</(?:think|thinking|analysis|reasoning)>"
+)
+_SUMMARY_LABEL_RE = re.compile(
+    r"(?im)(?:^|\n)\s*(?:final|final answer|final summary|executive summary|summary|最终|最终答案|最终摘要|最终输出|执行摘要|报告摘要|摘要)\s*[:：]\s*"
+)
+_SUMMARY_START_RE = re.compile(
+    r"(?is)"
+    r"(基于对[^。！？\n]{0,180}(?:最终投资决策|最终决策|投资决策|评级)"
+    r"|综合[^。！？\n]{0,180}(?:最终投资决策|最终决策|投资决策|评级|建议)"
+    r"|(?:最终投资决策|最终决策|投资组合经理的?最终决策|最终评级|最终建议)\s*(?:为|是|:|：)"
+    r"|(?:overall|in summary|the final|final)\b[^.\n]{0,140}\b(?:decision|recommendation|rating)\b)"
+)
+_META_SENTENCE_MARKERS = (
+    "用户要求",
+    "用户希望",
+    "用户需要",
+    "作为summary agent",
+    "作为 summary agent",
+    "我需要",
+    "我应该",
+    "我不能",
+    "我会",
+    "我看到",
+    "我将",
+    "需要写",
+    "目标长度",
+    "目标语言",
+    "提供的完整报告",
+    "完整报告上下文",
+    "根据用户",
+    "摘要应该",
+    "the user asks",
+    "the user requested",
+    "as the summary agent",
+    "i need",
+    "i should",
+    "i will",
+    "i can see",
+    "the prompt asks",
+    "target length",
+)
+_DECISION_MARKERS = (
+    "最终投资决策",
+    "最终决策",
+    "投资决策",
+    "投资组合经理",
+    "评级",
+    "减持",
+    "增持",
+    "买入",
+    "卖出",
+    "持有",
+    "buy",
+    "sell",
+    "hold",
+    "underweight",
+    "overweight",
+    "recommendation",
+    "rating",
+    "decision",
+)
+
+
+def _coerce_summary_text(content: Any) -> str:
+    if content is None:
+        return ""
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict):
+                if item.get("type") == "text":
+                    parts.append(str(item.get("text") or ""))
+                continue
+            if isinstance(item, str):
+                parts.append(item)
+        return "\n".join(part for part in parts if part.strip())
+    return str(content)
+
+
+def _strip_inline_markdown(text: str) -> str:
+    text = re.sub(r"(?m)^\s{0,3}#{1,6}\s*", "", text)
+    text = re.sub(r"```[a-zA-Z0-9_-]*\s*|\s*```", "", text)
+    text = re.sub(r"\*\*([^*\n]+)\*\*", r"\1", text)
+    text = re.sub(r"__([^_\n]+)__", r"\1", text)
+    text = re.sub(r"`([^`\n]+)`", r"\1", text)
+    text = re.sub(r"(?m)^\s*[-*]\s+", "", text)
+    return text
+
+
+def _split_sentences(text: str) -> list[str]:
+    sentences = re.findall(r"[^。！？.!?\n]+[。！？.!?]?", text)
+    return [sentence.strip() for sentence in sentences if sentence.strip()]
+
+
+def _drop_leading_meta_sentences(text: str) -> str:
+    sentences = _split_sentences(text)
+    if len(sentences) <= 1:
+        return text.strip()
+
+    drop_count = 0
+    for sentence in sentences:
+        normalized = sentence.lower()
+        has_meta_marker = any(marker in normalized for marker in _META_SENTENCE_MARKERS)
+        has_decision_marker = any(
+            marker in normalized for marker in _DECISION_MARKERS
+        )
+        if not has_meta_marker or has_decision_marker:
+            break
+        drop_count += 1
+
+    if drop_count == 0:
+        return text.strip()
+    return "".join(sentences[drop_count:]).strip() or text.strip()
+
+
+def sanitize_report_summary_output(content: Any) -> str:
+    """Remove model self-talk and formatting from a user-facing report summary."""
+    text = _coerce_summary_text(content).strip()
+    if not text:
+        return ""
+
+    text = _THINKING_BLOCK_RE.sub("", text).strip()
+
+    label_matches = list(_SUMMARY_LABEL_RE.finditer(text))
+    if label_matches:
+        text = text[label_matches[-1].end() :].strip()
+
+    start_matches = list(_SUMMARY_START_RE.finditer(text))
+    if start_matches:
+        text = text[start_matches[-1].start() :].strip()
+    else:
+        text = _drop_leading_meta_sentences(text)
+
+    text = _strip_inline_markdown(text)
+    return " ".join(text.split()).strip()
 
 
 class SummaryAgent(DivergeAgentNode):
@@ -46,7 +187,8 @@ Requirements:
 - Target length: about 300 Chinese characters when the output language is Chinese, or about 150 English words when the output language is English.
 - Write one compact paragraph, not bullet points.
 - Cover the final decision, the main thesis, the most important supporting evidence, the primary risks, and the practical trading action.
-- Do not include markdown headings, code fences, JSON, citations, or meta commentary.
+- Do not include markdown headings, code fences, JSON, citations, role labels, chain-of-thought, private reasoning, or meta commentary about the task.
+- Start directly with the final decision or recommendation; do not begin with phrases like "The user asked", "I need to", "Based on the prompt", or "好的".
 - Do not invent facts that are not present in the report context.
 
 Complete report context:
@@ -56,7 +198,7 @@ Complete report context:
 {language_instruction}"""
 
         response = self.llm.invoke(AdkPrompt(system_message=prompt))
-        return {"report_summary": response.content.strip()}
+        return {"report_summary": sanitize_report_summary_output(response.content)}
 
 
 def create_summary_agent(llm):

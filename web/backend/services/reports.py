@@ -6,6 +6,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
+from diverge.agents.managers.summary_agent import sanitize_report_summary_output
 from web.backend import access, app_config, audit, auth, report_metadata, storage
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,12 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
         try:
             payload = json.loads(summary_path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                summary = payload.get("summary")
+                raw_summary = payload.get("summary")
+                summary = (
+                    sanitize_report_summary_output(raw_summary)
+                    if raw_summary is not None
+                    else None
+                )
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             summary = None
 
