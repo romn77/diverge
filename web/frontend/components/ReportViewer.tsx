@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, LockKeyhole, UsersRound } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Button } from "@/components/ui/button";
@@ -556,6 +556,15 @@ export function ReportViewer({
     authState.user &&
     structure.visibility &&
     (authState.user.role === "admin" || structure.owner_user_id === currentUserId);
+  const currentVisibility = structure?.visibility ?? "private";
+  const isWorkspaceVisible = currentVisibility === "workspace";
+  const visibilityLabel = t(
+    isWorkspaceVisible ? "home.visibility.workspace" : "home.visibility.private",
+    isWorkspaceVisible ? "Workspace" : "Private"
+  );
+  const nextVisibility = (
+    isWorkspaceVisible ? "private" : "workspace"
+  ) satisfies ReportVisibility;
 
   const handleVisibilityChange = async (visibility: ReportVisibility) => {
     if (!structure || visibility === structure.visibility) {
@@ -783,27 +792,34 @@ export function ReportViewer({
                             </div>
                             {canUpdateVisibility ? (
                               <div className="mt-4">
-                                <select
-                                  value={structure.visibility ?? "private"}
-                                  disabled={isUpdatingVisibility}
-                                  onChange={(event) =>
-                                    void handleVisibilityChange(
-                                      event.target.value as ReportVisibility
-                                    )
-                                  }
-                                  className="h-9 rounded-[10px] border border-[var(--border)] bg-white px-3 text-sm font-semibold text-slate-700"
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={isWorkspaceVisible}
                                   aria-label={t(
                                     "home.visibility.change",
                                     "Change report visibility"
                                   )}
+                                  disabled={isUpdatingVisibility}
+                                  onClick={() => void handleVisibilityChange(nextVisibility)}
+                                  className="report-visibility-switch"
+                                  data-state={isWorkspaceVisible ? "workspace" : "private"}
                                 >
-                                  <option value="workspace">
-                                    {t("home.visibility.workspace", "Workspace")}
-                                  </option>
-                                  <option value="private">
-                                    {t("home.visibility.private", "Private")}
-                                  </option>
-                                </select>
+                                  <span className="report-visibility-track" aria-hidden>
+                                    <span className="report-visibility-thumb">
+                                      {isWorkspaceVisible ? (
+                                        <UsersRound className="size-3.5" />
+                                      ) : (
+                                        <LockKeyhole className="size-3.5" />
+                                      )}
+                                    </span>
+                                  </span>
+                                  <span className="report-visibility-copy">
+                                    <span className="report-visibility-value">
+                                      {visibilityLabel}
+                                    </span>
+                                  </span>
+                                </button>
                               </div>
                             ) : null}
                           </div>

@@ -125,6 +125,12 @@ test("ReportViewer exposes authorized report visibility changes", () => {
   assert.match(source, /canUpdateVisibility/);
   assert.match(source, /visibility_admin_override/);
   assert.match(source, /home\.visibility\.change/);
+  assert.match(source, /role="switch"/);
+  assert.match(source, /aria-checked=\{isWorkspaceVisible\}/);
+  assert.match(source, /report-visibility-switch/);
+  assert.match(source, /onClick=\{\(\) => void handleVisibilityChange\(nextVisibility\)\}/);
+  assert.doesNotMatch(source, /<select/);
+  assert.doesNotMatch(source, /<option value="workspace"/);
 });
 
 test("ReportViewer loads and renders decision_card artifacts before complete markdown", () => {
