@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, XCircle } from "lucide-react";
 
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ApiError,
+  cancelDataSyncJob,
   createOhlcvSyncTask,
   getDataSyncJob,
   listAdminTaskQueue,
@@ -55,7 +56,12 @@ const QUEUE_SECTIONS = [
   },
 ] as const;
 
-const ACTIVE_DATA_SYNC_STATUSES = new Set<TaskStatus>(["pending", "queued", "running"]);
+const ACTIVE_DATA_SYNC_STATUSES = new Set<TaskStatus>([
+  "pending",
+  "queued",
+  "waiting_for_quota",
+  "running",
+]);
 const DATA_SYNC_REFRESH_INTERVAL_MS = 3000;
 const DEFAULT_SYNC_DATE = new Date().toISOString().slice(0, 10);
 
@@ -69,6 +75,7 @@ export default function AdminTaskQueuePage() {
   const [syncAsOfDate, setSyncAsOfDate] = useState(DEFAULT_SYNC_DATE);
   const [syncSource, setSyncSource] = useState("tushare");
   const [creatingSync, setCreatingSync] = useState(false);
+  const [cancelingDataSyncJob, setCancelingDataSyncJob] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -191,6 +198,25 @@ export default function AdminTaskQueuePage() {
       }
     } finally {
       setCreatingSync(false);
+    }
+  };
+
+  const handleCancelDataSyncJob = async (taskId: string) => {
+    if (!window.confirm("Cancel this data sync task? Running work stops at the next safe step.")) {
+      return;
+    }
+    setCancelingDataSyncJob(taskId);
+    setPageError(null);
+    try {
+      await cancelDataSyncJob(taskId);
+      await loadTaskQueue();
+      await refreshSelectedDataSyncJob(taskId, { silent: true });
+    } catch (error) {
+      if (!handleAuthBoundary(error)) {
+        setPageError(error instanceof Error ? error.message : "Unable to cancel data sync");
+      }
+    } finally {
+      setCancelingDataSyncJob(null);
     }
   };
 
@@ -370,7 +396,12 @@ export default function AdminTaskQueuePage() {
           ))}
         </section>
 
-        <DataSyncDetails job={selectedDataSyncJob} loadingTaskId={loadingDataSyncJob} />
+        <DataSyncDetails
+          job={selectedDataSyncJob}
+          loadingTaskId={loadingDataSyncJob}
+          cancelingTaskId={cancelingDataSyncJob}
+          onCancel={handleCancelDataSyncJob}
+        />
     </AdminConsolePage>
   );
 }
@@ -461,10 +492,21 @@ function QueueSection({
 function DataSyncDetails({
   job,
   loadingTaskId,
+  cancelingTaskId,
+  onCancel,
 }: {
   job: DataSyncTask | null;
   loadingTaskId: string | null;
+  cancelingTaskId: string | null;
+  onCancel: (taskId: string) => void;
 }) {
+  const canCancel =
+    job &&
+    !job.cancel_requested_at &&
+    (job.status === "pending" ||
+      job.status === "queued" ||
+      job.status === "waiting_for_quota" ||
+      job.status === "running");
   return (
     <Card className="rounded-[18px]">
       <CardContent className="grid gap-4 px-4 py-4">
@@ -477,7 +519,25 @@ function DataSyncDetails({
               Detail endpoint payload for data_sync tasks: latest_progress, progress_events, result, and error.
             </p>
           </div>
-          {job ? <Badge variant={dataSyncStatusVariant(job.status)}>{job.status}</Badge> : null}
+          <div className="flex items-center gap-2">
+            {job ? <Badge variant={dataSyncStatusVariant(job.status)}>{job.status}</Badge> : null}
+            {canCancel ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={cancelingTaskId === job.id}
+                onClick={() => onCancel(job.id)}
+              >
+                <XCircle className="size-4" />
+                {cancelingTaskId === job.id
+                  ? "Canceling..."
+                  : job.status === "running"
+                    ? "Terminate"
+                    : "Cancel"}
+              </Button>
+            ) : null}
+          </div>
         </div>
 
         {job ? (

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Callable
 
 from web.backend.runtime import (
     analysis_tasks,
@@ -11,8 +12,68 @@ from web.backend.runtime import (
     task_scheduler,
     task_store,
 )
+from web.backend.runtime.task_logging import (
+    current_worker_id,
+    log_task_event,
+    task_error_fields,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _task_payload(kind: str, task_id: str) -> dict | None:
+    try:
+        return task_store.get_task_store().get_task(kind, task_id)
+    except Exception:
+        return None
+
+
+def _run_claimed_task(
+    *,
+    kind: str,
+    task_id: str,
+    runner: Callable[[str], None],
+) -> bool:
+    started = time.monotonic()
+    log_task_event(
+        logger,
+        "worker_task_started",
+        kind=kind,
+        task_id=task_id,
+        task=_task_payload(kind, task_id),
+    )
+    try:
+        runner(task_id)
+    except Exception as exc:
+        log_task_event(
+            logger,
+            "worker_task_failed",
+            kind=kind,
+            task_id=task_id,
+            task=_task_payload(kind, task_id),
+            duration_seconds=round(time.monotonic() - started, 3),
+            **task_error_fields(exc),
+        )
+        raise
+    else:
+        log_task_event(
+            logger,
+            "worker_task_finished",
+            kind=kind,
+            task_id=task_id,
+            task=_task_payload(kind, task_id),
+            duration_seconds=round(time.monotonic() - started, 3),
+        )
+        return True
+    finally:
+        task_store.get_task_store().ack(kind, task_id)
+        log_task_event(
+            logger,
+            "worker_task_acknowledged",
+            kind=kind,
+            task_id=task_id,
+            task=_task_payload(kind, task_id),
+        )
 
 
 def run_once(*, timeout: int = 5) -> bool:
@@ -22,39 +83,39 @@ def run_once(*, timeout: int = 5) -> bool:
 
     kind, task_id = claimed
     if kind == "analysis":
-        logger.info("Running analysis task %s", task_id)
-        try:
-            analysis_tasks.run_task(task_id)
-        finally:
-            task_store.get_task_store().ack("analysis", task_id)
-        return True
+        return _run_claimed_task(
+            kind="analysis", task_id=task_id, runner=analysis_tasks.run_task
+        )
 
     if kind == "screener":
-        logger.info("Running screener task %s", task_id)
-        try:
-            screener_tasks.run_screener_task(task_id)
-        finally:
-            task_store.get_task_store().ack("screener", task_id)
-        return True
+        return _run_claimed_task(
+            kind="screener", task_id=task_id, runner=screener_tasks.run_screener_task
+        )
 
     if kind == "data_sync":
-        logger.info("Running data sync task %s", task_id)
-        try:
-            data_sync_tasks.run_data_sync_task(task_id)
-        finally:
-            task_store.get_task_store().ack("data_sync", task_id)
-        return True
+        return _run_claimed_task(
+            kind="data_sync", task_id=task_id, runner=data_sync_tasks.run_data_sync_task
+        )
 
     return False
 
 
 def main() -> None:
-    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     if not task_store.redis_task_backend_enabled():
         raise RuntimeError("Worker requires TASK_BACKEND=redis")
 
+    logger.info(
+        "worker_started worker_id=%s task_backend=redis redis_url_configured=%s",
+        current_worker_id(),
+        bool(os.environ.get("REDIS_URL")),
+    )
     analysis_tasks.restore_persisted_active_tasks()
     screener_tasks.restore_persisted_screener_tasks()
+    data_sync_tasks.restore_persisted_data_sync_tasks()
 
     worker_once = os.environ.get("WORKER_ONCE", "").lower() in {"1", "true", "yes"}
     while True:

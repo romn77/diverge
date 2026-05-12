@@ -3,11 +3,19 @@
 import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
+import {
+  getContent,
+  getStructure,
+  updateReportVisibility,
+  type Report,
+  type ReportStructure,
+  type ReportVisibility,
+} from "@/lib/api";
 import type { DecisionCard as DecisionCardModel } from "@/lib/decisionCard";
 import { fetchDecisionCard } from "@/lib/fetchDecisionCard";
 import { DecisionCard as DecisionCardView } from "./DecisionCard";
@@ -270,6 +278,7 @@ export function ReportViewer({
   sidebarOpen = false,
 }: ReportViewerProps) {
   const { locale, t } = usePreferences();
+  const { authState, refreshReports } = useWorkbench();
   const [structure, setStructure] = useState<ReportStructure | null>(null);
   const [selectedTab, setSelectedTab] = useState(SUMMARY_TAB_KEY);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
@@ -279,6 +288,7 @@ export function ReportViewer({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const requestIdRef = useRef(0);
   const contentCacheRef = useRef(new Map<string, string>());
   const decisionCardPath = useMemo(
@@ -493,6 +503,38 @@ export function ReportViewer({
     [structure]
   );
   const summaryText = summaryArtifact?.summary?.trim() ?? "";
+  const currentUserId = authState?.user?.id ?? null;
+  const canUpdateVisibility =
+    structure &&
+    authState?.enabled &&
+    authState.authenticated &&
+    authState.user &&
+    structure.visibility &&
+    (authState.user.role === "admin" || structure.owner_user_id === currentUserId);
+
+  const handleVisibilityChange = async (visibility: ReportVisibility) => {
+    if (!structure || visibility === structure.visibility) {
+      return;
+    }
+    setIsUpdatingVisibility(true);
+    try {
+      const updated = await updateReportVisibility(reportId, visibility);
+      setStructure((current) =>
+        current
+          ? {
+              ...current,
+              visibility: updated.visibility,
+              visibility_updated_at: updated.visibility_updated_at,
+              visibility_updated_by_user_id: updated.visibility_updated_by_user_id,
+              visibility_admin_override: updated.visibility_admin_override,
+            }
+          : current
+      );
+      await refreshReports();
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
+  };
 
   const handleTabChange = useCallback(
     (tabKey: string) => {
@@ -675,7 +717,50 @@ export function ReportViewer({
                                     )}
                                   </span>
                                 )}
+                              {structure.visibility ? (
+                                <span className="inline-flex items-center gap-2">
+                                  {t(
+                                    structure.visibility === "workspace"
+                                      ? "home.visibility.workspace"
+                                      : "home.visibility.private",
+                                    structure.visibility === "workspace"
+                                      ? "Workspace"
+                                      : "Private"
+                                  )}
+                                  {structure.visibility_admin_override
+                                    ? ` · ${t(
+                                        "home.visibility.adminOverride",
+                                        "Admin adjusted"
+                                      )}`
+                                    : ""}
+                                </span>
+                              ) : null}
                             </div>
+                            {canUpdateVisibility ? (
+                              <div className="mt-4">
+                                <select
+                                  value={structure.visibility ?? "private"}
+                                  disabled={isUpdatingVisibility}
+                                  onChange={(event) =>
+                                    void handleVisibilityChange(
+                                      event.target.value as ReportVisibility
+                                    )
+                                  }
+                                  className="h-9 rounded-[10px] border border-[var(--border)] bg-white px-3 text-sm font-semibold text-slate-700"
+                                  aria-label={t(
+                                    "home.visibility.change",
+                                    "Change report visibility"
+                                  )}
+                                >
+                                  <option value="workspace">
+                                    {t("home.visibility.workspace", "Workspace")}
+                                  </option>
+                                  <option value="private">
+                                    {t("home.visibility.private", "Private")}
+                                  </option>
+                                </select>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
 

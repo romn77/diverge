@@ -53,8 +53,10 @@ test("task APIs rely on automatic analysis data routing and expose failed task d
   assert.doesNotMatch(source, /market_data_source:\s*string/);
   assert.match(source, /export type ReportVisibility = "private" \| "workspace"/);
   assert.match(source, /visibility\?:\s*ReportVisibility/);
+  assert.match(source, /visibility_admin_override\?:\s*boolean/);
   assert.match(source, /owner_user_id\?:\s*string \| null/);
   assert.match(source, /report_visibility:\s*ReportVisibility/);
+  assert.match(source, /export async function updateReportVisibility/);
   assert.match(source, /export async function deleteTask/);
   assert.match(source, /export async function deleteScreenerTask/);
   assert.match(source, /method:\s*"DELETE"/);
@@ -75,9 +77,11 @@ test("task APIs expose Redis queue statuses, scheduling metadata, and cancel end
   assert.match(source, /queue_position\?:\s*number \| null/);
   assert.match(source, /blocked_vendor\?:\s*string \| null/);
   assert.match(source, /blocked_until\?:\s*string \| null/);
+  assert.match(source, /cancel_requested_at\?:\s*string \| null/);
   assert.match(source, /canceled_at\?:\s*string \| null/);
   assert.match(source, /export async function cancelTask/);
   assert.match(source, /export async function cancelScreenerTask/);
+  assert.match(source, /export async function cancelDataSyncJob/);
   assert.match(source, /\/api\/tasks\/\$\{taskId\}\/cancel/);
   assert.match(source, /\/api\/screener\/tasks\/\$\{taskId\}\/cancel/);
 });

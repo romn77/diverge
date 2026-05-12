@@ -19,6 +19,12 @@ from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, audit, auth, job_records, storage
 from web.backend.runtime import task_store
+from web.backend.runtime.task_logging import (
+    current_worker_id,
+    log_task_event,
+    processing_stage,
+    task_error_fields,
+)
 from web.backend.services import screeners as screener_service
 
 SCREENER_STAGES = ["Features", "Filters", "Ranking", "Export"]
@@ -46,6 +52,7 @@ class ScreenerTask:
     blocked_reason: Optional[str] = None
     blocked_vendor: Optional[str] = None
     blocked_until: Optional[str] = None
+    cancel_requested_at: Optional[str] = None
     canceled_at: Optional[str] = None
 
     def to_dict(self) -> dict:
@@ -68,6 +75,7 @@ class ScreenerTask:
             "blocked_reason": self.blocked_reason,
             "blocked_vendor": self.blocked_vendor,
             "blocked_until": self.blocked_until,
+            "cancel_requested_at": self.cancel_requested_at,
             "canceled_at": self.canceled_at,
         }
 
@@ -212,12 +220,34 @@ def append_screener_progress(task_id: str, progress: dict) -> None:
         _upsert_screener_job_record(task)
         task_store.get_task_store().save_task("screener", task_id, task.to_dict())
         task_store.get_task_store().append_event("screener", task_id, progress)
+        log_task_event(
+            logger,
+            "task_progress",
+            kind="screener",
+            task_id=task_id,
+            task=task,
+            status=progress.get("status"),
+            stage=processing_stage(progress),
+            current_agent=progress.get("current_agent"),
+            message=progress.get("message"),
+        )
         return
     with screener_tasks_lock:
         task = screener_tasks[task_id]
         task.latest_progress = progress
         task.progress_events.append(progress)
     persist_screener_task_snapshot(task_id)
+    log_task_event(
+        logger,
+        "task_progress",
+        kind="screener",
+        task_id=task_id,
+        task=task,
+        status=progress.get("status"),
+        stage=processing_stage(progress),
+        current_agent=progress.get("current_agent"),
+        message=progress.get("message"),
+    )
 
 
 def set_screener_task_status(
@@ -326,6 +356,70 @@ def build_screener_failure_progress(task: ScreenerTask, error: str) -> dict:
     }
 
 
+def build_screener_canceled_progress(
+    task: ScreenerTask, message: str | None = None
+) -> dict:
+    latest_progress = task.latest_progress or {}
+    latest_stage_status = latest_progress.get("stage_status") or {}
+    stage_status = {
+        key: (
+            "not_started"
+            if latest_stage_status.get(key) == "processing"
+            else latest_stage_status.get(key, "not_started")
+        )
+        for key in SCREENER_STAGES
+    }
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": "canceled",
+        "stage_status": stage_status,
+        "agent_status": latest_progress.get("agent_status") or {},
+        "current_agent": latest_progress.get("current_agent"),
+        "message": message or "Screener task canceled by request.",
+    }
+
+
+def build_screener_cancel_requested_progress(task: ScreenerTask) -> dict:
+    latest_progress = task.latest_progress or {}
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": "running",
+        "stage_status": latest_progress.get("stage_status")
+        or {key: "not_started" for key in SCREENER_STAGES},
+        "agent_status": latest_progress.get("agent_status") or {},
+        "current_agent": latest_progress.get("current_agent"),
+        "message": "Termination requested. Work will stop at the next safe step.",
+    }
+
+
+def check_screener_task_canceled(task_id: str) -> None:
+    if get_screener_task(task_id).cancel_requested_at:
+        raise task_store.TaskCanceled("Screener task canceled by request.")
+
+
+def _mark_screener_task_canceled(task_id: str) -> None:
+    current_task = get_screener_task(task_id)
+    now_iso = _utc_iso()
+    current_task.status = "canceled"
+    current_task.canceled_at = current_task.canceled_at or now_iso
+    current_task.finished_at = now_iso
+    current_task.error = None
+    canceled_progress = build_screener_canceled_progress(current_task)
+    current_task.latest_progress = canceled_progress
+    current_task.progress_events.append(canceled_progress)
+    save_screener_task(current_task)
+    log_task_event(
+        logger,
+        "task_canceled",
+        kind="screener",
+        task_id=task_id,
+        task=current_task,
+    )
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().append_event("screener", task_id, canceled_progress)
+    persist_screener_task_snapshot(task_id)
+
+
 def format_screener_http_error(exc: HTTPException) -> str:
     detail = exc.detail
     if isinstance(detail, dict):
@@ -380,6 +474,16 @@ def wait_screener_for_quota(task_id: str, exc: vendor_usage.QuotaWaitRequired) -
     current_task.latest_progress = waiting_progress
     current_task.progress_events.append(waiting_progress)
     save_screener_task(current_task)
+    log_task_event(
+        logger,
+        "task_waiting_for_quota",
+        kind="screener",
+        task_id=task_id,
+        task=current_task,
+        blocked_reason=exc.reason,
+        blocked_vendor=exc.vendor,
+        blocked_until=exc.blocked_until,
+    )
     if task_store.redis_task_backend_enabled():
         store = task_store.get_task_store()
         store.delay("screener", task_id, _blocked_until_timestamp(exc.blocked_until))
@@ -458,6 +562,14 @@ def _fail_screener_task(task_id: str, error: str) -> None:
     current_task.latest_progress = failure_progress
     current_task.progress_events.append(failure_progress)
     save_screener_task(current_task)
+    log_task_event(
+        logger,
+        "task_failed",
+        kind="screener",
+        task_id=task_id,
+        task=current_task,
+        **task_error_fields(error),
+    )
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().append_event("screener", task_id, failure_progress)
     current_task = get_screener_task(task_id)
@@ -472,8 +584,16 @@ def _fail_screener_task(task_id: str, error: str) -> None:
 def run_screener_task(task_id: str) -> None:
     get_screener_task(task_id)
     set_screener_task_status(task_id, "running")
+    log_task_event(
+        logger,
+        "task_started",
+        kind="screener",
+        task_id=task_id,
+        task=get_screener_task(task_id),
+    )
 
     try:
+        check_screener_task_canceled(task_id)
 
         def progress_callback(
             stage: str,
@@ -503,6 +623,7 @@ def run_screener_task(task_id: str) -> None:
                 message=message,
             )
             append_screener_progress(task_id, progress)
+            check_screener_task_canceled(task_id)
 
         current_task = get_screener_task(task_id)
         config = ScreenRunConfig(**current_task.config_payload)
@@ -514,20 +635,26 @@ def run_screener_task(task_id: str) -> None:
             message="Checking cached screener data.",
         )
         append_screener_progress(task_id, preflight_progress)
+        check_screener_task_canceled(task_id)
         screener_service.ensure_screener_cache_coverage(config)
+        check_screener_task_canceled(task_id)
         with vendor_usage.data_source_usage_context("screener"):
             result = run_screen(
                 config,
                 progress_callback=progress_callback,
             )
+        check_screener_task_canceled(task_id)
         _record_screener_pruned_audit_event(current_task, Path(result.run_dir))
         if storage_backend_is_remote():
+            check_screener_task_canceled(task_id)
             storage.upload_directory(
                 Path(result.run_dir), f"screener/runs/{Path(result.run_dir).name}"
             )
 
+        check_screener_task_canceled(task_id)
         current_task = get_screener_task(task_id)
         candidate = screener_service.run_screener(current_task, result)
+        check_screener_task_canceled(task_id)
         screener_service.persist_screener_run(current_task, candidate)
 
         current_task = get_screener_task(task_id)
@@ -550,6 +677,14 @@ def run_screener_task(task_id: str) -> None:
                 current_task.latest_progress,
             )
         persist_screener_task_snapshot(task_id)
+        log_task_event(
+            logger,
+            "task_completed",
+            kind="screener",
+            task_id=task_id,
+            task=current_task,
+            run_id=current_task.run_id,
+        )
     except vendor_usage.QuotaWaitRequired as exc:
         if task_store.redis_task_backend_enabled():
             wait_screener_for_quota(task_id, exc)
@@ -557,6 +692,8 @@ def run_screener_task(task_id: str) -> None:
         _fail_screener_task(task_id, str(exc))
     except HTTPException as exc:
         _fail_screener_task(task_id, format_screener_http_error(exc))
+    except task_store.TaskCanceled:
+        _mark_screener_task_canceled(task_id)
     except Exception:  # pragma: no cover
         logger.exception("screener task failed task_id=%s", task_id)
         _fail_screener_task(task_id, GENERIC_SCREENER_TASK_ERROR)
@@ -596,12 +733,32 @@ def create_screener_task(
                 message="Screener task queued.",
             ),
         )
+        log_task_event(
+            logger,
+            "task_queued",
+            kind="screener",
+            task_id=task_id,
+            task=task,
+            markets=",".join(
+                str(market) for market in request_payload.get("markets", [])
+            ),
+            as_of_date=request_payload.get("as_of_date"),
+        )
         return {"task_id": task_id, "status": "queued"}
 
     with screener_tasks_lock:
         screener_tasks[task_id] = task
     persist_screener_task_snapshot(task_id)
     start_screener_task_thread(task_id)
+    log_task_event(
+        logger,
+        "task_submitted",
+        kind="screener",
+        task_id=task_id,
+        task=task,
+        markets=",".join(str(market) for market in request_payload.get("markets", [])),
+        as_of_date=request_payload.get("as_of_date"),
+    )
     return {"task_id": task_id, "status": "pending"}
 
 
@@ -681,6 +838,7 @@ def screener_task_from_payload(payload: dict) -> ScreenerTask:
         blocked_reason=payload.get("blocked_reason"),
         blocked_vendor=payload.get("blocked_vendor"),
         blocked_until=payload.get("blocked_until"),
+        cancel_requested_at=payload.get("cancel_requested_at"),
         canceled_at=payload.get("canceled_at"),
     )
 
@@ -732,6 +890,7 @@ def _upsert_screener_job_record(task: ScreenerTask) -> None:
         started_at=task.started_at,
         finished_at=task.finished_at,
         heartbeat_at=_utc_iso() if task.status == "running" else None,
+        worker_id=current_worker_id() if task.status == "running" else None,
     )
 
 
@@ -745,29 +904,54 @@ def claim_next_screener_task(*, timeout: int = 5) -> str | None:
 
 def cancel_screener_task(task_id: str) -> None:
     task = get_screener_task(task_id)
-    if task.status not in {"pending", "queued", "waiting_for_quota"}:
+    if task.status in task_store.TERMINAL_STATUSES:
         raise HTTPException(
             status_code=409,
-            detail="Only queued or waiting screener tasks can be canceled.",
+            detail="Finished screener tasks cannot be canceled.",
         )
     now_iso = _utc_iso()
+    if task.status == "running":
+        if not task.cancel_requested_at:
+            task.cancel_requested_at = now_iso
+            task.latest_progress = build_screener_cancel_requested_progress(task)
+            task.progress_events.append(task.latest_progress)
+        save_screener_task(task)
+        log_task_event(
+            logger,
+            "task_cancel_requested",
+            kind="screener",
+            task_id=task_id,
+            task=task,
+        )
+        if task_store.redis_task_backend_enabled():
+            task_store.get_task_store().append_event(
+                "screener", task_id, task.latest_progress
+            )
+        return
+
     task.status = "canceled"
+    task.cancel_requested_at = task.cancel_requested_at or now_iso
     task.canceled_at = now_iso
     task.finished_at = now_iso
+    task.latest_progress = build_screener_canceled_progress(
+        task, "Screener task canceled."
+    )
+    task.progress_events.append(task.latest_progress)
     save_screener_task(task)
+    log_task_event(
+        logger,
+        "task_canceled",
+        kind="screener",
+        task_id=task_id,
+        task=task,
+    )
     if task_store.redis_task_backend_enabled():
         store = task_store.get_task_store()
         store.remove_task_refs("screener", task_id)
         store.append_event(
             "screener",
             task_id,
-            build_screener_progress(
-                status="canceled",
-                stage="",
-                current=0,
-                total=1,
-                message="Screener task canceled.",
-            ),
+            task.latest_progress,
         )
 
 

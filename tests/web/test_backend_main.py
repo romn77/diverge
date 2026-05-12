@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import os
 import json
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -234,7 +235,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(snapshot["status"], "pending")
         self.assertEqual(snapshot["ticker"], "SPY")
 
-    def test_post_tasks_normalizes_non_trading_analysis_date(self):
+    def test_post_tasks_ignores_manual_analysis_date_and_uses_latest_ready(self):
         payload = {
             "ticker": "SPY",
             "analysis_date": "2024-03-17",
@@ -255,6 +256,10 @@ class BackendMainTests(unittest.TestCase):
 
         with (
             patch("web.backend.runtime.analysis_tasks.start_task_thread"),
+            patch(
+                "web.backend.runtime.data_sync_tasks.resolve_latest_ready_trading_day",
+                return_value=date(2026, 5, 11),
+            ),
             patch.dict(os.environ, {}, clear=True),
             patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
             patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
@@ -262,7 +267,7 @@ class BackendMainTests(unittest.TestCase):
             body = tasks_router.create_task(TaskCreatePayload(**payload))
 
         task_status = tasks_router.get_task_status(body["task_id"])
-        self.assertEqual(task_status["request_payload"]["analysis_date"], "2024-03-15")
+        self.assertEqual(task_status["request_payload"]["analysis_date"], "2026-05-11")
 
     def test_post_tasks_normalizes_plain_cn_ticker_before_queueing(self):
         payload = {

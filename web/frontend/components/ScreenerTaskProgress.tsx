@@ -102,7 +102,9 @@ export function ScreenerTaskProgress({
     () => events.filter((event) => event.message).slice().reverse().slice(0, 10),
     [events]
   );
-  const canCancelTask = task ? canCancelTaskStatus(task.status) : false;
+  const canCancelTask = task
+    ? canCancelTaskStatus(task.status) && !task.cancel_requested_at
+    : false;
 
   const handleCancelTask = async () => {
     if (!task || !canCancelTask) {
@@ -114,7 +116,9 @@ export function ScreenerTaskProgress({
       await cancelScreenerTask(task.id);
       const nextTask = await getScreenerTask(task.id);
       setTask(nextTask);
-      onTaskComplete(nextTask.run_id);
+      if (isTerminalTaskStatus(nextTask.status)) {
+        onTaskComplete(nextTask.run_id);
+      }
     } catch (error) {
       setStreamError(
         error instanceof Error
@@ -151,7 +155,9 @@ export function ScreenerTaskProgress({
                   >
                     {canceling
                       ? t("screenerTask.canceling", "Canceling...")
-                      : t("screenerTask.cancel", "Cancel task")}
+                      : task?.status === "running"
+                        ? t("screenerTask.terminate", "Terminate task")
+                        : t("screenerTask.cancel", "Cancel task")}
                   </Button>
                 ) : null}
                 {task?.run_id ? (
@@ -230,7 +236,12 @@ function isTerminalTaskStatus(status: TaskStatus): boolean {
 }
 
 function canCancelTaskStatus(status: TaskStatus): boolean {
-  return status === "pending" || status === "queued" || status === "waiting_for_quota";
+  return (
+    status === "pending" ||
+    status === "queued" ||
+    status === "waiting_for_quota" ||
+    status === "running"
+  );
 }
 
 function TaskStatusBadge({ status }: { status: TaskStatus }) {
@@ -251,6 +262,17 @@ function TaskStatusBadge({ status }: { status: TaskStatus }) {
 
 function ScreenerQueueNotice({ task }: { task: ScreenerTask }) {
   const { t } = usePreferences();
+  if (task.status === "running" && task.cancel_requested_at) {
+    return (
+      <div className="mt-6 rounded-2xl border border-[rgba(181,121,34,0.24)] bg-[rgba(181,121,34,0.08)] px-4 py-3 text-sm text-slate-700">
+        {t(
+          "screenerTask.cancelRequested",
+          "Termination requested. Running work will stop at the next safe step."
+        )}
+      </div>
+    );
+  }
+
   if (task.status === "queued" || task.status === "pending") {
     const position =
       typeof task.queue_position === "number"

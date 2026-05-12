@@ -62,7 +62,7 @@ test("NewAnalysisForm defaults to the full analyst set instead of truncating to 
 test("NewAnalysisForm lets users choose private or workspace report visibility", () => {
   const source = readFileSync(formPath, "utf8");
 
-  assert.match(source, /report_visibility:\s*"private"/);
+  assert.match(source, /report_visibility:\s*"workspace"/);
   assert.match(source, /analysis\.reportVisibility/);
   assert.match(source, /analysis\.reportVisibilityHint/);
   assert.match(source, /analysis\.visibility\.private/);
@@ -85,11 +85,13 @@ test("NewAnalysisForm lets users choose automatic or explicit CN exchange labels
   assert.match(source, /<SelectItem value="BJ">/);
 });
 
-test("NewAnalysisForm uses the shared local date helper for the initial analysis date", () => {
+test("NewAnalysisForm lets the backend resolve the latest ready analysis date", () => {
   const source = readFileSync(formPath, "utf8");
 
-  assert.match(source, /from "@\/lib\/localDate"/);
-  assert.match(source, /analysis_date:\s*getLocalDateInputValue\(\)/);
+  assert.doesNotMatch(source, /from "@\/lib\/localDate"/);
+  assert.match(source, /analysis_date:\s*null/);
+  assert.doesNotMatch(source, /analysis\.analysisDate/);
+  assert.doesNotMatch(source, /type="date"/);
   assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.slice\(0,\s*10\)/);
 });
 

@@ -9,9 +9,15 @@ from fastapi.responses import StreamingResponse
 from diverge.llm_clients.model_profiles import (
     resolve_model_profile as resolve_static_model_profile,
 )
+from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
 from diverge.runner import AnalysisRequest
 from web.backend import access, analysis_limits, app_config, audit, auth, llm_models
-from web.backend.runtime import analysis_tasks, screener_tasks, task_store
+from web.backend.runtime import (
+    analysis_tasks,
+    data_sync_tasks,
+    screener_tasks,
+    task_store,
+)
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
 from web.backend.services.config import (
@@ -90,6 +96,21 @@ def _enforce_task_submission_capacity(current_user) -> None:
 
 def _analysis_request_payload(payload: TaskCreatePayload, current_user=None) -> dict:
     request_payload = payload.model_dump(exclude={"report_visibility"})
+    normalized_ticker = normalize_analysis_ticker_symbol(
+        request_payload["ticker"],
+        ticker_exchange=request_payload.get("ticker_exchange"),
+    )
+    market = detect_market(normalized_ticker)
+    if market not in {"cn", "us"}:
+        market = "us"
+    source = (
+        "tushare"
+        if market == "cn"
+        else (request_payload.get("market_data_source") or "massive")
+    )
+    request_payload["analysis_date"] = data_sync_tasks.resolve_latest_ready_trading_day(
+        market, source
+    ).isoformat()
     profile = (payload.model_profile or "").strip().lower()
     if profile and profile != "custom":
         try:
@@ -250,8 +271,27 @@ def delete_task(task_id: str, request: Request = None) -> dict:
 
 @router.post("/api/tasks/{task_id}/cancel")
 def cancel_task(task_id: str, request: Request = None) -> dict:
-    _get_authorized_task(task_id, request)
+    current_user = _current_user(request)
+    task = analysis_tasks.get_task(task_id)
+    if not _can_access_task(task, current_user):
+        raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
     analysis_tasks.cancel_task(task_id)
+    if current_user is not None and getattr(task, "tenant_id", None) is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=task.tenant_id,
+                actor_user_id=current_user.id,
+                action="analysis.task.cancel_requested",
+                resource_type="analysis_task",
+                resource_id=task_id,
+                metadata={
+                    "ticker": task.request.ticker,
+                    "status": task.status,
+                    "owner_user_id": task.owner_user_id,
+                },
+                request=request,
+            )
     return {"canceled": True, "task_id": task_id}
 
 

@@ -48,5 +48,6 @@ test("ActivityDashboard shows queued quota-aware work and exposes cancel actions
   assert.match(source, /queue_position/);
   assert.match(source, /activity\.waitingForQuota/);
   assert.match(source, /activity\.cancelTask/);
+  assert.match(source, /cancel_requested_at/);
   assert.match(source, /onCancel/);
 });

@@ -210,6 +210,34 @@ def test_worker_dispatches_data_sync_tasks_from_unified_queue(monkeypatch):
     assert store.processing_ids("data_sync") == []
 
 
+def test_worker_startup_restores_data_sync_tasks_when_redis_enabled(monkeypatch):
+    monkeypatch.setenv("TASK_BACKEND", "redis")
+    monkeypatch.setenv("WORKER_ONCE", "true")
+
+    with (
+        patch("web.backend.worker.analysis_tasks.restore_persisted_active_tasks"),
+        patch("web.backend.worker.screener_tasks.restore_persisted_screener_tasks"),
+        patch(
+            "web.backend.worker.data_sync_tasks.restore_persisted_data_sync_tasks"
+        ) as restore_data_sync,
+        patch("web.backend.worker.run_once", return_value=False),
+    ):
+        worker.main()
+
+    restore_data_sync.assert_called_once_with()
+
+
+def test_ohlcv_sync_requires_existing_us_manifest(tmp_path, monkeypatch):
+    monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.delenv("MANIFEST_DIR", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    with pytest.raises(RuntimeError, match="US data sync requires a manifest"):
+        data_sync_tasks.build_ohlcv_config_payload(
+            {"markets": ["us"], "as_of_date": "2026-04-28"}
+        )
+
+
 def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
     monkeypatch.setattr(
         data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state"

@@ -37,6 +37,8 @@ test("TaskProgress subscribes to backend task snapshots and renders the six-stag
   assert.match(source, /blocked_vendor/);
   assert.match(source, /TaskQueueNotice/);
   assert.match(source, /task\.cancel/);
+  assert.match(source, /task\.terminate/);
+  assert.match(source, /cancel_requested_at/);
   assert.match(source, /not_started/);
   assert.match(source, /processing/);
   assert.match(source, /completed/);

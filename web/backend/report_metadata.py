@@ -238,6 +238,20 @@ class ReportRun(auth.Base):
         nullable=False,
     )
     visibility: Mapped[str] = mapped_column(String(32), nullable=False)
+    visibility_updated_by_user_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    visibility_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    visibility_admin_override: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     generated_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
@@ -352,6 +366,7 @@ def upsert_report_run(
             tenant_id=normalized_tenant_id,
             owner_user_id=normalized_owner_user_id,
             visibility=normalized_visibility,
+            visibility_admin_override=False,
             ticker=normalized_ticker,
             generated_at=normalized_generated_at,
             storage_path=normalized_storage_path,
@@ -488,6 +503,13 @@ def serialize_report_summary(record: ReportRun) -> dict[str, Any]:
         "date": date_str,
         "time": time_str,
         "visibility": record.visibility,
+        "visibility_updated_by_user_id": record.visibility_updated_by_user_id,
+        "visibility_updated_at": (
+            record.visibility_updated_at.isoformat()
+            if record.visibility_updated_at is not None
+            else None
+        ),
+        "visibility_admin_override": bool(record.visibility_admin_override),
         "tenant_id": record.tenant_id,
         "owner_user_id": record.owner_user_id,
     }

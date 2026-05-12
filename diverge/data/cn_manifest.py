@@ -7,6 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 import pandas as pd
 
+from diverge.data_layout import default_manifest_path
 from diverge.data.manifest_schema import (
     COMMON_MANIFEST_COLUMNS,
     COMPARE_MANIFEST_COLUMNS,
@@ -18,7 +19,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PROJECT_ENV_FILE = PROJECT_ROOT / ".env"
 load_dotenv(PROJECT_ENV_FILE)
 
-DEFAULT_OUTPUT_PATH = Path(__file__).resolve().with_name("cn_manifest.csv")
 DEFAULT_ALLOWED_EXCHANGES = ("SSE", "SZSE")
 DEFAULT_DATA_SOURCE = "tushare"
 DEFAULT_FALLBACK_DATA_SOURCES: tuple[str, ...] = ()
@@ -74,7 +74,7 @@ def build_cn_manifest(
 
 def write_cn_manifest(
     source_df: pd.DataFrame | None = None,
-    output_path: str | Path = DEFAULT_OUTPUT_PATH,
+    output_path: str | Path | None = None,
     data_source: str = DEFAULT_DATA_SOURCE,
     cache_dir: str | Path | None = None,
     fallback_data_sources: Collection[str] | None = DEFAULT_FALLBACK_DATA_SOURCES,
@@ -93,7 +93,11 @@ def write_cn_manifest(
         source_df=source_df,
         allowed_exchanges=allowed_exchanges,
     )
-    output = Path(output_path)
+    output = (
+        Path(output_path)
+        if output_path is not None
+        else default_manifest_path("cn", PROJECT_ROOT)
+    )
     output.parent.mkdir(parents=True, exist_ok=True)
     manifest_df.to_csv(output, index=False)
     return manifest_df
@@ -104,9 +108,9 @@ def _parse_args() -> argparse.Namespace:
         description="Export the CN screener universe to a CSV manifest."
     )
     parser.add_argument(
-        "--output-path",
-        default=str(DEFAULT_OUTPUT_PATH),
-        help="Destination CSV path. Defaults to diverge/data/cn_manifest.csv.",
+        "--output-dir",
+        default=None,
+        help="Destination directory. Defaults to DATA_DIR/manifest and writes cn.csv.",
     )
     parser.add_argument(
         "--data-source",
@@ -129,18 +133,23 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
+    output_path = (
+        Path(args.output_dir) / "cn.csv"
+        if args.output_dir
+        else default_manifest_path("cn", PROJECT_ROOT)
+    )
     fallback_data_sources = [
         source.strip()
         for source in str(args.fallback_data_sources or "").split(",")
         if source.strip()
     ]
     manifest_df = write_cn_manifest(
-        output_path=args.output_path,
+        output_path=output_path,
         data_source=args.data_source,
         cache_dir=args.cache_dir,
         fallback_data_sources=fallback_data_sources,
     )
-    print(f"Wrote {len(manifest_df)} rows to {Path(args.output_path)}")
+    print(f"Wrote {len(manifest_df)} rows to {output_path}")
 
 
 if __name__ == "__main__":

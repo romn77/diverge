@@ -190,16 +190,18 @@ def build_screener_config_payload(request_payload: dict[str, Any]) -> dict[str, 
     config_payload["history_dir"] = str(app_config.STOCK_HISTORY_DIR)
     config_payload["fundamental_dir"] = str(app_config.FUNDAMENTALS_DIR)
     if "cn" in config_payload["markets"]:
-        manifest_path = os.environ.get("SCREEN_CN_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path("cn")
         if manifest_path:
-            config_payload["cn_manifest_path"] = manifest_path
+            config_payload["cn_manifest_path"] = str(manifest_path)
     if "us" in config_payload["markets"]:
-        manifest_path = os.environ.get("SCREEN_US_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path("us")
         if not manifest_path:
+            default_path = app_config.default_manifest_path("us")
             raise RuntimeError(
-                "SCREEN_US_MANIFEST_PATH is required for US screener prewarm."
+                "US screener prewarm requires a manifest at "
+                f"{default_path} or SCREEN_US_MANIFEST_PATH."
             )
-        config_payload["us_manifest_path"] = manifest_path
+        config_payload["us_manifest_path"] = str(manifest_path)
     ScreenRunConfig(**config_payload)
     return config_payload
 
@@ -213,9 +215,18 @@ def build_ohlcv_sync_payload(market: str, as_of_date: str) -> dict[str, Any]:
     }
     payload.update(_resolve_screener_data_sources())
     if market == "cn":
-        payload["cn_manifest_path"] = os.environ.get("SCREEN_CN_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path("cn")
+        if manifest_path:
+            payload["cn_manifest_path"] = str(manifest_path)
     if market == "us":
-        payload["us_manifest_path"] = os.environ.get("SCREEN_US_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path("us")
+        if not manifest_path:
+            default_path = app_config.default_manifest_path("us")
+            raise RuntimeError(
+                "US OHLCV sync requires a manifest at "
+                f"{default_path} or SCREEN_US_MANIFEST_PATH."
+            )
+        payload["us_manifest_path"] = str(manifest_path)
     return payload
 
 

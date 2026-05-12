@@ -2,13 +2,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
-from datetime import date
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from diverge.common.market_calendar import latest_trading_day_on_or_before
 from diverge.dataflows.routes import dual_market_history_source_kwargs
 from diverge.screener.schema import ScreenRunConfig
 from web.backend import (
@@ -59,24 +56,19 @@ def resolve_screener_data_sources(markets: list[str]) -> dict:
 def resolve_screener_as_of_date(
     markets: list[str], data_sources: dict | None = None
 ) -> str:
-    today = date.today()
     sources = data_sources or {}
     trading_days = []
     for market in markets:
         normalized_market = str(market).strip().lower()
-        trading_day = latest_trading_day_on_or_before(normalized_market, today)
-        if trading_day is None:
-            continue
         source = (
             str(sources.get("cn_data_source") or "tushare")
             if normalized_market == "cn"
             else str(sources.get("us_data_source") or "massive")
         )
         trading_days.append(
-            data_sync_tasks.resolve_ready_ohlcv_as_of_date(
+            data_sync_tasks.resolve_latest_ready_trading_day(
                 normalized_market,
                 source,
-                trading_day,
             )
         )
     if not trading_days:
@@ -142,17 +134,20 @@ def create_screener_task(
     config_payload["history_dir"] = str(app_config.STOCK_HISTORY_DIR)
     config_payload["fundamental_dir"] = str(app_config.FUNDAMENTALS_DIR)
     if "cn" in request_payload["markets"]:
-        manifest_path = os.environ.get("SCREEN_CN_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path("cn", app_config.PROJECT_ROOT)
         if manifest_path:
-            config_payload["cn_manifest_path"] = manifest_path
+            config_payload["cn_manifest_path"] = str(manifest_path)
     if "us" in request_payload["markets"]:
-        manifest_path = os.environ.get("SCREEN_US_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path("us", app_config.PROJECT_ROOT)
         if not manifest_path:
             raise HTTPException(
                 status_code=400,
-                detail="Configure SCREEN_US_MANIFEST_PATH on the backend before launching US screening tasks.",
+                detail=(
+                    "US screening requires a manifest at DATA_DIR/manifest/us.csv "
+                    "or SCREEN_US_MANIFEST_PATH."
+                ),
             )
-        config_payload["us_manifest_path"] = manifest_path
+        config_payload["us_manifest_path"] = str(manifest_path)
 
     try:
         ScreenRunConfig(**config_payload)
@@ -267,8 +262,24 @@ def delete_screener_task(task_id: str, request: Request = None) -> dict:
 @router.post("/api/screener/tasks/{task_id}/cancel")
 def cancel_screener_task(task_id: str, request: Request = None) -> dict:
     current_user = access.require_screener_user(request)
-    _get_authorized_screener_task(task_id, current_user)
+    task = _get_authorized_screener_task(task_id, current_user)
     screener_tasks.cancel_screener_task(task_id)
+    if current_user is not None and getattr(task, "tenant_id", None) is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=task.tenant_id,
+                actor_user_id=current_user.id,
+                action="screener.task.cancel_requested",
+                resource_type="screener_task",
+                resource_id=task_id,
+                metadata={
+                    "markets": task.request_payload.get("markets"),
+                    "status": task.status,
+                    "owner_user_id": task.owner_user_id,
+                },
+                request=request,
+            )
     return {"canceled": True, "task_id": task_id}
 
 

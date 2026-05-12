@@ -32,6 +32,12 @@ from diverge.runner import (
 )
 from web.backend import access, app_config, auth, job_records, report_metadata, storage
 from web.backend.runtime import task_store
+from web.backend.runtime.task_logging import (
+    current_worker_id,
+    log_task_event,
+    processing_stage,
+    task_error_fields,
+)
 
 logger = logging.getLogger(__name__)
 GENERIC_ANALYSIS_TASK_ERROR = "Analysis task failed. Check backend logs for details."
@@ -57,6 +63,7 @@ class Task:
     blocked_reason: Optional[str] = None
     blocked_vendor: Optional[str] = None
     blocked_until: Optional[str] = None
+    cancel_requested_at: Optional[str] = None
     canceled_at: Optional[str] = None
 
     def to_dict(self) -> dict:
@@ -81,6 +88,7 @@ class Task:
             "blocked_reason": self.blocked_reason,
             "blocked_vendor": self.blocked_vendor,
             "blocked_until": self.blocked_until,
+            "cancel_requested_at": self.cancel_requested_at,
             "canceled_at": self.canceled_at,
         }
 
@@ -197,6 +205,7 @@ def task_from_snapshot(payload: dict) -> Task:
         blocked_reason=payload.get("blocked_reason"),
         blocked_vendor=payload.get("blocked_vendor"),
         blocked_until=payload.get("blocked_until"),
+        cancel_requested_at=payload.get("cancel_requested_at"),
         canceled_at=payload.get("canceled_at"),
     )
 
@@ -247,12 +256,32 @@ def append_progress(task_id: str, progress: AnalysisProgress) -> None:
         _upsert_analysis_job_record(task)
         task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
         task_store.get_task_store().append_event("analysis", task_id, event_payload)
+        log_task_event(
+            logger,
+            "task_progress",
+            kind="analysis",
+            task_id=task_id,
+            task=task,
+            status=event_payload.get("status"),
+            stage=processing_stage(event_payload),
+            current_agent=event_payload.get("current_agent"),
+        )
         return
     with tasks_lock:
         task = tasks[task_id]
         task.latest_progress = event_payload
         task.progress_events.append(event_payload)
     persist_task_snapshot(task_id)
+    log_task_event(
+        logger,
+        "task_progress",
+        kind="analysis",
+        task_id=task_id,
+        task=task,
+        status=event_payload.get("status"),
+        stage=processing_stage(event_payload),
+        current_agent=event_payload.get("current_agent"),
+    )
 
 
 def set_task_status(task_id: str, status: str, error: Optional[str] = None) -> None:
@@ -329,6 +358,74 @@ def build_waiting_for_quota_progress(
             + "."
         ),
     }
+
+
+def _analysis_progress_template(task: Task) -> dict:
+    return task.latest_progress or {
+        "stage_status": {
+            "Analysts": "not_started",
+            "Research": "not_started",
+            "Trading": "not_started",
+            "Risk": "not_started",
+            "Portfolio": "not_started",
+        },
+        "agent_status": {},
+        "current_agent": None,
+    }
+
+
+def build_canceled_progress(task: Task, message: str | None = None) -> dict:
+    latest_progress = _analysis_progress_template(task)
+    return AnalysisProgress(
+        timestamp=datetime.now().strftime("%H:%M:%S"),
+        status="canceled",
+        stage_status=latest_progress["stage_status"],
+        agent_status=latest_progress["agent_status"],
+        current_agent=latest_progress["current_agent"],
+        message=message or "System: Task canceled by request.",
+    ).to_dict()
+
+
+def build_cancel_requested_progress(task: Task) -> dict:
+    latest_progress = _analysis_progress_template(task)
+    return AnalysisProgress(
+        timestamp=datetime.now().strftime("%H:%M:%S"),
+        status="running",
+        stage_status=latest_progress["stage_status"],
+        agent_status=latest_progress["agent_status"],
+        current_agent=latest_progress["current_agent"],
+        message="System: Termination requested. Work will stop at the next safe step.",
+    ).to_dict()
+
+
+def check_task_canceled(task_id: str) -> None:
+    if get_task(task_id).cancel_requested_at:
+        raise task_store.TaskCanceled("Analysis task canceled by request.")
+
+
+def _mark_task_canceled(task_id: str, temp_dir: Path | None = None) -> None:
+    if temp_dir is not None and temp_dir.exists():
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    current_task = get_task(task_id)
+    now_iso = _utc_iso()
+    current_task.status = "canceled"
+    current_task.canceled_at = current_task.canceled_at or now_iso
+    current_task.finished_at = now_iso
+    current_task.error = None
+    canceled_progress = build_canceled_progress(current_task)
+    current_task.latest_progress = canceled_progress
+    current_task.progress_events.append(canceled_progress)
+    save_task(current_task)
+    log_task_event(
+        logger,
+        "task_canceled",
+        kind="analysis",
+        task_id=task_id,
+        task=current_task,
+    )
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().append_event("analysis", task_id, canceled_progress)
+    persist_task_snapshot(task_id)
 
 
 def _blocked_until_timestamp(blocked_until: str | None) -> float:
@@ -429,6 +526,14 @@ def _fail_task(task_id: str, error: str) -> None:
     current_task.latest_progress = failure_progress
     current_task.progress_events.append(failure_progress)
     save_task(current_task)
+    log_task_event(
+        logger,
+        "task_failed",
+        kind="analysis",
+        task_id=task_id,
+        task=current_task,
+        **task_error_fields(error),
+    )
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().append_event("analysis", task_id, failure_progress)
     persist_task_snapshot(task_id)
@@ -439,11 +544,22 @@ def run_task(task_id: str) -> None:
     temp_dir = app_config.tmp_reports_dir() / task_id
 
     set_task_status(task_id, "running")
+    log_task_event(
+        logger,
+        "task_started",
+        kind="analysis",
+        task_id=task_id,
+        task=get_task(task_id),
+        ticker=task.request.ticker,
+        analysis_date=task.request.analysis_date,
+    )
 
     try:
+        check_task_canceled(task_id)
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)
+        check_task_canceled(task_id)
 
         visible_ids = access.visible_trade_ids_for_task(task)
         with vendor_usage.data_source_usage_context("analysis"):
@@ -470,13 +586,20 @@ def run_task(task_id: str) -> None:
                     break
 
                 append_progress(task_id, progress)
+                check_task_canceled(task_id)
 
+        check_task_canceled(task_id)
         if final_state is None:
             raise RuntimeError("Analysis did not return a final state")
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_id = f"{task.request.ticker}_{timestamp}"
+        timestamp = datetime.now().strftime("%H%M%S")
+        report_id = (
+            f"{task.request.ticker}_"
+            f"{str(task.request.analysis_date).replace('-', '')}_{timestamp}"
+        )
+        check_task_canceled(task_id)
         save_report_to_disk(final_state, task.request.ticker, temp_dir)
+        check_task_canceled(task_id)
         write_search_evidence_artifact(task_id, temp_dir)
         try:
             decision_card = build_decision_card(
@@ -500,6 +623,7 @@ def run_task(task_id: str) -> None:
                 error=str(exc),
             )
             save_decision_card(fallback_card, temp_dir)
+        check_task_canceled(task_id)
         app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
         final_report_dir = report_output_dir(report_id)
         temp_dir.replace(final_report_dir)
@@ -533,13 +657,33 @@ def run_task(task_id: str) -> None:
             current_task.latest_progress["status"] = "completed"
         save_task(current_task)
         persist_task_snapshot(task_id)
+        log_task_event(
+            logger,
+            "task_completed",
+            kind="analysis",
+            task_id=task_id,
+            task=current_task,
+            report_id=report_id,
+        )
     except vendor_usage.QuotaWaitRequired as exc:
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
         if task_store.redis_task_backend_enabled():
             wait_for_quota(task_id, exc)
+            log_task_event(
+                logger,
+                "task_waiting_for_quota",
+                kind="analysis",
+                task_id=task_id,
+                task=get_task(task_id),
+                blocked_reason=exc.reason,
+                blocked_vendor=exc.vendor,
+                blocked_until=exc.blocked_until,
+            )
             return
         _fail_task(task_id, str(exc))
+    except task_store.TaskCanceled:
+        _mark_task_canceled(task_id, temp_dir)
     except Exception:  # pragma: no cover
         if temp_dir.exists():
             shutil.rmtree(temp_dir, ignore_errors=True)
@@ -554,7 +698,7 @@ def create_task(
     *,
     owner_user_id: str | None = None,
     tenant_id: str | None = None,
-    report_visibility: str = report_metadata.REPORT_VISIBILITY_PRIVATE,
+    report_visibility: str = report_metadata.REPORT_VISIBILITY_WORKSPACE,
 ) -> dict:
     task_id = uuid.uuid4().hex
     now_iso = _utc_iso()
@@ -590,12 +734,30 @@ def create_task(
                 "message": "Task queued.",
             },
         )
+        log_task_event(
+            logger,
+            "task_queued",
+            kind="analysis",
+            task_id=task_id,
+            task=task,
+            ticker=analysis_request.ticker,
+            analysis_date=analysis_request.analysis_date,
+        )
         return {"task_id": task_id, "status": "queued"}
 
     with tasks_lock:
         tasks[task_id] = task
     persist_task_snapshot(task_id)
     start_task_thread(task_id)
+    log_task_event(
+        logger,
+        "task_submitted",
+        kind="analysis",
+        task_id=task_id,
+        task=task,
+        ticker=analysis_request.ticker,
+        analysis_date=analysis_request.analysis_date,
+    )
     return {"task_id": task_id, "status": "pending"}
 
 
@@ -650,6 +812,7 @@ def _upsert_analysis_job_record(task: Task) -> None:
         started_at=task.started_at,
         finished_at=task.finished_at,
         heartbeat_at=_utc_iso() if task.status == "running" else None,
+        worker_id=current_worker_id() if task.status == "running" else None,
     )
 
 
@@ -663,29 +826,51 @@ def claim_next_task(*, timeout: int = 5) -> str | None:
 
 def cancel_task(task_id: str) -> None:
     task = get_task(task_id)
-    if task.status not in {"pending", "queued", "waiting_for_quota"}:
+    if task.status in task_store.TERMINAL_STATUSES:
         raise HTTPException(
-            status_code=409, detail="Only queued or waiting tasks can be canceled."
+            status_code=409, detail="Finished tasks cannot be canceled."
         )
     now_iso = _utc_iso()
+    if task.status == "running":
+        if not task.cancel_requested_at:
+            task.cancel_requested_at = now_iso
+            task.latest_progress = build_cancel_requested_progress(task)
+            task.progress_events.append(task.latest_progress)
+        save_task(task)
+        log_task_event(
+            logger,
+            "task_cancel_requested",
+            kind="analysis",
+            task_id=task_id,
+            task=task,
+        )
+        if task_store.redis_task_backend_enabled():
+            task_store.get_task_store().append_event(
+                "analysis", task_id, task.latest_progress
+            )
+        return
+
     task.status = "canceled"
+    task.cancel_requested_at = task.cancel_requested_at or now_iso
     task.canceled_at = now_iso
     task.finished_at = now_iso
+    task.latest_progress = build_canceled_progress(task, "System: Task canceled.")
+    task.progress_events.append(task.latest_progress)
     save_task(task)
+    log_task_event(
+        logger,
+        "task_canceled",
+        kind="analysis",
+        task_id=task_id,
+        task=task,
+    )
     if task_store.redis_task_backend_enabled():
         store = task_store.get_task_store()
         store.remove_task_refs("analysis", task_id)
         store.append_event(
             "analysis",
             task_id,
-            {
-                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                "status": "canceled",
-                "stage_status": {},
-                "agent_status": {},
-                "current_agent": None,
-                "message": "Task canceled.",
-            },
+            task.latest_progress,
         )
 
 

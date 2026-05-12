@@ -444,6 +444,9 @@ export interface Report {
   date: string;
   time: string;
   visibility?: ReportVisibility;
+  visibility_updated_by_user_id?: string | null;
+  visibility_updated_at?: string | null;
+  visibility_admin_override?: boolean;
   tenant_id?: string | null;
   owner_user_id?: string | null;
 }
@@ -451,6 +454,12 @@ export interface Report {
 export interface ReportStructure {
   id: string;
   ticker: string;
+  visibility?: ReportVisibility;
+  visibility_updated_by_user_id?: string | null;
+  visibility_updated_at?: string | null;
+  visibility_admin_override?: boolean;
+  tenant_id?: string | null;
+  owner_user_id?: string | null;
   has_complete: boolean;
   categories: Record<string, string[]>;
   artifacts: Array<{
@@ -669,7 +678,7 @@ export interface TradeFeedbackPayload {
 export interface TaskCreateRequest {
   ticker: string;
   ticker_exchange?: "auto" | "SH" | "SZ" | "BJ" | null;
-  analysis_date: string;
+  analysis_date?: string | null;
   analysts: string[];
   research_depth: number;
   model_profile?: string | null;
@@ -737,6 +746,7 @@ export interface Task {
   blocked_reason?: string | null;
   blocked_vendor?: string | null;
   blocked_until?: string | null;
+  cancel_requested_at?: string | null;
   canceled_at?: string | null;
 }
 
@@ -905,6 +915,8 @@ export interface DataSyncTask {
   started_at?: string | null;
   finished_at?: string | null;
   queue_position?: number | null;
+  cancel_requested_at?: string | null;
+  canceled_at?: string | null;
 }
 
 export interface ScreenerTask {
@@ -925,6 +937,7 @@ export interface ScreenerTask {
   blocked_reason?: string | null;
   blocked_vendor?: string | null;
   blocked_until?: string | null;
+  cancel_requested_at?: string | null;
   canceled_at?: string | null;
 }
 
@@ -1648,6 +1661,16 @@ export async function getStructure(reportId: string): Promise<ReportStructure> {
   });
 }
 
+export async function updateReportVisibility(
+  reportId: string,
+  visibility: ReportVisibility
+): Promise<Report> {
+  return requestJson<Report>(
+    `/api/reports/${reportId}/visibility`,
+    createJsonRequestInit("PATCH", { visibility })
+  );
+}
+
 export async function getContent(reportId: string, path: string): Promise<string> {
   const url = new URL(buildApiUrl(`/api/reports/${reportId}/content`));
   url.searchParams.set("path", path);
@@ -1868,6 +1891,18 @@ export async function getDataSyncJob(taskId: string): Promise<DataSyncTask> {
   return requestJson<DataSyncTask>(`/api/admin/data-sync/jobs/${taskId}`, {
     cache: "no-store",
   });
+}
+
+export async function cancelDataSyncJob(
+  taskId: string
+): Promise<CancelTaskResponse> {
+  return requestJson<CancelTaskResponse>(
+    `/api/admin/data-sync/jobs/${taskId}/cancel`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
 }
 
 export async function listScreenerTasks(): Promise<ScreenerTask[]> {

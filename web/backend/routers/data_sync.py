@@ -115,3 +115,34 @@ def get_data_sync_job(task_id: str, request: Request = None) -> dict:
             auth.AuthNotFoundError(f"Task '{task_id}' not found")
         )
     return task.to_dict()
+
+
+@router.post("/api/admin/data-sync/jobs/{task_id}/cancel")
+def cancel_data_sync_job(task_id: str, request: Request = None) -> dict:
+    actor = _require_admin_permission(request)
+    task = data_sync_tasks.get_data_sync_task(task_id)
+    if actor is not None and task.tenant_id != actor.tenant_id:
+        raise access.translate_auth_error(
+            auth.AuthNotFoundError(f"Task '{task_id}' not found")
+        )
+    data_sync_tasks.cancel_data_sync_task(task_id)
+    if actor is not None and auth.auth_enabled():
+        try:
+            with auth.db_session() as db:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action=f"data_sync.{task.sync_type}.cancel_requested",
+                    resource_type="data_sync_task",
+                    resource_id=task_id,
+                    metadata={
+                        "sync_type": task.sync_type,
+                        "status": task.status,
+                        "owner_user_id": task.owner_user_id,
+                    },
+                    request=request,
+                )
+        except Exception:
+            pass
+    return {"canceled": True, "task_id": task_id}

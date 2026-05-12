@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import uuid
@@ -32,6 +33,13 @@ from diverge.screener.universe import (
 )
 from web.backend import app_config, audit, auth, job_records
 from web.backend.runtime import task_store
+from web.backend.runtime.task_logging import (
+    current_worker_id,
+    log_task_event,
+    task_error_fields,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -51,6 +59,8 @@ class DataSyncTask:
     started_at: str | None = None
     finished_at: str | None = None
     queue_position: int | None = None
+    cancel_requested_at: str | None = None
+    canceled_at: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -69,6 +79,8 @@ class DataSyncTask:
             "started_at": self.started_at,
             "finished_at": self.finished_at,
             "queue_position": self.queue_position,
+            "cancel_requested_at": self.cancel_requested_at,
+            "canceled_at": self.canceled_at,
         }
 
 
@@ -91,6 +103,8 @@ OHLCV_READY_CHECKS = {
         "probe_symbols": ["AAPL", "MSFT"],
     },
 }
+DEFAULT_READY_SOURCES = {"cn": "tushare", "us": "massive"}
+MARKET_TIMEZONES = {"cn": "Asia/Shanghai", "us": "America/New_York"}
 
 
 class VendorDataNotReadyError(RuntimeError):
@@ -260,6 +274,32 @@ def resolve_ready_ohlcv_as_of_date(
     return resolved_day or ready_day
 
 
+def resolve_latest_ready_trading_day(
+    market: str,
+    source: str | None = None,
+) -> date:
+    """Resolve the latest market-local trading day with expected ready data."""
+    normalized_market = str(market).strip().lower()
+    normalized_source = (
+        str(source or DEFAULT_READY_SOURCES.get(normalized_market) or "")
+        .strip()
+        .lower()
+    )
+    ready_context = _ohlcv_ready_context(normalized_market, normalized_source)
+    if ready_context is not None:
+        candidate_day = ready_context["now_local"].date()
+        return resolve_ready_ohlcv_as_of_date(
+            normalized_market,
+            normalized_source,
+            candidate_day,
+        )
+
+    timezone_name = MARKET_TIMEZONES.get(normalized_market, "UTC")
+    candidate_day = _now_for_vendor_timezone(timezone_name).date()
+    trading_day = latest_trading_day_on_or_before(normalized_market, candidate_day)
+    return trading_day or candidate_day
+
+
 def _state_dir() -> Path:
     return app_config.SCREENER_STATE_DIR / "data_sync"
 
@@ -283,6 +323,7 @@ def _save_task(task: DataSyncTask) -> None:
         started_at=task.started_at,
         finished_at=task.finished_at,
         heartbeat_at=_utc_iso() if task.status == "running" else None,
+        worker_id=current_worker_id() if task.status == "running" else None,
     )
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().save_task("data_sync", task.id, task.to_dict())
@@ -405,6 +446,58 @@ def record_data_sync_audit_event(
         return
 
 
+def check_data_sync_task_canceled(task_id: str) -> None:
+    if get_data_sync_task(task_id).cancel_requested_at:
+        raise task_store.TaskCanceled("Data sync task canceled by request.")
+
+
+def _data_sync_cancel_requested_progress(task: DataSyncTask) -> dict[str, Any]:
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": "running",
+        "message": (
+            f"{task.sync_type} sync termination requested. "
+            "Work will stop at the next safe step."
+        ),
+    }
+
+
+def _data_sync_canceled_progress(task: DataSyncTask) -> dict[str, Any]:
+    return {
+        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "status": "canceled",
+        "message": f"{task.sync_type} sync canceled by request.",
+    }
+
+
+def _mark_data_sync_task_canceled(task_id: str) -> None:
+    task = get_data_sync_task(task_id)
+    now_iso = _utc_iso()
+    task.status = "canceled"
+    task.canceled_at = task.canceled_at or now_iso
+    task.finished_at = now_iso
+    task.error = None
+    task.result = None
+    progress = _data_sync_canceled_progress(task)
+    task.latest_progress = progress
+    task.progress_events.append(progress)
+    _save_task(task)
+    log_task_event(
+        logger,
+        "task_canceled",
+        kind="data_sync",
+        task_id=task_id,
+        task=task,
+        sync_type=task.sync_type,
+    )
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().append_event("data_sync", task_id, progress)
+    record_data_sync_audit_event(
+        task,
+        action=f"data_sync.{task.sync_type}.canceled",
+    )
+
+
 def _append_progress(task_id: str, message: str, **extra: Any) -> None:
     progress = {
         "timestamp": datetime.now().strftime("%H:%M:%S"),
@@ -417,12 +510,36 @@ def _append_progress(task_id: str, message: str, **extra: Any) -> None:
         task.progress_events.append(progress)
         _save_task(task)
         task_store.get_task_store().append_event("data_sync", task_id, progress)
+        log_task_event(
+            logger,
+            "task_progress",
+            kind="data_sync",
+            task_id=task_id,
+            task=task,
+            message=message,
+            stage=extra.get("stage"),
+            current=extra.get("current"),
+            total=extra.get("total"),
+            symbol=extra.get("symbol"),
+        )
         return
     with data_sync_tasks_lock:
         task = data_sync_tasks[task_id]
         task.latest_progress = progress
         task.progress_events.append(progress)
     _save_task(task)
+    log_task_event(
+        logger,
+        "task_progress",
+        kind="data_sync",
+        task_id=task_id,
+        task=task,
+        message=message,
+        stage=extra.get("stage"),
+        current=extra.get("current"),
+        total=extra.get("total"),
+        symbol=extra.get("symbol"),
+    )
 
 
 def get_data_sync_task(task_id: str) -> DataSyncTask:
@@ -492,6 +609,8 @@ def data_sync_task_from_payload(payload: dict[str, Any]) -> DataSyncTask:
         started_at=payload.get("started_at"),
         finished_at=payload.get("finished_at"),
         queue_position=payload.get("queue_position"),
+        cancel_requested_at=payload.get("cancel_requested_at"),
+        canceled_at=payload.get("canceled_at"),
     )
 
 
@@ -512,9 +631,22 @@ def build_ohlcv_config_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "us_manifest_path": payload.get("us_manifest_path"),
     }
     if "cn" in payload["markets"] and not config_payload["cn_manifest_path"]:
-        config_payload["cn_manifest_path"] = os.environ.get("SCREEN_CN_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path("cn", app_config.PROJECT_ROOT)
+        config_payload["cn_manifest_path"] = (
+            str(manifest_path) if manifest_path else None
+        )
     if "us" in payload["markets"] and not config_payload["us_manifest_path"]:
-        config_payload["us_manifest_path"] = os.environ.get("SCREEN_US_MANIFEST_PATH")
+        manifest_path = app_config.resolve_manifest_path(
+            "us", app_config.PROJECT_ROOT, require_exists=True
+        )
+        if not manifest_path:
+            raise RuntimeError(
+                "US data sync requires a manifest at DATA_DIR/manifest/us.csv "
+                "or SCREEN_US_MANIFEST_PATH."
+            )
+        config_payload["us_manifest_path"] = (
+            str(manifest_path) if manifest_path else None
+        )
     return config_payload
 
 
@@ -595,12 +727,16 @@ def resolve_fundamental_symbols(payload: dict[str, Any]) -> list[str]:
     market = str(payload["market"]).strip().lower()
     manifest_path = payload.get("manifest_path")
     if market == "us":
-        manifest_path = manifest_path or os.environ.get("SCREEN_US_MANIFEST_PATH")
+        manifest_path = manifest_path or app_config.resolve_manifest_path(
+            "us", app_config.PROJECT_ROOT
+        )
         if not manifest_path:
             return []
         universe_df = load_us_universe(str(manifest_path))
     elif market == "cn":
-        manifest_path = manifest_path or os.environ.get("SCREEN_CN_MANIFEST_PATH")
+        manifest_path = manifest_path or app_config.resolve_manifest_path(
+            "cn", app_config.PROJECT_ROOT
+        )
         if not manifest_path:
             return []
         universe_df = load_cn_universe_from_manifest(str(manifest_path))
@@ -633,19 +769,24 @@ def _run_ohlcv_task(task: DataSyncTask) -> dict[str, Any]:
         _append_progress(
             task.id, message, stage=stage, current=current, total=total, symbol=symbol
         )
+        check_data_sync_task_canceled(task.id)
 
+    check_data_sync_task_canceled(task.id)
     result = run_ohlcv_sync_payload(
         payload,
         progress_callback=progress_callback,
     )
+    check_data_sync_task_canceled(task.id)
     if payload.get("run_screener_prewarm"):
         from web.backend.runtime import screener_prewarm
 
+        check_data_sync_task_canceled(task.id)
         prewarm_summary = screener_prewarm.run_screener_prewarm_after_ohlcv(
             payload["markets"],
             payload["as_of_date"],
             ohlcv_payload=payload,
         )
+        check_data_sync_task_canceled(task.id)
         result["screener_prewarm"] = prewarm_summary
         _append_progress(
             task.id,
@@ -670,13 +811,13 @@ def run_fundamental_sync_payload(
         if not symbols:
             raise RuntimeError(
                 "symbols are required for US SimFin fundamental sync. "
-                "Pass symbols, manifest_path, or set SCREEN_US_MANIFEST_PATH."
+                "Pass symbols, manifest_path, or place a manifest at DATA_DIR/manifest/us.csv."
             )
         if len(symbols) > ticker_limit:
             raise RuntimeError(
                 f"US SimFin fundamental sync requested {len(symbols)} symbols, "
                 f"which exceeds SIMFIN_DAILY_TICKER_LIMIT={ticker_limit}. "
-                "Reduce SCREEN_US_MANIFEST_PATH or raise the limit only if your SimFin plan allows it."
+                "Reduce DATA_DIR/manifest/us.csv or raise the limit only if your SimFin plan allows it."
             )
         api_key = os.environ.get("SIMFIN_API_KEY")
         if not api_key:
@@ -728,7 +869,9 @@ def _run_fundamental_task(task: DataSyncTask) -> dict[str, Any]:
             total=total,
             symbol=symbol,
         )
+        check_data_sync_task_canceled(task.id)
 
+    check_data_sync_task_canceled(task.id)
     return run_fundamental_sync_payload(
         task.request_payload,
         progress_callback=progress_callback,
@@ -740,24 +883,46 @@ def run_data_sync_task(task_id: str) -> None:
     task.status = "running"
     task.started_at = _utc_iso()
     _save_task(task)
+    log_task_event(
+        logger,
+        "task_started",
+        kind="data_sync",
+        task_id=task_id,
+        task=task,
+        sync_type=task.sync_type,
+    )
     try:
+        check_data_sync_task_canceled(task_id)
         _append_progress(task_id, f"{task.sync_type} sync started.")
         result = (
             _run_ohlcv_task(task)
             if task.sync_type == "ohlcv"
             else _run_fundamental_task(task)
         )
+        check_data_sync_task_canceled(task_id)
         task = get_data_sync_task(task_id)
         task.status = "completed"
         task.finished_at = _utc_iso()
         task.result = result
+        check_data_sync_task_canceled(task_id)
         _append_progress(task_id, f"{task.sync_type} sync completed.")
         _save_task(task)
+        log_task_event(
+            logger,
+            "task_completed",
+            kind="data_sync",
+            task_id=task_id,
+            task=task,
+            sync_type=task.sync_type,
+            result_keys=sorted(result.keys()),
+        )
         record_data_sync_audit_event(
             task,
             action=f"data_sync.{task.sync_type}.completed",
             result=result,
         )
+    except task_store.TaskCanceled:
+        _mark_data_sync_task_canceled(task_id)
     except Exception as exc:
         task = get_data_sync_task(task_id)
         task.status = "failed"
@@ -765,6 +930,15 @@ def run_data_sync_task(task_id: str) -> None:
         task.error = str(exc)
         _append_progress(task_id, f"{task.sync_type} sync failed: {exc}")
         _save_task(task)
+        log_task_event(
+            logger,
+            "task_failed",
+            kind="data_sync",
+            task_id=task_id,
+            task=task,
+            sync_type=task.sync_type,
+            **task_error_fields(exc),
+        )
         record_data_sync_audit_event(
             task,
             action=f"data_sync.{task.sync_type}.failed",
@@ -807,9 +981,79 @@ def create_data_sync_task(
                 "message": f"{sync_type} sync queued.",
             },
         )
+        log_task_event(
+            logger,
+            "task_queued",
+            kind="data_sync",
+            task_id=task_id,
+            task=task,
+            sync_type=sync_type,
+        )
         return {"task_id": task_id, "status": "queued"}
 
     _save_task(task)
     thread = threading.Thread(target=_run_task, args=(task_id,), daemon=True)
     thread.start()
+    log_task_event(
+        logger,
+        "task_submitted",
+        kind="data_sync",
+        task_id=task_id,
+        task=task,
+        sync_type=sync_type,
+    )
     return {"task_id": task_id, "status": task.status}
+
+
+def cancel_data_sync_task(task_id: str) -> None:
+    task = get_data_sync_task(task_id)
+    if task.status in task_store.TERMINAL_STATUSES:
+        raise HTTPException(
+            status_code=409, detail="Finished data sync tasks cannot be canceled."
+        )
+    now_iso = _utc_iso()
+    if task.status == "running":
+        if not task.cancel_requested_at:
+            task.cancel_requested_at = now_iso
+            task.latest_progress = _data_sync_cancel_requested_progress(task)
+            task.progress_events.append(task.latest_progress)
+        _save_task(task)
+        log_task_event(
+            logger,
+            "task_cancel_requested",
+            kind="data_sync",
+            task_id=task_id,
+            task=task,
+            sync_type=task.sync_type,
+        )
+        if task_store.redis_task_backend_enabled():
+            task_store.get_task_store().append_event(
+                "data_sync", task_id, task.latest_progress
+            )
+        return
+
+    task.status = "canceled"
+    task.cancel_requested_at = task.cancel_requested_at or now_iso
+    task.canceled_at = now_iso
+    task.finished_at = now_iso
+    task.error = None
+    task.result = None
+    task.latest_progress = _data_sync_canceled_progress(task)
+    task.progress_events.append(task.latest_progress)
+    _save_task(task)
+    log_task_event(
+        logger,
+        "task_canceled",
+        kind="data_sync",
+        task_id=task_id,
+        task=task,
+        sync_type=task.sync_type,
+    )
+    if task_store.redis_task_backend_enabled():
+        store = task_store.get_task_store()
+        store.remove_task_refs("data_sync", task_id)
+        store.append_event("data_sync", task_id, task.latest_progress)
+    record_data_sync_audit_event(
+        task,
+        action=f"data_sync.{task.sync_type}.canceled",
+    )

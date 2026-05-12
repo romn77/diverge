@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import time
 import uuid
+import logging
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Iterator
 
 from web.backend.runtime import task_store
+from web.backend.runtime.task_logging import (
+    current_worker_id,
+    log_task_event,
+    task_process_fields,
+)
 
 TASK_KINDS = task_store.TASK_KINDS
+logger = logging.getLogger(__name__)
 
 
 def _utc_iso() -> str:
@@ -71,6 +78,13 @@ def promote_due_tasks(
                     "current_agent": None,
                     "message": "Task returned to the execution queue.",
                 },
+            )
+            log_task_event(
+                logger,
+                "task_queue_promoted",
+                kind=kind,
+                task_id=task_id,
+                task=payload,
             )
             promoted.append((kind, task_id))
     return promoted
@@ -190,6 +204,7 @@ def _mark_claimed(store, kind: str, task_id: str) -> tuple[str, str] | None:
     payload["status"] = "running"
     payload["started_at"] = now_iso
     payload["worker_claimed_at"] = int(time.time())
+    payload["worker_id"] = current_worker_id()
     payload["queue_position"] = None
     store.save_task(kind, task_id, payload, enqueue=False)
     store.append_event(
@@ -204,4 +219,35 @@ def _mark_claimed(store, kind: str, task_id: str) -> tuple[str, str] | None:
             "message": "Task started.",
         },
     )
+    _upsert_claimed_job_record(kind, task_id, payload, now_iso)
+    log_task_event(
+        logger,
+        "task_queue_claimed",
+        kind=kind,
+        task_id=task_id,
+        task=payload,
+    )
     return kind, task_id
+
+
+def _upsert_claimed_job_record(
+    kind: str,
+    task_id: str,
+    payload: dict,
+    started_at: str,
+) -> None:
+    from web.backend import job_records
+
+    job_records.upsert_job_record(
+        kind=kind,
+        task_id=task_id,
+        status="running",
+        request_payload=payload.get("request_payload"),
+        owner_user_id=payload.get("owner_user_id"),
+        tenant_id=payload.get("tenant_id"),
+        created_at=payload.get("created_at"),
+        queued_at=payload.get("queued_at"),
+        started_at=started_at,
+        heartbeat_at=started_at,
+        worker_id=task_process_fields()["worker_id"],
+    )

@@ -117,6 +117,16 @@ test("ReportViewer lets the top overview panel collapse above the report body", 
   assert.match(source, /!\s*isOverviewCollapsed && \(/);
 });
 
+test("ReportViewer exposes authorized report visibility changes", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /updateReportVisibility/);
+  assert.match(source, /type ReportVisibility/);
+  assert.match(source, /canUpdateVisibility/);
+  assert.match(source, /visibility_admin_override/);
+  assert.match(source, /home\.visibility\.change/);
+});
+
 test("ReportViewer loads and renders decision_card artifacts before complete markdown", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 

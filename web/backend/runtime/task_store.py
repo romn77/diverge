@@ -15,6 +15,10 @@ DEFAULT_TERMINAL_TTL_SECONDS = 7 * 24 * 60 * 60
 TASK_KINDS = ("analysis", "screener", "data_sync")
 
 
+class TaskCanceled(RuntimeError):
+    """Raised by cooperative task cancellation checks at safe boundaries."""
+
+
 def _dumps(payload: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 

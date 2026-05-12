@@ -72,7 +72,7 @@ export function ActivityDashboard() {
     window.confirm(
       t(
         "activity.cancelTaskConfirm",
-        "Cancel this queued task? Running or finished tasks cannot be canceled."
+        "Cancel this task? Running work will stop at the next safe step."
       )
     );
 
@@ -341,10 +341,14 @@ function ActivityQueueSection({
 }
 
 function canCancelTask(task: Task | ScreenerTask): boolean {
+  if (task.cancel_requested_at) {
+    return false;
+  }
   return (
     task.status === "pending" ||
     task.status === "queued" ||
-    task.status === "waiting_for_quota"
+    task.status === "waiting_for_quota" ||
+    task.status === "running"
   );
 }
 

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-from diverge.data_layout import DEFAULT_EVAL_RESULTS_DIR
+from diverge.data_layout import DEFAULT_EVAL_RESULTS_DIR, resolve_manifest_path
 from diverge.default_config import DEFAULT_CONFIG
 from diverge.screener.schema import ScreenRunConfig
 from diverge import trade_feedback
@@ -34,3 +34,16 @@ def test_trade_feedback_root_defaults_under_data_reports(tmp_path):
 
 def test_default_config_uses_data_eval_results_for_legacy_analysis_outputs():
     assert DEFAULT_CONFIG["eval_results_dir"] == DEFAULT_EVAL_RESULTS_DIR
+
+
+def test_resolve_manifest_path_requires_existing_file(tmp_path):
+    with patch.dict(os.environ, {"DATA_DIR": str(tmp_path)}, clear=True):
+        assert resolve_manifest_path("us", tmp_path, require_exists=True) is None
+
+        manifest_path = tmp_path / "manifest" / "us.csv"
+        manifest_path.parent.mkdir()
+        manifest_path.write_text("symbol\nAAPL\n", encoding="utf-8")
+
+        assert (
+            resolve_manifest_path("us", tmp_path, require_exists=True) == manifest_path
+        )

@@ -147,7 +147,7 @@ python -m diverge.data.us_manifest
 python -m diverge.data.cn_manifest
 ```
 
-US screening requires `SCREEN_US_MANIFEST_PATH` for web launches. CN screening can use `SCREEN_CN_MANIFEST_PATH`; if omitted, the screener falls back to live CN universe loading through the configured CN source chain.
+Both helpers write to `DATA_DIR/manifest/` by default. CN screening uses `cn.csv` when present and otherwise falls back to the configured CN source chain; US screening requires `DATA_DIR/manifest/us.csv`.
 
 ## Python Usage
 

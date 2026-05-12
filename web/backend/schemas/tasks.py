@@ -8,7 +8,7 @@ from pydantic import BaseModel
 class TaskCreatePayload(BaseModel):
     ticker: str
     ticker_exchange: Optional[str] = None
-    analysis_date: str
+    analysis_date: Optional[str] = None
     analysts: list[str]
     research_depth: int
     model_profile: Optional[str] = None
@@ -19,4 +19,4 @@ class TaskCreatePayload(BaseModel):
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     market_data_source: str = "massive"
-    report_visibility: Literal["private", "workspace"] = "private"
+    report_visibility: Literal["private", "workspace"] = "workspace"

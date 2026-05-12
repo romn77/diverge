@@ -164,7 +164,9 @@ export function TaskProgress({
         .slice(0, 12),
     [events]
   );
-  const canCancelTask = task ? canCancelTaskStatus(task.status) : false;
+  const canCancelTask = task
+    ? canCancelTaskStatus(task.status) && !task.cancel_requested_at
+    : false;
 
   const handleCancelTask = async () => {
     if (!task || !canCancelTask) {
@@ -176,7 +178,9 @@ export function TaskProgress({
       await cancelTask(task.id);
       const nextTask = await getTask(task.id);
       setTask(nextTask);
-      onTaskComplete(nextTask.report_id);
+      if (isTerminalTaskStatus(nextTask.status)) {
+        onTaskComplete(nextTask.report_id);
+      }
     } catch (error) {
       setStreamError(
         error instanceof Error
@@ -272,7 +276,9 @@ export function TaskProgress({
                 >
                   {canceling
                     ? t("task.canceling", "Canceling...")
-                    : t("task.cancel", "Cancel task")}
+                    : task?.status === "running"
+                      ? t("task.terminate", "Terminate task")
+                      : t("task.cancel", "Cancel task")}
                 </Button>
               ) : null}
               {task?.report_id ? (
@@ -457,7 +463,12 @@ function isTerminalTaskStatus(status: TaskStatus): boolean {
 }
 
 function canCancelTaskStatus(status: TaskStatus): boolean {
-  return status === "pending" || status === "queued" || status === "waiting_for_quota";
+  return (
+    status === "pending" ||
+    status === "queued" ||
+    status === "waiting_for_quota" ||
+    status === "running"
+  );
 }
 
 function formatStageLabel(
@@ -500,6 +511,17 @@ function TaskStatusBadge({
 
 function TaskQueueNotice({ task }: { task: Task }) {
   const { t } = usePreferences();
+  if (task.status === "running" && task.cancel_requested_at) {
+    return (
+      <div className="mt-6 rounded-2xl border border-[rgba(181,121,34,0.24)] bg-[rgba(181,121,34,0.08)] px-4 py-3 text-sm text-slate-700">
+        {t(
+          "task.cancelRequested",
+          "Termination requested. Running work will stop at the next safe step."
+        )}
+      </div>
+    );
+  }
+
   if (task.status === "queued" || task.status === "pending") {
     const position =
       typeof task.queue_position === "number"
@@ -560,6 +582,7 @@ function TaskRequestDetails({ task }: { task: Task }) {
   const details = request
     ? {
         ...request,
+        analysis_date: request.analysis_date ?? task.analysis_date ?? notSetLabel,
         llm_provider: request.llm_provider ?? notSetLabel,
         quick_think_llm: request.quick_think_llm ?? notSetLabel,
         deep_think_llm: request.deep_think_llm ?? notSetLabel,

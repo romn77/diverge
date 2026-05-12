@@ -362,35 +362,48 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                       {isExpanded ? (
                         <div id={panelId} className="analysis-report-children">
                           {group.reports.map((report) => (
-                            <Link
+                            <div
                               key={report.id}
-                              href={buildReportHref(report.id)}
                               className="analysis-report-row group flex items-center justify-between gap-4"
                             >
-                              <div className="min-w-0">
+                              <Link href={buildReportHref(report.id)} className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="font-mono text-xs font-semibold text-slate-700">
                                     {formatReportTimestamp(report)}
                                   </p>
-                                  <Badge
-                                    variant={
-                                      report.visibility === "workspace" ? "success" : "secondary"
-                                    }
-                                    className="px-2 py-1 text-[10px]"
-                                  >
-                                    {report.visibility === "workspace"
-                                      ? t("home.visibility.workspace", "Workspace")
-                                      : t("home.visibility.private", "Private")}
-                                  </Badge>
+                                  {report.visibility ? (
+                                    <Badge
+                                      variant={
+                                        report.visibility === "workspace"
+                                          ? "success"
+                                          : "secondary"
+                                      }
+                                      className="px-2 py-1 text-[10px]"
+                                    >
+                                      {report.visibility === "workspace"
+                                        ? t("home.visibility.workspace", "Workspace")
+                                        : t("home.visibility.private", "Private")}
+                                    </Badge>
+                                  ) : null}
+                                  {report.visibility && report.visibility_admin_override ? (
+                                    <Badge variant="secondary" className="px-2 py-1 text-[10px]">
+                                      {t("home.visibility.adminOverride", "Admin adjusted")}
+                                    </Badge>
+                                  ) : null}
                                 </div>
                                 <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
                                   {report.id}
                                 </p>
+                              </Link>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Link
+                                  href={buildReportHref(report.id)}
+                                  className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]"
+                                >
+                                  {t("common.open", "Open")}
+                                </Link>
                               </div>
-                              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
-                                {t("common.open", "Open")}
-                              </span>
-                            </Link>
+                            </div>
                           ))}
                         </div>
                       ) : null}

@@ -139,6 +139,10 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
                 create=True,
             ),
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread"),
+            patch(
+                "web.backend.runtime.data_sync_tasks.resolve_latest_ready_trading_day",
+                return_value=date(2026, 3, 24),
+            ),
             patch("web.backend.routers.screeners.date") as date_module,
         ):
             date_module.today.return_value = date(2026, 3, 24)

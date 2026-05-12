@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from web.backend import access, app_config, auth, report_metadata, storage
+from web.backend import access, app_config, audit, auth, report_metadata, storage
 
 logger = logging.getLogger(__name__)
 
@@ -339,6 +339,7 @@ def get_structure(report_id: str, request: Request | None = None) -> dict:
                 return {
                     "id": record.id,
                     "ticker": record.ticker,
+                    **report_metadata.serialize_report_summary(record),
                     **structure,
                 }
         except HTTPException:
@@ -411,3 +412,56 @@ def get_content(report_id: str, path: str, request: Request | None = None) -> di
         ) from exc
 
     return {"content": content}
+
+
+def update_report_visibility(
+    report_id: str,
+    visibility: str,
+    request: Request | None = None,
+) -> dict:
+    if not auth.auth_enabled():
+        raise HTTPException(status_code=409, detail="Auth is disabled")
+    try:
+        with auth.db_session() as db:
+            current_user = _require_report_user(db, request)
+            record = report_metadata.get_report_run(
+                db,
+                report_id,
+                tenant_id=current_user.tenant_id,
+            )
+            is_owner = record.owner_user_id == current_user.id
+            is_admin = access.is_admin_user(current_user)
+            if not is_owner and not is_admin:
+                raise auth.AuthPermissionError(
+                    "Only owner or admin can update visibility"
+                )
+
+            old_visibility = record.visibility
+            new_visibility = report_metadata._normalize_visibility(visibility)
+            record.visibility = new_visibility
+            record.visibility_updated_by_user_id = current_user.id
+            record.visibility_updated_at = report_metadata._utcnow()
+            record.visibility_admin_override = bool(is_admin and not is_owner)
+            db.flush()
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=current_user.tenant_id,
+                actor_user_id=current_user.id,
+                action="report.visibility.updated",
+                resource_type="report",
+                resource_id=record.id,
+                metadata={
+                    "old_visibility": old_visibility,
+                    "new_visibility": new_visibility,
+                    "owner_user_id": record.owner_user_id,
+                    "admin_override": record.visibility_admin_override,
+                },
+                request=request,
+            )
+            payload = report_metadata.serialize_report_summary(record)
+            db.commit()
+            return payload
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc

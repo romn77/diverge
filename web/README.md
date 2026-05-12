@@ -45,6 +45,11 @@ The start script writes process logs to files and streams them in the current te
 
 Use `TAIL_LOGS=false ./start.sh` to print only the paths without streaming, or set `BACKEND_LOG_LEVEL=debug` when you need more backend detail.
 
+Task lifecycle logs include a stable `task_event` marker with fields such as
+`kind`, `task_id`, `status`, `worker_id`, `stage`, and `elapsed_seconds`. In
+production, use `scripts/ops-task-logs.sh [task_id]` or see
+`docs/operations/task-troubleshooting.md` for the full runbook.
+
 To exercise the production-style Redis worker path locally, run:
 
 ```bash
@@ -55,6 +60,10 @@ START_REDIS_DOCKER=true \
 ```
 
 With `TASK_BACKEND=redis`, the script verifies Redis before startup and launches `python -m web.backend.worker` alongside the API. Without `START_REDIS_DOCKER=true`, start Redis yourself first, for example `docker run --rm -p 6379:6379 redis:7-alpine`.
+
+For a Vercel-hosted Singapore frontend demo, deploy only `web/frontend` and keep
+the backend stack in its current environment. See
+`docs/deployment/vercel-sg-frontend-demo.md`.
 
 ### Option 2: Manual Start
 
@@ -95,10 +104,13 @@ Then open http://localhost:3000 in your browser.
 
 ## Screener Notes
 
-- Web CN screening can optionally use backend env `SCREEN_CN_MANIFEST_PATH`; otherwise it falls back to live CN universe loading
-- Web US screening requires backend env `SCREEN_US_MANIFEST_PATH`
+- Set `DATA_DIR` as the single standard data path; reports, screener state/cache, history, fundamentals, and manifests are derived from it
+- Standard screener manifests live under `DATA_DIR/manifest/`: `cn.csv` and `us.csv`
+- CN screening uses `DATA_DIR/manifest/cn.csv` when present; otherwise it falls back to live CN universe loading
+- US screening requires `DATA_DIR/manifest/us.csv`; `SCREEN_US_MANIFEST_PATH` is available as an advanced backend override
+- `MANIFEST_DIR`, `SCREEN_CN_MANIFEST_PATH`, and `SCREEN_US_MANIFEST_PATH` can override the standard manifest layout for non-default deployments
 - LLM analysis happens after screener output, not during screener execution
-- Shared screener cache and recovery checkpoints live under `../data/cache/screener/`
+- Shared screener cache and recovery checkpoints live under `DATA_DIR/cache/screener/`
 - Admin data-sync blocks same-day OHLCV refreshes until the vendor-local readiness cutoff:
   `DATA_SYNC_TUSHARE_READY_TIME=18:10` for Tushare and
   `DATA_SYNC_MASSIVE_READY_TIME=21:10` for Massive by default

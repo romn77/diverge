@@ -85,6 +85,9 @@ test("HomeDashboard distinguishes private and workspace shared reports", () => {
   assert.match(source, /home\.scope\.workspace/);
   assert.match(source, /home\.visibility\.private/);
   assert.match(source, /home\.visibility\.workspace/);
+  assert.match(source, /home\.visibility\.adminOverride/);
+  assert.doesNotMatch(source, /updateReportVisibility/);
+  assert.doesNotMatch(source, /home\.visibility\.change/);
   assert.doesNotMatch(source, /isWorkspaceSharedReport/);
   assert.doesNotMatch(source, /home\.visibility\.workspaceOwned/);
 });
