@@ -251,7 +251,7 @@ export function Sidebar({
             </div>
           </div>
 
-          <div className="mt-auto w-full border-t border-[var(--border)] pt-3">
+          <div className="mt-auto mb-4 w-full border-t border-[var(--border)] pt-3">
             <div className="mb-2.5 flex justify-center" aria-hidden="true">
               <span className="h-4 w-px bg-[rgba(36,32,28,0.14)]" />
             </div>
@@ -315,7 +315,7 @@ export function Sidebar({
             </SidebarSection>
           </nav>
 
-          <div className="mt-auto border-t border-[var(--border)] pt-2.5">
+          <div className="mt-auto mb-4 border-t border-[var(--border)] pt-2.5">
             <SidebarSectionHeading title={t("sidebar.section.operations", "Operations")} muted />
             <SidebarUtilityLink
               href={buildActivityHref()}

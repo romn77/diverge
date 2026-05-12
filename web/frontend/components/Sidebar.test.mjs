@@ -24,6 +24,8 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /SidebarSection title=\{t\("sidebar\.section\.research", "Research"\)\}/);
   assert.match(source, /SidebarSection title=\{t\("sidebar\.section\.portfolio", "Portfolio"\)\}/);
   assert.match(source, /SidebarSectionHeading title=\{t\("sidebar\.section\.operations", "Operations"\)\} muted/);
+  assert.match(source, /mt-auto mb-4 w-full border-t border-\[var\(--border\)\] pt-3/);
+  assert.match(source, /mt-auto mb-4 border-t border-\[var\(--border\)\] pt-2\.5/);
   assert.match(source, /t\("sidebar\.nav\.analysis", "Analysis"\)/);
   assert.match(source, /t\("sidebar\.nav\.screener", "Screener"\)/);
   assert.match(source, /t\("sidebar\.nav\.assets", "Assets"\)/);
