@@ -104,6 +104,25 @@ scripts/check-database.sh --upgrade --bootstrap-admin
 - Use focused tests for the touched area first, then broaden when changing shared
   contracts such as auth, task state, screener behavior, storage, or API schemas.
 
+## Subagent Development
+
+- Subagents may be used for repository exploration, bounded implementation,
+  review, and verification when the task benefits from parallel work or focused
+  specialist attention.
+- Keep delegated work concrete and scoped. For implementation, split work by
+  clearly separated files or modules so subagents do not edit the same area at
+  the same time.
+- The coordinating agent remains responsible for reading relevant local context,
+  integrating subagent changes, resolving conflicts, preserving user changes,
+  and running or reporting the appropriate focused checks.
+- Prefer subagents for sidecar work that can run in parallel, such as mapping
+  call paths, drafting tests, reviewing risk areas, or implementing isolated
+  slices. Keep tightly-coupled or blocking decisions with the coordinating
+  agent.
+- Subagents must follow this `AGENTS.md`, keep edits scoped to the user request,
+  and avoid generated artifacts or destructive git commands unless explicitly
+  requested.
+
 ## Data, Auth, And Deployment
 
 - Do not commit secrets, API keys, session tokens, `.env` contents, local
