@@ -19,7 +19,12 @@ from web.backend.runtime.task_logging import (
     log_task_event,
     task_error_fields,
 )
-from web.backend.services import fundamental_sync, ohlcv_readiness, ohlcv_sync
+from web.backend.services import (
+    data_sync_audit,
+    fundamental_sync,
+    ohlcv_readiness,
+    ohlcv_sync,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -209,31 +214,11 @@ def data_sync_audit_metadata(
     result: dict[str, Any] | None = None,
     error: str | None = None,
 ) -> dict[str, Any]:
-    payload = task.request_payload
-    metadata: dict[str, Any] = {
-        "sync_type": task.sync_type,
-        "markets": payload.get("markets"),
-        "market": payload.get("market"),
-        "as_of_date": payload.get("as_of_date"),
-        "cn_data_source": payload.get("cn_data_source"),
-        "us_data_source": payload.get("us_data_source"),
-    }
-    if result:
-        for key in (
-            "symbols_total",
-            "symbols_success",
-            "symbols_failed",
-            "rows_written",
-            "symbols_missing_as_of_bar",
-            "symbols_pruned_from_screener",
-            "quality_artifact_path",
-            "quality_reason_counts",
-        ):
-            if key in result:
-                metadata[key] = result.get(key)
-    if error:
-        metadata["error"] = error
-    return {key: value for key, value in metadata.items() if value is not None}
+    return data_sync_audit.data_sync_audit_metadata(
+        task,
+        result=result,
+        error=error,
+    )
 
 
 def record_data_sync_audit_event(
@@ -243,21 +228,15 @@ def record_data_sync_audit_event(
     result: dict[str, Any] | None = None,
     error: str | None = None,
 ) -> None:
-    if task.owner_user_id is None or task.tenant_id is None or not auth.auth_enabled():
-        return
-    try:
-        with auth.db_session() as db:
-            audit.record_audit_event_safely(
-                db,
-                tenant_id=task.tenant_id,
-                actor_user_id=task.owner_user_id,
-                action=action,
-                resource_type="data_sync_task",
-                resource_id=task.id,
-                metadata=data_sync_audit_metadata(task, result=result, error=error),
-            )
-    except Exception:
-        return
+    return data_sync_audit.record_data_sync_audit_event(
+        task,
+        action=action,
+        result=result,
+        error=error,
+        auth_module=auth,
+        audit_module=audit,
+        metadata_builder=data_sync_audit_metadata,
+    )
 
 
 def check_data_sync_task_canceled(task_id: str) -> None:

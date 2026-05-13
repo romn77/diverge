@@ -18,6 +18,7 @@ from web.backend.schemas.data_sync import (
     DataSyncOhlcvPayload,
 )
 from web.backend.services import (
+    data_sync_audit,
     fundamental_sync,
     ohlcv_readiness,
     ohlcv_sync,
@@ -230,6 +231,40 @@ def test_worker_startup_restores_data_sync_tasks_when_redis_enabled(monkeypatch)
         worker.main()
 
     restore_data_sync.assert_called_once_with()
+
+
+def test_data_sync_audit_service_keeps_metadata_small():
+    task = data_sync_tasks.DataSyncTask(
+        id="sync-audit",
+        sync_type="ohlcv",
+        request_payload={
+            "markets": ["cn"],
+            "as_of_date": "2026-04-29",
+            "cn_data_source": "tushare",
+            "raw_prompt": "do not audit",
+            "portfolio": {"secret": "nope"},
+        },
+    )
+
+    metadata = data_sync_audit.data_sync_audit_metadata(
+        task,
+        result={
+            "symbols_total": 2,
+            "quality_reason_counts": {"ready": 2},
+            "raw_exception": "do not audit",
+        },
+        error="sanitized failure",
+    )
+
+    assert metadata == {
+        "sync_type": "ohlcv",
+        "markets": ["cn"],
+        "as_of_date": "2026-04-29",
+        "cn_data_source": "tushare",
+        "symbols_total": 2,
+        "quality_reason_counts": {"ready": 2},
+        "error": "sanitized failure",
+    }
 
 
 def test_ohlcv_sync_requires_existing_us_manifest(tmp_path, monkeypatch):
