@@ -179,6 +179,41 @@ def apply_quota_wait_transition(
     return task
 
 
+def apply_recovered_failure_transition(
+    *,
+    kind: str,
+    task: Any,
+    error: str,
+    build_progress: Callable[[Any], dict[str, Any]],
+    save_task: Callable[[Any], None] | None = None,
+    replace_progress_events: bool = False,
+    mark_finished: bool = False,
+    now_iso: str | None = None,
+    append_redis_event: bool = False,
+    ack_redis_processing: bool = False,
+) -> dict[str, Any]:
+    task.status = "failed"
+    task.error = error
+    if mark_finished and not getattr(task, "finished_at", None):
+        task.finished_at = now_iso or utc_iso()
+    failure_progress = build_progress(task)
+    task.latest_progress = failure_progress
+    if replace_progress_events:
+        task.progress_events = [failure_progress]
+    else:
+        task.progress_events.append(failure_progress)
+    if save_task is not None:
+        save_task(task)
+    if task_store.redis_task_backend_enabled():
+        store = task_store.get_task_store()
+        task_id = str(getattr(task, "id"))
+        if append_redis_event:
+            store.append_event(kind, task_id, failure_progress)
+        if ack_redis_processing:
+            store.ack(kind, task_id)
+    return failure_progress
+
+
 def _field(source: Any, name: str) -> Any:
     if isinstance(source, dict):
         return source.get(name)

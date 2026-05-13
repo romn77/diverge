@@ -465,20 +465,18 @@ def restore_persisted_screener_tasks() -> None:
         task_store.get_task_store().recover_processing("screener")
         for task in list_screener_tasks():
             if task.status == "running":
-                task.status = "failed"
-                task.error = app_config.RECOVERED_TASK_ERROR
-                task.latest_progress = build_screener_failure_progress(
-                    task,
-                    app_config.RECOVERED_TASK_ERROR,
+                task_lifecycle.apply_recovered_failure_transition(
+                    kind="screener",
+                    task=task,
+                    error=app_config.RECOVERED_TASK_ERROR,
+                    build_progress=lambda task: build_screener_failure_progress(
+                        task,
+                        app_config.RECOVERED_TASK_ERROR,
+                    ),
+                    save_task=save_screener_task,
+                    append_redis_event=True,
+                    ack_redis_processing=True,
                 )
-                task.progress_events.append(task.latest_progress)
-                save_screener_task(task)
-                task_store.get_task_store().append_event(
-                    "screener",
-                    task.id,
-                    task.latest_progress,
-                )
-                task_store.get_task_store().ack("screener", task.id)
         return
     active_dir = active_screener_tasks_dir()
     if not active_dir.is_dir():
@@ -503,13 +501,16 @@ def restore_persisted_screener_tasks() -> None:
             delete_screener_task_snapshot(task.id)
             continue
 
-        task.status = "failed"
-        task.error = app_config.RECOVERED_TASK_ERROR
-        task.latest_progress = build_screener_failure_progress(
-            task,
-            app_config.RECOVERED_TASK_ERROR,
+        task_lifecycle.apply_recovered_failure_transition(
+            kind="screener",
+            task=task,
+            error=app_config.RECOVERED_TASK_ERROR,
+            build_progress=lambda task: build_screener_failure_progress(
+                task,
+                app_config.RECOVERED_TASK_ERROR,
+            ),
+            replace_progress_events=True,
         )
-        task.progress_events = [task.latest_progress]
 
         with screener_tasks_lock:
             screener_tasks[task.id] = task

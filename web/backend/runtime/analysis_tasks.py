@@ -501,20 +501,17 @@ def restore_persisted_active_tasks() -> None:
         task_store.get_task_store().recover_processing("analysis")
         for task in list_tasks():
             if task.status == "running":
-                task.status = "failed"
-                task.error = app_config.RECOVERED_TASK_ERROR
-                failure_progress = build_failure_progress(
-                    task, app_config.RECOVERED_TASK_ERROR
+                task_lifecycle.apply_recovered_failure_transition(
+                    kind="analysis",
+                    task=task,
+                    error=app_config.RECOVERED_TASK_ERROR,
+                    build_progress=lambda task: build_failure_progress(
+                        task, app_config.RECOVERED_TASK_ERROR
+                    ),
+                    save_task=save_task,
+                    append_redis_event=True,
+                    ack_redis_processing=True,
                 )
-                task.latest_progress = failure_progress
-                task.progress_events.append(failure_progress)
-                task_store.get_task_store().save_task(
-                    "analysis", task.id, task.to_dict()
-                )
-                task_store.get_task_store().append_event(
-                    "analysis", task.id, failure_progress
-                )
-                task_store.get_task_store().ack("analysis", task.id)
         return
     active_dir = active_tasks_dir()
     if not active_dir.is_dir():
@@ -539,11 +536,15 @@ def restore_persisted_active_tasks() -> None:
             delete_task_snapshot(task.id)
             continue
 
-        task.status = "failed"
-        task.error = app_config.RECOVERED_TASK_ERROR
-        failure_progress = build_failure_progress(task, app_config.RECOVERED_TASK_ERROR)
-        task.latest_progress = failure_progress
-        task.progress_events = [failure_progress]
+        task_lifecycle.apply_recovered_failure_transition(
+            kind="analysis",
+            task=task,
+            error=app_config.RECOVERED_TASK_ERROR,
+            build_progress=lambda task: build_failure_progress(
+                task, app_config.RECOVERED_TASK_ERROR
+            ),
+            replace_progress_events=True,
+        )
 
         with tasks_lock:
             tasks[task.id] = task

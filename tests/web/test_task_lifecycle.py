@@ -342,6 +342,98 @@ def test_apply_quota_wait_transition_sets_fields_before_progress_and_delays_redi
     }
 
 
+def test_apply_recovered_failure_transition_can_replace_local_progress(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: False,
+    )
+    task = SimpleNamespace(
+        id="task-5",
+        status="running",
+        error=None,
+        finished_at=None,
+        latest_progress={"status": "running"},
+        progress_events=[{"status": "running"}],
+    )
+
+    progress = task_lifecycle.apply_recovered_failure_transition(
+        kind="analysis",
+        task=task,
+        error="Recovered after restart.",
+        build_progress=lambda failed_task: {
+            "status": failed_task.status,
+            "message": failed_task.error,
+        },
+        replace_progress_events=True,
+    )
+
+    assert progress == {"status": "failed", "message": "Recovered after restart."}
+    assert task.status == "failed"
+    assert task.error == "Recovered after restart."
+    assert task.finished_at is None
+    assert task.latest_progress == progress
+    assert task.progress_events == [progress]
+
+
+def test_apply_recovered_failure_transition_saves_and_acks_redis(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: True,
+    )
+    task = SimpleNamespace(
+        id="task-6",
+        status="running",
+        error=None,
+        finished_at=None,
+        latest_progress=None,
+        progress_events=[],
+    )
+    saved = {}
+    appended = {}
+    acked = {}
+    store = SimpleNamespace(
+        append_event=lambda kind, task_id, payload: appended.update(
+            kind=kind,
+            task_id=task_id,
+            payload=payload,
+        ),
+        ack=lambda kind, task_id: acked.update(kind=kind, task_id=task_id),
+    )
+    monkeypatch.setattr(task_lifecycle.task_store, "get_task_store", lambda: store)
+
+    progress = task_lifecycle.apply_recovered_failure_transition(
+        kind="data_sync",
+        task=task,
+        error="Recovered after restart.",
+        build_progress=lambda failed_task: {
+            "status": failed_task.status,
+            "finished_at": failed_task.finished_at,
+        },
+        save_task=lambda saved_task: saved.update(task=saved_task),
+        mark_finished=True,
+        now_iso="2026-05-13T01:02:03+00:00",
+        append_redis_event=True,
+        ack_redis_processing=True,
+    )
+
+    assert progress == {
+        "status": "failed",
+        "finished_at": "2026-05-13T01:02:03+00:00",
+    }
+    assert task.status == "failed"
+    assert task.error == "Recovered after restart."
+    assert task.finished_at == "2026-05-13T01:02:03+00:00"
+    assert task.latest_progress == progress
+    assert task.progress_events == [progress]
+    assert saved == {"task": task}
+    assert appended == {"kind": "data_sync", "task_id": "task-6", "payload": progress}
+    assert acked == {"kind": "data_sync", "task_id": "task-6"}
+
+
 def test_upsert_job_record_projects_common_task_fields(monkeypatch):
     captured = {}
     task = SimpleNamespace(

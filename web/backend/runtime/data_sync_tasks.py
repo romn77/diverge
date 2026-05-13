@@ -107,17 +107,16 @@ def restore_persisted_data_sync_tasks() -> None:
         task_store.get_task_store().recover_processing("data_sync")
         for task in list_data_sync_tasks():
             if task.status == "running":
-                task.status = "failed"
-                task.error = app_config.RECOVERED_TASK_ERROR
-                task.finished_at = task.finished_at or _utc_iso()
-                failure_progress = _build_recovered_progress(task)
-                task.latest_progress = failure_progress
-                task.progress_events.append(failure_progress)
-                _save_task(task)
-                task_store.get_task_store().append_event(
-                    "data_sync", task.id, failure_progress
+                task_lifecycle.apply_recovered_failure_transition(
+                    kind="data_sync",
+                    task=task,
+                    error=app_config.RECOVERED_TASK_ERROR,
+                    build_progress=_build_recovered_progress,
+                    save_task=_save_task,
+                    mark_finished=True,
+                    append_redis_event=True,
+                    ack_redis_processing=True,
                 )
-                task_store.get_task_store().ack("data_sync", task.id)
         return
 
     if not _state_dir().is_dir():
@@ -141,13 +140,14 @@ def restore_persisted_data_sync_tasks() -> None:
         if task.status in app_config.TERMINAL_TASK_STATUSES:
             continue
 
-        task.status = "failed"
-        task.error = app_config.RECOVERED_TASK_ERROR
-        task.finished_at = task.finished_at or _utc_iso()
-        failure_progress = _build_recovered_progress(task)
-        task.latest_progress = failure_progress
-        task.progress_events.append(failure_progress)
-        _save_task(task)
+        task_lifecycle.apply_recovered_failure_transition(
+            kind="data_sync",
+            task=task,
+            error=app_config.RECOVERED_TASK_ERROR,
+            build_progress=_build_recovered_progress,
+            save_task=_save_task,
+            mark_finished=True,
+        )
 
 
 def data_sync_audit_metadata(
