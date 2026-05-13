@@ -318,29 +318,16 @@ def delete_failed_task(task_id: str) -> None:
 
 def append_progress(task_id: str, progress: AnalysisProgress) -> None:
     event_payload = progress.to_dict()
-    if task_store.redis_task_backend_enabled():
-        task = get_task(task_id)
-        task.latest_progress = event_payload
-        task.progress_events.append(event_payload)
-        _upsert_analysis_job_record(task)
-        task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
-        task_store.get_task_store().append_event("analysis", task_id, event_payload)
-        log_task_event(
-            logger,
-            "task_progress",
-            kind="analysis",
-            task_id=task_id,
-            task=task,
-            status=event_payload.get("status"),
-            stage=processing_stage(event_payload),
-            current_agent=event_payload.get("current_agent"),
-        )
-        return
-    with tasks_lock:
-        task = tasks[task_id]
-        task.latest_progress = event_payload
-        task.progress_events.append(event_payload)
-    persist_task_snapshot(task_id)
+    task = task_lifecycle.append_progress_event(
+        kind="analysis",
+        task_id=task_id,
+        progress=event_payload,
+        get_task=get_task,
+        local_tasks=tasks,
+        local_lock=tasks_lock,
+        save_redis_task=save_task,
+        save_local_task=lambda task: persist_task_snapshot(task.id),
+    )
     log_task_event(
         logger,
         "task_progress",

@@ -224,30 +224,16 @@ def _mark_data_sync_task_canceled(task_id: str) -> None:
 
 def _append_progress(task_id: str, message: str, **extra: Any) -> None:
     progress = data_sync_state.progress_event(message, **extra)
-    if task_store.redis_task_backend_enabled():
-        task = get_data_sync_task(task_id)
-        task.latest_progress = progress
-        task.progress_events.append(progress)
-        _save_task(task)
-        task_store.get_task_store().append_event("data_sync", task_id, progress)
-        log_task_event(
-            logger,
-            "task_progress",
-            kind="data_sync",
-            task_id=task_id,
-            task=task,
-            message=message,
-            stage=extra.get("stage"),
-            current=extra.get("current"),
-            total=extra.get("total"),
-            symbol=extra.get("symbol"),
-        )
-        return
-    with data_sync_tasks_lock:
-        task = data_sync_tasks[task_id]
-        task.latest_progress = progress
-        task.progress_events.append(progress)
-    _save_task(task)
+    task = task_lifecycle.append_progress_event(
+        kind="data_sync",
+        task_id=task_id,
+        progress=progress,
+        get_task=get_data_sync_task,
+        local_tasks=data_sync_tasks,
+        local_lock=data_sync_tasks_lock,
+        save_redis_task=_save_task,
+        save_local_task=_save_task,
+    )
     log_task_event(
         logger,
         "task_progress",

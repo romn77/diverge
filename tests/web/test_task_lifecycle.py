@@ -5,6 +5,19 @@ from types import SimpleNamespace
 from web.backend.runtime import task_lifecycle
 
 
+class LockProbe:
+    def __init__(self):
+        self.locked = False
+        self.entered = False
+
+    def __enter__(self):
+        self.entered = True
+        self.locked = True
+
+    def __exit__(self, exc_type, exc, tb):
+        self.locked = False
+
+
 def test_progress_event_can_preserve_explicit_current_agent_none():
     event = task_lifecycle.progress_event(
         "Task queued.",
@@ -50,6 +63,84 @@ def test_apply_status_transition_sets_running_and_terminal_timestamps():
     assert task.started_at == "2026-05-13T01:02:03+00:00"
     assert task.finished_at == "2026-05-13T01:03:03+00:00"
     assert task.error == "boom"
+
+
+def test_append_progress_event_updates_local_task_and_persists_after_lock(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: False,
+    )
+    lock = LockProbe()
+    progress = {"message": "halfway", "status": "running"}
+    task = SimpleNamespace(latest_progress=None, progress_events=[])
+    local_tasks = {"task-1": task}
+    persisted = {}
+
+    returned = task_lifecycle.append_progress_event(
+        kind="analysis",
+        task_id="task-1",
+        progress=progress,
+        get_task=lambda task_id: None,
+        local_tasks=local_tasks,
+        local_lock=lock,
+        save_redis_task=lambda task: None,
+        save_local_task=lambda saved_task: persisted.update(
+            task=saved_task,
+            latest_progress=saved_task.latest_progress,
+            lock_was_released=not lock.locked,
+        ),
+    )
+
+    assert returned is task
+    assert lock.entered
+    assert task.latest_progress == progress
+    assert task.progress_events == [progress]
+    assert persisted == {
+        "task": task,
+        "latest_progress": progress,
+        "lock_was_released": True,
+    }
+
+
+def test_append_progress_event_saves_redis_task_and_replay_event(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: True,
+    )
+    progress = {"message": "tick", "status": "running"}
+    task = SimpleNamespace(latest_progress=None, progress_events=[])
+    saved = {}
+    appended = {}
+    store = SimpleNamespace(
+        append_event=lambda kind, task_id, payload: appended.update(
+            kind=kind,
+            task_id=task_id,
+            payload=payload,
+        )
+    )
+    monkeypatch.setattr(task_lifecycle.task_store, "get_task_store", lambda: store)
+
+    returned = task_lifecycle.append_progress_event(
+        kind="screener",
+        task_id="task-2",
+        progress=progress,
+        get_task=lambda task_id: task,
+        local_tasks={},
+        local_lock=LockProbe(),
+        save_redis_task=lambda saved_task: saved.update(task=saved_task),
+    )
+
+    assert returned is task
+    assert task.latest_progress == progress
+    assert task.progress_events == [progress]
+    assert saved == {"task": task}
+    assert appended == {
+        "kind": "screener",
+        "task_id": "task-2",
+        "payload": progress,
+    }
 
 
 def test_upsert_job_record_projects_common_task_fields(monkeypatch):

@@ -212,30 +212,16 @@ def delete_failed_screener_task(task_id: str) -> None:
 
 
 def append_screener_progress(task_id: str, progress: dict) -> None:
-    if task_store.redis_task_backend_enabled():
-        task = get_screener_task(task_id)
-        task.latest_progress = progress
-        task.progress_events.append(progress)
-        _upsert_screener_job_record(task)
-        task_store.get_task_store().save_task("screener", task_id, task.to_dict())
-        task_store.get_task_store().append_event("screener", task_id, progress)
-        log_task_event(
-            logger,
-            "task_progress",
-            kind="screener",
-            task_id=task_id,
-            task=task,
-            status=progress.get("status"),
-            stage=processing_stage(progress),
-            current_agent=progress.get("current_agent"),
-            message=progress.get("message"),
-        )
-        return
-    with screener_tasks_lock:
-        task = screener_tasks[task_id]
-        task.latest_progress = progress
-        task.progress_events.append(progress)
-    persist_screener_task_snapshot(task_id)
+    task = task_lifecycle.append_progress_event(
+        kind="screener",
+        task_id=task_id,
+        progress=progress,
+        get_task=get_screener_task,
+        local_tasks=screener_tasks,
+        local_lock=screener_tasks_lock,
+        save_redis_task=save_screener_task,
+        save_local_task=lambda task: persist_screener_task_snapshot(task.id),
+    )
     log_task_event(
         logger,
         "task_progress",

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+from collections.abc import Callable, MutableMapping
 from datetime import datetime, timezone
 from typing import Any, Iterable
 
 from web.backend import job_records
+from web.backend.runtime import task_store
 from web.backend.runtime.task_logging import current_worker_id
 
 
@@ -65,6 +67,34 @@ def apply_status_transition(
         task.finished_at = timestamp
     if error is not None:
         task.error = error
+
+
+def append_progress_event(
+    *,
+    kind: str,
+    task_id: str,
+    progress: dict[str, Any],
+    get_task: Callable[[str], Any],
+    local_tasks: MutableMapping[str, Any],
+    local_lock: Any,
+    save_redis_task: Callable[[Any], None],
+    save_local_task: Callable[[Any], None] | None = None,
+) -> Any:
+    if task_store.redis_task_backend_enabled():
+        task = get_task(task_id)
+        task.latest_progress = progress
+        task.progress_events.append(progress)
+        save_redis_task(task)
+        task_store.get_task_store().append_event(kind, task_id, progress)
+        return task
+
+    with local_lock:
+        task = local_tasks[task_id]
+        task.latest_progress = progress
+        task.progress_events.append(progress)
+    if save_local_task is not None:
+        save_local_task(task)
+    return task
 
 
 def _field(source: Any, name: str) -> Any:
