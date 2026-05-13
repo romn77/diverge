@@ -7,14 +7,10 @@ from contextlib import contextmanager
 from typing import Iterator
 
 from web.backend.runtime import task_lifecycle, task_store
-from web.backend.runtime.task_logging import current_worker_id, log_task_event
+from web.backend.runtime.task_logging import log_task_event
 
 TASK_KINDS = task_store.TASK_KINDS
 logger = logging.getLogger(__name__)
-
-
-def _utc_iso() -> str:
-    return task_lifecycle.utc_iso()
 
 
 @contextmanager
@@ -56,21 +52,11 @@ def promote_due_tasks(
             if payload is None or payload.get("status") in task_store.TERMINAL_STATUSES:
                 resolved_store.remove_task_refs(kind, task_id)
                 continue
-            payload["status"] = "queued"
-            payload["queued_at"] = _utc_iso()
-            payload["blocked_reason"] = None
-            payload["blocked_vendor"] = None
-            payload["blocked_until"] = None
-            resolved_store.save_task(kind, task_id, payload, enqueue=True)
-            resolved_store.append_event(
-                kind,
-                task_id,
-                task_lifecycle.queued_progress(
-                    "Task returned to the execution queue.",
-                    stage_status={},
-                    agent_status={},
-                    include_current_agent=True,
-                ),
+            task_lifecycle.promote_payload_to_queue(
+                kind=kind,
+                task_id=task_id,
+                payload=payload,
+                store=resolved_store,
             )
             log_task_event(
                 logger,
@@ -193,25 +179,12 @@ def _mark_claimed(store, kind: str, task_id: str) -> tuple[str, str] | None:
     if payload is None:
         store.ack(kind, task_id)
         return None
-    now_iso = _utc_iso()
-    payload["status"] = "running"
-    payload["started_at"] = now_iso
-    payload["worker_claimed_at"] = int(time.time())
-    payload["worker_id"] = current_worker_id()
-    payload["queue_position"] = None
-    store.save_task(kind, task_id, payload, enqueue=False)
-    store.append_event(
-        kind,
-        task_id,
-        task_lifecycle.progress_event(
-            "Task started.",
-            status="running",
-            stage_status={},
-            agent_status={},
-            include_current_agent=True,
-        ),
+    task_lifecycle.claim_payload_for_worker(
+        kind=kind,
+        task_id=task_id,
+        payload=payload,
+        store=store,
     )
-    _upsert_claimed_job_record(kind, task_id, payload, now_iso)
     log_task_event(
         logger,
         "task_queue_claimed",
@@ -220,20 +193,3 @@ def _mark_claimed(store, kind: str, task_id: str) -> tuple[str, str] | None:
         task=payload,
     )
     return kind, task_id
-
-
-def _upsert_claimed_job_record(
-    kind: str,
-    task_id: str,
-    payload: dict,
-    started_at: str,
-) -> None:
-    task_lifecycle.upsert_job_record(
-        kind=kind,
-        task=payload,
-        task_id=task_id,
-        status="running",
-        request_payload=payload.get("request_payload"),
-        heartbeat_at=started_at,
-        worker_id=payload.get("worker_id"),
-    )

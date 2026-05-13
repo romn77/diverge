@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, MutableMapping
 from datetime import datetime, timezone
 from typing import Any, Iterable
@@ -212,6 +213,76 @@ def apply_recovered_failure_transition(
         if ack_redis_processing:
             store.ack(kind, task_id)
     return failure_progress
+
+
+def promote_payload_to_queue(
+    *,
+    kind: str,
+    task_id: str,
+    payload: dict[str, Any],
+    store: Any,
+    queued_at: str | None = None,
+) -> dict[str, Any]:
+    payload["status"] = "queued"
+    payload["queued_at"] = queued_at or utc_iso()
+    payload["blocked_reason"] = None
+    payload["blocked_vendor"] = None
+    payload["blocked_until"] = None
+    store.save_task(kind, task_id, payload, enqueue=True)
+    store.append_event(
+        kind,
+        task_id,
+        queued_progress(
+            "Task returned to the execution queue.",
+            stage_status={},
+            agent_status={},
+            include_current_agent=True,
+        ),
+    )
+    return payload
+
+
+def claim_payload_for_worker(
+    *,
+    kind: str,
+    task_id: str,
+    payload: dict[str, Any],
+    store: Any,
+    started_at: str | None = None,
+    worker_id: str | None = None,
+    worker_claimed_at: int | None = None,
+) -> dict[str, Any]:
+    resolved_started_at = started_at or utc_iso()
+    resolved_worker_id = worker_id or current_worker_id()
+    payload["status"] = "running"
+    payload["started_at"] = resolved_started_at
+    payload["worker_claimed_at"] = (
+        int(time.time()) if worker_claimed_at is None else worker_claimed_at
+    )
+    payload["worker_id"] = resolved_worker_id
+    payload["queue_position"] = None
+    store.save_task(kind, task_id, payload, enqueue=False)
+    store.append_event(
+        kind,
+        task_id,
+        progress_event(
+            "Task started.",
+            status="running",
+            stage_status={},
+            agent_status={},
+            include_current_agent=True,
+        ),
+    )
+    upsert_job_record(
+        kind=kind,
+        task=payload,
+        task_id=task_id,
+        status="running",
+        request_payload=payload.get("request_payload"),
+        heartbeat_at=resolved_started_at,
+        worker_id=payload.get("worker_id"),
+    )
+    return payload
 
 
 def _field(source: Any, name: str) -> Any:

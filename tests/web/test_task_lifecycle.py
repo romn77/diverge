@@ -434,6 +434,117 @@ def test_apply_recovered_failure_transition_saves_and_acks_redis(monkeypatch):
     assert acked == {"kind": "data_sync", "task_id": "task-6"}
 
 
+def test_promote_payload_to_queue_clears_blocking_fields(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle,
+        "utc_iso",
+        lambda: "2026-05-13T01:02:03+00:00",
+    )
+    payload = {
+        "id": "task-7",
+        "status": "waiting_for_quota",
+        "blocked_reason": "quota",
+        "blocked_vendor": "vendor-a",
+        "blocked_until": "2026-05-13T02:00:00+00:00",
+    }
+    saved = {}
+    appended = {}
+    store = SimpleNamespace(
+        save_task=lambda kind, task_id, saved_payload, *, enqueue: saved.update(
+            kind=kind,
+            task_id=task_id,
+            payload=dict(saved_payload),
+            enqueue=enqueue,
+        ),
+        append_event=lambda kind, task_id, event: appended.update(
+            kind=kind,
+            task_id=task_id,
+            event=event,
+        ),
+    )
+
+    returned = task_lifecycle.promote_payload_to_queue(
+        kind="analysis",
+        task_id="task-7",
+        payload=payload,
+        store=store,
+    )
+
+    assert returned is payload
+    assert payload["status"] == "queued"
+    assert payload["queued_at"] == "2026-05-13T01:02:03+00:00"
+    assert payload["blocked_reason"] is None
+    assert payload["blocked_vendor"] is None
+    assert payload["blocked_until"] is None
+    assert saved["enqueue"] is True
+    assert saved["payload"]["status"] == "queued"
+    assert appended["kind"] == "analysis"
+    assert appended["task_id"] == "task-7"
+    assert appended["event"]["status"] == "queued"
+
+
+def test_claim_payload_for_worker_projects_running_record(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle,
+        "utc_iso",
+        lambda: "2026-05-13T01:02:03+00:00",
+    )
+    monkeypatch.setattr(task_lifecycle.time, "time", lambda: 1234.9)
+    monkeypatch.setattr(task_lifecycle, "current_worker_id", lambda: "worker-a")
+    upserted = {}
+    monkeypatch.setattr(
+        task_lifecycle,
+        "upsert_job_record",
+        lambda **kwargs: upserted.update(kwargs),
+    )
+    payload = {
+        "id": "task-8",
+        "status": "queued",
+        "request_payload": {"ticker": "SPY"},
+        "queue_position": 2,
+    }
+    saved = {}
+    appended = {}
+    store = SimpleNamespace(
+        save_task=lambda kind, task_id, saved_payload, *, enqueue: saved.update(
+            kind=kind,
+            task_id=task_id,
+            payload=dict(saved_payload),
+            enqueue=enqueue,
+        ),
+        append_event=lambda kind, task_id, event: appended.update(
+            kind=kind,
+            task_id=task_id,
+            event=event,
+        ),
+    )
+
+    returned = task_lifecycle.claim_payload_for_worker(
+        kind="analysis",
+        task_id="task-8",
+        payload=payload,
+        store=store,
+    )
+
+    assert returned is payload
+    assert payload["status"] == "running"
+    assert payload["started_at"] == "2026-05-13T01:02:03+00:00"
+    assert payload["worker_claimed_at"] == 1234
+    assert payload["worker_id"] == "worker-a"
+    assert payload["queue_position"] is None
+    assert saved["enqueue"] is False
+    assert saved["payload"]["status"] == "running"
+    assert appended["kind"] == "analysis"
+    assert appended["task_id"] == "task-8"
+    assert appended["event"]["status"] == "running"
+    assert upserted["kind"] == "analysis"
+    assert upserted["task_id"] == "task-8"
+    assert upserted["status"] == "running"
+    assert upserted["request_payload"] == {"ticker": "SPY"}
+    assert upserted["heartbeat_at"] == "2026-05-13T01:02:03+00:00"
+    assert upserted["worker_id"] == "worker-a"
+
+
 def test_upsert_job_record_projects_common_task_fields(monkeypatch):
     captured = {}
     task = SimpleNamespace(
