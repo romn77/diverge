@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Trash2, XCircle } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
@@ -9,6 +10,14 @@ import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   cancelScreenerTask,
   cancelTask,
@@ -25,8 +34,20 @@ import {
   buildTaskHref,
 } from "@/lib/workbenchRoutes";
 
+type TaskActionTarget = {
+  action: "cancel" | "delete";
+  kind: "analysis" | "screener";
+  taskId: string;
+  label: string;
+  meta: string;
+};
+
 export function ActivityDashboard() {
   const { t } = usePreferences();
+  const [taskActionTarget, setTaskActionTarget] = useState<TaskActionTarget | null>(
+    null
+  );
+  const [isSubmittingTaskAction, setIsSubmittingTaskAction] = useState(false);
   const {
     activeJournalReviewTasks,
     activeScreenerTasks,
@@ -44,53 +65,99 @@ export function ActivityDashboard() {
     (task) => task.status === "failed" || task.status === "canceled"
   );
 
-  const confirmDeleteFailedTask = () =>
-    window.confirm(
-      t(
-        "activity.deleteFailedTaskConfirm",
-        "Delete this failed task record? This removes only the task record."
+  const requestDeleteTask = (task: Task) => {
+    setTaskActionTarget({
+      action: "delete",
+      kind: "analysis",
+      taskId: task.id,
+      label: task.ticker,
+      meta: task.error ?? task.analysis_date,
+    });
+  };
+
+  const requestDeleteScreenerTask = (task: ScreenerTask) => {
+    setTaskActionTarget({
+      action: "delete",
+      kind: "screener",
+      taskId: task.id,
+      label:
+        task.request_payload?.markets.join(", ") ||
+        t("activity.candidatePoolBuild", "Candidate pool build"),
+      meta:
+        task.error ??
+        task.request_payload?.as_of_date ??
+        t("activity.awaitingUpdate", "Awaiting next update"),
+    });
+  };
+
+  const requestCancelTask = (task: Task) => {
+    setTaskActionTarget({
+      action: "cancel",
+      kind: "analysis",
+      taskId: task.id,
+      label: task.ticker,
+      meta: formatAnalysisTaskMeta(task, t),
+    });
+  };
+
+  const requestCancelScreenerTask = (task: ScreenerTask) => {
+    setTaskActionTarget({
+      action: "cancel",
+      kind: "screener",
+      taskId: task.id,
+      label:
+        task.request_payload?.markets.join(", ") ||
+        t("activity.candidatePoolBuild", "Candidate pool build"),
+      meta: formatScreenerTaskMeta(task, t),
+    });
+  };
+
+  const handleConfirmTaskAction = async () => {
+    if (!taskActionTarget) {
+      return;
+    }
+    setIsSubmittingTaskAction(true);
+    try {
+      if (taskActionTarget.action === "delete") {
+        if (taskActionTarget.kind === "analysis") {
+          await deleteTask(taskActionTarget.taskId);
+          await refreshTasks();
+        } else {
+          await deleteScreenerTask(taskActionTarget.taskId);
+          await refreshScreenerTasks();
+        }
+      } else if (taskActionTarget.kind === "analysis") {
+        await cancelTask(taskActionTarget.taskId);
+        await refreshTasks();
+      } else {
+        await cancelScreenerTask(taskActionTarget.taskId);
+        await refreshScreenerTasks();
+      }
+      setTaskActionTarget(null);
+    } finally {
+      setIsSubmittingTaskAction(false);
+    }
+  };
+
+  const dialogIsDelete = taskActionTarget?.action === "delete";
+  const dialogTitle = dialogIsDelete
+    ? t("activity.deleteTaskDialogTitle", "Delete task record")
+    : t("activity.cancelTaskDialogTitle", "Cancel task");
+  const dialogDescription = dialogIsDelete
+    ? t(
+        "activity.deleteTaskDialogDescription",
+        "This removes only the task record. Reports, caches, and other jobs are kept."
       )
-    );
-
-  const handleDeleteTask = async (taskId: string) => {
-    if (!confirmDeleteFailedTask()) {
-      return;
-    }
-    await deleteTask(taskId);
-    await refreshTasks();
-  };
-
-  const handleDeleteScreenerTask = async (taskId: string) => {
-    if (!confirmDeleteFailedTask()) {
-      return;
-    }
-    await deleteScreenerTask(taskId);
-    await refreshScreenerTasks();
-  };
-
-  const confirmCancelTask = () =>
-    window.confirm(
-      t(
-        "activity.cancelTaskConfirm",
-        "Cancel this task? Running work will stop at the next safe step."
-      )
-    );
-
-  const handleCancelTask = async (taskId: string) => {
-    if (!confirmCancelTask()) {
-      return;
-    }
-    await cancelTask(taskId);
-    await refreshTasks();
-  };
-
-  const handleCancelScreenerTask = async (taskId: string) => {
-    if (!confirmCancelTask()) {
-      return;
-    }
-    await cancelScreenerTask(taskId);
-    await refreshScreenerTasks();
-  };
+    : t(
+        "activity.cancelTaskDialogDescription",
+        "Running work will stop at the next safe step."
+      );
+  const dialogCancelLabel = dialogIsDelete
+    ? t("activity.keepTaskRecord", "Keep record")
+    : t("activity.keepTaskRunning", "Keep running");
+  const dialogConfirmLabel = dialogIsDelete
+    ? t("activity.confirmDeleteTask", "Delete record")
+    : t("activity.confirmCancelTask", "Cancel task");
 
   return (
     <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
@@ -146,7 +213,7 @@ export function ActivityDashboard() {
                 ? t("activity.cancelTask", "Cancel task")
                 : undefined,
               onCancel: canCancelTask(task)
-                ? () => void handleCancelTask(task.id)
+                ? () => requestCancelTask(task)
                 : undefined,
             }))}
           />
@@ -164,7 +231,7 @@ export function ActivityDashboard() {
                   : undefined,
               onDelete:
                 task.status === "failed"
-                  ? () => void handleDeleteTask(task.id)
+                  ? () => requestDeleteTask(task)
                   : undefined,
             }))}
           />
@@ -183,7 +250,7 @@ export function ActivityDashboard() {
                 ? t("activity.cancelTask", "Cancel task")
                 : undefined,
               onCancel: canCancelTask(task)
-                ? () => void handleCancelScreenerTask(task.id)
+                ? () => requestCancelScreenerTask(task)
                 : undefined,
             }))}
           />
@@ -221,12 +288,55 @@ export function ActivityDashboard() {
                   : undefined,
               onDelete:
                 task.status === "failed"
-                  ? () => void handleDeleteScreenerTask(task.id)
+                  ? () => requestDeleteScreenerTask(task)
                   : undefined,
             }))}
           />
         </section>
       </div>
+      <Dialog
+        open={taskActionTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !isSubmittingTaskAction) {
+            setTaskActionTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader className="pr-12">
+            <DialogTitle className="text-2xl">{dialogTitle}</DialogTitle>
+            <DialogDescription>{dialogDescription}</DialogDescription>
+          </DialogHeader>
+          {taskActionTarget ? (
+            <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+              <p className="truncate text-sm font-semibold text-slate-900">
+                {taskActionTarget.label}
+              </p>
+              <p className="mt-1 truncate text-xs uppercase tracking-[0.14em] text-slate-500">
+                {taskActionTarget.meta}
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isSubmittingTaskAction}
+              onClick={() => setTaskActionTarget(null)}
+            >
+              {dialogCancelLabel}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isSubmittingTaskAction}
+              onClick={() => void handleConfirmTaskAction()}
+            >
+              {dialogConfirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

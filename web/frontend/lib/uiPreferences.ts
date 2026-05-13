@@ -749,6 +749,16 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "activity.deleteFailedTask": "删除失败任务",
   "activity.deleteFailedTaskConfirm":
     "删除这条失败任务记录？只会移除任务记录。",
+  "activity.deleteTaskDialogTitle": "删除任务记录",
+  "activity.deleteTaskDialogDescription":
+    "只会移除这条任务记录。报告、缓存和其他任务不会被删除。",
+  "activity.cancelTaskDialogTitle": "取消任务",
+  "activity.cancelTaskDialogDescription":
+    "运行中的任务会在下一个安全步骤停止。",
+  "activity.keepTaskRecord": "保留记录",
+  "activity.keepTaskRunning": "继续运行",
+  "activity.confirmDeleteTask": "删除记录",
+  "activity.confirmCancelTask": "取消任务",
   "activity.candidatePoolBuild": "候选池构建",
   "activity.awaitingUpdate": "等待下一次更新",
   "activity.awaitingWorker": "等待 worker 空位",
