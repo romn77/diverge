@@ -50,9 +50,9 @@ def _confirmed_cached_snapshot(
 
 
 def build_ohlcv_sync_payload(market: str, trading_day: str) -> dict[str, Any]:
-    from web.backend.runtime import screener_prewarm
+    from web.backend.services import screener_prewarm_payloads
 
-    return screener_prewarm.build_ohlcv_sync_payload(market, trading_day)
+    return screener_prewarm_payloads.build_ohlcv_sync_payload(market, trading_day)
 
 
 def ensure_ohlcv_vendor_ready(market: str, trading_day: str) -> None:
@@ -91,15 +91,18 @@ def collect_screener_prewarm_payloads(
     market: str,
     trading_day: str,
 ) -> list[dict[str, Any]]:
-    from web.backend.runtime import screener_prewarm
+    from web.backend.services import screener_prewarm_payloads
 
-    return screener_prewarm.collect_screener_prewarm_payloads(market, trading_day)
+    return screener_prewarm_payloads.collect_screener_prewarm_payloads(
+        market,
+        trading_day,
+    )
 
 
 def build_screener_config_payload(request_payload: dict[str, Any]) -> dict[str, Any]:
-    from web.backend.runtime import screener_prewarm
+    from web.backend.services import screener_prewarm_payloads
 
-    return screener_prewarm.build_screener_config_payload(request_payload)
+    return screener_prewarm_payloads.build_screener_config_payload(request_payload)
 
 
 def screener_key_for_config(config_payload: dict[str, Any]) -> str:

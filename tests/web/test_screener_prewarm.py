@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from web.backend import app_config, screener_presets
 from web.backend.runtime import screener_prewarm
+from web.backend.services import screener_prewarm_payloads
 
 
 def _payload(market: str = "cn") -> dict:
@@ -66,6 +67,73 @@ def test_collect_screener_prewarm_payloads_includes_default_and_matching_user_pr
         payloads[1]["filter_preset_selections"]["ma20_position"] == "price_above_ma20"
     )
     assert all(payload["history_cache_policy"] == "cache_only" for payload in payloads)
+
+
+def test_prewarm_payload_service_builds_ohlcv_payload_with_sources_and_manifest(
+    tmp_path,
+    monkeypatch,
+):
+    manifest_path = tmp_path / "us.csv"
+    manifest_path.write_text("symbol\nAAPL\n", encoding="utf-8")
+    monkeypatch.setattr(
+        screener_prewarm_payloads,
+        "get_screener_config_options_payload",
+        lambda: {"defaults": {"top_k": 250}},
+    )
+    monkeypatch.setattr(
+        screener_prewarm_payloads,
+        "resolve_screener_data_sources",
+        lambda: {
+            "cn_data_source": "tushare",
+            "cn_data_source_fallbacks": [],
+            "us_data_source": "massive",
+            "us_data_source_fallbacks": [],
+        },
+    )
+    monkeypatch.setattr(
+        screener_prewarm_payloads.app_config,
+        "resolve_manifest_path",
+        lambda market, *, require_exists=False: manifest_path
+        if market == "us"
+        else None,
+    )
+
+    payload = screener_prewarm_payloads.build_ohlcv_sync_payload(
+        "us",
+        "2026-05-13",
+    )
+
+    assert payload["markets"] == ["us"]
+    assert payload["as_of_date"] == "2026-05-13"
+    assert payload["top_k"] == 100
+    assert payload["us_data_source"] == "massive"
+    assert payload["us_manifest_path"] == str(manifest_path)
+
+
+def test_prewarm_payload_service_wraps_screener_config_errors(monkeypatch):
+    monkeypatch.setattr(
+        screener_prewarm_payloads.app_config,
+        "default_manifest_path",
+        lambda market: "/data/manifest/us.csv",
+    )
+
+    def fail_prepare(*args, **kwargs):
+        raise screener_prewarm_payloads.screener_preparation.ScreenerPreparationError(
+            "bad config"
+        )
+
+    monkeypatch.setattr(
+        screener_prewarm_payloads.screener_preparation,
+        "build_screener_config_payload",
+        fail_prepare,
+    )
+
+    try:
+        screener_prewarm_payloads.build_screener_config_payload({"markets": ["us"]})
+    except RuntimeError as exc:
+        assert str(exc) == "bad config"
+    else:
+        raise AssertionError("expected RuntimeError")
 
 
 def test_fundamental_prewarm_sync_uses_full_universe_symbols(monkeypatch):
