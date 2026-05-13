@@ -4,10 +4,9 @@ import time
 import uuid
 import logging
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from typing import Iterator
 
-from web.backend.runtime import task_store
+from web.backend.runtime import task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
     current_worker_id,
     log_task_event,
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return task_lifecycle.utc_iso()
 
 
 @contextmanager
@@ -70,14 +69,12 @@ def promote_due_tasks(
             resolved_store.append_event(
                 kind,
                 task_id,
-                {
-                    "timestamp": datetime.now().strftime("%H:%M:%S"),
-                    "status": "queued",
-                    "stage_status": {},
-                    "agent_status": {},
-                    "current_agent": None,
-                    "message": "Task returned to the execution queue.",
-                },
+                task_lifecycle.queued_progress(
+                    "Task returned to the execution queue.",
+                    stage_status={},
+                    agent_status={},
+                    include_current_agent=True,
+                ),
             )
             log_task_event(
                 logger,
@@ -210,14 +207,13 @@ def _mark_claimed(store, kind: str, task_id: str) -> tuple[str, str] | None:
     store.append_event(
         kind,
         task_id,
-        {
-            "timestamp": datetime.now().strftime("%H:%M:%S"),
-            "status": "running",
-            "stage_status": {},
-            "agent_status": {},
-            "current_agent": None,
-            "message": "Task started.",
-        },
+        task_lifecycle.progress_event(
+            "Task started.",
+            status="running",
+            stage_status={},
+            agent_status={},
+            include_current_agent=True,
+        ),
     )
     _upsert_claimed_job_record(kind, task_id, payload, now_iso)
     log_task_event(

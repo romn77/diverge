@@ -36,7 +36,7 @@ from diverge.runner import (
     save_report_to_disk,
 )
 from web.backend import access, app_config, auth, job_records, report_metadata, storage
-from web.backend.runtime import task_store
+from web.backend.runtime import task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
     current_worker_id,
     log_task_event,
@@ -112,7 +112,7 @@ def count_active_tasks() -> int:
 
 
 def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return task_lifecycle.utc_iso()
 
 
 def active_tasks_dir() -> Path:
@@ -357,25 +357,23 @@ def append_progress(task_id: str, progress: AnalysisProgress) -> None:
 def set_task_status(task_id: str, status: str, error: Optional[str] = None) -> None:
     if task_store.redis_task_backend_enabled():
         task = get_task(task_id)
-        task.status = status
-        if status == "running" and task.started_at is None:
-            task.started_at = _utc_iso()
-        if status in task_store.TERMINAL_STATUSES:
-            task.finished_at = _utc_iso()
-        if error is not None:
-            task.error = error
+        task_lifecycle.apply_status_transition(
+            task,
+            status,
+            terminal_statuses=task_store.TERMINAL_STATUSES,
+            error=error,
+        )
         _upsert_analysis_job_record(task)
         task_store.get_task_store().save_task("analysis", task_id, task.to_dict())
         return
     with tasks_lock:
         task = tasks[task_id]
-        task.status = status
-        if status == "running" and task.started_at is None:
-            task.started_at = _utc_iso()
-        if status in task_store.TERMINAL_STATUSES:
-            task.finished_at = _utc_iso()
-        if error is not None:
-            task.error = error
+        task_lifecycle.apply_status_transition(
+            task,
+            status,
+            terminal_statuses=task_store.TERMINAL_STATUSES,
+            error=error,
+        )
     persist_task_snapshot(task_id)
 
 
@@ -392,7 +390,7 @@ def build_failure_progress(task: Task, error: str) -> dict:
         "current_agent": None,
     }
     failure_progress = AnalysisProgress(
-        timestamp=datetime.now().strftime("%H:%M:%S"),
+        timestamp=task_lifecycle.event_timestamp(),
         status="failed",
         stage_status=latest_progress["stage_status"],
         agent_status=latest_progress["agent_status"],
@@ -417,7 +415,7 @@ def build_waiting_for_quota_progress(
         "current_agent": None,
     }
     return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "timestamp": task_lifecycle.event_timestamp(),
         "status": "waiting_for_quota",
         "stage_status": latest_progress["stage_status"],
         "agent_status": latest_progress["agent_status"],
@@ -447,7 +445,7 @@ def _analysis_progress_template(task: Task) -> dict:
 def build_canceled_progress(task: Task, message: str | None = None) -> dict:
     latest_progress = _analysis_progress_template(task)
     return AnalysisProgress(
-        timestamp=datetime.now().strftime("%H:%M:%S"),
+        timestamp=task_lifecycle.event_timestamp(),
         status="canceled",
         stage_status=latest_progress["stage_status"],
         agent_status=latest_progress["agent_status"],
@@ -459,7 +457,7 @@ def build_canceled_progress(task: Task, message: str | None = None) -> dict:
 def build_cancel_requested_progress(task: Task) -> dict:
     latest_progress = _analysis_progress_template(task)
     return AnalysisProgress(
-        timestamp=datetime.now().strftime("%H:%M:%S"),
+        timestamp=task_lifecycle.event_timestamp(),
         status="running",
         stage_status=latest_progress["stage_status"],
         agent_status=latest_progress["agent_status"],
@@ -797,20 +795,18 @@ def create_task(
         task_store.get_task_store().append_event(
             "analysis",
             task_id,
-            {
-                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                "status": "queued",
-                "stage_status": {
+            task_lifecycle.queued_progress(
+                "Task queued.",
+                stage_status={
                     "Analysts": "not_started",
                     "Research": "not_started",
                     "Trading": "not_started",
                     "Risk": "not_started",
                     "Portfolio": "not_started",
                 },
-                "agent_status": {},
-                "current_agent": None,
-                "message": "Task queued.",
-            },
+                agent_status={},
+                include_current_agent=True,
+            ),
         )
         log_task_event(
             logger,

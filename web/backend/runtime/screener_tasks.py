@@ -18,7 +18,7 @@ from diverge.dataflows import vendor_usage
 from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, audit, auth, job_records, storage
-from web.backend.runtime import task_store
+from web.backend.runtime import task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
     current_worker_id,
     log_task_event,
@@ -96,7 +96,7 @@ def count_active_tasks() -> int:
 
 
 def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return task_lifecycle.utc_iso()
 
 
 def _record_screener_pruned_audit_event(task: ScreenerTask, run_dir: Path) -> None:
@@ -255,25 +255,23 @@ def set_screener_task_status(
 ) -> None:
     if task_store.redis_task_backend_enabled():
         task = get_screener_task(task_id)
-        task.status = status
-        if status == "running" and task.started_at is None:
-            task.started_at = _utc_iso()
-        if status in task_store.TERMINAL_STATUSES:
-            task.finished_at = _utc_iso()
-        if error is not None:
-            task.error = error
+        task_lifecycle.apply_status_transition(
+            task,
+            status,
+            terminal_statuses=task_store.TERMINAL_STATUSES,
+            error=error,
+        )
         _upsert_screener_job_record(task)
         task_store.get_task_store().save_task("screener", task_id, task.to_dict())
         return
     with screener_tasks_lock:
         task = screener_tasks[task_id]
-        task.status = status
-        if status == "running" and task.started_at is None:
-            task.started_at = _utc_iso()
-        if status in task_store.TERMINAL_STATUSES:
-            task.finished_at = _utc_iso()
-        if error is not None:
-            task.error = error
+        task_lifecycle.apply_status_transition(
+            task,
+            status,
+            terminal_statuses=task_store.TERMINAL_STATUSES,
+            error=error,
+        )
     persist_screener_task_snapshot(task_id)
 
 
@@ -312,7 +310,7 @@ def build_screener_progress(
         detail = f"{detail} {symbol}"
 
     return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "timestamp": task_lifecycle.event_timestamp(),
         "status": status,
         "stage_status": stage_status,
         "agent_status": {},
@@ -347,7 +345,7 @@ def build_screener_failure_progress(task: ScreenerTask, error: str) -> dict:
     }
 
     return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "timestamp": task_lifecycle.event_timestamp(),
         "status": "failed",
         "stage_status": stage_status,
         "agent_status": latest_progress.get("agent_status") or {},
@@ -370,7 +368,7 @@ def build_screener_canceled_progress(
         for key in SCREENER_STAGES
     }
     return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "timestamp": task_lifecycle.event_timestamp(),
         "status": "canceled",
         "stage_status": stage_status,
         "agent_status": latest_progress.get("agent_status") or {},
@@ -382,7 +380,7 @@ def build_screener_canceled_progress(
 def build_screener_cancel_requested_progress(task: ScreenerTask) -> dict:
     latest_progress = task.latest_progress or {}
     return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "timestamp": task_lifecycle.event_timestamp(),
         "status": "running",
         "stage_status": latest_progress.get("stage_status")
         or {key: "not_started" for key in SCREENER_STAGES},
@@ -438,7 +436,7 @@ def build_screener_waiting_for_quota_progress(
 ) -> dict:
     latest_progress = task.latest_progress or {}
     return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
+        "timestamp": task_lifecycle.event_timestamp(),
         "status": "waiting_for_quota",
         "stage_status": latest_progress.get("stage_status")
         or {key: "not_started" for key in SCREENER_STAGES},
@@ -725,12 +723,11 @@ def create_screener_task(
         task_store.get_task_store().append_event(
             "screener",
             task_id,
-            build_screener_progress(
-                status="queued",
-                stage="",
-                current=0,
-                total=1,
-                message="Screener task queued.",
+            task_lifecycle.queued_progress(
+                "Screener task queued.",
+                stage_status={key: "not_started" for key in SCREENER_STAGES},
+                agent_status={},
+                include_current_agent=True,
             ),
         )
         log_task_event(

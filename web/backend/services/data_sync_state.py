@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
+
+from web.backend.runtime import task_lifecycle
 
 
 @dataclass
@@ -48,15 +49,11 @@ class DataSyncTask:
 
 
 def timestamp() -> str:
-    return datetime.now().strftime("%H:%M:%S")
+    return task_lifecycle.event_timestamp()
 
 
 def progress_event(message: str, **extra: Any) -> dict[str, Any]:
-    return {
-        "timestamp": timestamp(),
-        "message": message,
-        **extra,
-    }
+    return task_lifecycle.progress_event(message, **extra)
 
 
 def recovered_progress(task: DataSyncTask, recovered_error: str) -> dict[str, Any]:

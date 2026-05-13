@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from web.backend import job_records
-from web.backend.runtime import task_store
+from web.backend.runtime import task_lifecycle, task_store
 
 KIND = "journal_review"
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return task_lifecycle.utc_now()
 
 
 def _utc_iso() -> str:
@@ -19,14 +19,13 @@ def _utc_iso() -> str:
 
 
 def _event(status: str, message: str) -> dict[str, Any]:
-    return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "status": status,
-        "stage_status": {},
-        "agent_status": {},
-        "current_agent": "trade_journal_review",
-        "message": message,
-    }
+    return task_lifecycle.progress_event(
+        message,
+        status=status,
+        stage_status={},
+        agent_status={},
+        current_agent="trade_journal_review",
+    )
 
 
 def _save_task(payload: dict[str, Any]) -> None:

@@ -4,7 +4,7 @@ import json
 import logging
 import threading
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Callable
 
@@ -12,7 +12,7 @@ from fastapi import HTTPException
 
 from diverge.common.json_io import write_json_atomic
 from web.backend import app_config, audit, auth, job_records
-from web.backend.runtime import task_store
+from web.backend.runtime import task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
     current_worker_id,
     log_task_event,
@@ -42,7 +42,7 @@ load_universe = ohlcv_sync.load_universe
 
 
 def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return task_lifecycle.utc_iso()
 
 
 def _now_for_vendor_timezone(timezone_name: str) -> datetime:
@@ -540,11 +540,7 @@ def create_data_sync_task(
         task_store.get_task_store().append_event(
             "data_sync",
             task_id,
-            {
-                "timestamp": datetime.now().strftime("%H:%M:%S"),
-                "status": "queued",
-                "message": f"{sync_type} sync queued.",
-            },
+            task_lifecycle.queued_progress(f"{sync_type} sync queued."),
         )
         log_task_event(
             logger,
