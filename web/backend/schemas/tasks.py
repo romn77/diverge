@@ -19,4 +19,4 @@ class TaskCreatePayload(BaseModel):
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     market_data_source: str = "massive"
-    report_visibility: Literal["private", "workspace"] = "workspace"
+    report_visibility: Literal["private", "workspace"] = "private"

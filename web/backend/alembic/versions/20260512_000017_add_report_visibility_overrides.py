@@ -18,6 +18,43 @@ depends_on = None
 
 
 def upgrade() -> None:
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("report_runs") as batch_op:
+            batch_op.add_column(
+                sa.Column(
+                    "visibility_updated_by_user_id",
+                    sa.String(length=32),
+                    nullable=True,
+                ),
+            )
+            batch_op.add_column(
+                sa.Column(
+                    "visibility_updated_at",
+                    sa.DateTime(timezone=True),
+                    nullable=True,
+                ),
+            )
+            batch_op.add_column(
+                sa.Column(
+                    "visibility_admin_override",
+                    sa.Boolean(),
+                    nullable=False,
+                    server_default=sa.false(),
+                ),
+            )
+            batch_op.create_foreign_key(
+                "fk_report_runs_visibility_updated_by_user_id_users",
+                "users",
+                ["visibility_updated_by_user_id"],
+                ["id"],
+                ondelete="SET NULL",
+            )
+            batch_op.alter_column(
+                "visibility_admin_override",
+                server_default=None,
+            )
+        return
+
     op.add_column(
         "report_runs",
         sa.Column("visibility_updated_by_user_id", sa.String(length=32), nullable=True),
@@ -47,6 +84,17 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    if op.get_bind().dialect.name == "sqlite":
+        with op.batch_alter_table("report_runs") as batch_op:
+            batch_op.drop_constraint(
+                "fk_report_runs_visibility_updated_by_user_id_users",
+                type_="foreignkey",
+            )
+            batch_op.drop_column("visibility_admin_override")
+            batch_op.drop_column("visibility_updated_at")
+            batch_op.drop_column("visibility_updated_by_user_id")
+        return
+
     op.drop_constraint(
         "fk_report_runs_visibility_updated_by_user_id_users",
         "report_runs",

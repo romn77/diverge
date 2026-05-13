@@ -776,7 +776,7 @@ def create_task(
     *,
     owner_user_id: str | None = None,
     tenant_id: str | None = None,
-    report_visibility: str = report_metadata.REPORT_VISIBILITY_WORKSPACE,
+    report_visibility: str = report_metadata.REPORT_VISIBILITY_PRIVATE,
 ) -> dict:
     task_id = uuid.uuid4().hex
     now_iso = _utc_iso()

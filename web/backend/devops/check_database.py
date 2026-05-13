@@ -45,6 +45,7 @@ REQUIRED_TABLES = (
     "llm_model_profiles",
     "llm_model_profile_routes",
     "llm_module_settings",
+    "llm_ui_settings",
     "llm_model_usage",
     "search_global_configs",
     "search_provider_configs",
