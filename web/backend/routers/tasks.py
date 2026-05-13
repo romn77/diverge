@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import json
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
@@ -11,25 +8,20 @@ from diverge.llm_clients.model_profiles import (
 )
 from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
 from diverge.runner import AnalysisRequest
-from web.backend import access, analysis_limits, app_config, audit, auth, llm_models
+from web.backend import access, analysis_limits, audit, auth, llm_models
 from web.backend.runtime import (
     analysis_tasks,
     data_sync_tasks,
-    screener_tasks,
-    task_store,
 )
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
+from web.backend.services import task_route_support
 from web.backend.services.config import (
     get_provider_availability,
     hydrate_provider_credentials,
 )
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
-
-
-def _serialize_sse_event(data: dict) -> str:
-    return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 def _current_user(
@@ -60,38 +52,6 @@ def _get_authorized_task(task_id: str, request: Request | None):
     if not _can_access_task(task, current_user):
         raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found")
     return task
-
-
-def _enforce_task_submission_capacity(current_user) -> None:
-    if not task_store.redis_task_backend_enabled():
-        if (
-            analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
-            >= task_store.get_queue_limit()
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail="Task queue is full. Wait for the active tasks to finish.",
-            )
-        return
-
-    store = task_store.get_task_store()
-    global_active = store.count_active("analysis") + store.count_active("screener")
-    if global_active >= task_store.get_global_pending_limit():
-        raise HTTPException(
-            status_code=409,
-            detail="Global task queue is full. Wait for queued work to finish.",
-        )
-    if current_user is None:
-        return
-    user_limit = task_store.get_user_pending_limit(getattr(current_user, "role", None))
-    if store.count_active_by_owner(current_user.id) >= user_limit:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"User task queue is full ({user_limit} queued, waiting, or running tasks). "
-                "Cancel queued work or wait for tasks to finish."
-            ),
-        )
 
 
 def _analysis_request_payload(payload: TaskCreatePayload, current_user=None) -> dict:
@@ -187,7 +147,7 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
 
-    _enforce_task_submission_capacity(current_user)
+    task_route_support.enforce_task_submission_capacity(current_user)
     owner_user_id = current_user.id if current_user is not None else None
     tenant_id = getattr(current_user, "tenant_id", None)
     if current_user is not None:
@@ -298,35 +258,10 @@ def cancel_task(task_id: str, request: Request = None) -> dict:
 @router.get("/api/tasks/{task_id}/stream")
 async def stream_task(task_id: str, request: Request) -> StreamingResponse:
     _get_authorized_task(task_id, request)
-
-    async def event_generator():
-        cursor = 0
-
-        while True:
-            if await request.is_disconnected():
-                break
-
-            try:
-                task = _get_authorized_task(task_id, request)
-            except HTTPException:
-                break
-            pending_events = analysis_tasks.get_progress_events(task_id, cursor)
-            task_status = task.status
-
-            for event in pending_events:
-                cursor += 1
-                yield _serialize_sse_event(event)
-
-            if task_status in app_config.TERMINAL_TASK_STATUSES and not pending_events:
-                break
-
-            await asyncio.sleep(0.25)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+    return await task_route_support.stream_task_progress(
+        request=request,
+        get_task=lambda: _get_authorized_task(task_id, request),
+        get_progress_events=lambda cursor: analysis_tasks.get_progress_events(
+            task_id, cursor
+        ),
     )

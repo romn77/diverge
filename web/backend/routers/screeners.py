@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import asyncio
-import json
 from datetime import date as _date
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -10,26 +8,20 @@ from fastapi.responses import StreamingResponse
 from web.backend import (
     access,
     analysis_limits,
-    app_config,
     audit,
     auth,
     screener_presets,
 )
 from web.backend.runtime import (
-    analysis_tasks,
     screener_tasks,
-    task_store,
 )
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 from web.backend.services import screener_preparation
 from web.backend.services import screeners as screener_service
+from web.backend.services import task_route_support
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
 date = _date
-
-
-def _serialize_sse_event(data: dict) -> str:
-    return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 def _get_authorized_screener_task(
@@ -64,38 +56,6 @@ def resolve_screener_as_of_date(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-def _enforce_screener_submission_capacity(current_user) -> None:
-    if not task_store.redis_task_backend_enabled():
-        if (
-            analysis_tasks.count_active_tasks() + screener_tasks.count_active_tasks()
-            >= task_store.get_queue_limit()
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail="Task queue is full. Wait for the active tasks to finish.",
-            )
-        return
-
-    store = task_store.get_task_store()
-    global_active = store.count_active("analysis") + store.count_active("screener")
-    if global_active >= task_store.get_global_pending_limit():
-        raise HTTPException(
-            status_code=409,
-            detail="Global task queue is full. Wait for queued work to finish.",
-        )
-    if current_user is None:
-        return
-    user_limit = task_store.get_user_pending_limit(getattr(current_user, "role", None))
-    if store.count_active_by_owner(current_user.id) >= user_limit:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                f"User task queue is full ({user_limit} queued, waiting, or running tasks). "
-                "Cancel queued work or wait for tasks to finish."
-            ),
-        )
-
-
 @router.post("/api/screener/tasks")
 def create_screener_task(
     payload: ScreenTaskCreatePayload,
@@ -124,7 +84,7 @@ def create_screener_task(
             tenant_id=getattr(current_user, "tenant_id", None),
         )
 
-    _enforce_screener_submission_capacity(current_user)
+    task_route_support.enforce_task_submission_capacity(current_user)
 
     if current_user is not None:
         try:
@@ -252,39 +212,13 @@ async def stream_screener_task(
     current_user = access.require_screener_user(request)
     _get_authorized_screener_task(task_id, current_user)
     start_cursor = max(cursor, 0)
-
-    async def event_generator():
-        cursor = start_cursor
-
-        while True:
-            if await request.is_disconnected():
-                break
-
-            try:
-                task = _get_authorized_screener_task(task_id, current_user)
-            except HTTPException:
-                break
-            pending_events = screener_tasks.get_screener_progress_events(
-                task_id, cursor
-            )
-            task_status = task.status
-
-            for event in pending_events:
-                cursor += 1
-                yield _serialize_sse_event(event)
-
-            if task_status in app_config.TERMINAL_TASK_STATUSES and not pending_events:
-                break
-
-            await asyncio.sleep(0.25)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-        },
+    return await task_route_support.stream_task_progress(
+        request=request,
+        get_task=lambda: _get_authorized_screener_task(task_id, current_user),
+        get_progress_events=lambda cursor: screener_tasks.get_screener_progress_events(
+            task_id, cursor
+        ),
+        start_cursor=start_cursor,
     )
 
 
