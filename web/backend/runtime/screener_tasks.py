@@ -17,7 +17,7 @@ from diverge.dataflows import vendor_usage
 from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, audit, auth, storage
-from web.backend.runtime import task_lifecycle, task_store
+from web.backend.runtime import screener_stage_trace, task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
     log_task_event,
     processing_stage,
@@ -25,7 +25,7 @@ from web.backend.runtime.task_logging import (
 )
 from web.backend.services import screeners as screener_service
 
-SCREENER_STAGES = ["Features", "Filters", "Ranking", "Export"]
+SCREENER_STAGES = list(screener_stage_trace.SCREENER_STAGES)
 GENERIC_SCREENER_TASK_ERROR = "Screener task failed. Check backend logs for details."
 logger = logging.getLogger(__name__)
 
@@ -268,110 +268,32 @@ def build_screener_progress(
     symbol: str | None = None,
     message: str | None = None,
 ) -> dict:
-    stage = normalize_screener_stage(stage)
-    if stage in SCREENER_STAGES:
-        stage_status = {
-            key: (
-                "processing"
-                if key == stage
-                else "completed"
-                if SCREENER_STAGES.index(key) < SCREENER_STAGES.index(stage)
-                else "not_started"
-            )
-            for key in SCREENER_STAGES
-        }
-    else:
-        stage_status = {key: "not_started" for key in SCREENER_STAGES}
-    if status == "completed":
-        stage_status = {key: "completed" for key in SCREENER_STAGES}
-    if status in {"queued", "canceled"}:
-        stage_status = {key: "not_started" for key in SCREENER_STAGES}
-    if status == "failed" and stage not in SCREENER_STAGES:
-        stage_status = {key: "not_started" for key in SCREENER_STAGES}
-
-    detail = message or f"{stage} {current}/{total}"
-    if symbol:
-        detail = f"{detail} {symbol}"
-
-    return {
-        "timestamp": task_lifecycle.event_timestamp(),
-        "status": status,
-        "stage_status": stage_status,
-        "agent_status": {},
-        "current_agent": symbol,
-        "message": detail,
-    }
+    return screener_stage_trace.progress_event(
+        status=status,
+        stage=stage,
+        current=current,
+        total=total,
+        symbol=symbol,
+        message=message,
+    )
 
 
 def normalize_screener_stage(stage: str) -> str:
-    normalized = str(stage or "").strip().lower()
-    if normalized == "features":
-        return "Features"
-    if normalized == "filters":
-        return "Filters"
-    if normalized == "ranking":
-        return "Ranking"
-    if normalized == "export":
-        return "Export"
-    return str(stage or "")
+    return screener_stage_trace.normalize_stage(stage)
 
 
 def build_screener_failure_progress(task: ScreenerTask, error: str) -> dict:
-    latest_progress = task.latest_progress or {}
-    latest_stage_status = latest_progress.get("stage_status") or {}
-    stage_status = {
-        key: (
-            "not_started"
-            if latest_stage_status.get(key) == "processing"
-            else latest_stage_status.get(key, "not_started")
-        )
-        for key in SCREENER_STAGES
-    }
-
-    return {
-        "timestamp": task_lifecycle.event_timestamp(),
-        "status": "failed",
-        "stage_status": stage_status,
-        "agent_status": latest_progress.get("agent_status") or {},
-        "current_agent": latest_progress.get("current_agent"),
-        "message": f"System: {error}",
-    }
+    return screener_stage_trace.failure_progress(task.latest_progress, error)
 
 
 def build_screener_canceled_progress(
     task: ScreenerTask, message: str | None = None
 ) -> dict:
-    latest_progress = task.latest_progress or {}
-    latest_stage_status = latest_progress.get("stage_status") or {}
-    stage_status = {
-        key: (
-            "not_started"
-            if latest_stage_status.get(key) == "processing"
-            else latest_stage_status.get(key, "not_started")
-        )
-        for key in SCREENER_STAGES
-    }
-    return {
-        "timestamp": task_lifecycle.event_timestamp(),
-        "status": "canceled",
-        "stage_status": stage_status,
-        "agent_status": latest_progress.get("agent_status") or {},
-        "current_agent": latest_progress.get("current_agent"),
-        "message": message or "Screener task canceled by request.",
-    }
+    return screener_stage_trace.canceled_progress(task.latest_progress, message)
 
 
 def build_screener_cancel_requested_progress(task: ScreenerTask) -> dict:
-    latest_progress = task.latest_progress or {}
-    return {
-        "timestamp": task_lifecycle.event_timestamp(),
-        "status": "running",
-        "stage_status": latest_progress.get("stage_status")
-        or {key: "not_started" for key in SCREENER_STAGES},
-        "agent_status": latest_progress.get("agent_status") or {},
-        "current_agent": latest_progress.get("current_agent"),
-        "message": "Termination requested. Work will stop at the next safe step.",
-    }
+    return screener_stage_trace.cancel_requested_progress(task.latest_progress)
 
 
 def check_screener_task_canceled(task_id: str) -> None:
@@ -414,20 +336,11 @@ def build_screener_waiting_for_quota_progress(
     task: ScreenerTask,
     exc: vendor_usage.QuotaWaitRequired,
 ) -> dict:
-    latest_progress = task.latest_progress or {}
-    return {
-        "timestamp": task_lifecycle.event_timestamp(),
-        "status": "waiting_for_quota",
-        "stage_status": latest_progress.get("stage_status")
-        or {key: "not_started" for key in SCREENER_STAGES},
-        "agent_status": latest_progress.get("agent_status") or {},
-        "current_agent": latest_progress.get("current_agent"),
-        "message": (
-            f"Waiting for {exc.vendor} quota"
-            + (f" until {exc.blocked_until}" if exc.blocked_until else "")
-            + "."
-        ),
-    }
+    return screener_stage_trace.waiting_for_quota_progress(
+        task.latest_progress,
+        vendor=exc.vendor,
+        blocked_until=exc.blocked_until,
+    )
 
 
 def wait_screener_for_quota(task_id: str, exc: vendor_usage.QuotaWaitRequired) -> None:
@@ -559,55 +472,23 @@ def run_screener_task(task_id: str) -> None:
     )
 
     try:
-        check_screener_task_canceled(task_id)
-
-        def progress_callback(
-            stage: str,
-            current: int,
-            total: int,
-            symbol: str | None = None,
-            *,
-            status: str | None = None,
-            detail: str | None = None,
-        ) -> None:
-            normalized_stage = normalize_screener_stage(stage)
-            if normalized_stage not in SCREENER_STAGES:
-                return
-            message = f"{normalized_stage} {current}/{total}"
-            if symbol:
-                message = f"{message} {symbol}"
-            if status:
-                message = f"{message} [{status}]"
-            if detail:
-                message = f"{message} {detail}"
-            progress = build_screener_progress(
-                status="running",
-                stage=normalized_stage,
-                current=current,
-                total=total,
-                symbol=symbol,
-                message=message,
-            )
-            append_screener_progress(task_id, progress)
-            check_screener_task_canceled(task_id)
+        trace = screener_stage_trace.ScreenerStageTrace(
+            append_progress=lambda progress: append_screener_progress(
+                task_id, progress
+            ),
+            check_canceled=lambda: check_screener_task_canceled(task_id),
+        )
+        trace.check_canceled()
 
         current_task = get_screener_task(task_id)
         config = ScreenRunConfig(**current_task.config_payload)
-        preflight_progress = build_screener_progress(
-            status="running",
-            stage="Features",
-            current=0,
-            total=1,
-            message="Checking cached screener data.",
-        )
-        append_screener_progress(task_id, preflight_progress)
-        check_screener_task_canceled(task_id)
+        trace.emit_preflight()
         screener_service.ensure_screener_cache_coverage(config)
         check_screener_task_canceled(task_id)
         with vendor_usage.data_source_usage_context("screener"):
             result = run_screen(
                 config,
-                progress_callback=progress_callback,
+                progress_callback=trace.pipeline_callback,
             )
         check_screener_task_canceled(task_id)
         _record_screener_pruned_audit_event(current_task, Path(result.run_dir))
@@ -627,13 +508,7 @@ def run_screener_task(task_id: str) -> None:
         current_task.status = "completed"
         current_task.finished_at = _utc_iso()
         current_task.run_id = Path(result.run_dir).name
-        current_task.latest_progress = build_screener_progress(
-            status="completed",
-            stage="Export",
-            current=1,
-            total=1,
-            message=f"Export 1/1 {current_task.run_id}",
-        )
+        current_task.latest_progress = trace.completion_progress(current_task.run_id)
         current_task.progress_events.append(current_task.latest_progress)
         save_screener_task(current_task)
         if task_store.redis_task_backend_enabled():
