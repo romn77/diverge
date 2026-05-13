@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import shutil
 import threading
 import uuid
 import inspect
 from contextlib import suppress
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -21,13 +19,7 @@ from diverge.decision_card.builder import (
     build_decision_card,
     build_fallback_decision_card,
 )
-from diverge.decision_card.delta import (
-    build_decision_delta,
-    find_previous_decision_card,
-    save_decision_delta,
-)
 from diverge.decision_card.storage import save_decision_card
-from diverge.research.search.evidence import build_search_evidence_artifact
 from diverge.research.search.session import search_sessions
 from diverge.runner import (
     AnalysisProgress,
@@ -35,13 +27,14 @@ from diverge.runner import (
     run_analysis_streaming,
     save_report_to_disk,
 )
-from web.backend import access, app_config, auth, report_metadata, storage
+from web.backend import access, app_config, report_metadata, storage
 from web.backend.runtime import task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
     log_task_event,
     processing_stage,
     task_error_fields,
 )
+from web.backend.services import report_publication
 
 logger = logging.getLogger(__name__)
 GENERIC_ANALYSIS_TASK_ERROR = "Analysis task failed. Check backend logs for details."
@@ -127,92 +120,11 @@ def task_snapshot_path(task_id: str) -> Path:
 
 
 def report_output_dir(report_id: str) -> Path:
-    reports_root = app_config.REPORTS_DIR.resolve()
-    report_dir = (app_config.REPORTS_DIR / report_id).resolve()
-    try:
-        report_dir.relative_to(reports_root)
-    except ValueError as exc:
-        raise ValueError(
-            "Report output directory must remain inside the reports root"
-        ) from exc
-    return report_dir
-
-
-def _local_previous_report_dirs(task: Task, current_report_id: str) -> list[Path]:
-    if not app_config.REPORTS_DIR.is_dir():
-        return []
-
-    if auth.auth_enabled() and task.owner_user_id:
-        try:
-            with auth.db_session() as db:
-                user = db.get(auth.User, task.owner_user_id)
-                owner_scope = access.owner_scope_for_user(user)
-                records = report_metadata.list_report_runs(
-                    db,
-                    tenant_id=task.tenant_id,
-                    owner_user_id=owner_scope,
-                    include_workspace=owner_scope is not None,
-                )
-        except Exception:
-            logger.exception(
-                "Failed to list previous report metadata for decision delta."
-            )
-            return []
-
-        report_dirs = []
-        for record in records:
-            if record.id == current_report_id:
-                continue
-            report_dir = app_config.REPORTS_DIR / record.storage_path
-            if report_dir.is_dir():
-                report_dirs.append(report_dir)
-        return report_dirs
-
-    return [
-        path
-        for path in app_config.REPORTS_DIR.iterdir()
-        if path.is_dir()
-        and not path.name.startswith(".")
-        and path.name != current_report_id
-    ]
-
-
-def _write_decision_delta_if_available(
-    *,
-    task: Task,
-    current_report_id: str,
-    current_report_dir: Path,
-    decision_card,
-) -> None:
-    try:
-        previous_card = find_previous_decision_card(
-            current_card=decision_card,
-            candidate_report_dirs=_local_previous_report_dirs(task, current_report_id),
-            current_report_id=current_report_id,
-        )
-        if previous_card is None:
-            return
-        delta = build_decision_delta(
-            current_card=decision_card,
-            previous_card=previous_card,
-            current_report_id=current_report_id,
-            output_language=task.request.output_language,
-        )
-        save_decision_delta(delta, current_report_dir)
-    except Exception:
-        logger.exception("Failed to build decision delta for %s", current_report_id)
+    return report_publication.report_output_dir(report_id)
 
 
 def write_search_evidence_artifact(task_id: str, report_dir: Path) -> Path | None:
-    session = search_sessions.get(task_id)
-    if session is None:
-        return None
-    artifact = build_search_evidence_artifact(session)
-    if artifact is None:
-        return None
-    artifact_path = report_dir / "artifacts" / "search_evidence.json"
-    write_json_atomic(artifact_path, artifact)
-    return artifact_path
+    return report_publication.write_search_evidence_artifact(task_id, report_dir)
 
 
 def delete_task_snapshot(task_id: str) -> None:
@@ -628,70 +540,29 @@ def run_task(task_id: str) -> None:
         if final_state is None:
             raise RuntimeError("Analysis did not return a final state")
 
-        timestamp = datetime.now().strftime("%H%M%S")
-        report_id = (
-            f"{task.request.ticker}_"
-            f"{str(task.request.analysis_date).replace('-', '')}_{timestamp}"
-        )
         check_task_canceled(task_id)
-        save_report_to_disk(final_state, task.request.ticker, temp_dir)
-        check_task_canceled(task_id)
-        write_search_evidence_artifact(task_id, temp_dir)
-        try:
-            decision_card = build_decision_card(
+        publication = report_publication.publish_analysis_report(
+            report_publication.ReportPublicationRequest(
+                task_id=task_id,
+                request=task.request,
                 final_state=final_state,
-                symbol=task.request.ticker,
-                report_id=report_id,
-                analysis_date=str(task.request.analysis_date),
-                output_language=task.request.output_language,
-            )
-            save_decision_card(decision_card, temp_dir)
-            _write_decision_delta_if_available(
-                task=task,
-                current_report_id=report_id,
-                current_report_dir=temp_dir,
-                decision_card=decision_card,
-            )
-        except Exception as exc:
-            logger.exception("Failed to build decision card for %s", report_id)
-            fallback_card = build_fallback_decision_card(
-                symbol=task.request.ticker,
-                report_id=report_id,
-                analysis_date=str(task.request.analysis_date),
-                raw_signal=(
-                    final_state.get("final_trade_decision")
-                    if isinstance(final_state.get("final_trade_decision"), str)
-                    else None
-                ),
-                error=str(exc),
-                output_language=task.request.output_language,
-            )
-            save_decision_card(fallback_card, temp_dir)
-        check_task_canceled(task_id)
-        app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        final_report_dir = report_output_dir(report_id)
-        temp_dir.replace(final_report_dir)
-        if auth.auth_enabled() and task.owner_user_id:
-            metadata_payload = report_metadata.build_report_metadata(
-                final_report_dir,
-                report_id=report_id,
-            )
-            file_entries = report_metadata.build_report_file_index(final_report_dir)
-            with auth.db_session() as db:
-                report_metadata.upsert_report_run(
-                    db,
-                    report_id=report_id,
-                    owner_user_id=task.owner_user_id,
-                    tenant_id=task.tenant_id,
-                    visibility=task.report_visibility,
-                    ticker=str(metadata_payload["ticker"] or task.request.ticker),
-                    generated_at=metadata_payload["generated_at"],
-                    storage_path=str(metadata_payload["storage_path"] or report_id),
-                    file_entries=file_entries,
-                )
-
-        if storage_backend_is_remote():
-            storage.upload_directory(final_report_dir, f"reports/{report_id}")
+                temp_dir=temp_dir,
+                owner_user_id=task.owner_user_id,
+                tenant_id=task.tenant_id,
+                report_visibility=task.report_visibility,
+            ),
+            adapters=report_publication.ReportPublicationAdapters(
+                save_report_to_disk=save_report_to_disk,
+                build_decision_card=build_decision_card,
+                build_fallback_decision_card=build_fallback_decision_card,
+                save_decision_card=save_decision_card,
+                write_search_evidence=write_search_evidence_artifact,
+                storage_backend_is_remote=storage_backend_is_remote,
+                upload_directory=storage.upload_directory,
+                check_canceled=lambda: check_task_canceled(task_id),
+            ),
+        )
+        report_id = publication.report_id
 
         current_task = get_task(task_id)
         current_task.status = "completed"
@@ -892,4 +763,4 @@ def cancel_task(task_id: str) -> None:
 
 
 def storage_backend_is_remote() -> bool:
-    return os.environ.get("STORAGE_BACKEND", "local").strip().lower() != "local"
+    return report_publication.storage_backend_is_remote()
