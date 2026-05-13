@@ -153,11 +153,31 @@ def _queue_position(kind: str, task_id: str, payload: dict) -> int | None:
     return value if isinstance(value, int) else None
 
 
+def _runtime_task_present(kind: str, task_id: str) -> bool:
+    if kind not in task_store.TASK_KINDS:
+        return False
+    try:
+        if task_store.redis_task_backend_enabled():
+            return task_store.get_task_store().get_task(kind, task_id) is not None
+        if kind == "analysis":
+            analysis_tasks.get_task(task_id)
+        elif kind == "screener":
+            screener_tasks.get_screener_task(task_id)
+        else:
+            data_sync_tasks.get_data_sync_task(task_id)
+        return True
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return False
+        raise
+
+
 def _serialize_queue_item(
     *,
     kind: str,
     payload: dict,
     user_lookup: dict[str, dict],
+    runtime_present: bool = True,
 ) -> dict:
     task_id = str(payload.get("id") or "")
     status = _normalize_queue_status(payload.get("status"))
@@ -188,6 +208,8 @@ def _serialize_queue_item(
         "blocked_vendor": payload.get("blocked_vendor"),
         "blocked_until": payload.get("blocked_until"),
         "detail_path": detail_path,
+        "runtime_present": runtime_present,
+        "stale": not runtime_present,
     }
 
 
@@ -231,11 +253,15 @@ def list_admin_task_queue(request: Request = None) -> dict:
             status = _normalize_queue_status(payload.get("status"))
             if status not in task_store.ACTIVE_STATUSES:
                 continue
+            runtime_present = True
+            if job_records.database_backed_job_records_enabled():
+                runtime_present = _runtime_task_present(kind, str(payload.get("id") or ""))
             items.append(
                 _serialize_queue_item(
                     kind=kind,
                     payload=payload,
                     user_lookup=user_lookup,
+                    runtime_present=runtime_present,
                 )
             )
     items.sort(key=_queue_sort_key)
@@ -255,6 +281,39 @@ def list_admin_task_queue(request: Request = None) -> dict:
         "totals": totals,
         "tasks": items,
     }
+
+
+@router.delete("/api/admin/task-queue/{kind}/{task_id}")
+def delete_admin_task_queue_item(
+    kind: str,
+    task_id: str,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    if kind not in task_store.TASK_KINDS:
+        raise HTTPException(status_code=404, detail="Task queue item not found")
+
+    runtime_present = _runtime_task_present(kind, task_id)
+    if runtime_present:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Task still exists in the runtime queue. Cancel live work before "
+                "removing queue records."
+            ),
+        )
+
+    if job_records.database_backed_job_records_enabled():
+        tenant_id = actor.tenant_id if actor is not None else None
+        deleted = job_records.delete_job_record(
+            task_id,
+            kind=kind,
+            tenant_id=tenant_id,
+        )
+        if deleted:
+            return {"deleted": True, "kind": kind, "task_id": task_id}
+
+    raise HTTPException(status_code=404, detail="Task queue item not found")
 
 
 @router.get("/api/admin/audit-events")

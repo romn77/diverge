@@ -251,6 +251,34 @@ def get_job_record(task_id: str) -> dict[str, Any] | None:
         return None
 
 
+def delete_job_record(
+    task_id: str,
+    *,
+    kind: str | None = None,
+    tenant_id: str | None = None,
+) -> bool:
+    if not database_backed_job_records_enabled():
+        return False
+    try:
+        with auth.db_session() as db:
+            record = db.get(JobRecord, task_id)
+            if record is None:
+                return False
+            if kind is not None and record.kind != kind:
+                return False
+            if tenant_id is not None and record.tenant_id != tenant_id:
+                return False
+            db.delete(record)
+            return True
+    except Exception:
+        if _raise_database_errors():
+            raise
+        logger.warning(
+            "Skipping job_records delete because the database is unavailable."
+        )
+        return False
+
+
 def list_active_job_records(*, tenant_id: str | None = None) -> list[dict[str, Any]]:
     if not database_backed_job_records_enabled():
         return []

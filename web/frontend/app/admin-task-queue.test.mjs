@@ -17,7 +17,9 @@ test("admin task queue page renders an operations dashboard", () => {
   assert.match(source, /listAdminTaskQueue/);
   assert.match(source, /getDataSyncJob/);
   assert.match(source, /createOhlcvSyncTask/);
+  assert.match(source, /deleteAdminTaskQueueItem/);
   assert.match(source, /handleCreateOhlcvSync/);
+  assert.match(source, /handleRemoveStaleQueueItem/);
   assert.match(source, /refreshSelectedDataSyncJob/);
   assert.match(source, /handleRefreshAll/);
   assert.match(source, /setInterval/);
@@ -35,9 +37,10 @@ test("admin task queue page renders an operations dashboard", () => {
   assert.match(source, /error/);
   assert.match(source, /blocked_vendor/);
   assert.match(source, /queue_position/);
+  assert.match(source, /task\.stale/);
+  assert.match(source, /Remove this stale queue record/);
   assert.match(source, /AdminConsolePage/);
   assert.match(source, /activeTab="task-queue"/);
   assert.match(source, /router\.replace\("\/login\?next=\/admin\/task-queue"\)/);
   assert.doesNotMatch(source, /cancelTask/);
-  assert.doesNotMatch(source, /deleteTask/);
 });

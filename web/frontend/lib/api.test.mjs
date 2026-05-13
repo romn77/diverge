@@ -123,12 +123,16 @@ test("admin APIs expose LLM model configuration controls without key values", ()
   assert.match(source, /\/api\/admin\/llm-models/);
 });
 
-test("admin APIs expose the read-only task queue snapshot", () => {
+test("admin APIs expose the task queue snapshot and stale queue cleanup", () => {
   assert.match(source, /AdminTaskQueueResponse/);
   assert.match(source, /AdminTaskQueueItem/);
   assert.match(source, /kind:\s*"analysis" \| "screener" \| "data_sync"/);
+  assert.match(source, /runtime_present:\s*boolean/);
+  assert.match(source, /stale:\s*boolean/);
   assert.match(source, /listAdminTaskQueue/);
+  assert.match(source, /deleteAdminTaskQueueItem/);
   assert.match(source, /\/api\/admin\/task-queue/);
+  assert.match(source, /\/api\/admin\/task-queue\/\$\{kind\}\/\$\{taskId\}/);
 });
 
 test("admin APIs expose tenant-scoped audit events with filters", () => {

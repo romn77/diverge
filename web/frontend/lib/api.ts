@@ -359,6 +359,8 @@ export interface AdminTaskQueueItem {
   blocked_vendor: string | null;
   blocked_until: string | null;
   detail_path: string;
+  runtime_present: boolean;
+  stale: boolean;
 }
 
 export interface AdminTaskQueueResponse {
@@ -371,6 +373,12 @@ export interface AdminTaskQueueResponse {
     waiting_for_quota: number;
   };
   tasks: AdminTaskQueueItem[];
+}
+
+export interface DeleteAdminTaskQueueItemResponse {
+  deleted: boolean;
+  kind: AdminTaskQueueItem["kind"];
+  task_id: string;
 }
 
 export interface AdminAuditEvent {
@@ -1577,6 +1585,19 @@ export async function listAdminTaskQueue(): Promise<AdminTaskQueueResponse> {
   return requestJson<AdminTaskQueueResponse>("/api/admin/task-queue", {
     cache: "no-store",
   });
+}
+
+export async function deleteAdminTaskQueueItem(
+  kind: AdminTaskQueueItem["kind"],
+  taskId: string
+): Promise<DeleteAdminTaskQueueItemResponse> {
+  return requestJson<DeleteAdminTaskQueueItemResponse>(
+    `/api/admin/task-queue/${kind}/${taskId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
 }
 
 export async function listAdminAuditEvents(

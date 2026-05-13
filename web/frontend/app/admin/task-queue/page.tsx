@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { RefreshCw, XCircle } from "lucide-react";
+import { ExternalLink, RefreshCw, Trash2, XCircle } from "lucide-react";
 
 import { useAuth } from "@/components/AuthProvider";
 import {
@@ -20,6 +20,7 @@ import {
   ApiError,
   cancelDataSyncJob,
   createOhlcvSyncTask,
+  deleteAdminTaskQueueItem,
   getDataSyncJob,
   listAdminTaskQueue,
   type AdminTaskQueueItem,
@@ -76,6 +77,7 @@ export default function AdminTaskQueuePage() {
   const [syncSource, setSyncSource] = useState("tushare");
   const [creatingSync, setCreatingSync] = useState(false);
   const [cancelingDataSyncJob, setCancelingDataSyncJob] = useState<string | null>(null);
+  const [removingQueueItemId, setRemovingQueueItemId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -215,6 +217,37 @@ export default function AdminTaskQueuePage() {
       }
     } finally {
       setCancelingDataSyncJob(null);
+    }
+  };
+
+  const handleRemoveStaleQueueItem = async (
+    kind: AdminTaskQueueItem["kind"],
+    taskId: string
+  ) => {
+    if (
+      !window.confirm(
+        "Remove this stale queue record? This only clears an orphaned admin queue row."
+      )
+    ) {
+      return;
+    }
+    const itemKey = `${kind}:${taskId}`;
+    setRemovingQueueItemId(itemKey);
+    setPageError(null);
+    try {
+      await deleteAdminTaskQueueItem(kind, taskId);
+      if (selectedDataSyncJob?.id === taskId) {
+        setSelectedDataSyncJob(null);
+      }
+      await loadTaskQueue();
+    } catch (error) {
+      if (!handleAuthBoundary(error)) {
+        setPageError(
+          error instanceof Error ? error.message : "Unable to remove stale task"
+        );
+      }
+    } finally {
+      setRemovingQueueItemId(null);
     }
   };
 
@@ -389,7 +422,9 @@ export default function AdminTaskQueuePage() {
               tasks={groupedTasks[section.key]}
               selectedDataSyncTaskId={selectedDataSyncJob?.id ?? null}
               loadingDataSyncTaskId={loadingDataSyncJob}
+              removingQueueItemId={removingQueueItemId}
               onInspectDataSync={inspectDataSyncJob}
+              onRemoveStale={handleRemoveStaleQueueItem}
             />
           ))}
         </section>
@@ -410,51 +445,98 @@ function QueueSection({
   tasks,
   selectedDataSyncTaskId,
   loadingDataSyncTaskId,
+  removingQueueItemId,
   onInspectDataSync,
+  onRemoveStale,
 }: {
   title: string;
   emptyLabel: string;
   tasks: AdminTaskQueueItem[];
   selectedDataSyncTaskId: string | null;
   loadingDataSyncTaskId: string | null;
+  removingQueueItemId: string | null;
   onInspectDataSync: (taskId: string) => void;
+  onRemoveStale: (kind: AdminTaskQueueItem["kind"], taskId: string) => void;
 }) {
   return (
-    <Card className="rounded-[18px]">
-      <CardContent className="px-4 py-4">
+    <Card className="rounded-[14px]">
+      <CardContent className="px-3 py-3">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
             {title}
           </h2>
           <Badge variant="secondary">{tasks.length}</Badge>
         </div>
         {tasks.length === 0 ? (
-          <div className="mt-3 rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-5 text-sm text-slate-500">
+          <div className="mt-2 rounded-[12px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-3 py-4 text-xs text-slate-500">
             {emptyLabel}
           </div>
         ) : (
-          <div className="mt-3 space-y-2">
+          <div className="mt-2 space-y-1.5">
             {tasks.map((task) => (
               <div
                 key={`${task.kind}:${task.task_id}`}
-                className={`rounded-[14px] border px-3 py-3 ${
+                className={`rounded-[12px] border px-3 py-2 ${
                   task.kind === "data_sync" && selectedDataSyncTaskId === task.task_id
                     ? "border-[rgba(47,111,78,0.28)] bg-[rgba(47,111,78,0.08)]"
                     : "border-[var(--border)] bg-[var(--surface-strong)]"
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
+                <div className="grid gap-2 xl:grid-cols-[minmax(0,1.1fr)_auto]">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900">
                       {task.label}
                     </p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
-                      {task.kind}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">
+                        {task.kind}
+                      </span>
+                      <Badge variant="secondary">{STATUS_LABELS[task.status]}</Badge>
+                      {task.stale ? <Badge variant="destructive">Stale</Badge> : null}
+                    </div>
                   </div>
-                  <Badge variant="secondary">{STATUS_LABELS[task.status]}</Badge>
+                  <div className="flex flex-wrap items-start gap-1.5 xl:justify-end">
+                    {task.stale ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 px-3 text-[10px]"
+                        disabled={removingQueueItemId === `${task.kind}:${task.task_id}`}
+                        onClick={() => onRemoveStale(task.kind, task.task_id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        {removingQueueItemId === `${task.kind}:${task.task_id}`
+                          ? "Removing"
+                          : "Remove"}
+                      </Button>
+                    ) : task.kind === "data_sync" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 px-3 text-[10px]"
+                        onClick={() => onInspectDataSync(task.task_id)}
+                      >
+                        {loadingDataSyncTaskId === task.task_id ? "Loading" : "Inspect"}
+                      </Button>
+                    ) : (
+                      <Button
+                        asChild
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="h-8 px-3 text-[10px]"
+                      >
+                        <Link href={task.detail_path}>
+                          <ExternalLink className="size-3.5" />
+                          Open
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-2 grid gap-1.5 text-sm text-slate-600">
+                <div className="mt-2 grid gap-x-3 gap-y-1 text-xs text-slate-600 sm:grid-cols-2">
                   <QueueDetail label="Owner" value={formatOwner(task)} />
                   <QueueDetail label="Queue" value={formatQueuePosition(task)} />
                   <QueueDetail label="Started" value={formatDateTime(task.started_at)} />
@@ -463,21 +545,6 @@ function QueueSection({
                     value={formatQuotaBlock(task.blocked_vendor, task.blocked_until)}
                   />
                 </div>
-                {task.kind === "data_sync" ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className="mt-3"
-                    onClick={() => onInspectDataSync(task.task_id)}
-                  >
-                    {loadingDataSyncTaskId === task.task_id ? "Loading..." : "Inspect sync"}
-                  </Button>
-                ) : (
-                  <Button asChild type="button" size="sm" variant="secondary" className="mt-3">
-                    <Link href={task.detail_path}>View task</Link>
-                  </Button>
-                )}
               </div>
             ))}
           </div>
@@ -602,8 +669,10 @@ function dataSyncStatusVariant(
 
 function QueueDetail({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-xs uppercase tracking-[0.14em] text-slate-500">{label}</span>
+    <div className="flex min-w-0 items-center justify-between gap-2">
+      <span className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </span>
       <span className="min-w-0 truncate text-right font-medium text-slate-800">{value}</span>
     </div>
   );

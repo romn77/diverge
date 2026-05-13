@@ -44,7 +44,11 @@ class BackendMainTests(unittest.TestCase):
     def setUp(self):
         self.auth_env_patch = patch.dict(
             os.environ,
-            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
+            {
+                "AUTH_ENABLED": "false",
+                "AUTH_MODE": "disabled",
+                "TASK_BACKEND": "local",
+            },
             clear=False,
         )
         self.auth_env_patch.start()
@@ -895,6 +899,7 @@ class BackendMainTests(unittest.TestCase):
                 "AUTH_ENABLED": "true",
                 "AUTH_MODE": "required",
                 "DATABASE_URL": f"sqlite+pysqlite:///{database_path}",
+                "TASK_BACKEND": "local",
                 "AUTH_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
                 "AUTH_BOOTSTRAP_ADMIN_PASSWORD": "AdminPass123",
             },
@@ -935,6 +940,107 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(payload["tasks"][0]["task_id"], "sync-db")
         self.assertEqual(payload["tasks"][0]["kind"], "data_sync")
         self.assertEqual(payload["tasks"][0]["status"], "running")
+        self.assertFalse(payload["tasks"][0]["runtime_present"])
+        self.assertTrue(payload["tasks"][0]["stale"])
+
+    def test_admin_task_queue_deletes_stale_database_job_record(self):
+        database_path = Path(self.temp_dir.name) / "stale-jobs.db"
+        self.auth_env_patch.stop()
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {
+                "AUTH_ENABLED": "true",
+                "AUTH_MODE": "required",
+                "DATABASE_URL": f"sqlite+pysqlite:///{database_path}",
+                "TASK_BACKEND": "local",
+                "AUTH_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
+                "AUTH_BOOTSTRAP_ADMIN_PASSWORD": "AdminPass123",
+            },
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
+        auth.create_all_for_testing()
+        job_records.upsert_job_record(
+            kind="analysis",
+            task_id="analysis-stale",
+            status="running",
+            request_payload={"ticker": "DRAM"},
+            owner_user_id="admin-user",
+            tenant_id="tenant-a",
+            started_at="2026-05-11T13:31:45+00:00",
+        )
+
+        with patch(
+            "web.backend.routers.admin._require_admin_permission",
+            return_value=SimpleNamespace(tenant_id="tenant-a"),
+        ):
+            body = admin_router.delete_admin_task_queue_item(
+                "analysis",
+                "analysis-stale",
+            )
+
+        self.assertEqual(
+            body,
+            {"deleted": True, "kind": "analysis", "task_id": "analysis-stale"},
+        )
+        self.assertIsNone(job_records.get_job_record("analysis-stale"))
+
+    def test_admin_task_queue_rejects_deleting_live_runtime_task(self):
+        database_path = Path(self.temp_dir.name) / "live-jobs.db"
+        self.auth_env_patch.stop()
+        self.auth_env_patch = patch.dict(
+            os.environ,
+            {
+                "AUTH_ENABLED": "true",
+                "AUTH_MODE": "required",
+                "DATABASE_URL": f"sqlite+pysqlite:///{database_path}",
+                "TASK_BACKEND": "local",
+                "AUTH_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
+                "AUTH_BOOTSTRAP_ADMIN_PASSWORD": "AdminPass123",
+            },
+            clear=False,
+        )
+        self.auth_env_patch.start()
+        auth.reset_runtime_state()
+        auth.create_all_for_testing()
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2026-05-11",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+        task = analysis_tasks.Task(
+            id="analysis-live",
+            request=AnalysisRequest(**payload),
+            status="running",
+            tenant_id="tenant-a",
+        )
+        analysis_tasks.tasks[task.id] = task
+        job_records.upsert_job_record(
+            kind="analysis",
+            task_id=task.id,
+            status="running",
+            request_payload={"ticker": "SPY"},
+            tenant_id="tenant-a",
+        )
+
+        with (
+            patch(
+                "web.backend.routers.admin._require_admin_permission",
+                return_value=SimpleNamespace(tenant_id="tenant-a"),
+            ),
+            self.assertRaises(HTTPException) as context,
+        ):
+            admin_router.delete_admin_task_queue_item("analysis", task.id)
+
+        self.assertEqual(context.exception.status_code, 409)
 
     def test_delete_failed_analysis_task_removes_local_record(self):
         payload = {
