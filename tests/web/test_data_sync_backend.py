@@ -16,7 +16,7 @@ from web.backend.schemas.data_sync import (
     DataSyncFundamentalsPayload,
     DataSyncOhlcvPayload,
 )
-from web.backend.services import ohlcv_sync_payloads
+from web.backend.services import fundamental_sync, ohlcv_sync_payloads
 
 
 def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
@@ -421,7 +421,7 @@ def test_fundamental_sync_can_build_symbols_from_us_manifest(tmp_path, monkeypat
             updated_at="",
         )
 
-    monkeypatch.setattr(data_sync_tasks, "sync_us_simfin_fundamentals", fake_sync)
+    monkeypatch.setattr(fundamental_sync, "sync_us_simfin_fundamentals", fake_sync)
 
     result = data_sync_tasks.run_fundamental_sync_payload(
         {
@@ -484,7 +484,7 @@ def test_us_simfin_fundamental_sync_uses_data_dir_manifest(tmp_path, monkeypatch
             updated_at="",
         )
 
-    monkeypatch.setattr(data_sync_tasks, "sync_us_simfin_fundamentals", fake_sync)
+    monkeypatch.setattr(fundamental_sync, "sync_us_simfin_fundamentals", fake_sync)
 
     result = data_sync_tasks.run_fundamental_sync_payload(
         {
@@ -511,6 +511,16 @@ def test_us_simfin_fundamental_sync_rejects_symbols_over_daily_limit(monkeypatch
                 "as_of_date": "2026-04-28",
             }
         )
+
+
+def test_fundamental_sync_service_dedupes_explicit_symbols():
+    assert fundamental_sync.resolve_fundamental_symbols(
+        {
+            "market": "us",
+            "source": "simfin",
+            "symbols": [" aapl ", "AAPL", "msft", ""],
+        }
+    ) == ["AAPL", "MSFT"]
 
 
 def test_tushare_ohlcv_sync_rejects_today_before_ready_cutoff(monkeypatch):
