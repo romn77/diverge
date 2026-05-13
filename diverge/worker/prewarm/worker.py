@@ -5,7 +5,6 @@ from typing import Any
 from arq.worker import Retry
 
 from diverge.worker.prewarm.config import get_prewarm_market_config, prewarm_job_id
-from diverge.worker.prewarm.readiness import check_vendor_ready
 from diverge.worker.prewarm.state import (
     is_completed,
     mark_completed,
@@ -13,7 +12,12 @@ from diverge.worker.prewarm.state import (
     mark_retrying,
     mark_running,
 )
+from diverge.worker.prewarm.vendor_readiness import check_vendor_ready
 from diverge.worker.prewarm.workflow import run_market_prewarm_workflow
+
+
+class PrewarmFinalFailure(RuntimeError):
+    """Raised after a terminal failure has already been recorded."""
 
 
 async def _retry_or_fail(
@@ -36,7 +40,7 @@ async def _retry_or_fail(
             attempt=attempt,
             error=reason,
         )
-        raise RuntimeError(reason)
+        raise PrewarmFinalFailure(reason)
 
     await mark_retrying(
         redis,
@@ -105,26 +109,19 @@ async def run_market_prewarm(
             )
     except Retry:
         raise
+    except PrewarmFinalFailure:
+        raise
     except Exception as exc:
-        if attempt >= config.max_tries:
-            await mark_failed(
-                redis,
-                market=market,
-                trading_day=trading_day,
-                job_id=job_id,
-                attempt=attempt,
-                error=str(exc),
-            )
-            raise
-        await mark_retrying(
-            redis,
+        await _retry_or_fail(
+            redis=redis,
             market=market,
             trading_day=trading_day,
             job_id=job_id,
             attempt=attempt,
+            max_tries=config.max_tries,
+            defer_seconds=config.retry_defer_seconds,
             reason=str(exc),
         )
-        raise Retry(defer=config.retry_defer_seconds) from exc
 
     await mark_completed(
         redis,

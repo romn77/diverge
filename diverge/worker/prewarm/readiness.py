@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime, time, timezone
 
@@ -74,14 +73,3 @@ def resolve_due_prewarm_trading_day(
     if trading_day != decision.now_local.date():
         return None
     return trading_day.isoformat()
-
-
-async def check_vendor_ready(market: str, trading_day: str) -> bool:
-    from web.backend.runtime import data_sync_tasks, screener_prewarm
-
-    payload = screener_prewarm.build_ohlcv_sync_payload(market, trading_day)
-    try:
-        await asyncio.to_thread(data_sync_tasks.ensure_ohlcv_vendor_ready, payload)
-    except data_sync_tasks.VendorDataNotReadyError:
-        return False
-    return True

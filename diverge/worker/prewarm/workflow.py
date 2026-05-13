@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -9,6 +10,10 @@ from typing import Any
 from diverge.dataflows import vendor_usage
 from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
+
+
+async def _run_blocking(function: Callable[..., Any], *args: Any) -> Any:
+    return await asyncio.to_thread(function, *args)
 
 
 def _snapshot_summary(snapshot: Any) -> dict[str, Any]:
@@ -50,11 +55,10 @@ def _run_screener_payload_sync(
     market: str,
     trading_day: str,
     request_payload: dict[str, Any],
+    config_payload: dict[str, Any],
 ) -> dict[str, Any]:
-    from web.backend.runtime import screener_prewarm
     from web.backend.services import screeners as screener_service
 
-    config_payload = screener_prewarm.build_screener_config_payload(request_payload)
     cached_snapshot = _confirmed_cached_snapshot(config_payload, market, trading_day)
     if cached_snapshot is not None:
         return {"status": "cached", **_snapshot_summary(cached_snapshot)}
@@ -105,7 +109,12 @@ def run_screener_prewarm_sync(market: str, trading_day: str) -> dict[str, Any]:
             continue
         seen_keys.add(screener_key)
 
-        result = _run_screener_payload_sync(market, trading_day, request_payload)
+        result = _run_screener_payload_sync(
+            market,
+            trading_day,
+            request_payload,
+            config_payload,
+        )
         runs.append(result)
         if result["status"] == "cached":
             cached += 1
@@ -197,7 +206,7 @@ async def run_market_prewarm_workflow(
     market: str,
     trading_day: str,
 ) -> dict[str, Any]:
-    return await asyncio.to_thread(
+    return await _run_blocking(
         run_market_prewarm_workflow_sync,
         market,
         trading_day,

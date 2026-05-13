@@ -7,7 +7,14 @@ from zoneinfo import ZoneInfo
 import pytest
 from arq.worker import Retry
 
-from diverge.worker.prewarm import readiness, scheduler, state, worker, workflow
+from diverge.worker.prewarm import (
+    readiness,
+    scheduler,
+    state,
+    vendor_readiness,
+    worker,
+    workflow,
+)
 
 
 class FakeRedis:
@@ -15,6 +22,7 @@ class FakeRedis:
         self.values: dict[str, str] = {}
         self.expirations: dict[str, int] = {}
         self.enqueued: list[dict] = []
+        self.set_calls: list[tuple[str, str, int | None]] = []
         self.next_job = object()
 
     async def get(self, key: str):
@@ -22,6 +30,7 @@ class FakeRedis:
 
     async def set(self, key: str, value: str, ex: int | None = None):
         self.values[key] = value
+        self.set_calls.append((key, value, ex))
         if ex is not None:
             self.expirations[key] = ex
         return True
@@ -227,6 +236,12 @@ def test_worker_marks_failed_on_final_attempt(monkeypatch):
         workflow = await state.get_workflow(redis, "cn", "2026-04-28")
         assert workflow["status"] == "failed"
         assert not await state.is_completed(redis, "cn", "2026-04-28")
+        workflow_writes = [
+            call
+            for call in redis.set_calls
+            if call[0] == state.workflow_key("cn", "2026-04-28")
+        ]
+        assert len(workflow_writes) == 2
 
     asyncio.run(scenario())
 
@@ -338,6 +353,73 @@ def test_market_workflow_runs_ohlcv_fundamentals_and_screener(monkeypatch):
         ("fundamentals", "cn", "2026-04-28"),
         ("screener", "cn", "2026-04-28"),
     ]
+
+
+def test_async_market_workflow_uses_blocking_runner(monkeypatch):
+    captured = {}
+
+    async def run_inline(function, *args):
+        captured["function"] = function
+        captured["args"] = args
+        return {"success": True, "market": args[0], "trading_day": args[1]}
+
+    monkeypatch.setattr(workflow, "_run_blocking", run_inline)
+
+    result = asyncio.run(workflow.run_market_prewarm_workflow("us", "2026-05-13"))
+
+    assert result == {
+        "success": True,
+        "market": "us",
+        "trading_day": "2026-05-13",
+    }
+    assert captured["function"] is workflow.run_market_prewarm_workflow_sync
+    assert captured["args"] == ("us", "2026-05-13")
+
+
+def test_vendor_readiness_delegates_to_backend_ready_check(monkeypatch):
+    from web.backend.runtime import data_sync_tasks, screener_prewarm
+
+    captured = {}
+    monkeypatch.setattr(
+        screener_prewarm,
+        "build_ohlcv_sync_payload",
+        lambda market, trading_day: {"markets": [market], "as_of_date": trading_day},
+    )
+
+    def ready(payload):
+        captured.update(payload)
+
+    monkeypatch.setattr(data_sync_tasks, "ensure_ohlcv_vendor_ready", ready)
+
+    async def run_inline(function, *args):
+        return function(*args)
+
+    monkeypatch.setattr(vendor_readiness, "_run_blocking", run_inline)
+
+    assert asyncio.run(vendor_readiness.check_vendor_ready("cn", "2026-04-28"))
+    assert captured == {"markets": ["cn"], "as_of_date": "2026-04-28"}
+
+
+def test_vendor_readiness_returns_false_when_backend_vendor_is_not_ready(monkeypatch):
+    from web.backend.runtime import data_sync_tasks, screener_prewarm
+
+    monkeypatch.setattr(
+        screener_prewarm,
+        "build_ohlcv_sync_payload",
+        lambda market, trading_day: {"markets": [market], "as_of_date": trading_day},
+    )
+
+    def not_ready(payload):
+        raise data_sync_tasks.VendorDataNotReadyError("not ready")
+
+    monkeypatch.setattr(data_sync_tasks, "ensure_ohlcv_vendor_ready", not_ready)
+
+    async def run_inline(function, *args):
+        return function(*args)
+
+    monkeypatch.setattr(vendor_readiness, "_run_blocking", run_inline)
+
+    assert not asyncio.run(vendor_readiness.check_vendor_ready("us", "2026-05-13"))
 
 
 def test_prewarm_arq_settings_parse_redis_url(monkeypatch):
