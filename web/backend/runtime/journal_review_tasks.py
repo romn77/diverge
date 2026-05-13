@@ -4,7 +4,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from web.backend import job_records
 from web.backend.runtime import task_lifecycle, task_store
 
 KIND = "journal_review"
@@ -31,20 +30,13 @@ def _event(status: str, message: str) -> dict[str, Any]:
 def _save_task(payload: dict[str, Any]) -> None:
     store = task_store.get_task_store()
     store.save_task(KIND, str(payload["id"]), payload)
-    job_records.upsert_job_record(
+    task_lifecycle.upsert_job_record(
         kind=KIND,
-        task_id=str(payload["id"]),
-        status=str(payload["status"]),
+        task=payload,
         request_payload=payload.get("request_payload"),
         result_summary=payload.get("result"),
-        error=payload.get("error"),
-        owner_user_id=payload.get("owner_user_id"),
-        tenant_id=payload.get("tenant_id"),
-        created_at=payload.get("created_at"),
-        queued_at=payload.get("queued_at"),
-        started_at=payload.get("started_at"),
-        finished_at=payload.get("finished_at"),
         heartbeat_at=payload.get("updated_at"),
+        heartbeat_when_running=False,
     )
 
 

@@ -7,11 +7,7 @@ from contextlib import contextmanager
 from typing import Iterator
 
 from web.backend.runtime import task_lifecycle, task_store
-from web.backend.runtime.task_logging import (
-    current_worker_id,
-    log_task_event,
-    task_process_fields,
-)
+from web.backend.runtime.task_logging import current_worker_id, log_task_event
 
 TASK_KINDS = task_store.TASK_KINDS
 logger = logging.getLogger(__name__)
@@ -232,18 +228,12 @@ def _upsert_claimed_job_record(
     payload: dict,
     started_at: str,
 ) -> None:
-    from web.backend import job_records
-
-    job_records.upsert_job_record(
+    task_lifecycle.upsert_job_record(
         kind=kind,
+        task=payload,
         task_id=task_id,
         status="running",
         request_payload=payload.get("request_payload"),
-        owner_user_id=payload.get("owner_user_id"),
-        tenant_id=payload.get("tenant_id"),
-        created_at=payload.get("created_at"),
-        queued_at=payload.get("queued_at"),
-        started_at=started_at,
         heartbeat_at=started_at,
-        worker_id=task_process_fields()["worker_id"],
+        worker_id=payload.get("worker_id"),
     )

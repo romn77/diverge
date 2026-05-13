@@ -35,10 +35,9 @@ from diverge.runner import (
     run_analysis_streaming,
     save_report_to_disk,
 )
-from web.backend import access, app_config, auth, job_records, report_metadata, storage
+from web.backend import access, app_config, auth, report_metadata, storage
 from web.backend.runtime import task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
-    current_worker_id,
     log_task_event,
     processing_stage,
     task_error_fields,
@@ -872,21 +871,11 @@ def save_task(task: Task) -> None:
 
 
 def _upsert_analysis_job_record(task: Task) -> None:
-    job_records.upsert_job_record(
+    task_lifecycle.upsert_job_record(
         kind="analysis",
-        task_id=task.id,
-        status=task.status,
+        task=task,
         request_payload=task.to_dict().get("request_payload"),
         result_summary={"report_id": task.report_id} if task.report_id else None,
-        error=task.error,
-        owner_user_id=task.owner_user_id,
-        tenant_id=task.tenant_id,
-        created_at=task.created_at,
-        queued_at=task.queued_at,
-        started_at=task.started_at,
-        finished_at=task.finished_at,
-        heartbeat_at=_utc_iso() if task.status == "running" else None,
-        worker_id=current_worker_id() if task.status == "running" else None,
     )
 
 

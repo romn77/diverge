@@ -17,10 +17,9 @@ from diverge.common.json_io import write_json_atomic
 from diverge.dataflows import vendor_usage
 from diverge.screener.pipeline import run_screen
 from diverge.screener.schema import ScreenRunConfig
-from web.backend import app_config, audit, auth, job_records, storage
+from web.backend import app_config, audit, auth, storage
 from web.backend.runtime import task_lifecycle, task_store
 from web.backend.runtime.task_logging import (
-    current_worker_id,
     log_task_event,
     processing_stage,
     task_error_fields,
@@ -873,21 +872,11 @@ def save_screener_task(task: ScreenerTask) -> None:
 
 
 def _upsert_screener_job_record(task: ScreenerTask) -> None:
-    job_records.upsert_job_record(
+    task_lifecycle.upsert_job_record(
         kind="screener",
-        task_id=task.id,
-        status=task.status,
+        task=task,
         request_payload=task.request_payload,
         result_summary={"run_id": task.run_id} if task.run_id else None,
-        error=task.error,
-        owner_user_id=task.owner_user_id,
-        tenant_id=task.tenant_id,
-        created_at=task.created_at,
-        queued_at=task.queued_at,
-        started_at=task.started_at,
-        finished_at=task.finished_at,
-        heartbeat_at=_utc_iso() if task.status == "running" else None,
-        worker_id=current_worker_id() if task.status == "running" else None,
     )
 
 

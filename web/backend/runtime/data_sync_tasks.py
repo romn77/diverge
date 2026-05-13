@@ -11,13 +11,9 @@ from typing import Any, Callable
 from fastapi import HTTPException
 
 from diverge.common.json_io import write_json_atomic
-from web.backend import app_config, audit, auth, job_records
+from web.backend import app_config, audit, auth
 from web.backend.runtime import task_lifecycle, task_store
-from web.backend.runtime.task_logging import (
-    current_worker_id,
-    log_task_event,
-    task_error_fields,
-)
+from web.backend.runtime.task_logging import log_task_event, task_error_fields
 from web.backend.services import (
     data_sync_audit,
     data_sync_state,
@@ -88,21 +84,11 @@ def _task_path(task_id: str) -> Path:
 
 
 def _save_task(task: DataSyncTask) -> None:
-    job_records.upsert_job_record(
+    task_lifecycle.upsert_job_record(
         kind="data_sync",
-        task_id=task.id,
-        status=task.status,
+        task=task,
         request_payload=task.request_payload,
         result_summary=task.result,
-        error=task.error,
-        owner_user_id=task.owner_user_id,
-        tenant_id=task.tenant_id,
-        created_at=task.created_at,
-        queued_at=task.queued_at,
-        started_at=task.started_at,
-        finished_at=task.finished_at,
-        heartbeat_at=_utc_iso() if task.status == "running" else None,
-        worker_id=current_worker_id() if task.status == "running" else None,
     )
     if task_store.redis_task_backend_enabled():
         task_store.get_task_store().save_task("data_sync", task.id, task.to_dict())
