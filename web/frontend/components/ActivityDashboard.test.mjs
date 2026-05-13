@@ -16,6 +16,7 @@ test("ActivityDashboard centralizes in-flight analysis and screener monitoring",
   assert.match(source, /<Card/);
   assert.match(source, /<Badge/);
   assert.match(source, /<Dialog/);
+  assert.match(source, /sm:w-\[34rem\]/);
   assert.doesNotMatch(source, /window\.confirm/);
   assert.match(source, /buildTaskHref/);
   assert.match(source, /buildScreenerTaskHref/);

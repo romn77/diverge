@@ -302,13 +302,13 @@ export function ActivityDashboard() {
           }
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-none sm:w-[34rem]">
           <DialogHeader className="pr-12">
             <DialogTitle className="text-2xl">{dialogTitle}</DialogTitle>
             <DialogDescription>{dialogDescription}</DialogDescription>
           </DialogHeader>
           {taskActionTarget ? (
-            <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <div className="min-w-0 rounded-[22px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
               <p className="truncate text-sm font-semibold text-slate-900">
                 {taskActionTarget.label}
               </p>
