@@ -297,6 +297,24 @@ def promote_payload_to_queue(
     return payload
 
 
+def enqueue_task(
+    *,
+    kind: str,
+    task_id: str,
+    task: Any,
+    progress: dict[str, Any],
+    save_task: Callable[[Any], None],
+    queued_at: str | None = None,
+) -> Any:
+    task.status = "queued"
+    task.queued_at = queued_at or utc_iso()
+    save_task(task)
+    store = task_store.get_task_store()
+    store.enqueue(kind, task_id)
+    store.append_event(kind, task_id, progress)
+    return task
+
+
 def claim_payload_for_worker(
     *,
     kind: str,

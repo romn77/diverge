@@ -501,14 +501,13 @@ def create_data_sync_task(
         created_at=now_iso,
     )
     if task_store.redis_task_backend_enabled():
-        task.status = "queued"
-        task.queued_at = now_iso
-        _save_task(task)
-        task_store.get_task_store().enqueue("data_sync", task_id)
-        task_store.get_task_store().append_event(
-            "data_sync",
-            task_id,
-            task_lifecycle.queued_progress(f"{sync_type} sync queued."),
+        task_lifecycle.enqueue_task(
+            kind="data_sync",
+            task_id=task_id,
+            task=task,
+            progress=task_lifecycle.queued_progress(f"{sync_type} sync queued."),
+            save_task=_save_task,
+            queued_at=now_iso,
         )
         log_task_event(
             logger,

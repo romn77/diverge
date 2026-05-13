@@ -684,19 +684,18 @@ def create_screener_task(
     )
 
     if task_store.redis_task_backend_enabled():
-        task.status = "queued"
-        task.queued_at = now_iso
-        save_screener_task(task)
-        task_store.get_task_store().enqueue("screener", task_id)
-        task_store.get_task_store().append_event(
-            "screener",
-            task_id,
-            task_lifecycle.queued_progress(
+        task_lifecycle.enqueue_task(
+            kind="screener",
+            task_id=task_id,
+            task=task,
+            progress=task_lifecycle.queued_progress(
                 "Screener task queued.",
                 stage_status={key: "not_started" for key in SCREENER_STAGES},
                 agent_status={},
                 include_current_agent=True,
             ),
+            save_task=save_screener_task,
+            queued_at=now_iso,
         )
         log_task_event(
             logger,

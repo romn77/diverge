@@ -594,6 +594,43 @@ def test_promote_payload_to_queue_clears_blocking_fields(monkeypatch):
     assert appended["event"]["status"] == "queued"
 
 
+def test_enqueue_task_sets_queued_state_and_appends_event(monkeypatch):
+    task = SimpleNamespace(status="pending", queued_at=None)
+    progress = {"status": "queued", "message": "queued"}
+    saved = {}
+    enqueued = {}
+    appended = {}
+    store = SimpleNamespace(
+        enqueue=lambda kind, task_id: enqueued.update(kind=kind, task_id=task_id),
+        append_event=lambda kind, task_id, event: appended.update(
+            kind=kind,
+            task_id=task_id,
+            event=event,
+        ),
+    )
+    monkeypatch.setattr(task_lifecycle.task_store, "get_task_store", lambda: store)
+
+    returned = task_lifecycle.enqueue_task(
+        kind="screener",
+        task_id="task-7b",
+        task=task,
+        progress=progress,
+        save_task=lambda saved_task: saved.update(task=saved_task),
+        queued_at="2026-05-13T01:02:03+00:00",
+    )
+
+    assert returned is task
+    assert task.status == "queued"
+    assert task.queued_at == "2026-05-13T01:02:03+00:00"
+    assert saved == {"task": task}
+    assert enqueued == {"kind": "screener", "task_id": "task-7b"}
+    assert appended == {
+        "kind": "screener",
+        "task_id": "task-7b",
+        "event": progress,
+    }
+
+
 def test_claim_payload_for_worker_projects_running_record(monkeypatch):
     monkeypatch.setattr(
         task_lifecycle,

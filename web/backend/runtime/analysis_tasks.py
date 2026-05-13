@@ -756,14 +756,11 @@ def create_task(
     )
 
     if task_store.redis_task_backend_enabled():
-        task.status = "queued"
-        task.queued_at = now_iso
-        save_task(task)
-        task_store.get_task_store().enqueue("analysis", task_id)
-        task_store.get_task_store().append_event(
-            "analysis",
-            task_id,
-            task_lifecycle.queued_progress(
+        task_lifecycle.enqueue_task(
+            kind="analysis",
+            task_id=task_id,
+            task=task,
+            progress=task_lifecycle.queued_progress(
                 "Task queued.",
                 stage_status={
                     "Analysts": "not_started",
@@ -775,6 +772,8 @@ def create_task(
                 agent_status={},
                 include_current_agent=True,
             ),
+            save_task=save_task,
+            queued_at=now_iso,
         )
         log_task_event(
             logger,
