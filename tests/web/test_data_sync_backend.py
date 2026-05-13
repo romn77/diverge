@@ -16,6 +16,7 @@ from web.backend.schemas.data_sync import (
     DataSyncFundamentalsPayload,
     DataSyncOhlcvPayload,
 )
+from web.backend.services import ohlcv_sync_payloads
 
 
 def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
@@ -246,6 +247,54 @@ def test_ohlcv_sync_uses_data_dir_us_manifest(tmp_path, monkeypatch):
         {"markets": ["us"], "as_of_date": "2026-04-28"}
     )
 
+    assert config_payload["us_manifest_path"] == str(manifest_path)
+
+
+def test_ohlcv_payload_service_injects_runtime_dirs_sources_and_manifest(
+    tmp_path,
+    monkeypatch,
+):
+    manifest_path = tmp_path / "manifest" / "us.csv"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text("symbol\nAAPL\n", encoding="utf-8")
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "SCREENER_RESULTS_DIR",
+        tmp_path / "runs",
+    )
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "SCREENER_CACHE_DIR",
+        tmp_path / "cache",
+    )
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "STOCK_HISTORY_DIR",
+        tmp_path / "history",
+    )
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "resolve_manifest_path",
+        lambda market, project_root=None, *, require_exists=False: manifest_path
+        if market == "us"
+        else None,
+    )
+
+    config_payload = ohlcv_sync_payloads.build_ohlcv_config_payload(
+        {
+            "markets": ["us"],
+            "as_of_date": "2026-05-13",
+            "top_k": 250,
+            "us_data_source_fallbacks": ["yfinance"],
+        }
+    )
+
+    assert config_payload["top_k"] == 100
+    assert config_payload["output_dir"] == str(tmp_path / "runs")
+    assert config_payload["cache_dir"] == str(tmp_path / "cache")
+    assert config_payload["history_dir"] == str(tmp_path / "history")
+    assert config_payload["us_data_source"] == "yfinance"
+    assert config_payload["us_data_source_fallbacks"] == ["yfinance"]
     assert config_payload["us_manifest_path"] == str(manifest_path)
 
 
