@@ -381,6 +381,24 @@ class AnalysisTrackerTests(unittest.TestCase):
             "fmp,alpha_vantage,yfinance",
         )
 
+    def test_build_analysis_config_preserves_resolved_backend_url(self):
+        request = AnalysisRequest(
+            ticker="MSFT",
+            analysis_date="2026-04-03",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="google",
+            quick_think_llm="gemini-2.5-flash",
+            deep_think_llm="gemini-2.5-pro",
+            output_language="en",
+            backend_url="https://cc.z2blog.com",
+            google_thinking_level="high",
+        )
+
+        config = build_analysis_config(request)
+
+        self.assertEqual(config["backend_url"], "https://cc.z2blog.com")
+
 
 if __name__ == "__main__":
     unittest.main()

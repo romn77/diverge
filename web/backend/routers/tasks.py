@@ -87,6 +87,7 @@ def _analysis_request_payload(payload: TaskCreatePayload, current_user=None) -> 
                 "llm_provider": resolved.llm_provider,
                 "quick_think_llm": resolved.quick_think_llm,
                 "deep_think_llm": resolved.deep_think_llm,
+                "backend_url": resolved.backend_url,
             }
         )
         if resolved.llm_provider == "openai" and not request_payload.get(

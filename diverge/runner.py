@@ -144,6 +144,7 @@ class AnalysisRequest:
     deep_think_llm: str
     output_language: str
     model_profile: Optional[str] = None
+    backend_url: Optional[str] = None
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
@@ -588,7 +589,9 @@ def build_analysis_config(request: AnalysisRequest) -> dict:
     config["max_risk_discuss_rounds"] = request.research_depth
     config["quick_think_llm"] = request.quick_think_llm
     config["deep_think_llm"] = request.deep_think_llm
-    config["backend_url"] = get_provider_base_url(request.llm_provider)
+    config["backend_url"] = request.backend_url or get_provider_base_url(
+        request.llm_provider
+    )
     config["llm_provider"] = request.llm_provider
     config["model_profile"] = request.model_profile
     config["output_language"] = request.output_language

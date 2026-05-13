@@ -29,6 +29,7 @@ from diverge.llm_clients.model_profiles import (
     STATIC_MODEL_PROFILES,
     ModelRoute,
     ResolvedModelSelection,
+    get_provider_api_key_env_vars,
     get_model_profile,
     list_model_profile_options,
     resolve_model_profile,
@@ -315,10 +316,15 @@ def _default_models() -> dict[str, dict[str, Any]]:
 
 
 def _provider_key_status(config: dict[str, Any]) -> str:
-    api_key_env = config.get("api_key_env")
-    if not api_key_env:
+    provider = str(config.get("provider") or "").strip().lower()
+    api_key_envs = get_provider_api_key_env_vars(provider)
+    if not api_key_envs:
         return "configured"
-    return "configured" if os.environ.get(str(api_key_env)) else "missing"
+    return (
+        "configured"
+        if any(os.environ.get(api_key_env) for api_key_env in api_key_envs)
+        else "missing"
+    )
 
 
 def _provider_payload(db: Session, provider: str) -> dict[str, Any]:
@@ -1257,10 +1263,8 @@ def record_model_usage(
                     index_elements=["usage_date", "provider", "model_id", "module"],
                     set_={
                         "total_calls": table.c.total_calls + 1,
-                        "success_count": table.c.success_count
-                        + (1 if success else 0),
-                        "failure_count": table.c.failure_count
-                        + (0 if success else 1),
+                        "success_count": table.c.success_count + (1 if success else 0),
+                        "failure_count": table.c.failure_count + (0 if success else 1),
                         "hour_key": hour_key,
                         "hour_total_calls": case(
                             (

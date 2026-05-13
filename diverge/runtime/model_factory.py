@@ -13,14 +13,21 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+from functools import cached_property
 from typing import Any, Iterable, Optional
 
+from google.genai import Client
 from google.adk.models.google_llm import Gemini
 from google.adk.models.lite_llm import LiteLlm
 from google.adk.models.llm_request import LlmRequest
 from google.adk.tools import FunctionTool
 from google.genai import types
+from pydantic import Field
 
+from diverge.llm_clients.google_client import (
+    resolve_google_api_key,
+    resolve_google_base_url,
+)
 from diverge.runtime.messages import message_content, message_role
 
 logger = logging.getLogger(__name__)
@@ -69,6 +76,35 @@ _PROVIDER_API_KEY_ENV = {
     "sub2api": "SUB2API_API_KEY",
     "mimo": "MIMO_API_KEY",
 }
+
+
+class DivergeGemini(Gemini):
+    """Gemini model with Diverge runtime overrides for routed endpoints."""
+
+    base_url: Optional[str] = None
+    api_key: Optional[str] = Field(default=None, exclude=True, repr=False)
+
+    @cached_property
+    def api_client(self) -> Client:
+        return Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(
+                base_url=self.base_url,
+                headers=self._tracking_headers,
+                retry_options=self.retry_options,
+            ),
+        )
+
+    @cached_property
+    def _live_api_client(self) -> Client:
+        return Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(
+                base_url=self.base_url,
+                headers=self._tracking_headers,
+                api_version=self._live_api_version,
+            ),
+        )
 
 
 def _prefixed_litellm_model(provider: str, model: str) -> str:
@@ -250,12 +286,17 @@ def create_adk_model(
     )
     if provider == "google":
         retry_options = kwargs.get("retry_options")
+        resolved_base_url = resolve_google_base_url(base_url)
+        resolved_api_key = resolve_google_api_key(api_key)
         gemini_kwargs: dict[str, Any] = {}
-        if base_url:
-            gemini_kwargs["base_url"] = base_url
+        if resolved_base_url:
+            gemini_kwargs["base_url"] = resolved_base_url
+        if resolved_api_key:
+            gemini_kwargs["api_key"] = resolved_api_key
         if retry_options is not None:
             gemini_kwargs["retry_options"] = retry_options
-        gemini_model = Gemini(model=model, **gemini_kwargs)
+        gemini_cls = DivergeGemini if gemini_kwargs else Gemini
+        gemini_model = gemini_cls(model=model, **gemini_kwargs)
         setattr(gemini_model, "_diverge_timeout_seconds", resolved_timeout)
         return gemini_model
 
@@ -574,7 +615,9 @@ class AdkChatModel:
         self.transient_retry_base_delay = (
             _default_adk_transient_retry_base_delay_seconds()
         )
-        self.transient_retry_max_delay = _default_adk_transient_retry_max_delay_seconds()
+        self.transient_retry_max_delay = (
+            _default_adk_transient_retry_max_delay_seconds()
+        )
 
     def bind_tools(self, tools: Iterable[Any]):
         try:

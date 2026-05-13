@@ -186,6 +186,27 @@ def test_adk_model_factory_uses_gemini_for_google_and_litellm_for_others():
     assert google_config.thinking_config.thinking_level == types.ThinkingLevel.HIGH
 
 
+def test_adk_google_model_uses_gemini_base_url_env():
+    from google.adk.models.google_llm import Gemini
+
+    from diverge.runtime.model_factory import DivergeGemini, create_adk_model
+
+    with patch.dict(
+        "os.environ",
+        {"GOOGLE_GEMINI_BASE_URL": "https://cc.z2blog.com"},
+        clear=True,
+    ):
+        google_model = create_adk_model(
+            provider="google",
+            model="gemini-2.5-flash",
+            base_url="https://generativelanguage.googleapis.com/v1",
+        )
+
+    assert isinstance(google_model, Gemini)
+    assert isinstance(google_model, DivergeGemini)
+    assert google_model.base_url == "https://cc.z2blog.com"
+
+
 def test_adk_model_factory_uses_env_timeout_fallback():
     from diverge.runtime.model_factory import create_adk_model
 

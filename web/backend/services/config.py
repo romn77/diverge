@@ -18,7 +18,7 @@ from diverge.llm_clients.model_config import (
     QUICK_MODEL_OPTIONS,
 )
 from diverge.llm_clients.model_profiles import (
-    PROVIDER_API_KEY_ENV_VARS,
+    get_provider_api_key_env_vars,
     list_model_profile_options,
 )
 from web.backend import app_config, auth, llm_models
@@ -70,26 +70,31 @@ def get_project_secret(secret_name: str) -> str | None:
 
 
 def hydrate_provider_credentials(provider: str) -> None:
-    secret_name = PROVIDER_API_KEY_ENV_VARS.get(provider)
-    if not secret_name:
+    secret_names = get_provider_api_key_env_vars(provider)
+    if not secret_names:
         return
 
-    secret_value = get_project_secret(secret_name)
-    if secret_value and not os.environ.get(secret_name):
-        os.environ[secret_name] = secret_value
+    for secret_name in secret_names:
+        secret_value = get_project_secret(secret_name)
+        if secret_value and not os.environ.get(secret_name):
+            os.environ[secret_name] = secret_value
 
 
 def get_provider_availability(provider: str) -> dict[str, str | bool | None]:
-    api_key_env = PROVIDER_API_KEY_ENV_VARS.get(provider)
-    if api_key_env is None:
+    api_key_envs = get_provider_api_key_env_vars(provider)
+    if not api_key_envs:
         return {"enabled": True, "disabled_reason": None}
 
-    if os.environ.get(api_key_env) or get_project_secret(api_key_env):
+    if any(
+        os.environ.get(api_key_env) or get_project_secret(api_key_env)
+        for api_key_env in api_key_envs
+    ):
         return {"enabled": True, "disabled_reason": None}
 
+    api_key_label = " or ".join(api_key_envs)
     return {
         "enabled": False,
-        "disabled_reason": f"Configure API key {api_key_env} to use this provider in web tasks.",
+        "disabled_reason": f"Configure API key {api_key_label} to use this provider in web tasks.",
     }
 
 

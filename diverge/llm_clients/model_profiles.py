@@ -26,6 +26,10 @@ PROVIDER_API_KEY_ENV_VARS: Final[dict[str, str | None]] = {
     "mimo": "MIMO_API_KEY",
 }
 
+PROVIDER_API_KEY_ENV_VAR_ALIASES: Final[dict[str, tuple[str, ...]]] = {
+    "google": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
+}
+
 
 @dataclass(frozen=True)
 class ModelRoute:
@@ -92,15 +96,25 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
 )
 
 
+def get_provider_api_key_env_vars(provider: str) -> tuple[str, ...]:
+    provider_key = provider.strip().lower()
+    aliases = PROVIDER_API_KEY_ENV_VAR_ALIASES.get(provider_key)
+    if aliases is not None:
+        return aliases
+    api_key_env = PROVIDER_API_KEY_ENV_VARS.get(provider_key)
+    return (api_key_env,) if api_key_env else ()
+
+
 def default_provider_availability(provider: str) -> dict[str, str | bool | None]:
-    api_key_env = PROVIDER_API_KEY_ENV_VARS.get(provider)
-    if api_key_env is None:
+    api_key_envs = get_provider_api_key_env_vars(provider)
+    if not api_key_envs:
         return {"enabled": True, "disabled_reason": None}
-    if os.environ.get(api_key_env):
+    if any(os.environ.get(api_key_env) for api_key_env in api_key_envs):
         return {"enabled": True, "disabled_reason": None}
+    api_key_label = " or ".join(api_key_envs)
     return {
         "enabled": False,
-        "disabled_reason": f"Configure API key {api_key_env} to use this provider.",
+        "disabled_reason": f"Configure API key {api_key_label} to use this provider.",
     }
 
 

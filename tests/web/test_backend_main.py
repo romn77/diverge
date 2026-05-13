@@ -1812,6 +1812,29 @@ class BackendMainTests(unittest.TestCase):
         providers = {provider["value"]: provider for provider in payload["providers"]}
         self.assertTrue(providers["sub2api"]["enabled"])
 
+    def test_config_options_detect_gemini_api_key_alias_from_project_env_file(self):
+        temp_project = tempfile.TemporaryDirectory()
+        temp_project_path = Path(temp_project.name)
+        (temp_project_path / ".env").write_text(
+            "GEMINI_API_KEY=test-gemini-key\n",
+            encoding="utf-8",
+        )
+
+        try:
+            with (
+                patch.dict(os.environ, {}, clear=True),
+                patch.object(backend_config, "PROJECT_ROOT", temp_project_path),
+                patch.object(
+                    backend_config, "PROJECT_ENV_FILE", temp_project_path / ".env"
+                ),
+            ):
+                payload = config_service.get_config_options_payload()
+        finally:
+            temp_project.cleanup()
+
+        providers = {provider["value"]: provider for provider in payload["providers"]}
+        self.assertTrue(providers["google"]["enabled"])
+
     def test_config_options_accept_process_env_without_project_env_value(self):
         with (
             patch.dict(os.environ, {"OPENAI_API_KEY": "test-openai-key"}, clear=True),
