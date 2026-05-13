@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from web.backend.runtime import task_lifecycle
@@ -248,6 +249,95 @@ def test_apply_cancel_transition_cancels_queued_task_and_removes_redis_refs(
     assert appended == {
         "kind": "data_sync",
         "task_id": "task-3",
+        "payload": task.latest_progress,
+    }
+
+
+def test_blocked_until_timestamp_handles_missing_and_naive_values(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle,
+        "utc_now",
+        lambda: datetime(2026, 5, 13, 1, 2, 3, tzinfo=timezone.utc),
+    )
+
+    assert task_lifecycle.blocked_until_timestamp(None) == (
+        datetime(2026, 5, 13, 2, 2, 3, tzinfo=timezone.utc).timestamp()
+    )
+    assert task_lifecycle.blocked_until_timestamp("2026-05-13T01:02:03") == (
+        datetime(2026, 5, 13, 1, 2, 3, tzinfo=timezone.utc).timestamp()
+    )
+    assert task_lifecycle.blocked_until_timestamp("not-a-date") == (
+        datetime(2026, 5, 13, 2, 2, 3, tzinfo=timezone.utc).timestamp()
+    )
+
+
+def test_apply_quota_wait_transition_sets_fields_before_progress_and_delays_redis(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: True,
+    )
+    monkeypatch.setattr(
+        task_lifecycle,
+        "blocked_until_timestamp",
+        lambda blocked_until: 123.0,
+    )
+    task = SimpleNamespace(
+        status="running",
+        blocked_reason=None,
+        blocked_vendor=None,
+        blocked_until=None,
+        latest_progress=None,
+        progress_events=[],
+    )
+    saved = {}
+    delayed = {}
+    appended = {}
+    store = SimpleNamespace(
+        delay=lambda kind, task_id, run_at: delayed.update(
+            kind=kind,
+            task_id=task_id,
+            run_at=run_at,
+        ),
+        append_event=lambda kind, task_id, payload: appended.update(
+            kind=kind,
+            task_id=task_id,
+            payload=payload,
+        ),
+    )
+    monkeypatch.setattr(task_lifecycle.task_store, "get_task_store", lambda: store)
+
+    returned = task_lifecycle.apply_quota_wait_transition(
+        kind="analysis",
+        task_id="task-4",
+        task=task,
+        reason="rate limit",
+        vendor="vendor-a",
+        blocked_until="2026-05-13T02:00:00+00:00",
+        build_progress=lambda waiting_task: {
+            "status": waiting_task.status,
+            "message": f"waiting for {waiting_task.blocked_vendor}",
+        },
+        save_task=lambda saved_task: saved.update(task=saved_task),
+    )
+
+    assert returned is task
+    assert task.status == "waiting_for_quota"
+    assert task.blocked_reason == "rate limit"
+    assert task.blocked_vendor == "vendor-a"
+    assert task.blocked_until == "2026-05-13T02:00:00+00:00"
+    assert task.latest_progress == {
+        "status": "waiting_for_quota",
+        "message": "waiting for vendor-a",
+    }
+    assert task.progress_events == [task.latest_progress]
+    assert saved == {"task": task}
+    assert delayed == {"kind": "analysis", "task_id": "task-4", "run_at": 123.0}
+    assert appended == {
+        "kind": "analysis",
+        "task_id": "task-4",
         "payload": task.latest_progress,
     }
 

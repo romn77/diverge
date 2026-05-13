@@ -7,7 +7,6 @@ import threading
 import uuid
 from contextlib import suppress
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -435,28 +434,20 @@ def build_screener_waiting_for_quota_progress(
     }
 
 
-def _blocked_until_timestamp(blocked_until: str | None) -> float:
-    if not blocked_until:
-        return datetime.now(timezone.utc).timestamp() + 3600
-    try:
-        parsed = datetime.fromisoformat(blocked_until)
-    except ValueError:
-        return datetime.now(timezone.utc).timestamp() + 3600
-    if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.timestamp()
-
-
 def wait_screener_for_quota(task_id: str, exc: vendor_usage.QuotaWaitRequired) -> None:
     current_task = get_screener_task(task_id)
-    current_task.status = "waiting_for_quota"
-    current_task.blocked_reason = exc.reason
-    current_task.blocked_vendor = exc.vendor
-    current_task.blocked_until = exc.blocked_until
-    waiting_progress = build_screener_waiting_for_quota_progress(current_task, exc)
-    current_task.latest_progress = waiting_progress
-    current_task.progress_events.append(waiting_progress)
-    save_screener_task(current_task)
+    task_lifecycle.apply_quota_wait_transition(
+        kind="screener",
+        task_id=task_id,
+        task=current_task,
+        reason=exc.reason,
+        vendor=exc.vendor,
+        blocked_until=exc.blocked_until,
+        build_progress=lambda task: build_screener_waiting_for_quota_progress(
+            task, exc
+        ),
+        save_task=save_screener_task,
+    )
     log_task_event(
         logger,
         "task_waiting_for_quota",
@@ -467,10 +458,6 @@ def wait_screener_for_quota(task_id: str, exc: vendor_usage.QuotaWaitRequired) -
         blocked_vendor=exc.vendor,
         blocked_until=exc.blocked_until,
     )
-    if task_store.redis_task_backend_enabled():
-        store = task_store.get_task_store()
-        store.delay("screener", task_id, _blocked_until_timestamp(exc.blocked_until))
-        store.append_event("screener", task_id, waiting_progress)
 
 
 def restore_persisted_screener_tasks() -> None:

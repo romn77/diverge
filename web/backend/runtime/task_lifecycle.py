@@ -21,6 +21,18 @@ def event_timestamp() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
 
+def blocked_until_timestamp(blocked_until: str | None) -> float:
+    if not blocked_until:
+        return utc_now().timestamp() + 3600
+    try:
+        parsed = datetime.fromisoformat(blocked_until)
+    except ValueError:
+        return utc_now().timestamp() + 3600
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.timestamp()
+
+
 def progress_event(
     message: str,
     *,
@@ -139,6 +151,32 @@ def apply_cancel_transition(
         store.remove_task_refs(kind, task_id)
         store.append_event(kind, task_id, task.latest_progress)
     return "canceled"
+
+
+def apply_quota_wait_transition(
+    *,
+    kind: str,
+    task_id: str,
+    task: Any,
+    reason: str,
+    vendor: str,
+    blocked_until: str | None,
+    build_progress: Callable[[Any], dict[str, Any]],
+    save_task: Callable[[Any], None],
+) -> Any:
+    task.status = "waiting_for_quota"
+    task.blocked_reason = reason
+    task.blocked_vendor = vendor
+    task.blocked_until = blocked_until
+    waiting_progress = build_progress(task)
+    task.latest_progress = waiting_progress
+    task.progress_events.append(waiting_progress)
+    save_task(task)
+    if task_store.redis_task_backend_enabled():
+        store = task_store.get_task_store()
+        store.delay(kind, task_id, blocked_until_timestamp(blocked_until))
+        store.append_event(kind, task_id, waiting_progress)
+    return task
 
 
 def _field(source: Any, name: str) -> Any:
