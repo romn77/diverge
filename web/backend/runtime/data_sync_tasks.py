@@ -4,7 +4,6 @@ import json
 import logging
 import threading
 import uuid
-from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -21,6 +20,7 @@ from web.backend.runtime.task_logging import (
 )
 from web.backend.services import (
     data_sync_audit,
+    data_sync_state,
     fundamental_sync,
     ohlcv_readiness,
     ohlcv_sync,
@@ -28,47 +28,7 @@ from web.backend.services import (
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class DataSyncTask:
-    id: str
-    sync_type: str
-    request_payload: dict[str, Any]
-    owner_user_id: str | None = None
-    tenant_id: str | None = None
-    status: str = "pending"
-    latest_progress: dict[str, Any] | None = None
-    progress_events: list[dict[str, Any]] = field(default_factory=list)
-    result: dict[str, Any] | None = None
-    error: str | None = None
-    created_at: str | None = None
-    queued_at: str | None = None
-    started_at: str | None = None
-    finished_at: str | None = None
-    queue_position: int | None = None
-    cancel_requested_at: str | None = None
-    canceled_at: str | None = None
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "id": self.id,
-            "sync_type": self.sync_type,
-            "request_payload": self.request_payload,
-            "owner_user_id": self.owner_user_id,
-            "tenant_id": self.tenant_id,
-            "status": self.status,
-            "latest_progress": self.latest_progress,
-            "progress_events": self.progress_events,
-            "result": self.result,
-            "error": self.error,
-            "created_at": self.created_at,
-            "queued_at": self.queued_at,
-            "started_at": self.started_at,
-            "finished_at": self.finished_at,
-            "queue_position": self.queue_position,
-            "cancel_requested_at": self.cancel_requested_at,
-            "canceled_at": self.canceled_at,
-        }
+DataSyncTask = data_sync_state.DataSyncTask
 
 
 data_sync_tasks: dict[str, DataSyncTask] = {}
@@ -153,11 +113,7 @@ def _save_task(task: DataSyncTask) -> None:
 
 
 def _build_recovered_progress(task: DataSyncTask) -> dict[str, Any]:
-    return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "status": "failed",
-        "message": f"{task.sync_type} sync failed: {app_config.RECOVERED_TASK_ERROR}",
-    }
+    return data_sync_state.recovered_progress(task, app_config.RECOVERED_TASK_ERROR)
 
 
 def restore_persisted_data_sync_tasks() -> None:
@@ -245,22 +201,11 @@ def check_data_sync_task_canceled(task_id: str) -> None:
 
 
 def _data_sync_cancel_requested_progress(task: DataSyncTask) -> dict[str, Any]:
-    return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "status": "running",
-        "message": (
-            f"{task.sync_type} sync termination requested. "
-            "Work will stop at the next safe step."
-        ),
-    }
+    return data_sync_state.cancel_requested_progress(task)
 
 
 def _data_sync_canceled_progress(task: DataSyncTask) -> dict[str, Any]:
-    return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "status": "canceled",
-        "message": f"{task.sync_type} sync canceled by request.",
-    }
+    return data_sync_state.canceled_progress(task)
 
 
 def _mark_data_sync_task_canceled(task_id: str) -> None:
@@ -292,11 +237,7 @@ def _mark_data_sync_task_canceled(task_id: str) -> None:
 
 
 def _append_progress(task_id: str, message: str, **extra: Any) -> None:
-    progress = {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "message": message,
-        **extra,
-    }
+    progress = data_sync_state.progress_event(message, **extra)
     if task_store.redis_task_backend_enabled():
         task = get_data_sync_task(task_id)
         task.latest_progress = progress
@@ -386,25 +327,7 @@ def list_data_sync_tasks() -> list[DataSyncTask]:
 
 
 def data_sync_task_from_payload(payload: dict[str, Any]) -> DataSyncTask:
-    return DataSyncTask(
-        id=str(payload["id"]),
-        sync_type=str(payload["sync_type"]),
-        request_payload=dict(payload.get("request_payload") or {}),
-        owner_user_id=payload.get("owner_user_id"),
-        tenant_id=payload.get("tenant_id"),
-        status=str(payload.get("status") or "pending"),
-        latest_progress=payload.get("latest_progress"),
-        progress_events=list(payload.get("progress_events") or []),
-        result=payload.get("result"),
-        error=payload.get("error"),
-        created_at=payload.get("created_at"),
-        queued_at=payload.get("queued_at"),
-        started_at=payload.get("started_at"),
-        finished_at=payload.get("finished_at"),
-        queue_position=payload.get("queue_position"),
-        cancel_requested_at=payload.get("cancel_requested_at"),
-        canceled_at=payload.get("canceled_at"),
-    )
+    return data_sync_state.data_sync_task_from_payload(payload)
 
 
 def build_ohlcv_config_payload(payload: dict[str, Any]) -> dict[str, Any]:

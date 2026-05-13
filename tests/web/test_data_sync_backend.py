@@ -19,6 +19,7 @@ from web.backend.schemas.data_sync import (
 )
 from web.backend.services import (
     data_sync_audit,
+    data_sync_state,
     fundamental_sync,
     ohlcv_readiness,
     ohlcv_sync,
@@ -265,6 +266,30 @@ def test_data_sync_audit_service_keeps_metadata_small():
         "quality_reason_counts": {"ready": 2},
         "error": "sanitized failure",
     }
+
+
+def test_data_sync_state_service_round_trips_task_payload():
+    task = data_sync_state.data_sync_task_from_payload(
+        {
+            "id": "sync-state",
+            "sync_type": "fundamentals",
+            "request_payload": {"market": "us", "symbols": ["MSFT"]},
+            "status": "running",
+            "progress_events": [{"message": "started"}],
+            "queue_position": 2,
+        }
+    )
+
+    assert task.id == "sync-state"
+    assert task.request_payload["symbols"] == ["MSFT"]
+    assert task.progress_events == [{"message": "started"}]
+    assert task.queue_position == 2
+    assert task.to_dict()["status"] == "running"
+
+    canceled = data_sync_state.canceled_progress(task)
+    assert canceled["status"] == "canceled"
+    assert canceled["message"] == "fundamentals sync canceled by request."
+    assert canceled["timestamp"]
 
 
 def test_ohlcv_sync_requires_existing_us_manifest(tmp_path, monkeypatch):
