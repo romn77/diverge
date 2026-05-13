@@ -8,6 +8,7 @@ import pytest
 from arq.worker import Retry
 
 from diverge.worker.prewarm import (
+    backend_adapter,
     readiness,
     scheduler,
     state,
@@ -309,15 +310,10 @@ def test_workflow_success_requires_ohlcv_success_and_screener_signal():
 
 
 def test_market_workflow_runs_ohlcv_fundamentals_and_screener(monkeypatch):
-    from web.backend.runtime import data_sync_tasks, screener_prewarm
-
     calls = []
 
-    monkeypatch.setattr(
-        screener_prewarm,
-        "build_ohlcv_sync_payload",
-        lambda market, trading_day: {"markets": [market], "as_of_date": trading_day},
-    )
+    def build_ohlcv(market, trading_day):
+        return {"markets": [market], "as_of_date": trading_day}
 
     def sync_ohlcv(payload):
         calls.append(("ohlcv", payload["markets"][0], payload["as_of_date"]))
@@ -336,9 +332,10 @@ def test_market_workflow_runs_ohlcv_fundamentals_and_screener(monkeypatch):
             "runs_cached": 0,
         }
 
-    monkeypatch.setattr(data_sync_tasks, "run_ohlcv_sync_payload", sync_ohlcv)
+    monkeypatch.setattr(backend_adapter, "build_ohlcv_sync_payload", build_ohlcv)
+    monkeypatch.setattr(backend_adapter, "run_ohlcv_sync_payload", sync_ohlcv)
     monkeypatch.setattr(
-        screener_prewarm,
+        backend_adapter,
         "run_fundamental_prewarm_sync",
         sync_fundamentals,
     )
@@ -352,6 +349,56 @@ def test_market_workflow_runs_ohlcv_fundamentals_and_screener(monkeypatch):
         ("ohlcv", "cn", "2026-04-28"),
         ("fundamentals", "cn", "2026-04-28"),
         ("screener", "cn", "2026-04-28"),
+    ]
+
+
+def test_screener_prewarm_runs_unique_configs_through_adapter(monkeypatch):
+    calls = []
+    payloads = [
+        {"name": "default", "markets": ["cn"]},
+        {"name": "duplicate", "markets": ["cn"]},
+        {"name": "custom", "markets": ["cn"]},
+    ]
+
+    monkeypatch.setattr(
+        backend_adapter,
+        "collect_screener_prewarm_payloads",
+        lambda market, trading_day: payloads,
+    )
+    monkeypatch.setattr(
+        backend_adapter,
+        "build_screener_config_payload",
+        lambda request_payload: {
+            "name": request_payload["name"],
+            "key": "default"
+            if request_payload["name"] in {"default", "duplicate"}
+            else "custom",
+        },
+    )
+    monkeypatch.setattr(
+        backend_adapter,
+        "screener_key_for_config",
+        lambda config_payload: config_payload["key"],
+    )
+
+    def run_payload(market, trading_day, request_payload, config_payload):
+        calls.append((market, trading_day, request_payload["name"], config_payload))
+        return {
+            "status": "cached" if request_payload["name"] == "default" else "completed"
+        }
+
+    monkeypatch.setattr(backend_adapter, "run_screener_payload", run_payload)
+
+    result = workflow.run_screener_prewarm_sync("cn", "2026-04-28")
+
+    assert result["status"] == "completed"
+    assert result["runs_total"] == 2
+    assert result["runs_cached"] == 1
+    assert result["runs_completed"] == 1
+    assert result["duplicates_skipped"] == 1
+    assert calls == [
+        ("cn", "2026-04-28", "default", {"name": "default", "key": "default"}),
+        ("cn", "2026-04-28", "custom", {"name": "custom", "key": "custom"}),
     ]
 
 
@@ -377,19 +424,13 @@ def test_async_market_workflow_uses_blocking_runner(monkeypatch):
 
 
 def test_vendor_readiness_delegates_to_backend_ready_check(monkeypatch):
-    from web.backend.runtime import data_sync_tasks, screener_prewarm
-
     captured = {}
-    monkeypatch.setattr(
-        screener_prewarm,
-        "build_ohlcv_sync_payload",
-        lambda market, trading_day: {"markets": [market], "as_of_date": trading_day},
-    )
 
-    def ready(payload):
-        captured.update(payload)
+    def ready(market, trading_day):
+        captured["market"] = market
+        captured["trading_day"] = trading_day
 
-    monkeypatch.setattr(data_sync_tasks, "ensure_ohlcv_vendor_ready", ready)
+    monkeypatch.setattr(backend_adapter, "ensure_ohlcv_vendor_ready", ready)
 
     async def run_inline(function, *args):
         return function(*args)
@@ -397,22 +438,14 @@ def test_vendor_readiness_delegates_to_backend_ready_check(monkeypatch):
     monkeypatch.setattr(vendor_readiness, "_run_blocking", run_inline)
 
     assert asyncio.run(vendor_readiness.check_vendor_ready("cn", "2026-04-28"))
-    assert captured == {"markets": ["cn"], "as_of_date": "2026-04-28"}
+    assert captured == {"market": "cn", "trading_day": "2026-04-28"}
 
 
 def test_vendor_readiness_returns_false_when_backend_vendor_is_not_ready(monkeypatch):
-    from web.backend.runtime import data_sync_tasks, screener_prewarm
+    def not_ready(market, trading_day):
+        raise backend_adapter.VendorNotReady("not ready")
 
-    monkeypatch.setattr(
-        screener_prewarm,
-        "build_ohlcv_sync_payload",
-        lambda market, trading_day: {"markets": [market], "as_of_date": trading_day},
-    )
-
-    def not_ready(payload):
-        raise data_sync_tasks.VendorDataNotReadyError("not ready")
-
-    monkeypatch.setattr(data_sync_tasks, "ensure_ohlcv_vendor_ready", not_ready)
+    monkeypatch.setattr(backend_adapter, "ensure_ohlcv_vendor_ready", not_ready)
 
     async def run_inline(function, *args):
         return function(*args)
