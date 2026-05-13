@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
+from diverge.dataflows.vendor_errors import VendorDataEmptyError
 from diverge.market_data.history_cache import load_history_cache, save_history_cache
 from diverge.market_data.price_history import fetch_ticker_history
 
@@ -83,6 +84,43 @@ def test_fetch_ticker_history_fetches_missing_tail_and_updates_cache(tmp_path):
     assert frame["Date"].tolist()[-2:] == ["2026-01-09", "2026-01-10"]
     cached = load_history_cache(tmp_path, "us", "AAPL")
     assert cached["Date"].tolist()[-2:] == ["2026-01-09", "2026-01-10"]
+
+
+def test_fetch_ticker_history_falls_back_between_us_sources_on_empty_data(tmp_path):
+    fallback_frame = _history_rows("2026-01-01", 10)
+    calls: list[str] = []
+
+    def fake_fetch_price_history(
+        symbol,
+        market,
+        start_date,
+        end_date,
+        *,
+        us_data_source,
+    ):
+        calls.append(us_data_source)
+        if us_data_source == "massive":
+            raise VendorDataEmptyError("massive had no rows")
+        return fallback_frame
+
+    with patch(
+        "diverge.market_data.price_history.fetch_price_history",
+        side_effect=fake_fetch_price_history,
+    ):
+        market, frame = fetch_ticker_history(
+            "SMH",
+            market="us",
+            as_of_date="2026-01-10",
+            lookback_days=9,
+            cache_dir=tmp_path,
+            us_data_source="massive",
+            us_data_source_fallbacks=["yfinance"],
+        )
+
+    assert market == "us"
+    assert calls[:-1] == ["massive"] * 4
+    assert calls[-1] == "yfinance"
+    assert frame["Date"].tolist()[-1] == "2026-01-10"
 
 
 def test_fetch_ticker_history_can_normalize_weekend_as_of_to_trading_day(tmp_path):

@@ -60,9 +60,13 @@ except ModuleNotFoundError:  # pragma: no cover
         pass
 
 
-US_RETRYABLE_ERRORS = (
+US_FALLBACK_ERRORS = (
     VendorRetryableError,
+    VendorAuthError,
+    VendorDataEmptyError,
+    VendorNotSupportedError,
     AlphaVantageRateLimitError,
+    vendor_usage.QuotaWaitRequired,
     YFRateLimitError,
 )
 
@@ -121,7 +125,7 @@ class HistoryFetchExecutor:
                         us_data_source=source,
                     )
                     return FetchedHistoryFrame(frame=frame, source=self.last_source)
-                except US_RETRYABLE_ERRORS as exc:
+                except US_FALLBACK_ERRORS as exc:
                     last_error = exc
                     if attempt >= len(RETRY_BACKOFF_SECONDS):
                         break

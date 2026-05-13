@@ -9,6 +9,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pandas as pd
 from fastapi import HTTPException
 
 from diverge.dataflows import vendor_usage
@@ -103,9 +104,7 @@ class BackendMainTests(unittest.TestCase):
         path.write_text(text, encoding="utf-8")
         return path
 
-    def _write_manifest_override(
-        self, name: str, text: str = "symbol\nAAPL\n"
-    ) -> Path:
+    def _write_manifest_override(self, name: str, text: str = "symbol\nAAPL\n") -> Path:
         path = Path(self.temp_dir.name) / name
         path.write_text(text, encoding="utf-8")
         return path
@@ -1243,6 +1242,58 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(payload["points"][1]["close"], 213.0)
         self.assertEqual(payload["points"][2]["open"], 214.0)
 
+    def test_get_ticker_history_payload_uses_analysis_data_source_route_for_us(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "Date": "2026-05-11",
+                    "Open": 240.0,
+                    "High": 245.0,
+                    "Low": 238.0,
+                    "Close": 244.0,
+                    "Volume": 1000,
+                    "Amount": 244000.0,
+                }
+            ]
+        )
+
+        with (
+            patch.object(
+                ticker_history_service,
+                "history_source_kwargs_for_market",
+                return_value={
+                    "us_data_source": "massive",
+                    "us_data_source_fallbacks": ["yfinance"],
+                },
+            ) as route_mock,
+            patch.object(
+                ticker_history_service,
+                "fetch_ticker_history",
+                return_value=("us", frame),
+            ) as fetch_mock,
+            patch.object(
+                ticker_history_service,
+                "storage_backend_is_remote",
+                return_value=False,
+            ),
+        ):
+            payload = ticker_history_service.get_ticker_history_payload(
+                "SMH", as_of_date="2026-05-11"
+            )
+
+        route_mock.assert_called_once_with(module="analysis", market="us")
+        fetch_mock.assert_called_once_with(
+            "SMH",
+            market="us",
+            as_of_date="2026-05-11",
+            lookback_days=400,
+            cache_dir=backend_config.STOCK_HISTORY_DIR,
+            normalize_as_of_to_trading_day=True,
+            us_data_source="massive",
+            us_data_source_fallbacks=["yfinance"],
+        )
+        self.assertEqual(payload["points"][0]["close"], 244.0)
+
     def test_get_batch_ticker_history_payload_returns_compact_points(self):
         cache_path = backend_config.STOCK_HISTORY_DIR / "cn" / "600519.SH.csv"
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1269,6 +1320,52 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(payload["items"][0]["symbol"], "600519.SH")
         self.assertEqual(payload["items"][0]["market"], "cn")
         self.assertEqual(payload["items"][0]["points"][1]["close"], 1508.0)
+        self.assertNotIn("open", payload["items"][0]["points"][0])
+
+    def test_get_batch_ticker_history_payload_uses_screener_data_source_route(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "Date": "2026-05-11",
+                    "Open": 240.0,
+                    "High": 245.0,
+                    "Low": 238.0,
+                    "Close": 244.0,
+                    "Volume": 1000,
+                    "Amount": 244000.0,
+                }
+            ]
+        )
+
+        with (
+            patch.object(
+                ticker_history_service,
+                "history_source_kwargs_for_market",
+                return_value={
+                    "us_data_source": "massive",
+                    "us_data_source_fallbacks": ["yfinance"],
+                },
+            ) as route_mock,
+            patch.object(
+                ticker_history_service,
+                "fetch_ticker_history",
+                return_value=("us", frame),
+            ),
+            patch.object(
+                ticker_history_service,
+                "storage_backend_is_remote",
+                return_value=False,
+            ),
+        ):
+            payload = ticker_history_service.get_batch_ticker_history_payload(
+                TickerHistoryBatchPayload(
+                    tickers=[TickerHistoryBatchItemPayload(symbol="SMH", market="us")],
+                    as_of_date="2026-05-11",
+                )
+            )
+
+        route_mock.assert_called_once_with(module="screener", market="us")
+        self.assertEqual(payload["items"][0]["points"][0]["close"], 244.0)
         self.assertNotIn("open", payload["items"][0]["points"][0])
 
     def test_get_batch_ticker_history_payload_rejects_empty_items(self):
