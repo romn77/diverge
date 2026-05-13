@@ -12,6 +12,10 @@ from diverge.research.search.session import (
     current_search_context,
     search_sessions,
 )
+from diverge.runtime.analysis_schema import (
+    HistoricalTradeFeedback,
+    historical_trade_feedback_from_values,
+)
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
@@ -32,15 +36,21 @@ class AnalysisContextPackRequest:
 
 @dataclass(frozen=True)
 class AnalysisContextPack:
-    historical_trade_feedback: str
-    historical_trade_reviews: list[dict[str, Any]]
+    trade_feedback: HistoricalTradeFeedback
     portfolio_context: str
     search_context: SearchToolContext | None = None
 
+    @property
+    def historical_trade_feedback(self) -> str:
+        return self.trade_feedback.prompt
+
+    @property
+    def historical_trade_reviews(self) -> list[dict[str, Any]]:
+        return self.trade_feedback.reviews()
+
     def initial_state_kwargs(self) -> dict[str, Any]:
         return {
-            "historical_trade_feedback": self.historical_trade_feedback,
-            "historical_trade_reviews": self.historical_trade_reviews,
+            **self.trade_feedback.initial_state_fields(),
             "portfolio_context": self.portfolio_context,
         }
 
@@ -49,12 +59,6 @@ class AnalysisContextPack:
 class AnalysisContextPackAdapters:
     get_trade_feedback_payload: GetTradeFeedbackPayload = get_trade_feedback_payload
     create_search_session: CreateSearchSession = search_sessions.create
-
-
-def _normalized_trade_reviews(value: Any) -> list[dict[str, Any]]:
-    if not isinstance(value, list):
-        return []
-    return [item for item in value if isinstance(item, dict)]
 
 
 def _search_market_for_ticker(ticker: str) -> str:
@@ -97,9 +101,9 @@ def build_analysis_context_pack(
         )
 
     return AnalysisContextPack(
-        historical_trade_feedback=str(trade_feedback_payload.get("prompt") or ""),
-        historical_trade_reviews=_normalized_trade_reviews(
-            trade_feedback_payload.get("reviews")
+        trade_feedback=historical_trade_feedback_from_values(
+            prompt=trade_feedback_payload.get("prompt"),
+            reviews=trade_feedback_payload.get("reviews"),
         ),
         portfolio_context=(request.portfolio_context or "").strip(),
         search_context=search_context,

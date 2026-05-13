@@ -24,6 +24,7 @@ from diverge.runtime.analysis_context import (
     build_analysis_context_pack,
     use_search_context,
 )
+from diverge.runtime.analysis_schema import trade_feedback_artifact_from_state
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
@@ -824,13 +825,11 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
             json.dumps(summary_artifact, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-    if final_state.get("historical_trade_reviews"):
-        trade_feedback_artifact = {
-            "type": "trade_feedback",
-            "ticker": ticker,
-            "prompt": final_state.get("historical_trade_feedback", ""),
-            "reviews": final_state["historical_trade_reviews"],
-        }
+    trade_feedback_artifact = trade_feedback_artifact_from_state(
+        final_state,
+        ticker=ticker,
+    )
+    if trade_feedback_artifact is not None:
         (artifacts_dir / "trade_feedback.json").write_text(
             json.dumps(trade_feedback_artifact, ensure_ascii=False, indent=2),
             encoding="utf-8",

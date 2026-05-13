@@ -25,6 +25,7 @@ from diverge.agents.trader.trader import Trader
 from diverge.common.dates import days_before_or_original
 from diverge.common.market_calendar import last_n_trading_days
 from diverge.common.symbols import resolve_symbol_market
+from diverge.runtime.analysis_schema import HISTORICAL_TRADE_FEEDBACK_KEY
 from diverge.runtime.messages import AdkMessage
 from diverge.runtime.tools import AdkToolCollection, create_adk_tool_collections
 
@@ -304,7 +305,7 @@ class AdkWorkflowRunner:
 
     def _clear_messages(self, state: dict[str, Any]) -> None:
         messages: list[Any] = []
-        trade_feedback = str(state.get("historical_trade_feedback") or "").strip()
+        trade_feedback = str(state.get(HISTORICAL_TRADE_FEEDBACK_KEY) or "").strip()
         if trade_feedback:
             messages.append(_human_message(trade_feedback))
         messages.append(_human_message("Continue"))

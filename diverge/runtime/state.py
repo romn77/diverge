@@ -3,6 +3,10 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 
 from diverge.agents.utils.agent_states import InvestDebateState, RiskDebateState
+from diverge.runtime.analysis_schema import (
+    HISTORICAL_TRADE_FEEDBACK_KEY,
+    HISTORICAL_TRADE_REVIEWS_KEY,
+)
 
 
 def create_initial_state(
@@ -25,8 +29,8 @@ def create_initial_state(
         "instrument_type": None,
         "valuation_applicability": None,
         "valuation_applicability_reason": None,
-        "historical_trade_feedback": historical_trade_feedback,
-        "historical_trade_reviews": historical_trade_reviews or [],
+        HISTORICAL_TRADE_FEEDBACK_KEY: historical_trade_feedback,
+        HISTORICAL_TRADE_REVIEWS_KEY: historical_trade_reviews or [],
         "portfolio_context": portfolio_context or "",
         "investment_debate_state": InvestDebateState(
             {
