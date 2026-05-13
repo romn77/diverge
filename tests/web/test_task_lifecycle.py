@@ -436,6 +436,59 @@ def test_apply_recovered_failure_transition_can_replace_local_progress(
     assert task.progress_events == [progress]
 
 
+def test_apply_failure_transition_marks_finished_and_replays_event(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: True,
+    )
+    task = SimpleNamespace(
+        id="task-5b",
+        status="running",
+        error=None,
+        finished_at=None,
+        latest_progress=None,
+        progress_events=[],
+    )
+    saved = {}
+    appended = {}
+    store = SimpleNamespace(
+        append_event=lambda kind, task_id, payload: appended.update(
+            kind=kind,
+            task_id=task_id,
+            payload=payload,
+        )
+    )
+    monkeypatch.setattr(task_lifecycle.task_store, "get_task_store", lambda: store)
+
+    progress = task_lifecycle.apply_failure_transition(
+        kind="analysis",
+        task=task,
+        error="failed loudly",
+        build_progress=lambda failed_task: {
+            "status": failed_task.status,
+            "message": failed_task.error,
+            "finished_at": failed_task.finished_at,
+        },
+        save_task=lambda saved_task: saved.update(task=saved_task),
+        now_iso="2026-05-13T01:02:03+00:00",
+        append_redis_event=True,
+    )
+
+    assert progress == {
+        "status": "failed",
+        "message": "failed loudly",
+        "finished_at": "2026-05-13T01:02:03+00:00",
+    }
+    assert task.status == "failed"
+    assert task.error == "failed loudly"
+    assert task.finished_at == "2026-05-13T01:02:03+00:00"
+    assert task.latest_progress == progress
+    assert task.progress_events == [progress]
+    assert saved == {"task": task}
+    assert appended == {"kind": "analysis", "task_id": "task-5b", "payload": progress}
+
+
 def test_apply_recovered_failure_transition_saves_and_acks_redis(monkeypatch):
     monkeypatch.setattr(
         task_lifecycle.task_store,

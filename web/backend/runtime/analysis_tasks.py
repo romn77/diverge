@@ -556,13 +556,14 @@ def start_task_thread(task_id: str) -> threading.Thread:
 
 def _fail_task(task_id: str, error: str) -> None:
     current_task = get_task(task_id)
-    current_task.status = "failed"
-    current_task.finished_at = _utc_iso()
-    current_task.error = error
-    failure_progress = build_failure_progress(current_task, error)
-    current_task.latest_progress = failure_progress
-    current_task.progress_events.append(failure_progress)
-    save_task(current_task)
+    task_lifecycle.apply_failure_transition(
+        kind="analysis",
+        task=current_task,
+        error=error,
+        build_progress=lambda task: build_failure_progress(task, error),
+        save_task=save_task,
+        append_redis_event=True,
+    )
     log_task_event(
         logger,
         "task_failed",
@@ -571,8 +572,6 @@ def _fail_task(task_id: str, error: str) -> None:
         task=current_task,
         **task_error_fields(error),
     )
-    if task_store.redis_task_backend_enabled():
-        task_store.get_task_store().append_event("analysis", task_id, failure_progress)
     persist_task_snapshot(task_id)
 
 

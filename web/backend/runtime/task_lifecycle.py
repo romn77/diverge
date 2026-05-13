@@ -208,7 +208,7 @@ def apply_quota_wait_transition(
     return task
 
 
-def apply_recovered_failure_transition(
+def apply_failure_transition(
     *,
     kind: str,
     task: Any,
@@ -216,7 +216,7 @@ def apply_recovered_failure_transition(
     build_progress: Callable[[Any], dict[str, Any]],
     save_task: Callable[[Any], None] | None = None,
     replace_progress_events: bool = False,
-    mark_finished: bool = False,
+    mark_finished: bool = True,
     now_iso: str | None = None,
     append_redis_event: bool = False,
     ack_redis_processing: bool = False,
@@ -241,6 +241,33 @@ def apply_recovered_failure_transition(
         if ack_redis_processing:
             store.ack(kind, task_id)
     return failure_progress
+
+
+def apply_recovered_failure_transition(
+    *,
+    kind: str,
+    task: Any,
+    error: str,
+    build_progress: Callable[[Any], dict[str, Any]],
+    save_task: Callable[[Any], None] | None = None,
+    replace_progress_events: bool = False,
+    mark_finished: bool = False,
+    now_iso: str | None = None,
+    append_redis_event: bool = False,
+    ack_redis_processing: bool = False,
+) -> dict[str, Any]:
+    return apply_failure_transition(
+        kind=kind,
+        task=task,
+        error=error,
+        build_progress=build_progress,
+        save_task=save_task,
+        replace_progress_events=replace_progress_events,
+        mark_finished=mark_finished,
+        now_iso=now_iso,
+        append_redis_event=append_redis_event,
+        ack_redis_processing=ack_redis_processing,
+    )
 
 
 def promote_payload_to_queue(
