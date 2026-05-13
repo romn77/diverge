@@ -17,7 +17,12 @@ from web.backend.schemas.data_sync import (
     DataSyncFundamentalsPayload,
     DataSyncOhlcvPayload,
 )
-from web.backend.services import fundamental_sync, ohlcv_readiness, ohlcv_sync_payloads
+from web.backend.services import (
+    fundamental_sync,
+    ohlcv_readiness,
+    ohlcv_sync,
+    ohlcv_sync_payloads,
+)
 
 
 def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
@@ -297,6 +302,78 @@ def test_ohlcv_payload_service_injects_runtime_dirs_sources_and_manifest(
     assert config_payload["us_data_source"] == "yfinance"
     assert config_payload["us_data_source_fallbacks"] == ["yfinance"]
     assert config_payload["us_manifest_path"] == str(manifest_path)
+
+
+def test_ohlcv_sync_service_runs_payload_with_injected_collaborators(tmp_path):
+    captured = {}
+
+    def fake_ensure_vendor_ready(payload):
+        captured["ensure_payload"] = dict(payload)
+
+    def fake_build_config_payload(payload):
+        captured["build_payload"] = dict(payload)
+        return {
+            "markets": ["us"],
+            "as_of_date": "2026-04-29",
+            "top_k": 10,
+            "cache_dir": str(tmp_path / "cache"),
+            "history_dir": str(tmp_path / "history"),
+            "output_dir": str(tmp_path / "runs"),
+            "us_manifest_path": "/tmp/us.csv",
+        }
+
+    def fake_sync_ohlcv_cache(config, *, progress_callback=None):
+        captured["config"] = config
+        captured["progress_callback"] = progress_callback
+        return SyncResult(
+            sync_type="ohlcv",
+            markets=["us"],
+            source="yfinance",
+            status="completed",
+            symbols_total=1,
+            symbols_success=1,
+            symbols_failed=0,
+            rows_written=1,
+        )
+
+    result = ohlcv_sync.run_ohlcv_sync_payload(
+        {"markets": ["us"], "as_of_date": "2026-04-29"},
+        progress_callback=lambda *args, **kwargs: None,
+        ensure_vendor_ready=fake_ensure_vendor_ready,
+        build_config_payload=fake_build_config_payload,
+        sync_ohlcv_cache_fn=fake_sync_ohlcv_cache,
+    )
+
+    assert result["status"] == "completed"
+    assert captured["ensure_payload"]["markets"] == ["us"]
+    assert captured["config"].markets == ["us"]
+    assert captured["progress_callback"] is not None
+
+
+def test_ohlcv_sync_service_groups_loaded_universe_symbols(tmp_path):
+    def fake_build_config_payload(payload):
+        return {
+            "markets": ["cn"],
+            "as_of_date": "2026-04-29",
+            "top_k": 10,
+            "cache_dir": str(tmp_path / "cache"),
+        }
+
+    def fake_load_universe(config, *, cache_dir=None):
+        assert cache_dir == tmp_path / "cache"
+        return pd.DataFrame(
+            [
+                {"market": "cn", "symbol": " 000001.SZ "},
+                {"market": "cn", "symbol": "000001.SZ"},
+                {"market": "cn", "symbol": "600519.SH"},
+            ]
+        )
+
+    assert ohlcv_sync.resolve_universe_symbols(
+        {"markets": ["cn"], "as_of_date": "2026-04-29"},
+        build_config_payload=fake_build_config_payload,
+        load_universe_fn=fake_load_universe,
+    ) == {"cn": ["000001.SZ", "600519.SH"]}
 
 
 def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):

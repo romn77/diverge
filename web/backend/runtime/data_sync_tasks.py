@@ -4,7 +4,7 @@ import json
 import logging
 import threading
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -12,14 +12,6 @@ from typing import Any, Callable
 from fastapi import HTTPException
 
 from diverge.common.json_io import write_json_atomic
-from diverge.screener.schema import ScreenRunConfig
-from diverge.screener.sync import (
-    sync_ohlcv_cache,
-)
-from diverge.screener.stages import prepare_universe_stage
-from diverge.screener.universe import (
-    load_universe,
-)
 from web.backend import app_config, audit, auth, job_records
 from web.backend.runtime import task_store
 from web.backend.runtime.task_logging import (
@@ -27,7 +19,7 @@ from web.backend.runtime.task_logging import (
     log_task_event,
     task_error_fields,
 )
-from web.backend.services import fundamental_sync, ohlcv_readiness, ohlcv_sync_payloads
+from web.backend.services import fundamental_sync, ohlcv_readiness, ohlcv_sync
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +70,10 @@ data_sync_tasks: dict[str, DataSyncTask] = {}
 data_sync_tasks_lock = threading.Lock()
 VendorDataNotReadyError = ohlcv_readiness.VendorDataNotReadyError
 fetch_price_history = ohlcv_readiness.fetch_price_history
+ScreenRunConfig = ohlcv_sync.ScreenRunConfig
+sync_ohlcv_cache = ohlcv_sync.sync_ohlcv_cache
+prepare_universe_stage = ohlcv_sync.prepare_universe_stage
+load_universe = ohlcv_sync.load_universe
 
 
 def _utc_iso() -> str:
@@ -433,7 +429,7 @@ def data_sync_task_from_payload(payload: dict[str, Any]) -> DataSyncTask:
 
 
 def build_ohlcv_config_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    return ohlcv_sync_payloads.build_ohlcv_config_payload(payload)
+    return ohlcv_sync.build_ohlcv_config_payload(payload)
 
 
 def run_ohlcv_sync_payload(
@@ -441,47 +437,32 @@ def run_ohlcv_sync_payload(
     *,
     progress_callback: Callable[..., None] | None = None,
 ) -> dict[str, Any]:
-    ensure_ohlcv_vendor_ready(payload)
-    config_payload = build_ohlcv_config_payload(payload)
-    result = sync_ohlcv_cache(
-        ScreenRunConfig(**config_payload),
+    return ohlcv_sync.run_ohlcv_sync_payload(
+        payload,
         progress_callback=progress_callback,
+        ensure_vendor_ready=ensure_ohlcv_vendor_ready,
+        build_config_payload=build_ohlcv_config_payload,
+        sync_ohlcv_cache_fn=sync_ohlcv_cache,
+        config_factory=ScreenRunConfig,
     )
-    return asdict(result)
 
 
 def resolve_prefiltered_symbols(payload: dict[str, Any]) -> dict[str, list[str]]:
-    config_payload = build_ohlcv_config_payload(payload)
-    config = ScreenRunConfig(**config_payload)
-    universe_stage = prepare_universe_stage(config, Path(config.cache_dir))
-    symbols_by_market: dict[str, list[str]] = {}
-    if universe_stage.prefiltered_df.empty:
-        return symbols_by_market
-    for market, frame in universe_stage.prefiltered_df.groupby("market"):
-        symbols = [
-            str(symbol).strip()
-            for symbol in frame["symbol"].tolist()
-            if str(symbol).strip()
-        ]
-        symbols_by_market[str(market).strip().lower()] = symbols
-    return symbols_by_market
+    return ohlcv_sync.resolve_prefiltered_symbols(
+        payload,
+        build_config_payload=build_ohlcv_config_payload,
+        config_factory=ScreenRunConfig,
+        prepare_universe_stage_fn=prepare_universe_stage,
+    )
 
 
 def resolve_universe_symbols(payload: dict[str, Any]) -> dict[str, list[str]]:
-    config_payload = build_ohlcv_config_payload(payload)
-    config = ScreenRunConfig(**config_payload)
-    universe_df = load_universe(config, cache_dir=Path(config.cache_dir))
-    symbols_by_market: dict[str, list[str]] = {}
-    if universe_df.empty:
-        return symbols_by_market
-    for market, frame in universe_df.groupby("market"):
-        symbols = [
-            str(symbol).strip()
-            for symbol in frame["symbol"].tolist()
-            if str(symbol).strip()
-        ]
-        symbols_by_market[str(market).strip().lower()] = list(dict.fromkeys(symbols))
-    return symbols_by_market
+    return ohlcv_sync.resolve_universe_symbols(
+        payload,
+        build_config_payload=build_ohlcv_config_payload,
+        config_factory=ScreenRunConfig,
+        load_universe_fn=load_universe,
+    )
 
 
 def resolve_fundamental_symbols(payload: dict[str, Any]) -> list[str]:
