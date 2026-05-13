@@ -18,10 +18,11 @@ from diverge.common.market_calendar import resolve_market_trading_date
 from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
 from diverge.agents.managers.summary_agent import sanitize_report_summary_output
 from diverge.research.thesis_tracker import build_thesis_artifact
-from diverge.research.search.session import (
-    SearchToolContext,
-    current_search_context,
-    search_sessions,
+from diverge.runtime.analysis_context import (
+    AnalysisContextPackAdapters,
+    AnalysisContextPackRequest,
+    build_analysis_context_pack,
+    use_search_context,
 )
 from diverge.trade_feedback import get_trade_feedback_payload
 
@@ -616,37 +617,22 @@ def run_analysis_streaming(
     selected_analysts = [key for key in ANALYST_ORDER if key in request.analysts]
     tracker = AnalysisTracker(selected_analysts, temp_dir)
     tracker.mark_started()
-    trade_feedback_payload = get_trade_feedback_payload(
-        request.ticker,
-        reports_dir=reports_dir,
-        analysis_date=request.analysis_date,
-        visible_trade_ids=set(visible_trade_ids)
-        if visible_trade_ids is not None
-        else None,
-    )
-
-    context_token = None
-    if analysis_run_id:
-        search_sessions.create(
-            analysis_run_id=analysis_run_id,
+    context_pack = build_analysis_context_pack(
+        AnalysisContextPackRequest(
             ticker=request.ticker,
             analysis_date=request.analysis_date,
-        )
-        market = detect_market(request.ticker)
-        if market not in {"cn", "us", "hk"}:
-            market = "us"
-        context_token = current_search_context.set(
-            SearchToolContext(
-                analysis_run_id=analysis_run_id,
-                agent="Analysis",
-                ticker=request.ticker,
-                analysis_date=request.analysis_date,
-                market=market,
-                language=request.output_language,
-            )
-        )
+            output_language=request.output_language,
+            portfolio_context=request.portfolio_context,
+            reports_dir=reports_dir,
+            visible_trade_ids=visible_trade_ids,
+            analysis_run_id=analysis_run_id,
+        ),
+        adapters=AnalysisContextPackAdapters(
+            get_trade_feedback_payload=get_trade_feedback_payload,
+        ),
+    )
 
-    try:
+    with use_search_context(context_pack):
         graph = DivergeGraph(
             selected_analysts,
             config=config,
@@ -656,9 +642,7 @@ def run_analysis_streaming(
             request.ticker,
             request.analysis_date,
             request.output_language,
-            historical_trade_feedback=trade_feedback_payload["prompt"],
-            historical_trade_reviews=trade_feedback_payload["reviews"],
-            portfolio_context=request.portfolio_context or "",
+            **context_pack.initial_state_kwargs(),
         )
         args = graph.propagator.get_graph_args()
 
@@ -686,9 +670,6 @@ def run_analysis_streaming(
             message=f"System: Completed analysis for {request.analysis_date}",
         )
         return final_state
-    finally:
-        if context_token is not None:
-            current_search_context.reset(context_token)
 
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):
