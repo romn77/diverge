@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import date as _date
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -24,6 +25,7 @@ from web.backend.services import screener_preparation
 from web.backend.services import screeners as screener_service
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
+date = _date
 
 
 def _serialize_sse_event(data: dict) -> str:
