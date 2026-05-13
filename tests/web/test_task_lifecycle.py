@@ -253,6 +253,64 @@ def test_apply_cancel_transition_cancels_queued_task_and_removes_redis_refs(
     }
 
 
+def test_apply_canceled_completion_transition_saves_and_replays_event(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: True,
+    )
+    task = SimpleNamespace(
+        status="running",
+        canceled_at=None,
+        finished_at=None,
+        error="old error",
+        result={"old": True},
+        latest_progress=None,
+        progress_events=[],
+    )
+    saved = {}
+    appended = {}
+    store = SimpleNamespace(
+        append_event=lambda kind, task_id, payload: appended.update(
+            kind=kind,
+            task_id=task_id,
+            payload=payload,
+        )
+    )
+    monkeypatch.setattr(task_lifecycle.task_store, "get_task_store", lambda: store)
+
+    progress = task_lifecycle.apply_canceled_completion_transition(
+        kind="data_sync",
+        task_id="task-3b",
+        task=task,
+        canceled_progress=lambda canceled_task: {
+            "status": canceled_task.status,
+            "finished_at": canceled_task.finished_at,
+        },
+        save_task=lambda saved_task: saved.update(task=saved_task),
+        now_iso="2026-05-13T01:02:03+00:00",
+        clear_result=True,
+    )
+
+    assert progress == {
+        "status": "canceled",
+        "finished_at": "2026-05-13T01:02:03+00:00",
+    }
+    assert task.status == "canceled"
+    assert task.canceled_at == "2026-05-13T01:02:03+00:00"
+    assert task.finished_at == "2026-05-13T01:02:03+00:00"
+    assert task.error is None
+    assert task.result is None
+    assert task.latest_progress == progress
+    assert task.progress_events == [progress]
+    assert saved == {"task": task}
+    assert appended == {
+        "kind": "data_sync",
+        "task_id": "task-3b",
+        "payload": progress,
+    }
+
+
 def test_blocked_until_timestamp_handles_missing_and_naive_values(monkeypatch):
     monkeypatch.setattr(
         task_lifecycle,

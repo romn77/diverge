@@ -154,6 +154,34 @@ def apply_cancel_transition(
     return "canceled"
 
 
+def apply_canceled_completion_transition(
+    *,
+    kind: str,
+    task_id: str,
+    task: Any,
+    canceled_progress: Callable[[Any], dict[str, Any]],
+    save_task: Callable[[Any], None],
+    now_iso: str | None = None,
+    clear_error: bool = True,
+    clear_result: bool = False,
+) -> dict[str, Any]:
+    timestamp = now_iso or utc_iso()
+    task.status = "canceled"
+    task.canceled_at = getattr(task, "canceled_at", None) or timestamp
+    task.finished_at = timestamp
+    if clear_error:
+        task.error = None
+    if clear_result:
+        task.result = None
+    progress = canceled_progress(task)
+    task.latest_progress = progress
+    task.progress_events.append(progress)
+    save_task(task)
+    if task_store.redis_task_backend_enabled():
+        task_store.get_task_store().append_event(kind, task_id, progress)
+    return progress
+
+
 def apply_quota_wait_transition(
     *,
     kind: str,

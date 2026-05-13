@@ -381,15 +381,13 @@ def check_screener_task_canceled(task_id: str) -> None:
 
 def _mark_screener_task_canceled(task_id: str) -> None:
     current_task = get_screener_task(task_id)
-    now_iso = _utc_iso()
-    current_task.status = "canceled"
-    current_task.canceled_at = current_task.canceled_at or now_iso
-    current_task.finished_at = now_iso
-    current_task.error = None
-    canceled_progress = build_screener_canceled_progress(current_task)
-    current_task.latest_progress = canceled_progress
-    current_task.progress_events.append(canceled_progress)
-    save_screener_task(current_task)
+    task_lifecycle.apply_canceled_completion_transition(
+        kind="screener",
+        task_id=task_id,
+        task=current_task,
+        canceled_progress=build_screener_canceled_progress,
+        save_task=save_screener_task,
+    )
     log_task_event(
         logger,
         "task_canceled",
@@ -397,8 +395,6 @@ def _mark_screener_task_canceled(task_id: str) -> None:
         task_id=task_id,
         task=current_task,
     )
-    if task_store.redis_task_backend_enabled():
-        task_store.get_task_store().append_event("screener", task_id, canceled_progress)
     persist_screener_task_snapshot(task_id)
 
 

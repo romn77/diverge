@@ -196,16 +196,14 @@ def _data_sync_canceled_progress(task: DataSyncTask) -> dict[str, Any]:
 
 def _mark_data_sync_task_canceled(task_id: str) -> None:
     task = get_data_sync_task(task_id)
-    now_iso = _utc_iso()
-    task.status = "canceled"
-    task.canceled_at = task.canceled_at or now_iso
-    task.finished_at = now_iso
-    task.error = None
-    task.result = None
-    progress = _data_sync_canceled_progress(task)
-    task.latest_progress = progress
-    task.progress_events.append(progress)
-    _save_task(task)
+    task_lifecycle.apply_canceled_completion_transition(
+        kind="data_sync",
+        task_id=task_id,
+        task=task,
+        canceled_progress=_data_sync_canceled_progress,
+        save_task=_save_task,
+        clear_result=True,
+    )
     log_task_event(
         logger,
         "task_canceled",
@@ -214,8 +212,6 @@ def _mark_data_sync_task_canceled(task_id: str) -> None:
         task=task,
         sync_type=task.sync_type,
     )
-    if task_store.redis_task_backend_enabled():
-        task_store.get_task_store().append_event("data_sync", task_id, progress)
     record_data_sync_audit_event(
         task,
         action=f"data_sync.{task.sync_type}.canceled",
