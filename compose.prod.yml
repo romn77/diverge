@@ -51,8 +51,6 @@ services:
       TASK_USER_PENDING_LIMIT_OPERATOR: ${TASK_USER_PENDING_LIMIT_OPERATOR:-5}
       TASK_USER_PENDING_LIMIT_VIEWER: ${TASK_USER_PENDING_LIMIT_VIEWER:-2}
       TASK_STORE_TERMINAL_TTL_SECONDS: ${TASK_STORE_TERMINAL_TTL_SECONDS:-604800}
-      SCREENER_PREWARM_ENABLED: ${SCREENER_PREWARM_ENABLED:-true}
-      SCREENER_PREWARM_POLL_SECONDS: ${SCREENER_PREWARM_POLL_SECONDS:-300}
       REDIS_URL: redis://redis:6379/0
       STORAGE_BACKEND: ${STORAGE_BACKEND:-tencent_cos}
       DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK: ${DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK:-false}
@@ -126,6 +124,75 @@ services:
       redis:
         condition: service_healthy
     command: ["python", "-m", "web.backend.worker"]
+    restart: unless-stopped
+
+  prewarm-scheduler:
+    build:
+      context: .
+      dockerfile: web/backend/Dockerfile
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    environment:
+      APP_ENV: production
+      DATA_DIR: /app/data
+      REDIS_URL: redis://redis:6379/0
+      PREWARM_CN_READY_TIME: ${PREWARM_CN_READY_TIME:-18:10}
+      PREWARM_CN_WINDOW_END: ${PREWARM_CN_WINDOW_END:-21:30}
+      PREWARM_US_READY_TIME: ${PREWARM_US_READY_TIME:-21:10}
+      PREWARM_US_WINDOW_END: ${PREWARM_US_WINDOW_END:-23:30}
+      PREWARM_RETRY_DEFER_SECONDS: ${PREWARM_RETRY_DEFER_SECONDS:-300}
+      PREWARM_MAX_TRIES: ${PREWARM_MAX_TRIES:-5}
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmSchedulerSettings"]
+    restart: unless-stopped
+
+  prewarm-worker:
+    build:
+      context: .
+      dockerfile: web/backend/Dockerfile
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+    environment:
+      APP_ENV: production
+      DATA_DIR: /app/data
+      TASK_BACKEND: redis
+      TASK_QUEUE_LIMIT: ${TASK_QUEUE_LIMIT:-2}
+      TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}
+      TASK_USER_RUNNING_LIMIT: ${TASK_USER_RUNNING_LIMIT:-1}
+      TASK_GLOBAL_PENDING_LIMIT: ${TASK_GLOBAL_PENDING_LIMIT:-100}
+      TASK_USER_PENDING_LIMIT_ADMIN: ${TASK_USER_PENDING_LIMIT_ADMIN:-10}
+      TASK_USER_PENDING_LIMIT_OPERATOR: ${TASK_USER_PENDING_LIMIT_OPERATOR:-5}
+      TASK_USER_PENDING_LIMIT_VIEWER: ${TASK_USER_PENDING_LIMIT_VIEWER:-2}
+      TASK_STORE_TERMINAL_TTL_SECONDS: ${TASK_STORE_TERMINAL_TTL_SECONDS:-604800}
+      REDIS_URL: redis://redis:6379/0
+      PREWARM_CN_READY_TIME: ${PREWARM_CN_READY_TIME:-18:10}
+      PREWARM_CN_WINDOW_END: ${PREWARM_CN_WINDOW_END:-21:30}
+      PREWARM_US_READY_TIME: ${PREWARM_US_READY_TIME:-21:10}
+      PREWARM_US_WINDOW_END: ${PREWARM_US_WINDOW_END:-23:30}
+      PREWARM_RETRY_DEFER_SECONDS: ${PREWARM_RETRY_DEFER_SECONDS:-300}
+      PREWARM_MAX_TRIES: ${PREWARM_MAX_TRIES:-5}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-tencent_cos}
+      DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK: ${DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK:-false}
+      COS_SECRET_ID: ${COS_SECRET_ID:?Set COS_SECRET_ID in .env}
+      COS_SECRET_KEY: ${COS_SECRET_KEY:?Set COS_SECRET_KEY in .env}
+      COS_REGION: ${COS_REGION:?Set COS_REGION in .env}
+      COS_BUCKET: ${COS_BUCKET:?Set COS_BUCKET in .env}
+      COS_PREFIX: ${COS_PREFIX:-diverge/prod}
+      AUTH_ENABLED: ${AUTH_ENABLED:-true}
+      AUTH_MODE: ${AUTH_MODE:-required}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmWorkerSettings"]
+    stop_grace_period: 10m
     restart: unless-stopped
 
   frontend:

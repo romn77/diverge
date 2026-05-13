@@ -84,6 +84,8 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("nginx:", source)
         self.assertIn("redis:", source)
         self.assertIn("worker:", source)
+        self.assertIn("prewarm-scheduler:", source)
+        self.assertIn("prewarm-worker:", source)
         self.assertIn("backup:", source)
         self.assertIn("${HTTP_PORT:-80}:80", source)
         self.assertIn("${HTTPS_PORT:-443}:443", source)
@@ -92,6 +94,16 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertNotIn('      - "${POSTGRES_PORT:-5432}:5432"', source)
         self.assertNotIn('      - "${REDIS_PORT:-6379}:6379"', source)
         self.assertIn("TASK_BACKEND: redis", source)
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmSchedulerSettings"]',
+            source,
+        )
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmWorkerSettings"]',
+            source,
+        )
+        self.assertIn("PREWARM_CN_READY_TIME: ${PREWARM_CN_READY_TIME:-18:10}", source)
+        self.assertNotIn("SCREENER_PREWARM_ENABLED", source)
         self.assertIn(
             "TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}", source
         )
@@ -110,6 +122,8 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertNotIn("nginx:", source)
         self.assertIn("redis:", source)
         self.assertIn("worker:", source)
+        self.assertIn("prewarm-scheduler:", source)
+        self.assertIn("prewarm-worker:", source)
         self.assertIn("backup:", source)
         self.assertIn("${BACKEND_PORT:-8000}:8000", source)
         self.assertIn("${FRONTEND_PORT:-3000}:3000", source)
@@ -120,6 +134,15 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn(
             "FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env}", source
         )
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmSchedulerSettings"]',
+            source,
+        )
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmWorkerSettings"]',
+            source,
+        )
+        self.assertNotIn("SCREENER_PREWARM_ENABLED", source)
         self.assertIn(
             "NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?Set NEXT_PUBLIC_API_BASE_URL in .env}",
             source,

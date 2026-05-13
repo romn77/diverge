@@ -6,8 +6,6 @@ import json
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
-from diverge.dataflows.routes import dual_market_history_source_kwargs
-from diverge.screener.schema import ScreenRunConfig
 from web.backend import (
     access,
     analysis_limits,
@@ -15,15 +13,14 @@ from web.backend import (
     audit,
     auth,
     screener_presets,
-    screener_results,
 )
 from web.backend.runtime import (
     analysis_tasks,
-    data_sync_tasks,
     screener_tasks,
     task_store,
 )
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
+from web.backend.services import screener_preparation
 from web.backend.services import screeners as screener_service
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
@@ -50,32 +47,19 @@ def _get_authorized_screener_task(
 
 
 def resolve_screener_data_sources(markets: list[str]) -> dict:
-    return dual_market_history_source_kwargs(module="screener")
+    return screener_preparation.resolve_screener_data_sources(markets)
 
 
 def resolve_screener_as_of_date(
     markets: list[str], data_sources: dict | None = None
 ) -> str:
-    sources = data_sources or {}
-    trading_days = []
-    for market in markets:
-        normalized_market = str(market).strip().lower()
-        source = (
-            str(sources.get("cn_data_source") or "tushare")
-            if normalized_market == "cn"
-            else str(sources.get("us_data_source") or "massive")
+    try:
+        return screener_preparation.resolve_screener_as_of_date(
+            markets,
+            data_sources,
         )
-        trading_days.append(
-            data_sync_tasks.resolve_latest_ready_trading_day(
-                normalized_market,
-                source,
-            )
-        )
-    if not trading_days:
-        raise HTTPException(
-            status_code=400, detail="Unable to resolve screener trading date."
-        )
-    return min(trading_days).isoformat()
+    except screener_preparation.ScreenerPreparationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 def _enforce_screener_submission_capacity(current_user) -> None:
@@ -120,54 +104,20 @@ def create_screener_task(
         permission=auth.PERMISSION_SCREENER_CREATE,
     )
 
-    request_payload = payload.model_dump()
-    request_payload["history_cache_policy"] = "cache_only"
-    request_payload.update(resolve_screener_data_sources(request_payload["markets"]))
-    if not request_payload.get("as_of_date"):
-        request_payload["as_of_date"] = resolve_screener_as_of_date(
-            request_payload["markets"],
-            request_payload,
-        )
-    config_payload = dict(request_payload)
-    config_payload["output_dir"] = str(app_config.SCREENER_RESULTS_DIR)
-    config_payload["cache_dir"] = str(app_config.SCREENER_CACHE_DIR)
-    config_payload["history_dir"] = str(app_config.STOCK_HISTORY_DIR)
-    config_payload["fundamental_dir"] = str(app_config.FUNDAMENTALS_DIR)
-    if "cn" in request_payload["markets"]:
-        manifest_path = app_config.resolve_manifest_path(
-            "cn", app_config.PROJECT_ROOT, require_exists=True
-        )
-        if manifest_path:
-            config_payload["cn_manifest_path"] = str(manifest_path)
-    if "us" in request_payload["markets"]:
-        manifest_path = app_config.resolve_manifest_path(
-            "us",
-            app_config.PROJECT_ROOT,
-            require_exists=True,
-        )
-        if not manifest_path:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "US screening requires a manifest at DATA_DIR/manifest/us.csv. "
-                    "SCREEN_US_MANIFEST_PATH remains available as a compatibility override."
-                ),
-            )
-        config_payload["us_manifest_path"] = str(manifest_path)
-
     try:
-        ScreenRunConfig(**config_payload)
-    except ValueError as exc:
+        prepared = screener_preparation.prepare_screener_run(
+            payload.model_dump(),
+            data_source_resolver=resolve_screener_data_sources,
+            as_of_date_resolver=resolve_screener_as_of_date,
+        )
+    except screener_preparation.ScreenerPreparationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    screener_key = screener_results.screener_key_for_config(config_payload)
-    request_payload["screener_key"] = screener_key
-    cached_snapshot = screener_results.get_cached_screener_result(config_payload)
-    if cached_snapshot is not None:
+    if prepared.cached:
         return screener_tasks.create_cached_screener_task(
-            request_payload=request_payload,
-            config_payload=config_payload,
-            run_id=cached_snapshot.source_run_id,
+            request_payload=prepared.request_payload,
+            config_payload=prepared.config_payload,
+            run_id=prepared.cached_run_id,
             owner_user_id=current_user.id if current_user is not None else None,
             tenant_id=getattr(current_user, "tenant_id", None),
         )
@@ -190,8 +140,8 @@ def create_screener_task(
 
     tenant_id = getattr(current_user, "tenant_id", None)
     result = screener_tasks.create_screener_task(
-        request_payload=request_payload,
-        config_payload=config_payload,
+        request_payload=prepared.request_payload,
+        config_payload=prepared.config_payload,
         owner_user_id=current_user.id if current_user is not None else None,
         tenant_id=tenant_id,
     )
@@ -204,7 +154,7 @@ def create_screener_task(
                 action="screener.task.created",
                 resource_type="screener_task",
                 resource_id=str(result.get("task_id")),
-                metadata={"markets": request_payload.get("markets")},
+                metadata={"markets": prepared.request_payload.get("markets")},
                 request=request,
             )
     return result

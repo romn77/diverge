@@ -38,7 +38,6 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
                 markets=["us"],
                 as_of_date="2026-04-28",
                 us_manifest_path="/tmp/us.csv",
-                run_screener_prewarm=True,
             )
         )
 
@@ -50,7 +49,6 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
     assert kwargs["tenant_id"] == "tenant-a"
     assert kwargs["request_payload"]["markets"] == ["us"]
     assert kwargs["request_payload"]["top_k"] == 100
-    assert kwargs["request_payload"]["run_screener_prewarm"] is True
 
 
 def test_create_ohlcv_sync_task_records_audit_event_for_admin():

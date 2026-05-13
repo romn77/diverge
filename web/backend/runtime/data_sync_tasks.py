@@ -781,24 +781,6 @@ def _run_ohlcv_task(task: DataSyncTask) -> dict[str, Any]:
         progress_callback=progress_callback,
     )
     check_data_sync_task_canceled(task.id)
-    if payload.get("run_screener_prewarm"):
-        from web.backend.runtime import screener_prewarm
-
-        check_data_sync_task_canceled(task.id)
-        prewarm_summary = screener_prewarm.run_screener_prewarm_after_ohlcv(
-            payload["markets"],
-            payload["as_of_date"],
-            ohlcv_payload=payload,
-        )
-        check_data_sync_task_canceled(task.id)
-        result["screener_prewarm"] = prewarm_summary
-        _append_progress(
-            task.id,
-            f"screener prewarm enqueued after ohlcv sync: {prewarm_summary}",
-            stage="prewarm",
-            current=1,
-            total=1,
-        )
     return result
 
 

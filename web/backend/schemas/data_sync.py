@@ -13,7 +13,6 @@ class DataSyncOhlcvPayload(BaseModel):
     us_data_source_fallbacks: list[str] = Field(default_factory=list)
     cn_manifest_path: str | None = None
     us_manifest_path: str | None = None
-    run_screener_prewarm: bool = False
 
 
 class DataSyncFundamentalsPayload(BaseModel):

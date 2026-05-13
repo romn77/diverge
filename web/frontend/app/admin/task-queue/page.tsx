@@ -180,14 +180,12 @@ export default function AdminTaskQueuePage() {
               as_of_date: syncAsOfDate,
               cn_data_source: syncSource,
               cn_data_source_fallbacks: [],
-              run_screener_prewarm: false,
             }
           : {
               markets: ["us"],
               as_of_date: syncAsOfDate,
               us_data_source: syncSource,
               us_data_source_fallbacks: [],
-              run_screener_prewarm: false,
             };
       const response = await createOhlcvSyncTask(payload);
       await loadTaskQueue();
