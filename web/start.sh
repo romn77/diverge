@@ -64,6 +64,48 @@ kill_port() {
     fi
 }
 
+kill_stale_workers() {
+    if [ "$TASK_BACKEND" != "redis" ]; then
+        return 0
+    fi
+    if ! command -v pgrep > /dev/null 2>&1 || ! command -v ps > /dev/null 2>&1; then
+        return 0
+    fi
+
+    local pids=()
+    local pid
+    while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        local command_line
+        command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+        case "$command_line" in
+            *"$PYTHON_BIN -m web.backend.worker"*)
+                pids+=("$pid")
+                ;;
+        esac
+    done < <(pgrep -f "web.backend.worker" 2>/dev/null || true)
+
+    if [ "${#pids[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    echo -e "${BLUE}Stopping stale worker(s): ${pids[*]}${NC}"
+    kill "${pids[@]}" 2>/dev/null || true
+    sleep 1
+
+    local alive=()
+    for pid in "${pids[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            alive+=("$pid")
+        fi
+    done
+
+    if [ "${#alive[@]}" -gt 0 ]; then
+        echo -e "${BLUE}Force stopping stale worker(s): ${alive[*]}${NC}"
+        kill -9 "${alive[@]}" 2>/dev/null || true
+    fi
+}
+
 wait_for_http() {
     local url="$1"
     local attempts="${2:-20}"
@@ -193,6 +235,7 @@ trap cleanup EXIT INT TERM
 # Kill any existing processes on these ports
 kill_port "$BACKEND_PORT"
 kill_port "$FRONTEND_PORT"
+kill_stale_workers
 sleep 1
 
 # Start backend

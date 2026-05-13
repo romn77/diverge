@@ -84,13 +84,19 @@ class DivergeGemini(Gemini):
     base_url: Optional[str] = None
     api_key: Optional[str] = Field(default=None, exclude=True, repr=False)
 
+    def _diverge_tracking_headers(self) -> dict[str, str]:
+        headers = self._tracking_headers
+        if callable(headers):
+            headers = headers()
+        return dict(headers or {})
+
     @cached_property
     def api_client(self) -> Client:
         return Client(
             api_key=self.api_key,
             http_options=types.HttpOptions(
                 base_url=self.base_url,
-                headers=self._tracking_headers,
+                headers=self._diverge_tracking_headers(),
                 retry_options=self.retry_options,
             ),
         )
@@ -101,7 +107,7 @@ class DivergeGemini(Gemini):
             api_key=self.api_key,
             http_options=types.HttpOptions(
                 base_url=self.base_url,
-                headers=self._tracking_headers,
+                headers=self._diverge_tracking_headers(),
                 api_version=self._live_api_version,
             ),
         )
@@ -421,9 +427,57 @@ def _contents_from_prompt(prompt: Any) -> list[types.Content]:
     contents: list[types.Content] = []
     for message in messages:
         role = message_role(message)
+        if role == "system":
+            continue
         parts = _content_parts_from_message(message)
         contents.append(types.Content(role=role, parts=parts))
     return contents
+
+
+def _system_instruction_from_prompt(prompt: Any) -> str | None:
+    if hasattr(prompt, "to_messages"):
+        messages = prompt.to_messages()
+    elif isinstance(prompt, list):
+        messages = prompt
+    else:
+        return None
+
+    system_messages = [
+        message_content(message).strip()
+        for message in messages
+        if message_role(message) == "system" and message_content(message).strip()
+    ]
+    return "\n\n".join(system_messages) or None
+
+
+def _copy_generation_config(
+    generation_config: Any,
+) -> types.GenerateContentConfig:
+    if generation_config is None:
+        return types.GenerateContentConfig()
+    if hasattr(generation_config, "model_copy"):
+        return generation_config.model_copy(deep=True)
+    return generation_config
+
+
+def _set_system_instruction(
+    config: types.GenerateContentConfig,
+    system_instruction: str | None,
+) -> None:
+    if not system_instruction:
+        return
+
+    existing = config.system_instruction
+    if not existing:
+        config.system_instruction = system_instruction
+    elif isinstance(existing, str):
+        config.system_instruction = f"{existing}\n\n{system_instruction}"
+    else:
+        logger.warning(
+            "Skipping prompt system instruction because config already has "
+            "non-string system_instruction=%s",
+            type(existing).__name__,
+        )
 
 
 def _tool_name(tool: Any) -> str | None:
@@ -638,13 +692,17 @@ class AdkChatModel:
 
     async def _invoke_async(self, prompt: Any, *, tools: Iterable[Any] | None = None):
         tool_registry = _adk_tools_from_legacy_tools(tools)
+        generation_config = _copy_generation_config(self.generation_config)
+        _set_system_instruction(
+            generation_config,
+            _system_instruction_from_prompt(prompt),
+        )
         request = LlmRequest(
             model=getattr(self.model, "model", None),
             contents=_contents_from_prompt(prompt),
             tools_dict=tool_registry,
+            config=generation_config,
         )
-        if self.generation_config is not None:
-            request.config = self.generation_config
 
         model_name = str(getattr(self.model, "model", None) or request.model or "")
         content_count = len(request.contents or [])

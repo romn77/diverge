@@ -34,6 +34,7 @@ from web.backend.runtime.task_logging import (
     processing_stage,
     task_error_fields,
 )
+from web.backend.services.config import hydrate_provider_credentials
 from web.backend.services import report_publication
 
 logger = logging.getLogger(__name__)
@@ -154,6 +155,30 @@ def persist_task_snapshot(task_id: str) -> None:
     write_json_atomic(task_snapshot_path(task_id), snapshot)
 
 
+def _analysis_request_constructor_payload(request_payload: dict) -> dict:
+    signature = inspect.signature(AnalysisRequest)
+    if any(
+        parameter.kind == inspect.Parameter.VAR_KEYWORD
+        for parameter in signature.parameters.values()
+    ):
+        return dict(request_payload)
+
+    accepted_parameters = {
+        name
+        for name, parameter in signature.parameters.items()
+        if parameter.kind
+        in {
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        }
+    }
+    return {
+        key: value
+        for key, value in request_payload.items()
+        if key in accepted_parameters
+    }
+
+
 def task_from_snapshot(payload: dict) -> Task:
     request_payload = payload.get("request_payload")
     if not isinstance(request_payload, dict):
@@ -164,7 +189,9 @@ def task_from_snapshot(payload: dict) -> Task:
         status = "queued"
     return Task(
         id=str(payload["id"]),
-        request=AnalysisRequest(**request_payload),
+        request=AnalysisRequest(
+            **_analysis_request_constructor_payload(request_payload)
+        ),
         owner_user_id=payload.get("owner_user_id"),
         tenant_id=payload.get("tenant_id"),
         report_visibility=str(
@@ -504,6 +531,7 @@ def run_task(task_id: str) -> None:
 
     try:
         check_task_canceled(task_id)
+        hydrate_provider_credentials(task.request.llm_provider)
         if temp_dir.exists():
             shutil.rmtree(temp_dir)
         temp_dir.mkdir(parents=True, exist_ok=True)

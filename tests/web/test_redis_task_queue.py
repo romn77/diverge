@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import os
 import tempfile
 import unittest
@@ -36,6 +37,77 @@ class RedisTaskQueueTests(unittest.TestCase):
             openai_reasoning_effort="medium",
             google_thinking_level=None,
         )
+
+    def _google_request(self):
+        return AnalysisRequest(
+            ticker="SPY",
+            analysis_date="2026-03-13",
+            analysts=["market", "news"],
+            research_depth=1,
+            llm_provider="google",
+            quick_think_llm="gemini-2.5-flash",
+            deep_think_llm="gemini-2.5-flash",
+            output_language="en",
+            openai_reasoning_effort=None,
+            google_thinking_level="high",
+        )
+
+    def test_task_from_snapshot_preserves_supported_backend_url(self):
+        task = analysis_tasks.task_from_snapshot(
+            {
+                "id": "task-1",
+                "status": "queued",
+                "request_payload": {
+                    "ticker": "SPY",
+                    "analysis_date": "2026-03-13",
+                    "analysts": ["market", "news"],
+                    "research_depth": 1,
+                    "llm_provider": "openai",
+                    "quick_think_llm": "gpt-5-mini",
+                    "deep_think_llm": "gpt-5.2",
+                    "output_language": "en",
+                    "backend_url": "https://llm.example.test",
+                    "openai_reasoning_effort": "medium",
+                },
+            }
+        )
+
+        self.assertEqual(task.request.backend_url, "https://llm.example.test")
+
+    def test_task_from_snapshot_ignores_fields_missing_from_constructor(self):
+        @dataclass
+        class LegacyAnalysisRequest:
+            ticker: str
+            analysis_date: str
+            analysts: list[str]
+            research_depth: int
+            llm_provider: str
+            quick_think_llm: str
+            deep_think_llm: str
+            output_language: str
+
+        with patch.object(analysis_tasks, "AnalysisRequest", LegacyAnalysisRequest):
+            task = analysis_tasks.task_from_snapshot(
+                {
+                    "id": "task-legacy",
+                    "status": "queued",
+                    "request_payload": {
+                        "ticker": "SPY",
+                        "analysis_date": "2026-03-13",
+                        "analysts": ["market", "news"],
+                        "research_depth": 1,
+                        "llm_provider": "openai",
+                        "quick_think_llm": "gpt-5-mini",
+                        "deep_think_llm": "gpt-5.2",
+                        "output_language": "en",
+                        "backend_url": "https://llm.example.test",
+                        "openai_reasoning_effort": "medium",
+                    },
+                }
+            )
+
+        self.assertEqual(task.request.ticker, "SPY")
+        self.assertFalse(hasattr(task.request, "backend_url"))
 
     def test_redis_mode_enqueues_analysis_task_without_starting_thread(self):
         fake_store = task_store.InMemoryTaskStore()
@@ -295,6 +367,57 @@ class RedisTaskQueueTests(unittest.TestCase):
         self.assertEqual(task.blocked_vendor, "alpha_vantage")
         self.assertEqual(task.blocked_until, "2030-01-01T00:00:00+00:00")
         self.assertIn(body["task_id"], fake_store.delayed_names["analysis"])
+
+    def test_worker_hydrates_provider_credentials_before_analysis(self):
+        fake_store = task_store.InMemoryTaskStore()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            project_env = Path(temp_dir) / ".env"
+            project_env.write_text(
+                "GEMINI_API_KEY=test-gemini-key\n",
+                encoding="utf-8",
+            )
+
+            def fail_after_asserting_credentials(*_args, **_kwargs):
+                self.assertEqual(os.environ.get("GEMINI_API_KEY"), "test-gemini-key")
+                raise QuotaWaitRequired(
+                    vendor="alpha_vantage",
+                    reason="Data source quota exhausted.",
+                    blocked_until="2030-01-01T00:00:00+00:00",
+                )
+
+            with (
+                patch.dict(os.environ, {"TASK_BACKEND": "redis"}, clear=True),
+                patch(
+                    "web.backend.runtime.task_store.get_task_store",
+                    return_value=fake_store,
+                ),
+                patch(
+                    "web.backend.runtime.analysis_tasks.app_config.PROJECT_ENV_FILE",
+                    project_env,
+                ),
+                patch(
+                    "web.backend.runtime.analysis_tasks.app_config.TMP_REPORTS_DIR",
+                    Path(temp_dir) / "tmp-reports",
+                ),
+                patch(
+                    "web.backend.runtime.analysis_tasks.access.visible_trade_ids_for_task",
+                    return_value=[],
+                ),
+                patch(
+                    "web.backend.runtime.analysis_tasks.run_analysis_streaming",
+                    side_effect=fail_after_asserting_credentials,
+                ),
+            ):
+                body = analysis_tasks.create_task(
+                    self._google_request(), owner_user_id="user-1"
+                )
+                claimed = task_scheduler.claim_next_task(timeout=0)
+                self.assertEqual(claimed, ("analysis", body["task_id"]))
+                analysis_tasks.run_task(body["task_id"])
+                task = analysis_tasks.get_task(body["task_id"])
+
+        self.assertEqual(task.status, "waiting_for_quota")
+        self.assertEqual(task.blocked_vendor, "alpha_vantage")
 
     def test_redis_store_uses_prefixed_keys_and_progress_lists(self):
         client = Mock()

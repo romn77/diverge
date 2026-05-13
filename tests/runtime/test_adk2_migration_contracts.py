@@ -207,6 +207,20 @@ def test_adk_google_model_uses_gemini_base_url_env():
     assert google_model.base_url == "https://cc.z2blog.com"
 
 
+def test_diverge_gemini_api_client_uses_tracking_header_payload():
+    from google.genai import Client
+
+    from diverge.runtime.model_factory import DivergeGemini
+
+    google_model = DivergeGemini(
+        model="gemini-2.5-flash",
+        base_url="https://cc.z2blog.com",
+        api_key="test-key",
+    )
+
+    assert isinstance(google_model.api_client, Client)
+
+
 def test_adk_model_factory_uses_env_timeout_fallback():
     from diverge.runtime.model_factory import create_adk_model
 
@@ -274,6 +288,45 @@ def test_adk_chat_model_retries_transient_gateway_timeout():
 
     assert result == "ok"
     assert model.calls == 2
+
+
+def test_adk_prompt_system_message_uses_gemini_system_instruction():
+    from diverge.runtime.messages import AdkPrompt
+    from diverge.runtime.model_factory import AdkChatModel
+
+    class Part:
+        text = "ok"
+        function_call = None
+
+    class Content:
+        parts = [Part()]
+
+    class Response:
+        content = Content()
+
+    class CaptureModel:
+        model = "gemini-test"
+
+        def __init__(self):
+            self.request = None
+
+        async def generate_content_async(self, request, *, stream):
+            self.request = request
+            yield Response()
+
+    model = CaptureModel()
+    chat_model = AdkChatModel(model, timeout=1)
+
+    chat_model.invoke(
+        AdkPrompt(
+            system_message="Use the tools carefully.",
+            messages=(("user", "Analyze NIO."),),
+        )
+    )
+
+    assert model.request.config.system_instruction == "Use the tools carefully."
+    assert [content.role for content in model.request.contents] == ["user"]
+    assert model.request.contents[0].parts[0].text == "Analyze NIO."
 
 
 def test_sub2api_litellm_api_base_uses_openai_compatible_v1_endpoint():
@@ -407,6 +460,7 @@ def test_adk_adapter_extracts_sub2api_textual_tool_calls():
 def test_adk_prompt_conversion_preserves_tool_call_ids_for_litellm():
     from langchain_core.messages import AIMessage, ToolMessage
 
+    from diverge.runtime.messages import AdkPrompt
     from diverge.runtime.model_factory import _contents_from_prompt
 
     contents = _contents_from_prompt(
@@ -431,6 +485,14 @@ def test_adk_prompt_conversion_preserves_tool_call_ids_for_litellm():
 
     assert contents[0].parts[0].function_call.id == "call_market_1"
     assert contents[1].parts[0].function_response.id == "call_market_1"
+
+    prompt_contents = _contents_from_prompt(
+        AdkPrompt(
+            system_message="System guidance",
+            messages=(("user", "Hi"),),
+        )
+    )
+    assert [content.role for content in prompt_contents] == ["user"]
 
 
 def test_diverge_graph_passes_round_limits_to_adk_runtime():
