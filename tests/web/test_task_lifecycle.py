@@ -143,6 +143,115 @@ def test_append_progress_event_saves_redis_task_and_replay_event(monkeypatch):
     }
 
 
+def test_apply_cancel_transition_requests_cancel_for_running_task(monkeypatch):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: False,
+    )
+    task = SimpleNamespace(
+        status="running",
+        cancel_requested_at=None,
+        canceled_at=None,
+        finished_at=None,
+        latest_progress=None,
+        progress_events=[],
+    )
+    saved = {}
+
+    transition = task_lifecycle.apply_cancel_transition(
+        kind="analysis",
+        task_id="task-1",
+        task=task,
+        now_iso="2026-05-13T01:02:03+00:00",
+        cancel_requested_progress=lambda task: {
+            "status": "running",
+            "message": "cancel requested",
+        },
+        canceled_progress=lambda task: {"status": "canceled"},
+        save_task=lambda saved_task: saved.update(task=saved_task),
+    )
+
+    assert transition == "requested"
+    assert task.status == "running"
+    assert task.cancel_requested_at == "2026-05-13T01:02:03+00:00"
+    assert task.canceled_at is None
+    assert task.finished_at is None
+    assert task.latest_progress == {
+        "status": "running",
+        "message": "cancel requested",
+    }
+    assert task.progress_events == [task.latest_progress]
+    assert saved == {"task": task}
+
+
+def test_apply_cancel_transition_cancels_queued_task_and_removes_redis_refs(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        task_lifecycle.task_store,
+        "redis_task_backend_enabled",
+        lambda: True,
+    )
+    task = SimpleNamespace(
+        status="queued",
+        cancel_requested_at=None,
+        canceled_at=None,
+        finished_at=None,
+        latest_progress=None,
+        progress_events=[],
+        error="old error",
+        result={"old": True},
+    )
+    saved = {}
+    removed = {}
+    appended = {}
+    store = SimpleNamespace(
+        remove_task_refs=lambda kind, task_id: removed.update(
+            kind=kind,
+            task_id=task_id,
+        ),
+        append_event=lambda kind, task_id, payload: appended.update(
+            kind=kind,
+            task_id=task_id,
+            payload=payload,
+        ),
+    )
+    monkeypatch.setattr(task_lifecycle.task_store, "get_task_store", lambda: store)
+
+    transition = task_lifecycle.apply_cancel_transition(
+        kind="data_sync",
+        task_id="task-3",
+        task=task,
+        now_iso="2026-05-13T01:02:03+00:00",
+        cancel_requested_progress=lambda task: {"status": "running"},
+        canceled_progress=lambda task: {
+            "status": "canceled",
+            "message": "canceled",
+        },
+        save_task=lambda saved_task: saved.update(task=saved_task),
+        clear_error=True,
+        clear_result=True,
+    )
+
+    assert transition == "canceled"
+    assert task.status == "canceled"
+    assert task.cancel_requested_at == "2026-05-13T01:02:03+00:00"
+    assert task.canceled_at == "2026-05-13T01:02:03+00:00"
+    assert task.finished_at == "2026-05-13T01:02:03+00:00"
+    assert task.error is None
+    assert task.result is None
+    assert task.latest_progress == {"status": "canceled", "message": "canceled"}
+    assert task.progress_events == [task.latest_progress]
+    assert saved == {"task": task}
+    assert removed == {"kind": "data_sync", "task_id": "task-3"}
+    assert appended == {
+        "kind": "data_sync",
+        "task_id": "task-3",
+        "payload": task.latest_progress,
+    }
+
+
 def test_upsert_job_record_projects_common_task_fields(monkeypatch):
     captured = {}
     task = SimpleNamespace(

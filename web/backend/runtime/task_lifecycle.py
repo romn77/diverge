@@ -97,6 +97,50 @@ def append_progress_event(
     return task
 
 
+def apply_cancel_transition(
+    *,
+    kind: str,
+    task_id: str,
+    task: Any,
+    now_iso: str,
+    cancel_requested_progress: Callable[[Any], dict[str, Any]],
+    canceled_progress: Callable[[Any], dict[str, Any]],
+    save_task: Callable[[Any], None],
+    clear_error: bool = False,
+    clear_result: bool = False,
+) -> str:
+    if getattr(task, "status", None) == "running":
+        if not getattr(task, "cancel_requested_at", None):
+            task.cancel_requested_at = now_iso
+            task.latest_progress = cancel_requested_progress(task)
+            task.progress_events.append(task.latest_progress)
+        save_task(task)
+        if task_store.redis_task_backend_enabled():
+            task_store.get_task_store().append_event(
+                kind,
+                task_id,
+                task.latest_progress,
+            )
+        return "requested"
+
+    task.status = "canceled"
+    task.cancel_requested_at = getattr(task, "cancel_requested_at", None) or now_iso
+    task.canceled_at = now_iso
+    task.finished_at = now_iso
+    if clear_error:
+        task.error = None
+    if clear_result:
+        task.result = None
+    task.latest_progress = canceled_progress(task)
+    task.progress_events.append(task.latest_progress)
+    save_task(task)
+    if task_store.redis_task_backend_enabled():
+        store = task_store.get_task_store()
+        store.remove_task_refs(kind, task_id)
+        store.append_event(kind, task_id, task.latest_progress)
+    return "canceled"
+
+
 def _field(source: Any, name: str) -> Any:
     if isinstance(source, dict):
         return source.get(name)

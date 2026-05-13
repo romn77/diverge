@@ -544,13 +544,18 @@ def cancel_data_sync_task(task_id: str) -> None:
         raise HTTPException(
             status_code=409, detail="Finished data sync tasks cannot be canceled."
         )
-    now_iso = _utc_iso()
-    if task.status == "running":
-        if not task.cancel_requested_at:
-            task.cancel_requested_at = now_iso
-            task.latest_progress = _data_sync_cancel_requested_progress(task)
-            task.progress_events.append(task.latest_progress)
-        _save_task(task)
+    transition = task_lifecycle.apply_cancel_transition(
+        kind="data_sync",
+        task_id=task_id,
+        task=task,
+        now_iso=_utc_iso(),
+        cancel_requested_progress=_data_sync_cancel_requested_progress,
+        canceled_progress=_data_sync_canceled_progress,
+        save_task=_save_task,
+        clear_error=True,
+        clear_result=True,
+    )
+    if transition == "requested":
         log_task_event(
             logger,
             "task_cancel_requested",
@@ -559,21 +564,8 @@ def cancel_data_sync_task(task_id: str) -> None:
             task=task,
             sync_type=task.sync_type,
         )
-        if task_store.redis_task_backend_enabled():
-            task_store.get_task_store().append_event(
-                "data_sync", task_id, task.latest_progress
-            )
         return
 
-    task.status = "canceled"
-    task.cancel_requested_at = task.cancel_requested_at or now_iso
-    task.canceled_at = now_iso
-    task.finished_at = now_iso
-    task.error = None
-    task.result = None
-    task.latest_progress = _data_sync_canceled_progress(task)
-    task.progress_events.append(task.latest_progress)
-    _save_task(task)
     log_task_event(
         logger,
         "task_canceled",
@@ -582,10 +574,6 @@ def cancel_data_sync_task(task_id: str) -> None:
         task=task,
         sync_type=task.sync_type,
     )
-    if task_store.redis_task_backend_enabled():
-        store = task_store.get_task_store()
-        store.remove_task_refs("data_sync", task_id)
-        store.append_event("data_sync", task_id, task.latest_progress)
     record_data_sync_audit_event(
         task,
         action=f"data_sync.{task.sync_type}.canceled",

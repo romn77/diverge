@@ -880,13 +880,18 @@ def cancel_task(task_id: str) -> None:
         raise HTTPException(
             status_code=409, detail="Finished tasks cannot be canceled."
         )
-    now_iso = _utc_iso()
-    if task.status == "running":
-        if not task.cancel_requested_at:
-            task.cancel_requested_at = now_iso
-            task.latest_progress = build_cancel_requested_progress(task)
-            task.progress_events.append(task.latest_progress)
-        save_task(task)
+    transition = task_lifecycle.apply_cancel_transition(
+        kind="analysis",
+        task_id=task_id,
+        task=task,
+        now_iso=_utc_iso(),
+        cancel_requested_progress=build_cancel_requested_progress,
+        canceled_progress=lambda task: build_canceled_progress(
+            task, "System: Task canceled."
+        ),
+        save_task=save_task,
+    )
+    if transition == "requested":
         log_task_event(
             logger,
             "task_cancel_requested",
@@ -894,19 +899,8 @@ def cancel_task(task_id: str) -> None:
             task_id=task_id,
             task=task,
         )
-        if task_store.redis_task_backend_enabled():
-            task_store.get_task_store().append_event(
-                "analysis", task_id, task.latest_progress
-            )
         return
 
-    task.status = "canceled"
-    task.cancel_requested_at = task.cancel_requested_at or now_iso
-    task.canceled_at = now_iso
-    task.finished_at = now_iso
-    task.latest_progress = build_canceled_progress(task, "System: Task canceled.")
-    task.progress_events.append(task.latest_progress)
-    save_task(task)
     log_task_event(
         logger,
         "task_canceled",
@@ -914,14 +908,6 @@ def cancel_task(task_id: str) -> None:
         task_id=task_id,
         task=task,
     )
-    if task_store.redis_task_backend_enabled():
-        store = task_store.get_task_store()
-        store.remove_task_refs("analysis", task_id)
-        store.append_event(
-            "analysis",
-            task_id,
-            task.latest_progress,
-        )
 
 
 def storage_backend_is_remote() -> bool:
