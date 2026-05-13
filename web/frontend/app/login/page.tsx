@@ -7,7 +7,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { DivergeMark } from "@/components/BrandMark";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 function resolveNextPath(value: string | null): string {
@@ -70,89 +69,100 @@ export default function LoginPage() {
 
   if (authStatus === "loading") {
     return (
-      <main className="flex min-h-dvh items-center justify-center px-6 py-10">
-        <Card className="card-surface w-full max-w-lg text-center">
-          <CardHeader>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
+      <main className="login-shell login-shell--center px-6 py-10">
+        <div className="login-status-card w-full max-w-lg text-center">
+          <div className="flex flex-col gap-2 px-6 py-7">
+            <p className="login-kicker">
               {t("auth.sessionBootstrap", "Session Bootstrap")}
             </p>
-            <CardTitle>{t("auth.preparingSignIn", "Preparing secure sign-in")}</CardTitle>
-            <CardDescription>
+            <div className="login-status-title">
+              {t("auth.preparingSignIn", "Preparing secure sign-in")}
+            </div>
+            <div className="login-status-description">
               {t("auth.checkingSession", "Checking for an existing session.")}
-            </CardDescription>
-          </CardHeader>
-        </Card>
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
 
   if (authStatus === "error") {
     return (
-      <main className="flex min-h-dvh items-center justify-center px-6 py-10">
-        <Card className="card-surface w-full max-w-lg text-center">
-          <CardHeader>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--danger)]">
+      <main className="login-shell login-shell--center px-6 py-10">
+        <div className="login-status-card w-full max-w-lg text-center">
+          <div className="flex flex-col gap-2 px-6 pt-7">
+            <p className="login-kicker login-kicker--danger">
               {t("auth.unavailable", "Auth Unavailable")}
             </p>
-            <CardTitle>{t("auth.unavailableTitle", "Unable to reach the auth service")}</CardTitle>
-            <CardDescription>
+            <div className="login-status-title">
+              {t("auth.unavailableTitle", "Unable to reach the auth service")}
+            </div>
+            <div className="login-status-description">
               {authError ?? t("auth.verifyFallback", "We couldn't verify your session.")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center pt-0">
-            <Button type="button" onClick={() => void refreshSession()}>
+            </div>
+          </div>
+          <div className="flex justify-center px-6 pb-7 pt-5">
+            <Button
+              type="button"
+              variant="secondary"
+              className="login-submit"
+              onClick={() => void refreshSession()}
+            >
               {t("auth.retryBootstrap", "Retry Auth Bootstrap")}
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </main>
     );
   }
 
   if (shouldSkipLogin) {
     return (
-      <main className="flex min-h-dvh items-center justify-center px-6 py-10">
-        <Card className="card-surface w-full max-w-lg text-center">
-          <CardHeader>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.36em] text-[var(--primary)]">
+      <main className="login-shell login-shell--center px-6 py-10">
+        <div className="login-status-card w-full max-w-lg text-center">
+          <div className="flex flex-col gap-2 px-6 py-7">
+            <p className="login-kicker">
               {t("auth.sessionReady", "Session Ready")}
             </p>
-            <CardTitle>{t("auth.redirectingWorkbench", "Redirecting back to the workbench")}</CardTitle>
-            <CardDescription>
+            <div className="login-status-title">
+              {t("auth.redirectingWorkbench", "Redirecting back to the workbench")}
+            </div>
+            <div className="login-status-description">
               {t("auth.returningDestination", "Returning to your destination.")}
-            </CardDescription>
-          </CardHeader>
-        </Card>
+            </div>
+          </div>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-dvh items-center justify-center px-4 py-8 text-foreground md:px-8">
-      <div className="card-surface grid w-full max-w-6xl overflow-hidden rounded-[34px] backdrop-blur-sm md:grid-cols-[1.1fr_0.9fr]">
-        <section className="diverge-login-panel relative overflow-hidden border-b border-border px-6 py-8 md:border-b-0 md:border-r md:px-10 md:py-12">
+    <main className="login-shell px-4 py-8 md:px-8">
+      <div className="login-card grid w-full max-w-6xl overflow-hidden md:grid-cols-[1.08fr_0.92fr]">
+        <section className="login-brand-panel relative overflow-hidden px-6 py-8 md:px-10 md:py-12">
           <div className="relative flex min-h-full items-center justify-center">
             <div className="mx-auto flex w-full max-w-md flex-col items-center text-center">
-              <DivergeMark className="h-44 w-44 text-[var(--primary)] md:h-60 md:w-60" />
-              <h1 className="font-heading mt-8 text-5xl font-semibold text-foreground md:text-7xl">
+              <DivergeMark className="login-brand-mark h-44 w-44 md:h-60 md:w-60" />
+              <h1 className="login-brand-title font-heading mt-8 text-5xl font-semibold md:text-7xl">
                 Diverge
               </h1>
             </div>
           </div>
         </section>
 
-        <section className="px-6 py-8 md:px-10 md:py-12">
+        <section className="login-form-panel px-6 py-8 md:px-10 md:py-12">
           <div className="mx-auto w-full max-w-md">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.34em] text-muted-foreground">
+            <p className="login-kicker">
               {t("auth.login", "Login")}
             </p>
-            <h2 className="font-heading mt-3 text-3xl font-bold tracking-tight text-foreground">
+            <h2 className="login-form-title font-heading mt-3 text-3xl font-bold">
               {t("auth.workspaceCredentials", "Workspace credentials")}
             </h2>
 
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
               <label className="block">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
+                <span className="login-label">
                   {t("auth.email", "Email")}
                 </span>
                 <Input
@@ -161,13 +171,13 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="mt-2"
+                  className="login-input mt-2"
                   placeholder="analyst@diverge.local"
                 />
               </label>
 
               <label className="block">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.26em] text-muted-foreground">
+                <span className="login-label">
                   {t("auth.password", "Password")}
                 </span>
                 <Input
@@ -176,7 +186,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="mt-2"
+                  className="login-input mt-2"
                   placeholder={t("auth.passwordPlaceholder", "Enter your password")}
                 />
               </label>
@@ -185,28 +195,33 @@ export default function LoginPage() {
                 <div
                   className="rounded-[22px] border px-4 py-3 text-sm text-[var(--danger)]"
                   style={{
-                    borderColor: "color-mix(in srgb, var(--danger) 20%, transparent)",
+                    borderColor: "color-mix(in srgb, var(--login-danger) 36%, transparent)",
                     backgroundColor:
-                      "color-mix(in srgb, var(--danger) 10%, transparent)",
+                      "color-mix(in srgb, var(--login-danger) 14%, transparent)",
                   }}
                 >
                   {formError}
                 </div>
               ) : null}
 
-              <Button type="submit" disabled={isSubmitting} className="w-full">
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={isSubmitting}
+                className="login-submit w-full"
+              >
                 {isSubmitting
                   ? t("auth.signingIn", "Signing In")
                   : t("auth.signIn", "Sign In")}
               </Button>
             </form>
 
-            <div className="card-surface mt-6 rounded-[24px] border-dashed px-4 py-4 text-sm text-muted-foreground">
+            <div className="login-help-card mt-6 px-4 py-4 text-sm">
               {t("auth.accessHelp", "Need access help? Ask your workspace admin.")}
             </div>
 
-            <div className="mt-4 flex justify-end text-sm text-muted-foreground">
-              <Button asChild variant="ghost" size="sm" className="h-auto px-0 py-0 text-[var(--primary)]">
+            <div className="mt-4 flex justify-end text-sm">
+              <Button asChild variant="ghost" size="sm" className="login-back-link h-auto px-0 py-0">
                 <Link href="/">{t("auth.backToWorkbench", "Back to workbench")}</Link>
               </Button>
             </div>

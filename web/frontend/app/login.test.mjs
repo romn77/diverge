@@ -9,7 +9,6 @@ test("login page bootstraps from auth state and preserves the requested destinat
   const source = readFileSync(loginPagePath, "utf8");
 
   assert.match(source, /from "@\/components\/ui\/button"/);
-  assert.match(source, /from "@\/components\/ui\/card"/);
   assert.match(source, /from "@\/components\/ui\/input"/);
   assert.match(source, /resolveNextPath/);
   assert.match(source, /useAuth/);
@@ -24,7 +23,12 @@ test("login page bootstraps from auth state and preserves the requested destinat
 test("login page uses theme-aware surface and text tokens for the signed-out layout", () => {
   const source = readFileSync(loginPagePath, "utf8");
 
-  assert.match(source, /card-surface/);
+  assert.match(source, /login-shell/);
+  assert.match(source, /login-card/);
+  assert.match(source, /login-brand-panel/);
+  assert.match(source, /login-form-panel/);
+  assert.doesNotMatch(source, /card-surface/);
+  assert.doesNotMatch(source, /diverge-login-panel/);
   assert.doesNotMatch(source, /bg-\[rgba\(255,252,246,0\.92\)\]/);
   assert.doesNotMatch(source, /bg-white\/82/);
   assert.doesNotMatch(source, /className="mt-2 bg-white"/);
