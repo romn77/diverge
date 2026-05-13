@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from datetime import date, datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -16,7 +17,7 @@ from web.backend.schemas.data_sync import (
     DataSyncFundamentalsPayload,
     DataSyncOhlcvPayload,
 )
-from web.backend.services import fundamental_sync, ohlcv_sync_payloads
+from web.backend.services import fundamental_sync, ohlcv_readiness, ohlcv_sync_payloads
 
 
 def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
@@ -521,6 +522,38 @@ def test_fundamental_sync_service_dedupes_explicit_symbols():
             "symbols": [" aapl ", "AAPL", "msft", ""],
         }
     ) == ["AAPL", "MSFT"]
+
+
+def test_ohlcv_readiness_service_resolves_previous_day_before_cutoff():
+    ready_day = ohlcv_readiness.resolve_latest_ready_trading_day(
+        "cn",
+        "tushare",
+        now_for_timezone=lambda timezone_name: datetime(2026, 4, 29, 17, 59),
+    )
+
+    assert ready_day == date(2026, 4, 28)
+
+
+def test_ohlcv_readiness_service_accepts_injected_ready_probe():
+    calls = []
+
+    def fake_fetch_price_history(*args, **kwargs):
+        calls.append((args, kwargs))
+        return pd.DataFrame({"Date": ["2026-04-29"]})
+
+    ohlcv_readiness.ensure_ohlcv_vendor_ready(
+        {
+            "markets": ["cn"],
+            "as_of_date": "2026-04-29",
+            "cn_data_source": "tushare",
+        },
+        now_for_timezone=lambda timezone_name: datetime(2026, 4, 29, 18, 30),
+        fetch_price_history_fn=fake_fetch_price_history,
+    )
+
+    assert calls
+    assert calls[0][0][0] == "000001.SZ"
+    assert calls[0][1]["cn_data_source"] == "tushare"
 
 
 def test_tushare_ohlcv_sync_rejects_today_before_ready_cutoff(monkeypatch):
