@@ -249,6 +249,147 @@ docker compose -f compose.prod.yml up -d
 
 `compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, and optional Tencent COS object storage. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
 
+## Monitoring With Sentry SaaS And Dozzle
+
+Recommended production setup:
+
+```text
+Sentry SaaS: EU data storage location
+Server: Tencent Cloud
+Dozzle: server-local only, accessed through an SSH tunnel
+Sentry SDK: scrub sensitive data before sending events
+```
+
+For Sentry SaaS, create the organization in the EU data storage location before
+creating projects and DSNs. Sentry documents US and EU data storage locations;
+the Help Center currently lists US event data in Iowa, USA and EU event data in
+Frankfurt, Germany. The EU choice is a data residency and compliance preference,
+not a replacement for application-side redaction.
+
+Use environment variables for Sentry settings and keep DSNs out of source:
+
+```bash
+SENTRY_DSN=
+SENTRY_ENVIRONMENT=production
+SENTRY_TRACES_SAMPLE_RATE=0.05
+```
+
+When adding the Python/FastAPI SDK, keep default PII disabled and scrub events
+before upload:
+
+```python
+import os
+import re
+
+import sentry_sdk
+
+
+SENSITIVE_KEYS = {
+    "authorization",
+    "cookie",
+    "set-cookie",
+    "x-api-key",
+    "api_key",
+    "token",
+    "access_token",
+    "refresh_token",
+    "password",
+    "secret",
+    "dsn",
+    "database_url",
+    "openai_api_key",
+    "google_api_key",
+    "gemini_api_key",
+    "minimax_api_key",
+    "tushare_token",
+    "prompt",
+    "agent_input",
+    "agent_output",
+    "llm_response",
+    "messages",
+    "portfolio",
+    "holdings",
+    "positions",
+    "trade_records",
+    "api_raw_response",
+}
+
+
+def _scrub_value(value: object) -> object:
+    if value is None:
+        return value
+    text = str(value)
+    text = re.sub(r"sk-[A-Za-z0-9_\-]{20,}", "[REDACTED_OPENAI_KEY]", text)
+    text = re.sub(r"Bearer\s+[A-Za-z0-9._\-]+", "Bearer [REDACTED]", text)
+    text = re.sub(r"postgresql://[^\s]+", "postgresql://[REDACTED]", text)
+    text = re.sub(r"mysql://[^\s]+", "mysql://[REDACTED]", text)
+    return text
+
+
+def _scrub_obj(obj: object) -> object:
+    if isinstance(obj, dict):
+        return {
+            key: "[REDACTED]"
+            if str(key).lower() in SENSITIVE_KEYS
+            else _scrub_obj(value)
+            for key, value in obj.items()
+        }
+    if isinstance(obj, list):
+        return [_scrub_obj(item) for item in obj]
+    if isinstance(obj, str):
+        return _scrub_value(obj)
+    return obj
+
+
+def before_send(event, hint):
+    return _scrub_obj(event)
+
+
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+    traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+    send_default_pii=False,
+    before_send=before_send,
+)
+```
+
+Do not upload full prompts, LLM responses, holdings, trade records, `.env`
+content, provider raw responses, or complete HTTP bodies to Sentry. Prefer small
+diagnostic tags and context such as `task_id`, `symbol`, `market`, `agent`,
+`error_type`, `duration_ms`, `retry_count`, and `data_provider`. If Sentry AI
+integrations are added later, explicitly keep prompt capture disabled, for
+example with `include_prompts=False`.
+
+For Dozzle, run it on the Tencent Cloud host as a local-only container log view.
+Do not add an Nginx route or security group rule for the Dozzle port.
+
+```bash
+docker run -d \
+  --name diverge-dozzle \
+  --restart unless-stopped \
+  -v /var/run/docker.sock:/var/run/docker.sock:ro \
+  -p 127.0.0.1:9999:8080 \
+  amir20/dozzle:latest
+```
+
+Open Dozzle through an SSH tunnel from your local machine:
+
+```bash
+ssh -N -L 9999:127.0.0.1:9999 <ssh-user>@<tencent-cloud-host>
+```
+
+Then browse to `http://127.0.0.1:9999`. Treat the Docker socket mount as
+sensitive operational access even when the port is bound to localhost; only
+trusted operators should be able to SSH into the host.
+
+References:
+
+- [Sentry data storage location](https://docs.sentry.io/organization/data-storage-location/)
+- [Sentry server-side data scrubbing](https://docs.sentry.io/security-legal-pii/scrubbing/server-side-scrubbing/)
+- [Sentry EU Region FAQ](https://sentry.zendesk.com/hc/en-us/articles/25074658211227-Sentry-s-EU-Region-FAQ)
+- [Dozzle getting started](https://dozzle.dev/guide/getting-started)
+
 ## Testing
 
 Useful focused checks:
