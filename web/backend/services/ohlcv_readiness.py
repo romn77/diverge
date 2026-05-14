@@ -223,6 +223,58 @@ def resolve_ready_ohlcv_as_of_date(
     return resolved_day or ready_day
 
 
+def resolve_ready_ohlcv_payload_as_of_date(
+    payload: dict[str, Any],
+    *,
+    now_for_timezone: NowForVendorTimezone = now_for_vendor_timezone,
+) -> date:
+    """Resolve a sync payload's as_of_date to the latest vendor-ready trading day."""
+    requested_date = parse_iso_date(str(payload.get("as_of_date") or ""))
+    if requested_date is None:
+        raise RuntimeError("as_of_date must use YYYY-MM-DD format")
+
+    resolved_days: list[date] = []
+    markets = [str(market).strip().lower() for market in payload.get("markets") or []]
+    for market in markets:
+        source = _ohlcv_source_for_payload(payload, market)
+        ready_context = _ohlcv_ready_context(
+            market,
+            source,
+            now_for_timezone=now_for_timezone,
+        )
+        if (
+            ready_context is not None
+            and requested_date > ready_context["now_local"].date()
+        ):
+            resolved_days.append(requested_date)
+            continue
+        resolved_days.append(
+            resolve_ready_ohlcv_as_of_date(
+                market,
+                source,
+                requested_date,
+                now_for_timezone=now_for_timezone,
+            )
+        )
+
+    if not resolved_days:
+        return requested_date
+    return min(resolved_days)
+
+
+def normalize_ready_ohlcv_payload_as_of_date(
+    payload: dict[str, Any],
+    *,
+    now_for_timezone: NowForVendorTimezone = now_for_vendor_timezone,
+) -> dict[str, Any]:
+    normalized_payload = dict(payload)
+    normalized_payload["as_of_date"] = resolve_ready_ohlcv_payload_as_of_date(
+        normalized_payload,
+        now_for_timezone=now_for_timezone,
+    ).isoformat()
+    return normalized_payload
+
+
 def resolve_latest_ready_trading_day(
     market: str,
     source: str | None = None,

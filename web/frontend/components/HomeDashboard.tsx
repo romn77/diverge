@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, Tags } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePreferences } from "@/components/PreferencesProvider";
@@ -23,6 +23,7 @@ interface HomeDashboardProps {
 }
 
 type ReportScopeFilter = "all" | "mine" | "workspace";
+type ReportDisplayMode = "ticker" | "calendar";
 
 interface ReportTickerGroup {
   ticker: string;
@@ -35,6 +36,11 @@ const REPORT_SCOPE_LABEL_KEYS: Record<ReportScopeFilter, string> = {
   all: "home.scope.all",
   mine: "home.scope.mine",
   workspace: "home.scope.workspace",
+};
+const REPORT_DISPLAY_MODES: ReportDisplayMode[] = ["ticker", "calendar"];
+const REPORT_DISPLAY_MODE_LABEL_KEYS: Record<ReportDisplayMode, string> = {
+  ticker: "home.display.ticker",
+  calendar: "home.display.calendar",
 };
 
 function isOwnedReport(
@@ -89,6 +95,20 @@ function groupReportsByTicker(reports: Report[]): ReportTickerGroup[] {
   }));
 }
 
+function compareReportsByCalendar(left: Report, right: Report): number {
+  const leftValue = `${left.date || ""} ${left.time || ""} ${left.id || ""}`;
+  const rightValue = `${right.date || ""} ${right.time || ""} ${right.id || ""}`;
+  return (
+    rightValue.localeCompare(leftValue) || left.ticker.localeCompare(right.ticker)
+  );
+}
+
+function compareReportsByTicker(left: Report, right: Report): number {
+  return (
+    left.ticker.localeCompare(right.ticker) || compareReportsByCalendar(left, right)
+  );
+}
+
 function formatReportTimestamp(report: Report): string {
   if (report.date && report.time) {
     return `${report.date} ${report.time}`;
@@ -113,6 +133,8 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   } = useWorkbench();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [scopeFilter, setScopeFilter] = useState<ReportScopeFilter>("all");
+  const [reportDisplayMode, setReportDisplayMode] =
+    useState<ReportDisplayMode>("ticker");
   const [expandedTickerGroups, setExpandedTickerGroups] = useState<Record<string, boolean>>({});
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
   const currentUserId = authState?.user?.id ?? null;
@@ -156,7 +178,14 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   }, [router, searchQuery]);
 
   const matchingReports = scopedReports;
-  const visibleReports = useMemo(() => matchingReports.slice(0, 8), [matchingReports]);
+  const visibleReports = useMemo(
+    () => [...matchingReports].sort(compareReportsByTicker).slice(0, 8),
+    [matchingReports]
+  );
+  const calendarSortedReports = useMemo(
+    () => [...matchingReports].sort(compareReportsByCalendar).slice(0, 8),
+    [matchingReports]
+  );
   const reportTickerGroups = useMemo(
     () => groupReportsByTicker(visibleReports),
     [visibleReports]
@@ -261,26 +290,53 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               ) : null}
             </div>
 
-            <div
-              className="mt-5 flex flex-wrap gap-2"
-              role="group"
-              aria-label={t("home.scope.label", "Report scope")}
-            >
-              {REPORT_SCOPE_FILTERS.map((scope) => (
-                <Button
-                  key={scope}
-                  type="button"
-                  variant={scopeFilter === scope ? "default" : "secondary"}
-                  size="sm"
-                  onClick={() => setScopeFilter(scope)}
-                  className={scopeFilter === scope ? "shadow-none" : "text-slate-700"}
-                >
-                  {t(REPORT_SCOPE_LABEL_KEYS[scope], scope)}
-                  <span className="ml-2 rounded-full bg-white/55 px-2 py-0.5 text-[10px]">
-                    {reportScopeCounts[scope]}
-                  </span>
-                </Button>
-              ))}
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+              <div
+                className="flex flex-wrap gap-2"
+                role="group"
+                aria-label={t("home.scope.label", "Report scope")}
+              >
+                {REPORT_SCOPE_FILTERS.map((scope) => (
+                  <Button
+                    key={scope}
+                    type="button"
+                    variant={scopeFilter === scope ? "default" : "secondary"}
+                    size="sm"
+                    onClick={() => setScopeFilter(scope)}
+                    className={scopeFilter === scope ? "shadow-none" : "text-slate-700"}
+                  >
+                    {t(REPORT_SCOPE_LABEL_KEYS[scope], scope)}
+                    <span className="ml-2 rounded-full bg-white/55 px-2 py-0.5 text-[10px]">
+                      {reportScopeCounts[scope]}
+                    </span>
+                  </Button>
+                ))}
+              </div>
+
+              <div
+                className="flex flex-wrap gap-2"
+                role="group"
+                aria-label={t("home.display.label", "Report display")}
+              >
+                {REPORT_DISPLAY_MODES.map((mode) => {
+                  const isSelected = reportDisplayMode === mode;
+                  const Icon = mode === "ticker" ? Tags : CalendarDays;
+                  return (
+                    <Button
+                      key={mode}
+                      type="button"
+                      variant={isSelected ? "default" : "secondary"}
+                      size="sm"
+                      aria-pressed={isSelected}
+                      onClick={() => setReportDisplayMode(mode)}
+                      className={isSelected ? "shadow-none" : "text-slate-700"}
+                    >
+                      <Icon size={14} aria-hidden="true" />
+                      {t(REPORT_DISPLAY_MODE_LABEL_KEYS[mode], mode)}
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
 
             {reportsError ? (
@@ -304,6 +360,54 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             ) : matchingReports.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
                 {t("home.noReportMatches", "No reports match this search yet.")}
+              </div>
+            ) : reportDisplayMode === "calendar" ? (
+              <div className="analysis-report-list mt-5">
+                {calendarSortedReports.map((report) => (
+                  <div
+                    key={report.id}
+                    className="analysis-report-row group flex items-center justify-between gap-4"
+                  >
+                    <Link href={buildReportHref(report.id)} className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-mono text-xs font-semibold text-slate-700">
+                          {formatReportTimestamp(report)}
+                        </p>
+                        <Badge variant="secondary" className="px-2 py-1 text-[10px]">
+                          {report.ticker}
+                        </Badge>
+                        {report.visibility ? (
+                          <Badge
+                            variant={
+                              report.visibility === "workspace" ? "success" : "secondary"
+                            }
+                            className="px-2 py-1 text-[10px]"
+                          >
+                            {report.visibility === "workspace"
+                              ? t("home.visibility.workspace", "Workspace")
+                              : t("home.visibility.private", "Private")}
+                          </Badge>
+                        ) : null}
+                        {report.visibility && report.visibility_admin_override ? (
+                          <Badge variant="secondary" className="px-2 py-1 text-[10px]">
+                            {t("home.visibility.adminOverride", "Admin adjusted")}
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
+                        {report.id}
+                      </p>
+                    </Link>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Link
+                        href={buildReportHref(report.id)}
+                        className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]"
+                      >
+                        {t("common.open", "Open")}
+                      </Link>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="analysis-report-list mt-5">
