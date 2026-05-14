@@ -9,6 +9,7 @@ from web.backend import auth
 
 class AdminUserCreatePayload(BaseModel):
     email: str
+    username: Optional[str] = None
     display_name: str
     password: str
     role: auth.UserRole = auth.UserRole.VIEWER
@@ -17,6 +18,7 @@ class AdminUserCreatePayload(BaseModel):
 
 
 class AdminUserUpdatePayload(BaseModel):
+    username: Optional[str] = None
     display_name: Optional[str] = None
     role: Optional[auth.UserRole] = None
     status: Optional[auth.UserStatus] = None

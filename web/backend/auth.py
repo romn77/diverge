@@ -4,6 +4,7 @@ import hashlib
 import ipaddress
 import logging
 import os
+import re
 import secrets
 import threading
 import time
@@ -28,6 +29,7 @@ from sqlalchemy import (
     create_engine,
     func,
     inspect,
+    or_,
     select,
 )
 from sqlalchemy.engine import Engine
@@ -59,10 +61,15 @@ DEFAULT_TENANT_SLUG = "default"
 VALID_COOKIE_SAMESITE = {"lax", "strict", "none"}
 VALID_AUTH_MODES = {"disabled", "optional", "required"}
 MIN_PASSWORD_LENGTH = 8
+MIN_USERNAME_LENGTH = 3
+MAX_USERNAME_LENGTH = 64
+USERNAME_COLUMN_LENGTH = 320
+MAX_EMAIL_USERNAME_LENGTH = USERNAME_COLUMN_LENGTH
 LOGIN_FAILURE_LIMIT = 5
 LOGIN_FAILURE_WINDOW_SECONDS = 15 * 60
 DEFAULT_TRUSTED_PROXY_CIDRS = "127.0.0.1/32,::1/128"
 
+USERNAME_PATTERN = re.compile(r"^[a-z0-9._@+-]+$")
 _PASSWORD_HASHER = PasswordHasher()
 _ENGINE_LOCK = threading.Lock()
 _ENGINE: Engine | None = None
@@ -127,6 +134,25 @@ def normalize_email(value: str | None) -> str:
     if "@" not in candidate or candidate.startswith("@") or candidate.endswith("@"):
         raise AuthValidationError("email must look like a valid address")
     return candidate
+
+
+def normalize_username(value: str | None, *, field_name: str = "username") -> str:
+    candidate = _require_text(value, field_name).lower()
+    max_length = MAX_EMAIL_USERNAME_LENGTH if "@" in candidate else MAX_USERNAME_LENGTH
+    if not (MIN_USERNAME_LENGTH <= len(candidate) <= max_length):
+        raise AuthValidationError(
+            f"{field_name} must be between "
+            f"{MIN_USERNAME_LENGTH} and {max_length} characters"
+        )
+    if not USERNAME_PATTERN.fullmatch(candidate):
+        raise AuthValidationError(
+            f"{field_name} can only contain letters, numbers, '.', '_', '@', '+', or '-'"
+        )
+    return candidate
+
+
+def normalize_login_identifier(value: str | None) -> str:
+    return _require_text(value, "account").lower()
 
 
 def normalize_password(value: str | None, *, field_name: str = "password") -> str:
@@ -412,7 +438,9 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         Index("ix_users_email", "email", unique=True),
+        Index("ix_users_username", "username"),
         Index("ix_users_tenant_email", "tenant_id", "email", unique=True),
+        Index("ix_users_tenant_username", "tenant_id", "username", unique=True),
         Index("ix_users_role_status", "role", "status"),
     )
 
@@ -426,6 +454,9 @@ class User(Base):
         default=DEFAULT_TENANT_ID,
     )
     email: Mapped[str] = mapped_column(String(320), nullable=False)
+    username: Mapped[str] = mapped_column(
+        String(USERNAME_COLUMN_LENGTH), nullable=False
+    )
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     role: Mapped[str] = mapped_column(
@@ -546,6 +577,7 @@ class AuthSettings:
     session_cookie_secure: bool
     session_cookie_samesite: Literal["lax", "strict", "none"]
     bootstrap_admin_email: str | None
+    bootstrap_admin_username: str | None
     bootstrap_admin_password: str | None
     bootstrap_admin_display_name: str
 
@@ -565,6 +597,7 @@ def get_auth_settings() -> AuthSettings:
         )
 
     bootstrap_email = os.environ.get("AUTH_BOOTSTRAP_ADMIN_EMAIL")
+    bootstrap_username = os.environ.get("AUTH_BOOTSTRAP_ADMIN_USERNAME")
     bootstrap_password = os.environ.get("AUTH_BOOTSTRAP_ADMIN_PASSWORD")
     bootstrap_display_name = (
         os.environ.get(
@@ -590,6 +623,9 @@ def get_auth_settings() -> AuthSettings:
         session_cookie_samesite=cookie_samesite,  # type: ignore[arg-type]
         bootstrap_admin_email=bootstrap_email.strip().lower()
         if bootstrap_email and bootstrap_email.strip()
+        else None,
+        bootstrap_admin_username=normalize_username(bootstrap_username)
+        if bootstrap_username and bootstrap_username.strip()
         else None,
         bootstrap_admin_password=bootstrap_password.strip()
         if bootstrap_password and bootstrap_password.strip()
@@ -704,6 +740,7 @@ def serialize_user(user: User) -> dict[str, object]:
         "id": user.id,
         "tenant_id": user.tenant_id,
         "email": user.email,
+        "username": user.username,
         "display_name": user.display_name,
         "role": user.role,
         "status": user.status,
@@ -820,6 +857,42 @@ def create_tenant(
 def get_user_by_email(db: Session, email: str) -> User | None:
     normalized_email = normalize_email(email)
     return db.scalar(select(User).where(User.email == normalized_email))
+
+
+def get_user_by_username(
+    db: Session, username: str, *, tenant_id: str | None = None
+) -> User | None:
+    normalized_username = normalize_username(username)
+    statement = select(User).where(User.username == normalized_username)
+    if tenant_id is not None:
+        statement = statement.where(
+            User.tenant_id == _require_text(tenant_id, "tenant_id")
+        )
+    return db.scalar(statement)
+
+
+def get_user_by_account(db: Session, account: str) -> User | None:
+    normalized_account = normalize_login_identifier(account)
+    if "@" in normalized_account:
+        try:
+            email_user = get_user_by_email(db, normalized_account)
+        except AuthValidationError:
+            email_user = None
+        if email_user is not None:
+            return email_user
+
+    try:
+        normalized_username = normalize_username(normalized_account)
+    except AuthValidationError:
+        return None
+    matches = list(
+        db.scalars(
+            select(User).where(User.username == normalized_username).limit(2)
+        )
+    )
+    if len(matches) != 1:
+        return None
+    return matches[0]
 
 
 def get_user_by_id(db: Session, user_id: str) -> User:
@@ -978,11 +1051,35 @@ def _ensure_not_last_active_admin(
         raise AuthConflictError("Cannot remove the last active admin user")
 
 
+def _ensure_account_identifiers_available(
+    db: Session,
+    *,
+    tenant_id: str,
+    identifiers: set[str],
+    exclude_user_id: str | None = None,
+) -> None:
+    normalized_identifiers = {item for item in identifiers if item}
+    if not normalized_identifiers:
+        return
+    statement = select(User).where(
+        User.tenant_id == _require_text(tenant_id, "tenant_id"),
+        or_(
+            User.email.in_(normalized_identifiers),
+            User.username.in_(normalized_identifiers),
+        ),
+    )
+    if exclude_user_id is not None:
+        statement = statement.where(User.id != exclude_user_id)
+    if db.scalar(statement.limit(1)) is not None:
+        raise AuthConflictError("Account identifier already exists")
+
+
 def create_user(
     db: Session,
     *,
     email: str,
     display_name: str | None,
+    username: str | None = None,
     password: str,
     role: UserRole | str = UserRole.VIEWER.value,
     status: UserStatus | str = UserStatus.ACTIVE.value,
@@ -990,6 +1087,8 @@ def create_user(
     tenant_id: str | None = None,
 ) -> User:
     normalized_email = normalize_email(email)
+    username_candidate = username.strip() if username is not None else ""
+    normalized_username = normalize_username(username_candidate or normalized_email)
     normalized_role = _normalize_role(role)
     normalized_status = _normalize_status(status)
     normalized_display_name = (
@@ -998,10 +1097,16 @@ def create_user(
         else normalized_email
     )
     tenant = get_tenant_by_id(db, tenant_id) if tenant_id else ensure_default_tenant(db)
+    _ensure_account_identifiers_available(
+        db,
+        tenant_id=tenant.id,
+        identifiers={normalized_email, normalized_username},
+    )
 
     user = User(
         tenant_id=tenant.id,
         email=normalized_email,
+        username=normalized_username,
         display_name=normalized_display_name,
         password_hash=hash_password(password),
         role=normalized_role,
@@ -1020,6 +1125,7 @@ def update_user(
     db: Session,
     user_id: str,
     *,
+    username: str | None = None,
     display_name: str | None = None,
     role: UserRole | str | None = None,
     status: UserStatus | str | None = None,
@@ -1037,6 +1143,15 @@ def update_user(
         if not normalized_display_name:
             raise AuthValidationError("display_name cannot be empty")
         user.display_name = normalized_display_name
+    if username is not None:
+        normalized_username = normalize_username(username)
+        _ensure_account_identifiers_available(
+            db,
+            tenant_id=user.tenant_id,
+            identifiers={normalized_username},
+            exclude_user_id=user.id,
+        )
+        user.username = normalized_username
     if next_role is not None:
         user.role = next_role
     if next_status is not None:
@@ -1087,10 +1202,17 @@ def reset_user_password(
     return user
 
 
-def authenticate_user(db: Session, *, email: str, password: str) -> User:
-    user = get_user_by_email(db, email)
+def authenticate_user(
+    db: Session,
+    *,
+    account: str | None = None,
+    email: str | None = None,
+    password: str,
+) -> User:
+    identifier = account if account is not None and account.strip() else email
+    user = get_user_by_account(db, identifier or "")
     if user is None or not verify_password(user.password_hash, password):
-        raise AuthValidationError("Invalid email or password")
+        raise AuthValidationError("Invalid account or password")
     if user.status != UserStatus.ACTIVE.value:
         raise AuthPermissionError("User account is disabled")
     return user
@@ -1307,6 +1429,7 @@ def ensure_bootstrap_admin(
     user = create_user(
         db,
         email=resolved_settings.bootstrap_admin_email,
+        username=resolved_settings.bootstrap_admin_username,
         display_name=resolved_settings.bootstrap_admin_display_name,
         password=resolved_settings.bootstrap_admin_password,
         role=UserRole.ADMIN.value,

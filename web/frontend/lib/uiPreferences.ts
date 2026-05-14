@@ -187,6 +187,8 @@ const zhTranslations: Record<string, TranslationTemplate> = {
   "auth.returningDestination": "正在回到目标页面。",
   "auth.login": "登录",
   "auth.workspaceCredentials": "工作台凭据",
+  "auth.account": "账号",
+  "auth.accountPlaceholder": "用户名或邮箱",
   "auth.email": "邮箱",
   "auth.password": "密码",
   "auth.passwordPlaceholder": "输入密码",

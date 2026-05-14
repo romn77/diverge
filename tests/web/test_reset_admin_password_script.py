@@ -17,6 +17,7 @@ class ResetAdminPasswordScriptTests(unittest.TestCase):
             "AUTH_MODE": "required",
             "DATABASE_URL": f"sqlite+pysqlite:///{self.database_path}",
             "AUTH_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
+            "AUTH_BOOTSTRAP_ADMIN_USERNAME": "admin",
             "AUTH_BOOTSTRAP_ADMIN_PASSWORD": "NewPass123",
             "AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME": "Administrator",
         }
@@ -61,6 +62,7 @@ class ResetAdminPasswordScriptTests(unittest.TestCase):
 
             with auth.db_session() as db:
                 updated_user = auth.get_user_by_id(db, user_id)
+                self.assertEqual(updated_user.username, "admin")
                 self.assertTrue(
                     auth.verify_password(updated_user.password_hash, "NewPass123")
                 )

@@ -11,6 +11,13 @@ test("api client remains configurable for Vercel or separate backend deployments
   assert.doesNotMatch(source, /\/api\/healthz["'`]/);
 });
 
+test("auth API types expose username login while preserving email identity", () => {
+  assert.match(source, /interface AuthUser[\s\S]*username:\s*string/);
+  assert.match(source, /interface LoginRequest[\s\S]*account:\s*string/);
+  assert.match(source, /interface AdminUserCreateRequest[\s\S]*username\?:\s*string/);
+  assert.match(source, /interface AdminUserUpdateRequest[\s\S]*username\?:\s*string/);
+});
+
 test("frontend API exposes market resolution and AI-generated trade review endpoints", () => {
   assert.match(source, /interface MarketResolution/);
   assert.match(source, /export async function resolveMarketSymbol/);

@@ -34,6 +34,7 @@ export interface AuthUser {
   id: string;
   tenant_id: string;
   email: string;
+  username: string;
   display_name: string;
   role: UserRole;
   status: UserStatus;
@@ -54,7 +55,7 @@ export interface AuthState {
 }
 
 export interface LoginRequest {
-  email: string;
+  account: string;
   password: string;
 }
 
@@ -65,6 +66,7 @@ export interface ChangePasswordRequest {
 
 export interface AdminUserCreateRequest {
   email: string;
+  username?: string;
   display_name: string;
   password: string;
   role: UserRole;
@@ -73,6 +75,7 @@ export interface AdminUserCreateRequest {
 }
 
 export interface AdminUserUpdateRequest {
+  username?: string;
   display_name?: string;
   role?: UserRole;
   status?: UserStatus;

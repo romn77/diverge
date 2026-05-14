@@ -143,7 +143,8 @@ Recommended rollout sequence:
 
 ```bash
 cp .env.example .env
-# set DATABASE_URL, AUTH_BOOTSTRAP_ADMIN_EMAIL, AUTH_BOOTSTRAP_ADMIN_PASSWORD, and FRONTEND_ORIGIN
+# set DATABASE_URL, AUTH_BOOTSTRAP_ADMIN_EMAIL, AUTH_BOOTSTRAP_ADMIN_USERNAME,
+# AUTH_BOOTSTRAP_ADMIN_PASSWORD, and FRONTEND_ORIGIN
 
 # check database connectivity, migration status, and required tables
 scripts/check-database.sh
