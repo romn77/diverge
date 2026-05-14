@@ -17,7 +17,11 @@ def calculate_multiples(
     market_cap = market.market_cap
     enterprise_value = market.enterprise_value
 
-    if market_cap is None and market.share_price is not None and market.shares_outstanding:
+    if (
+        market_cap is None
+        and market.share_price is not None
+        and market.shares_outstanding
+    ):
         market_cap = market.share_price * market.shares_outstanding
 
     if enterprise_value is None:
@@ -48,7 +52,9 @@ def calculate_multiples(
         1,
     )
     eps_growth_long_term = _safe_divide(
-        eps_growth_long_term_assumption.value if eps_growth_long_term_assumption else None,
+        eps_growth_long_term_assumption.value
+        if eps_growth_long_term_assumption
+        else None,
         1,
     )
 

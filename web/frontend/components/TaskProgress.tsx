@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -49,20 +50,40 @@ export function TaskProgress({
   const [streamError, setStreamError] = useState<string | null>(null);
   const [showRequestDetails, setShowRequestDetails] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const onTaskCompleteRef = useRef(onTaskComplete);
+  const hasNotifiedTaskCompleteRef = useRef(false);
+
+  useEffect(() => {
+    onTaskCompleteRef.current = onTaskComplete;
+  }, [onTaskComplete]);
+
+  useEffect(() => {
+    hasNotifiedTaskCompleteRef.current = false;
+  }, [taskId]);
 
   useEffect(() => {
     let isActive = true;
+    let unsubscribe: (() => void) | undefined;
+
+    const notifyTaskComplete = (reportId: string | null) => {
+      if (hasNotifiedTaskCompleteRef.current) {
+        return;
+      }
+      hasNotifiedTaskCompleteRef.current = true;
+      onTaskCompleteRef.current(reportId);
+    };
 
     const syncTask = async () => {
       const nextTask = await getTask(taskId);
       if (!isActive) {
-        return;
+        return null;
       }
       setTask(nextTask);
       setLoading(false);
       if (nextTask.status === "completed") {
-        onTaskComplete(nextTask.report_id);
+        notifyTaskComplete(nextTask.report_id);
       }
+      return nextTask;
     };
 
     const ingestEvent = (event: ProgressEvent) => {
@@ -94,11 +115,30 @@ export function TaskProgress({
       );
 
       if (isTerminalTaskStatus(event.status)) {
+        unsubscribe?.();
+        unsubscribe = undefined;
         void syncTask();
       }
     };
 
-    void syncTask().catch((error) => {
+    const syncAndSubscribe = async () => {
+      const nextTask = await syncTask();
+      if (!nextTask || isTerminalTaskStatus(nextTask.status)) {
+        return;
+      }
+
+      unsubscribe = subscribeToTask(
+        taskId,
+        ingestEvent,
+        (error) => {
+          if (isActive) {
+            setStreamError(error.message);
+          }
+        }
+      );
+    };
+
+    void syncAndSubscribe().catch((error) => {
       if (isActive) {
         setStreamError(
           error instanceof Error
@@ -109,29 +149,24 @@ export function TaskProgress({
       }
     });
 
-    const unsubscribe = subscribeToTask(
-      taskId,
-      ingestEvent,
-      (error) => setStreamError(error.message)
-    );
-
     return () => {
       isActive = false;
-      unsubscribe();
+      unsubscribe?.();
     };
-  }, [onTaskComplete, taskId, t]);
+  }, [taskId, t]);
 
   const stageStatus = task?.latest_progress?.stage_status ?? {};
   const eventLog = useMemo(
     () =>
       events
-        .filter((event) => event.message)
         .slice()
         .reverse()
         .slice(0, 12),
     [events]
   );
-  const canCancelTask = task ? canCancelTaskStatus(task.status) : false;
+  const canCancelTask = task
+    ? canCancelTaskStatus(task.status) && !task.cancel_requested_at
+    : false;
 
   const handleCancelTask = async () => {
     if (!task || !canCancelTask) {
@@ -143,7 +178,9 @@ export function TaskProgress({
       await cancelTask(task.id);
       const nextTask = await getTask(task.id);
       setTask(nextTask);
-      onTaskComplete(nextTask.report_id);
+      if (isTerminalTaskStatus(nextTask.status)) {
+        onTaskComplete(nextTask.report_id);
+      }
     } catch (error) {
       setStreamError(
         error instanceof Error
@@ -157,11 +194,26 @@ export function TaskProgress({
 
   if (loading) {
     return (
-      <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+      <main className="flex min-h-dvh flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
         <div className="workbench-content-frame">
           <Card className="card-surface fade-in rounded-[30px]">
-            <CardContent className="p-8">
-            {t("task.loading", "Loading task progress...")}
+            <CardContent
+              className="space-y-4 p-8"
+              role="status"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <span className="sr-only">
+                {t("task.loading", "Loading task progress...")}
+              </span>
+              <Skeleton className="h-6 w-1/3 rounded-[14px]" />
+              <Skeleton className="h-4 w-1/2 rounded-[12px]" />
+              <div className="grid gap-3 md:grid-cols-3">
+                <Skeleton className="h-16 rounded-[18px]" />
+                <Skeleton className="h-16 rounded-[18px]" />
+                <Skeleton className="h-16 rounded-[18px]" />
+              </div>
+              <Skeleton className="h-36 w-full rounded-[20px]" />
             </CardContent>
           </Card>
         </div>
@@ -170,7 +222,7 @@ export function TaskProgress({
   }
 
   return (
-    <main className="flex min-h-[100vh] flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+    <main className="flex min-h-dvh flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
       <div className="workbench-content-frame space-y-6">
         <Card className="card-surface fade-in rounded-[30px]">
           <CardContent className="p-6 md:p-8">
@@ -211,16 +263,6 @@ export function TaskProgress({
                   </Button>
                 ) : null}
               </div>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                {task?.analysis_date
-                  ? t(
-                      "task.trackingDate",
-                      ({ date }) =>
-                        `Tracking ${date} research flow across analyst, debate, trading, and portfolio stages.`,
-                      { date: task.analysis_date }
-                    )
-                  : t("task.trackingLive", "Tracking the live research pipeline.")}
-              </p>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -234,7 +276,9 @@ export function TaskProgress({
                 >
                   {canceling
                     ? t("task.canceling", "Canceling...")
-                    : t("task.cancel", "Cancel task")}
+                    : task?.status === "running"
+                      ? t("task.terminate", "Terminate task")
+                      : t("task.cancel", "Cancel task")}
                 </Button>
               ) : null}
               {task?.report_id ? (
@@ -354,7 +398,7 @@ export function TaskProgress({
                     {event.current_agent ? <span>{event.current_agent}</span> : null}
                   </div>
                   <p className="ml-3 mt-2 text-sm leading-6 text-slate-700">
-                    {event.message}
+                    {describeProgressEvent(event, t)}
                   </p>
                 </div>
               ))
@@ -372,12 +416,59 @@ function buildEventKey(event: ProgressEvent): string {
   return `${event.timestamp}|${event.status}|${event.current_agent ?? ""}|${event.message ?? ""}`;
 }
 
+function describeProgressEvent(
+  event: ProgressEvent,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  if (event.message) {
+    return event.message;
+  }
+
+  const currentAgent = event.current_agent?.trim();
+  if (currentAgent) {
+    return t(
+      "task.progress.agentStatus",
+      ({ agent, status }) => `System: ${agent} is ${status}.`,
+      {
+        agent: currentAgent,
+        status: t(
+          `task.status.${event.status}`,
+          formatTaskStatusInline(event.status)
+        ),
+      }
+    );
+  }
+
+  return t(
+    "task.progress.status",
+    ({ status }) => `System: Task is ${status}.`,
+    {
+      status: t(
+        `task.status.${event.status}`,
+        formatTaskStatusInline(event.status)
+      ),
+    }
+  );
+}
+
+function formatTaskStatusInline(status: TaskStatus): string {
+  if (status === "waiting_for_quota") {
+    return "waiting for quota";
+  }
+  return status.replaceAll("_", " ");
+}
+
 function isTerminalTaskStatus(status: TaskStatus): boolean {
   return status === "completed" || status === "failed" || status === "canceled";
 }
 
 function canCancelTaskStatus(status: TaskStatus): boolean {
-  return status === "pending" || status === "queued" || status === "waiting_for_quota";
+  return (
+    status === "pending" ||
+    status === "queued" ||
+    status === "waiting_for_quota" ||
+    status === "running"
+  );
 }
 
 function formatStageLabel(
@@ -420,6 +511,17 @@ function TaskStatusBadge({
 
 function TaskQueueNotice({ task }: { task: Task }) {
   const { t } = usePreferences();
+  if (task.status === "running" && task.cancel_requested_at) {
+    return (
+      <div className="mt-6 rounded-2xl border border-[rgba(181,121,34,0.24)] bg-[rgba(181,121,34,0.08)] px-4 py-3 text-sm text-slate-700">
+        {t(
+          "task.cancelRequested",
+          "Termination requested. Running work will stop at the next safe step."
+        )}
+      </div>
+    );
+  }
+
   if (task.status === "queued" || task.status === "pending") {
     const position =
       typeof task.queue_position === "number"
@@ -480,6 +582,7 @@ function TaskRequestDetails({ task }: { task: Task }) {
   const details = request
     ? {
         ...request,
+        analysis_date: request.analysis_date ?? task.analysis_date ?? notSetLabel,
         llm_provider: request.llm_provider ?? notSetLabel,
         quick_think_llm: request.quick_think_llm ?? notSetLabel,
         deep_think_llm: request.deep_think_llm ?? notSetLabel,

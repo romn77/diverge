@@ -53,6 +53,8 @@ def test_legacy_vendor_imports_alias_new_modules():
 
 def test_vendor_implementation_files_are_not_left_at_dataflows_root():
     legacy_files = {f"{module_name}.py" for module_name in LEGACY_VENDOR_ALIASES}
-    root_vendor_files = sorted(path.name for path in DATAFLOWS_ROOT.glob("*.py") if path.name in legacy_files)
+    root_vendor_files = sorted(
+        path.name for path in DATAFLOWS_ROOT.glob("*.py") if path.name in legacy_files
+    )
 
     assert root_vendor_files == []

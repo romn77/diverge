@@ -5,7 +5,8 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { HighlightCards } from "@/components/HighlightCards";
-import { parseHighlights, stripHighlightsBlocks } from "@/lib/highlights";
+import { parseHighlights, stripStructuredDecisionBlocks } from "@/lib/highlights";
+import { sanitizeUserFacingReportText } from "@/lib/reportSanitizer";
 
 interface MarkdownContentProps {
   content: string;
@@ -67,13 +68,15 @@ export const MarkdownContent = React.memo(function MarkdownContent({
     if (highlightMode === "single") {
       const parsed = parseHighlights(content);
       return {
-        processedContent: parsed.cleanMarkdown,
+        processedContent: sanitizeUserFacingReportText(parsed.cleanMarkdown),
         highlights: parsed.highlights,
       };
     }
 
     return {
-      processedContent: stripHighlightsBlocks(content),
+      processedContent: sanitizeUserFacingReportText(
+        stripStructuredDecisionBlocks(content)
+      ),
       highlights: null,
     };
   }, [content, highlightMode]);
@@ -149,7 +152,7 @@ export const MarkdownContent = React.memo(function MarkdownContent({
     <div className="relative min-w-0 w-full max-w-full space-y-12 overflow-hidden">
       {showProgressBar && (
         <div
-          className="progress-slide pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 rounded-full bg-[var(--primary)]"
+          className="progress-slide pointer-events-none absolute inset-x-0 top-0 z-[var(--z-sticky)] h-0.5 rounded-full bg-[var(--primary)]"
           aria-hidden
         />
       )}

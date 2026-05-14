@@ -19,7 +19,9 @@ def _history_frame(
     end: str = "2026-03-24",
 ) -> pd.DataFrame:
     closes_array = np.array(closes, dtype=float)
-    highs_array = np.array(highs if highs is not None else closes_array + 0.8, dtype=float)
+    highs_array = np.array(
+        highs if highs is not None else closes_array + 0.8, dtype=float
+    )
     lows_array = np.array(lows if lows is not None else closes_array - 0.8, dtype=float)
     volumes_array = np.array(
         volumes if volumes is not None else np.full(len(closes_array), 1_000_000.0),

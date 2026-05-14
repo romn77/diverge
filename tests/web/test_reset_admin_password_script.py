@@ -30,7 +30,9 @@ class ResetAdminPasswordScriptTests(unittest.TestCase):
         try:
             from web.backend.devops import reset_admin_password
         except ImportError as exc:
-            self.fail(f"Expected web.backend.devops.reset_admin_password module to exist: {exc}")
+            self.fail(
+                f"Expected web.backend.devops.reset_admin_password module to exist: {exc}"
+            )
         return reset_admin_password
 
     def test_reset_script_resets_existing_bootstrap_admin_password(self):
@@ -59,7 +61,9 @@ class ResetAdminPasswordScriptTests(unittest.TestCase):
 
             with auth.db_session() as db:
                 updated_user = auth.get_user_by_id(db, user_id)
-                self.assertTrue(auth.verify_password(updated_user.password_hash, "NewPass123"))
+                self.assertTrue(
+                    auth.verify_password(updated_user.password_hash, "NewPass123")
+                )
                 self.assertFalse(updated_user.must_change_password)
 
         output = stream.getvalue()

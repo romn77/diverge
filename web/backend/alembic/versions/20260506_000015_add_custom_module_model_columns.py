@@ -19,8 +19,7 @@ def upgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     existing_columns = {
-        column["name"]
-        for column in inspector.get_columns("llm_module_settings")
+        column["name"] for column in inspector.get_columns("llm_module_settings")
     }
     if "custom_provider" not in existing_columns:
         op.add_column(
@@ -38,8 +37,7 @@ def downgrade() -> None:
     bind = op.get_bind()
     inspector = sa.inspect(bind)
     existing_columns = {
-        column["name"]
-        for column in inspector.get_columns("llm_module_settings")
+        column["name"] for column in inspector.get_columns("llm_module_settings")
     }
     if "custom_model" in existing_columns:
         op.drop_column("llm_module_settings", "custom_model")

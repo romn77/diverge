@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import time
 from json import JSONDecodeError
 from typing import Any, Optional
 
@@ -17,9 +19,12 @@ from langchain_openai.chat_models.base import (
 from .base_client import BaseLLMClient, normalize_content
 from .validators import validate_model
 
+logger = logging.getLogger(__name__)
+
 try:
     from langchain_openai.chat_models.base import _handle_openai_api_error
 except ImportError:
+
     def _handle_openai_api_error(error: openai.APIError) -> None:
         raise error
 
@@ -124,7 +129,9 @@ def _parse_tool_call_args(arguments: Any) -> Any:
         return arguments
 
 
-def _chat_result_from_sse_text(text: str, metadata: dict | None = None) -> ChatResult | None:
+def _chat_result_from_sse_text(
+    text: str, metadata: dict | None = None
+) -> ChatResult | None:
     payloads = _iter_sse_data_payloads(text)
     if not payloads:
         return None
@@ -227,6 +234,58 @@ def _chat_result_from_sse_text(text: str, metadata: dict | None = None) -> ChatR
     )
 
 
+_RETRYABLE_OPENAI_STATUS_CODES = {408, 409, 429, 500, 502, 503, 504}
+
+
+def _coerce_non_negative_int(value: Any, fallback: int) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(0, parsed)
+
+
+def _coerce_non_negative_float(value: Any, fallback: float) -> float:
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return fallback
+    return max(0.0, parsed)
+
+
+def _error_status_code(error: BaseException) -> int | None:
+    status_code = getattr(error, "status_code", None)
+    if isinstance(status_code, int):
+        return status_code
+
+    response = getattr(error, "response", None)
+    response_status = getattr(response, "status_code", None)
+    if isinstance(response_status, int):
+        return response_status
+
+    return None
+
+
+def _is_retryable_openai_error(error: BaseException) -> bool:
+    if isinstance(error, (openai.APIConnectionError, openai.APITimeoutError)):
+        return True
+
+    status_code = _error_status_code(error)
+    if status_code in _RETRYABLE_OPENAI_STATUS_CODES:
+        return True
+
+    message = str(error).lower()
+    return (
+        "gateway time-out" in message
+        or "gateway timeout" in message
+        or "connection error" in message
+        or "connection reset" in message
+        or "unexpected_eof_while_reading" in message
+        or "eof occurred in violation of protocol" in message
+        or "temporarily unavailable" in message
+    )
+
+
 class NormalizedChatOpenAI(ChatOpenAI):
     """ChatOpenAI with normalized content output.
 
@@ -237,9 +296,43 @@ class NormalizedChatOpenAI(ChatOpenAI):
 
     preserve_reasoning_content: bool = False
     ensure_responses_instructions: bool = False
+    transient_max_retries: int = 2
+    transient_retry_base_delay: float = 1.0
+    transient_retry_max_delay: float = 8.0
 
     def invoke(self, input, config=None, **kwargs):
-        return normalize_content(super().invoke(input, config, **kwargs))
+        max_retries = _coerce_non_negative_int(
+            self.transient_max_retries,
+            2,
+        )
+        base_delay = _coerce_non_negative_float(
+            self.transient_retry_base_delay,
+            1.0,
+        )
+        max_delay = _coerce_non_negative_float(
+            self.transient_retry_max_delay,
+            8.0,
+        )
+
+        for attempt in range(max_retries + 1):
+            try:
+                return normalize_content(super().invoke(input, config, **kwargs))
+            except Exception as exc:
+                if attempt >= max_retries or not _is_retryable_openai_error(exc):
+                    raise
+
+                delay = min(max_delay, base_delay * (2**attempt))
+                logger.warning(
+                    "Retrying transient OpenAI-compatible LLM error "
+                    "status=%s attempt=%s/%s delay=%.1fs: %s",
+                    _error_status_code(exc),
+                    attempt + 1,
+                    max_retries,
+                    delay,
+                    exc,
+                )
+                if delay > 0:
+                    time.sleep(delay)
 
     def _ensure_sync_client_available(self) -> None:
         root_client = getattr(self, "root_client", None)
@@ -254,7 +347,9 @@ class NormalizedChatOpenAI(ChatOpenAI):
         **kwargs,
     ) -> ChatResult:
         payload = self._get_request_payload(messages, stop=stop, **kwargs)
-        if not self.ensure_responses_instructions or not self._use_responses_api(payload):
+        if not self.ensure_responses_instructions or not self._use_responses_api(
+            payload
+        ):
             return super()._generate(
                 messages,
                 stop=stop,
@@ -303,7 +398,9 @@ class NormalizedChatOpenAI(ChatOpenAI):
         if not self.preserve_reasoning_content:
             return result
 
-        response_dict = response if isinstance(response, dict) else response.model_dump()
+        response_dict = (
+            response if isinstance(response, dict) else response.model_dump()
+        )
         choices = response_dict.get("choices") or []
         for generation, choice in zip(result.generations, choices):
             response_message = choice.get("message") or {}
@@ -345,27 +442,42 @@ class NormalizedChatOpenAI(ChatOpenAI):
 
         return payload
 
+
 # Kwargs forwarded from user config to ChatOpenAI
 _PASSTHROUGH_KWARGS = (
-    "timeout", "max_retries", "reasoning_effort",
-    "api_key", "callbacks", "http_client", "http_async_client",
+    "timeout",
+    "max_retries",
+    "reasoning_effort",
+    "api_key",
+    "callbacks",
+    "http_client",
+    "http_async_client",
 )
 
 # Provider base URLs and API key env vars
 _PROVIDER_CONFIG = {
     "xai": ("https://api.x.ai/v1", "XAI_API_KEY"),
-    "deepseek": ("https://api.deepseek.com", "DEEPSEEK_API_KEY"),
-    "qwen": ("https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "DASHSCOPE_API_KEY"),
+    "qwen": (
+        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        "DASHSCOPE_API_KEY",
+    ),
     "glm": ("https://api.z.ai/api/paas/v4/", "ZHIPU_API_KEY"),
     "openrouter": ("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY"),
     "siliconflow": ("https://api.siliconflow.cn/v1", "SILICONFLOW_API_KEY"),
     "xiaohumini": ("https://xiaohumini.site/v1", "XIAOHUMINI_API_KEY"),
-    "sub2api": ("https://cc.z2blog.com", "SUB2API_API_KEY"),
+    "sub2api": ("https://cc.z2blog.com/v1", "SUB2API_API_KEY"),
+    "mimo": ("https://api.xiaomimimo.com/v1", "MIMO_API_KEY"),
     "deepseek": ("https://api.deepseek.com/v1", "DEEPSEEK_API_KEY"),
     "ollama": ("http://localhost:11434/v1", None),
 }
 
-_REASONING_CONTENT_PROVIDERS = {"deepseek", "qwen", "siliconflow", "xiaohumini"}
+_REASONING_CONTENT_PROVIDERS = {
+    "deepseek",
+    "qwen",
+    "siliconflow",
+    "xiaohumini",
+    "mimo",
+}
 _RESPONSES_API_PROVIDERS = {"openai", "sub2api"}
 
 
@@ -376,7 +488,7 @@ class OpenAIClient(BaseLLMClient):
     supports reasoning_effort with function tools across all model families
     (GPT-4.1, GPT-5). Sub2API also uses the Responses wire API. Other
     third-party compatible providers (xAI, OpenRouter, DeepSeek, SiliconFlow,
-    XiaoHuMini, Ollama) use standard Chat Completions.
+    XiaoHuMini, MiMo, Ollama) use standard Chat Completions.
     """
 
     def __init__(
@@ -411,6 +523,19 @@ class OpenAIClient(BaseLLMClient):
             llm_kwargs["preserve_reasoning_content"] = True
         if self.provider == "sub2api":
             llm_kwargs["ensure_responses_instructions"] = True
+
+        llm_kwargs["transient_max_retries"] = _coerce_non_negative_int(
+            os.environ.get("LLM_TRANSIENT_MAX_RETRIES"),
+            2,
+        )
+        llm_kwargs["transient_retry_base_delay"] = _coerce_non_negative_float(
+            os.environ.get("LLM_TRANSIENT_RETRY_BASE_DELAY"),
+            1.0,
+        )
+        llm_kwargs["transient_retry_max_delay"] = _coerce_non_negative_float(
+            os.environ.get("LLM_TRANSIENT_RETRY_MAX_DELAY"),
+            8.0,
+        )
 
         # Forward user-provided kwargs
         for key in _PASSTHROUGH_KWARGS:

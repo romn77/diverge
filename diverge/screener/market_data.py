@@ -1,69 +1,43 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Callable
 
 import pandas as pd
 
+from diverge.common.dates import offset_iso_date, parse_iso_date
 from diverge.data_layout import (
     resolve_history_dir,
     resolve_screener_cache_dir,
 )
-from diverge.dataflows.vendors.akshare.stock import _fetch_akshare_stock_df, _fetch_akshare_us_stock_df
-from diverge.dataflows.vendors.alpha_vantage.common import AlphaVantageRateLimitError
-from diverge.dataflows.vendors.alpha_vantage.stock import _fetch_alpha_vantage_stock_df
-from diverge.dataflows.cn_market_utils import detect_market, normalize_symbol_for_vendor
-from diverge.dataflows.vendors.massive.stock import _fetch_massive_stock_df
-from diverge.dataflows.vendors.tushare.stock import _fetch_tushare_stock_df, _fetch_tushare_us_stock_df
-from diverge.dataflows import vendor_usage
 from diverge.dataflows.vendor_errors import (
-    VendorAuthError,
     VendorDataEmptyError,
-    VendorNotSupportedError,
     VendorRetryableError,
 )
-from diverge.dataflows.vendors.yfinance.stock import _fetch_yfinance_ohlcv_df
-from .history_cache import (
+from diverge.market_data.history_cache import (
     checkpoint_path,
     delete_checkpoint,
     load_checkpoint,
     load_history_cache,
     merge_history_frames,
-    normalize_history_frame,
-    REQUIRED_PRICE_COLUMNS,
     resolve_incremental_fetch_start,
     save_checkpoint,
     save_history_cache,
     slice_history_window,
 )
-from .schema import build_cn_source_chain, build_us_source_chain
+from diverge.market_data.price_history import (
+    LOOKBACK_DAYS,
+    FetchedHistoryFrame,
+    HistoryFetchExecutor,
+    fetch_price_history as _fetch_price_history,
+    fetch_ticker_history as _fetch_ticker_history,
+    resolve_history_market as _resolve_history_market,
+)
+from .schema import build_cn_source_chain
 
-CN_REQUEST_DELAY_SECONDS = 0.35
-US_REQUEST_DELAY_SECONDS = 2.0
-RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
-LOOKBACK_DAYS = 400
 CHECKPOINT_TTL = timedelta(hours=24)
-CN_FALLBACK_ERRORS = (
-    VendorRetryableError,
-    VendorAuthError,
-    VendorNotSupportedError,
-)
-
-try:
-    from yfinance.exceptions import YFRateLimitError
-except ModuleNotFoundError:  # pragma: no cover
-    class YFRateLimitError(Exception):
-        pass
-
-
-US_RETRYABLE_ERRORS = (
-    VendorRetryableError,
-    AlphaVantageRateLimitError,
-    YFRateLimitError,
-)
 
 
 @dataclass(slots=True)
@@ -81,12 +55,6 @@ class _HistoryFetchContext:
 
 
 @dataclass(slots=True)
-class _FetchedHistoryFrame:
-    frame: pd.DataFrame
-    source: str | None
-
-
-@dataclass(slots=True)
 class _HistoryStepResult:
     history_frame: pd.DataFrame | None = None
     should_store_history: bool = False
@@ -94,97 +62,6 @@ class _HistoryStepResult:
     failure: dict[str, str] | None = None
     status: str | None = None
     detail: str | None = None
-
-
-class _HistoryFetchExecutor:
-    def __init__(
-        self,
-        *,
-        as_of_date: str,
-        cn_source_chain: list[str],
-        us_data_source: str,
-        us_data_source_fallbacks: list[str] | None = None,
-    ) -> None:
-        self.as_of_date = as_of_date
-        self.cn_source_chain = list(cn_source_chain)
-        self.us_data_source = us_data_source
-        self.us_source_chain = build_us_source_chain(
-            us_data_source,
-            us_data_source_fallbacks,
-        )
-        self.cn_network_fetch_count = 0
-        self.us_network_fetch_count = 0
-        self.last_source: str | None = None
-
-    def fetch(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
-        self.last_source = None
-        if market != "cn":
-            return self._fetch_us(symbol, market, fetch_start)
-        return self._fetch_cn(symbol, market, fetch_start)
-
-    def _fetch_us(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
-        last_error: Exception | None = None
-        for source in self.us_source_chain:
-            attempt = 0
-            while True:
-                try:
-                    if self.us_network_fetch_count > 0:
-                        time.sleep(US_REQUEST_DELAY_SECONDS)
-                    self.us_network_fetch_count += 1
-                    self.last_source = source
-                    frame = fetch_price_history(
-                        symbol,
-                        market,
-                        fetch_start,
-                        self.as_of_date,
-                        us_data_source=source,
-                    )
-                    return _FetchedHistoryFrame(frame=frame, source=self.last_source)
-                except US_RETRYABLE_ERRORS as exc:
-                    last_error = exc
-                    if attempt >= len(RETRY_BACKOFF_SECONDS):
-                        break
-                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                    attempt += 1
-
-        if last_error is not None:
-            if isinstance(last_error, VendorRetryableError):
-                raise _unwrap_vendor_error(last_error)
-            raise last_error
-
-        raise VendorRetryableError("US history fetch failed without a fallback result")
-
-    def _fetch_cn(self, symbol: str, market: str, fetch_start: str) -> _FetchedHistoryFrame:
-        last_error: Exception | None = None
-        for source in self.cn_source_chain:
-            attempt = 0
-            while True:
-                try:
-                    if self.cn_network_fetch_count > 0:
-                        time.sleep(CN_REQUEST_DELAY_SECONDS)
-                    self.cn_network_fetch_count += 1
-                    self.last_source = source
-                    frame = fetch_price_history(
-                        symbol,
-                        market,
-                        fetch_start,
-                        self.as_of_date,
-                        cn_data_source=source,
-                    )
-                    return _FetchedHistoryFrame(frame=frame, source=self.last_source)
-                except VendorDataEmptyError:
-                    raise
-                except CN_FALLBACK_ERRORS as exc:
-                    last_error = exc
-                    if attempt >= len(RETRY_BACKOFF_SECONDS):
-                        break
-                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                    attempt += 1
-
-        if last_error is not None:
-            raise _unwrap_vendor_error(last_error)
-
-        raise VendorRetryableError("CN history fetch failed without a fallback result")
 
 
 class _HistoryCheckpointState:
@@ -229,7 +106,9 @@ class _HistoryCheckpointState:
             updated_at=updated_at,
         )
 
-    def checkpoint_skip_result(self, context: _HistoryFetchContext) -> _HistoryStepResult | None:
+    def checkpoint_skip_result(
+        self, context: _HistoryFetchContext
+    ) -> _HistoryStepResult | None:
         if not context.cached_frame.empty or context.symbol not in self.failure_reasons:
             return None
 
@@ -271,15 +150,6 @@ class _HistoryCheckpointState:
         return pd.DataFrame(self.failures, columns=["symbol", "market", "drop_reason"])
 
 
-def _unwrap_vendor_error(exc: Exception) -> Exception:
-    cause = getattr(exc, "__cause__", None)
-    return cause if isinstance(cause, Exception) else exc
-
-
-def _normalize_us_symbol_for_yfinance(symbol: str) -> str:
-    return str(symbol).strip().upper().replace(".", "-")
-
-
 def _history_span(frame: pd.DataFrame) -> str | None:
     if frame.empty:
         return None
@@ -310,14 +180,9 @@ def _emit_progress(
     )
 
 
-def _normalize_price_frame(df: pd.DataFrame) -> pd.DataFrame:
-    if df is None or df.empty:
-        return pd.DataFrame(columns=REQUIRED_PRICE_COLUMNS)
-
-    return normalize_history_frame(df)
-
-
-def _history_failure_row(context: _HistoryFetchContext, drop_reason: str) -> dict[str, str]:
+def _history_failure_row(
+    context: _HistoryFetchContext, drop_reason: str
+) -> dict[str, str]:
     return {
         "symbol": context.symbol,
         "market": context.market,
@@ -355,7 +220,9 @@ def _build_history_fetch_context(
         history_dir=history_dir,
         cached_frame=cached_frame,
         cached_span=_history_span(cached_frame),
-        fetch_start=resolve_incremental_fetch_start(cached_frame, start_date, as_of_date),
+        fetch_start=resolve_incremental_fetch_start(
+            cached_frame, start_date, as_of_date
+        ),
     )
 
 
@@ -380,7 +247,7 @@ def _cache_hit_result(context: _HistoryFetchContext) -> _HistoryStepResult | Non
 
 def _reconcile_fetched_history(
     context: _HistoryFetchContext,
-    fetched: _FetchedHistoryFrame,
+    fetched: FetchedHistoryFrame,
 ) -> _HistoryStepResult:
     fetch_start = context.fetch_start
     if fetch_start is None:
@@ -416,8 +283,12 @@ def _reconcile_fetched_history(
         )
 
     merged_frame = merge_history_frames(context.cached_frame, fetched.frame)
-    save_history_cache(context.history_dir, context.market, context.symbol, merged_frame)
-    history_window = slice_history_window(merged_frame, context.start_date, context.as_of_date)
+    save_history_cache(
+        context.history_dir, context.market, context.symbol, merged_frame
+    )
+    history_window = slice_history_window(
+        merged_frame, context.start_date, context.as_of_date
+    )
     if context.cached_frame.empty or fetch_start == context.start_date:
         status = "fetch_full"
         detail = f"fetch={fetch_range}{source_detail}"
@@ -454,7 +325,7 @@ def _failure_result(
 def _fetch_symbol_history(
     context: _HistoryFetchContext,
     *,
-    executor: _HistoryFetchExecutor,
+    executor: HistoryFetchExecutor,
 ) -> _HistoryStepResult:
     fetch_start = context.fetch_start
     if fetch_start is None:
@@ -482,7 +353,7 @@ def _fetch_symbol_history(
 def _process_history_symbol(
     context: _HistoryFetchContext,
     *,
-    executor: _HistoryFetchExecutor,
+    executor: HistoryFetchExecutor,
     checkpoint_state: _HistoryCheckpointState,
     cache_only: bool = False,
 ) -> _HistoryStepResult:
@@ -517,10 +388,6 @@ def _process_history_symbol(
     return _fetch_symbol_history(context, executor=executor)
 
 
-def _call_price_data_source(vendor: str, fetcher: Callable[[], pd.DataFrame]) -> pd.DataFrame:
-    return vendor_usage.track_data_source_call(vendor, fetcher)
-
-
 def fetch_price_history(
     symbol: str,
     market: str,
@@ -529,75 +396,18 @@ def fetch_price_history(
     cn_data_source: str = "tushare",
     us_data_source: str = "yfinance",
 ) -> pd.DataFrame:
-    if market == "cn":
-        vendor_symbol = normalize_symbol_for_vendor(symbol, market="cn", vendor=cn_data_source)
-        if cn_data_source == "tushare":
-            frame = _call_price_data_source(
-                "tushare",
-                lambda: _fetch_tushare_stock_df(vendor_symbol, start_date, end_date),
-            )
-        elif cn_data_source == "akshare":
-            frame = _call_price_data_source(
-                "akshare",
-                lambda: _fetch_akshare_stock_df(vendor_symbol, start_date, end_date),
-            )
-        else:
-            raise ValueError(f"Unsupported CN data source '{cn_data_source}'")
-
-        if cn_data_source == "tushare" and not frame.empty and "Amount" in frame.columns:
-            frame = frame.copy()
-            frame["Amount"] = pd.to_numeric(frame["Amount"], errors="coerce") * 1000
-        return _normalize_price_frame(frame)
-
-    if market == "us":
-        if us_data_source == "yfinance":
-            vendor_symbol = _normalize_us_symbol_for_yfinance(symbol)
-            frame = _call_price_data_source(
-                "yfinance",
-                lambda: _fetch_yfinance_ohlcv_df(
-                    vendor_symbol,
-                    start_date,
-                    end_date,
-                    use_cache=True,
-                    auto_adjust=False,
-                ),
-            )
-        elif us_data_source == "alpha_vantage":
-            frame = _call_price_data_source(
-                "alpha_vantage",
-                lambda: _fetch_alpha_vantage_stock_df(symbol, start_date, end_date),
-            )
-        elif us_data_source == "tushare":
-            frame = _call_price_data_source(
-                "tushare",
-                lambda: _fetch_tushare_us_stock_df(symbol, start_date, end_date),
-            )
-        elif us_data_source == "akshare":
-            frame = _call_price_data_source(
-                "akshare",
-                lambda: _fetch_akshare_us_stock_df(symbol, start_date, end_date),
-            )
-        elif us_data_source == "massive":
-            frame = _call_price_data_source(
-                "massive",
-                lambda: _fetch_massive_stock_df(symbol, start_date, end_date),
-            )
-        else:
-            raise ValueError(f"Unsupported US data source '{us_data_source}'")
-        return _normalize_price_frame(frame)
-
-    raise ValueError(f"Unsupported market '{market}'")
+    return _fetch_price_history(
+        symbol,
+        market,
+        start_date,
+        end_date,
+        cn_data_source=cn_data_source,
+        us_data_source=us_data_source,
+    )
 
 
 def resolve_history_market(symbol: str, market: str | None = None) -> str:
-    normalized_market = str(market or "").strip().lower()
-    if normalized_market in {"cn", "china", "sh", "sz", "sse", "szse"}:
-        return "cn"
-    if normalized_market in {"us", "usa", "nasdaq", "nyse", "amex"}:
-        return "us"
-
-    detected_market = detect_market(str(symbol).strip())
-    return detected_market if detected_market in {"cn", "us"} else "us"
+    return _resolve_history_market(symbol, market)
 
 
 def fetch_ticker_history(
@@ -611,62 +421,19 @@ def fetch_ticker_history(
     us_data_source: str = "yfinance",
     us_data_source_fallbacks: list[str] | None = None,
     cache_dir: str | Path | None = None,
+    normalize_as_of_to_trading_day: bool = False,
 ) -> tuple[str, pd.DataFrame]:
-    normalized_symbol = str(symbol).strip()
-    if not normalized_symbol:
-        raise ValueError("symbol is required")
-    if lookback_days <= 0:
-        raise ValueError("lookback_days must be positive")
-
-    as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
-    start_date = (as_of_dt - timedelta(days=lookback_days)).strftime("%Y-%m-%d")
-    history_cache_dir = (
-        Path(cache_dir) if cache_dir is not None else resolve_history_dir()
-    )
-    resolved_market = resolve_history_market(normalized_symbol, market)
-    cached_frame = load_history_cache(history_cache_dir, resolved_market, normalized_symbol)
-    context = _HistoryFetchContext(
-        symbol=normalized_symbol,
-        market=resolved_market,
-        progress_current=1,
-        progress_total=1,
-        start_date=start_date,
+    return _fetch_ticker_history(
+        symbol,
+        market=market,
         as_of_date=as_of_date,
-        history_dir=history_cache_dir,
-        cached_frame=cached_frame,
-        cached_span=_history_span(cached_frame),
-        fetch_start=resolve_incremental_fetch_start(cached_frame, start_date, as_of_date),
-    )
-
-    cache_hit = _cache_hit_result(context)
-    if cache_hit is not None:
-        return resolved_market, (
-            cache_hit.history_frame
-            if cache_hit.history_frame is not None
-            else normalize_history_frame(pd.DataFrame())
-        )
-
-    executor = _HistoryFetchExecutor(
-        as_of_date=as_of_date,
-        cn_source_chain=build_cn_source_chain(
-            cn_data_source,
-            cn_data_source_fallbacks,
-        ),
+        lookback_days=lookback_days,
+        cn_data_source=cn_data_source,
+        cn_data_source_fallbacks=cn_data_source_fallbacks,
         us_data_source=us_data_source,
         us_data_source_fallbacks=us_data_source_fallbacks,
-    )
-    result = _fetch_symbol_history(context, executor=executor)
-    if result.failure is not None:
-        if result.failure.get("drop_reason") == "history_empty":
-            return resolved_market, normalize_history_frame(pd.DataFrame())
-        raise VendorRetryableError(
-            f"Failed to fetch history for {normalized_symbol} in market '{resolved_market}'"
-        )
-
-    return resolved_market, (
-        result.history_frame
-        if result.history_frame is not None
-        else normalize_history_frame(pd.DataFrame())
+        cache_dir=cache_dir,
+        normalize_as_of_to_trading_day=normalize_as_of_to_trading_day,
     )
 
 
@@ -684,17 +451,14 @@ def fetch_history_for_universe(
     checkpoint_batch_size: int = 100,
     cache_only: bool = False,
 ) -> tuple[dict[str, pd.DataFrame], pd.DataFrame]:
-    as_of_dt = datetime.strptime(as_of_date, "%Y-%m-%d")
-    start_date = (as_of_dt - timedelta(days=LOOKBACK_DAYS)).strftime("%Y-%m-%d")
+    if parse_iso_date(as_of_date) is None:
+        raise ValueError("as_of_date must use YYYY-MM-DD format")
+    start_date = offset_iso_date(as_of_date, -LOOKBACK_DAYS)
     resolved_history_dir = (
-        Path(history_dir)
-        if history_dir is not None
-        else resolve_history_dir()
+        Path(history_dir) if history_dir is not None else resolve_history_dir()
     )
     screener_cache_dir = (
-        Path(cache_dir)
-        if cache_dir is not None
-        else resolve_screener_cache_dir()
+        Path(cache_dir) if cache_dir is not None else resolve_screener_cache_dir()
     )
     history_checkpoint_dir = (
         Path(checkpoint_dir)
@@ -716,11 +480,12 @@ def fetch_history_for_universe(
         cn_data_source,
         cn_data_source_fallbacks,
     )
-    executor = _HistoryFetchExecutor(
+    executor = HistoryFetchExecutor(
         as_of_date=as_of_date,
         cn_source_chain=cn_source_chain,
         us_data_source=us_data_source,
         us_data_source_fallbacks=us_data_source_fallbacks,
+        price_fetcher=fetch_price_history,
     )
     checkpoint_state = _HistoryCheckpointState.load(
         path=history_checkpoint_path,

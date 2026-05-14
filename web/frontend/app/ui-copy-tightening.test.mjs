@@ -6,6 +6,26 @@ import test from "node:test";
 const loginPagePath = path.join(import.meta.dirname, "login", "page.tsx");
 const shellPath = path.join(import.meta.dirname, "..", "components", "WorkbenchShell.tsx");
 const adminUsersPagePath = path.join(import.meta.dirname, "admin", "users", "page.tsx");
+const adminConsolePagePath = path.join(
+  import.meta.dirname,
+  "..",
+  "components",
+  "admin",
+  "AdminConsolePage.tsx"
+);
+const pageHeaderPath = path.join(
+  import.meta.dirname,
+  "..",
+  "components",
+  "workbench",
+  "PageHeader.tsx"
+);
+const activityDashboardPath = path.join(
+  import.meta.dirname,
+  "..",
+  "components",
+  "ActivityDashboard.tsx"
+);
 const preferencesPath = path.join(
   import.meta.dirname,
   "..",
@@ -17,6 +37,9 @@ test("top-level workbench copy stays short and action-oriented", () => {
   const loginSource = readFileSync(loginPagePath, "utf8");
   const shellSource = readFileSync(shellPath, "utf8");
   const adminSource = readFileSync(adminUsersPagePath, "utf8");
+  const adminConsoleSource = readFileSync(adminConsolePagePath, "utf8");
+  const pageHeaderSource = readFileSync(pageHeaderPath, "utf8");
+  const activityDashboardSource = readFileSync(activityDashboardPath, "utf8");
   const preferencesSource = readFileSync(preferencesPath, "utf8");
 
   assert.doesNotMatch(
@@ -24,7 +47,7 @@ test("top-level workbench copy stays short and action-oriented", () => {
     /Use your workspace account to reopen saved reports, watch active[\s\S]*without losing context\./
   );
   assert.doesNotMatch(loginSource, /Protected by backend session cookies\./);
-  assert.match(loginSource, /Sign in to continue to your requested page\./);
+  assert.doesNotMatch(loginSource, /Sign in to continue to your requested page\./);
   assert.match(loginSource, /Need access help\? Ask your workspace admin\./);
 
   assert.doesNotMatch(
@@ -48,6 +71,13 @@ test("top-level workbench copy stays short and action-oriented", () => {
   );
   assert.match(adminSource, /You do not have permission to manage users\./);
   assert.match(adminSource, /Enable auth to manage users\./);
+
+  assert.doesNotMatch(adminConsoleSource, /description:\s*string/);
+  assert.doesNotMatch(adminConsoleSource, /\{description\}/);
+  assert.doesNotMatch(pageHeaderSource, /description\?:/);
+  assert.doesNotMatch(activityDashboardSource, /activity\.description/);
+  assert.doesNotMatch(activityDashboardSource, /activity\.analysisDescription/);
+  assert.doesNotMatch(activityDashboardSource, /activity\.screenerDescription/);
 
   assert.doesNotMatch(
     preferencesSource,

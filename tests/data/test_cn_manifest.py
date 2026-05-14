@@ -150,7 +150,7 @@ def test_main_uses_cli_defaults_and_writes_requested_path(tmp_path, capsys):
             }
         ]
     )
-    output_path = tmp_path / "cli_cn_manifest.csv"
+    output_path = tmp_path / "cn.csv"
 
     with (
         patch(
@@ -161,8 +161,8 @@ def test_main_uses_cli_defaults_and_writes_requested_path(tmp_path, capsys):
             "sys.argv",
             [
                 "python",
-                "--output-path",
-                str(output_path),
+                "--output-dir",
+                str(tmp_path),
             ],
         ),
     ):

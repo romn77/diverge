@@ -36,13 +36,15 @@ class StorageBackendTests(unittest.TestCase):
             storage.os.environ,
             {
                 "STORAGE_BACKEND": "local",
-                "STORAGE_LOCAL_ROOT": "/tmp/diverge-storage",
+                "DATA_DIR": "/tmp/diverge-storage",
             },
             clear=True,
         ):
             self.assertIsInstance(storage.get_storage(), storage.LocalStorage)
 
-        with patch.dict(storage.os.environ, {"STORAGE_BACKEND": "s3_compatible"}, clear=True):
+        with patch.dict(
+            storage.os.environ, {"STORAGE_BACKEND": "s3_compatible"}, clear=True
+        ):
             with self.assertRaises(NotImplementedError):
                 storage.get_storage()
 
@@ -61,13 +63,22 @@ class StorageBackendTests(unittest.TestCase):
         backend.presign("reports/a.md", expires=60)
 
         mock_client.put_object.assert_called_once()
-        self.assertEqual(mock_client.put_object.call_args.kwargs["Key"], "prod/reports/a.md")
-        mock_client.get_object.assert_called_once_with(Bucket="bucket-123", Key="prod/reports/a.md")
-        mock_client.delete_object.assert_called_once_with(Bucket="bucket-123", Key="prod/reports/a.md")
+        self.assertEqual(
+            mock_client.put_object.call_args.kwargs["Key"], "prod/reports/a.md"
+        )
+        mock_client.get_object.assert_called_once_with(
+            Bucket="bucket-123", Key="prod/reports/a.md"
+        )
+        mock_client.delete_object.assert_called_once_with(
+            Bucket="bucket-123", Key="prod/reports/a.md"
+        )
         mock_client.get_presigned_url.assert_called_once()
 
     def test_local_data_migration_uploads_expected_dataset_prefixes(self):
-        with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as storage_dir:
+        with (
+            tempfile.TemporaryDirectory() as temp_dir,
+            tempfile.TemporaryDirectory() as storage_dir,
+        ):
             root = Path(temp_dir)
             original_dirs = (
                 app_config.REPORTS_DIR,
@@ -80,20 +91,32 @@ class StorageBackendTests(unittest.TestCase):
                 app_config.SCREENER_RESULTS_DIR = root / "data" / "screener" / "runs"
                 app_config.STOCK_HISTORY_DIR = root / "data" / "history"
                 app_config.SCREENER_CACHE_DIR = root / "data" / "cache" / "screener"
-                (app_config.REPORTS_DIR / "SPY" / "complete_report.md").parent.mkdir(parents=True)
-                (app_config.REPORTS_DIR / "SPY" / "complete_report.md").write_text("report", encoding="utf-8")
+                (app_config.REPORTS_DIR / "SPY" / "complete_report.md").parent.mkdir(
+                    parents=True
+                )
+                (app_config.REPORTS_DIR / "SPY" / "complete_report.md").write_text(
+                    "report", encoding="utf-8"
+                )
                 (app_config.SCREENER_RESULTS_DIR / "run1").mkdir(parents=True)
-                (app_config.SCREENER_RESULTS_DIR / "run1" / "candidates.csv").write_text("symbol\nAAPL\n", encoding="utf-8")
+                (
+                    app_config.SCREENER_RESULTS_DIR / "run1" / "candidates.csv"
+                ).write_text("symbol\nAAPL\n", encoding="utf-8")
                 (app_config.STOCK_HISTORY_DIR / "us").mkdir(parents=True)
-                (app_config.STOCK_HISTORY_DIR / "us" / "AAPL.csv").write_text("Date,Close\n", encoding="utf-8")
-                (app_config.SCREENER_CACHE_DIR / "checkpoint.json").parent.mkdir(parents=True)
-                (app_config.SCREENER_CACHE_DIR / "checkpoint.json").write_text("{}", encoding="utf-8")
+                (app_config.STOCK_HISTORY_DIR / "us" / "AAPL.csv").write_text(
+                    "Date,Close\n", encoding="utf-8"
+                )
+                (app_config.SCREENER_CACHE_DIR / "checkpoint.json").parent.mkdir(
+                    parents=True
+                )
+                (app_config.SCREENER_CACHE_DIR / "checkpoint.json").write_text(
+                    "{}", encoding="utf-8"
+                )
 
                 with patch.dict(
                     storage.os.environ,
                     {
                         "STORAGE_BACKEND": "local",
-                        "STORAGE_LOCAL_ROOT": storage_dir,
+                        "DATA_DIR": storage_dir,
                     },
                     clear=True,
                 ):

@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Generator, Optional
 
-from cli.models import AnalystType
+from diverge.analysis.options import ANALYST_AGENT_NAMES, ANALYST_ORDER, AnalystType
 from diverge.default_config import DEFAULT_CONFIG
 from diverge.graph.trading_graph import DivergeGraph
 from diverge.llm_clients.model_config import (
@@ -14,20 +14,20 @@ from diverge.llm_clients.model_config import (
     get_provider_base_url,
 )
 from diverge.llm_clients.validators import validate_model
-from diverge.dataflows.cn_market_utils import detect_market
+from diverge.common.market_calendar import resolve_market_trading_date
+from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
+from diverge.agents.managers.summary_agent import sanitize_report_summary_output
 from diverge.research.thesis_tracker import build_thesis_artifact
-from diverge.screener.market_calendar import latest_trading_day_on_or_before
-from diverge.ticker_symbols import normalize_analysis_ticker_symbol
+from diverge.runtime.analysis_context import (
+    AnalysisContextPackAdapters,
+    AnalysisContextPackRequest,
+    build_analysis_context_pack,
+    use_search_context,
+)
+from diverge.runtime.analysis_schema import trade_feedback_artifact_from_state
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
-ANALYST_ORDER = ["market", "social", "news", "fundamentals"]
-ANALYST_AGENT_NAMES = {
-    "market": "Market Analyst",
-    "social": "Social Analyst",
-    "news": "News Analyst",
-    "fundamentals": "Fundamentals Analyst",
-}
 SECTION_FILE_MAP = {
     "market_report": ("1_analysts", "market.md"),
     "sentiment_report": ("1_analysts", "sentiment.md"),
@@ -123,7 +123,9 @@ def classify_message_type(message) -> tuple[str, str | None]:
     return ("System", content)
 
 
-def _shorten_message(message_type: str, content: str | None, limit: int = 280) -> str | None:
+def _shorten_message(
+    message_type: str, content: str | None, limit: int = 280
+) -> str | None:
     if not content:
         return None
     compact = " ".join(content.split())
@@ -143,6 +145,7 @@ class AnalysisRequest:
     deep_think_llm: str
     output_language: str
     model_profile: Optional[str] = None
+    backend_url: Optional[str] = None
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
@@ -166,12 +169,12 @@ class AnalysisRequest:
         market = detect_market(self.ticker)
         if market not in {"cn", "us"}:
             market = "us"
-        latest_trading_date = latest_trading_day_on_or_before(
+        trading_date = resolve_market_trading_date(
             market,
             analysis_date.date(),
         )
-        if latest_trading_date is not None:
-            self.analysis_date = latest_trading_date.strftime("%Y-%m-%d")
+        if trading_date is not None:
+            self.analysis_date = trading_date
 
         self.analysts = [_coerce_analyst_key(analyst) for analyst in self.analysts]
         if not self.analysts:
@@ -224,6 +227,7 @@ class AnalysisProgress:
     agent_status: dict[str, str]
     current_agent: Optional[str]
     message: Optional[str] = None
+    warnings: list[dict[str, str]] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -237,6 +241,7 @@ class AnalysisTracker:
     current_agent: Optional[str] = field(default=None, init=False)
     report_sections: dict[str, Optional[str]] = field(init=False)
     _last_message_id: Optional[str] = field(default=None, init=False)
+    _seen_runtime_progress_ids: set[str] = field(default_factory=set, init=False)
 
     def __post_init__(self) -> None:
         normalized = []
@@ -273,6 +278,7 @@ class AnalysisTracker:
         self.report_sections["investment_plan"] = None
         self.report_sections["trader_investment_plan"] = None
         self.report_sections["final_trade_decision"] = None
+        self.runtime_warnings: list[dict[str, str]] = []
 
     def mark_started(self) -> None:
         if not self.selected_analysts:
@@ -304,6 +310,16 @@ class AnalysisTracker:
         if message:
             dirty = True
 
+        warning_message = self._consume_runtime_warnings(chunk)
+        if warning_message:
+            message = warning_message
+            dirty = True
+
+        runtime_message = self._consume_runtime_progress_events(chunk)
+        if runtime_message:
+            message = runtime_message
+            dirty = True
+
         if self._update_analyst_statuses(chunk):
             dirty = True
 
@@ -332,7 +348,49 @@ class AnalysisTracker:
             agent_status=dict(self.agent_status),
             current_agent=self.current_agent,
             message=message,
+            warnings=list(self.runtime_warnings),
         )
+
+    def _consume_runtime_warnings(self, chunk: dict) -> Optional[str]:
+        incoming = chunk.get("runtime_warnings")
+        if not isinstance(incoming, list):
+            return None
+
+        latest_message = None
+        for warning in incoming:
+            if not isinstance(warning, dict):
+                continue
+            normalized = {str(key): str(value) for key, value in warning.items()}
+            if normalized in self.runtime_warnings:
+                continue
+            self.runtime_warnings.append(normalized)
+            latest_message = normalized.get("message") or "Runtime warning recorded."
+
+        return f"Warning: {latest_message}" if latest_message else None
+
+    def _consume_runtime_progress_events(self, chunk: dict) -> Optional[str]:
+        incoming = chunk.get("runtime_progress_events")
+        if not isinstance(incoming, list):
+            return None
+
+        latest_message = None
+        for event in incoming:
+            if not isinstance(event, dict):
+                continue
+            event_id = str(event.get("id") or "")
+            if event_id and event_id in self._seen_runtime_progress_ids:
+                continue
+            if event_id:
+                self._seen_runtime_progress_ids.add(event_id)
+
+            current_agent = str(event.get("current_agent") or "").strip()
+            if current_agent in self.agent_status:
+                self.current_agent = current_agent
+            message = str(event.get("message") or "").strip()
+            if message:
+                latest_message = message
+
+        return latest_message
 
     def _build_stage_status(self) -> dict[str, str]:
         stage_status = {}
@@ -388,7 +446,9 @@ class AnalysisTracker:
 
             if has_report:
                 dirty = self.update_agent_status(agent_name, "completed") or dirty
-                dirty = self.update_report_section(report_key, chunk[report_key]) or dirty
+                dirty = (
+                    self.update_report_section(report_key, chunk[report_key]) or dirty
+                )
             elif not found_active:
                 dirty = self.update_agent_status(agent_name, "in_progress") or dirty
                 found_active = True
@@ -415,17 +475,26 @@ class AnalysisTracker:
                 dirty = self.update_agent_status(agent, "in_progress") or dirty
 
         if bull_history:
-            dirty = self.update_report_section(
-                "investment_plan", f"### Bull Researcher Analysis\n{bull_history}"
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "investment_plan", f"### Bull Researcher Analysis\n{bull_history}"
+                )
+                or dirty
+            )
         if bear_history:
-            dirty = self.update_report_section(
-                "investment_plan", f"### Bear Researcher Analysis\n{bear_history}"
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "investment_plan", f"### Bear Researcher Analysis\n{bear_history}"
+                )
+                or dirty
+            )
         if judge:
-            dirty = self.update_report_section(
-                "investment_plan", f"### Research Manager Decision\n{judge}"
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "investment_plan", f"### Research Manager Decision\n{judge}"
+                )
+                or dirty
+            )
             for agent in RESEARCH_TEAM:
                 dirty = self.update_agent_status(agent, "completed") or dirty
             dirty = self.update_agent_status("Trader", "in_progress") or dirty
@@ -455,29 +524,47 @@ class AnalysisTracker:
         judge = risk_state.get("judge_decision", "").strip()
 
         if aggressive:
-            dirty = self.update_agent_status("Aggressive Analyst", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Aggressive Analyst Analysis\n{aggressive}",
-            ) or dirty
+            dirty = (
+                self.update_agent_status("Aggressive Analyst", "in_progress") or dirty
+            )
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Aggressive Analyst Analysis\n{aggressive}",
+                )
+                or dirty
+            )
         if conservative:
-            dirty = self.update_agent_status("Conservative Analyst", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Conservative Analyst Analysis\n{conservative}",
-            ) or dirty
+            dirty = (
+                self.update_agent_status("Conservative Analyst", "in_progress") or dirty
+            )
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Conservative Analyst Analysis\n{conservative}",
+                )
+                or dirty
+            )
         if neutral:
             dirty = self.update_agent_status("Neutral Analyst", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Neutral Analyst Analysis\n{neutral}",
-            ) or dirty
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Neutral Analyst Analysis\n{neutral}",
+                )
+                or dirty
+            )
         if judge:
-            dirty = self.update_agent_status("Portfolio Manager", "in_progress") or dirty
-            dirty = self.update_report_section(
-                "final_trade_decision",
-                f"### Portfolio Manager Decision\n{judge}",
-            ) or dirty
+            dirty = (
+                self.update_agent_status("Portfolio Manager", "in_progress") or dirty
+            )
+            dirty = (
+                self.update_report_section(
+                    "final_trade_decision",
+                    f"### Portfolio Manager Decision\n{judge}",
+                )
+                or dirty
+            )
             for agent in RISK_TEAM:
                 dirty = self.update_agent_status(agent, "completed") or dirty
             dirty = self.update_agent_status("Portfolio Manager", "completed") or dirty
@@ -503,7 +590,9 @@ def build_analysis_config(request: AnalysisRequest) -> dict:
     config["max_risk_discuss_rounds"] = request.research_depth
     config["quick_think_llm"] = request.quick_think_llm
     config["deep_think_llm"] = request.deep_think_llm
-    config["backend_url"] = get_provider_base_url(request.llm_provider)
+    config["backend_url"] = request.backend_url or get_provider_base_url(
+        request.llm_provider
+    )
     config["llm_provider"] = request.llm_provider
     config["model_profile"] = request.model_profile
     config["output_language"] = request.output_language
@@ -526,57 +615,65 @@ def run_analysis_streaming(
     *,
     reports_dir: Path | None = None,
     visible_trade_ids: Collection[str] | None = None,
+    analysis_run_id: str | None = None,
 ) -> Generator[AnalysisProgress, None, dict]:
     config = build_analysis_config(request)
     selected_analysts = [key for key in ANALYST_ORDER if key in request.analysts]
     tracker = AnalysisTracker(selected_analysts, temp_dir)
     tracker.mark_started()
-    trade_feedback_payload = get_trade_feedback_payload(
-        request.ticker,
-        reports_dir=reports_dir,
-        analysis_date=request.analysis_date,
-        visible_trade_ids=set(visible_trade_ids) if visible_trade_ids is not None else None,
+    context_pack = build_analysis_context_pack(
+        AnalysisContextPackRequest(
+            ticker=request.ticker,
+            analysis_date=request.analysis_date,
+            output_language=request.output_language,
+            portfolio_context=request.portfolio_context,
+            reports_dir=reports_dir,
+            visible_trade_ids=visible_trade_ids,
+            analysis_run_id=analysis_run_id,
+        ),
+        adapters=AnalysisContextPackAdapters(
+            get_trade_feedback_payload=get_trade_feedback_payload,
+        ),
     )
 
-    graph = DivergeGraph(
-        selected_analysts,
-        config=config,
-        debug=True,
-    )
-    init_agent_state = graph.propagator.create_initial_state(
-        request.ticker,
-        request.analysis_date,
-        request.output_language,
-        historical_trade_feedback=trade_feedback_payload["prompt"],
-        historical_trade_reviews=trade_feedback_payload["reviews"],
-        portfolio_context=request.portfolio_context or "",
-    )
-    args = graph.propagator.get_graph_args()
+    with use_search_context(context_pack):
+        graph = DivergeGraph(
+            selected_analysts,
+            config=config,
+            debug=True,
+        )
+        init_agent_state = graph.propagator.create_initial_state(
+            request.ticker,
+            request.analysis_date,
+            request.output_language,
+            **context_pack.initial_state_kwargs(),
+        )
+        args = graph.propagator.get_graph_args()
 
-    yield tracker.to_progress(
-        status="running",
-        message=f"System: Analyzing {request.ticker} on {request.analysis_date}",
-    )
+        yield tracker.to_progress(
+            status="running",
+            message=f"System: Analyzing {request.ticker} on {request.analysis_date}",
+        )
 
-    trace = []
-    for chunk in graph.graph.stream(init_agent_state, **args):
-        trace.append(chunk)
-        progress = tracker.consume_chunk(chunk, status="running")
-        if progress is not None:
-            yield progress
+        trace = []
+        for chunk in graph.stream(init_agent_state, **args):
+            trace.append(chunk)
+            progress = tracker.consume_chunk(chunk, status="running")
+            if progress is not None:
+                yield progress
 
-    if not trace:
-        raise RuntimeError("Analysis completed without producing a final state")
+        if not trace:
+            raise RuntimeError("Analysis completed without producing a final state")
 
-    final_state = trace[-1]
-    for agent in list(tracker.agent_status):
-        tracker.update_agent_status(agent, "completed")
+        final_state = trace[-1]
+        for agent in list(tracker.agent_status):
+            tracker.update_agent_status(agent, "completed")
 
-    yield tracker.to_progress(
-        status="completed",
-        message=f"System: Completed analysis for {request.analysis_date}",
-    )
-    return final_state
+        yield tracker.to_progress(
+            status="completed",
+            message=f"System: Completed analysis for {request.analysis_date}",
+        )
+        return final_state
 
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):
@@ -690,6 +787,18 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
                 f"## V. Portfolio Manager Decision\n\n### Portfolio Manager\n{risk['judge_decision']}"
             )
 
+    runtime_warnings = final_state.get("runtime_warnings")
+    if isinstance(runtime_warnings, list) and runtime_warnings:
+        warning_lines = []
+        for warning in runtime_warnings:
+            if not isinstance(warning, dict):
+                continue
+            stage = str(warning.get("stage") or "Runtime").strip()
+            message = str(warning.get("message") or warning).strip()
+            warning_lines.append(f"- **{stage}**: {message}")
+        if warning_lines:
+            sections.append("## Runtime Warnings\n\n" + "\n".join(warning_lines))
+
     header = (
         f"# Trading Analysis Report: {ticker}\n\n"
         f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -706,24 +815,33 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         encoding="utf-8",
     )
     if final_state.get("report_summary"):
+        summary_text = sanitize_report_summary_output(final_state["report_summary"])
         summary_artifact = {
             "type": "summary",
             "ticker": ticker,
-            "summary": str(final_state["report_summary"]).strip(),
+            "summary": summary_text,
         }
         (artifacts_dir / "summary.json").write_text(
             json.dumps(summary_artifact, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-    if final_state.get("historical_trade_reviews"):
-        trade_feedback_artifact = {
-            "type": "trade_feedback",
-            "ticker": ticker,
-            "prompt": final_state.get("historical_trade_feedback", ""),
-            "reviews": final_state["historical_trade_reviews"],
-        }
+    trade_feedback_artifact = trade_feedback_artifact_from_state(
+        final_state,
+        ticker=ticker,
+    )
+    if trade_feedback_artifact is not None:
         (artifacts_dir / "trade_feedback.json").write_text(
             json.dumps(trade_feedback_artifact, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+    if isinstance(runtime_warnings, list) and runtime_warnings:
+        runtime_warning_artifact = {
+            "type": "runtime_warnings",
+            "ticker": ticker,
+            "warnings": runtime_warnings,
+        }
+        (artifacts_dir / "runtime_warnings.json").write_text(
+            json.dumps(runtime_warning_artifact, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
     return save_path / "complete_report.md"

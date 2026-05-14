@@ -31,7 +31,12 @@ OWNER_TABLES = (
 def _add_tenant_column(table_name: str) -> None:
     op.add_column(
         table_name,
-        sa.Column("tenant_id", sa.String(length=32), nullable=True, server_default=DEFAULT_TENANT_ID),
+        sa.Column(
+            "tenant_id",
+            sa.String(length=32),
+            nullable=True,
+            server_default=DEFAULT_TENANT_ID,
+        ),
     )
 
 
@@ -73,17 +78,42 @@ def upgrade() -> None:
         ).bindparams(default_tenant_id=DEFAULT_TENANT_ID)
     )
 
-    op.create_index("ix_report_runs_tenant_generated_at", "report_runs", ["tenant_id", "generated_at"], unique=False)
+    op.create_index(
+        "ix_report_runs_tenant_generated_at",
+        "report_runs",
+        ["tenant_id", "generated_at"],
+        unique=False,
+    )
     op.create_index(
         "ix_report_runs_tenant_visibility_generated_at",
         "report_runs",
         ["tenant_id", "visibility", "generated_at"],
         unique=False,
     )
-    op.create_index("ix_screener_runs_tenant_generated_at", "screener_runs", ["tenant_id", "generated_at"], unique=False)
-    op.create_index("ix_trade_entries_tenant_updated_at", "trade_entries", ["tenant_id", "updated_at"], unique=False)
-    op.create_index("ix_asset_accounts_tenant_updated_at", "asset_accounts", ["tenant_id", "updated_at"], unique=False)
-    op.create_index("ix_asset_positions_tenant_updated_at", "asset_positions", ["tenant_id", "updated_at"], unique=False)
+    op.create_index(
+        "ix_screener_runs_tenant_generated_at",
+        "screener_runs",
+        ["tenant_id", "generated_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_trade_entries_tenant_updated_at",
+        "trade_entries",
+        ["tenant_id", "updated_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_asset_accounts_tenant_updated_at",
+        "asset_accounts",
+        ["tenant_id", "updated_at"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_asset_positions_tenant_updated_at",
+        "asset_positions",
+        ["tenant_id", "updated_at"],
+        unique=False,
+    )
     op.create_index(
         "ix_asset_valuation_snapshots_tenant_captured_at",
         "asset_valuation_snapshots",
@@ -99,13 +129,21 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_analysis_task_usage_tenant_user_module_week", table_name="analysis_task_usage")
-    op.drop_index("ix_asset_valuation_snapshots_tenant_captured_at", table_name="asset_valuation_snapshots")
+    op.drop_index(
+        "ix_analysis_task_usage_tenant_user_module_week",
+        table_name="analysis_task_usage",
+    )
+    op.drop_index(
+        "ix_asset_valuation_snapshots_tenant_captured_at",
+        table_name="asset_valuation_snapshots",
+    )
     op.drop_index("ix_asset_positions_tenant_updated_at", table_name="asset_positions")
     op.drop_index("ix_asset_accounts_tenant_updated_at", table_name="asset_accounts")
     op.drop_index("ix_trade_entries_tenant_updated_at", table_name="trade_entries")
     op.drop_index("ix_screener_runs_tenant_generated_at", table_name="screener_runs")
-    op.drop_index("ix_report_runs_tenant_visibility_generated_at", table_name="report_runs")
+    op.drop_index(
+        "ix_report_runs_tenant_visibility_generated_at", table_name="report_runs"
+    )
     op.drop_index("ix_report_runs_tenant_generated_at", table_name="report_runs")
     op.drop_column("asset_valuation_snapshots", "tenant_id")
     for table_name, _owner_column in reversed(OWNER_TABLES):

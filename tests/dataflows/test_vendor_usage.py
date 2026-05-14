@@ -14,13 +14,14 @@ from web.backend.schemas.admin import AdminDataSourceRouteUpdatePayload
 class VendorUsageTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.usage_path = os.path.join(self.temp_dir.name, "vendor_usage.json")
+        self.data_dir = Path(self.temp_dir.name) / "data"
+        self.usage_path = self.data_dir / "data_source_usage.json"
         self.env_patch = patch.dict(
             os.environ,
             {
                 "AUTH_ENABLED": "false",
                 "AUTH_MODE": "disabled",
-                "DATA_SOURCE_USAGE_PATH": self.usage_path,
+                "DATA_DIR": str(self.data_dir),
             },
             clear=False,
         )
@@ -178,7 +179,9 @@ class VendorUsageTests(unittest.TestCase):
                 {"DATA_SOURCE_USAGE_ALLOW_LOCAL_FALLBACK": "true"},
                 clear=False,
             ),
-            patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()),
+            patch.object(
+                vendor_usage, "_database_store", return_value=BrokenDatabaseStore()
+            ),
         ):
             self.assertEqual(
                 vendor_usage.get_data_source_route(
@@ -210,15 +213,18 @@ class VendorUsageTests(unittest.TestCase):
 class VendorUsageDatabaseTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.database_url = f"sqlite+pysqlite:///{Path(self.temp_dir.name) / 'usage.db'}"
-        self.usage_path = Path(self.temp_dir.name) / "should-not-be-used.json"
+        self.database_url = (
+            f"sqlite+pysqlite:///{Path(self.temp_dir.name) / 'usage.db'}"
+        )
+        self.data_dir = Path(self.temp_dir.name) / "data"
+        self.usage_path = self.data_dir / "data_source_usage.json"
         self.env_patch = patch.dict(
             os.environ,
             {
                 "AUTH_ENABLED": "true",
                 "AUTH_MODE": "required",
                 "DATABASE_URL": self.database_url,
-                "DATA_SOURCE_USAGE_PATH": str(self.usage_path),
+                "DATA_DIR": str(self.data_dir),
             },
             clear=False,
         )
@@ -274,7 +280,56 @@ class VendorUsageDatabaseTests(unittest.TestCase):
         self.assertFalse(sources["alpha_vantage"]["enabled"])
         self.assertEqual(sources["alpha_vantage"]["daily_limit"], 7)
         self.assertEqual(sources["alpha_vantage"]["hourly_limit"], 3)
-        self.assertEqual(sources["massive"]["modules"]["analysis"]["total_calls"], 1)
+
+    def test_database_usage_upsert_accumulates_and_resets_hour_bucket(self):
+        from web.backend import data_sources
+
+        vendor_usage.record_data_source_call(
+            "massive",
+            module="analysis",
+            success=True,
+        )
+        vendor_usage.record_data_source_call(
+            "massive",
+            module="analysis",
+            success=False,
+        )
+
+        usage_date = vendor_usage.current_usage_date()
+        with auth.db_session() as db:
+            usage = db.scalar(
+                data_sources.select_usage_row(
+                    vendor="massive",
+                    module="analysis",
+                    usage_date=usage_date,
+                )
+            )
+            self.assertIsNotNone(usage)
+            self.assertEqual(usage.total_calls, 2)
+            self.assertEqual(usage.success_count, 1)
+            self.assertEqual(usage.failure_count, 1)
+            self.assertEqual(usage.hour_total_calls, 2)
+            usage.hour_key = "2000-01-01T00"
+            usage.hour_total_calls = 9
+
+        vendor_usage.record_data_source_call(
+            "massive",
+            module="analysis",
+            success=True,
+        )
+        with auth.db_session() as db:
+            usage = db.scalar(
+                data_sources.select_usage_row(
+                    vendor="massive",
+                    module="analysis",
+                    usage_date=usage_date,
+                )
+            )
+            self.assertEqual(usage.total_calls, 3)
+            self.assertEqual(usage.success_count, 2)
+            self.assertEqual(usage.failure_count, 1)
+            self.assertEqual(usage.hour_total_calls, 1)
+            self.assertNotEqual(usage.hour_key, "2000-01-01T00")
 
     def test_database_store_failure_is_not_silently_ignored_when_database_backed(self):
         class BrokenDatabaseStore:
@@ -283,7 +338,9 @@ class VendorUsageDatabaseTests(unittest.TestCase):
 
         with (
             patch.dict(os.environ, {"APP_ENV": "production"}, clear=False),
-            patch.object(vendor_usage, "_database_store", return_value=BrokenDatabaseStore()),
+            patch.object(
+                vendor_usage, "_database_store", return_value=BrokenDatabaseStore()
+            ),
         ):
             with self.assertRaisesRegex(RuntimeError, "data-source governance"):
                 vendor_usage.is_data_source_available("alpha_vantage")

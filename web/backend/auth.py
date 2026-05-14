@@ -19,10 +19,27 @@ from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request, Response
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, create_engine, func, inspect, select
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    create_engine,
+    func,
+    inspect,
+    select,
+)
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    Session,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
 
 from web.backend.runtime import task_store
 
@@ -137,7 +154,9 @@ def _hash_session_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def _login_rate_limit_keys(email: str | None, ip_address: str | None) -> tuple[str, str, str]:
+def _login_rate_limit_keys(
+    email: str | None, ip_address: str | None
+) -> tuple[str, str, str]:
     normalized_email = str(email or "").strip().lower() or "<missing>"
     normalized_ip = str(ip_address or "").strip() or "<unknown>"
     return (
@@ -164,7 +183,9 @@ def _trusted_proxy_networks() -> list[ipaddress._BaseNetwork]:
             else:
                 address = ipaddress.ip_address(candidate)
                 suffix = 32 if address.version == 4 else 128
-                networks.append(ipaddress.ip_network(f"{candidate}/{suffix}", strict=False))
+                networks.append(
+                    ipaddress.ip_network(f"{candidate}/{suffix}", strict=False)
+                )
         except ValueError:
             logger.warning("Ignoring invalid trusted proxy CIDR: %s", candidate)
     return networks
@@ -196,9 +217,7 @@ def client_ip_for_request(request: Request) -> str | None:
 
     forwarded_for = request.headers.get("x-forwarded-for", "")
     forwarded_chain = [
-        item.strip()
-        for item in forwarded_for.split(",")
-        if item.strip()
+        item.strip() for item in forwarded_for.split(",") if item.strip()
     ]
     for candidate in reversed(forwarded_chain):
         if _parse_ip_address(candidate) is None:
@@ -225,7 +244,9 @@ def ensure_login_allowed(email: str | None, ip_address: str | None) -> None:
         return
     with _LOGIN_FAILURE_LOCK:
         for key in keys:
-            failures = [value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff]
+            failures = [
+                value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff
+            ]
             _LOGIN_FAILURES[key] = failures
             if len(failures) >= LOGIN_FAILURE_LIMIT:
                 raise HTTPException(
@@ -248,7 +269,9 @@ def record_login_failure(email: str | None, ip_address: str | None) -> None:
         return
     with _LOGIN_FAILURE_LOCK:
         for key in keys:
-            failures = [value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff]
+            failures = [
+                value for value in _LOGIN_FAILURES.get(key, []) if value >= cutoff
+            ]
             failures.append(now)
             _LOGIN_FAILURES[key] = failures
 
@@ -366,11 +389,15 @@ class Tenant(Base):
         Index("ix_tenants_status", "status"),
     )
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=lambda: uuid.uuid4().hex
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(128), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -389,7 +416,9 @@ class User(Base):
         Index("ix_users_role_status", "role", "status"),
     )
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=lambda: uuid.uuid4().hex
+    )
     tenant_id: Mapped[str] = mapped_column(
         String(32),
         ForeignKey("tenants.id", ondelete="RESTRICT"),
@@ -399,11 +428,21 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), nullable=False)
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(String(32), nullable=False, default=UserRole.VIEWER.value)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default=UserStatus.ACTIVE.value)
-    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    role: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=UserRole.VIEWER.value
+    )
+    status: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=UserStatus.ACTIVE.value
+    )
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -427,11 +466,15 @@ class User(Base):
 class UserPermission(Base):
     __tablename__ = "user_permissions"
     __table_args__ = (
-        Index("ix_user_permissions_user_permission", "user_id", "permission", unique=True),
+        Index(
+            "ix_user_permissions_user_permission", "user_id", "permission", unique=True
+        ),
         Index("ix_user_permissions_user_effect", "user_id", "effect"),
     )
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=lambda: uuid.uuid4().hex
+    )
     user_id: Mapped[str] = mapped_column(
         String(32),
         ForeignKey("users.id", ondelete="CASCADE"),
@@ -439,7 +482,9 @@ class UserPermission(Base):
     )
     permission: Mapped[str] = mapped_column(String(128), nullable=False)
     effect: Mapped[str] = mapped_column(String(16), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -458,19 +503,29 @@ class AuthSession(Base):
         Index("ix_auth_sessions_expires_at", "expires_at"),
     )
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=lambda: uuid.uuid4().hex
+    )
     user_id: Mapped[str] = mapped_column(
         String(32),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     ip_address: Mapped[str | None] = mapped_column(String(128), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -499,20 +554,22 @@ def get_auth_settings() -> AuthSettings:
     raw_enabled = _env_bool("AUTH_ENABLED", False)
     raw_mode = os.environ.get("AUTH_MODE", "required").strip().lower()
     if raw_mode not in VALID_AUTH_MODES:
-        raise RuntimeError(
-            "AUTH_MODE must be one of disabled, optional, or required"
-        )
+        raise RuntimeError("AUTH_MODE must be one of disabled, optional, or required")
 
     enabled = raw_enabled and raw_mode != "disabled"
     effective_mode: AuthMode = "disabled" if not enabled else raw_mode  # type: ignore[assignment]
     cookie_samesite = os.environ.get("SESSION_COOKIE_SAMESITE", "lax").strip().lower()
     if cookie_samesite not in VALID_COOKIE_SAMESITE:
-        raise RuntimeError("SESSION_COOKIE_SAMESITE must be one of lax, strict, or none")
+        raise RuntimeError(
+            "SESSION_COOKIE_SAMESITE must be one of lax, strict, or none"
+        )
 
     bootstrap_email = os.environ.get("AUTH_BOOTSTRAP_ADMIN_EMAIL")
     bootstrap_password = os.environ.get("AUTH_BOOTSTRAP_ADMIN_PASSWORD")
     bootstrap_display_name = (
-        os.environ.get("AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME", DEFAULT_BOOTSTRAP_ADMIN_DISPLAY_NAME).strip()
+        os.environ.get(
+            "AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME", DEFAULT_BOOTSTRAP_ADMIN_DISPLAY_NAME
+        ).strip()
         or DEFAULT_BOOTSTRAP_ADMIN_DISPLAY_NAME
     )
 
@@ -520,7 +577,9 @@ def get_auth_settings() -> AuthSettings:
         enabled=enabled,
         mode=effective_mode,
         database_url=_normalize_database_url(os.environ.get("DATABASE_URL")),
-        session_cookie_name=os.environ.get("SESSION_COOKIE_NAME", DEFAULT_SESSION_COOKIE_NAME).strip()
+        session_cookie_name=os.environ.get(
+            "SESSION_COOKIE_NAME", DEFAULT_SESSION_COOKIE_NAME
+        ).strip()
         or DEFAULT_SESSION_COOKIE_NAME,
         session_ttl_hours=_coerce_positive_int(
             os.environ.get("SESSION_TTL_HOURS"),
@@ -529,8 +588,12 @@ def get_auth_settings() -> AuthSettings:
         ),
         session_cookie_secure=_env_bool("SESSION_COOKIE_SECURE", False),
         session_cookie_samesite=cookie_samesite,  # type: ignore[arg-type]
-        bootstrap_admin_email=bootstrap_email.strip().lower() if bootstrap_email and bootstrap_email.strip() else None,
-        bootstrap_admin_password=bootstrap_password.strip() if bootstrap_password and bootstrap_password.strip() else None,
+        bootstrap_admin_email=bootstrap_email.strip().lower()
+        if bootstrap_email and bootstrap_email.strip()
+        else None,
+        bootstrap_admin_password=bootstrap_password.strip()
+        if bootstrap_password and bootstrap_password.strip()
+        else None,
         bootstrap_admin_display_name=bootstrap_display_name,
     )
 
@@ -567,7 +630,9 @@ def get_engine(settings: AuthSettings | None = None) -> Engine:
                 _ENGINE.dispose()
             _ENGINE = _create_engine(normalized_url)
             _ENGINE_URL = normalized_url
-            _SESSION_FACTORY = sessionmaker(_ENGINE, autoflush=False, expire_on_commit=False)
+            _SESSION_FACTORY = sessionmaker(
+                _ENGINE, autoflush=False, expire_on_commit=False
+            )
         return _ENGINE
 
 
@@ -595,8 +660,6 @@ def reset_runtime_state() -> None:
 
 
 def create_all_for_testing() -> None:
-    from web.backend import analysis_limits, asset_entries, audit, data_sources, job_records, llm_models, report_metadata, screener_runs, trade_entries  # noqa: F401
-
     settings = get_auth_settings()
     engine = get_engine(settings)
     Base.metadata.create_all(engine)
@@ -609,7 +672,11 @@ def _ensure_auth_tables_exist(settings: AuthSettings) -> None:
     engine = get_engine(settings)
     inspector = inspect(engine)
     required_tables = ("tenants", "users", "auth_sessions", "user_permissions")
-    missing_tables = [table_name for table_name in required_tables if not inspector.has_table(table_name)]
+    missing_tables = [
+        table_name
+        for table_name in required_tables
+        if not inspector.has_table(table_name)
+    ]
     if missing_tables:
         joined = ", ".join(missing_tables)
         raise RuntimeError(
@@ -660,7 +727,9 @@ def serialize_tenant(tenant: Tenant | None) -> dict[str, object] | None:
     }
 
 
-def build_auth_state_payload(user: User | None, db: Session | None = None) -> dict[str, object]:
+def build_auth_state_payload(
+    user: User | None, db: Session | None = None
+) -> dict[str, object]:
     settings = get_auth_settings()
     permissions: list[str] = []
     tenant_payload: dict[str, object] | None = None
@@ -683,10 +752,9 @@ def build_auth_state_payload(user: User | None, db: Session | None = None) -> di
 
 def _normalize_tenant_slug(value: str | None) -> str:
     candidate = _require_text(value, "slug").lower()
-    normalized = "".join(
-        char if char.isalnum() else "-"
-        for char in candidate
-    ).strip("-")
+    normalized = "".join(char if char.isalnum() else "-" for char in candidate).strip(
+        "-"
+    )
     while "--" in normalized:
         normalized = normalized.replace("--", "-")
     if not normalized:
@@ -764,7 +832,9 @@ def get_user_by_id(db: Session, user_id: str) -> User:
 def list_users(db: Session, *, tenant_id: str | None = None) -> list[User]:
     statement = select(User)
     if tenant_id is not None:
-        statement = statement.where(User.tenant_id == _require_text(tenant_id, "tenant_id"))
+        statement = statement.where(
+            User.tenant_id == _require_text(tenant_id, "tenant_id")
+        )
     statement = statement.order_by(User.created_at.asc(), User.email.asc())
     return list(db.scalars(statement))
 
@@ -772,17 +842,23 @@ def list_users(db: Session, *, tenant_id: str | None = None) -> list[User]:
 def _normalize_role(value: UserRole | str | None, field_name: str = "role") -> str:
     if isinstance(value, UserRole):
         return value.value
-    candidate = _require_text(str(value) if value is not None else None, field_name).lower()
+    candidate = _require_text(
+        str(value) if value is not None else None, field_name
+    ).lower()
     try:
         return UserRole(candidate).value
     except ValueError as exc:
-        raise AuthValidationError(f"{field_name} must be one of admin, operator, or viewer") from exc
+        raise AuthValidationError(
+            f"{field_name} must be one of admin, operator, or viewer"
+        ) from exc
 
 
 def _normalize_permission(value: str | None) -> str:
     candidate = _require_text(value, "permission").lower()
     if candidate not in ALL_PERMISSIONS:
-        raise AuthValidationError(f"permission must be one of {', '.join(sorted(ALL_PERMISSIONS))}")
+        raise AuthValidationError(
+            f"permission must be one of {', '.join(sorted(ALL_PERMISSIONS))}"
+        )
     return candidate
 
 
@@ -848,14 +924,20 @@ def user_has_permission(db: Session, user: User, permission: str) -> bool:
     return normalized_permission in effective_permissions_for_user(db, user)
 
 
-def _normalize_status(value: UserStatus | str | None, field_name: str = "status") -> str:
+def _normalize_status(
+    value: UserStatus | str | None, field_name: str = "status"
+) -> str:
     if isinstance(value, UserStatus):
         return value.value
-    candidate = _require_text(str(value) if value is not None else None, field_name).lower()
+    candidate = _require_text(
+        str(value) if value is not None else None, field_name
+    ).lower()
     try:
         return UserStatus(candidate).value
     except ValueError as exc:
-        raise AuthValidationError(f"{field_name} must be one of active or disabled") from exc
+        raise AuthValidationError(
+            f"{field_name} must be one of active or disabled"
+        ) from exc
 
 
 def _active_admin_count(db: Session, *, tenant_id: str | None = None) -> int:
@@ -911,7 +993,9 @@ def create_user(
     normalized_role = _normalize_role(role)
     normalized_status = _normalize_status(status)
     normalized_display_name = (
-        display_name.strip() if display_name is not None and display_name.strip() else normalized_email
+        display_name.strip()
+        if display_name is not None and display_name.strip()
+        else normalized_email
     )
     tenant = get_tenant_by_id(db, tenant_id) if tenant_id else ensure_default_tenant(db)
 
@@ -944,7 +1028,9 @@ def update_user(
     user = get_user_by_id(db, user_id)
     next_role = _normalize_role(role) if role is not None else None
     next_status = _normalize_status(status) if status is not None else None
-    _ensure_not_last_active_admin(db, user, next_role=next_role, next_status=next_status)
+    _ensure_not_last_active_admin(
+        db, user, next_role=next_role, next_status=next_status
+    )
 
     if display_name is not None:
         normalized_display_name = display_name.strip()
@@ -962,7 +1048,9 @@ def update_user(
     return user
 
 
-def revoke_all_user_sessions(db: Session, user: User, *, exclude_session_id: str | None = None) -> None:
+def revoke_all_user_sessions(
+    db: Session, user: User, *, exclude_session_id: str | None = None
+) -> None:
     now = _utcnow()
     statement = select(AuthSession).where(
         AuthSession.user_id == user.id,
@@ -1199,13 +1287,18 @@ def current_session_record(db: Session, request: Request) -> AuthSession | None:
     )
 
 
-def ensure_bootstrap_admin(db: Session, settings: AuthSettings | None = None) -> User | None:
+def ensure_bootstrap_admin(
+    db: Session, settings: AuthSettings | None = None
+) -> User | None:
     resolved_settings = settings or get_auth_settings()
     user_count = int(db.scalar(select(func.count(User.id))) or 0)
     if user_count > 0:
         return None
 
-    if not resolved_settings.bootstrap_admin_email or not resolved_settings.bootstrap_admin_password:
+    if (
+        not resolved_settings.bootstrap_admin_email
+        or not resolved_settings.bootstrap_admin_password
+    ):
         raise RuntimeError(
             "Auth is enabled but no users exist. Set AUTH_BOOTSTRAP_ADMIN_EMAIL and "
             "AUTH_BOOTSTRAP_ADMIN_PASSWORD, or run `python -m web.backend.devops.bootstrap_admin`."

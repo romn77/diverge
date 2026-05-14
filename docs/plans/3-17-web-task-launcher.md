@@ -34,7 +34,7 @@ Frontend (Next.js)                    Backend (FastAPI)                  Core Li
 - `AnalysisRequest` dataclass — validated params: ticker, analysis_date, analysts, research_depth, llm_provider, quick_think_llm, deep_think_llm, output_language, google_thinking_level, openai_reasoning_effort
 - `AnalysisProgress` dataclass — timestamp, status, stage_status, agent_status, current_agent, message
 - `AnalysisTracker` — 一个按 task 实例化的轻量状态对象, 复用 `cli/main.py` 中 `MessageBuffer` 的现有状态模型和推进规则, 但不复用 CLI 的模块级全局 `message_buffer`
-- `run_analysis_streaming(request, temp_dir) -> Generator[AnalysisProgress, None, dict]` — builds config from DEFAULT_CONFIG + request (通过 `get_provider_base_url(provider)` 自动推导 `backend_url`), creates `DivergeGraph`, streams `graph.graph.stream()`, uses `AnalysisTracker` to update status from each chunk, writes intermediate artifacts to temp_dir, and yields serialized progress snapshots for SSE
+- `run_analysis_streaming(request, temp_dir) -> Generator[AnalysisProgress, None, dict]` — builds config from DEFAULT_CONFIG + request (通过 `get_provider_base_url(provider)` 自动推导 `backend_url`), creates `DivergeGraph`, streams via `graph.stream()`, uses `AnalysisTracker` to update status from each chunk, writes intermediate artifacts to temp_dir, and yields serialized progress snapshots for SSE
 - Move `save_report_to_disk()` from `cli/main.py:630-727` here; update CLI to import from new location
 - 成功后由调用方将 temp_dir 移动到 `reports/{TICKER}_{timestamp}/`, 返回 report_id
 - On any exception, delete the temp directory and return no saved report

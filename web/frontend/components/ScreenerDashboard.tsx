@@ -750,7 +750,7 @@ export function ScreenerDashboard() {
   const controlsDisabled = loadingOptions || !configOptions || !formState;
 
   return (
-    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+    <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-6">
         <section className="screener-config-panel viewer-frame">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3 md:px-5">
@@ -1152,17 +1152,6 @@ function ScreenerResultPlaceholder({
               ? t("screenerDashboard.placeholderRunningTitle", "Building candidate pool")
               : t("screenerDashboard.placeholderReadyTitle", "Ready for a run")}
           </h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-            {isRunning
-              ? t(
-                  "screenerDashboard.placeholderRunningBody",
-                  "The result will appear here when the current screener task finishes."
-                )
-              : t(
-                  "screenerDashboard.placeholderReadyBody",
-                  "This slot will hold the ranked candidates after the first run."
-                )}
-          </p>
         </div>
         {activeTaskId ? (
           <Button

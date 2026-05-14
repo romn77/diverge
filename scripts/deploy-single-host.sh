@@ -3,8 +3,6 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
-DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"
-REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"
 
 cd "$PROJECT_ROOT"
 
@@ -24,14 +22,15 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-mkdir -p "$REPORTS_DIR"
-
 set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
 
+DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
+
+mkdir -p "$DATA_DIR/reports" "$DATA_DIR/manifest"
 
 echo "Building Docker images..."
 docker compose build

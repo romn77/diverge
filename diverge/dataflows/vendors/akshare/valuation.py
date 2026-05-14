@@ -5,7 +5,7 @@ from datetime import date
 import pandas as pd
 
 from .rate_limit import call_akshare_api
-from ...cn_market_utils import parse_and_normalize_cn_ticker
+from diverge.common.symbols import parse_and_normalize_cn_ticker
 from ...vendor_errors import VendorDataEmptyError, VendorRetryableError
 from diverge.valuation.schemas import (
     AssumptionValue,
@@ -47,9 +47,13 @@ def _fetch_multi_period_reports(
                 symbol=report_name,
             )
         except Exception as exc:
-            raise VendorRetryableError(f"akshare financial fetch failed: {exc}") from exc
+            raise VendorRetryableError(
+                f"akshare financial fetch failed: {exc}"
+            ) from exc
         if df is None or df.empty:
-            raise VendorDataEmptyError(f"No akshare {report_name} data found for {ticker}")
+            raise VendorDataEmptyError(
+                f"No akshare {report_name} data found for {ticker}"
+            )
         reports.append(df.copy())
 
     return reports[0], reports[1], reports[2]
@@ -71,9 +75,7 @@ def _extract_cn_growth_assumption(research_df: pd.DataFrame) -> AssumptionValue 
         return None
 
     candidate_columns = [
-        column
-        for column in research_df.columns
-        if "盈利预测-收益" in str(column)
+        column for column in research_df.columns if "盈利预测-收益" in str(column)
     ]
     for column in candidate_columns:
         series = research_df[column].dropna()
@@ -112,19 +114,35 @@ def _build_cn_snapshots(
             if pd.isna(report_ts):
                 continue
             report_date = report_ts.date()
-            by_date.setdefault(report_date, {"income": None, "balance": None, "cashflow": None})
+            by_date.setdefault(
+                report_date, {"income": None, "balance": None, "cashflow": None}
+            )
             by_date[report_date][frame_name] = row
 
     snapshots: list[FinancialSnapshot] = []
     for report_date in sorted(by_date.keys(), reverse=True):
         frames = by_date[report_date]
-        income = frames["income"] if frames["income"] is not None else pd.Series(dtype=object)
-        balance = frames["balance"] if frames["balance"] is not None else pd.Series(dtype=object)
-        cashflow = frames["cashflow"] if frames["cashflow"] is not None else pd.Series(dtype=object)
+        income = (
+            frames["income"]
+            if frames["income"] is not None
+            else pd.Series(dtype=object)
+        )
+        balance = (
+            frames["balance"]
+            if frames["balance"] is not None
+            else pd.Series(dtype=object)
+        )
+        cashflow = (
+            frames["cashflow"]
+            if frames["cashflow"] is not None
+            else pd.Series(dtype=object)
+        )
 
         free_cash_flow = _coerce_float(cashflow.get("自由现金流量"))
         if free_cash_flow is None:
-            operating_cash_flow = _coerce_float(cashflow.get("经营活动产生的现金流量净额"))
+            operating_cash_flow = _coerce_float(
+                cashflow.get("经营活动产生的现金流量净额")
+            )
             capital_expenditure = _coerce_float(
                 cashflow.get("购建固定资产、无形资产和其他长期资产支付的现金")
             )
@@ -135,7 +153,8 @@ def _build_cn_snapshots(
             FinancialSnapshot(
                 period=report_date.isoformat(),
                 report_date=report_date,
-                revenue=_coerce_float(income.get("营业总收入")) or _coerce_float(income.get("营业收入")),
+                revenue=_coerce_float(income.get("营业总收入"))
+                or _coerce_float(income.get("营业收入")),
                 net_income=_coerce_float(income.get("净利润")),
                 free_cash_flow=free_cash_flow,
                 cash_and_equivalents=_coerce_float(balance.get("货币资金")),

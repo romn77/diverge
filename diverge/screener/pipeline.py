@@ -28,7 +28,9 @@ def _filter_selected_breakouts(
     ]
 
 
-def _select_candidates(ranked_df: pd.DataFrame, config: ScreenRunConfig) -> pd.DataFrame:
+def _select_candidates(
+    ranked_df: pd.DataFrame, config: ScreenRunConfig
+) -> pd.DataFrame:
     candidate_pool = _filter_selected_breakouts(ranked_df, config)
     if candidate_pool.empty:
         return candidate_pool.copy()
@@ -42,12 +44,16 @@ def _select_candidates(ranked_df: pd.DataFrame, config: ScreenRunConfig) -> pd.D
 
     selected_indices: list[int] = []
     for market in ("cn", "us"):
-        market_rows = candidate_pool[candidate_pool["market"] == market].head(per_market_floor)
+        market_rows = candidate_pool[candidate_pool["market"] == market].head(
+            per_market_floor
+        )
         selected_indices.extend(market_rows.index.tolist())
 
     remaining_slots = max(config.top_k - len(selected_indices), 0)
     if remaining_slots > 0:
-        backfill = candidate_pool.drop(index=selected_indices, errors="ignore").head(remaining_slots)
+        backfill = candidate_pool.drop(index=selected_indices, errors="ignore").head(
+            remaining_slots
+        )
         selected_indices.extend(backfill.index.tolist())
 
     if not selected_indices:

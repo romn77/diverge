@@ -40,7 +40,7 @@ Diverge models the workflow of a trading desk with specialized LLM-powered agent
 
 This fork currently includes:
 
-- LangGraph-based multi-agent analysis with CLI and package entry points.
+- Google ADK-backed multi-agent analysis runtime with Web Workbench and package entry points.
 - Multi-provider LLM support through OpenAI, Google, Anthropic, xAI, OpenRouter, DeepSeek, Xiaohumini, and local Ollama-compatible settings.
 - Vendor-routed market data under `diverge/dataflows/vendors/`, grouped by source: `akshare`, `alpha_vantage`, `fmp`, `massive`, `tushare`, `yfinance`, and `local`.
 - Market-aware routing for `core_stock_apis`, `technical_indicators`, `fundamental_data`, and `news_data`, with fallback chains, usage tracking, and admin-configurable route policies.
@@ -53,7 +53,6 @@ This fork currently includes:
 ## Repository Layout
 
 ```text
-cli/                         Typer CLI entry point and terminal UI
 diverge/agents/        Analyst, researcher, trader, risk, and manager agents
 diverge/dataflows/     Router, vendor registry, shared errors, and market utilities
 diverge/dataflows/vendors/
@@ -132,36 +131,13 @@ The default runtime configuration lives in `diverge/default_config.py`. Data-sou
 - `data_vendors[category]`: global category default.
 - Web admin data-source routes when auth/database-backed admin features are enabled.
 
-## CLI Usage
+## Web Workbench Usage
 
-The installed command is `diverge`; from source you can also run `python -m cli.main`.
-
-```bash
-diverge --help
-diverge analyze
-```
-
-The interactive `analyze` command asks for ticker, date, analysts, LLM provider, model, and research depth, then streams progress and writes report artifacts.
-
-Screener commands:
+The primary runtime is the Web Workbench. It launches analysis and screener tasks through the FastAPI backend, streams task progress, and writes report artifacts.
 
 ```bash
-diverge screen \
-  --date 2026-03-24 \
-  --markets cn,us \
-  --top-k 100 \
-  --cn-manifest /absolute/path/to/cn_manifest.csv \
-  --us-manifest /absolute/path/to/us_manifest.csv \
-  --us-data-source yfinance \
-  --output-dir ./data/screener/runs
-
-diverge screen-debug \
-  --symbol AAPL \
-  --market us \
-  --date 2026-03-24 \
-  --us-manifest /absolute/path/to/us_manifest.csv
-
-diverge screen-replay ./data/screener/runs/<run_id>
+cd web
+./start.sh
 ```
 
 Manifest helpers:
@@ -171,7 +147,7 @@ python -m diverge.data.us_manifest
 python -m diverge.data.cn_manifest
 ```
 
-US screening requires `--us-manifest`. CN screening can use `--cn-manifest`; if omitted, the screener falls back to live CN universe loading through the configured CN source chain.
+Both helpers write to `DATA_DIR/manifest/` by default. CN screening uses `cn.csv` when present and otherwise falls back to the configured CN source chain; US screening requires `DATA_DIR/manifest/us.csv`.
 
 ## Python Usage
 
@@ -187,8 +163,9 @@ config["market"] = "auto"
 config["output_language"] = "en"
 
 ta = DivergeGraph(debug=True, config=config)
-_, decision = ta.propagate("NVDA", "2026-01-15")
-print(decision)
+trace = list(ta.stream("NVDA", "2026-01-15", config["output_language"]))
+final_state = trace[-1]
+print(final_state["final_trade_decision"])
 ```
 
 ## Data Sources
@@ -277,7 +254,6 @@ docker compose -f compose.prod.yml up -d
 Useful focused checks:
 
 ```bash
-python -m cli.main --help
 python -m pytest -q tests/dataflows tests/test_akshare.py tests/test_yfinance.py tests/screener/test_market_data.py tests/screener/test_universe.py
 python -m pytest -q tests/web/test_backend_main.py tests/web/test_runner.py
 ```

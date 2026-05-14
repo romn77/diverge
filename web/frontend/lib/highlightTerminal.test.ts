@@ -138,3 +138,37 @@ test("buildHighlightDeck creates a market deck with levels and indicator grid", 
     deck.consoles.flatMap((consolePanel) => consolePanel.panels).every((panel) => !("eyebrow" in panel))
   );
 });
+
+test("buildHighlightDeck accepts the UI translator for static chrome copy", () => {
+  const highlights: PortfolioDecisionHighlights = {
+    category: "portfolio_decision",
+    signal: "BUY",
+    signal_confidence: "high",
+    summary: "Portfolio can add on confirmed strength.",
+    final_decision: "BUY",
+    decision_basis: "Risk/reward has improved.",
+    strategic_actions: [{ action: "Add one tranche.", priority: "now" }],
+    risk_warnings: ["Failed breakout invalidates the setup."],
+  };
+  const dictionary: Record<string, string> = {
+    "highlights.portfolio.category": "组合决策",
+    "highlights.portfolio.hero": "配置指令",
+    "highlights.chip.decision": "决策",
+    "highlights.chip.queuedActions": "待执行动作",
+    "highlights.chip.riskFlags": "风险标记",
+  };
+  const deck = buildHighlightDeck(highlights, (key, fallback, params) => {
+    const translated = dictionary[key];
+    if (translated) {
+      return translated;
+    }
+    return typeof fallback === "function" ? fallback(params ?? {}) : fallback;
+  });
+
+  assert.equal(deck.categoryLabel, "组合决策");
+  assert.equal(deck.heroTitle, "配置指令");
+  assert.deepEqual(
+    deck.heroChips.map((chip) => chip.label),
+    ["决策", "待执行动作", "风险标记"]
+  );
+});

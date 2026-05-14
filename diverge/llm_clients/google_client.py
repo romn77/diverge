@@ -1,9 +1,45 @@
+import os
 from typing import Any, Optional
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from .base_client import BaseLLMClient, normalize_content
+from .model_config import get_provider_base_url
 from .validators import validate_model
+
+GOOGLE_GEMINI_BASE_URL_ENV = "GOOGLE_GEMINI_BASE_URL"
+GOOGLE_API_KEY_ENV = "GOOGLE_API_KEY"
+GEMINI_API_KEY_ENV = "GEMINI_API_KEY"
+
+
+def _clean_env_value(name: str) -> str | None:
+    value = os.environ.get(name)
+    if not value:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+def _is_default_google_base_url(base_url: str) -> bool:
+    return base_url.strip().rstrip("/") == get_provider_base_url("google").rstrip("/")
+
+
+def resolve_google_base_url(base_url: Optional[str] = None) -> str | None:
+    """Resolve Gemini API base URL, allowing env override of the built-in default."""
+    configured = base_url.strip() if base_url and base_url.strip() else None
+    env_base_url = _clean_env_value(GOOGLE_GEMINI_BASE_URL_ENV)
+    if configured and not _is_default_google_base_url(configured):
+        return configured
+    if env_base_url:
+        return env_base_url
+    return None
+
+
+def resolve_google_api_key(api_key: Optional[str] = None) -> str | None:
+    """Resolve Gemini API key from explicit args or supported env aliases."""
+    if api_key and api_key.strip():
+        return api_key.strip()
+    return _clean_env_value(GOOGLE_API_KEY_ENV) or _clean_env_value(GEMINI_API_KEY_ENV)
 
 
 class NormalizedChatGoogleGenerativeAI(ChatGoogleGenerativeAI):
@@ -28,15 +64,24 @@ class GoogleClient(BaseLLMClient):
         self.warn_if_unknown_model()
         llm_kwargs = {"model": self.model}
 
-        if self.base_url:
-            llm_kwargs["base_url"] = self.base_url
+        base_url = resolve_google_base_url(self.base_url)
+        if base_url:
+            llm_kwargs["base_url"] = base_url
 
-        for key in ("timeout", "max_retries", "callbacks", "http_client", "http_async_client"):
+        for key in (
+            "timeout",
+            "max_retries",
+            "callbacks",
+            "http_client",
+            "http_async_client",
+        ):
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
 
         # Unified api_key maps to provider-specific google_api_key
-        google_api_key = self.kwargs.get("api_key") or self.kwargs.get("google_api_key")
+        google_api_key = resolve_google_api_key(
+            self.kwargs.get("api_key") or self.kwargs.get("google_api_key")
+        )
         if google_api_key:
             llm_kwargs["google_api_key"] = google_api_key
 

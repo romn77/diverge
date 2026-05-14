@@ -8,7 +8,7 @@ from pydantic import BaseModel
 class TaskCreatePayload(BaseModel):
     ticker: str
     ticker_exchange: Optional[str] = None
-    analysis_date: str
+    analysis_date: Optional[str] = None
     analysts: list[str]
     research_depth: int
     model_profile: Optional[str] = None

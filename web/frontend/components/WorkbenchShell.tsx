@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  Menu,
+  Plus,
+} from "lucide-react";
+import {
   createContext,
   startTransition,
   useContext,
@@ -26,10 +30,10 @@ import {
 interface WorkbenchChromeContextValue {
   openAnalysisDialog: () => void;
   openScreenerDialog: () => void;
+  setTopbarActions: (actions: ReactNode | null) => void;
 }
 
 interface WorkbenchPageChrome {
-  eyebrow: string;
   title: string;
 }
 
@@ -59,6 +63,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
   const [activeDialog, setActiveDialog] = useState<"analysis" | "screener" | null>(
     null
   );
+  const [topbarActions, setTopbarActions] = useState<ReactNode | null>(null);
   const [defaultOutputLanguage, setDefaultOutputLanguage] = useState<string | null>(
     null
   );
@@ -83,6 +88,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
         }
         setActiveDialog("screener");
       },
+      setTopbarActions,
     }),
     [newAnalysisDisabled, newScreenerDisabled]
   );
@@ -100,6 +106,20 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
       router.replace(buildLoginHref(nextPath));
     });
   }, [nextPath, router, shouldRedirectToLogin]);
+
+  const resolvedTopbarActions =
+    topbarActions ??
+    (pathname === "/" ? (
+      <button
+        type="button"
+        className="workbench-topbar-new"
+        onClick={chromeValue.openAnalysisDialog}
+        disabled={newAnalysisDisabled}
+      >
+        <Plus className="size-4" aria-hidden />
+        <span>{t("home.launchAnalysis", "New Analysis")}</span>
+      </button>
+    ) : null);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
@@ -188,20 +208,15 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
                     aria-label={t("common.menu", "Menu")}
                     onClick={() => setIsSidebarOpen(true)}
                   >
-                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden>
-                      <path
-                        d="M4 6h12M4 10h12M4 14h12"
-                        stroke="currentColor"
-                        strokeWidth="1.7"
-                        strokeLinecap="round"
-                      />
-                    </svg>
+                    <Menu className="size-4" aria-hidden />
                   </button>
                   <div className="min-w-0">
-                    <p className="workbench-topbar-eyebrow">{pageChrome.eyebrow}</p>
                     <h1 className="workbench-topbar-title">{pageChrome.title}</h1>
                   </div>
                 </div>
+                {resolvedTopbarActions ? (
+                  <div className="workbench-topbar-actions">{resolvedTopbarActions}</div>
+                ) : null}
                 <WorkspaceAccountMenu
                   authEnabled={authEnabled}
                   authUser={authState?.user ?? null}
@@ -253,48 +268,41 @@ function getWorkbenchPageChrome(
 ): WorkbenchPageChrome {
   if (pathname.startsWith("/screeners")) {
     return {
-      eyebrow: t("sidebar.nav.screener", "Screener"),
       title: t("screenerDashboard.title", "Candidate Workspace"),
     };
   }
 
   if (pathname.startsWith("/assets")) {
     return {
-      eyebrow: t("sidebar.nav.assets", "Assets"),
       title: t("assets.title", "Portfolio ledger"),
     };
   }
 
   if (pathname.startsWith("/journal")) {
     return {
-      eyebrow: t("sidebar.tradeJournal", "Trade Journal"),
       title: t("journal.shortTitle", "Trade Journal"),
     };
   }
 
   if (pathname.startsWith("/activity")) {
     return {
-      eyebrow: t("sidebar.nav.activity", "Activity"),
       title: t("activity.title", "Background work"),
     };
   }
 
   if (pathname.startsWith("/reports")) {
     return {
-      eyebrow: t("sidebar.nav.analysis", "Analysis"),
       title: t("workbench.reportViewer", "Research Report"),
     };
   }
 
   if (pathname.startsWith("/tasks") || pathname.startsWith("/screener-tasks")) {
     return {
-      eyebrow: t("sidebar.nav.activity", "Activity"),
       title: t("workbench.taskProgress", "Task Progress"),
     };
   }
 
   return {
-    eyebrow: t("sidebar.nav.analysis", "Analysis"),
     title: t("home.analysisWorkspace", "Analysis workspace"),
   };
 }

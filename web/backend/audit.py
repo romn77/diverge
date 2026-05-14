@@ -24,11 +24,23 @@ class AuditEvent(auth.Base):
     __tablename__ = "audit_events"
     __table_args__ = (
         Index("ix_audit_events_tenant_created_at", "tenant_id", "created_at"),
-        Index("ix_audit_events_tenant_action_created_at", "tenant_id", "action", "created_at"),
-        Index("ix_audit_events_tenant_actor_created_at", "tenant_id", "actor_user_id", "created_at"),
+        Index(
+            "ix_audit_events_tenant_action_created_at",
+            "tenant_id",
+            "action",
+            "created_at",
+        ),
+        Index(
+            "ix_audit_events_tenant_actor_created_at",
+            "tenant_id",
+            "actor_user_id",
+            "created_at",
+        ),
     )
 
-    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=lambda: uuid.uuid4().hex)
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=lambda: uuid.uuid4().hex
+    )
     tenant_id: Mapped[str | None] = mapped_column(
         String(32),
         ForeignKey("tenants.id", ondelete="SET NULL"),
@@ -42,10 +54,14 @@ class AuditEvent(auth.Base):
     action: Mapped[str] = mapped_column(String(128), nullable=False)
     resource_type: Mapped[str] = mapped_column(String(64), nullable=False)
     resource_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(
+        JSON, nullable=False, default=dict
+    )
     ip_address: Mapped[str | None] = mapped_column(String(128), nullable=True)
     user_agent: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
 
 
 def ensure_audit_tables(settings: auth.AuthSettings | None = None) -> None:
@@ -66,7 +82,9 @@ def _sanitize_metadata(value: Any) -> Any:
         sanitized: dict[str, Any] = {}
         for key, nested_value in value.items():
             normalized_key = str(key)
-            if any(token in normalized_key.lower() for token in SENSITIVE_METADATA_TOKENS):
+            if any(
+                token in normalized_key.lower() for token in SENSITIVE_METADATA_TOKENS
+            ):
                 continue
             sanitized[normalized_key] = _sanitize_metadata(nested_value)
         return sanitized
@@ -132,7 +150,11 @@ def record_audit_event_safely(
             request=request,
         )
     except Exception:
-        logger.exception("failed to record audit event action=%s resource_type=%s", action, resource_type)
+        logger.exception(
+            "failed to record audit event action=%s resource_type=%s",
+            action,
+            resource_type,
+        )
 
 
 def list_audit_events(
@@ -157,7 +179,9 @@ def list_audit_events(
         statement = statement.where(AuditEvent.created_at >= created_from)
     if created_to is not None:
         statement = statement.where(AuditEvent.created_at <= created_to)
-    statement = statement.order_by(AuditEvent.created_at.desc(), AuditEvent.id.desc()).limit(max(min(limit, 500), 1))
+    statement = statement.order_by(
+        AuditEvent.created_at.desc(), AuditEvent.id.desc()
+    ).limit(max(min(limit, 500), 1))
     return list(db.scalars(statement))
 
 
@@ -172,5 +196,7 @@ def serialize_audit_event(event: AuditEvent) -> dict[str, Any]:
         "metadata": dict(event.metadata_json or {}),
         "ip_address": event.ip_address,
         "user_agent": event.user_agent,
-        "created_at": event.created_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "created_at": event.created_at.astimezone(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
     }

@@ -1,6 +1,5 @@
 from typing import Annotated
 
-from langgraph.graph import MessagesState
 from typing_extensions import NotRequired, TypedDict
 
 
@@ -44,7 +43,8 @@ class RiskDebateState(TypedDict):
     count: Annotated[int, "Length of the current conversation"]  # Conversation length
 
 
-class AgentState(MessagesState):
+class AgentState(TypedDict):
+    messages: Annotated[list[object], "Conversation messages exchanged by agents"]
     company_of_interest: Annotated[str, "Company that we are interested in trading"]
     trade_date: Annotated[str, "What date we are trading at"]
     output_language: Annotated[str, "Output language code: en or cn"]
@@ -52,7 +52,9 @@ class AgentState(MessagesState):
         Annotated[dict[str, object] | None, "Optional earnings event context"]
     ]
     instrument_type: NotRequired[
-        Annotated[str | None, "Normalized instrument classification for valuation logic"]
+        Annotated[
+            str | None, "Normalized instrument classification for valuation logic"
+        ]
     ]
     valuation_applicability: NotRequired[
         Annotated[str | None, "Whether operating-company DCF is applicable"]
@@ -64,7 +66,9 @@ class AgentState(MessagesState):
         Annotated[str | None, "Ticker-matched historical trade review prompt block"]
     ]
     historical_trade_reviews: NotRequired[
-        Annotated[list[dict[str, object]], "Structured historical trade review payloads"]
+        Annotated[
+            list[dict[str, object]], "Structured historical trade review payloads"
+        ]
     ]
     portfolio_context: NotRequired[
         Annotated[str | None, "Current owner-scoped holdings and exposure summary"]
@@ -93,6 +97,9 @@ class AgentState(MessagesState):
         RiskDebateState, "Current state of the debate on evaluating risk"
     ]
     final_trade_decision: Annotated[str, "Final decision made by the Risk Analysts"]
+    runtime_warnings: NotRequired[
+        Annotated[list[dict[str, str]], "Non-fatal runtime warnings surfaced to users"]
+    ]
     report_summary: NotRequired[
         Annotated[str, "Concise Summary Agent output for the complete report"]
     ]

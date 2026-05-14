@@ -26,7 +26,6 @@ import {
   type ReportVisibility,
   type TaskCreateRequest,
 } from "@/lib/api";
-import { getLocalDateInputValue } from "@/lib/localDate";
 import { optionKey } from "@/lib/uiPreferences";
 
 interface NewAnalysisFormProps {
@@ -290,7 +289,7 @@ export function NewAnalysisForm({
           </div>
         ) : (
           <div className="mt-8 grid gap-6">
-            <section className="grid gap-4 md:grid-cols-[1.15fr_0.85fr_1fr]">
+            <section className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
               <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
                 <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
                   {t("analysis.ticker", "Ticker")}
@@ -337,23 +336,6 @@ export function NewAnalysisForm({
                   {t("analysis.tickerExchange.bj", "BJ")}
                 </SelectItem>
               </AnalysisSelectField>
-
-              <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-                <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  {t("analysis.analysisDate", "Analysis Date")}
-                </span>
-                <Input
-                  type="date"
-                  value={formState.analysis_date}
-                  onChange={(event) =>
-                    setFormState({
-                      ...formState,
-                      analysis_date: event.target.value,
-                    })
-                  }
-                  className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
-                />
-              </label>
             </section>
 
             <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
@@ -718,11 +700,11 @@ function buildInitialFormState(
   return {
     ticker: "SPY",
     ticker_exchange: "auto",
-    analysis_date: getLocalDateInputValue(),
+    analysis_date: null,
     analysts: configOptions.analysts.map((option) => option.value),
     research_depth: Number(firstDepth),
     output_language: firstLanguage,
-    report_visibility: "private",
+    report_visibility: "workspace",
     ...(profile && profile.value !== "custom"
       ? buildModelProfileSelection(profile)
       : {

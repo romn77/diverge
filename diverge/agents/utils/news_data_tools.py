@@ -1,6 +1,8 @@
-from langchain_core.tools import tool
 from typing import Annotated
+
+from diverge.agents.utils.tooling import tool
 from diverge.dataflows.interface import route_to_vendor
+
 
 @tool
 def get_news(
@@ -20,6 +22,7 @@ def get_news(
     """
     return route_to_vendor("get_news", ticker, start_date, end_date)
 
+
 @tool
 def get_global_news(
     curr_date: Annotated[str, "Current date in yyyy-mm-dd format"],
@@ -37,6 +40,7 @@ def get_global_news(
         str: A formatted string containing global news data
     """
     return route_to_vendor("get_global_news", curr_date, look_back_days, limit)
+
 
 @tool
 def get_insider_transactions(

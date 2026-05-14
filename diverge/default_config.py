@@ -1,6 +1,6 @@
 import os
 
-from diverge.data_layout import DEFAULT_EVAL_RESULTS_DIR
+from diverge.config.paths import resolve_data_cache_dir, resolve_eval_results_dir
 from diverge.llm_clients.model_config import (
     DEFAULT_DEEP_MODEL,
     DEFAULT_LLM_PROVIDER,
@@ -10,11 +10,8 @@ from diverge.llm_clients.model_config import (
 
 DEFAULT_CONFIG = {
     "project_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
-    "eval_results_dir": os.getenv("DIVERGE_EVAL_RESULTS_DIR", DEFAULT_EVAL_RESULTS_DIR),
-    "data_cache_dir": os.path.join(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
-        "dataflows/data_cache",
-    ),
+    "eval_results_dir": str(resolve_eval_results_dir()),
+    "data_cache_dir": str(resolve_data_cache_dir()),
     # LLM settings
     "llm_provider": DEFAULT_LLM_PROVIDER,
     "deep_think_llm": DEFAULT_DEEP_MODEL,

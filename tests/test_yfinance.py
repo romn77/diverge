@@ -3,7 +3,7 @@ from __future__ import annotations
 import traceback
 
 from diverge.dataflows.y_finance import _fetch_yfinance_ohlcv_df
-from diverge.screener.market_data import fetch_price_history
+from diverge.market_data.price_history import fetch_price_history
 
 
 SYMBOL = "BRK.B"
@@ -41,7 +41,7 @@ def probe_raw_yfinance_interface() -> None:
 def probe_screener_history_interface() -> None:
     print("\n=== Probe 2: screener history via fetch_price_history() ===")
     print(f"symbol={SYMBOL}")
-    print(f"market=us")
+    print("market=us")
     print(f"date range: {START_DATE} -> {END_DATE}")
 
     try:

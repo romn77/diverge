@@ -49,7 +49,9 @@ def _extract_bar_records(payload: dict[str, Any], symbol: str) -> list[dict[str,
     return []
 
 
-def _fetch_massive_stock_df(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+def _fetch_massive_stock_df(
+    symbol: str, start_date: str, end_date: str
+) -> pd.DataFrame:
     params = {
         "tickers": symbol,
         "interval": "1Day",
@@ -91,4 +93,6 @@ def _fetch_massive_stock_df(symbol: str, start_date: str, end_date: str) -> pd.D
 
 def get_stock(symbol: str, start_date: str, end_date: str) -> str:
     df = _fetch_massive_stock_df(symbol, start_date, end_date)
-    return dataframe_to_standard_string(df, f"Stock data for {symbol.upper()} from {start_date} to {end_date}")
+    return dataframe_to_standard_string(
+        df, f"Stock data for {symbol.upper()} from {start_date} to {end_date}"
+    )

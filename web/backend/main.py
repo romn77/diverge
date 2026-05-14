@@ -21,6 +21,7 @@ from web.backend import (
     screener_results,
     report_metadata,
     screener_runs,
+    search_quota,
     trade_entries,
 )
 from web.backend.routers import (
@@ -40,7 +41,7 @@ from web.backend.routers import (
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.data_sync_tasks import restore_persisted_data_sync_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
-from web.backend.runtime import screener_prewarm, task_store
+from web.backend.runtime import task_store
 
 
 @asynccontextmanager
@@ -49,6 +50,7 @@ async def _app_lifespan(_: FastAPI):
     analysis_limits.initialize_analysis_limits_runtime()
     data_sources.initialize_data_source_runtime()
     llm_models.initialize_llm_model_runtime()
+    search_quota.initialize_search_quota_runtime()
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
     screener_results.initialize_screener_result_runtime()
@@ -61,11 +63,7 @@ async def _app_lifespan(_: FastAPI):
         restore_persisted_screener_tasks()
         restore_persisted_data_sync_tasks()
         job_records.recover_stale_running_job_records()
-    screener_prewarm.start_screener_prewarm_scheduler()
-    try:
-        yield
-    finally:
-        screener_prewarm.stop_screener_prewarm_scheduler()
+    yield
 
 
 app = FastAPI(

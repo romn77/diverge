@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timedelta
 import json
 from pathlib import Path
 
 from fastapi import HTTPException
 
-from diverge.screener.market_data import LOOKBACK_DAYS
+from diverge.common.dates import offset_iso_date
+from diverge.market_data.price_history import LOOKBACK_DAYS
 from diverge.screener.schema import ScreenRunConfig
-from diverge.screener.stages import prepare_universe_stage, prune_universe_by_history_coverage
+from diverge.screener.stages import (
+    prepare_universe_stage,
+    prune_universe_by_history_coverage,
+)
 from web.backend import app_config, auth, screener_results, screener_runs, storage
 
 _READ_SERVICE = screener_results.ScreenerResultReadService()
@@ -22,7 +25,9 @@ def relative_screener_storage_path(path: Path) -> str:
     try:
         relative_path = resolved_path.relative_to(resolved_root)
     except ValueError as exc:
-        raise RuntimeError("Screener artifacts must stay under SCREENER_RESULTS_DIR") from exc
+        raise RuntimeError(
+            "Screener artifacts must stay under SCREENER_RESULTS_DIR"
+        ) from exc
     return relative_path.as_posix()
 
 
@@ -42,7 +47,9 @@ def resolve_screener_run_dir(run_id: str) -> Path:
     if not run_dir.is_dir() and storage_backend_is_remote():
         storage.download_prefix(f"screener/runs/{run_id}", run_dir)
     if not run_dir.is_dir():
-        raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Screener run '{run_id}' not found"
+        )
     return run_dir
 
 
@@ -55,7 +62,9 @@ def resolve_screener_run_dir_from_record(record: screener_runs.ScreenerRun) -> P
     if not run_dir.is_dir() and storage_backend_is_remote():
         storage.download_prefix(f"screener/runs/{record.storage_path}", run_dir)
     if not run_dir.is_dir():
-        raise HTTPException(status_code=404, detail=f"Screener run '{record.id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Screener run '{record.id}' not found"
+        )
     return run_dir
 
 
@@ -71,7 +80,9 @@ def resolve_screener_artifact_path(
     try:
         artifact_path.relative_to(app_config.SCREENER_RESULTS_DIR.resolve())
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail="Screener artifact not found") from exc
+        raise HTTPException(
+            status_code=404, detail="Screener artifact not found"
+        ) from exc
     if not artifact_path.is_file() and storage_backend_is_remote():
         run_dir = resolve_screener_run_dir_from_record(record)
         artifact_path = run_dir / Path(relative_path).name
@@ -105,10 +116,7 @@ def _data_not_ready_error(
         "missing_markets": missing_markets,
         "examples": examples,
         "universe_count_by_market": universe_count_by_market,
-        "required_history_start": (
-            datetime.strptime(config.as_of_date, "%Y-%m-%d")
-            - timedelta(days=LOOKBACK_DAYS)
-        ).strftime("%Y-%m-%d"),
+        "required_history_start": offset_iso_date(config.as_of_date, -LOOKBACK_DAYS),
         "required_history_end": config.as_of_date,
     }
     if reason:
@@ -231,7 +239,13 @@ def run_screener(task, result):
     return screener_results.run_screener(task, result)
 
 
-def persist_screener_run(task, candidate=None, *, error_summary: str | None = None, source_run_id: str | None = None):
+def persist_screener_run(
+    task,
+    candidate=None,
+    *,
+    error_summary: str | None = None,
+    source_run_id: str | None = None,
+):
     return screener_results.persist_screener_run(
         task,
         candidate,

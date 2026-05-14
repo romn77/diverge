@@ -6,6 +6,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 from web.backend import auth
+from web.backend import (
+    analysis_limits,
+    asset_entries,
+    audit,
+    data_sources,
+    job_records,
+    llm_models,
+    report_metadata,
+    screener_runs,
+    search_quota,
+    trade_entries,
+)
 
 
 class DatabaseCheckScriptTests(unittest.TestCase):
@@ -30,7 +42,9 @@ class DatabaseCheckScriptTests(unittest.TestCase):
         try:
             from web.backend.devops import check_database
         except ImportError as exc:
-            self.fail(f"Expected web.backend.devops.check_database module to exist: {exc}")
+            self.fail(
+                f"Expected web.backend.devops.check_database module to exist: {exc}"
+            )
         return check_database
 
     def test_check_reports_pending_migrations_for_empty_database(self):
@@ -60,6 +74,26 @@ class DatabaseCheckScriptTests(unittest.TestCase):
         self.assertIn("Connection: ok", output)
         self.assertIn("Schema: up to date", output)
         self.assertIn("Required tables: ok", output)
+
+    def test_required_tables_cover_current_model_metadata(self):
+        check_database = self._load_check_database_module()
+        expected_tables = set(auth.Base.metadata.tables) - {"alembic_version"}
+
+        self.assertTrue(
+            expected_tables.issubset(set(check_database.REQUIRED_TABLES)),
+            expected_tables - set(check_database.REQUIRED_TABLES),
+        )
+
+    def test_alembic_metadata_imports_non_auth_models(self):
+        # Imported modules above should populate auth.Base.metadata the same way
+        # Alembic env.py now does before assigning target_metadata.
+        for table_name in (
+            "asset_positions",
+            "report_runs",
+            "llm_model_usage",
+            "search_provider_usage",
+        ):
+            self.assertIn(table_name, auth.Base.metadata.tables)
 
 
 if __name__ == "__main__":

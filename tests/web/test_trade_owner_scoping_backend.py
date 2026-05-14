@@ -27,9 +27,15 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
         self.original_stock_history_dir = app_config.STOCK_HISTORY_DIR
         self.original_tmp_reports_dir = app_config.TMP_REPORTS_DIR
         app_config.REPORTS_DIR = self.project_root / "data" / "reports"
-        app_config.SCREENER_RESULTS_DIR = self.project_root / "data" / "screener" / "runs"
-        app_config.SCREENER_TASKS_DIR = self.project_root / "data" / "screener" / "tasks"
-        app_config.SCREENER_CACHE_DIR = self.project_root / "data" / "cache" / "screener"
+        app_config.SCREENER_RESULTS_DIR = (
+            self.project_root / "data" / "screener" / "runs"
+        )
+        app_config.SCREENER_TASKS_DIR = (
+            self.project_root / "data" / "screener" / "tasks"
+        )
+        app_config.SCREENER_CACHE_DIR = (
+            self.project_root / "data" / "cache" / "screener"
+        )
         app_config.STOCK_HISTORY_DIR = self.project_root / "data" / "history"
         app_config.TMP_REPORTS_DIR = app_config.REPORTS_DIR / ".tmp"
         app_config.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -41,7 +47,9 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
         screener_tasks.screener_tasks.clear()
         self.database_url = f"sqlite+pysqlite:///{self.project_root / 'auth.db'}"
 
-        self.project_patch = patch.object(trade_feedback, "PROJECT_ROOT", self.project_root)
+        self.project_patch = patch.object(
+            trade_feedback, "PROJECT_ROOT", self.project_root
+        )
         self.project_patch.start()
         auth.reset_runtime_state()
         self._write_analysis_snapshot()
@@ -162,7 +170,9 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
             "discipline_assessment": "Execution remained aligned with the plan.",
             "outcome_summary": "The review focuses on process quality.",
             "improvement_actions": ["Write the invalidation clause before entry."],
-            "ticker_specific_lessons": ["MSFT setups improve when cloud demand is explicit."],
+            "ticker_specific_lessons": [
+                "MSFT setups improve when cloud demand is explicit."
+            ],
             "cross_ticker_tags": ["planned_stop"],
             "analysis_date": "2026-04-02",
         }
@@ -188,7 +198,9 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
                 )
 
             async with self._client() as owner_one_client:
-                await self._login(owner_one_client, "owner-one@example.com", "OwnerOnePass123")
+                await self._login(
+                    owner_one_client, "owner-one@example.com", "OwnerOnePass123"
+                )
                 create_response = await owner_one_client.post(
                     "/api/trades",
                     json=self._trade_payload("Owner one trade."),
@@ -204,14 +216,22 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
 
                 trades_response = await owner_one_client.get("/api/trades")
                 self.assertEqual(trades_response.status_code, 200)
-                self.assertEqual([item["trade_id"] for item in trades_response.json()], [trade_id])
+                self.assertEqual(
+                    [item["trade_id"] for item in trades_response.json()], [trade_id]
+                )
 
-                feedback_response = await owner_one_client.get("/api/trade-feedback/MSFT")
-                self.assertEqual(feedback_response.status_code, 200, feedback_response.text)
+                feedback_response = await owner_one_client.get(
+                    "/api/trade-feedback/MSFT"
+                )
+                self.assertEqual(
+                    feedback_response.status_code, 200, feedback_response.text
+                )
                 self.assertEqual(len(feedback_response.json()["reviews"]), 1)
 
             async with self._client() as owner_two_client:
-                await self._login(owner_two_client, "owner-two@example.com", "OwnerTwoPass123")
+                await self._login(
+                    owner_two_client, "owner-two@example.com", "OwnerTwoPass123"
+                )
 
                 trades_response = await owner_two_client.get("/api/trades")
                 self.assertEqual(trades_response.status_code, 200)
@@ -220,11 +240,17 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
                 detail_response = await owner_two_client.get(f"/api/trades/{trade_id}")
                 self.assertEqual(detail_response.status_code, 404)
 
-                reviews_response = await owner_two_client.get(f"/api/trades/{trade_id}/reviews")
+                reviews_response = await owner_two_client.get(
+                    f"/api/trades/{trade_id}/reviews"
+                )
                 self.assertEqual(reviews_response.status_code, 404)
 
-                feedback_response = await owner_two_client.get("/api/trade-feedback/MSFT")
-                self.assertEqual(feedback_response.status_code, 200, feedback_response.text)
+                feedback_response = await owner_two_client.get(
+                    "/api/trade-feedback/MSFT"
+                )
+                self.assertEqual(
+                    feedback_response.status_code, 200, feedback_response.text
+                )
                 self.assertEqual(feedback_response.json()["reviews"], [])
                 self.assertEqual(feedback_response.json()["prompt"], "")
 
@@ -251,7 +277,9 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
                 )
 
             async with self._client() as owner_one_client:
-                await self._login(owner_one_client, "owner-one@example.com", "OwnerOnePass123")
+                await self._login(
+                    owner_one_client, "owner-one@example.com", "OwnerOnePass123"
+                )
                 owner_one_trade_response = await owner_one_client.post(
                     "/api/trades",
                     json=self._trade_payload("Owner one trade."),
@@ -264,7 +292,9 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
                 owner_one_trade_id = owner_one_trade_response.json()["trade_id"]
 
             async with self._client() as owner_two_client:
-                await self._login(owner_two_client, "owner-two@example.com", "OwnerTwoPass123")
+                await self._login(
+                    owner_two_client, "owner-two@example.com", "OwnerTwoPass123"
+                )
                 owner_two_trade_response = await owner_two_client.post(
                     "/api/trades",
                     json=self._trade_payload("Owner two trade."),
@@ -277,7 +307,9 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
 
             captured: dict[str, object] = {}
 
-            def fake_stream(_request, _temp_dir, *, reports_dir=None, visible_trade_ids=None):
+            def fake_stream(
+                _request, _temp_dir, *, reports_dir=None, visible_trade_ids=None
+            ):
                 captured["reports_dir"] = reports_dir
                 captured["visible_trade_ids"] = visible_trade_ids
                 if False:
@@ -312,8 +344,14 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
                 },
                 clear=False,
             ):
-                with patch("web.backend.runtime.analysis_tasks.run_analysis_streaming", side_effect=fake_stream):
-                    with patch("web.backend.runtime.analysis_tasks.save_report_to_disk", return_value=None):
+                with patch(
+                    "web.backend.runtime.analysis_tasks.run_analysis_streaming",
+                    side_effect=fake_stream,
+                ):
+                    with patch(
+                        "web.backend.runtime.analysis_tasks.save_report_to_disk",
+                        return_value=None,
+                    ):
                         analysis_tasks.run_task(task.id)
 
             self.assertEqual(captured["reports_dir"], app_config.REPORTS_DIR)

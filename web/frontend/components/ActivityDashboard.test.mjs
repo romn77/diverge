@@ -11,9 +11,13 @@ test("ActivityDashboard centralizes in-flight analysis and screener monitoring",
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/dialog"/);
   assert.match(source, /usePreferences/);
   assert.match(source, /<Card/);
   assert.match(source, /<Badge/);
+  assert.match(source, /<Dialog/);
+  assert.match(source, /sm:w-\[34rem\]/);
+  assert.doesNotMatch(source, /window\.confirm/);
   assert.match(source, /buildTaskHref/);
   assert.match(source, /buildScreenerTaskHref/);
   assert.match(source, /t\("activity\.title", "Background work"\)/);
@@ -36,6 +40,8 @@ test("ActivityDashboard lets failed task records be deleted from the task rows",
   assert.match(source, /onDelete/);
   assert.match(source, /stopPropagation/);
   assert.match(source, /activity\.deleteFailedTask/);
+  assert.match(source, /activity\.deleteTaskDialogTitle/);
+  assert.match(source, /activity\.confirmDeleteTask/);
 });
 
 test("ActivityDashboard shows queued quota-aware work and exposes cancel actions", () => {
@@ -48,5 +54,6 @@ test("ActivityDashboard shows queued quota-aware work and exposes cancel actions
   assert.match(source, /queue_position/);
   assert.match(source, /activity\.waitingForQuota/);
   assert.match(source, /activity\.cancelTask/);
+  assert.match(source, /cancel_requested_at/);
   assert.match(source, /onCancel/);
 });

@@ -39,7 +39,9 @@ class AuditBackendTests(AuthClientMixin, unittest.TestCase):
                 role=auth.UserRole.ADMIN,
                 must_change_password=False,
             )
-            other_tenant = auth.create_tenant(db, name="Other Tenant", slug="other-tenant")
+            other_tenant = auth.create_tenant(
+                db, name="Other Tenant", slug="other-tenant"
+            )
             self.other_admin = auth.create_user(
                 db,
                 email="other-admin@example.com",
@@ -104,7 +106,9 @@ class AuditBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertEqual(response.status_code, 200, response.text)
                 payload = response.json()
 
-            self.assertEqual([row["resource_id"] for row in payload["events"]], ["default-session"])
+            self.assertEqual(
+                [row["resource_id"] for row in payload["events"]], ["default-session"]
+            )
             self.assertEqual(payload["events"][0]["tenant_id"], self.admin_tenant_id)
 
         asyncio.run(scenario())

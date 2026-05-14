@@ -141,7 +141,8 @@ export function TradeReviewForm({
       const review = await saveTradeReview(tradeRecord.trade_id, reviewType, {
         analysis_date: requireText(
           formState.analysis_date,
-          t("tradeReview.analysisDate", "Analysis date")
+          t("tradeReview.analysisDate", "Analysis date"),
+          t
         ),
         analysis_references: referenceSummary.length > 0 ? referenceSummary : undefined,
         thesis_assessment: decisionContext,
@@ -181,7 +182,8 @@ export function TradeReviewForm({
       onGenerateReview({
         analysis_date: requireText(
           formState.analysis_date,
-          t("tradeReview.analysisDate", "Analysis date")
+          t("tradeReview.analysisDate", "Analysis date"),
+          t
         ),
         analysis_references: referenceSummary.length > 0 ? referenceSummary : undefined,
         output_language: formState.output_language,
@@ -208,11 +210,18 @@ export function TradeReviewForm({
           </p>
           <DialogTitle>{reviewTitle}</DialogTitle>
           <DialogDescription className="max-w-3xl">
-            {reviewFocus} Use the saved trade plan, reasons, and linked snapshots to draft the structured review for trade
+            {reviewFocus}{" "}
+            {t(
+              "tradeReview.dialogDescriptionPrefix",
+              "Use the saved trade plan, reasons, and linked snapshots to draft the structured review for trade"
+            )}
             <span className="mx-1 rounded bg-slate-100 px-2 py-1 font-mono text-[12px] text-slate-700">
               {tradeRecord.trade_id}
             </span>
-            and keep the result attached to the same stable trade record.
+            {t(
+              "tradeReview.dialogDescriptionSuffix",
+              "and keep the result attached to the same stable trade record."
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -464,10 +473,18 @@ function buildInitialState(
   };
 }
 
-function requireText(value: string, fieldName: string): string {
+function requireText(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      t("common.required", ({ field }) => `${field} is required.`, {
+        field: fieldName,
+      })
+    );
   }
   return normalized;
 }

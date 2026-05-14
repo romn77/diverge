@@ -1,18 +1,22 @@
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-
+from diverge.agents.base import DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
-    get_indicators,
+    get_analyst_evidence_role_instruction,
+    get_evidence_rules_instruction,
     get_language_instruction,
     get_research_note_style_instruction,
-    get_stock_data,
     get_trade_feedback_message,
+    get_upstream_decision_boundary_instruction,
 )
+from diverge.agents.utils.core_stock_tools import get_stock_data
+from diverge.agents.utils.technical_indicators_tools import get_indicators
+from diverge.runtime.messages import AdkPrompt
 
 
-def create_market_analyst(llm):
+class MarketAnalyst(DivergeAgentNode):
+    name = "market_analyst"
 
-    def market_analyst_node(state):
+    def run(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -20,6 +24,9 @@ def create_market_analyst(llm):
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
+        evidence_rules_instruction = get_evidence_rules_instruction()
+        role_instruction = get_analyst_evidence_role_instruction("market/technical")
+        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
 
         tools = [
             get_stock_data,
@@ -52,14 +59,16 @@ Volume-Based Indicators:
 - vwma: VWMA: A moving average weighted by volume. Usage: Confirm trends by integrating price action with volume data. Tips: Watch for skewed results from volume spikes; use in combination with other volume analyses.
 
 - Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. When calling get_stock_data, request only the past 120 trading days ending at the current date; do not request a longer price-history window. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
+            + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. After the markdown table, also append a structured highlights block in the following exact format (replace values with your actual analysis findings). This block MUST use the json-highlights code fence:
 
 ```json-highlights
 {
   "category": "market",
-  "signal": "BUY or HOLD or SELL",
+  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
   "signal_confidence": "high or medium or low",
   "summary": "1-2 sentence executive summary of your analysis",
+  "stance": "bullish or neutral or bearish or mixed",
   "trend_direction": "bullish or bearish or neutral or mixed",
   "key_levels": {
     "support": ["level1", "level2"],
@@ -68,44 +77,39 @@ Volume-Based Indicators:
   "indicators": [
     {"name": "indicator name", "value": "current value", "interpretation": "brief meaning"}
   ],
-  "volatility": "high or moderate or low"
+  "volatility": "high or moderate or low",
+  "evidence_blocks": [
+    {
+      "claim": "technical claim",
+      "evidence": "specific OHLC/indicator evidence",
+      "source": "get_stock_data or get_indicators",
+      "data_date": "YYYY-MM-DD or unknown",
+      "confidence": "high or medium or low",
+      "limitation": "missing/stale/ambiguous input, or null"
+    }
+  ],
+  "unknowns": ["material technical unknown or unavailable input"]
 }
 ```
 
 Keep the `json-highlights` fence, JSON keys, and enum literals in English constants exactly as shown; free-form string values should follow the report language."""
         )
 
-        prompt = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a helpful AI assistant, collaborating with other assistants."
-                    " Use the provided tools to progress towards answering the question."
-                    " If you are unable to fully answer, that's OK; another assistant with different tools"
-                    " will help where you left off. Execute what you can to make progress."
-                    " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable,"
-                    " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop."
-                    " You have access to the following tools: {tool_names}.\n{system_message}"
-                    "\n{style_instruction}"
-                    "\n{language_instruction}"
-                    "\n{trade_feedback_message}"
-                    "\nFor your reference, the current date is {current_date}. {instrument_context}",
-                ),
-                MessagesPlaceholder(variable_name="messages"),
-            ]
+        prompt = AdkPrompt(
+            system_message=(
+                "You are a helpful AI assistant, collaborating with other assistants."
+                " Use the provided tools to progress towards answering the question."
+                " If you are unable to fully answer, that's OK; another assistant with different tools"
+                " will help where you left off. Execute what you can to make progress."
+                f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
+                f"\n{style_instruction}"
+                f"\n{language_instruction}"
+                f"\n{trade_feedback_message}"
+                f"\nFor your reference, the current date is {current_date}. {instrument_context}"
+            ),
+            messages=tuple(state["messages"]),
         )
-
-        prompt = prompt.partial(system_message=system_message)
-        prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
-        prompt = prompt.partial(current_date=current_date)
-        prompt = prompt.partial(style_instruction=style_instruction)
-        prompt = prompt.partial(language_instruction=language_instruction)
-        prompt = prompt.partial(instrument_context=instrument_context)
-        prompt = prompt.partial(trade_feedback_message=trade_feedback_message)
-
-        chain = prompt | llm.bind_tools(tools)
-
-        result = chain.invoke(state["messages"])
+        result = self.llm.bind_tools(tools).invoke(prompt)
 
         report = ""
 
@@ -117,4 +121,6 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
             "market_report": report,
         }
 
-    return market_analyst_node
+
+def create_market_analyst(llm):
+    return MarketAnalyst(llm)

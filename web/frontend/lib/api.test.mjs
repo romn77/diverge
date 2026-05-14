@@ -20,6 +20,22 @@ test("frontend API exposes market resolution and AI-generated trade review endpo
   assert.match(source, /\/api\/trades\/\$\{tradeId\}\/reviews\/\$\{reviewType\}\/generate/);
 });
 
+test("journal APIs normalize legacy trade payloads before components receive them", () => {
+  assert.match(source, /function normalizeTradeRecord\(value: unknown\): TradeRecord/);
+  assert.match(source, /strategy_tags: normalizeStringArray\(record\.strategy_tags\)/);
+  assert.match(
+    source,
+    /analysis_references: normalizeAnalysisReferences\(record\.analysis_references\)/
+  );
+  assert.match(source, /plan_execution: stringValue\(record\.plan_execution\)/);
+  assert.match(source, /function normalizeTradeReview\(value: unknown/);
+  assert.match(source, /improvement_actions: normalizeStringArray/);
+  assert.match(source, /function normalizeTradeDetail\(value: unknown\): TradeDetail/);
+  assert.match(source, /return Array\.isArray\(data\) \? data\.map\(normalizeTradeRecord\) : \[\]/);
+  assert.match(source, /return normalizeTradeDetail\(data\)/);
+  assert.match(source, /return normalizeTradeReview\(data\)/);
+});
+
 test("screener task stream resumes from a cursor instead of replaying all events", () => {
   assert.match(source, /progress_events:\s*ProgressEvent\[\]/);
   assert.match(source, /startCursor\s*=\s*0/);
@@ -37,8 +53,10 @@ test("task APIs rely on automatic analysis data routing and expose failed task d
   assert.doesNotMatch(source, /market_data_source:\s*string/);
   assert.match(source, /export type ReportVisibility = "private" \| "workspace"/);
   assert.match(source, /visibility\?:\s*ReportVisibility/);
+  assert.match(source, /visibility_admin_override\?:\s*boolean/);
   assert.match(source, /owner_user_id\?:\s*string \| null/);
   assert.match(source, /report_visibility:\s*ReportVisibility/);
+  assert.match(source, /export async function updateReportVisibility/);
   assert.match(source, /export async function deleteTask/);
   assert.match(source, /export async function deleteScreenerTask/);
   assert.match(source, /method:\s*"DELETE"/);
@@ -59,9 +77,11 @@ test("task APIs expose Redis queue statuses, scheduling metadata, and cancel end
   assert.match(source, /queue_position\?:\s*number \| null/);
   assert.match(source, /blocked_vendor\?:\s*string \| null/);
   assert.match(source, /blocked_until\?:\s*string \| null/);
+  assert.match(source, /cancel_requested_at\?:\s*string \| null/);
   assert.match(source, /canceled_at\?:\s*string \| null/);
   assert.match(source, /export async function cancelTask/);
   assert.match(source, /export async function cancelScreenerTask/);
+  assert.match(source, /export async function cancelDataSyncJob/);
   assert.match(source, /\/api\/tasks\/\$\{taskId\}\/cancel/);
   assert.match(source, /\/api\/screener\/tasks\/\$\{taskId\}\/cancel/);
 });
@@ -78,6 +98,19 @@ test("admin APIs expose data-source usage and configuration controls", () => {
   assert.match(source, /\/api\/admin\/data-source-routes\/\$\{route\.module\}/);
 });
 
+test("admin APIs expose search quota controls", () => {
+  assert.match(source, /AdminSearchQuotaProvider/);
+  assert.match(source, /AdminSearchQuotaResponse/);
+  assert.match(source, /AdminSearchProviderUpdateRequest/);
+  assert.match(source, /getAdminSearchQuota/);
+  assert.match(source, /updateAdminSearchGlobal/);
+  assert.match(source, /updateAdminSearchProvider/);
+  assert.match(source, /reactivateAdminSearchProvider/);
+  assert.match(source, /resetAdminSearchProviderUsage/);
+  assert.match(source, /\/api\/admin\/search-quota/);
+  assert.match(source, /\/api\/admin\/search-quota\/providers\/\$\{provider\}\/reactivate/);
+});
+
 test("admin APIs expose LLM model configuration controls without key values", () => {
   assert.match(source, /AdminLLMModelsResponse/);
   assert.match(source, /AdminLLMProvider/);
@@ -90,12 +123,16 @@ test("admin APIs expose LLM model configuration controls without key values", ()
   assert.match(source, /\/api\/admin\/llm-models/);
 });
 
-test("admin APIs expose the read-only task queue snapshot", () => {
+test("admin APIs expose the task queue snapshot and stale queue cleanup", () => {
   assert.match(source, /AdminTaskQueueResponse/);
   assert.match(source, /AdminTaskQueueItem/);
   assert.match(source, /kind:\s*"analysis" \| "screener" \| "data_sync"/);
+  assert.match(source, /runtime_present:\s*boolean/);
+  assert.match(source, /stale:\s*boolean/);
   assert.match(source, /listAdminTaskQueue/);
+  assert.match(source, /deleteAdminTaskQueueItem/);
   assert.match(source, /\/api\/admin\/task-queue/);
+  assert.match(source, /\/api\/admin\/task-queue\/\$\{kind\}\/\$\{taskId\}/);
 });
 
 test("admin APIs expose tenant-scoped audit events with filters", () => {

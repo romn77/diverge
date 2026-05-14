@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
@@ -199,7 +198,9 @@ def test_write_us_manifest_uses_akshare_rate_limiter_when_loading_source(tmp_pat
 
     with (
         patch("diverge.data.us_manifest._import_akshare", return_value=akshare_client),
-        patch("diverge.data.us_manifest.call_akshare_api", return_value=source_df) as mock_rate_limit,
+        patch(
+            "diverge.data.us_manifest.call_akshare_api", return_value=source_df
+        ) as mock_rate_limit,
     ):
         manifest_df = write_us_manifest(output_path=output_path, limit=1)
 

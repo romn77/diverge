@@ -55,6 +55,11 @@ test("uiPreferences defines persisted preference cookie keys with zh translation
   assert.match(source, /"preferences\.visualStyleLabel": "界面风格"/);
   assert.match(source, /"workspace\.resetRequired": "需要重置"/);
   assert.match(source, /"sidebar\.nav\.assets": "资产"/);
+  assert.match(source, /"analysis\.provider\.mimo": "MiMo"/);
+  assert.match(source, /"analysis\.provider\.sub2api": "Sub2API"/);
+  assert.match(source, /"task\.stage\.Summary": "总结"/);
+  assert.match(source, /"highlights\.portfolio\.category": "组合决策"/);
+  assert.match(source, /"auth\.workspaceCredentials": "工作台凭据"/);
   assert.match(source, /"activity\.title": "后台任务"/);
   assert.match(source, /"assets\.title": "组合资产台账"/);
   assert.match(source, /"screenerDashboard\.queueSnapshot": "队列快照"/);

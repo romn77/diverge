@@ -30,11 +30,13 @@ test("highlightTerminal promotes base case fair value and PEG (1Y) into fundamen
     fundamentalsStart >= 0 && fundamentalsEnd > fundamentalsStart
       ? source.slice(fundamentalsStart, fundamentalsEnd)
       : "";
-  const heroChipsBlock = fundamentalsSection.match(/"Balance Sheet Console",\s*\[(.*?)\],\s*\[/s)?.[1];
-
-  assert.ok(heroChipsBlock, "Expected fundamentals hero chip block to exist");
-  assert.match(heroChipsBlock, /label:\s*"Health"/);
-  assert.match(heroChipsBlock, /label:\s*"Base Case Fair Value"/);
-  assert.match(heroChipsBlock, /label:\s*"PEG \(1Y\)"/);
-  assert.doesNotMatch(heroChipsBlock, /label:\s*"Bias"/);
+  assert.match(fundamentalsSection, /highlights\.fundamentals\.hero/);
+  assert.match(fundamentalsSection, /"Balance Sheet Console"/);
+  assert.match(fundamentalsSection, /highlights\.chip\.health/);
+  assert.match(fundamentalsSection, /"Health"/);
+  assert.match(fundamentalsSection, /highlights\.chip\.baseCaseFairValue/);
+  assert.match(fundamentalsSection, /"Base Case Fair Value"/);
+  assert.match(fundamentalsSection, /highlights\.chip\.peg1y/);
+  assert.match(fundamentalsSection, /"PEG \(1Y\)"/);
+  assert.doesNotMatch(fundamentalsSection, /label:\s*"Bias"/);
 });

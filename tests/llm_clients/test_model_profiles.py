@@ -16,6 +16,10 @@ def _only_sub2api(provider: str) -> dict[str, object]:
     return {"enabled": provider == "sub2api", "disabled_reason": None}
 
 
+def _only_mimo(provider: str) -> dict[str, object]:
+    return {"enabled": provider == "mimo", "disabled_reason": None}
+
+
 def _none(_provider: str) -> dict[str, object]:
     return {"enabled": False, "disabled_reason": "missing key"}
 
@@ -25,15 +29,40 @@ class ModelProfileTests(unittest.TestCase):
         for profile in STATIC_MODEL_PROFILES:
             with self.subTest(profile=profile.value):
                 resolved = resolve_model_profile(profile.value, _available)
-                self.assertTrue(validate_model(resolved.llm_provider, resolved.quick_think_llm))
-                self.assertTrue(validate_model(resolved.llm_provider, resolved.deep_think_llm))
+                self.assertTrue(
+                    validate_model(resolved.llm_provider, resolved.quick_think_llm)
+                )
+                self.assertTrue(
+                    validate_model(resolved.llm_provider, resolved.deep_think_llm)
+                )
 
     def test_resolver_skips_unavailable_provider_routes(self):
         resolved = resolve_model_profile("balanced", _only_sub2api)
 
         self.assertEqual(resolved.llm_provider, "sub2api")
         self.assertEqual(resolved.quick_think_llm, "gpt-5.4-mini")
-        self.assertEqual(resolved.deep_think_llm, "gpt-5.2")
+        self.assertEqual(resolved.deep_think_llm, "gpt-5.4")
+
+    def test_resolver_can_use_mimo_profile_route(self):
+        resolved = resolve_model_profile("balanced", _only_mimo)
+
+        self.assertEqual(resolved.llm_provider, "mimo")
+        self.assertEqual(resolved.quick_think_llm, "mimo-v2.5")
+        self.assertEqual(resolved.deep_think_llm, "mimo-v2.5-pro")
+
+    def test_low_cost_profile_uses_supported_sub2api_route(self):
+        resolved = resolve_model_profile("low_cost", _only_sub2api)
+
+        self.assertEqual(resolved.llm_provider, "sub2api")
+        self.assertEqual(resolved.quick_think_llm, "gpt-5.2")
+        self.assertEqual(resolved.deep_think_llm, "gpt-5.4")
+
+    def test_low_cost_profile_uses_mimo_flash_route(self):
+        resolved = resolve_model_profile("low_cost", _only_mimo)
+
+        self.assertEqual(resolved.llm_provider, "mimo")
+        self.assertEqual(resolved.quick_think_llm, "mimo-v2-flash")
+        self.assertEqual(resolved.deep_think_llm, "mimo-v2-flash")
 
     def test_resolver_rejects_profile_without_available_route(self):
         with self.assertRaisesRegex(ValueError, "no available provider route"):
@@ -46,7 +75,9 @@ class ModelProfileTests(unittest.TestCase):
         self.assertIn("custom", by_value)
         self.assertTrue(by_value["custom"]["enabled"])
         self.assertFalse(by_value["balanced"]["enabled"])
-        self.assertIn("No configured provider", str(by_value["balanced"]["disabled_reason"]))
+        self.assertIn(
+            "No configured provider", str(by_value["balanced"]["disabled_reason"])
+        )
 
 
 if __name__ == "__main__":

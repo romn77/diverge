@@ -35,7 +35,7 @@ from .vendors.fmp.news import (
     get_insider_transactions as get_fmp_insider_transactions,
 )
 from .vendors.alpha_vantage.common import AlphaVantageRateLimitError
-from .cn_market_utils import detect_market, normalize_symbol_for_vendor
+from diverge.common.symbols import detect_market, normalize_symbol_for_vendor
 from .config import get_config
 from .fundamentals_normalizer import normalize_fundamentals_payload
 from .vendors.tushare import (
@@ -350,11 +350,7 @@ def build_vendor_chain(method: str, market: str):
         market=market,
     )
     if route_vendors:
-        return [
-            vendor
-            for vendor in route_vendors
-            if vendor in all_available_vendors
-        ]
+        return [vendor for vendor in route_vendors if vendor in all_available_vendors]
 
     vendor_config = get_vendor(category, method, market)
     primary_vendors = [
@@ -503,7 +499,9 @@ def route_to_normalized_fundamentals(
     curr_date: str | None = None,
     freq: str = "quarterly",
 ):
-    market, _, _ = resolve_market_and_symbol("get_fundamentals", (ticker, curr_date), {})
+    market, _, _ = resolve_market_and_symbol(
+        "get_fundamentals", (ticker, curr_date), {}
+    )
     raw_payload = {
         "fundamentals": route_to_vendor("get_fundamentals", ticker, curr_date),
         "balance_sheet": route_to_vendor("get_balance_sheet", ticker, freq, curr_date),

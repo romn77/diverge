@@ -31,7 +31,9 @@ def migrate_dataset(name: str, source_dir: Path, *, dry_run: bool) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Migrate local data files into configured object storage.")
+    parser = argparse.ArgumentParser(
+        description="Migrate local data files into configured object storage."
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--backfill-metadata",

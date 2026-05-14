@@ -29,10 +29,12 @@ def _sleep_after_request() -> None:
         _akshare_request_count += 1
         request_count = _akshare_request_count
 
-    time.sleep(random.uniform(
-        AKSHARE_REQUEST_MIN_DELAY_SECONDS,
-        AKSHARE_REQUEST_MAX_DELAY_SECONDS,
-    ))
+    time.sleep(
+        random.uniform(
+            AKSHARE_REQUEST_MIN_DELAY_SECONDS,
+            AKSHARE_REQUEST_MAX_DELAY_SECONDS,
+        )
+    )
 
     if request_count % AKSHARE_REQUEST_BLOCK_SIZE == 0:
         time.sleep(AKSHARE_REQUEST_BLOCK_PAUSE_SECONDS)

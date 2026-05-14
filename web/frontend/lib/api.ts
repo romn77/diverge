@@ -159,6 +159,63 @@ export interface AdminDataSourceRouteUpdateResponse {
   route: AdminDataSourceRoute;
 }
 
+export type AdminSearchProviderName = "brave" | "tavily" | "bocha";
+
+export interface AdminSearchQuotaGlobal {
+  enabled: boolean;
+  disabled_until: string | null;
+  disabled_reason: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminSearchQuotaProvider {
+  provider: AdminSearchProviderName;
+  label: string;
+  enabled: boolean;
+  key_status: "configured" | "missing";
+  monthly_free_quota: number;
+  monthly_hard_cap: number;
+  used_this_month: number;
+  remaining_to_hard_cap: number;
+  hard_cap_reached: boolean;
+  success_count: number;
+  failure_count: number;
+  disabled_until: string | null;
+  disabled_reason: string | null;
+  last_error: string | null;
+  last_called_at: string | null;
+  updated_at: string | null;
+}
+
+export interface AdminSearchQuotaResponse {
+  month: string;
+  global: AdminSearchQuotaGlobal;
+  providers: AdminSearchQuotaProvider[];
+}
+
+export interface AdminSearchGlobalUpdateRequest {
+  enabled: boolean;
+}
+
+export interface AdminSearchProviderUpdateRequest {
+  enabled?: boolean;
+  monthly_free_quota?: number | null;
+  monthly_hard_cap?: number | null;
+}
+
+export interface AdminSearchProviderUpdateResponse {
+  provider: AdminSearchQuotaProvider;
+}
+
+export interface AdminSearchGlobalUpdateResponse {
+  global: AdminSearchQuotaGlobal;
+}
+
+export interface AdminSearchProviderUsageResetResponse {
+  provider: AdminSearchQuotaProvider;
+  reset_count: number;
+}
+
 export interface AdminLLMProvider {
   provider: string;
   label: string;
@@ -221,12 +278,20 @@ export interface AdminLLMModuleSetting {
   google_thinking_level: string | null;
 }
 
+export interface AdminLLMUiSetting {
+  setting_key: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+}
+
 export interface AdminLLMModelsResponse {
   date: string;
   providers: AdminLLMProvider[];
   models: AdminLLMModel[];
   profiles: AdminLLMProfile[];
   module_settings: AdminLLMModuleSetting[];
+  ui_settings: AdminLLMUiSetting[];
 }
 
 export interface AdminLLMProviderUpdateRequest {
@@ -267,6 +332,10 @@ export interface AdminLLMModuleSettingUpdateRequest {
   google_thinking_level: string | null;
 }
 
+export interface AdminLLMUiSettingUpdateRequest {
+  enabled: boolean;
+}
+
 export interface AdminTaskQueueOwner {
   id: string;
   email: string;
@@ -290,6 +359,8 @@ export interface AdminTaskQueueItem {
   blocked_vendor: string | null;
   blocked_until: string | null;
   detail_path: string;
+  runtime_present: boolean;
+  stale: boolean;
 }
 
 export interface AdminTaskQueueResponse {
@@ -302,6 +373,12 @@ export interface AdminTaskQueueResponse {
     waiting_for_quota: number;
   };
   tasks: AdminTaskQueueItem[];
+}
+
+export interface DeleteAdminTaskQueueItemResponse {
+  deleted: boolean;
+  kind: AdminTaskQueueItem["kind"];
+  task_id: string;
 }
 
 export interface AdminAuditEvent {
@@ -375,6 +452,9 @@ export interface Report {
   date: string;
   time: string;
   visibility?: ReportVisibility;
+  visibility_updated_by_user_id?: string | null;
+  visibility_updated_at?: string | null;
+  visibility_admin_override?: boolean;
   tenant_id?: string | null;
   owner_user_id?: string | null;
 }
@@ -382,6 +462,12 @@ export interface Report {
 export interface ReportStructure {
   id: string;
   ticker: string;
+  visibility?: ReportVisibility;
+  visibility_updated_by_user_id?: string | null;
+  visibility_updated_at?: string | null;
+  visibility_admin_override?: boolean;
+  tenant_id?: string | null;
+  owner_user_id?: string | null;
   has_complete: boolean;
   categories: Record<string, string[]>;
   artifacts: Array<{
@@ -430,7 +516,7 @@ export interface TradeRecord {
   ticker: string;
   canonical_symbol: string;
   display_symbol: string;
-  market: MarketResolutionMarket;
+  market?: MarketResolutionMarket | null;
   exchange: string | null;
   asset_type: MarketResolutionAssetType;
   market_resolution: MarketResolution;
@@ -600,7 +686,7 @@ export interface TradeFeedbackPayload {
 export interface TaskCreateRequest {
   ticker: string;
   ticker_exchange?: "auto" | "SH" | "SZ" | "BJ" | null;
-  analysis_date: string;
+  analysis_date?: string | null;
   analysts: string[];
   research_depth: number;
   model_profile?: string | null;
@@ -645,6 +731,7 @@ export interface ProgressEvent {
   agent_status: Record<string, string>;
   current_agent: string | null;
   message?: string | null;
+  warnings?: Array<Record<string, string>>;
 }
 
 export interface Task {
@@ -667,6 +754,7 @@ export interface Task {
   blocked_reason?: string | null;
   blocked_vendor?: string | null;
   blocked_until?: string | null;
+  cancel_requested_at?: string | null;
   canceled_at?: string | null;
 }
 
@@ -711,6 +799,7 @@ export interface ConfigOptions {
   research_depth: ResearchDepthOption[];
   output_languages: SelectOption[];
   defaults: Record<string, never>;
+  ui_settings?: Record<string, boolean>;
   provider_settings: {
     openai?: { openai_reasoning_effort: SelectOption[] };
     google?: { google_thinking_level: SelectOption[] };
@@ -807,7 +896,6 @@ export interface DataSyncOhlcvRequest {
   us_data_source_fallbacks?: string[];
   cn_manifest_path?: string | null;
   us_manifest_path?: string | null;
-  run_screener_prewarm?: boolean;
 }
 
 export interface DataSyncFundamentalsRequest {
@@ -834,6 +922,8 @@ export interface DataSyncTask {
   started_at?: string | null;
   finished_at?: string | null;
   queue_position?: number | null;
+  cancel_requested_at?: string | null;
+  canceled_at?: string | null;
 }
 
 export interface ScreenerTask {
@@ -854,6 +944,7 @@ export interface ScreenerTask {
   blocked_reason?: string | null;
   blocked_vendor?: string | null;
   blocked_until?: string | null;
+  cancel_requested_at?: string | null;
   canceled_at?: string | null;
 }
 
@@ -1091,6 +1182,225 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
   return parseJsonResponse<T>(response);
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+function nullableStringValue(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function nullableNumberValue(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter((item) => item.length > 0);
+}
+
+function normalizeAnalysisReferences(value: unknown): AnalysisReference[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!isRecord(item)) {
+        return null;
+      }
+      const reference = {
+        analysis_date: stringValue(item.analysis_date),
+        report_path: stringValue(item.report_path),
+        full_state_log_path: stringValue(item.full_state_log_path),
+      };
+      return reference.analysis_date ||
+        reference.report_path ||
+        reference.full_state_log_path
+        ? reference
+        : null;
+    })
+    .filter((item): item is AnalysisReference => item !== null);
+}
+
+function normalizeMarketValue(value: unknown): MarketResolutionMarket {
+  return value === "cn" || value === "us" || value === "unknown" ? value : "unknown";
+}
+
+function normalizeAssetTypeValue(value: unknown): MarketResolutionAssetType {
+  return value === "equity" || value === "etf" || value === "unknown"
+    ? value
+    : "unknown";
+}
+
+function normalizeMarketResolutionSource(value: unknown): MarketResolutionSource {
+  return value === "manifest" ||
+    value === "rule" ||
+    value === "manual" ||
+    value === "unknown"
+    ? value
+    : "unknown";
+}
+
+function normalizeMarketResolutionConfidence(
+  value: unknown
+): MarketResolutionConfidence {
+  return value === "high" ||
+    value === "medium" ||
+    value === "low" ||
+    value === "manual"
+    ? value
+    : "low";
+}
+
+function normalizeMarketResolution(
+  value: unknown,
+  fallback: Pick<
+    MarketResolution,
+    "raw_symbol" | "canonical_symbol" | "display_symbol" | "market" | "exchange" | "asset_type"
+  >
+): MarketResolution {
+  const source = isRecord(value) ? value : {};
+  return {
+    raw_symbol: stringValue(source.raw_symbol, fallback.raw_symbol),
+    canonical_symbol: stringValue(source.canonical_symbol, fallback.canonical_symbol),
+    display_symbol: stringValue(source.display_symbol, fallback.display_symbol),
+    market: normalizeMarketValue(source.market ?? fallback.market),
+    exchange: nullableStringValue(source.exchange) ?? fallback.exchange,
+    asset_type: normalizeAssetTypeValue(source.asset_type ?? fallback.asset_type),
+    confidence: normalizeMarketResolutionConfidence(source.confidence),
+    source: normalizeMarketResolutionSource(source.source),
+    warnings: normalizeStringArray(source.warnings),
+  };
+}
+
+function normalizeTradeRecord(value: unknown): TradeRecord {
+  const record = isRecord(value) ? value : {};
+  const rawSymbol = stringValue(record.raw_symbol, stringValue(record.ticker, "UNKNOWN"));
+  const ticker = stringValue(
+    record.ticker,
+    stringValue(record.canonical_symbol, rawSymbol)
+  ).toUpperCase();
+  const canonicalSymbol = stringValue(record.canonical_symbol, ticker).toUpperCase();
+  const displaySymbol = stringValue(record.display_symbol, canonicalSymbol);
+  const market = normalizeMarketValue(record.market);
+  const exchange = nullableStringValue(record.exchange);
+  const assetType = normalizeAssetTypeValue(record.asset_type);
+  const exchangeOrMarket = stringValue(
+    record.exchange_or_market,
+    exchange ?? market
+  );
+
+  return {
+    type: "trade_record",
+    schema_version:
+      typeof record.schema_version === "number" && Number.isFinite(record.schema_version)
+        ? record.schema_version
+        : 1,
+    trade_id: stringValue(record.trade_id, `${ticker}-legacy`),
+    raw_symbol: rawSymbol,
+    ticker,
+    canonical_symbol: canonicalSymbol,
+    display_symbol: displaySymbol,
+    market,
+    exchange,
+    asset_type: assetType,
+    market_resolution: normalizeMarketResolution(record.market_resolution, {
+      raw_symbol: rawSymbol,
+      canonical_symbol: canonicalSymbol,
+      display_symbol: displaySymbol,
+      market,
+      exchange,
+      asset_type: assetType,
+    }),
+    exchange_or_market: exchangeOrMarket,
+    side: stringValue(record.side, "unknown"),
+    status: stringValue(record.status, "unknown"),
+    entry_timestamp: nullableStringValue(record.entry_timestamp),
+    entry_price: nullableNumberValue(record.entry_price),
+    exit_timestamp: nullableStringValue(record.exit_timestamp),
+    exit_price: nullableNumberValue(record.exit_price),
+    size: nullableNumberValue(record.size),
+    strategy_tags: normalizeStringArray(record.strategy_tags),
+    entry_reason: stringValue(record.entry_reason),
+    invalidation_condition: stringValue(record.invalidation_condition),
+    initial_thesis: stringValue(record.initial_thesis),
+    planned_horizon: stringValue(record.planned_horizon),
+    stop_loss: nullableNumberValue(record.stop_loss),
+    take_profit: nullableNumberValue(record.take_profit),
+    exit_reason: stringValue(record.exit_reason),
+    plan_execution: stringValue(record.plan_execution),
+    notes: stringValue(record.notes),
+    analysis_references: normalizeAnalysisReferences(record.analysis_references),
+    derived_metrics: isRecord(record.derived_metrics)
+      ? {
+          realized_return_pct: nullableNumberValue(
+            record.derived_metrics.realized_return_pct
+          ),
+          pnl_amount: nullableNumberValue(record.derived_metrics.pnl_amount),
+          r_multiple: nullableNumberValue(record.derived_metrics.r_multiple),
+          holding_period_hours: nullableNumberValue(
+            record.derived_metrics.holding_period_hours
+          ),
+        }
+      : undefined,
+    created_at: stringValue(record.created_at),
+    updated_at: stringValue(record.updated_at),
+  };
+}
+
+function normalizeTradeReviewType(value: unknown): TradeReviewType {
+  return value === "exit_review" ? "exit_review" : "entry_review";
+}
+
+function normalizeTradeReview(value: unknown, fallbackRecord?: TradeRecord): TradeReview {
+  const review = isRecord(value) ? value : {};
+  const reviewType = normalizeTradeReviewType(review.review_type);
+  const tradeId = stringValue(review.trade_id, fallbackRecord?.trade_id ?? "UNKNOWN");
+  const ticker = stringValue(review.ticker, fallbackRecord?.ticker ?? "UNKNOWN");
+
+  return {
+    type: "trade_review",
+    schema_version:
+      typeof review.schema_version === "number" && Number.isFinite(review.schema_version)
+        ? review.schema_version
+        : 1,
+    review_id: stringValue(review.review_id, `${tradeId}-${reviewType}`),
+    trade_id: tradeId,
+    ticker,
+    review_type: reviewType,
+    analysis_date: stringValue(review.analysis_date),
+    analysis_references: normalizeAnalysisReferences(review.analysis_references),
+    thesis_assessment: stringValue(review.thesis_assessment),
+    timing_assessment: stringValue(review.timing_assessment),
+    sizing_assessment: stringValue(review.sizing_assessment),
+    discipline_assessment: stringValue(review.discipline_assessment),
+    outcome_summary: stringValue(review.outcome_summary),
+    improvement_actions: normalizeStringArray(review.improvement_actions),
+    ticker_specific_lessons: normalizeStringArray(review.ticker_specific_lessons),
+    cross_ticker_tags: normalizeStringArray(review.cross_ticker_tags),
+    created_at: stringValue(review.created_at),
+    updated_at: stringValue(review.updated_at),
+  };
+}
+
+function normalizeTradeDetail(value: unknown): TradeDetail {
+  const detail = isRecord(value) ? value : {};
+  const record = normalizeTradeRecord(detail.record);
+  const reviews = Array.isArray(detail.reviews)
+    ? detail.reviews.map((review) => normalizeTradeReview(review, record))
+    : [];
+  return { record, reviews };
+}
+
 export async function getAuthState(): Promise<AuthState> {
   return requestJson<AuthState>("/api/auth/me", {
     cache: "no-store",
@@ -1161,6 +1471,49 @@ export async function updateAdminDataSourceRoute(
   );
 }
 
+export async function getAdminSearchQuota(): Promise<AdminSearchQuotaResponse> {
+  return requestJson<AdminSearchQuotaResponse>("/api/admin/search-quota", {
+    cache: "no-store",
+  });
+}
+
+export async function updateAdminSearchGlobal(
+  payload: AdminSearchGlobalUpdateRequest
+): Promise<AdminSearchGlobalUpdateResponse> {
+  return requestJson<AdminSearchGlobalUpdateResponse>(
+    "/api/admin/search-quota/global",
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function updateAdminSearchProvider(
+  provider: AdminSearchProviderName,
+  payload: AdminSearchProviderUpdateRequest
+): Promise<AdminSearchProviderUpdateResponse> {
+  return requestJson<AdminSearchProviderUpdateResponse>(
+    `/api/admin/search-quota/providers/${provider}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
+export async function reactivateAdminSearchProvider(
+  provider: AdminSearchProviderName
+): Promise<AdminSearchProviderUpdateResponse> {
+  return requestJson<AdminSearchProviderUpdateResponse>(
+    `/api/admin/search-quota/providers/${provider}/reactivate`,
+    createJsonRequestInit("POST")
+  );
+}
+
+export async function resetAdminSearchProviderUsage(
+  provider: AdminSearchProviderName
+): Promise<AdminSearchProviderUsageResetResponse> {
+  return requestJson<AdminSearchProviderUsageResetResponse>(
+    `/api/admin/search-quota/providers/${provider}/usage/reset`,
+    createJsonRequestInit("POST")
+  );
+}
+
 export async function listAdminLLMModels(): Promise<AdminLLMModelsResponse> {
   return requestJson<AdminLLMModelsResponse>("/api/admin/llm-models", {
     cache: "no-store",
@@ -1218,10 +1571,33 @@ export async function updateAdminLLMModuleSetting(
   );
 }
 
+export async function updateAdminLLMUiSetting(
+  settingKey: string,
+  payload: AdminLLMUiSettingUpdateRequest
+): Promise<{ setting: AdminLLMUiSetting }> {
+  return requestJson<{ setting: AdminLLMUiSetting }>(
+    `/api/admin/llm-models/ui-settings/${settingKey}`,
+    createJsonRequestInit("PUT", payload)
+  );
+}
+
 export async function listAdminTaskQueue(): Promise<AdminTaskQueueResponse> {
   return requestJson<AdminTaskQueueResponse>("/api/admin/task-queue", {
     cache: "no-store",
   });
+}
+
+export async function deleteAdminTaskQueueItem(
+  kind: AdminTaskQueueItem["kind"],
+  taskId: string
+): Promise<DeleteAdminTaskQueueItemResponse> {
+  return requestJson<DeleteAdminTaskQueueItemResponse>(
+    `/api/admin/task-queue/${kind}/${taskId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
 }
 
 export async function listAdminAuditEvents(
@@ -1305,6 +1681,16 @@ export async function getStructure(reportId: string): Promise<ReportStructure> {
   });
 }
 
+export async function updateReportVisibility(
+  reportId: string,
+  visibility: ReportVisibility
+): Promise<Report> {
+  return requestJson<Report>(
+    `/api/reports/${reportId}/visibility`,
+    createJsonRequestInit("PATCH", { visibility })
+  );
+}
+
 export async function getContent(reportId: string, path: string): Promise<string> {
   const url = new URL(buildApiUrl(`/api/reports/${reportId}/content`));
   url.searchParams.set("path", path);
@@ -1327,7 +1713,8 @@ export async function listTrades(ticker?: string): Promise<TradeRecord[]> {
     credentials: "include",
     cache: "no-store",
   });
-  return parseJsonResponse<TradeRecord[]>(response);
+  const data = await parseJsonResponse<unknown>(response);
+  return Array.isArray(data) ? data.map(normalizeTradeRecord) : [];
 }
 
 export async function resolveMarketSymbol(
@@ -1360,23 +1747,29 @@ export async function resolveMarketSymbol(
 export async function createTrade(
   payload: TradeRecordCreateRequest
 ): Promise<TradeRecord> {
-  return requestJson<TradeRecord>("/api/trades", createJsonRequestInit("POST", payload));
+  const data = await requestJson<unknown>(
+    "/api/trades",
+    createJsonRequestInit("POST", payload)
+  );
+  return normalizeTradeRecord(data);
 }
 
 export async function getTrade(tradeId: string): Promise<TradeDetail> {
-  return requestJson<TradeDetail>(`/api/trades/${tradeId}`, {
+  const data = await requestJson<unknown>(`/api/trades/${tradeId}`, {
     cache: "no-store",
   });
+  return normalizeTradeDetail(data);
 }
 
 export async function updateTrade(
   tradeId: string,
   payload: TradeRecordUpdateRequest
 ): Promise<TradeRecord> {
-  return requestJson<TradeRecord>(
+  const data = await requestJson<unknown>(
     `/api/trades/${tradeId}`,
     createJsonRequestInit("PUT", payload)
   );
+  return normalizeTradeRecord(data);
 }
 
 export async function generateTradeReview(
@@ -1384,10 +1777,11 @@ export async function generateTradeReview(
   reviewType: TradeReviewType,
   payload: TradeReviewGenerateRequest
 ): Promise<TradeReview> {
-  return requestJson<TradeReview>(
+  const data = await requestJson<unknown>(
     `/api/trades/${tradeId}/reviews/${reviewType}/generate`,
     createJsonRequestInit("POST", payload)
   );
+  return normalizeTradeReview(data);
 }
 
 export async function saveTradeReview(
@@ -1395,10 +1789,11 @@ export async function saveTradeReview(
   reviewType: TradeReviewType,
   payload: TradeReviewSaveRequest
 ): Promise<TradeReview> {
-  return requestJson<TradeReview>(
+  const data = await requestJson<unknown>(
     `/api/trades/${tradeId}/reviews/${reviewType}`,
     createJsonRequestInit("PUT", payload)
   );
+  return normalizeTradeReview(data);
 }
 
 export async function getTickerTradeFeedback(
@@ -1516,6 +1911,18 @@ export async function getDataSyncJob(taskId: string): Promise<DataSyncTask> {
   return requestJson<DataSyncTask>(`/api/admin/data-sync/jobs/${taskId}`, {
     cache: "no-store",
   });
+}
+
+export async function cancelDataSyncJob(
+  taskId: string
+): Promise<CancelTaskResponse> {
+  return requestJson<CancelTaskResponse>(
+    `/api/admin/data-sync/jobs/${taskId}/cancel`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
 }
 
 export async function listScreenerTasks(): Promise<ScreenerTask[]> {

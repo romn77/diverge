@@ -1,12 +1,28 @@
 "use client";
 
 import { memo, startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, LockKeyhole, UsersRound } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { useWorkbench } from "@/components/WorkbenchProvider";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getContent, getStructure, type Report, type ReportStructure } from "@/lib/api";
+import {
+  getContent,
+  getStructure,
+  updateReportVisibility,
+  type Report,
+  type ReportStructure,
+  type ReportVisibility,
+} from "@/lib/api";
+import type {
+  DecisionCard as DecisionCardModel,
+  DecisionDelta,
+} from "@/lib/decisionCard";
+import { fetchDecisionCard, fetchDecisionDelta } from "@/lib/fetchDecisionCard";
+import { DecisionCard as DecisionCardView } from "./DecisionCard";
+import { DecisionCardSkeleton } from "./DecisionCardSkeleton";
 import { MarkdownContent } from "./MarkdownContent";
 import { TickerPricePanel } from "./TickerPricePanel";
 
@@ -43,6 +59,13 @@ const FILE_LABELS: Record<string, string> = {
 };
 
 const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
+
+function formatDecisionCardJson(
+  card: DecisionCardModel,
+  delta: DecisionDelta | null
+): string {
+  return JSON.stringify(delta ? { decision_card: card, decision_delta: delta } : card, null, 2);
+}
 
 function localizeFileLabel(
   file: string,
@@ -261,15 +284,34 @@ export function ReportViewer({
   sidebarOpen = false,
 }: ReportViewerProps) {
   const { locale, t } = usePreferences();
+  const { authState, refreshReports } = useWorkbench();
   const [structure, setStructure] = useState<ReportStructure | null>(null);
   const [selectedTab, setSelectedTab] = useState(SUMMARY_TAB_KEY);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [content, setContent] = useState("");
+  const [decisionCard, setDecisionCard] = useState<DecisionCardModel | null>(null);
+  const [decisionDelta, setDecisionDelta] = useState<DecisionDelta | null>(null);
+  const [isDecisionCardLoading, setIsDecisionCardLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOverviewCollapsed, setIsOverviewCollapsed] = useState(false);
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
   const requestIdRef = useRef(0);
   const contentCacheRef = useRef(new Map<string, string>());
+  const decisionCardPath = useMemo(
+    () =>
+      structure?.artifacts.find(
+        (artifact) => artifact.type.toLowerCase() === "decision_card"
+      )?.path ?? null,
+    [structure]
+  );
+  const decisionDeltaPath = useMemo(
+    () =>
+      structure?.artifacts.find(
+        (artifact) => artifact.type.toLowerCase() === "decision_delta"
+      )?.path ?? null,
+    [structure]
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -316,6 +358,73 @@ export function ReportViewer({
       isActive = false;
     };
   }, [reportId, t]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!decisionCardPath) {
+      setDecisionCard(null);
+      setDecisionDelta(null);
+      setIsDecisionCardLoading(false);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadDecisionCard = async () => {
+      try {
+        setIsDecisionCardLoading(true);
+        const card = await fetchDecisionCard(reportId, decisionCardPath);
+        if (isActive) {
+          setDecisionCard(card);
+        }
+      } catch {
+        if (isActive) {
+          setDecisionCard(null);
+        }
+      } finally {
+        if (isActive) {
+          setIsDecisionCardLoading(false);
+        }
+      }
+    };
+
+    loadDecisionCard();
+
+    return () => {
+      isActive = false;
+    };
+  }, [decisionCardPath, reportId]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!decisionDeltaPath) {
+      setDecisionDelta(null);
+      return () => {
+        isActive = false;
+      };
+    }
+
+    const loadDecisionDelta = async () => {
+      try {
+        const delta = await fetchDecisionDelta(reportId, decisionDeltaPath);
+        if (isActive) {
+          setDecisionDelta(delta);
+        }
+      } catch {
+        if (isActive) {
+          setDecisionDelta(null);
+        }
+      }
+    };
+
+    loadDecisionDelta();
+
+    return () => {
+      isActive = false;
+    };
+  }, [decisionDeltaPath, reportId]);
 
   useEffect(() => {
     const loadContent = async () => {
@@ -408,7 +517,6 @@ export function ReportViewer({
         : 0,
     [structure]
   );
-  const artifactCount = structure?.artifacts.length ?? 0;
 
   const selectedCategoryMeta = selectedTab !== "complete" ? CATEGORY_MAP[selectedTab] : null;
   const selectedCategoryLabel =
@@ -440,6 +548,47 @@ export function ReportViewer({
     [structure]
   );
   const summaryText = summaryArtifact?.summary?.trim() ?? "";
+  const currentUserId = authState?.user?.id ?? null;
+  const canUpdateVisibility =
+    structure &&
+    authState?.enabled &&
+    authState.authenticated &&
+    authState.user &&
+    structure.visibility &&
+    (authState.user.role === "admin" || structure.owner_user_id === currentUserId);
+  const currentVisibility = structure?.visibility ?? "private";
+  const isWorkspaceVisible = currentVisibility === "workspace";
+  const visibilityLabel = t(
+    isWorkspaceVisible ? "home.visibility.workspace" : "home.visibility.private",
+    isWorkspaceVisible ? "Workspace" : "Private"
+  );
+  const nextVisibility = (
+    isWorkspaceVisible ? "private" : "workspace"
+  ) satisfies ReportVisibility;
+
+  const handleVisibilityChange = async (visibility: ReportVisibility) => {
+    if (!structure || visibility === structure.visibility) {
+      return;
+    }
+    setIsUpdatingVisibility(true);
+    try {
+      const updated = await updateReportVisibility(reportId, visibility);
+      setStructure((current) =>
+        current
+          ? {
+              ...current,
+              visibility: updated.visibility,
+              visibility_updated_at: updated.visibility_updated_at,
+              visibility_updated_by_user_id: updated.visibility_updated_by_user_id,
+              visibility_admin_override: updated.visibility_admin_override,
+            }
+          : current
+      );
+      await refreshReports();
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
+  };
 
   const handleTabChange = useCallback(
     (tabKey: string) => {
@@ -463,22 +612,42 @@ export function ReportViewer({
 
   if (!structure) {
     return (
-      <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+      <main className="analysis-density-page workbench-page-shell flex min-h-dvh flex-1 flex-col">
         <div className="workbench-content-frame">
-          <div className="viewer-frame flex w-full items-center justify-center p-8 text-sm text-slate-600">
-            {isLoading
-              ? t("report.loadingReport", "Loading report...")
-              : error
+          {isLoading ? (
+            <div
+              className="viewer-frame w-full space-y-4 p-6 md:p-8"
+              role="status"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <span className="sr-only">
+                {t("report.loadingReport", "Loading report...")}
+              </span>
+              <Skeleton className="h-7 w-2/3 rounded-[16px]" />
+              <Skeleton className="h-4 w-1/3 rounded-[12px]" />
+              <div className="grid gap-3 md:grid-cols-3">
+                <Skeleton className="h-20 rounded-[20px]" />
+                <Skeleton className="h-20 rounded-[20px]" />
+                <Skeleton className="h-20 rounded-[20px]" />
+              </div>
+              <Skeleton className="h-40 w-full rounded-[24px]" />
+              <Skeleton className="h-40 w-full rounded-[24px]" />
+            </div>
+          ) : (
+            <div className="viewer-frame flex w-full items-center justify-center p-8 text-sm text-slate-600">
+              {error
                 ? `${t("report.errorPrefix", "Error")}: ${error}`
                 : t("report.noReportData", "No report data")}
-          </div>
+            </div>
+          )}
         </div>
       </main>
     );
   }
 
   return (
-    <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] min-w-0 flex-1 flex-col overflow-x-hidden">
+    <main className="analysis-density-page workbench-page-shell flex min-h-dvh min-w-0 flex-1 flex-col overflow-x-hidden">
       <div className="workbench-content-frame">
         <section
           id="report-content-panel"
@@ -602,7 +771,57 @@ export function ReportViewer({
                                     )}
                                   </span>
                                 )}
+                              {structure.visibility ? (
+                                <span className="inline-flex items-center gap-2">
+                                  {t(
+                                    structure.visibility === "workspace"
+                                      ? "home.visibility.workspace"
+                                      : "home.visibility.private",
+                                    structure.visibility === "workspace"
+                                      ? "Workspace"
+                                      : "Private"
+                                  )}
+                                  {structure.visibility_admin_override
+                                    ? ` · ${t(
+                                        "home.visibility.adminOverride",
+                                        "Admin adjusted"
+                                      )}`
+                                    : ""}
+                                </span>
+                              ) : null}
                             </div>
+                            {canUpdateVisibility ? (
+                              <div className="mt-4">
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={isWorkspaceVisible}
+                                  aria-label={t(
+                                    "home.visibility.change",
+                                    "Change report visibility"
+                                  )}
+                                  disabled={isUpdatingVisibility}
+                                  onClick={() => void handleVisibilityChange(nextVisibility)}
+                                  className="report-visibility-switch"
+                                  data-state={isWorkspaceVisible ? "workspace" : "private"}
+                                >
+                                  <span className="report-visibility-track" aria-hidden>
+                                    <span className="report-visibility-thumb">
+                                      {isWorkspaceVisible ? (
+                                        <UsersRound className="size-3.5" />
+                                      ) : (
+                                        <LockKeyhole className="size-3.5" />
+                                      )}
+                                    </span>
+                                  </span>
+                                  <span className="report-visibility-copy">
+                                    <span className="report-visibility-value">
+                                      {visibilityLabel}
+                                    </span>
+                                  </span>
+                                </button>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
 
@@ -613,25 +832,14 @@ export function ReportViewer({
                               selectedCategoryLabel ??
                               t("report.completeReport", "Complete Report")
                             }
-                            hint={selectedFileLabel ?? t("report.houseView", "House View")}
                           />
                           <SummaryMetric
                             label={t("report.availableTracks", "Available tracks")}
                             value={String(availableTrackCount)}
-                            hint={t(
-                              "report.trackCountHint",
-                              ({ count }) => `${count} agent tracks available`,
-                              { count: availableTrackCount }
-                            )}
                           />
                           <SummaryMetric
                             label={t("report.sourceFiles", "Source files")}
                             value={String(sourceFileCount)}
-                            hint={t(
-                              "report.referenceArtifactsHint",
-                              ({ count }) => `${count} Reference artifacts attached`,
-                              { count: artifactCount }
-                            )}
                           />
                         </div>
                       </div>
@@ -649,7 +857,7 @@ export function ReportViewer({
             </div>
           </div>
 
-          <div className="sticky top-0 z-20 min-w-0 max-w-full bg-transparent">
+          <div className="sticky top-0 z-[var(--z-overlay)] min-w-0 max-w-full bg-transparent">
             <div className="report-tab-rail border-b border-[var(--border)] px-4 py-3 md:px-8 md:py-4">
               <div className="min-w-0 w-full max-w-full">
                 <Tabs value={selectedTab} onValueChange={handleTabChange}>
@@ -708,17 +916,6 @@ export function ReportViewer({
                       {selectedFileLabel ?? selectedCategoryLabel ?? selectedCategoryMeta.label}
                     </h3>
                   </div>
-                  <p className="max-w-xl text-sm leading-6 text-[var(--muted)]">
-                    {t(
-                      "report.filePerspective",
-                      ({ label, ticker }) =>
-                        `${label} captures one desk's perspective for ${ticker}. Read this layer on its own, then compare it against the full report.`,
-                      {
-                        label: selectedCategoryLabel ?? selectedCategoryMeta.label,
-                        ticker: structure.ticker,
-                      }
-                    )}
-                  </p>
                 </div>
               )}
 
@@ -732,11 +929,40 @@ export function ReportViewer({
                   t={t}
                 />
               ) : selectedTab === "complete" ? (
-                <MarkdownContent
-                  content={content}
-                  isLoading={isLoading}
-                  highlightMode="off"
-                />
+                <>
+                  {isDecisionCardLoading && <DecisionCardSkeleton />}
+                  {decisionCard && (
+                    <>
+                      <DecisionCardView card={decisionCard} delta={decisionDelta} />
+                      <details className="decision-raw-details">
+                        <summary>
+                          <span>
+                            {t(
+                              "decisionCard.rawDetails",
+                              "Structured decision data"
+                            )}
+                          </span>
+                          <span className="decision-raw-meta">
+                            {t(
+                              "decisionCard.rawDetailsHint",
+                              "JSON for audit"
+                            )}
+                          </span>
+                        </summary>
+                        <pre>
+                          <code>{formatDecisionCardJson(decisionCard, decisionDelta)}</code>
+                        </pre>
+                      </details>
+                    </>
+                  )}
+                  <MarkdownContent
+                    content={content}
+                    isLoading={isLoading}
+                    highlightMode={
+                      decisionCard || isDecisionCardLoading ? "off" : "single"
+                    }
+                  />
+                </>
               ) : categoryFiles.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-500">
                   {t("report.noCategoryData", "No data available for this category")}
@@ -772,10 +998,6 @@ const ReportOverviewCompanion = memo(function ReportOverviewCompanion({
         symbol={ticker}
         asOfDate={asOfDate}
         title={t("report.priceTrend", "Price Trend")}
-        subtitle={t(
-          "report.priceTrendHint",
-          "1000-day vendor-backed history aligned to this report date."
-        )}
         embedded
       />
     </div>
@@ -785,11 +1007,9 @@ const ReportOverviewCompanion = memo(function ReportOverviewCompanion({
 function SummaryMetric({
   label,
   value,
-  hint,
 }: {
   label: string;
   value: string;
-  hint: string;
 }) {
   return (
     <Card className="border-b-0 bg-white/80 shadow-none">
@@ -798,7 +1018,6 @@ function SummaryMetric({
         {label}
       </p>
       <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">{hint}</p>
       </CardContent>
     </Card>
   );

@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from sqlalchemy import func, select
+
 from web.backend import auth, llm_models
 
 
@@ -32,13 +34,76 @@ class LLMModelConfigTests(unittest.TestCase):
             auth.create_all_for_testing()
             summary = llm_models.list_llm_model_summary()
 
-        openai = next(provider for provider in summary["providers"] if provider["provider"] == "openai")
+        openai = next(
+            provider
+            for provider in summary["providers"]
+            if provider["provider"] == "openai"
+        )
         self.assertEqual(openai["key_status"], "configured")
         self.assertEqual(openai["api_key_env"], "OPENAI_API_KEY")
         self.assertNotIn("secret-value", str(summary))
 
+    def test_summary_seeds_database_defaults(self):
+        with self._env():
+            auth.create_all_for_testing()
+            summary = llm_models.list_llm_model_summary()
+
+            with auth.db_session() as db:
+                provider_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMProviderConfig)
+                )
+                model_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMModelConfig)
+                )
+                profile_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMModelProfile)
+                )
+                route_count = db.scalar(
+                    select(func.count()).select_from(llm_models.LLMModelProfileRoute)
+                )
+
+        self.assertEqual(provider_count, len(summary["providers"]))
+        self.assertEqual(model_count, len(summary["models"]))
+        self.assertEqual(profile_count, len(summary["profiles"]))
+        self.assertEqual(
+            route_count,
+            sum(len(profile["routes"]) * 2 for profile in summary["profiles"]),
+        )
+
+    def test_summary_hides_models_removed_from_shared_catalog(self):
+        with self._env({"SUB2API_API_KEY": "secret-value"}):
+            auth.create_all_for_testing()
+            llm_models.ensure_llm_model_defaults()
+            with auth.db_session() as db:
+                db.add(
+                    llm_models.LLMModelConfig(
+                        id=llm_models._model_pk("sub2api", "gpt-4.1"),
+                        provider="sub2api",
+                        model_id="gpt-4.1",
+                        label="GPT-4.1 - Stale model",
+                        enabled=True,
+                        supports_quick=True,
+                        supports_deep=True,
+                        cost_tier="medium",
+                        visible_to_roles="admin,operator,viewer",
+                    )
+                )
+            summary = llm_models.list_llm_model_summary()
+
+        sub2api_models = {
+            model["model_id"]
+            for model in summary["models"]
+            if model["provider"] == "sub2api"
+        }
+        self.assertEqual(
+            sub2api_models, {"gpt-5.4-mini", "gpt-5.4", "gpt-5.2", "gpt-5.5"}
+        )
+        self.assertNotIn("gpt-4.1", sub2api_models)
+
     def test_disabled_model_blocks_profile_resolution(self):
-        with self._env({"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}):
+        with self._env(
+            {"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}
+        ):
             auth.create_all_for_testing()
             llm_models.update_model_config(
                 "openai",
@@ -54,7 +119,9 @@ class LLMModelConfigTests(unittest.TestCase):
         self.assertEqual(resolved.llm_provider, "sub2api")
 
     def test_daily_model_limit_blocks_route(self):
-        with self._env({"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}):
+        with self._env(
+            {"OPENAI_API_KEY": "secret-value", "SUB2API_API_KEY": "secret-value"}
+        ):
             auth.create_all_for_testing()
             llm_models.update_model_config(
                 "openai",
@@ -69,6 +136,40 @@ class LLMModelConfigTests(unittest.TestCase):
             resolved = llm_models.resolve_model_profile_from_db("balanced")
 
         self.assertEqual(resolved.llm_provider, "sub2api")
+
+    def test_model_usage_upsert_accumulates_and_resets_hour_bucket(self):
+        with self._env():
+            auth.create_all_for_testing()
+            llm_models.record_model_usage("openai", "gpt-5.4-mini", module="analysis")
+            llm_models.record_model_usage(
+                "openai", "gpt-5.4-mini", module="analysis", success=False
+            )
+
+            usage_date = llm_models._today_key()
+            with auth.db_session() as db:
+                row = db.get(
+                    llm_models.LLMModelUsage,
+                    (usage_date, "openai", "gpt-5.4-mini", "analysis"),
+                )
+                self.assertIsNotNone(row)
+                self.assertEqual(row.total_calls, 2)
+                self.assertEqual(row.success_count, 1)
+                self.assertEqual(row.failure_count, 1)
+                self.assertEqual(row.hour_total_calls, 2)
+                row.hour_key = "2000-01-01T00"
+                row.hour_total_calls = 9
+
+            llm_models.record_model_usage("openai", "gpt-5.4-mini", module="analysis")
+            with auth.db_session() as db:
+                row = db.get(
+                    llm_models.LLMModelUsage,
+                    (usage_date, "openai", "gpt-5.4-mini", "analysis"),
+                )
+                self.assertEqual(row.total_calls, 3)
+                self.assertEqual(row.success_count, 2)
+                self.assertEqual(row.failure_count, 1)
+                self.assertEqual(row.hour_total_calls, 1)
+                self.assertNotEqual(row.hour_key, "2000-01-01T00")
 
     def test_admin_module_setting_resolves_trade_journal_review_model(self):
         with self._env({"OPENAI_API_KEY": "secret-value"}):
@@ -109,6 +210,55 @@ class LLMModelConfigTests(unittest.TestCase):
         self.assertEqual(setting["custom_model"], "gpt-5.5")
         self.assertEqual(resolved["llm_provider"], "openai")
         self.assertEqual(resolved["model"], "gpt-5.5")
+
+    def test_custom_analysis_profile_visibility_is_admin_configurable(self):
+        with self._env():
+            auth.create_all_for_testing()
+
+            self.assertTrue(
+                llm_models.custom_analysis_profile_visible_for_role("admin")
+            )
+            self.assertFalse(
+                llm_models.custom_analysis_profile_visible_for_role("operator")
+            )
+
+            setting = llm_models.update_ui_setting(
+                llm_models.SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING,
+                enabled=False,
+            )
+
+            self.assertFalse(setting["enabled"])
+            self.assertFalse(
+                llm_models.custom_analysis_profile_visible_for_role("admin")
+            )
+            self.assertNotIn(
+                "custom",
+                {
+                    option["value"]
+                    for option in llm_models.list_config_model_profiles(
+                        include_custom=False
+                    )
+                },
+            )
+
+    def test_default_profile_routes_can_be_saved(self):
+        with self._env():
+            auth.create_all_for_testing()
+            summary = llm_models.list_llm_model_summary()
+            for profile in summary["profiles"]:
+                if profile["profile_id"] == "custom":
+                    continue
+                routes = [
+                    {
+                        "provider": route["provider"],
+                        "quick_model": route["quick_model"],
+                        "deep_model": route["deep_model"],
+                    }
+                    for route in profile["routes"]
+                ]
+                saved = llm_models.update_profile_routes(profile["profile_id"], routes)
+
+                self.assertEqual(len(saved), len(routes))
 
 
 if __name__ == "__main__":

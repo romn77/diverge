@@ -147,6 +147,14 @@ services:
     image: ${BACKEND_IMAGE}:${TAG}
     build: null
     pull_policy: never
+  prewarm-scheduler:
+    image: ${BACKEND_IMAGE}:${TAG}
+    build: null
+    pull_policy: never
+  prewarm-worker:
+    image: ${BACKEND_IMAGE}:${TAG}
+    build: null
+    pull_policy: never
   backup:
     image: ${BACKEND_IMAGE}:${TAG}
     build: null

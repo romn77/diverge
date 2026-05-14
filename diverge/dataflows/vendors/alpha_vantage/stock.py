@@ -17,11 +17,8 @@ AV_RENAME_MAP = {
     "volume": "Volume",
 }
 
-def get_stock(
-    symbol: str,
-    start_date: str,
-    end_date: str
-) -> str:
+
+def get_stock(symbol: str, start_date: str, end_date: str) -> str:
     """
     Returns raw daily OHLCV values, adjusted close values, and historical split/dividend events
     filtered to the specified date range.
@@ -54,7 +51,9 @@ def get_stock(
     return _filter_csv_by_date_range(response, start_date, end_date)
 
 
-def _fetch_alpha_vantage_stock_df(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+def _fetch_alpha_vantage_stock_df(
+    symbol: str, start_date: str, end_date: str
+) -> pd.DataFrame:
     csv_text = get_stock(symbol, start_date, end_date)
     if not csv_text or not str(csv_text).strip():
         raise VendorDataEmptyError(f"No Alpha Vantage stock data found for {symbol}")

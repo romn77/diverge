@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import pandas as pd
 
+from diverge.common.market_calendar import trading_day_lag
+
 from .presets import resolve_filter_preset_conditions
-from .market_calendar import trading_day_lag
 from .schema import ScreenRunConfig
 
 
@@ -60,12 +61,19 @@ def _price_floor_drop_reason(row: pd.Series, config: ScreenRunConfig) -> str | N
     return None
 
 
-def _has_insufficient_trading_continuity(row: pd.Series, config: ScreenRunConfig) -> bool:
+def _has_insufficient_trading_continuity(
+    row: pd.Series, config: ScreenRunConfig
+) -> bool:
     trading_days_20d = pd.to_numeric(row.get("trading_days_20d"), errors="coerce")
-    return pd.isna(trading_days_20d) or float(trading_days_20d) < config.min_trading_days_20d
+    return (
+        pd.isna(trading_days_20d)
+        or float(trading_days_20d) < config.min_trading_days_20d
+    )
 
 
-def _market_liquidity_threshold(row: pd.Series, config: ScreenRunConfig, name: str) -> float | None:
+def _market_liquidity_threshold(
+    row: pd.Series, config: ScreenRunConfig, name: str
+) -> float | None:
     market = str(row.get("market") or "").strip().lower()
     if market == "cn":
         threshold = config.cn_min_avg_amount_20d
@@ -78,15 +86,21 @@ def _market_liquidity_threshold(row: pd.Series, config: ScreenRunConfig, name: s
     return float(threshold)
 
 
-def _condition_value(row: pd.Series, condition: dict, config: ScreenRunConfig) -> object:
+def _condition_value(
+    row: pd.Series, condition: dict, config: ScreenRunConfig
+) -> object:
     if "compare_field" in condition:
         return row.get(condition["compare_field"])
     if "market_threshold" in condition:
-        return _market_liquidity_threshold(row, config, str(condition["market_threshold"]))
+        return _market_liquidity_threshold(
+            row, config, str(condition["market_threshold"])
+        )
     return condition.get("value")
 
 
-def _numeric_pair(row: pd.Series, condition: dict, config: ScreenRunConfig) -> tuple[float | None, float | None]:
+def _numeric_pair(
+    row: pd.Series, condition: dict, config: ScreenRunConfig
+) -> tuple[float | None, float | None]:
     left = pd.to_numeric(row.get(condition["field"]), errors="coerce")
     right = pd.to_numeric(_condition_value(row, condition, config), errors="coerce")
     if pd.isna(left) or pd.isna(right):
@@ -94,12 +108,16 @@ def _numeric_pair(row: pd.Series, condition: dict, config: ScreenRunConfig) -> t
     return float(left), float(right)
 
 
-def _condition_matches(row: pd.Series, condition: dict, config: ScreenRunConfig) -> bool:
+def _condition_matches(
+    row: pd.Series, condition: dict, config: ScreenRunConfig
+) -> bool:
     op = str(condition.get("op") or "")
     if op == "is_true":
         return bool(row.get(condition["field"])) is True
     if op == "==":
-        return str(row.get(condition["field"]) or "") == str(condition.get("value") or "")
+        return str(row.get(condition["field"]) or "") == str(
+            condition.get("value") or ""
+        )
 
     left, right = _numeric_pair(row, condition, config)
     if left is None or right is None:
@@ -119,7 +137,9 @@ def _condition_matches(row: pd.Series, condition: dict, config: ScreenRunConfig)
     return False
 
 
-def _resolved_condition_detail(row: pd.Series, condition: dict, config: ScreenRunConfig) -> str:
+def _resolved_condition_detail(
+    row: pd.Series, condition: dict, config: ScreenRunConfig
+) -> str:
     field = str(condition.get("field") or "")
     op = str(condition.get("op") or "")
     value = _condition_value(row, condition, config)
@@ -185,18 +205,28 @@ def apply_hard_filters(
             continue
 
         if _has_insufficient_trading_continuity(row, config):
-            dropped_rows.append({**row.to_dict(), "drop_reason": "insufficient_trading_days_20d"})
+            dropped_rows.append(
+                {**row.to_dict(), "drop_reason": "insufficient_trading_days_20d"}
+            )
             continue
 
-        if row["market"] == "cn" and float(row["avg_amount_20d"]) < config.cn_min_avg_amount_20d:
+        if (
+            row["market"] == "cn"
+            and float(row["avg_amount_20d"]) < config.cn_min_avg_amount_20d
+        ):
             dropped_rows.append({**row.to_dict(), "drop_reason": "illiquid_cn"})
             continue
 
-        if row["market"] == "us" and float(row["avg_amount_20d"]) < config.us_min_avg_dollar_volume_20d:
+        if (
+            row["market"] == "us"
+            and float(row["avg_amount_20d"]) < config.us_min_avg_dollar_volume_20d
+        ):
             dropped_rows.append({**row.to_dict(), "drop_reason": "illiquid_us"})
             continue
 
-        preset_drop_reason, matched_conditions, matched_condition_details = _preset_filter_drop(row, config)
+        preset_drop_reason, matched_conditions, matched_condition_details = (
+            _preset_filter_drop(row, config)
+        )
         if preset_drop_reason is not None:
             dropped_rows.append(
                 {

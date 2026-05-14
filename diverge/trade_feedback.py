@@ -4,23 +4,29 @@ import json
 import re
 import shutil
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from diverge.common.dates import (
+    iso_date_part,
+    offset_iso_date,
+    require_iso_date,
+    today_iso,
+)
+from diverge.common.fields import (
+    normalize_optional_number as normalize_field_optional_number,
+    normalize_optional_text as normalize_field_optional_text,
+    require_text as require_field_text,
+)
+from diverge.common.json_io import read_json_file, write_json_atomic
+from diverge.common.symbols import normalize_ticker_symbol
 from diverge.data_layout import resolve_history_dir, resolve_reports_dir
 from diverge.dataflows.interface import route_to_vendor
 from diverge.llm_clients import create_llm_client
 from diverge.llm_clients.model_config import get_provider_base_url
 from diverge.markets import resolve_symbol
-from diverge.screener.history_cache import (
-    classify_history_cache_coverage,
-    history_cache_path,
-    load_history_cache,
-    slice_history_window,
-)
-from diverge.ticker_symbols import normalize_ticker_symbol
-
+from diverge.market_data.price_history import load_local_price_window
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TRADE_FEEDBACK_DIRNAME = ".trade_feedback"
@@ -101,7 +107,9 @@ def create_trade_record(
         "entry_timestamp": _normalize_optional_timestamp(
             payload.get("entry_timestamp"), "entry_timestamp"
         ),
-        "entry_price": _normalize_required_number(payload.get("entry_price"), "entry_price"),
+        "entry_price": _normalize_required_number(
+            payload.get("entry_price"), "entry_price"
+        ),
         "exit_timestamp": exit_timestamp,
         "exit_price": exit_price,
         "size": _normalize_optional_number(payload.get("size"), "size"),
@@ -142,10 +150,7 @@ def update_trade_record(
     updated = dict(existing)
     previous_ticker = existing["ticker"]
 
-    if (
-        "raw_symbol" in updates
-        or "market_resolution" in updates
-    ):
+    if "raw_symbol" in updates or "market_resolution" in updates:
         market_resolution = _resolve_trade_market(
             {
                 **updated,
@@ -183,10 +188,15 @@ def update_trade_record(
     if "size" in updates:
         updated["size"] = _normalize_optional_number(updates.get("size"), "size")
     if "strategy_tags" in updates and updates["strategy_tags"] is not None:
-        updated["strategy_tags"] = _normalize_strategy_tags(updates.get("strategy_tags"))
+        updated["strategy_tags"] = _normalize_strategy_tags(
+            updates.get("strategy_tags")
+        )
     if "entry_reason" in updates and updates["entry_reason"] is not None:
         updated["entry_reason"] = _require_text(updates["entry_reason"], "entry_reason")
-    if "invalidation_condition" in updates and updates["invalidation_condition"] is not None:
+    if (
+        "invalidation_condition" in updates
+        and updates["invalidation_condition"] is not None
+    ):
         updated["invalidation_condition"] = _require_text(
             updates["invalidation_condition"], "invalidation_condition"
         )
@@ -251,7 +261,7 @@ def list_trade_records(
         if not search_root.is_dir():
             continue
         for record_path in sorted(search_root.glob(f"*/{TRADE_RECORD_FILENAME}")):
-            results.append(_read_json_file(record_path))
+            results.append(read_json_file(record_path))
 
     results.sort(key=lambda record: record.get("updated_at", ""), reverse=True)
     return results
@@ -265,7 +275,7 @@ def get_trade_record(
     record_path = _find_trade_record_path(trade_id, reports_dir=reports_dir)
     if record_path is None:
         raise ValueError(f"Trade '{trade_id}' not found")
-    return _read_json_file(record_path)
+    return read_json_file(record_path)
 
 
 def list_trade_reviews(
@@ -283,7 +293,7 @@ def list_trade_reviews(
     for review_type in sorted(REVIEW_TYPES):
         review_path = reviews_dir / f"{review_type}.json"
         if review_path.is_file():
-            reviews.append(_read_json_file(review_path))
+            reviews.append(read_json_file(review_path))
     reviews.sort(key=lambda review: review.get("updated_at", ""), reverse=True)
     return reviews
 
@@ -342,7 +352,10 @@ def list_trade_feedback_entries(
     )
     results: list[dict[str, Any]] = []
     for record in list_trade_records(ticker=normalized_ticker, reports_dir=reports_dir):
-        if allowed_trade_ids is not None and record["trade_id"] not in allowed_trade_ids:
+        if (
+            allowed_trade_ids is not None
+            and record["trade_id"] not in allowed_trade_ids
+        ):
             continue
         for review in list_trade_reviews(record["trade_id"], reports_dir=reports_dir):
             results.append(
@@ -882,7 +895,9 @@ def _build_review_diagnostics(
     evidence_pack: dict[str, Any],
 ) -> dict[str, Any]:
     setup_type = _infer_setup_type(trade_record)
-    missing_critical_fields = _review_missing_critical_fields(trade_record, setup_type, review_type)
+    missing_critical_fields = _review_missing_critical_fields(
+        trade_record, setup_type, review_type
+    )
     validation_warnings = _review_validation_warnings(
         trade_record,
         setup_type,
@@ -937,7 +952,10 @@ def _build_technical_decision_checks(
     evidence_pack: dict[str, Any],
 ) -> dict[str, Any]:
     local_history = evidence_pack.get("local_price_history")
-    if not isinstance(local_history, dict) or local_history.get("status") != "available":
+    if (
+        not isinstance(local_history, dict)
+        or local_history.get("status") != "available"
+    ):
         return {
             "status": "unavailable",
             "reason": (
@@ -1010,32 +1028,52 @@ def _technical_interpretation_hints(
     close_vs_sma20 = _json_number(summary.get("close_vs_sma_20_pct"))
     if setup_type == "breakout" and entry_vs_previous_high is not None:
         if entry_vs_previous_high > 3:
-            hints.append("entry is more than 3% above the previous 20d high; treat as extended breakout/chase unless retest or close confirmation exists")
+            hints.append(
+                "entry is more than 3% above the previous 20d high; treat as extended breakout/chase unless retest or close confirmation exists"
+            )
         elif entry_vs_previous_high >= 0:
-            hints.append("entry is above the previous 20d high; breakout trigger may be present if confirmation and risk are defined")
+            hints.append(
+                "entry is above the previous 20d high; breakout trigger may be present if confirmation and risk are defined"
+            )
         else:
-            hints.append("entry is below the previous 20d high; breakout trigger is not confirmed by local OHLC")
+            hints.append(
+                "entry is below the previous 20d high; breakout trigger is not confirmed by local OHLC"
+            )
     if entry_vs_latest_close is not None and entry_vs_latest_close > 0:
-        hints.append("entry price is above the latest close in the evidence window; check intraday chase/slippage risk")
+        hints.append(
+            "entry price is above the latest close in the evidence window; check intraday chase/slippage risk"
+        )
     if volume_ratio is not None:
         if volume_ratio >= 1.5:
-            hints.append("volume is materially above 20d average, supporting participation but not replacing risk control")
+            hints.append(
+                "volume is materially above 20d average, supporting participation but not replacing risk control"
+            )
         elif volume_ratio >= 1.1:
-            hints.append("volume is only moderately above 20d average; confirmation is not strong by volume alone")
+            hints.append(
+                "volume is only moderately above 20d average; confirmation is not strong by volume alone"
+            )
         else:
             hints.append("volume does not confirm strong participation")
     if rsi is not None and rsi >= 70:
-        hints.append("RSI14 is above 70; momentum is strong but overextension risk is elevated")
+        hints.append(
+            "RSI14 is above 70; momentum is strong but overextension risk is elevated"
+        )
     if close_vs_sma20 is not None and close_vs_sma20 > 10:
-        hints.append("close is more than 10% above SMA20; short-term extension risk is elevated")
+        hints.append(
+            "close is more than 10% above SMA20; short-term extension risk is elevated"
+        )
     return hints
 
 
 def _infer_setup_type(trade_record: dict[str, Any]) -> str:
     text = _review_signal_text(trade_record)
-    if _contains_any(text, ("value", "valuation", "fundamental", "基本面", "估值", "价值")):
+    if _contains_any(
+        text, ("value", "valuation", "fundamental", "基本面", "估值", "价值")
+    ):
         return "value_or_fundamental"
-    if _contains_any(text, ("earnings", "event", "catalyst", "财报", "公告", "事件", "业绩", "催化")):
+    if _contains_any(
+        text, ("earnings", "event", "catalyst", "财报", "公告", "事件", "业绩", "催化")
+    ):
         return "earnings_or_event"
     if _contains_any(text, ("breakout", "break out", "突破", "破位向上")):
         return "breakout"
@@ -1043,7 +1081,9 @@ def _infer_setup_type(trade_record: dict[str, Any]) -> str:
         return "pullback"
     if _contains_any(text, ("trend", "趋势", "均线", "moving average")):
         return "trend_following"
-    if _contains_any(text, ("mean reversion", "reversion", "超跌", "低吸", "反弹", "回归")):
+    if _contains_any(
+        text, ("mean reversion", "reversion", "超跌", "低吸", "反弹", "回归")
+    ):
         return "mean_reversion"
     if _contains_any(text, ("momentum", "chase", "追高", "动量", "急拉", "冲高")):
         return "momentum_chase"
@@ -1061,7 +1101,10 @@ def _review_missing_critical_fields(
             missing.append("breakout_level")
         if not _mentions_confirmation_method(trade_record):
             missing.append("confirmation_method")
-    if setup_type in {"pullback", "mean_reversion"} and not _mentions_support_or_reversal(trade_record):
+    if setup_type in {
+        "pullback",
+        "mean_reversion",
+    } and not _mentions_support_or_reversal(trade_record):
         missing.append("support_or_reversal_reference")
     if not _has_testable_invalidation(trade_record.get("invalidation_condition")):
         missing.append("testable_invalidation")
@@ -1069,7 +1112,10 @@ def _review_missing_critical_fields(
         missing.append("stop_loss")
     if not _has_number(trade_record.get("take_profit")):
         missing.append("take_profit_or_reward_target")
-    if not trade_record.get("planned_horizon") or trade_record.get("planned_horizon") == "unknown":
+    if (
+        not trade_record.get("planned_horizon")
+        or trade_record.get("planned_horizon") == "unknown"
+    ):
         missing.append("planned_horizon")
     if not _has_number(trade_record.get("size")):
         missing.append("size")
@@ -1090,7 +1136,10 @@ def _review_validation_warnings(
     text = _review_signal_text(trade_record)
     if _contains_any(text, ("追高", "chase", "急拉", "冲高")):
         warnings.append("entry_reason suggests intraday chase or extended entry")
-    if trade_record.get("invalidation_condition") and "testable_invalidation" in missing_critical_fields:
+    if (
+        trade_record.get("invalidation_condition")
+        and "testable_invalidation" in missing_critical_fields
+    ):
         warnings.append("invalidation_condition is vague")
     if (
         "stop_loss" in missing_critical_fields
@@ -1102,7 +1151,9 @@ def _review_validation_warnings(
         "breakout_level" in missing_critical_fields
         or "confirmation_method" in missing_critical_fields
     ):
-        warnings.append("breakout setup is not executable without level and confirmation")
+        warnings.append(
+            "breakout setup is not executable without level and confirmation"
+        )
     return _dedupe_preserve(warnings)
 
 
@@ -1138,14 +1189,25 @@ def _priority_process_errors(
         {"breakout_level", "confirmation_method"}.intersection(missing_critical_fields)
         or any("chase" in warning for warning in validation_warnings)
     ):
-        errors.append("breakout execution undefined: level, confirmation, or chase control is missing")
-    if (
-        {"testable_invalidation", "stop_loss", "take_profit_or_reward_target"}.intersection(missing_critical_fields)
-        or not computable_metrics.get("risk_reward_available")
+        errors.append(
+            "breakout execution undefined: level, confirmation, or chase control is missing"
+        )
+    if {
+        "testable_invalidation",
+        "stop_loss",
+        "take_profit_or_reward_target",
+    }.intersection(missing_critical_fields) or not computable_metrics.get(
+        "risk_reward_available"
     ):
-        errors.append("risk plan undefined: invalidation, stop, target, or reward/risk cannot be checked")
-    if {"planned_horizon", "exit_reason", "plan_execution"}.intersection(missing_critical_fields):
-        errors.append("exit management undefined: holding period or exit rules are not executable")
+        errors.append(
+            "risk plan undefined: invalidation, stop, target, or reward/risk cannot be checked"
+        )
+    if {"planned_horizon", "exit_reason", "plan_execution"}.intersection(
+        missing_critical_fields
+    ):
+        errors.append(
+            "exit management undefined: holding period or exit rules are not executable"
+        )
     if not errors and missing_critical_fields:
         errors.append("record lacks setup-critical evidence for a confident review")
     return errors[:3]
@@ -1285,19 +1347,11 @@ def _resolve_review_action_date(
     analysis_date: str | None,
 ) -> str:
     fallback_date = (
-        _normalize_analysis_date(analysis_date)
-        if analysis_date
-        else datetime.now().date().isoformat()
+        _normalize_analysis_date(analysis_date) if analysis_date else today_iso()
     )
     if review_type == "exit_review":
-        return (
-            _date_part(trade_record.get("exit_timestamp"))
-            or fallback_date
-        )
-    return (
-        _date_part(trade_record.get("entry_timestamp"))
-        or fallback_date
-    )
+        return _date_part(trade_record.get("exit_timestamp")) or fallback_date
+    return _date_part(trade_record.get("entry_timestamp")) or fallback_date
 
 
 def _build_local_price_history_evidence(
@@ -1313,7 +1367,11 @@ def _build_local_price_history_evidence(
         or trade_record.get("raw_symbol")
         or ""
     ).strip()
-    resolved_history_dir = Path(history_dir) if history_dir is not None else resolve_history_dir(PROJECT_ROOT)
+    resolved_history_dir = (
+        Path(history_dir)
+        if history_dir is not None
+        else resolve_history_dir(PROJECT_ROOT)
+    )
     if not market or not symbol:
         return {
             "status": "unavailable",
@@ -1321,45 +1379,56 @@ def _build_local_price_history_evidence(
             "history_dir": str(resolved_history_dir),
         }
 
-    cache_path = history_cache_path(resolved_history_dir, market, symbol)
+    cache_path = None
+    effective_action_date = action_date
     lookback_start = _date_offset(action_date, -180)
     try:
-        cached_frame = load_history_cache(resolved_history_dir, market, symbol)
-        coverage = classify_history_cache_coverage(
-            cached_frame,
-            start_date=lookback_start,
+        price_window = load_local_price_window(
+            history_dir=resolved_history_dir,
+            market=market,
+            symbol=symbol,
             as_of_date=action_date,
+            lookback_days=180,
+            normalize_to_trading_day=True,
         )
-        action_window = slice_history_window(cached_frame, lookback_start, action_date)
+        cache_path = price_window["cache_path"]
+        coverage = price_window["coverage"]
+        action_window = price_window["window"]
+        lookback_start = price_window["start_date"]
+        effective_action_date = price_window["as_of_date"]
         if action_window.empty:
             return {
                 "status": "unavailable",
                 "reason": coverage["status"],
                 "cache_path": str(cache_path),
                 "cache_span": coverage.get("cache_span"),
-                "required_window": f"{lookback_start}..{action_date}",
+                "required_window": f"{lookback_start}..{effective_action_date}",
             }
 
-        return {
+        evidence = {
             "status": "available",
             "source": "local_history_cache",
             "cache_path": str(cache_path),
             "cache_span": coverage.get("cache_span"),
-            "required_window": f"{lookback_start}..{action_date}",
+            "required_window": f"{lookback_start}..{effective_action_date}",
             "used_window": _frame_date_span(action_window),
             "bar_count": int(len(action_window)),
             "technical_summary": _summarize_price_window(
                 action_window,
                 trade_record=trade_record,
-                action_date=action_date,
+                action_date=effective_action_date,
             ),
             "recent_bars": _recent_bars(action_window, limit=8),
         }
+        if effective_action_date != action_date:
+            evidence["requested_action_date"] = action_date
+            evidence["action_date"] = effective_action_date
+        return evidence
     except Exception as exc:
         return {
             "status": "unavailable",
             "reason": str(exc),
-            "cache_path": str(cache_path),
+            "cache_path": str(cache_path or resolved_history_dir),
             "required_window": f"{lookback_start}..{action_date}",
         }
 
@@ -1387,7 +1456,7 @@ def _build_external_news_evidence(
             "reason": "trade record does not include a symbol for news lookup",
         }
 
-    today = datetime.now().date().isoformat()
+    today = today_iso()
     latest_start = _date_offset(today, -14)
     action_start = _date_offset(action_date, -14)
     try:
@@ -1425,7 +1494,10 @@ def _summarize_price_window(
     high_values = _numeric_series(frame, "High")
     low_values = _numeric_series(frame, "Low")
     if close_values.empty:
-        return {"status": "unavailable", "reason": "Close column has no usable numeric values"}
+        return {
+            "status": "unavailable",
+            "reason": "Close column has no usable numeric values",
+        }
 
     last = frame.iloc[-1]
     latest_close = _json_number(last.get("Close"))
@@ -1483,16 +1555,11 @@ def _recent_bars(frame, *, limit: int) -> list[dict[str, Any]]:
 
 
 def _date_part(value: Any) -> str | None:
-    if not value:
-        return None
-    text = str(value)
-    if len(text) >= 10:
-        return text[:10]
-    return None
+    return iso_date_part(value)
 
 
 def _date_offset(value: str, days: int) -> str:
-    return (datetime.strptime(value, "%Y-%m-%d") + timedelta(days=days)).date().isoformat()
+    return offset_iso_date(value, days)
 
 
 def _frame_date_span(frame) -> str | None:
@@ -1574,14 +1641,20 @@ def _rsi(close_values, window: int) -> float | None:
 
 
 def _atr(high_values, low_values, close_values, window: int) -> float | None:
-    if len(high_values) <= window or len(low_values) <= window or len(close_values) <= window:
+    if (
+        len(high_values) <= window
+        or len(low_values) <= window
+        or len(close_values) <= window
+    ):
         return None
     ranges = []
     for index in range(1, len(close_values)):
         high = float(high_values.iloc[index])
         low = float(low_values.iloc[index])
         previous_close = float(close_values.iloc[index - 1])
-        ranges.append(max(high - low, abs(high - previous_close), abs(low - previous_close)))
+        ranges.append(
+            max(high - low, abs(high - previous_close), abs(low - previous_close))
+        )
     if len(ranges) < window:
         return None
     return _round_float(sum(ranges[-window:]) / window)
@@ -1776,7 +1849,9 @@ def _resolve_review_analysis_references(
 ) -> list[dict[str, Any]]:
     if analysis_references is not None:
         source = analysis_references
-    elif isinstance(existing_review, dict) and existing_review.get("analysis_references"):
+    elif isinstance(existing_review, dict) and existing_review.get(
+        "analysis_references"
+    ):
         source = existing_review["analysis_references"]
     else:
         source = trade_record.get("analysis_references") or []
@@ -1871,15 +1946,17 @@ def _load_snapshot_context(reference: dict[str, Any]) -> dict[str, Any]:
                     value = selected_state.get(key)
                     if value:
                         state_excerpt[key] = value
-                trader_plan = selected_state.get("trader_investment_plan") or selected_state.get(
-                    "trader_investment_decision"
-                )
+                trader_plan = selected_state.get(
+                    "trader_investment_plan"
+                ) or selected_state.get("trader_investment_decision")
                 if trader_plan:
                     state_excerpt["trader_investment_plan"] = trader_plan
             else:
                 state_excerpt["raw_value"] = selected_state
         else:
-            snapshot_warning = "full_state_log_path was provided but the file does not exist"
+            snapshot_warning = (
+                "full_state_log_path was provided but the file does not exist"
+            )
     else:
         snapshot_warning = "full_state_log_path is not attached"
 
@@ -1920,12 +1997,7 @@ def _normalize_analysis_references(
 
 
 def _normalize_analysis_date(value: Any) -> str:
-    text = _require_text(value, "analysis_date")
-    try:
-        datetime.strptime(text, "%Y-%m-%d")
-    except ValueError as exc:
-        raise ValueError("analysis_date must use YYYY-MM-DD format") from exc
-    return text
+    return require_iso_date(value, "analysis_date")
 
 
 def _normalize_project_relative_path(value: Any, field_name: str) -> str:
@@ -1947,7 +2019,9 @@ def _normalize_optional_project_relative_path(value: Any, field_name: str) -> st
     try:
         return resolved.relative_to(project_root).as_posix()
     except ValueError as exc:
-        raise ValueError("Analysis references must remain inside the project directory") from exc
+        raise ValueError(
+            "Analysis references must remain inside the project directory"
+        ) from exc
 
 
 def _resolve_project_path(value: str) -> Path:
@@ -1958,7 +2032,9 @@ def _resolve_project_path(value: str) -> Path:
     try:
         resolved.relative_to(project_root)
     except ValueError as exc:
-        raise ValueError("Analysis references must remain inside the project directory") from exc
+        raise ValueError(
+            "Analysis references must remain inside the project directory"
+        ) from exc
     return resolved
 
 
@@ -1994,7 +2070,9 @@ def _trade_dir(
     try:
         trade_dir.relative_to(root.resolve())
     except ValueError as exc:
-        raise ValueError("Trade feedback directory must remain inside the feedback root") from exc
+        raise ValueError(
+            "Trade feedback directory must remain inside the feedback root"
+        ) from exc
     return trade_dir
 
 
@@ -2004,14 +2082,18 @@ def _write_trade_record(
     reports_dir: Path | None = None,
     previous_ticker: str | None = None,
 ) -> None:
-    current_dir = _trade_dir(record["ticker"], record["trade_id"], reports_dir=reports_dir)
+    current_dir = _trade_dir(
+        record["ticker"], record["trade_id"], reports_dir=reports_dir
+    )
     if previous_ticker and previous_ticker != record["ticker"]:
-        previous_dir = _trade_dir(previous_ticker, record["trade_id"], reports_dir=reports_dir)
+        previous_dir = _trade_dir(
+            previous_ticker, record["trade_id"], reports_dir=reports_dir
+        )
         if previous_dir.is_dir():
             current_dir.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(str(previous_dir), str(current_dir))
     current_dir.mkdir(parents=True, exist_ok=True)
-    _write_json_atomic(current_dir / TRADE_RECORD_FILENAME, record)
+    write_json_atomic(current_dir / TRADE_RECORD_FILENAME, record)
 
 
 def _write_trade_review(
@@ -2019,23 +2101,12 @@ def _write_trade_review(
     *,
     reports_dir: Path | None = None,
 ) -> None:
-    reviews_dir = _trade_dir(review["ticker"], review["trade_id"], reports_dir=reports_dir) / "reviews"
-    reviews_dir.mkdir(parents=True, exist_ok=True)
-    _write_json_atomic(reviews_dir / f"{review['review_type']}.json", review)
-
-
-def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    reviews_dir = (
+        _trade_dir(review["ticker"], review["trade_id"], reports_dir=reports_dir)
+        / "reviews"
     )
-    temp_path.replace(path)
-
-
-def _read_json_file(path: Path) -> dict[str, Any]:
-    return json.loads(path.read_text(encoding="utf-8"))
+    reviews_dir.mkdir(parents=True, exist_ok=True)
+    write_json_atomic(reviews_dir / f"{review['review_type']}.json", review)
 
 
 def _extract_json_object(raw_text: str) -> dict[str, Any]:
@@ -2077,18 +2148,11 @@ def _normalize_ticker(value: Any) -> str:
 
 
 def _normalize_optional_text(value: Any) -> str:
-    if value is None:
-        return ""
-    return str(value).strip()
+    return normalize_field_optional_text(value, empty_value="") or ""
 
 
 def _normalize_optional_number(value: Any, field_name: str) -> float | None:
-    if value is None or value == "":
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError) as exc:
-        raise ValueError(f"{field_name} must be numeric") from exc
+    return normalize_field_optional_number(value, field_name)
 
 
 def _normalize_optional_timestamp(value: Any, field_name: str) -> str | None:
@@ -2121,7 +2185,12 @@ def _calculate_realized_return_pct(record: dict[str, Any]) -> float | None:
         return None
 
     direction = -1.0 if str(record.get("side", "")).lower() == "short" else 1.0
-    return round(((float(exit_price) - float(entry_price)) / float(entry_price)) * 100 * direction, 4)
+    return round(
+        ((float(exit_price) - float(entry_price)) / float(entry_price))
+        * 100
+        * direction,
+        4,
+    )
 
 
 def calculate_derived_metrics(record: dict[str, Any]) -> dict[str, Any]:
@@ -2134,7 +2203,9 @@ def calculate_derived_metrics(record: dict[str, Any]) -> dict[str, Any]:
     pnl_amount = None
     r_multiple = None
     if entry_price is not None and exit_price is not None and size is not None:
-        pnl_amount = round((float(exit_price) - float(entry_price)) * float(size) * direction, 4)
+        pnl_amount = round(
+            (float(exit_price) - float(entry_price)) * float(size) * direction, 4
+        )
     if entry_price is not None and exit_price is not None and stop_loss is not None:
         risk_per_unit = abs(float(entry_price) - float(stop_loss))
         if risk_per_unit > 0:
@@ -2167,7 +2238,10 @@ def _resolve_trade_market(payload: dict[str, Any]) -> dict[str, Any]:
     if isinstance(market_resolution, dict):
         raw_symbol = raw_symbol or market_resolution.get("raw_symbol")
     raw_symbol = _require_text(raw_symbol, "raw_symbol")
-    if isinstance(market_resolution, dict) and market_resolution.get("source") == "manual":
+    if (
+        isinstance(market_resolution, dict)
+        and market_resolution.get("source") == "manual"
+    ):
         return resolve_symbol(
             raw_symbol,
             manual_market=market_resolution.get("market"),
@@ -2263,10 +2337,7 @@ def _validate_trade_record(record: dict[str, Any]) -> None:
 
 
 def _require_text(value: Any, field_name: str) -> str:
-    text = str(value).strip() if value is not None else ""
-    if not text:
-        raise ValueError(f"{field_name} is required")
-    return text
+    return require_field_text(value, field_name)
 
 
 def _now_iso() -> str:

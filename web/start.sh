@@ -9,13 +9,14 @@ if [ -f "$ENV_FILE" ]; then
     . "$ENV_FILE"
     set +a
 fi
+if [ -z "${PYTHON_BIN:-}" ]; then
+    if [ -x "$ROOT_DIR/.venv/bin/python" ]; then
+        PYTHON_BIN="$ROOT_DIR/.venv/bin/python"
+    else
+        PYTHON_BIN="${PYTHON:-python}"
+    fi
+fi
 DATA_DIR="${DATA_DIR:-$ROOT_DIR/data}"
-REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"
-SCREENER_RUNS_DIR="${SCREENER_RUNS_DIR:-$DATA_DIR/screener/runs}"
-SCREENER_TASKS_DIR="${SCREENER_TASKS_DIR:-$DATA_DIR/screener/tasks}"
-SCREENER_CACHE_DIR="${SCREENER_CACHE_DIR:-$DATA_DIR/cache/screener}"
-STOCK_HISTORY_DIR="${STOCK_HISTORY_DIR:-$DATA_DIR/history}"
-FUNDAMENTALS_DIR="${FUNDAMENTALS_DIR:-$DATA_DIR/fundamentals}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}}"
@@ -24,6 +25,7 @@ BACKEND_LOG="${BACKEND_LOG:-/tmp/diverge-backend.log}"
 FRONTEND_LOG="${FRONTEND_LOG:-/tmp/diverge-frontend.log}"
 WORKER_LOG="${WORKER_LOG:-/tmp/diverge-worker.log}"
 BACKEND_LOG_LEVEL="${BACKEND_LOG_LEVEL:-${LOG_LEVEL:-info}}"
+BACKEND_LOG_LEVEL="$(printf '%s' "$BACKEND_LOG_LEVEL" | tr '[:upper:]' '[:lower:]')"
 TAIL_LOGS="${TAIL_LOGS:-true}"
 TAIL_LOG_LINES="${TAIL_LOG_LINES:-80}"
 AUTH_ENABLED="${AUTH_ENABLED:-false}"
@@ -41,7 +43,6 @@ START_REDIS_DOCKER="${START_REDIS_DOCKER:-false}"
 REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-diverge-redis}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 STORAGE_BACKEND="${STORAGE_BACKEND:-local}"
-STORAGE_LOCAL_ROOT="${STORAGE_LOCAL_ROOT:-$DATA_DIR}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -55,7 +56,54 @@ TAIL_PID=""
 
 kill_port() {
     local port="$1"
-    lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    if command -v lsof > /dev/null 2>&1; then
+        lsof -ti :"$port" 2>/dev/null | xargs kill -9 2>/dev/null || true
+    fi
+    if command -v fuser > /dev/null 2>&1; then
+        fuser -k "${port}/tcp" > /dev/null 2>&1 || true
+    fi
+}
+
+kill_stale_workers() {
+    if [ "$TASK_BACKEND" != "redis" ]; then
+        return 0
+    fi
+    if ! command -v pgrep > /dev/null 2>&1 || ! command -v ps > /dev/null 2>&1; then
+        return 0
+    fi
+
+    local pids=()
+    local pid
+    while IFS= read -r pid; do
+        [ -n "$pid" ] || continue
+        local command_line
+        command_line="$(ps -p "$pid" -o command= 2>/dev/null || true)"
+        case "$command_line" in
+            *"$PYTHON_BIN -m web.backend.worker"*)
+                pids+=("$pid")
+                ;;
+        esac
+    done < <(pgrep -f "web.backend.worker" 2>/dev/null || true)
+
+    if [ "${#pids[@]}" -eq 0 ]; then
+        return 0
+    fi
+
+    echo -e "${BLUE}Stopping stale worker(s): ${pids[*]}${NC}"
+    kill "${pids[@]}" 2>/dev/null || true
+    sleep 1
+
+    local alive=()
+    for pid in "${pids[@]}"; do
+        if kill -0 "$pid" 2>/dev/null; then
+            alive+=("$pid")
+        fi
+    done
+
+    if [ "${#alive[@]}" -gt 0 ]; then
+        echo -e "${BLUE}Force stopping stale worker(s): ${alive[*]}${NC}"
+        kill -9 "${alive[@]}" 2>/dev/null || true
+    fi
 }
 
 wait_for_http() {
@@ -74,7 +122,7 @@ wait_for_http() {
 }
 
 redis_ping() {
-    python -c "import os, redis; redis.Redis.from_url(os.environ['REDIS_URL'], socket_connect_timeout=2, socket_timeout=2).ping()" > /dev/null 2>&1
+    "$PYTHON_BIN" -c "import os, redis; redis.Redis.from_url(os.environ['REDIS_URL'], socket_connect_timeout=2, socket_timeout=2).ping()" > /dev/null 2>&1
 }
 
 ensure_redis_available() {
@@ -144,7 +192,15 @@ echo -e "${BLUE}Starting Diverge Report Viewer...${NC}"
 echo
 
 # Ensure runtime data directories exist
-mkdir -p "$REPORTS_DIR" "$SCREENER_RUNS_DIR" "$SCREENER_TASKS_DIR" "$SCREENER_CACHE_DIR" "$STOCK_HISTORY_DIR" "$FUNDAMENTALS_DIR"
+mkdir -p \
+    "$DATA_DIR/reports" \
+    "$DATA_DIR/screener/runs" \
+    "$DATA_DIR/screener/state" \
+    "$DATA_DIR/screener/tasks" \
+    "$DATA_DIR/cache/screener" \
+    "$DATA_DIR/history" \
+    "$DATA_DIR/fundamentals" \
+    "$DATA_DIR/manifest"
 mkdir -p "$(dirname "$BACKEND_LOG")" "$(dirname "$FRONTEND_LOG")" "$(dirname "$WORKER_LOG")"
 
 # Kill any lingering processes on ports 8000, 3000
@@ -179,18 +235,14 @@ trap cleanup EXIT INT TERM
 # Kill any existing processes on these ports
 kill_port "$BACKEND_PORT"
 kill_port "$FRONTEND_PORT"
+kill_stale_workers
 sleep 1
 
 # Start backend
 echo -e "${BLUE}Starting backend...${NC}"
 cd "$SCRIPT_DIR/backend"
-pip install -r requirements.txt -q 2>/dev/null || pip install -r requirements.txt > /dev/null 2>&1
-export REPORTS_DIR="$REPORTS_DIR"
-export SCREENER_RUNS_DIR="$SCREENER_RUNS_DIR"
-export SCREENER_TASKS_DIR="$SCREENER_TASKS_DIR"
-export SCREENER_CACHE_DIR="$SCREENER_CACHE_DIR"
-export STOCK_HISTORY_DIR="$STOCK_HISTORY_DIR"
-export FUNDAMENTALS_DIR="$FUNDAMENTALS_DIR"
+"$PYTHON_BIN" -m pip install -r requirements.txt -q 2>/dev/null || "$PYTHON_BIN" -m pip install -r requirements.txt > /dev/null 2>&1
+export DATA_DIR="$DATA_DIR"
 export FRONTEND_ORIGIN="$FRONTEND_ORIGIN"
 export AUTH_ENABLED="$AUTH_ENABLED"
 export AUTH_MODE="$AUTH_MODE"
@@ -204,11 +256,10 @@ export TASK_USER_PENDING_LIMIT_OPERATOR="$TASK_USER_PENDING_LIMIT_OPERATOR"
 export TASK_USER_PENDING_LIMIT_VIEWER="$TASK_USER_PENDING_LIMIT_VIEWER"
 export REDIS_URL="$REDIS_URL"
 export STORAGE_BACKEND="$STORAGE_BACKEND"
-export STORAGE_LOCAL_ROOT="$STORAGE_LOCAL_ROOT"
 export LOG_LEVEL="$BACKEND_LOG_LEVEL"
 ensure_redis_available
 if [ "$AUTH_ENABLED" = "true" ]; then
-    if ! migration_output=$(alembic -c alembic.ini upgrade head 2>&1); then
+    if ! migration_output=$("$PYTHON_BIN" -m alembic -c alembic.ini upgrade head 2>&1); then
         if [ -n "$migration_output" ]; then
             printf '%s\n' "$migration_output" >&2
         fi
@@ -220,15 +271,15 @@ if [ "$AUTH_ENABLED" = "true" ]; then
     fi
     (
         cd "$ROOT_DIR"
-        python -m web.backend.devops.bootstrap_admin > /dev/null
+        "$PYTHON_BIN" -m web.backend.devops.bootstrap_admin > /dev/null
         if [ "$AUTH_MODE" = "optional" ]; then
-            python -m web.backend.devops.backfill_metadata > /dev/null
+            "$PYTHON_BIN" -m web.backend.devops.backfill_metadata > /dev/null
         fi
     )
 fi
 (
     cd "$ROOT_DIR"
-    uvicorn web.backend.main:app --port "$BACKEND_PORT" --log-level "$BACKEND_LOG_LEVEL"
+    "$PYTHON_BIN" -m uvicorn web.backend.main:app --port "$BACKEND_PORT" --log-level "$BACKEND_LOG_LEVEL"
 ) > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
@@ -244,7 +295,7 @@ if [ "$TASK_BACKEND" = "redis" ]; then
     echo -e "${BLUE}Starting worker...${NC}"
     (
         cd "$ROOT_DIR"
-        python -m web.backend.worker
+        "$PYTHON_BIN" -m web.backend.worker
     ) > "$WORKER_LOG" 2>&1 &
     WORKER_PID=$!
     sleep 1
@@ -280,7 +331,7 @@ echo -e "${GREEN}=== Diverge Report Viewer ===${NC}"
 echo -e "Backend:  ${BLUE}http://localhost:${BACKEND_PORT}${NC}"
 echo -e "Frontend: ${BLUE}http://localhost:${FRONTEND_PORT}${NC}"
 echo
-echo "Reports found: $(find "$REPORTS_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l)"
+echo "Reports found: $(find "$DATA_DIR/reports" -mindepth 1 -maxdepth 1 -type d | wc -l)"
 echo "Frontend origin: $FRONTEND_ORIGIN"
 echo "Frontend API target: $NEXT_PUBLIC_API_BASE_URL"
 echo "Task backend: $TASK_BACKEND"

@@ -33,7 +33,7 @@ def test_load_cn_universe_maps_tushare_stock_basic_to_shared_shape():
                 "exchange": "BSE",
                 "industry": "Industry",
                 "list_date": "20200101",
-            }
+            },
         ]
     )
 
@@ -65,7 +65,7 @@ def test_load_cn_universe_maps_akshare_stock_list_to_shared_shape():
             {
                 "code": "430047",
                 "name": "Example BSE",
-            }
+            },
         ]
     )
 
@@ -129,7 +129,9 @@ def test_load_akshare_cn_universe_rows_uses_rate_limiter():
 
     with (
         patch("diverge.screener.universe._import_akshare", return_value=akshare_client),
-        patch("diverge.screener.universe.call_akshare_api", return_value=akshare_df) as mock_rate_limit,
+        patch(
+            "diverge.screener.universe.call_akshare_api", return_value=akshare_df
+        ) as mock_rate_limit,
     ):
         result = load_cn_universe(data_source="akshare")
 
@@ -181,7 +183,9 @@ def test_load_cn_universe_reuses_fresh_akshare_cache_without_refetch(tmp_path):
     assert second_result["symbol"].tolist() == ["600519.SH"]
 
 
-def test_load_cn_universe_falls_back_to_stale_akshare_cache_on_retryable_failure(tmp_path):
+def test_load_cn_universe_falls_back_to_stale_akshare_cache_on_retryable_failure(
+    tmp_path,
+):
     cache_dir = tmp_path / "cache"
     akshare_df = pd.DataFrame(
         [
@@ -292,9 +296,9 @@ def test_load_cn_universe_falls_back_to_secondary_source_when_primary_auth_fails
 
 def test_load_us_universe_requires_manifest_columns(tmp_path):
     manifest_path = tmp_path / "us_manifest.csv"
-    pd.DataFrame(
-        [{"symbol": "AAPL", "name": "Apple", "exchange": "NASDAQ"}]
-    ).to_csv(manifest_path, index=False)
+    pd.DataFrame([{"symbol": "AAPL", "name": "Apple", "exchange": "NASDAQ"}]).to_csv(
+        manifest_path, index=False
+    )
 
     with pytest.raises(ValueError, match="Missing required columns"):
         load_us_universe(str(manifest_path))
@@ -330,7 +334,9 @@ def test_load_us_universe_allows_blank_optional_values(tmp_path):
     ]
 
 
-def test_load_cn_universe_from_manifest_normalizes_rows_and_filters_bse_and_st(tmp_path):
+def test_load_cn_universe_from_manifest_normalizes_rows_and_filters_bse_and_st(
+    tmp_path,
+):
     manifest_path = tmp_path / "cn_manifest.csv"
     pd.DataFrame(
         [
@@ -389,7 +395,9 @@ def test_load_cn_universe_from_manifest_requires_generated_schema_columns(tmp_pa
         ]
     ).to_csv(manifest_path, index=False)
 
-    with pytest.raises(ValueError, match="Missing required CN manifest columns: mktcap"):
+    with pytest.raises(
+        ValueError, match="Missing required CN manifest columns: mktcap"
+    ):
         load_cn_universe(manifest_path=str(manifest_path))
 
 
@@ -486,7 +494,9 @@ def test_load_universe_uses_cn_manifest_when_configured(tmp_path):
 
     with patch(
         "diverge.screener.universe.get_tushare_pro_client",
-        side_effect=AssertionError("CN manifest path should bypass live universe loading"),
+        side_effect=AssertionError(
+            "CN manifest path should bypass live universe loading"
+        ),
     ):
         result = load_universe(config)
 

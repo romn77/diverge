@@ -23,8 +23,18 @@ def upgrade() -> None:
         sa.Column("owner_user_id", sa.String(length=32), nullable=False),
         sa.Column("platform_name", sa.String(length=255), nullable=False),
         sa.Column("account_name", sa.String(length=255), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -49,7 +59,9 @@ def upgrade() -> None:
         sa.Column("asset_name", sa.String(length=255), nullable=False),
         sa.Column("asset_category", sa.String(length=64), nullable=False),
         sa.Column("quantity", sa.Float(), nullable=False),
-        sa.Column("cost_basis", sa.Float(), nullable=False, server_default=sa.text("0")),
+        sa.Column(
+            "cost_basis", sa.Float(), nullable=False, server_default=sa.text("0")
+        ),
         sa.Column("valuation_mode", sa.String(length=32), nullable=False),
         sa.Column("manual_price", sa.Float(), nullable=True),
         sa.Column("ticker", sa.String(length=32), nullable=True),
@@ -59,12 +71,29 @@ def upgrade() -> None:
         sa.Column("resolved_name", sa.String(length=255), nullable=True),
         sa.Column("quote_currency", sa.String(length=16), nullable=True),
         sa.Column("vendor", sa.String(length=64), nullable=True),
-        sa.Column("mapping_status", sa.String(length=32), nullable=False, server_default=sa.text("'unresolved'")),
+        sa.Column(
+            "mapping_status",
+            sa.String(length=32),
+            nullable=False,
+            server_default=sa.text("'unresolved'"),
+        ),
         sa.Column("error_message", sa.String(length=1024), nullable=True),
         sa.Column("notes", sa.String(length=1024), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.ForeignKeyConstraint(["account_id"], ["asset_accounts.id"], ondelete="CASCADE"),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.ForeignKeyConstraint(
+            ["account_id"], ["asset_accounts.id"], ondelete="CASCADE"
+        ),
         sa.ForeignKeyConstraint(["owner_user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
     )
@@ -100,8 +129,15 @@ def upgrade() -> None:
         sa.Column("unrealized_pnl", sa.Float(), nullable=True),
         sa.Column("source", sa.String(length=64), nullable=True),
         sa.Column("error_message", sa.String(length=1024), nullable=True),
-        sa.Column("captured_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
-        sa.ForeignKeyConstraint(["position_id"], ["asset_positions.id"], ondelete="CASCADE"),
+        sa.Column(
+            "captured_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
+        sa.ForeignKeyConstraint(
+            ["position_id"], ["asset_positions.id"], ondelete="CASCADE"
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
@@ -120,10 +156,14 @@ def downgrade() -> None:
     op.drop_table("asset_valuation_snapshots")
 
     op.drop_index("ix_asset_positions_account_updated_at", table_name="asset_positions")
-    op.drop_index("ix_asset_positions_owner_ticker_updated_at", table_name="asset_positions")
+    op.drop_index(
+        "ix_asset_positions_owner_ticker_updated_at", table_name="asset_positions"
+    )
     op.drop_index("ix_asset_positions_owner_updated_at", table_name="asset_positions")
     op.drop_table("asset_positions")
 
-    op.drop_index("ix_asset_accounts_owner_platform_account", table_name="asset_accounts")
+    op.drop_index(
+        "ix_asset_accounts_owner_platform_account", table_name="asset_accounts"
+    )
     op.drop_index("ix_asset_accounts_owner_updated_at", table_name="asset_accounts")
     op.drop_table("asset_accounts")

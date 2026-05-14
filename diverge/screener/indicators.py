@@ -3,9 +3,13 @@ from __future__ import annotations
 import pandas as pd
 from stockstats import wrap
 
+from diverge.common.market_calendar import last_n_trading_days
+
 from .breakouts import detect_breakout_signal
-from .history_cache import empty_history_frame, prepare_history_frame_for_indicators
-from .market_calendar import last_n_trading_days
+from diverge.market_data.history_cache import (
+    empty_history_frame,
+    prepare_history_frame_for_indicators,
+)
 
 
 INDICATOR_COLUMNS = [
@@ -22,16 +26,14 @@ INDICATOR_COLUMNS = [
 ]
 
 
-def _blank_feature_row(meta_row: pd.Series, as_of_date: str, working: pd.DataFrame) -> dict:
+def _blank_feature_row(
+    meta_row: pd.Series, as_of_date: str, working: pd.DataFrame
+) -> dict:
     data_end_date = (
-        working.iloc[-1]["Date"].strftime("%Y-%m-%d")
-        if not working.empty
-        else None
+        working.iloc[-1]["Date"].strftime("%Y-%m-%d") if not working.empty else None
     )
     data_start_date = (
-        working.iloc[0]["Date"].strftime("%Y-%m-%d")
-        if not working.empty
-        else None
+        working.iloc[0]["Date"].strftime("%Y-%m-%d") if not working.empty else None
     )
     row = {
         "symbol": meta_row["symbol"],
@@ -98,7 +100,9 @@ def _prepare_price_df(price_df: pd.DataFrame) -> pd.DataFrame:
     return prepare_history_frame_for_indicators(price_df)
 
 
-def _latest_row_on_or_before(working: pd.DataFrame, as_of_date: str) -> tuple[pd.DataFrame, pd.Series | None]:
+def _latest_row_on_or_before(
+    working: pd.DataFrame, as_of_date: str
+) -> tuple[pd.DataFrame, pd.Series | None]:
     as_of_dt = pd.to_datetime(as_of_date)
     eligible = working[working["Date"] <= as_of_dt].copy()
     if eligible.empty:
@@ -122,7 +126,9 @@ def _compute_indicator_values(eligible: pd.DataFrame) -> dict[str, object]:
     return values
 
 
-def build_feature_row(meta_row: pd.Series, price_df: pd.DataFrame, as_of_date: str) -> dict:
+def build_feature_row(
+    meta_row: pd.Series, price_df: pd.DataFrame, as_of_date: str
+) -> dict:
     working = _prepare_price_df(price_df)
     eligible, latest_row = _latest_row_on_or_before(working, as_of_date)
     breakout_signal = detect_breakout_signal(eligible)
@@ -156,9 +162,15 @@ def build_feature_row(meta_row: pd.Series, price_df: pd.DataFrame, as_of_date: s
         "avg_amount_20d": float(trailing_20["Amount"].mean()),
         "trading_days_20d": _count_recent_trading_days(meta_row, eligible),
         "ma20": float(trailing_20["Close"].mean()),
-        "ma60": float(eligible.tail(60)["Close"].mean()) if len(eligible) >= 60 else pd.NA,
-        "ret_20": float((latest_row["Close"] / eligible.iloc[-21]["Close"]) - 1) if len(eligible) >= 21 else pd.NA,
-        "ret_60": float((latest_row["Close"] / eligible.iloc[-61]["Close"]) - 1) if len(eligible) >= 61 else pd.NA,
+        "ma60": float(eligible.tail(60)["Close"].mean())
+        if len(eligible) >= 60
+        else pd.NA,
+        "ret_20": float((latest_row["Close"] / eligible.iloc[-21]["Close"]) - 1)
+        if len(eligible) >= 21
+        else pd.NA,
+        "ret_60": float((latest_row["Close"] / eligible.iloc[-61]["Close"]) - 1)
+        if len(eligible) >= 61
+        else pd.NA,
         "data_start_date": eligible.iloc[0]["Date"].strftime("%Y-%m-%d"),
         "data_end_date": latest_row["Date"].strftime("%Y-%m-%d"),
         "bar_count": len(eligible),
@@ -181,7 +193,9 @@ def build_features_table(
     histories: dict[str, pd.DataFrame],
     as_of_date: str,
 ) -> pd.DataFrame:
-    successful_universe = universe_df.loc[universe_df["symbol"].isin(histories)].reset_index(drop=True)
+    successful_universe = universe_df.loc[
+        universe_df["symbol"].isin(histories)
+    ].reset_index(drop=True)
     rows = [
         build_feature_row(row, histories[row["symbol"]], as_of_date)
         for _, row in successful_universe.iterrows()

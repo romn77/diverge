@@ -23,6 +23,11 @@ PROVIDER_API_KEY_ENV_VARS: Final[dict[str, str | None]] = {
     "ollama": None,
     "xiaohumini": "XIAOHUMINI_API_KEY",
     "sub2api": "SUB2API_API_KEY",
+    "mimo": "MIMO_API_KEY",
+}
+
+PROVIDER_API_KEY_ENV_VAR_ALIASES: Final[dict[str, tuple[str, ...]]] = {
+    "google": ("GOOGLE_API_KEY", "GEMINI_API_KEY"),
 }
 
 
@@ -59,8 +64,9 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
         cost_tier="medium",
         routes=(
             ModelRoute("openai", "gpt-5.4-mini", "gpt-5.2"),
-            ModelRoute("sub2api", "gpt-5.4-mini", "gpt-5.2"),
+            ModelRoute("sub2api", "gpt-5.4-mini", "gpt-5.4"),
             ModelRoute("xiaohumini", "gpt-5.4-mini", "gpt-5.2"),
+            ModelRoute("mimo", "mimo-v2.5", "mimo-v2.5-pro"),
         ),
     ),
     ModelProfile(
@@ -70,8 +76,9 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
         cost_tier="low",
         routes=(
             ModelRoute("openai", "gpt-5.4-nano", "gpt-5-mini"),
-            ModelRoute("sub2api", "gpt-5.4-nano", "gpt-5-mini"),
+            ModelRoute("sub2api", "gpt-5.2", "gpt-5.4"),
             ModelRoute("xiaohumini", "gpt-5.4-nano", "gpt-5-mini"),
+            ModelRoute("mimo", "mimo-v2-flash", "mimo-v2-flash"),
         ),
     ),
     ModelProfile(
@@ -81,22 +88,33 @@ STATIC_MODEL_PROFILES: Final[tuple[ModelProfile, ...]] = (
         cost_tier="high",
         routes=(
             ModelRoute("openai", "gpt-5.4", "gpt-5.5"),
-            ModelRoute("sub2api", "gpt-5.4", "gpt-5.5"),
+            ModelRoute("sub2api", "gpt-5.2", "gpt-5.5"),
             ModelRoute("xiaohumini", "gpt-5.4", "gpt-5.5"),
+            ModelRoute("mimo", "mimo-v2.5-pro", "mimo-v2.5-pro"),
         ),
     ),
 )
 
 
+def get_provider_api_key_env_vars(provider: str) -> tuple[str, ...]:
+    provider_key = provider.strip().lower()
+    aliases = PROVIDER_API_KEY_ENV_VAR_ALIASES.get(provider_key)
+    if aliases is not None:
+        return aliases
+    api_key_env = PROVIDER_API_KEY_ENV_VARS.get(provider_key)
+    return (api_key_env,) if api_key_env else ()
+
+
 def default_provider_availability(provider: str) -> dict[str, str | bool | None]:
-    api_key_env = PROVIDER_API_KEY_ENV_VARS.get(provider)
-    if api_key_env is None:
+    api_key_envs = get_provider_api_key_env_vars(provider)
+    if not api_key_envs:
         return {"enabled": True, "disabled_reason": None}
-    if os.environ.get(api_key_env):
+    if any(os.environ.get(api_key_env) for api_key_env in api_key_envs):
         return {"enabled": True, "disabled_reason": None}
+    api_key_label = " or ".join(api_key_envs)
     return {
         "enabled": False,
-        "disabled_reason": f"Configure API key {api_key_env} to use this provider.",
+        "disabled_reason": f"Configure API key {api_key_label} to use this provider.",
     }
 
 
@@ -143,11 +161,15 @@ def resolve_model_profile(
 ) -> ResolvedModelSelection:
     profile = get_model_profile(profile_id)
     if profile.value == "custom":
-        raise ValueError("custom model profile requires explicit provider and model selection")
+        raise ValueError(
+            "custom model profile requires explicit provider and model selection"
+        )
 
     route = next(iter_available_routes(profile.routes, availability_fn), None)
     if route is None:
-        raise ValueError(f"Model profile '{profile.value}' has no available provider route")
+        raise ValueError(
+            f"Model profile '{profile.value}' has no available provider route"
+        )
 
     return ResolvedModelSelection(
         model_profile=profile.value,
@@ -202,5 +224,7 @@ def list_model_profile_options(
         serialize_model_profile(profile, availability_fn)
         for profile in STATIC_MODEL_PROFILES
     ]
-    profiles.append(serialize_model_profile(get_model_profile("custom"), availability_fn))
+    profiles.append(
+        serialize_model_profile(get_model_profile("custom"), availability_fn)
+    )
     return profiles

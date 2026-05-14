@@ -8,6 +8,7 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from diverge.common.json_io import write_json_atomic
 from web.backend import app_config
 from web.backend.schemas.screeners import ScreenTaskCreatePayload
 
@@ -30,16 +31,6 @@ def _presets_dir() -> Path:
 
 def _preset_path(owner_user_id: str | None) -> Path:
     return _presets_dir() / f"{_owner_key(owner_user_id)}.json"
-
-
-def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
 
 
 def _normalize_preset_item(
@@ -94,7 +85,7 @@ def save_screener_presets(
         for item in presets
         if isinstance(item, dict)
     ]
-    _write_json_atomic(
+    write_json_atomic(
         _preset_path(owner_user_id),
         {
             "owner_user_id": owner_user_id,
@@ -102,6 +93,7 @@ def save_screener_presets(
             "items": normalized_items,
             "updated_at": _utc_iso(),
         },
+        sort_keys=True,
     )
     return normalized_items
 

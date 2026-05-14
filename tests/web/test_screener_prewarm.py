@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-
 from web.backend import app_config, screener_presets
 from web.backend.runtime import screener_prewarm
+from web.backend.services import screener_prewarm_payloads
 
 
 def _payload(market: str = "cn") -> dict:
@@ -23,7 +22,9 @@ def _payload(market: str = "cn") -> dict:
     }
 
 
-def test_screener_presets_persist_user_configs_for_background_prewarm(tmp_path, monkeypatch):
+def test_screener_presets_persist_user_configs_for_background_prewarm(
+    tmp_path, monkeypatch
+):
     monkeypatch.setattr(app_config, "SCREENER_STATE_DIR", tmp_path / "state")
 
     saved = screener_presets.save_screener_presets(
@@ -36,7 +37,10 @@ def test_screener_presets_persist_user_configs_for_background_prewarm(tmp_path, 
     assert screener_presets.load_screener_presets("user-1")[0]["name"] == "Trend"
     configs = screener_presets.list_all_screener_preset_configs()
     assert configs[0]["owner_user_id"] == "user-1"
-    assert configs[0]["config"]["filter_preset_selections"]["ma20_position"] == "price_above_ma20"
+    assert (
+        configs[0]["config"]["filter_preset_selections"]["ma20_position"]
+        == "price_above_ma20"
+    )
 
 
 def test_collect_screener_prewarm_payloads_includes_default_and_matching_user_presets(
@@ -59,124 +63,77 @@ def test_collect_screener_prewarm_payloads_includes_default_and_matching_user_pr
 
     assert [payload["markets"] for payload in payloads] == [["cn"], ["cn"]]
     assert payloads[0]["filter_preset_selections"]["ma20_position"] == "any"
-    assert payloads[1]["filter_preset_selections"]["ma20_position"] == "price_above_ma20"
+    assert (
+        payloads[1]["filter_preset_selections"]["ma20_position"] == "price_above_ma20"
+    )
     assert all(payload["history_cache_policy"] == "cache_only" for payload in payloads)
 
 
-def test_due_market_trading_day_waits_until_market_close():
-    before_close = datetime(2026, 4, 28, 6, 59, tzinfo=timezone.utc)
-    after_close = datetime(2026, 4, 28, 8, 0, tzinfo=timezone.utc)
-
-    assert screener_prewarm.due_market_trading_day("cn", before_close) is None
-    assert screener_prewarm.due_market_trading_day("cn", after_close) == "2026-04-28"
-
-
-def test_due_prewarm_syncs_history_before_enqueuing_screener(tmp_path, monkeypatch):
-    calls = []
-
-    monkeypatch.setattr(app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+def test_prewarm_payload_service_builds_ohlcv_payload_with_sources_and_manifest(
+    tmp_path,
+    monkeypatch,
+):
+    manifest_path = tmp_path / "us.csv"
+    manifest_path.write_text("symbol\nAAPL\n", encoding="utf-8")
     monkeypatch.setattr(
-        screener_prewarm,
-        "build_ohlcv_sync_payload",
-        lambda market, as_of_date: {"markets": [market], "as_of_date": as_of_date},
-    )
-
-    def fake_sync(payload):
-        calls.append(("sync", payload["markets"][0], payload["as_of_date"]))
-        return {"status": "completed", "symbols_success": 10}
-
-    def fake_enqueue(market, as_of_date):
-        calls.append(("screener", market, as_of_date))
-        return 2
-
-    def fake_fundamental(market, as_of_date, *, ohlcv_payload):
-        calls.append(("fundamentals", market, as_of_date))
-        return {"status": "completed", "symbols_success": 8}
-
-    monkeypatch.setattr(
-        screener_prewarm.data_sync_tasks,
-        "run_ohlcv_sync_payload",
-        fake_sync,
+        screener_prewarm_payloads,
+        "get_screener_config_options_payload",
+        lambda: {"defaults": {"top_k": 250}},
     )
     monkeypatch.setattr(
-        screener_prewarm,
-        "run_fundamental_prewarm_sync",
-        fake_fundamental,
+        screener_prewarm_payloads,
+        "resolve_screener_data_sources",
+        lambda: {
+            "cn_data_source": "tushare",
+            "cn_data_source_fallbacks": [],
+            "us_data_source": "massive",
+            "us_data_source_fallbacks": [],
+        },
     )
     monkeypatch.setattr(
-        screener_prewarm,
-        "enqueue_screener_prewarm_tasks",
-        fake_enqueue,
+        screener_prewarm_payloads.app_config,
+        "resolve_manifest_path",
+        lambda market, *, require_exists=False: manifest_path
+        if market == "us"
+        else None,
     )
 
-    result = screener_prewarm.run_market_prewarm_workflow("cn", "2026-04-28")
+    payload = screener_prewarm_payloads.build_ohlcv_sync_payload(
+        "us",
+        "2026-05-13",
+    )
 
-    assert result["screener_tasks_enqueued"] == {"cn": 2}
-    assert calls == [
-        ("sync", "cn", "2026-04-28"),
-        ("fundamentals", "cn", "2026-04-28"),
-        ("screener", "cn", "2026-04-28"),
-    ]
+    assert payload["markets"] == ["us"]
+    assert payload["as_of_date"] == "2026-05-13"
+    assert payload["top_k"] == 100
+    assert payload["us_data_source"] == "massive"
+    assert payload["us_manifest_path"] == str(manifest_path)
 
 
-def test_due_prewarm_syncs_fundamentals_when_presets_require_them(tmp_path, monkeypatch):
-    calls = []
-
-    monkeypatch.setattr(app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+def test_prewarm_payload_service_wraps_screener_config_errors(monkeypatch):
     monkeypatch.setattr(
-        screener_prewarm,
-        "build_ohlcv_sync_payload",
-        lambda market, as_of_date: {"markets": [market], "as_of_date": as_of_date},
-    )
-    monkeypatch.setattr(
-        screener_prewarm,
-        "collect_screener_prewarm_payloads",
-        lambda market, as_of_date: [
-            {
-                "markets": [market],
-                "as_of_date": as_of_date,
-                "include_fundamentals": True,
-                "filter_preset_selections": {},
-            }
-        ],
+        screener_prewarm_payloads.app_config,
+        "default_manifest_path",
+        lambda market: "/data/manifest/us.csv",
     )
 
-    def fake_sync(payload):
-        calls.append(("sync", payload["markets"][0], payload["as_of_date"]))
-        return {"status": "completed", "symbols_success": 10}
-
-    def fake_fundamental(market, as_of_date, *, ohlcv_payload):
-        calls.append(("fundamentals", market, as_of_date))
-        return {"status": "completed", "symbols_success": 8}
-
-    def fake_enqueue(market, as_of_date):
-        calls.append(("screener", market, as_of_date))
-        return 2
+    def fail_prepare(*args, **kwargs):
+        raise screener_prewarm_payloads.screener_preparation.ScreenerPreparationError(
+            "bad config"
+        )
 
     monkeypatch.setattr(
-        screener_prewarm.data_sync_tasks,
-        "run_ohlcv_sync_payload",
-        fake_sync,
-    )
-    monkeypatch.setattr(
-        screener_prewarm,
-        "run_fundamental_prewarm_sync",
-        fake_fundamental,
-    )
-    monkeypatch.setattr(
-        screener_prewarm,
-        "enqueue_screener_prewarm_tasks",
-        fake_enqueue,
+        screener_prewarm_payloads.screener_preparation,
+        "build_screener_config_payload",
+        fail_prepare,
     )
 
-    result = screener_prewarm.run_market_prewarm_workflow("cn", "2026-04-28")
-
-    assert result["screener_tasks_enqueued"] == {"cn": 2}
-    assert calls == [
-        ("sync", "cn", "2026-04-28"),
-        ("fundamentals", "cn", "2026-04-28"),
-        ("screener", "cn", "2026-04-28"),
-    ]
+    try:
+        screener_prewarm_payloads.build_screener_config_payload({"markets": ["us"]})
+    except RuntimeError as exc:
+        assert str(exc) == "bad config"
+    else:
+        raise AssertionError("expected RuntimeError")
 
 
 def test_fundamental_prewarm_sync_uses_full_universe_symbols(monkeypatch):
@@ -216,46 +173,3 @@ def test_fundamental_prewarm_sync_uses_full_universe_symbols(monkeypatch):
 
     assert result == {"status": "completed", "symbols_success": 3}
     assert captured["symbols"] == ["AAPL", "MSFT", "NVDA"]
-
-
-def test_due_prewarm_enqueues_data_sync_workflow(tmp_path, monkeypatch):
-    created = []
-
-    monkeypatch.setattr(app_config, "SCREENER_STATE_DIR", tmp_path / "state")
-    monkeypatch.setattr(screener_prewarm, "_enabled_markets", lambda: ["cn"])
-    monkeypatch.setattr(
-        screener_prewarm,
-        "due_market_trading_day",
-        lambda market, now_utc=None: "2026-04-28",
-    )
-    monkeypatch.setattr(
-        screener_prewarm,
-        "build_ohlcv_sync_payload",
-        lambda market, as_of_date: {"markets": [market], "as_of_date": as_of_date},
-    )
-
-    def fake_create(**kwargs):
-        created.append(kwargs)
-        return {"task_id": "sync-1", "status": "queued"}
-
-    monkeypatch.setattr(
-        screener_prewarm.data_sync_tasks,
-        "create_data_sync_task",
-        fake_create,
-    )
-
-    result = screener_prewarm.run_due_screener_prewarm_once()
-
-    assert result == {"cn": 1}
-    assert created == [
-        {
-            "sync_type": "ohlcv",
-            "request_payload": {
-                "markets": ["cn"],
-                "as_of_date": "2026-04-28",
-                "run_screener_prewarm": True,
-            },
-            "owner_user_id": None,
-            "tenant_id": None,
-        }
-    ]

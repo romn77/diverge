@@ -1,17 +1,16 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
-from web.backend import job_records
-from web.backend.runtime import task_store
+from web.backend.runtime import task_lifecycle, task_store
 
 KIND = "journal_review"
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return task_lifecycle.utc_now()
 
 
 def _utc_iso() -> str:
@@ -19,33 +18,25 @@ def _utc_iso() -> str:
 
 
 def _event(status: str, message: str) -> dict[str, Any]:
-    return {
-        "timestamp": datetime.now().strftime("%H:%M:%S"),
-        "status": status,
-        "stage_status": {},
-        "agent_status": {},
-        "current_agent": "trade_journal_review",
-        "message": message,
-    }
+    return task_lifecycle.progress_event(
+        message,
+        status=status,
+        stage_status={},
+        agent_status={},
+        current_agent="trade_journal_review",
+    )
 
 
 def _save_task(payload: dict[str, Any]) -> None:
     store = task_store.get_task_store()
     store.save_task(KIND, str(payload["id"]), payload)
-    job_records.upsert_job_record(
+    task_lifecycle.upsert_job_record(
         kind=KIND,
-        task_id=str(payload["id"]),
-        status=str(payload["status"]),
+        task=payload,
         request_payload=payload.get("request_payload"),
         result_summary=payload.get("result"),
-        error=payload.get("error"),
-        owner_user_id=payload.get("owner_user_id"),
-        tenant_id=payload.get("tenant_id"),
-        created_at=payload.get("created_at"),
-        queued_at=payload.get("queued_at"),
-        started_at=payload.get("started_at"),
-        finished_at=payload.get("finished_at"),
         heartbeat_at=payload.get("updated_at"),
+        heartbeat_when_running=False,
     )
 
 
@@ -58,7 +49,9 @@ def create_auto_review_task(
 ) -> str:
     task_id = f"journal_review_{uuid.uuid4().hex[:12]}"
     now = _utc_iso()
-    progress = _event("pending", "Trade journal AI review queued from trade submission.")
+    progress = _event(
+        "pending", "Trade journal AI review queued from trade submission."
+    )
     payload = {
         "id": task_id,
         "kind": KIND,

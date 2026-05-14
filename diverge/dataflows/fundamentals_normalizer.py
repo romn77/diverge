@@ -29,7 +29,12 @@ ALIASES = {
         "acceptedDate",
         "报告日",
     ],
-    "market_cap": ["Market Cap", "MarketCapitalization", "marketCap", "marketCapitalization"],
+    "market_cap": [
+        "Market Cap",
+        "MarketCapitalization",
+        "marketCap",
+        "marketCapitalization",
+    ],
     "shares_outstanding": [
         "Shares Outstanding",
         "SharesOutstanding",
@@ -39,10 +44,23 @@ ALIASES = {
         "总股本",
     ],
     "share_price": ["Current Price", "currentPrice", "Share Price", "price"],
-    "revenue": ["Revenue", "Revenue (TTM)", "totalRevenue", "Total Revenue", "营业总收入", "营业收入"],
+    "revenue": [
+        "Revenue",
+        "Revenue (TTM)",
+        "totalRevenue",
+        "Total Revenue",
+        "营业总收入",
+        "营业收入",
+    ],
     "ebitda": ["EBITDA", "ebitda"],
     "net_income": ["Net Income", "netIncome", "netIncomeToCommon", "净利润"],
-    "free_cash_flow": ["Free Cash Flow", "freeCashFlow", "freeCashflow", "FreeCashFlow", "经营活动产生的现金流量净额"],
+    "free_cash_flow": [
+        "Free Cash Flow",
+        "freeCashFlow",
+        "freeCashflow",
+        "FreeCashFlow",
+        "经营活动产生的现金流量净额",
+    ],
     "cash_and_equivalents": [
         "Cash And Cash Equivalents",
         "cashAndCashEquivalentsAtCarryingValue",
@@ -79,11 +97,12 @@ def normalize_fundamentals_payload(
     frequency: str | None = None,
 ) -> ValuationInput:
     if not isinstance(raw_payload, Mapping):
-        raise ValueError("Could not normalize fundamentals payload: expected section mapping")
+        raise ValueError(
+            "Could not normalize fundamentals payload: expected section mapping"
+        )
 
     flattened_sections = {
-        key: _flatten_payload(raw_payload.get(key))
-        for key in SECTION_KEYS
+        key: _flatten_payload(raw_payload.get(key)) for key in SECTION_KEYS
     }
     merged = {}
     for section in SECTION_KEYS:
@@ -104,8 +123,12 @@ def normalize_fundamentals_payload(
     shareholders_equity = _first_number(merged, "shareholders_equity")
 
     if free_cash_flow is None:
-        operating_cashflow = _find_number(merged, ["operatingCashflow", "Operating Cash Flow"])
-        capital_expenditures = _find_number(merged, ["capitalExpenditures", "Capital Expenditures"])
+        operating_cashflow = _find_number(
+            merged, ["operatingCashflow", "Operating Cash Flow"]
+        )
+        capital_expenditures = _find_number(
+            merged, ["capitalExpenditures", "Capital Expenditures"]
+        )
         if operating_cashflow is not None and capital_expenditures is not None:
             free_cash_flow = operating_cashflow + capital_expenditures
 
@@ -139,7 +162,10 @@ def normalize_fundamentals_payload(
     )
 
     return ValuationInput(
-        ticker=ticker or _first_text(merged, "Symbol") or _first_text(merged, "Ticker") or "UNKNOWN",
+        ticker=ticker
+        or _first_text(merged, "Symbol")
+        or _first_text(merged, "Ticker")
+        or "UNKNOWN",
         market=MarketContext(
             market=market,
             currency=currency,
@@ -188,7 +214,9 @@ def _flatten_payload(payload: object) -> dict[str, object]:
             for key, value in payload.items()
             if not isinstance(value, (list, dict))
         }
-        report_candidates = payload.get("annualReports") or payload.get("quarterlyReports")
+        report_candidates = payload.get("annualReports") or payload.get(
+            "quarterlyReports"
+        )
         if isinstance(report_candidates, list) and report_candidates:
             latest_report = _pick_latest_report(report_candidates)
             flattened.update(_flatten_payload(latest_report))
@@ -215,7 +243,11 @@ def _pick_latest_report(reports: list[object]) -> Mapping[str, object]:
 
 def _parse_string_payload(payload: str) -> dict[str, object]:
     parsed: dict[str, object] = {}
-    body_lines = [line for line in payload.splitlines() if line.strip() and not line.startswith("#")]
+    body_lines = [
+        line
+        for line in payload.splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
 
     for line in body_lines:
         if ":" in line:
@@ -244,7 +276,9 @@ def _parse_csv_payload(lines: list[str]) -> dict[str, object]:
             if not row:
                 continue
             key = row[0].strip()
-            value = row[first_data_column].strip() if len(row) > first_data_column else ""
+            value = (
+                row[first_data_column].strip() if len(row) > first_data_column else ""
+            )
             if key:
                 parsed[key] = value
         return parsed
@@ -263,7 +297,9 @@ def _parse_csv_payload(lines: list[str]) -> dict[str, object]:
     parsed = dict(latest_row)
     if "report_date" not in parsed:
         parsed["report_date"] = (
-            latest_row.get("end_date") or latest_row.get("报告日") or latest_row.get("report_date")
+            latest_row.get("end_date")
+            or latest_row.get("报告日")
+            or latest_row.get("report_date")
         )
     return parsed
 
@@ -331,7 +367,9 @@ def _classify_instrument(
     *,
     ticker: str | None,
 ) -> tuple[str, str, str | None]:
-    quote_type = (_find_value(data, ALIASES["instrument_metadata"]) or "").__str__().strip()
+    quote_type = (
+        (_find_value(data, ALIASES["instrument_metadata"]) or "").__str__().strip()
+    )
     fund_family = _first_text(data, "fund_family")
     normalized_quote_type = quote_type.upper().replace(" ", "")
 

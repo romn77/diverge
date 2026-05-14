@@ -7,9 +7,12 @@ from pathlib import Path
 import pandas as pd
 
 from diverge.dataflows.vendors.akshare.rate_limit import call_akshare_api
-from diverge.data.manifest_schema import COMMON_MANIFEST_COLUMNS, COMPARE_MANIFEST_COLUMNS
+from diverge.data.manifest_schema import (
+    COMMON_MANIFEST_COLUMNS,
+    COMPARE_MANIFEST_COLUMNS,
+)
+from diverge.common.symbols import infer_cn_exchange
 from diverge.dataflows.vendors.akshare.stock import _import_akshare
-from diverge.dataflows.cn_market_utils import infer_cn_exchange
 from diverge.dataflows.vendors.tushare.common import get_tushare_pro_client
 from diverge.dataflows.vendor_errors import (
     VendorAuthError,
@@ -87,7 +90,9 @@ def _load_universe_cache(
     return pd.read_csv(path, dtype=str, keep_default_na=False)
 
 
-def _save_universe_cache(cache_dir: str | Path, market: str, source: str, frame: pd.DataFrame) -> Path:
+def _save_universe_cache(
+    cache_dir: str | Path, market: str, source: str, frame: pd.DataFrame
+) -> Path:
     path = _universe_cache_path(cache_dir, market, source)
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(path, index=False)
@@ -139,7 +144,9 @@ def _load_cn_universe_from_source(
             raw = _load_akshare_cn_universe_rows()
         except VendorRetryableError:
             if cache_dir is not None:
-                stale_cached = _load_universe_cache(cache_dir, "cn", data_source, allow_stale=True)
+                stale_cached = _load_universe_cache(
+                    cache_dir, "cn", data_source, allow_stale=True
+                )
                 if stale_cached is not None:
                     return _filter_cn_universe_rows(stale_cached)
             raise
@@ -176,13 +183,17 @@ def _load_cn_universe_from_source(
         )
     except VendorRetryableError:
         if cache_dir is not None:
-            stale_cached = _load_universe_cache(cache_dir, "cn", data_source, allow_stale=True)
+            stale_cached = _load_universe_cache(
+                cache_dir, "cn", data_source, allow_stale=True
+            )
             if stale_cached is not None:
                 return _filter_cn_universe_rows(stale_cached)
         raise
 
     if raw is None:
-        raw = pd.DataFrame(columns=["ts_code", "name", "exchange", "industry", "list_date"])
+        raw = pd.DataFrame(
+            columns=["ts_code", "name", "exchange", "industry", "list_date"]
+        )
 
     result = (
         raw.rename(
@@ -205,9 +216,13 @@ def load_cn_universe_from_manifest(manifest_path: str) -> pd.DataFrame:
     path = Path(manifest_path)
     raw = pd.read_csv(path, dtype=str, keep_default_na=False)
 
-    missing_columns = [column for column in CN_MANIFEST_REQUIRED_COLUMNS if column not in raw.columns]
+    missing_columns = [
+        column for column in CN_MANIFEST_REQUIRED_COLUMNS if column not in raw.columns
+    ]
     if missing_columns:
-        raise ValueError(f"Missing required CN manifest columns: {', '.join(missing_columns)}")
+        raise ValueError(
+            f"Missing required CN manifest columns: {', '.join(missing_columns)}"
+        )
 
     # Avoid a top-level import cycle because cn_manifest.py imports load_cn_universe().
     from diverge.data.cn_manifest import build_cn_manifest
@@ -240,7 +255,12 @@ def load_cn_universe(
                 cache_dir=cache_dir,
                 cache_only=cache_only,
             )
-        except (VendorRetryableError, VendorAuthError, VendorNotSupportedError, RuntimeError) as exc:
+        except (
+            VendorRetryableError,
+            VendorAuthError,
+            VendorNotSupportedError,
+            RuntimeError,
+        ) as exc:
             last_error = exc
             continue
 
@@ -254,7 +274,9 @@ def load_us_universe(manifest_path: str) -> pd.DataFrame:
     path = Path(manifest_path)
     raw = pd.read_csv(path, dtype=str, keep_default_na=False)
 
-    missing_columns = [column for column in US_MANIFEST_REQUIRED_COLUMNS if column not in raw.columns]
+    missing_columns = [
+        column for column in US_MANIFEST_REQUIRED_COLUMNS if column not in raw.columns
+    ]
     if missing_columns:
         raise ValueError(f"Missing required columns: {', '.join(missing_columns)}")
 
@@ -266,7 +288,9 @@ def load_us_universe(manifest_path: str) -> pd.DataFrame:
     return result.loc[:, US_UNIVERSE_COLUMNS].reset_index(drop=True)
 
 
-def load_universe(config: ScreenRunConfig, cache_dir: str | Path | None = None) -> pd.DataFrame:
+def load_universe(
+    config: ScreenRunConfig, cache_dir: str | Path | None = None
+) -> pd.DataFrame:
     frames: list[pd.DataFrame] = []
 
     for market in config.markets:

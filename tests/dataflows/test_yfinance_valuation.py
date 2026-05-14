@@ -109,7 +109,9 @@ def test_build_yfinance_valuation_input_collects_growth_beta_and_treasury(
     assert valuation_input.market.enterprise_value == 5_150.0
     assert valuation_input.market.diluted_shares_outstanding == 110.0
     assert valuation_input.assumptions["risk_free_rate"].source == "yfinance:^TNX"
-    assert valuation_input.assumptions["short_term_growth"].source.startswith("yfinance")
+    assert valuation_input.assumptions["short_term_growth"].source.startswith(
+        "yfinance"
+    )
     assert len(valuation_input.financials) == 2
     assert valuation_input.assumptions["forward_pe"].value == 25.0
     assert valuation_input.assumptions["eps_growth_1y"].value == pytest.approx(0.20)

@@ -9,11 +9,14 @@ test("summary panel grid keeps dense highlight panels balanced", () => {
   const source = readFileSync(globalsCssPath, "utf8");
   const panelGridBlock = source.match(/\.summary-panels\s*\{([\s\S]*?)\}/)?.[1] ?? "";
   const panelBlock = source.match(/\.summary-panel\s*\{([\s\S]*?)\}/)?.[1] ?? "";
+  const queueGridBlock = source.match(/\.summary-panel--queue \.summary-queue\s*\{([\s\S]*?)\}/)?.[1] ?? "";
   const mobileBlock = source.match(/@media \(max-width: 860px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
 
   assert.match(panelGridBlock, /display:\s*grid;/);
   assert.match(panelGridBlock, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
-  assert.match(panelBlock, /border-radius:\s*22px;/);
-  assert.match(panelBlock, /box-shadow:\s*0 18px 34px/);
+  assert.match(panelBlock, /border-radius:\s*16px;/);
+  assert.match(panelBlock, /box-shadow:\s*0 10px 24px/);
+  assert.match(queueGridBlock, /grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
   assert.match(mobileBlock, /\.summary-panels\s*\{[\s\S]*?grid-template-columns:\s*1fr;/);
+  assert.match(mobileBlock, /\.summary-panel--queue \.summary-queue\s*\{[\s\S]*?grid-template-columns:\s*1fr;/);
 });

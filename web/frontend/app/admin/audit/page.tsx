@@ -238,7 +238,6 @@ export default function AdminAuditPage() {
     <AdminConsolePage
       activeTab="audit"
       title="Audit Log"
-      description="Review tenant-scoped auth, admin, data-source, task, asset, and journal activity."
       badges={
         <>
           <Badge variant="secondary">Read-only</Badge>
@@ -406,7 +405,7 @@ function AuditEventTable({ events }: { events: AdminAuditEvent[] }) {
       <CardContent className="p-0">
         <div className="max-h-[620px] overflow-auto">
           <Table className="min-w-[1120px] text-xs [&_td]:px-3 [&_td]:py-2 [&_th]:h-9 [&_th]:px-3 [&_th]:tracking-[0.12em]">
-            <TableHeader className="sticky top-0 z-10 bg-[var(--surface-strong)]">
+            <TableHeader className="sticky top-0 z-[var(--z-sticky)] bg-[var(--surface-strong)]">
               <TableRow className="border-b border-[var(--border)]">
                 <TableHead className="w-[150px] text-left">Time</TableHead>
                 <TableHead className="w-[190px] text-left">Action</TableHead>

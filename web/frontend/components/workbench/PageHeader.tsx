@@ -8,7 +8,6 @@ import type { ReactNode } from "react";
 interface PageHeaderProps {
   eyebrow: ReactNode;
   title: ReactNode;
-  description?: ReactNode;
   actions?: ReactNode;
   backHref?: string;
   backLabel?: string;
@@ -20,7 +19,6 @@ interface PageHeaderProps {
 export function PageHeader({
   eyebrow,
   title,
-  description,
   actions,
   backHref,
   backLabel = "Back",
@@ -46,11 +44,8 @@ export function PageHeader({
               </Button>
             ) : null}
             <div className="min-w-0">
-              <p className="sr-only">{eyebrow}</p>
-              <h1 className="sr-only">{title}</h1>
-              {description ? (
-                <p className="workbench-page-header-description">{description}</p>
-              ) : null}
+              <p className="workbench-page-eyebrow">{eyebrow}</p>
+              <h1 className="workbench-page-title workbench-page-header-title">{title}</h1>
             </div>
           </div>
           {actions ? (

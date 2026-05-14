@@ -31,14 +31,18 @@ def build_thesis_artifact(final_state: Mapping[str, object], *, ticker: str) -> 
         + _extract_key_sentences(bull_history)
     )[:5]
     if not supporting_evidence:
-        supporting_evidence = ["Supporting evidence was not explicitly extracted from the report set."]
+        supporting_evidence = [
+            "Supporting evidence was not explicitly extracted from the report set."
+        ]
 
     invalidation_signals = _dedupe(
         _extract_key_sentences(bear_history)
         + _extract_key_sentences(conservative_history)
     )[:5]
     if not invalidation_signals:
-        invalidation_signals = ["Watch for thesis drift, weaker guidance, or deteriorating balance-sheet quality."]
+        invalidation_signals = [
+            "Watch for thesis drift, weaker guidance, or deteriorating balance-sheet quality."
+        ]
 
     next_catalysts = _dedupe(
         _extract_bullets(news_report)
@@ -46,7 +50,9 @@ def build_thesis_artifact(final_state: Mapping[str, object], *, ticker: str) -> 
         + _extract_key_sentences(judge_decision)
     )[:5]
     if not next_catalysts:
-        next_catalysts = ["Track the next earnings print, management guidance, and market reaction."]
+        next_catalysts = [
+            "Track the next earnings print, management guidance, and market reaction."
+        ]
 
     return {
         "type": "thesis",
@@ -114,7 +120,12 @@ def _clean_text(text: str) -> str:
     cleaned_lines = []
     for raw_line in text.splitlines():
         line = raw_line.strip()
-        if not line or line.startswith("#") or line.startswith("```") or line.startswith("|"):
+        if (
+            not line
+            or line.startswith("#")
+            or line.startswith("```")
+            or line.startswith("|")
+        ):
             continue
         cleaned_lines.append(line)
     return " ".join(cleaned_lines).strip()

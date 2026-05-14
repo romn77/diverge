@@ -26,7 +26,9 @@ class _FakeResponse:
 class _FakeLLM:
     def __init__(self, tool_response=None):
         self.prompts = []
-        self.tool_response = tool_response or AIMessage(content="stub response", tool_calls=[])
+        self.tool_response = tool_response or AIMessage(
+            content="stub response", tool_calls=[]
+        )
 
     def invoke(self, prompt):
         self.prompts.append(prompt)
@@ -43,6 +45,20 @@ class _FakeLLM:
 class _FakeMemory:
     def get_memories(self, _curr_situation, n_matches=2):
         return [{"recommendation": f"memory {idx}"} for idx in range(n_matches)]
+
+
+class _FakeGatewayTimeout(Exception):
+    status_code = 504
+
+
+class _FailingLLM:
+    def invoke(self, _prompt):
+        raise _FakeGatewayTimeout("504 Gateway Time-out")
+
+
+class _ConnectionFailingLLM:
+    def invoke(self, _prompt):
+        raise RuntimeError("Connection error.")
 
 
 def _base_state():
@@ -109,7 +125,11 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         cases = [
             ("bull", create_bull_researcher(_FakeLLM(), _FakeMemory()), _base_state()),
             ("bear", create_bear_researcher(_FakeLLM(), _FakeMemory()), _base_state()),
-            ("research_manager", create_research_manager(_FakeLLM(), _FakeMemory()), _base_state()),
+            (
+                "research_manager",
+                create_research_manager(_FakeLLM(), _FakeMemory()),
+                _base_state(),
+            ),
             ("trader", create_trader(_FakeLLM(), _FakeMemory()), _base_state()),
             ("aggressive", create_aggressive_debator(_FakeLLM()), _base_state()),
             ("conservative", create_conservative_debator(_FakeLLM()), _base_state()),
@@ -126,7 +146,29 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 result = node(state)
                 self.assertIsInstance(result, dict)
 
-    @patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+    def test_upstream_prompts_define_evidence_contracts_without_final_verdict(self):
+        trader_llm = _FakeLLM()
+        create_trader(trader_llm, _FakeMemory())(_base_state())
+        trader_prompt = trader_llm.prompts[0].to_string()
+
+        self.assertIn("execution planner", trader_prompt)
+        self.assertIn('"evidence_blocks"', trader_prompt)
+        self.assertIn('"risk_budget"', trader_prompt)
+        self.assertIn("Do not write `FINAL TRANSACTION PROPOSAL`", trader_prompt)
+        self.assertNotIn("Conclude your narrative analysis", trader_prompt)
+
+        risk_llm = _FakeLLM()
+        create_aggressive_debator(risk_llm)(_base_state())
+        risk_prompt = risk_llm.prompts[0].to_string()
+
+        self.assertIn('"risk_budget"', risk_prompt)
+        self.assertIn('"required_pm_adjustment"', risk_prompt)
+        self.assertIn('"evidence_blocks"', risk_prompt)
+        self.assertIn("Do not write `FINAL TRANSACTION PROPOSAL`", risk_prompt)
+
+    @patch(
+        "diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals"
+    )
     def test_fundamentals_analyst_runtime_supports_valuation_sections(
         self,
         mock_get_valuation_ready_fundamentals,
@@ -153,6 +195,52 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
 
         self.assertIn("## DCF Summary", result["fundamentals_report"])
         self.assertIn('"category": "fundamentals"', result["fundamentals_report"])
+
+    def test_portfolio_manager_gateway_timeout_returns_fallback_decision(self):
+        node = create_portfolio_manager(_FailingLLM(), _FakeMemory())
+
+        result = node(_base_state())
+
+        self.assertIn(
+            "Portfolio Manager Fallback Decision", result["final_trade_decision"]
+        )
+        self.assertIn("```json-decision-card", result["final_trade_decision"])
+        self.assertIn('"rating": "HOLD"', result["final_trade_decision"])
+        self.assertIn('"action": "NO_ACTION"', result["final_trade_decision"])
+        self.assertEqual(
+            result["risk_debate_state"]["judge_decision"],
+            result["final_trade_decision"],
+        )
+
+    def test_portfolio_manager_prompt_uses_user_facing_portfolio_context(self):
+        llm = _FakeLLM()
+        node = create_portfolio_manager(llm, _FakeMemory())
+        state = _base_state()
+        state["output_language"] = "cn"
+
+        node(state)
+
+        prompt = llm.prompts[0].to_string()
+        self.assertIn("当前持仓参考", prompt)
+        self.assertIn("未提供该用户的已跟踪持仓", prompt)
+        self.assertNotIn("Portfolio Ledger Context", prompt)
+        self.assertIn("internal implementation terms", prompt)
+
+    def test_portfolio_manager_connection_error_returns_fallback_decision(self):
+        node = create_portfolio_manager(_ConnectionFailingLLM(), _FakeMemory())
+
+        result = node(_base_state())
+
+        self.assertIn(
+            "Portfolio Manager Fallback Decision", result["final_trade_decision"]
+        )
+        self.assertIn("```json-decision-card", result["final_trade_decision"])
+        self.assertIn('"rating": "HOLD"', result["final_trade_decision"])
+        self.assertIn(
+            "transient LLM connection failure", result["final_trade_decision"]
+        )
+        self.assertEqual(result["runtime_warnings"][0]["stage"], "Portfolio Manager")
+        self.assertIn("Connection error.", result["runtime_warnings"][0]["message"])
 
 
 if __name__ == "__main__":

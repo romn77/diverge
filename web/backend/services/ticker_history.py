@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException
 
-from diverge.screener.market_data import LOOKBACK_DAYS, fetch_ticker_history
-from diverge.screener.history_cache import history_cache_path
+from diverge.common.dates import require_iso_date, today_iso
+from diverge.dataflows.routes import history_source_kwargs_for_market
+from diverge.market_data.history_cache import history_cache_path
+from diverge.market_data.price_history import (
+    LOOKBACK_DAYS,
+    fetch_ticker_history,
+    resolve_history_market,
+)
 from web.backend import app_config, storage
 from web.backend.schemas.ticker_history import TickerHistoryBatchPayload
 
@@ -20,17 +25,15 @@ def normalize_history_symbol(symbol: str) -> str:
 
 def normalize_history_as_of_date(value: str | None) -> str:
     if value is None or not value.strip():
-        return datetime.now().strftime("%Y-%m-%d")
+        return today_iso()
 
-    candidate = value.strip()
     try:
-        datetime.strptime(candidate, "%Y-%m-%d")
+        return require_iso_date(value, "as_of_date")
     except ValueError as exc:
         raise HTTPException(
             status_code=400,
             detail="as_of_date must use YYYY-MM-DD format",
         ) from exc
-    return candidate
 
 
 def normalize_history_days(value: int | None) -> int:
@@ -117,16 +120,24 @@ def get_ticker_history_payload(
     as_of_date: str | None = None,
     days: int | None = None,
     include_ohlcv: bool = True,
+    module: str = "analysis",
 ) -> dict:
     normalized_symbol = normalize_history_symbol(symbol)
     normalized_as_of_date = normalize_history_as_of_date(as_of_date)
     normalized_days = normalize_history_days(days)
 
     try:
-        if storage_backend_is_remote() and market:
-            target = history_cache_path(history_cache_dir(), market, normalized_symbol)
+        resolved_request_market = resolve_history_market(normalized_symbol, market)
+        source_kwargs = history_source_kwargs_for_market(
+            module=module,
+            market=resolved_request_market,
+        )
+        if storage_backend_is_remote():
+            target = history_cache_path(
+                history_cache_dir(), resolved_request_market, normalized_symbol
+            )
             if not target.is_file():
-                key = f"history/{market}/{target.name}"
+                key = f"history/{resolved_request_market}/{target.name}"
                 try:
                     target.parent.mkdir(parents=True, exist_ok=True)
                     target.write_bytes(storage.get_storage().get_bytes(key))
@@ -134,13 +145,17 @@ def get_ticker_history_payload(
                     pass
         resolved_market, frame = fetch_ticker_history(
             normalized_symbol,
-            market=market,
+            market=resolved_request_market,
             as_of_date=normalized_as_of_date,
             lookback_days=normalized_days,
             cache_dir=history_cache_dir(),
+            normalize_as_of_to_trading_day=True,
+            **source_kwargs,
         )
         if storage_backend_is_remote():
-            target = history_cache_path(history_cache_dir(), resolved_market, normalized_symbol)
+            target = history_cache_path(
+                history_cache_dir(), resolved_market, normalized_symbol
+            )
             if target.is_file():
                 storage.get_storage().put_bytes(
                     f"history/{resolved_market}/{target.name}",
@@ -150,7 +165,9 @@ def get_ticker_history_payload(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Failed to load ticker history: {exc}") from exc
+        raise HTTPException(
+            status_code=502, detail=f"Failed to load ticker history: {exc}"
+        ) from exc
 
     return ticker_history_response(
         symbol=normalized_symbol,
@@ -167,7 +184,9 @@ def get_batch_ticker_history_payload(payload: TickerHistoryBatchPayload) -> dict
     normalized_days = normalize_history_days(payload.days)
     tickers = payload.tickers or []
     if not tickers:
-        raise HTTPException(status_code=400, detail="tickers must include at least one item")
+        raise HTTPException(
+            status_code=400, detail="tickers must include at least one item"
+        )
     if len(tickers) > 50:
         raise HTTPException(status_code=400, detail="tickers must not exceed 50 items")
 
@@ -180,6 +199,7 @@ def get_batch_ticker_history_payload(payload: TickerHistoryBatchPayload) -> dict
                 as_of_date=normalized_as_of_date,
                 days=normalized_days,
                 include_ohlcv=False,
+                module="screener",
             )
         )
 

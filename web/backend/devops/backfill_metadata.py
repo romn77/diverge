@@ -12,7 +12,13 @@ from diverge.trade_feedback import (
     list_trade_reviews as list_trade_reviews_file,
 )
 from diverge.data_layout import resolve_reports_dir, resolve_screener_runs_dir
-from web.backend import auth, report_metadata, screener_results, screener_runs, trade_entries
+from web.backend import (
+    auth,
+    report_metadata,
+    screener_results,
+    screener_runs,
+    trade_entries,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 REPORTS_DIR = resolve_reports_dir(PROJECT_ROOT)
@@ -53,10 +59,12 @@ def _resolve_historical_owner(db) -> auth.User:
             return user
 
     user = db.scalar(
-        select(auth.User).where(
+        select(auth.User)
+        .where(
             auth.User.role == auth.UserRole.ADMIN.value,
             auth.User.status == auth.UserStatus.ACTIVE.value,
-        ).order_by(auth.User.created_at.asc(), auth.User.email.asc())
+        )
+        .order_by(auth.User.created_at.asc(), auth.User.email.asc())
     )
     if user is None:
         raise RuntimeError(

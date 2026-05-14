@@ -130,31 +130,101 @@ class AnalysisTrackerTests(unittest.TestCase):
             self.assertEqual(initial.stage_status["Portfolio"], "not_started")
 
             tracker.update_agent_status("Market Analyst", "in_progress")
-            running = tracker.to_progress(status="running", message="Market analyst started")
+            running = tracker.to_progress(
+                status="running", message="Market analyst started"
+            )
             self.assertEqual(running.stage_status["Analysts"], "processing")
             self.assertEqual(running.current_agent, "Market Analyst")
 
             tracker.update_agent_status("Market Analyst", "completed")
             tracker.update_agent_status("News Analyst", "completed")
-            finished = tracker.to_progress(status="running", message="Analysts finished")
+            finished = tracker.to_progress(
+                status="running", message="Analysts finished"
+            )
             self.assertEqual(finished.stage_status["Analysts"], "completed")
 
     def test_tracker_writes_partial_reports_into_final_stage_directories(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             tracker = AnalysisTracker(["market"], Path(temp_dir))
 
-            tracker.update_report_section("market_report", "# Market\n\nMomentum is positive.")
-            tracker.update_report_section("trader_investment_plan", "Reduce risk and wait.")
+            tracker.update_report_section(
+                "market_report", "# Market\n\nMomentum is positive."
+            )
+            tracker.update_report_section(
+                "trader_investment_plan", "Reduce risk and wait."
+            )
 
             market_path = Path(temp_dir) / "1_analysts" / "market.md"
             trader_path = Path(temp_dir) / "3_trading" / "trader.md"
 
             self.assertTrue(market_path.is_file())
             self.assertTrue(trader_path.is_file())
-            self.assertIn("Momentum is positive", market_path.read_text(encoding="utf-8"))
+            self.assertIn(
+                "Momentum is positive", market_path.read_text(encoding="utf-8")
+            )
             self.assertIn("Reduce risk", trader_path.read_text(encoding="utf-8"))
 
-    def test_save_report_to_disk_keeps_fundamentals_report_and_writes_thesis_artifact(self):
+    def test_tracker_surfaces_runtime_warning_progress_message(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tracker = AnalysisTracker(["market"], Path(temp_dir))
+
+            progress = tracker.consume_chunk(
+                {
+                    "runtime_warnings": [
+                        {
+                            "stage": "Portfolio Manager",
+                            "kind": "transient_llm_error",
+                            "message": "Portfolio Manager used fallback: Connection error.",
+                        }
+                    ]
+                },
+                status="running",
+            )
+
+            self.assertIsNotNone(progress)
+            self.assertIn("Warning:", progress.message)
+            self.assertEqual(progress.warnings[0]["stage"], "Portfolio Manager")
+
+    def test_tracker_surfaces_adk_runtime_progress_events(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            tracker = AnalysisTracker(["market"], Path(temp_dir))
+
+            progress = tracker.consume_chunk(
+                {
+                    "runtime_progress_events": [
+                        {
+                            "id": "runtime-progress-1",
+                            "current_agent": "Market Analyst",
+                            "message": "Market Analyst requested tools: get_stock_data.",
+                        }
+                    ]
+                },
+                status="running",
+            )
+            duplicate = tracker.consume_chunk(
+                {
+                    "runtime_progress_events": [
+                        {
+                            "id": "runtime-progress-1",
+                            "current_agent": "Market Analyst",
+                            "message": "Market Analyst requested tools: get_stock_data.",
+                        }
+                    ]
+                },
+                status="running",
+            )
+
+            self.assertIsNotNone(progress)
+            self.assertEqual(
+                progress.message,
+                "Market Analyst requested tools: get_stock_data.",
+            )
+            self.assertEqual(progress.current_agent, "Market Analyst")
+            self.assertIsNone(duplicate)
+
+    def test_save_report_to_disk_keeps_fundamentals_report_and_writes_thesis_artifact(
+        self,
+    ):
         with tempfile.TemporaryDirectory() as temp_dir:
             final_state = {
                 "market_report": "# Market\n\nStable backdrop.",
@@ -192,6 +262,13 @@ class AnalysisTrackerTests(unittest.TestCase):
                         "thesis_assessment": "Thesis was grounded in durable cloud demand.",
                     }
                 ],
+                "runtime_warnings": [
+                    {
+                        "stage": "Portfolio Manager",
+                        "kind": "transient_llm_error",
+                        "message": "Portfolio Manager used fallback: Connection error.",
+                    }
+                ],
             }
 
             report_path = save_report_to_disk(final_state, "MSFT", Path(temp_dir))
@@ -200,13 +277,23 @@ class AnalysisTrackerTests(unittest.TestCase):
             thesis_path = Path(temp_dir) / "artifacts" / "thesis.json"
             summary_path = Path(temp_dir) / "artifacts" / "summary.json"
             trade_feedback_path = Path(temp_dir) / "artifacts" / "trade_feedback.json"
+            runtime_warnings_path = (
+                Path(temp_dir) / "artifacts" / "runtime_warnings.json"
+            )
 
             self.assertTrue(report_path.is_file())
             self.assertTrue(fundamentals_path.is_file())
             self.assertTrue(thesis_path.is_file())
             self.assertTrue(summary_path.is_file())
             self.assertTrue(trade_feedback_path.is_file())
-            self.assertIn("## DCF Summary", fundamentals_path.read_text(encoding="utf-8"))
+            self.assertTrue(runtime_warnings_path.is_file())
+            self.assertIn(
+                "## DCF Summary", fundamentals_path.read_text(encoding="utf-8")
+            )
+            self.assertIn(
+                "Runtime Warnings",
+                report_path.read_text(encoding="utf-8"),
+            )
 
             thesis_payload = json.loads(thesis_path.read_text(encoding="utf-8"))
             self.assertEqual(thesis_payload["type"], "thesis")
@@ -222,6 +309,15 @@ class AnalysisTrackerTests(unittest.TestCase):
             )
             self.assertEqual(trade_feedback_payload["type"], "trade_feedback")
             self.assertEqual(len(trade_feedback_payload["reviews"]), 1)
+
+            runtime_warning_payload = json.loads(
+                runtime_warnings_path.read_text(encoding="utf-8")
+            )
+            self.assertEqual(runtime_warning_payload["type"], "runtime_warnings")
+            self.assertIn(
+                "Connection error.",
+                runtime_warning_payload["warnings"][0]["message"],
+            )
 
     def test_run_analysis_streaming_requests_only_visible_trade_feedback(self):
         request = AnalysisRequest(
@@ -284,6 +380,24 @@ class AnalysisTrackerTests(unittest.TestCase):
             config["market_overrides"]["us"]["fundamental_data"],
             "fmp,alpha_vantage,yfinance",
         )
+
+    def test_build_analysis_config_preserves_resolved_backend_url(self):
+        request = AnalysisRequest(
+            ticker="MSFT",
+            analysis_date="2026-04-03",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="google",
+            quick_think_llm="gemini-2.5-flash",
+            deep_think_llm="gemini-2.5-pro",
+            output_language="en",
+            backend_url="https://cc.z2blog.com",
+            google_thinking_level="high",
+        )
+
+        config = build_analysis_config(request)
+
+        self.assertEqual(config["backend_url"], "https://cc.z2blog.com")
 
 
 if __name__ == "__main__":

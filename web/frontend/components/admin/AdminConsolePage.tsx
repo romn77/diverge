@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export type AdminConsoleTab =
   | "users"
   | "data-sources"
+  | "search-quota"
   | "llm-models"
   | "task-queue"
   | "audit";
@@ -14,6 +15,7 @@ export type AdminConsoleTab =
 const ADMIN_TABS: Array<{ key: AdminConsoleTab; label: string; href: string }> = [
   { key: "users", label: "User Management", href: "/admin/users" },
   { key: "data-sources", label: "Data Sources", href: "/admin/data-sources" },
+  { key: "search-quota", label: "Search Quota", href: "/admin/search-quota" },
   { key: "llm-models", label: "LLM Models", href: "/admin/llm-models" },
   { key: "task-queue", label: "Task Queue", href: "/admin/task-queue" },
   { key: "audit", label: "Audit Log", href: "/admin/audit" },
@@ -22,14 +24,12 @@ const ADMIN_TABS: Array<{ key: AdminConsoleTab; label: string; href: string }> =
 export function AdminConsolePage({
   activeTab,
   title,
-  description,
   badges,
   actions,
   children,
 }: {
   activeTab: AdminConsoleTab;
   title: string;
-  description: string;
   badges?: ReactNode;
   actions?: ReactNode;
   children: ReactNode;
@@ -38,7 +38,7 @@ export function AdminConsolePage({
     <main className="px-3 py-4 text-[var(--foreground)] md:px-5 lg:px-6">
       <div className="mx-auto w-full max-w-7xl space-y-3">
         <Card className="rounded-[14px] border-[var(--border)] bg-white/95">
-          <CardContent className="grid min-h-[11.5rem] grid-rows-[2rem_minmax(6rem,1fr)] gap-4 px-4 py-4 md:px-5">
+          <CardContent className="grid min-h-[8.5rem] grid-rows-[2rem_minmax(3.75rem,1fr)] gap-3 px-4 py-3 md:px-5">
             <nav className="hidden-scrollbar flex h-8 min-w-0 flex-nowrap items-center gap-3 overflow-x-auto whitespace-nowrap">
               <Link
                 href="/"
@@ -73,20 +73,17 @@ export function AdminConsolePage({
               </div>
             </nav>
 
-            <div className="grid min-h-[6rem] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,28rem)] lg:items-end">
-              <div className="flex min-h-[6rem] min-w-0 flex-col justify-end">
+            <div className="grid min-h-[3.75rem] gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,28rem)] lg:items-end">
+              <div className="flex min-h-[3.75rem] min-w-0 flex-col justify-end">
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="font-heading text-xl font-bold tracking-tight text-slate-900 md:text-2xl">
                     {title}
                   </h1>
                   {badges}
                 </div>
-                <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-600">
-                  {description}
-                </p>
               </div>
               {actions ? (
-                <div className="flex min-h-[6rem] flex-wrap items-end justify-start gap-2 lg:justify-end">
+                <div className="flex min-h-[3.75rem] flex-wrap items-end justify-start gap-2 lg:justify-end">
                   {actions}
                 </div>
               ) : null}

@@ -162,7 +162,7 @@ export function WorkspaceAccountMenu({
   const displayName = authUser?.display_name.trim() || authUser?.email || "Diverge";
 
   return (
-    <div className="workbench-account-menu pointer-events-auto relative z-[40] ml-auto flex shrink-0 items-center gap-2">
+    <div className="workbench-account-menu pointer-events-auto relative z-[var(--z-sidebar)] ml-auto flex shrink-0 items-center gap-2">
       {onOpenSidebar ? (
         <Button
           type="button"

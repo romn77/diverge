@@ -6,7 +6,8 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 
-from web.backend import access, app_config, auth, report_metadata, storage
+from diverge.agents.managers.summary_agent import sanitize_report_summary_output
+from web.backend import access, app_config, audit, auth, report_metadata, storage
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,12 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
         try:
             payload = json.loads(summary_path.read_text(encoding="utf-8"))
             if isinstance(payload, dict):
-                summary = payload.get("summary")
+                raw_summary = payload.get("summary")
+                summary = (
+                    sanitize_report_summary_output(raw_summary)
+                    if raw_summary is not None
+                    else None
+                )
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             summary = None
 
@@ -86,6 +92,42 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
             }
         )
 
+    decision_card_path = artifacts_dir / "decision_card.json"
+    if decision_card_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(decision_card_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = payload.get("one_line_summary")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "decision_card",
+                "path": "artifacts/decision_card.json",
+                "summary": summary,
+            }
+        )
+
+    decision_delta_path = artifacts_dir / "decision_delta.json"
+    if decision_delta_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(decision_delta_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = payload.get("summary")
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "decision_delta",
+                "path": "artifacts/decision_delta.json",
+                "summary": summary,
+            }
+        )
+
     trade_feedback_path = artifacts_dir / "trade_feedback.json"
     if trade_feedback_path.is_file():
         summary = None
@@ -105,6 +147,30 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
             {
                 "type": "trade_feedback",
                 "path": "artifacts/trade_feedback.json",
+                "summary": summary,
+            }
+        )
+
+    search_evidence_path = artifacts_dir / "search_evidence.json"
+    if search_evidence_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(search_evidence_path.read_text(encoding="utf-8"))
+            calls = payload.get("calls") if isinstance(payload, dict) else []
+            if isinstance(calls, list):
+                result_count = sum(
+                    len(call.get("results") or [])
+                    for call in calls
+                    if isinstance(call, dict)
+                )
+                summary = f"{len(calls)} web search call(s), {result_count} result(s)"
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "search_evidence",
+                "path": "artifacts/search_evidence.json",
                 "summary": summary,
             }
         )
@@ -156,8 +222,12 @@ def list_reports_from_storage() -> list[dict]:
         date_str = None
         time_str = None
         try:
-            content = storage.get_storage().get_text(f"reports/{report_id}/complete_report.md")
-            parsed_ticker, date_str, time_str = parse_complete_report_header_text(content)
+            content = storage.get_storage().get_text(
+                f"reports/{report_id}/complete_report.md"
+            )
+            parsed_ticker, date_str, time_str = parse_complete_report_header_text(
+                content
+            )
             if parsed_ticker:
                 ticker = parsed_ticker
         except Exception:
@@ -293,6 +363,7 @@ def get_structure(report_id: str, request: Request | None = None) -> dict:
                 return {
                     "id": record.id,
                     "ticker": record.ticker,
+                    **report_metadata.serialize_report_summary(record),
                     **structure,
                 }
         except HTTPException:
@@ -360,6 +431,61 @@ def get_content(report_id: str, path: str, request: Request | None = None) -> di
             report_id,
             path,
         )
-        raise HTTPException(status_code=500, detail="Failed to read report file") from exc
+        raise HTTPException(
+            status_code=500, detail="Failed to read report file"
+        ) from exc
 
     return {"content": content}
+
+
+def update_report_visibility(
+    report_id: str,
+    visibility: str,
+    request: Request | None = None,
+) -> dict:
+    if not auth.auth_enabled():
+        raise HTTPException(status_code=409, detail="Auth is disabled")
+    try:
+        with auth.db_session() as db:
+            current_user = _require_report_user(db, request)
+            record = report_metadata.get_report_run(
+                db,
+                report_id,
+                tenant_id=current_user.tenant_id,
+            )
+            is_owner = record.owner_user_id == current_user.id
+            is_admin = access.is_admin_user(current_user)
+            if not is_owner and not is_admin:
+                raise auth.AuthPermissionError(
+                    "Only owner or admin can update visibility"
+                )
+
+            old_visibility = record.visibility
+            new_visibility = report_metadata._normalize_visibility(visibility)
+            record.visibility = new_visibility
+            record.visibility_updated_by_user_id = current_user.id
+            record.visibility_updated_at = report_metadata._utcnow()
+            record.visibility_admin_override = bool(is_admin and not is_owner)
+            db.flush()
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=current_user.tenant_id,
+                actor_user_id=current_user.id,
+                action="report.visibility.updated",
+                resource_type="report",
+                resource_id=record.id,
+                metadata={
+                    "old_visibility": old_visibility,
+                    "new_visibility": new_visibility,
+                    "owner_user_id": record.owner_user_id,
+                    "admin_override": record.visibility_admin_override,
+                },
+                request=request,
+            )
+            payload = report_metadata.serialize_report_summary(record)
+            db.commit()
+            return payload
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc

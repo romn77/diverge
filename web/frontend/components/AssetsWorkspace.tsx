@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { MetricCard } from "@/components/workbench/MetricCard";
 import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -53,7 +55,6 @@ type AssetDraft = {
 };
 
 const DEFAULT_BASE_CURRENCY = "USD";
-const HERO_ACTION_BUTTON_CLASS = "h-10 min-w-[8.75rem] px-4 text-sm";
 const HERO_CURRENCY_CONTROL_CLASS =
   "inline-flex h-10 min-w-[8.75rem] items-center justify-between gap-3 whitespace-nowrap rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600 shadow-[var(--button-secondary-shadow)]";
 const HERO_CURRENCY_INPUT_CLASS =
@@ -159,6 +160,7 @@ function flattenPositions(summary: AssetSummaryPayload | null): AssetPositionRec
 
 export function AssetsWorkspace() {
   const { t } = usePreferences();
+  const { setTopbarActions } = useWorkbenchChrome();
   const [baseCurrency, setBaseCurrency] = useState(DEFAULT_BASE_CURRENCY);
   const [summary, setSummary] = useState<AssetSummaryPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -196,11 +198,11 @@ export function AssetsWorkspace() {
   const flatPositions = useMemo(() => flattenPositions(summary), [summary]);
   const notAvailableLabel = t("common.notAvailable", "N/A");
 
-  const openCreateDialog = () => {
+  const openCreateDialog = useCallback(() => {
     setEditingPositionId(null);
     setDraft(buildEmptyDraft());
     setDialogOpen(true);
-  };
+  }, []);
 
   const openEditDialog = async (positionId: string) => {
     setSubmitting(true);
@@ -298,7 +300,7 @@ export function AssetsWorkspace() {
     }
   };
 
-  const handleRefreshAll = async (force: boolean) => {
+  const handleRefreshAll = useCallback(async (force: boolean) => {
     setSubmitting(true);
     setError(null);
     try {
@@ -316,10 +318,42 @@ export function AssetsWorkspace() {
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [baseCurrency, loadSummary, t]);
+
+  const topbarActions = useMemo(
+    () => (
+      <>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={submitting}
+          onClick={() => void handleRefreshAll(false)}
+          className="workbench-topbar-secondary"
+        >
+          <RefreshCw className="size-4" aria-hidden="true" />
+          {t("assets.refreshDue", "Refresh Due")}
+        </Button>
+        <Button
+          type="button"
+          disabled={submitting}
+          onClick={openCreateDialog}
+          className="workbench-topbar-new"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          {t("assets.addAsset", "Add Asset")}
+        </Button>
+      </>
+    ),
+    [handleRefreshAll, openCreateDialog, submitting, t]
+  );
+
+  useEffect(() => {
+    setTopbarActions(topbarActions);
+    return () => setTopbarActions(null);
+  }, [setTopbarActions, topbarActions]);
 
   return (
-    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+    <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-6">
         {error ? (
           <section className="rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-5 py-4 text-sm text-[var(--danger)]">
@@ -329,42 +363,17 @@ export function AssetsWorkspace() {
         <PageHeader
           eyebrow={t("sidebar.nav.assets", "Assets")}
           title={t("assets.title", "Portfolio ledger")}
-          description={t(
-            "assets.description",
-            "View accounts, holdings, and asset exposure."
-          )}
           actions={
-            <>
-              <label className={HERO_CURRENCY_CONTROL_CLASS}>
-                <span>{t("assets.base", "Base")}</span>
-                <Input
-                  type="text"
-                  value={baseCurrency}
-                  onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
-                  aria-label={t("assets.base", "Base")}
-                  className={HERO_CURRENCY_INPUT_CLASS}
-                />
-              </label>
-              <Button
-                type="button"
-                variant="secondary"
-                disabled={submitting}
-                onClick={() => void handleRefreshAll(false)}
-                className={HERO_ACTION_BUTTON_CLASS}
-              >
-                <RefreshCw className="size-4" aria-hidden="true" />
-                {t("assets.refreshDue", "Refresh Due")}
-              </Button>
-              <Button
-                type="button"
-                disabled={submitting}
-                onClick={openCreateDialog}
-                className={HERO_ACTION_BUTTON_CLASS}
-              >
-                <Plus className="size-4" aria-hidden="true" />
-                {t("assets.addAsset", "Add Asset")}
-              </Button>
-            </>
+            <label className={HERO_CURRENCY_CONTROL_CLASS}>
+              <span>{t("assets.base", "Base")}</span>
+              <Input
+                type="text"
+                value={baseCurrency}
+                onChange={(event) => setBaseCurrency(event.target.value.toUpperCase())}
+                aria-label={t("assets.base", "Base")}
+                className={HERO_CURRENCY_INPUT_CLASS}
+              />
+            </label>
           }
         >
           <div className="grid gap-4 md:grid-cols-4">
@@ -420,8 +429,17 @@ export function AssetsWorkspace() {
             </div>
 
             {loading ? (
-              <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                {t("assets.loadingSummary", "Loading asset summary...")}
+              <div
+                className="mt-5 space-y-3"
+                role="status"
+                aria-busy="true"
+                aria-live="polite"
+              >
+                <span className="sr-only">
+                  {t("assets.loadingSummary", "Loading asset summary...")}
+                </span>
+                <Skeleton className="h-24 w-full rounded-[24px]" />
+                <Skeleton className="h-24 w-full rounded-[24px]" />
               </div>
             ) : !summary || summary.groups.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
@@ -464,11 +482,11 @@ export function AssetsWorkspace() {
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-4 divide-y divide-[var(--border)]">
                       {group.accounts.map((account) => (
                         <div
                           key={account.account_id}
-                          className="rounded-[20px] border border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4"
+                          className="pt-4 first:pt-0"
                         >
                           <div className="flex items-center justify-between gap-3">
                             <div>
@@ -503,11 +521,11 @@ export function AssetsWorkspace() {
                             </div>
                           </div>
 
-                          <div className="mt-4 space-y-2">
+                          <div className="mt-3 divide-y divide-[color:rgba(28,36,48,0.06)]">
                             {account.positions.map((position) => (
                               <div
                                 key={position.id}
-                                className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[var(--border)] bg-white px-3 py-3"
+                                className="flex flex-wrap items-center justify-between gap-3 px-2 py-3 first:pt-0 transition hover:bg-[var(--surface-strong)]"
                               >
                                 <div className="min-w-0">
                                   <p className="truncate text-sm font-semibold text-slate-900">

@@ -35,6 +35,20 @@ COS_BUCKET=<private-bucket-name>
 COS_PREFIX=diverge/prod
 ```
 
+Use `DATA_DIR` as the single standard data path. Reports, screener state/cache,
+history, fundamentals, and manifests are derived from that root. Keep screener
+manifests in the standard data layout:
+
+```text
+DATA_DIR/manifest/cn.csv
+DATA_DIR/manifest/us.csv
+```
+
+CN screening can fall back to the configured CN source chain when `cn.csv` is absent.
+US screening requires `DATA_DIR/manifest/us.csv`. `SCREEN_CN_MANIFEST_PATH` and
+`SCREEN_US_MANIFEST_PATH` are still accepted for compatibility, but production
+deployments should configure `DATA_DIR` only.
+
 Put TLS files at:
 
 ```text

@@ -33,7 +33,9 @@ def _normalize_market(market: str) -> str:
     return str(market or "").strip().lower()
 
 
-def _select_target_rows(frame: pd.DataFrame, *, symbol: str, market: str) -> pd.DataFrame:
+def _select_target_rows(
+    frame: pd.DataFrame, *, symbol: str, market: str
+) -> pd.DataFrame:
     if frame is None or frame.empty:
         return pd.DataFrame(columns=getattr(frame, "columns", []))
 
@@ -88,7 +90,9 @@ def debug_screen_symbol(
     )
     target_prefilter_drop = _row_dict(target_prefilter_drop_df)
     if target_prefilter_drop is not None:
-        result.prefilter_drop_reason = str(target_prefilter_drop.get("drop_reason") or "")
+        result.prefilter_drop_reason = str(
+            target_prefilter_drop.get("drop_reason") or ""
+        )
         return result
 
     target_prefiltered_df = _select_target_rows(
@@ -113,10 +117,14 @@ def debug_screen_symbol(
     )
     target_fetch_failure = _row_dict(target_fetch_failure_df)
     if target_fetch_failure is not None:
-        result.fetch_drop_reason = str(target_fetch_failure.get("drop_reason") or "fetch_failed")
+        result.fetch_drop_reason = str(
+            target_fetch_failure.get("drop_reason") or "fetch_failed"
+        )
         return result
 
-    history_df = evaluation_stage.histories.get(str(target_prefiltered_df.iloc[0]["symbol"]))
+    history_df = evaluation_stage.histories.get(
+        str(target_prefiltered_df.iloc[0]["symbol"])
+    )
     if history_df is None or history_df.empty:
         result.fetch_drop_reason = "fetch_failed"
         return result

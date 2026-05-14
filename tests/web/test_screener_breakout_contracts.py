@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pandas as pd
 from fastapi import HTTPException
 
-from diverge.screener.history_cache import save_history_cache
+from diverge.market_data.history_cache import save_history_cache
 from diverge.screener.schema import ScreenRunConfig
 from web.backend import app_config, screener_results
 from web.backend.routers import screeners as screeners_router
@@ -69,7 +69,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         rows = ["symbol,name,exchange,sector,list_date,mktcap"]
         for symbol in symbols:
             exchange = "SSE" if symbol.endswith(".SH") else "SZSE"
-            rows.append(f"{symbol},Name {symbol},{exchange},Consumer,20200101,100000000")
+            rows.append(
+                f"{symbol},Name {symbol},{exchange},Consumer,20200101,100000000"
+            )
         manifest_path.write_text("\n".join(rows) + "\n", encoding="utf-8")
         return manifest_path
 
@@ -96,7 +98,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
             )
         return history_dir
 
-    def _cn_cache_only_config(self, *, manifest_path: Path, history_dir: Path) -> ScreenRunConfig:
+    def _cn_cache_only_config(
+        self, *, manifest_path: Path, history_dir: Path
+    ) -> ScreenRunConfig:
         return ScreenRunConfig(
             markets=["cn"],
             as_of_date="2026-03-24",
@@ -108,7 +112,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
             cn_manifest_path=str(manifest_path),
         )
 
-    def test_screener_config_options_expose_breakout_choices_and_default_selection(self):
+    def test_screener_config_options_expose_breakout_choices_and_default_selection(
+        self,
+    ):
         payload = config_service.get_screener_config_options_payload()
 
         self.assertEqual(
@@ -133,6 +139,10 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
                 create=True,
             ),
             patch("web.backend.runtime.screener_tasks.start_screener_task_thread"),
+            patch(
+                "web.backend.runtime.data_sync_tasks.resolve_latest_ready_trading_day",
+                return_value=date(2026, 3, 24),
+            ),
             patch("web.backend.routers.screeners.date") as date_module,
         ):
             date_module.today.return_value = date(2026, 3, 24)
@@ -151,7 +161,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         )
         self.assertEqual(task.request_payload["as_of_date"], "2026-03-24")
 
-    def test_create_screener_task_defaults_to_previous_cn_trading_day_before_vendor_cutoff(self):
+    def test_create_screener_task_defaults_to_previous_cn_trading_day_before_vendor_cutoff(
+        self,
+    ):
         payload = {
             "markets": ["cn"],
             "top_k": 20,
@@ -161,7 +173,10 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
             patch("web.backend.access.require_screener_user", return_value=None),
             patch(
                 "web.backend.routers.screeners.resolve_screener_data_sources",
-                return_value={"cn_data_source": "tushare", "cn_data_source_fallbacks": []},
+                return_value={
+                    "cn_data_source": "tushare",
+                    "cn_data_source_fallbacks": [],
+                },
             ),
             patch(
                 "web.backend.runtime.data_sync_tasks._now_for_vendor_timezone",
@@ -237,7 +252,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
                 side_effect=HTTPException(status_code=409, detail=detail),
                 create=True,
             ) as ensure_cache,
-            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_thread,
+            patch(
+                "web.backend.runtime.screener_tasks.start_screener_task_thread"
+            ) as start_thread,
         ):
             body = screeners_router.create_screener_task(
                 ScreenTaskCreatePayload(**payload)
@@ -266,11 +283,15 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
                 "web.backend.services.screeners.ensure_screener_cache_coverage",
                 create=True,
             ),
-            patch("web.backend.runtime.screener_tasks.start_screener_task_thread") as start_thread,
+            patch(
+                "web.backend.runtime.screener_tasks.start_screener_task_thread"
+            ) as start_thread,
             patch("web.backend.routers.screeners.date") as date_module,
         ):
             date_module.today.return_value = date(2026, 3, 24)
-            first = screeners_router.create_screener_task(ScreenTaskCreatePayload(**payload))
+            first = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
             first_task = screener_tasks.screener_tasks[first["task_id"]]
             key = first_task.request_payload["screener_key"]
             cached_state = screener_results.ScreenerResultState(
@@ -296,7 +317,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
             )
             screener_results.save_screener_result_state(cached_state)
 
-            second = screeners_router.create_screener_task(ScreenTaskCreatePayload(**payload))
+            second = screeners_router.create_screener_task(
+                ScreenTaskCreatePayload(**payload)
+            )
 
         self.assertEqual(second["status"], "completed")
         self.assertEqual(second["run_id"], "cached-run-001")
@@ -306,7 +329,9 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
         self.assertEqual(second_task.status, "completed")
         self.assertEqual(second_task.run_id, "cached-run-001")
 
-    def test_screener_cache_preflight_rejects_when_all_history_cache_is_missing_as_of_bar(self):
+    def test_screener_cache_preflight_rejects_when_all_history_cache_is_missing_as_of_bar(
+        self,
+    ):
         config = self._cn_cache_only_config(
             manifest_path=self._write_cn_manifest(),
             history_dir=self._save_single_cn_history_bar("2026-03-23"),
@@ -371,8 +396,13 @@ class ScreenerBreakoutContractTests(unittest.TestCase):
 
             with (
                 patch.object(app_config, "SCREENER_RESULTS_DIR", runs_dir),
-                patch.object(app_config, "SCREENER_STATE_DIR", Path(temp_dir) / "state"),
-                patch("web.backend.auth.get_auth_settings", return_value=SimpleNamespace(enabled=False)),
+                patch.object(
+                    app_config, "SCREENER_STATE_DIR", Path(temp_dir) / "state"
+                ),
+                patch(
+                    "web.backend.auth.get_auth_settings",
+                    return_value=SimpleNamespace(enabled=False),
+                ),
             ):
                 screener_results.migrate_legacy_screener_results(force=True)
                 rows = screener_service.get_screener_run_candidates(run_id)

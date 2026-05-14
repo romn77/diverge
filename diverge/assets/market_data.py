@@ -45,7 +45,9 @@ class PriceQuote:
 class MarketDataClient:
     vendor = "yfinance"
 
-    def search_symbols(self, query: str, asset_category: str, limit: int = 5) -> list[SymbolCandidate]:
+    def search_symbols(
+        self, query: str, asset_category: str, limit: int = 5
+    ) -> list[SymbolCandidate]:
         normalized_category = asset_category.strip().lower()
         if normalized_category in _MANUAL_ONLY_CATEGORIES:
             return []
@@ -64,7 +66,9 @@ class MarketDataClient:
         allowed_quote_types = _CATEGORY_TO_QUOTE_TYPES.get(normalized_category)
         candidates: list[SymbolCandidate] = []
         for item in quotes:
-            quote_type = (item.get("quoteType") or item.get("typeDisp") or "").upper() or None
+            quote_type = (
+                item.get("quoteType") or item.get("typeDisp") or ""
+            ).upper() or None
             if allowed_quote_types and quote_type not in allowed_quote_types:
                 continue
             ticker = item.get("symbol")

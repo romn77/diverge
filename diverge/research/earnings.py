@@ -53,7 +53,10 @@ def build_earnings_workflow_context(
     if earnings_day and trade_day and trade_day >= earnings_day:
         reported_revenue = _string_or_none(event.get("reported_revenue")) or "N/A"
         reported_eps = _string_or_none(event.get("reported_eps")) or "N/A"
-        guidance_change = _string_or_none(event.get("guidance_change")) or "No explicit guidance update supplied."
+        guidance_change = (
+            _string_or_none(event.get("guidance_change"))
+            or "No explicit guidance update supplied."
+        )
         return EarningsWorkflowContext(
             mode="review",
             prompt_instruction="\n".join(

@@ -117,6 +117,36 @@ test("ReportViewer lets the top overview panel collapse above the report body", 
   assert.match(source, /!\s*isOverviewCollapsed && \(/);
 });
 
+test("ReportViewer exposes authorized report visibility changes", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /updateReportVisibility/);
+  assert.match(source, /type ReportVisibility/);
+  assert.match(source, /canUpdateVisibility/);
+  assert.match(source, /visibility_admin_override/);
+  assert.match(source, /home\.visibility\.change/);
+  assert.match(source, /role="switch"/);
+  assert.match(source, /aria-checked=\{isWorkspaceVisible\}/);
+  assert.match(source, /report-visibility-switch/);
+  assert.match(source, /onClick=\{\(\) => void handleVisibilityChange\(nextVisibility\)\}/);
+  assert.doesNotMatch(source, /<select/);
+  assert.doesNotMatch(source, /<option value="workspace"/);
+});
+
+test("ReportViewer loads and renders decision_card artifacts before complete markdown", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /fetchDecisionCard/);
+  assert.match(source, /fetchDecisionDelta/);
+  assert.match(source, /artifact\.type\.toLowerCase\(\) === "decision_card"/);
+  assert.match(source, /artifact\.type\.toLowerCase\(\) === "decision_delta"/);
+  assert.match(source, /<DecisionCardView card=\{decisionCard\} delta=\{decisionDelta\}/);
+  assert.match(source, /<DecisionCardSkeleton/);
+  assert.match(source, /decision-raw-details/);
+  assert.match(source, /formatDecisionCardJson\(decisionCard, decisionDelta\)/);
+  assert.match(source, /decisionCard \|\| isDecisionCardLoading \? "off" : "single"/);
+});
+
 test("ReportViewer keeps tab changes smooth by caching report content instead of blanking the body", () => {
   const source = readFileSync(reportViewerPath, "utf8");
   const handleStart = source.indexOf("const handleTabChange = useCallback");

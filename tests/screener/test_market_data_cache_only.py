@@ -21,7 +21,9 @@ def test_fetch_history_for_universe_cache_only_does_not_call_external_vendor(tmp
         ]
     )
 
-    with patch("diverge.screener.market_data.fetch_price_history") as fetch_price_history:
+    with patch(
+        "diverge.screener.market_data.fetch_price_history"
+    ) as fetch_price_history:
         histories, failures = fetch_history_for_universe(
             universe,
             "2026-04-28",

@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
+import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export function TradeJournal({
   sidebarOpen = false,
 }: TradeJournalProps) {
   const { locale, t } = usePreferences();
+  const { setTopbarActions } = useWorkbenchChrome();
   const [trades, setTrades] = useState<TradeRecord[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
   const [tradeDetail, setTradeDetail] = useState<TradeDetail | null>(null);
@@ -410,12 +412,6 @@ export function TradeJournal({
     ? `${tradeDetail.reviews.length}/2 reviews`
     : "0/2 reviews";
   const sameTickerFeedbackReviews = feedback?.reviews ?? [];
-  const currentTradeFeedbackReviews =
-    tradeDetail
-      ? sameTickerFeedbackReviews.filter(
-          (review) => review.trade_id === tradeDetail.record.trade_id
-        )
-      : [];
   const selectionSummaryCards = useMemo(() => {
     if (!tradeDetail) {
       return [];
@@ -425,12 +421,10 @@ export function TradeJournal({
       {
         label: "Trade Health",
         value: localizeTradeValue(tradeDetail.record.status, t),
-        hint: `${localizeTradeValue(tradeDetail.record.side, t)} · ${tradeDetail.record.market.toUpperCase()}`,
       },
       {
         label: "Review Coverage",
         value: reviewCoverageLabel,
-        hint: `${tradeDetail.record.analysis_references.length} linked snapshots`,
       },
       {
         label: "Feedback Loop",
@@ -438,14 +432,9 @@ export function TradeJournal({
           sameTickerFeedbackReviews.length > 0
             ? t("journal.feedbackReady", "Ready")
             : t("journal.feedbackBuilding", "Building"),
-        hint:
-          sameTickerFeedbackReviews.length > 0
-            ? `${sameTickerFeedbackReviews.length} same-ticker saved examples; ${currentTradeFeedbackReviews.length} on this trade`
-            : "Save at least one review to seed future context",
       },
     ];
   }, [
-    currentTradeFeedbackReviews.length,
     reviewCoverageLabel,
     sameTickerFeedbackReviews.length,
     t,
@@ -512,9 +501,27 @@ export function TradeJournal({
       });
   };
 
+  const topbarActions = useMemo(
+    () => (
+      <Button
+        type="button"
+        className="workbench-topbar-new"
+        onClick={() => setShowCreateTrade(true)}
+      >
+        {t("journal.recordTrade", "Record Trade")}
+      </Button>
+    ),
+    [t]
+  );
+
+  useEffect(() => {
+    setTopbarActions(topbarActions);
+    return () => setTopbarActions(null);
+  }, [setTopbarActions, topbarActions]);
+
   return (
     <>
-      <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+      <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
         <div className="workbench-content-frame flex flex-col gap-6">
           <PageHeader
             eyebrow={t("sidebar.tradeJournal", "Trade Journal")}
@@ -523,8 +530,7 @@ export function TradeJournal({
               "Record trades, separate entry and exit reviews, and preview future same-ticker feedback"
             )}
             actions={
-              <>
-                {onOpenSidebar ? (
+              onOpenSidebar ? (
                   <Button
                     type="button"
                     variant={sidebarOpen ? "default" : "secondary"}
@@ -537,11 +543,7 @@ export function TradeJournal({
                   >
                     {t("common.menu", "Menu")}
                   </Button>
-                ) : null}
-                <Button type="button" onClick={() => setShowCreateTrade(true)}>
-                  {t("journal.recordTrade", "Record Trade")}
-                </Button>
-              </>
+              ) : null
             }
           >
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_180px_180px]">
@@ -604,26 +606,14 @@ export function TradeJournal({
               <SummaryCard
                 label={t("journal.summary.totalRecords", "Total Records")}
                 value={String(trades.length)}
-                hint={t(
-                  "journal.summary.totalHint",
-                  "Hand-entered trades saved against the backend schema"
-                )}
               />
               <SummaryCard
                 label={t("journal.summary.openStatus", "Open Status")}
                 value={String(openTrades.length)}
-                hint={t(
-                  "journal.summary.openHint",
-                  "Trades still marked open in the manual journal"
-                )}
               />
               <SummaryCard
                 label={t("journal.summary.visible", "Visible in Filter")}
                 value={String(filteredTrades.length)}
-                hint={t(
-                  "journal.summary.visibleHint",
-                  "History filtered by ticker, status, and activity window"
-                )}
               />
             </div>
           </PageHeader>
@@ -955,33 +945,35 @@ export function TradeJournal({
                           key={card.label}
                           label={card.label}
                           value={card.value}
-                          hint={card.hint}
                         />
                       ))}
                     </div>
 
                     <TickerPricePanel
                       symbol={tradeDetail.record.canonical_symbol ?? tradeDetail.record.ticker}
-                      market={tradeDetail.record.market}
+                      market={normalizeMarketForHistory(tradeDetail.record.market)}
                       title={t("journal.priceTrend", "Price Trend")}
-                      subtitle={t(
-                        "journal.priceTrendHint",
-                        "1000-day vendor-backed history for the selected trade ticker."
-                      )}
                     />
 
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                       <MetaCard
                         label={t("journal.marketExchange", "Market / Exchange")}
-                        value={`${tradeDetail.record.market.toUpperCase()}${tradeDetail.record.exchange ? ` · ${tradeDetail.record.exchange}` : ""}`}
+                        value={formatTradeMarketExchangeLabel(tradeDetail.record)}
                       />
                       <MetaCard
                         label={t("journal.strategyTags", "Strategy Tags")}
-                        value={tradeDetail.record.strategy_tags.join(", ")}
+                        value={formatStrategyTags(
+                          tradeDetail.record.strategy_tags,
+                          t("common.notSet", "Not set"),
+                          t
+                        )}
                       />
                       <MetaCard
                         label={t("journal.plannedHorizon", "Planned Horizon")}
-                        value={tradeDetail.record.planned_horizon}
+                        value={t(
+                          `tradeRecord.plannedHorizon.${tradeDetail.record.planned_horizon}`,
+                          tradeDetail.record.planned_horizon.replaceAll("_", " ")
+                        )}
                       />
                       <MetaCard
                         label={t("journal.size", "Size")}
@@ -1084,7 +1076,10 @@ export function TradeJournal({
                           {t("journal.planExecution", "Plan Execution")}
                         </p>
                         <p className="mt-3 text-sm leading-7 text-slate-700">
-                          {tradeDetail.record.plan_execution.replaceAll("_", " ")}
+                          {t(
+                            `tradeRecord.planExecution.${tradeDetail.record.plan_execution}`,
+                            tradeDetail.record.plan_execution.replaceAll("_", " ")
+                          )}
                         </p>
                       </section>
                     </div>
@@ -1338,11 +1333,9 @@ export function TradeJournal({
 function SummaryCard({
   label,
   value,
-  hint,
 }: {
   label: string;
   value: string;
-  hint: string;
 }) {
   return (
     <div className="rounded-[28px] border border-[var(--border)] bg-white/90 px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
@@ -1350,7 +1343,6 @@ function SummaryCard({
         {label}
       </p>
       <p className="mt-3 text-3xl font-semibold text-slate-900">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p>
     </div>
   );
 }
@@ -1373,11 +1365,9 @@ function MetaCard({
 function DetailMetric({
   label,
   value,
-  hint,
 }: {
   label: string;
   value: string;
-  hint: string;
 }) {
   return (
     <div className="rounded-[26px] border border-[var(--border)] bg-white/90 px-5 py-5 shadow-[0_18px_36px_rgba(18,28,41,0.05)]">
@@ -1385,7 +1375,6 @@ function DetailMetric({
         {label}
       </p>
       <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{hint}</p>
     </div>
   );
 }
@@ -1834,6 +1823,18 @@ function formatPercent(value: number | null, locale: string, notSetLabel: string
   }).format(value)}%`;
 }
 
+function formatStrategyTags(
+  values: string[],
+  notSetLabel: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return values.length > 0
+    ? values
+        .map((value) => t(`tradeRecord.strategy.${value}`, value.replaceAll("_", " ")))
+        .join(", ")
+    : notSetLabel;
+}
+
 function formatDateTime(value: string | null, locale: string, notSetLabel: string): string {
   if (!value) {
     return notSetLabel;
@@ -1870,6 +1871,36 @@ function localizeTradeValue(
     return t(`trade.status.${statusKey}`, value);
   }
   return value;
+}
+
+function normalizeMarketForHistory(value: string | null | undefined): string | null {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized || normalized === "unknown") {
+    return null;
+  }
+  return normalized;
+}
+
+function formatMarketLabel(
+  market: string | null | undefined,
+  exchangeOrMarket?: string | null
+): string {
+  const normalizedMarket = market?.trim();
+  if (normalizedMarket) {
+    return normalizedMarket.toUpperCase();
+  }
+
+  const fallback = exchangeOrMarket?.trim();
+  return fallback ? fallback.toUpperCase() : "UNKNOWN";
+}
+
+function formatTradeMarketExchangeLabel(record: TradeRecord): string {
+  const marketLabel = formatMarketLabel(record.market, record.exchange_or_market);
+  const exchange = record.exchange?.trim();
+  if (!exchange || exchange.toUpperCase() === marketLabel) {
+    return marketLabel;
+  }
+  return `${marketLabel} · ${exchange}`;
 }
 
 function compactTickerLabel(value: string): string {

@@ -7,8 +7,22 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from diverge.dataflows import vendor_usage
-from web.backend import access, analysis_limits, audit, auth, data_sources, job_records, llm_models
-from web.backend.runtime import analysis_tasks, data_sync_tasks, screener_tasks, task_store
+from web.backend import (
+    access,
+    analysis_limits,
+    audit,
+    auth,
+    data_sources,
+    job_records,
+    llm_models,
+    search_quota,
+)
+from web.backend.runtime import (
+    analysis_tasks,
+    data_sync_tasks,
+    screener_tasks,
+    task_store,
+)
 from web.backend.schemas.admin import (
     AdminAnalysisLimitsUpdatePayload,
     AdminDataSourceRouteUpdatePayload,
@@ -18,9 +32,12 @@ from web.backend.schemas.admin import (
     AdminLLMProfileRoutesUpdatePayload,
     AdminLLMProfileUpdatePayload,
     AdminLLMProviderUpdatePayload,
+    AdminLLMUiSettingUpdatePayload,
     AdminUserCreatePayload,
     AdminUserResetPasswordPayload,
     AdminUserUpdatePayload,
+    SearchGlobalUpdatePayload,
+    SearchProviderUpdatePayload,
 )
 
 logger = logging.getLogger(__name__)
@@ -43,7 +60,9 @@ def _parse_datetime_filter(value: str | None) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
-def _require_admin_permission(request: Request | None, permission: str) -> auth.User | None:
+def _require_admin_permission(
+    request: Request | None, permission: str
+) -> auth.User | None:
     if request is None or not auth.auth_enabled():
         return None
     with auth.db_session() as db:
@@ -134,11 +153,31 @@ def _queue_position(kind: str, task_id: str, payload: dict) -> int | None:
     return value if isinstance(value, int) else None
 
 
+def _runtime_task_present(kind: str, task_id: str) -> bool:
+    if kind not in task_store.TASK_KINDS:
+        return False
+    try:
+        if task_store.redis_task_backend_enabled():
+            return task_store.get_task_store().get_task(kind, task_id) is not None
+        if kind == "analysis":
+            analysis_tasks.get_task(task_id)
+        elif kind == "screener":
+            screener_tasks.get_screener_task(task_id)
+        else:
+            data_sync_tasks.get_data_sync_task(task_id)
+        return True
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return False
+        raise
+
+
 def _serialize_queue_item(
     *,
     kind: str,
     payload: dict,
     user_lookup: dict[str, dict],
+    runtime_present: bool = True,
 ) -> dict:
     task_id = str(payload.get("id") or "")
     status = _normalize_queue_status(payload.get("status"))
@@ -169,6 +208,8 @@ def _serialize_queue_item(
         "blocked_vendor": payload.get("blocked_vendor"),
         "blocked_until": payload.get("blocked_until"),
         "detail_path": detail_path,
+        "runtime_present": runtime_present,
+        "stale": not runtime_present,
     }
 
 
@@ -195,7 +236,9 @@ def _queue_sort_key(item: dict) -> tuple[int, int, str, str]:
 def list_admin_task_queue(request: Request = None) -> dict:
     actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
     try:
-        user_lookup = _load_admin_user_lookup(actor.tenant_id if actor is not None else None)
+        user_lookup = _load_admin_user_lookup(
+            actor.tenant_id if actor is not None else None
+        )
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
 
@@ -210,17 +253,23 @@ def list_admin_task_queue(request: Request = None) -> dict:
             status = _normalize_queue_status(payload.get("status"))
             if status not in task_store.ACTIVE_STATUSES:
                 continue
+            runtime_present = True
+            if job_records.database_backed_job_records_enabled():
+                runtime_present = _runtime_task_present(kind, str(payload.get("id") or ""))
             items.append(
                 _serialize_queue_item(
                     kind=kind,
                     payload=payload,
                     user_lookup=user_lookup,
+                    runtime_present=runtime_present,
                 )
             )
     items.sort(key=_queue_sort_key)
     totals = {
         "active": len(items),
-        "queued": sum(1 for item in items if item["status"] in task_store.QUEUED_STATUSES),
+        "queued": sum(
+            1 for item in items if item["status"] in task_store.QUEUED_STATUSES
+        ),
         "running": sum(1 for item in items if item["status"] == "running"),
         "waiting_for_quota": sum(
             1 for item in items if item["status"] == "waiting_for_quota"
@@ -232,6 +281,39 @@ def list_admin_task_queue(request: Request = None) -> dict:
         "totals": totals,
         "tasks": items,
     }
+
+
+@router.delete("/api/admin/task-queue/{kind}/{task_id}")
+def delete_admin_task_queue_item(
+    kind: str,
+    task_id: str,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    if kind not in task_store.TASK_KINDS:
+        raise HTTPException(status_code=404, detail="Task queue item not found")
+
+    runtime_present = _runtime_task_present(kind, task_id)
+    if runtime_present:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Task still exists in the runtime queue. Cancel live work before "
+                "removing queue records."
+            ),
+        )
+
+    if job_records.database_backed_job_records_enabled():
+        tenant_id = actor.tenant_id if actor is not None else None
+        deleted = job_records.delete_job_record(
+            task_id,
+            kind=kind,
+            tenant_id=tenant_id,
+        )
+        if deleted:
+            return {"deleted": True, "kind": kind, "task_id": task_id}
+
+    raise HTTPException(status_code=404, detail="Task queue item not found")
 
 
 @router.get("/api/admin/audit-events")
@@ -246,7 +328,9 @@ def list_admin_audit_events(
 ) -> dict:
     try:
         with auth.db_session() as db:
-            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_AUDIT)
+            actor = _require_db_admin_permission(
+                db, request, auth.PERMISSION_ADMIN_AUDIT
+            )
             if actor is None:
                 return {"events": []}
             events = audit.list_audit_events(
@@ -268,7 +352,9 @@ def list_admin_audit_events(
 def list_admin_users(request: Request = None) -> list[dict]:
     try:
         with auth.db_session() as db:
-            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_USERS)
+            actor = _require_db_admin_permission(
+                db, request, auth.PERMISSION_ADMIN_USERS
+            )
             users = auth.list_users(
                 db,
                 tenant_id=actor.tenant_id if actor is not None else None,
@@ -417,6 +503,159 @@ def update_admin_data_source_route(
     return {"route": route}
 
 
+@router.get("/api/admin/search-quota")
+def list_admin_search_quota(request: Request = None) -> dict:
+    try:
+        with auth.db_session() as db:
+            _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_SETTINGS)
+            return search_quota.get_search_quota_summary(db)
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+
+@router.put("/api/admin/search-quota/global")
+def update_admin_search_global(
+    payload: SearchGlobalUpdatePayload,
+    request: Request = None,
+) -> dict:
+    try:
+        with auth.db_session() as db:
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_SETTINGS,
+            )
+            global_config = search_quota.update_global_config(db, payload.enabled)
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.search.global_updated",
+                    resource_type="search_quota",
+                    resource_id="global",
+                    metadata={"enabled": global_config["enabled"]},
+                    request=request,
+                )
+            return {"global": global_config}
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+
+@router.put("/api/admin/search-quota/providers/{provider}")
+def update_admin_search_provider(
+    provider: str,
+    payload: SearchProviderUpdatePayload,
+    request: Request = None,
+) -> dict:
+    try:
+        with auth.db_session() as db:
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_SETTINGS,
+            )
+            provider_config = search_quota.update_provider_config(
+                db,
+                provider,
+                payload.model_dump(exclude_unset=True),
+            )
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.search.provider_updated",
+                    resource_type="search_provider",
+                    resource_id=provider_config["provider"],
+                    metadata={
+                        "enabled": provider_config["enabled"],
+                        "monthly_free_quota": provider_config["monthly_free_quota"],
+                        "monthly_hard_cap": provider_config["monthly_hard_cap"],
+                    },
+                    request=request,
+                )
+            return {"provider": provider_config}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+
+@router.post("/api/admin/search-quota/providers/{provider}/reactivate")
+def reactivate_admin_search_provider(
+    provider: str,
+    request: Request = None,
+) -> dict:
+    try:
+        with auth.db_session() as db:
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_SETTINGS,
+            )
+            provider_config = search_quota.reactivate_provider(db, provider)
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.search.provider_reactivated",
+                    resource_type="search_provider",
+                    resource_id=provider_config["provider"],
+                    metadata={"enabled": provider_config["enabled"]},
+                    request=request,
+                )
+            return {"provider": provider_config}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+
+@router.post("/api/admin/search-quota/providers/{provider}/usage/reset")
+def reset_admin_search_provider_usage(
+    provider: str,
+    request: Request = None,
+) -> dict:
+    try:
+        with auth.db_session() as db:
+            actor = _require_db_admin_permission(
+                db,
+                request,
+                auth.PERMISSION_ADMIN_SETTINGS,
+            )
+            normalized_provider = search_quota._normalize_provider(provider)
+            reset_count = search_quota.reset_provider_month_usage(
+                db, normalized_provider
+            )
+            summary = search_quota.get_search_quota_summary(db)
+            provider_config = next(
+                item
+                for item in summary["providers"]
+                if item["provider"] == normalized_provider
+            )
+            if actor is not None:
+                audit.record_audit_event_safely(
+                    db,
+                    tenant_id=actor.tenant_id,
+                    actor_user_id=actor.id,
+                    action="admin.search.provider_usage_reset",
+                    resource_type="search_provider_usage",
+                    resource_id=normalized_provider,
+                    metadata={
+                        "reset_count": reset_count,
+                        "usage_month": summary["month"],
+                    },
+                    request=request,
+                )
+            return {"provider": provider_config, "reset_count": reset_count}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+
 @router.get("/api/admin/llm-models")
 def list_admin_llm_models(request: Request = None) -> dict:
     _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
@@ -449,7 +688,10 @@ def update_admin_llm_provider(
                 action="admin.llm_provider.updated",
                 resource_type="llm_provider",
                 resource_id=source["provider"],
-                metadata={"enabled": source["enabled"], "api_key_env": source["api_key_env"]},
+                metadata={
+                    "enabled": source["enabled"],
+                    "api_key_env": source["api_key_env"],
+                },
                 request=request,
             )
     return {"provider": source}
@@ -587,11 +829,42 @@ def update_admin_llm_module_setting(
     return {"setting": setting}
 
 
+@router.put("/api/admin/llm-models/ui-settings/{setting_key}")
+def update_admin_llm_ui_setting(
+    setting_key: str,
+    payload: AdminLLMUiSettingUpdatePayload,
+    request: Request = None,
+) -> dict:
+    actor = _require_admin_permission(request, auth.PERMISSION_ADMIN_SETTINGS)
+    try:
+        setting = llm_models.update_ui_setting(
+            setting_key,
+            enabled=payload.enabled,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if actor is not None:
+        with auth.db_session() as db:
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=actor.tenant_id,
+                actor_user_id=actor.id,
+                action="admin.llm_ui_setting.updated",
+                resource_type="llm_ui_setting",
+                resource_id=setting["setting_key"],
+                metadata={"enabled": setting["enabled"]},
+                request=request,
+            )
+    return {"setting": setting}
+
+
 @router.get("/api/admin/users/{user_id}")
 def get_admin_user(user_id: str, request: Request = None) -> dict:
     try:
         with auth.db_session() as db:
-            actor = _require_db_admin_permission(db, request, auth.PERMISSION_ADMIN_USERS)
+            actor = _require_db_admin_permission(
+                db, request, auth.PERMISSION_ADMIN_USERS
+            )
             target = auth.get_user_by_id(db, user_id)
             _ensure_same_tenant(actor, target)
             return auth.serialize_user(target)

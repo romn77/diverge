@@ -56,9 +56,7 @@ def write_run_artifacts(
     features_df.to_csv(features_path, index=False)
     filtered_out_df.to_csv(filtered_out_path, index=False)
     resolved_pruned_symbols_df = (
-        pruned_symbols_df
-        if pruned_symbols_df is not None
-        else pd.DataFrame()
+        pruned_symbols_df if pruned_symbols_df is not None else pd.DataFrame()
     )
     resolved_pruned_symbols_df.to_csv(pruned_symbols_path, index=False)
     candidates_df.to_csv(candidates_path, index=False)
@@ -67,14 +65,30 @@ def write_run_artifacts(
         encoding="utf-8",
     )
 
-    universe_count_by_market = {
-        str(key): int(value)
-        for key, value in universe_df["market"].value_counts().sort_index().to_dict().items()
-    } if not universe_df.empty else {}
-    filtered_count_by_reason = {
-        str(key): int(value)
-        for key, value in filtered_out_df["drop_reason"].value_counts().sort_index().to_dict().items()
-    } if not filtered_out_df.empty and "drop_reason" in filtered_out_df.columns else {}
+    universe_count_by_market = (
+        {
+            str(key): int(value)
+            for key, value in universe_df["market"]
+            .value_counts()
+            .sort_index()
+            .to_dict()
+            .items()
+        }
+        if not universe_df.empty
+        else {}
+    )
+    filtered_count_by_reason = (
+        {
+            str(key): int(value)
+            for key, value in filtered_out_df["drop_reason"]
+            .value_counts()
+            .sort_index()
+            .to_dict()
+            .items()
+        }
+        if not filtered_out_df.empty and "drop_reason" in filtered_out_df.columns
+        else {}
+    )
     fetch_failed_count = int(filtered_count_by_reason.get("fetch_failed", 0))
     candidate_count = int(len(candidates_df))
 

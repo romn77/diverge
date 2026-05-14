@@ -11,3 +11,15 @@ test("WorkbenchProvider deduplicates screener runs before storing workspace stat
   assert.match(source, /function dedupeScreenerRuns/);
   assert.match(source, /setScreenerRuns\(dedupeScreenerRuns\(await listScreenerRuns\(\)\)\)/);
 });
+
+test("WorkbenchProvider only polls task queues while active tasks exist", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /function hasActiveTaskStatus/);
+  assert.match(source, /const hasActiveTasks = useMemo\(\(\) => tasks\.some\(hasActiveTaskStatus\), \[tasks\]\)/);
+  assert.match(source, /const hasActiveScreenerTasks = useMemo/);
+  assert.match(source, /const hasActiveJournalReviewTasks = useMemo/);
+  assert.match(source, /if \(!hasActiveTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshTasks\(\);/s);
+  assert.match(source, /if \(!hasActiveScreenerTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshScreenerTasks\(\);/s);
+  assert.match(source, /if \(!hasActiveJournalReviewTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshJournalReviewTasks\(\);/s);
+});

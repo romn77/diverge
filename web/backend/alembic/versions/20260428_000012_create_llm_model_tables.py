@@ -26,7 +26,12 @@ def upgrade() -> None:
         sa.Column("api_key_env", sa.String(length=128), nullable=True),
         sa.Column("daily_limit", sa.Integer(), nullable=True),
         sa.Column("hourly_limit", sa.Integer(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("provider"),
     )
 
@@ -43,10 +48,17 @@ def upgrade() -> None:
         sa.Column("visible_to_roles", sa.String(length=128), nullable=False),
         sa.Column("daily_limit", sa.Integer(), nullable=True),
         sa.Column("weekly_limit", sa.Integer(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("id"),
     )
-    op.create_index("ix_llm_model_configs_provider", "llm_model_configs", ["provider"], unique=False)
+    op.create_index(
+        "ix_llm_model_configs_provider", "llm_model_configs", ["provider"], unique=False
+    )
 
     op.create_table(
         "llm_model_profiles",
@@ -56,7 +68,12 @@ def upgrade() -> None:
         sa.Column("enabled", sa.Boolean(), nullable=False),
         sa.Column("default_for_roles", sa.String(length=128), nullable=False),
         sa.Column("sort_order", sa.Integer(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("profile_id"),
     )
 
@@ -89,7 +106,12 @@ def upgrade() -> None:
         sa.Column("hour_key", sa.String(length=13), nullable=True),
         sa.Column("hour_total_calls", sa.Integer(), nullable=False),
         sa.Column("last_called_at", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.PrimaryKeyConstraint("usage_date", "provider", "model_id", "module"),
     )
     op.create_index(
@@ -101,9 +123,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_llm_model_usage_provider_model_date", table_name="llm_model_usage")
+    op.drop_index(
+        "ix_llm_model_usage_provider_model_date", table_name="llm_model_usage"
+    )
     op.drop_table("llm_model_usage")
-    op.drop_index("ix_llm_model_profile_routes_profile", table_name="llm_model_profile_routes")
+    op.drop_index(
+        "ix_llm_model_profile_routes_profile", table_name="llm_model_profile_routes"
+    )
     op.drop_table("llm_model_profile_routes")
     op.drop_table("llm_model_profiles")
     op.drop_index("ix_llm_model_configs_provider", table_name="llm_model_configs")

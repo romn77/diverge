@@ -26,7 +26,11 @@ def _parse_datetime(value: str | datetime | None) -> datetime | None:
     if value is None or value == "":
         return None
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+        return (
+            value.astimezone(timezone.utc)
+            if value.tzinfo
+            else value.replace(tzinfo=timezone.utc)
+        )
     candidate = str(value)
     if candidate.endswith("Z"):
         candidate = candidate[:-1] + "+00:00"
@@ -39,7 +43,11 @@ def _parse_datetime(value: str | datetime | None) -> datetime | None:
 def _serialize_datetime(value: datetime | None) -> str | None:
     if value is None:
         return None
-    normalized = value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    normalized = (
+        value.astimezone(timezone.utc)
+        if value.tzinfo
+        else value.replace(tzinfo=timezone.utc)
+    )
     return normalized.isoformat()
 
 
@@ -60,11 +68,21 @@ class JobRecord(auth.Base):
     request_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     result_summary: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=_utcnow)
-    queued_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    queued_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     worker_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -74,7 +92,9 @@ class JobRecord(auth.Base):
     )
 
 
-def database_backed_job_records_enabled(settings: auth.AuthSettings | None = None) -> bool:
+def database_backed_job_records_enabled(
+    settings: auth.AuthSettings | None = None,
+) -> bool:
     resolved_settings = settings or auth.get_auth_settings()
     return resolved_settings.enabled and bool(resolved_settings.database_url)
 
@@ -88,10 +108,14 @@ def ensure_job_record_tables(settings: auth.AuthSettings | None = None) -> None:
     except Exception:
         if _raise_database_errors():
             raise
-        logger.warning("Skipping job_records table check because the database is unavailable.")
+        logger.warning(
+            "Skipping job_records table check because the database is unavailable."
+        )
         return
     missing_tables = [
-        table_name for table_name in JOB_RECORD_TABLES if not inspector.has_table(table_name)
+        table_name
+        for table_name in JOB_RECORD_TABLES
+        if not inspector.has_table(table_name)
     ]
     if missing_tables:
         joined = ", ".join(missing_tables)
@@ -205,7 +229,9 @@ def upsert_job_record(
     except Exception:
         if _raise_database_errors():
             raise
-        logger.warning("Skipping job_records upsert because the database is unavailable.")
+        logger.warning(
+            "Skipping job_records upsert because the database is unavailable."
+        )
         return None
 
 
@@ -219,8 +245,38 @@ def get_job_record(task_id: str) -> dict[str, Any] | None:
     except Exception:
         if _raise_database_errors():
             raise
-        logger.warning("Skipping job_records lookup because the database is unavailable.")
+        logger.warning(
+            "Skipping job_records lookup because the database is unavailable."
+        )
         return None
+
+
+def delete_job_record(
+    task_id: str,
+    *,
+    kind: str | None = None,
+    tenant_id: str | None = None,
+) -> bool:
+    if not database_backed_job_records_enabled():
+        return False
+    try:
+        with auth.db_session() as db:
+            record = db.get(JobRecord, task_id)
+            if record is None:
+                return False
+            if kind is not None and record.kind != kind:
+                return False
+            if tenant_id is not None and record.tenant_id != tenant_id:
+                return False
+            db.delete(record)
+            return True
+    except Exception:
+        if _raise_database_errors():
+            raise
+        logger.warning(
+            "Skipping job_records delete because the database is unavailable."
+        )
+        return False
 
 
 def list_active_job_records(*, tenant_id: str | None = None) -> list[dict[str, Any]]:
@@ -246,7 +302,9 @@ def recover_stale_running_job_records() -> int:
     recovered = 0
     try:
         with auth.db_session() as db:
-            records = db.scalars(select(JobRecord).where(JobRecord.status == "running")).all()
+            records = db.scalars(
+                select(JobRecord).where(JobRecord.status == "running")
+            ).all()
             for record in records:
                 record.status = "failed"
                 record.error = app_config.RECOVERED_TASK_ERROR
@@ -256,5 +314,7 @@ def recover_stale_running_job_records() -> int:
     except Exception:
         if _raise_database_errors():
             raise
-        logger.warning("Skipping job_records recovery because the database is unavailable.")
+        logger.warning(
+            "Skipping job_records recovery because the database is unavailable."
+        )
     return recovered

@@ -9,7 +9,9 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 class SingleHostDeploymentFilesTests(unittest.TestCase):
-    def test_backend_dockerfile_exists_with_full_project_copy_and_uvicorn_entrypoint(self):
+    def test_backend_dockerfile_exists_with_full_project_copy_and_uvicorn_entrypoint(
+        self,
+    ):
         dockerfile = PROJECT_ROOT / "web" / "backend" / "Dockerfile"
         self.assertTrue(dockerfile.is_file())
 
@@ -39,17 +41,26 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("postgres:16-alpine", source)
         self.assertIn("${POSTGRES_PORT:-5432}:5432", source)
         self.assertIn("postgres-data:/var/lib/postgresql/data", source)
-        self.assertIn('${FRONTEND_PORT:-3000}:3000', source)
+        self.assertIn("${FRONTEND_PORT:-3000}:3000", source)
         self.assertIn("./data:/app/data", source)
         self.assertIn("./.env:/app/.env:ro", source)
-        self.assertIn("REPORTS_DIR: /app/data/reports", source)
-        self.assertIn("SCREENER_RUNS_DIR: /app/data/screener/runs", source)
+        self.assertIn("DATA_DIR: /app/data", source)
+        self.assertNotIn("REPORTS_DIR: /app/data/reports", source)
+        self.assertNotIn("SCREENER_RUNS_DIR: /app/data/screener/runs", source)
         self.assertIn("FRONTEND_ORIGIN", source)
         self.assertIn("AUTH_ENABLED: ${AUTH_ENABLED:-true}", source)
         self.assertIn("AUTH_MODE", source)
-        self.assertIn("TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}", source)
-        self.assertIn("TASK_USER_PENDING_LIMIT_OPERATOR: ${TASK_USER_PENDING_LIMIT_OPERATOR:-5}", source)
-        self.assertIn("POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}", source)
+        self.assertIn(
+            "TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}", source
+        )
+        self.assertIn(
+            "TASK_USER_PENDING_LIMIT_OPERATOR: ${TASK_USER_PENDING_LIMIT_OPERATOR:-5}",
+            source,
+        )
+        self.assertIn(
+            "POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}",
+            source,
+        )
         self.assertIn("DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}", source)
         self.assertIn(
             "AUTH_BOOTSTRAP_ADMIN_EMAIL: ${AUTH_BOOTSTRAP_ADMIN_EMAIL:?Set AUTH_BOOTSTRAP_ADMIN_EMAIL in .env}",
@@ -63,7 +74,9 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("python -m web.backend.devops.bootstrap_admin", source)
         self.assertNotIn("cd /app/web/backend", source)
 
-    def test_prod_compose_adds_nginx_redis_worker_and_backup_without_public_datastores(self):
+    def test_prod_compose_adds_nginx_redis_worker_and_backup_without_public_datastores(
+        self,
+    ):
         compose_file = PROJECT_ROOT / "compose.prod.yml"
         self.assertTrue(compose_file.is_file())
 
@@ -71,6 +84,8 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("nginx:", source)
         self.assertIn("redis:", source)
         self.assertIn("worker:", source)
+        self.assertIn("prewarm-scheduler:", source)
+        self.assertIn("prewarm-worker:", source)
         self.assertIn("backup:", source)
         self.assertIn("${HTTP_PORT:-80}:80", source)
         self.assertIn("${HTTPS_PORT:-443}:443", source)
@@ -79,9 +94,23 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertNotIn('      - "${POSTGRES_PORT:-5432}:5432"', source)
         self.assertNotIn('      - "${REDIS_PORT:-6379}:6379"', source)
         self.assertIn("TASK_BACKEND: redis", source)
-        self.assertIn("TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}", source)
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmSchedulerSettings"]',
+            source,
+        )
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmWorkerSettings"]',
+            source,
+        )
+        self.assertIn("PREWARM_CN_READY_TIME: ${PREWARM_CN_READY_TIME:-18:10}", source)
+        self.assertNotIn("SCREENER_PREWARM_ENABLED", source)
+        self.assertIn(
+            "TASK_GLOBAL_RUNNING_LIMIT: ${TASK_GLOBAL_RUNNING_LIMIT:-2}", source
+        )
         self.assertIn("TASK_USER_RUNNING_LIMIT: ${TASK_USER_RUNNING_LIMIT:-1}", source)
-        self.assertIn("TASK_GLOBAL_PENDING_LIMIT: ${TASK_GLOBAL_PENDING_LIMIT:-100}", source)
+        self.assertIn(
+            "TASK_GLOBAL_PENDING_LIMIT: ${TASK_GLOBAL_PENDING_LIMIT:-100}", source
+        )
         self.assertIn("STORAGE_BACKEND: ${STORAGE_BACKEND:-tencent_cos}", source)
         self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-true}", source)
 
@@ -93,6 +122,8 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertNotIn("nginx:", source)
         self.assertIn("redis:", source)
         self.assertIn("worker:", source)
+        self.assertIn("prewarm-scheduler:", source)
+        self.assertIn("prewarm-worker:", source)
         self.assertIn("backup:", source)
         self.assertIn("${BACKEND_PORT:-8000}:8000", source)
         self.assertIn("${FRONTEND_PORT:-3000}:3000", source)
@@ -100,13 +131,27 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("127.0.0.1:${REDIS_PORT:-6379}:6379", source)
         self.assertNotIn('      - "${POSTGRES_PORT:-5432}:5432"', source)
         self.assertNotIn('      - "${REDIS_PORT:-6379}:6379"', source)
-        self.assertIn("FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env}", source)
+        self.assertIn(
+            "FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?Set FRONTEND_ORIGIN in .env}", source
+        )
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmSchedulerSettings"]',
+            source,
+        )
+        self.assertIn(
+            'command: ["arq", "web.backend.runtime.prewarm_arq.PrewarmWorkerSettings"]',
+            source,
+        )
+        self.assertNotIn("SCREENER_PREWARM_ENABLED", source)
         self.assertIn(
             "NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:?Set NEXT_PUBLIC_API_BASE_URL in .env}",
             source,
         )
         self.assertIn("SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}", source)
-        self.assertIn("TASK_USER_PENDING_LIMIT_VIEWER: ${TASK_USER_PENDING_LIMIT_VIEWER:-2}", source)
+        self.assertIn(
+            "TASK_USER_PENDING_LIMIT_VIEWER: ${TASK_USER_PENDING_LIMIT_VIEWER:-2}",
+            source,
+        )
 
     def test_nginx_production_config_routes_frontend_api_and_sse(self):
         nginx_config = PROJECT_ROOT / "deploy" / "nginx" / "diverge.conf"
@@ -126,7 +171,9 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
         self.assertIn("FRONTEND_PORT=3000", source)
         self.assertIn("FRONTEND_ORIGIN=http://localhost:3000", source)
         self.assertIn("NEXT_PUBLIC_API_BASE_URL=http://localhost:8000", source)
-        self.assertIn("DIVERGE_EVAL_RESULTS_DIR=./data/eval_results", source)
+        self.assertIn("DATA_DIR=./data", source)
+        self.assertNotIn("DIVERGE_EVAL_RESULTS_DIR=./data/eval_results", source)
+        self.assertNotIn("STORAGE_LOCAL_ROOT=./data", source)
         self.assertIn("POSTGRES_PASSWORD=", source)
         self.assertIn("AUTH_ENABLED=true", source)
         self.assertIn("AUTH_MODE=required", source)
@@ -144,8 +191,16 @@ class SingleHostDeploymentFilesTests(unittest.TestCase):
 
         source = deploy_script.read_text(encoding="utf-8")
         self.assertIn('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"', source)
-        self.assertIn('REPORTS_DIR="${REPORTS_DIR:-$DATA_DIR/reports}"', source)
-        self.assertNotIn('$PROJECT_ROOT/reports', source)
+        self.assertIn('mkdir -p "$DATA_DIR/reports" "$DATA_DIR/manifest"', source)
+        self.assertLess(
+            source.index('source "$ENV_FILE"'),
+            source.index('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"'),
+        )
+        self.assertLess(
+            source.index('DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"'),
+            source.index('mkdir -p "$DATA_DIR/reports" "$DATA_DIR/manifest"'),
+        )
+        self.assertNotIn("$PROJECT_ROOT/reports", source)
         self.assertIn("docker compose build", source)
         self.assertIn("docker compose up -d", source)
         self.assertIn("mkdir -p", source)

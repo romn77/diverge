@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from diverge.screener.history_cache import (
+from diverge.market_data.history_cache import (
     load_history_cache,
     merge_history_frames,
     normalize_history_frame,
@@ -81,7 +81,15 @@ def test_normalize_history_frame_enforces_canonical_contract():
 
     normalized = normalize_history_frame(frame)
 
-    assert normalized.columns.tolist() == ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
+    assert normalized.columns.tolist() == [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume",
+        "Amount",
+    ]
     assert normalized["Date"].tolist() == ["2026-04-16", "2026-04-17"]
     assert normalized["Close"].tolist() == [198.5, 210.5]
     assert normalized["Amount"].tolist() == [178650.0, 231550.0]
@@ -104,6 +112,14 @@ def test_save_history_cache_backfills_missing_amount_and_round_trips(tmp_path):
     save_history_cache(tmp_path, "us", "AAPL", frame)
     loaded = load_history_cache(tmp_path, "us", "AAPL")
 
-    assert loaded.columns.tolist() == ["Date", "Open", "High", "Low", "Close", "Volume", "Amount"]
+    assert loaded.columns.tolist() == [
+        "Date",
+        "Open",
+        "High",
+        "Low",
+        "Close",
+        "Volume",
+        "Amount",
+    ]
     assert loaded["Date"].tolist() == ["2026-04-17"]
     assert loaded["Amount"].tolist() == [231550.0]

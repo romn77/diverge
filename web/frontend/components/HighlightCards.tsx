@@ -14,8 +14,12 @@ function signalClass(signal: TradeSignal): string {
   switch (signal) {
     case "BUY":
       return "signal-buy";
+    case "OVERWEIGHT":
+      return "signal-overweight";
     case "HOLD":
       return "signal-hold";
+    case "UNDERWEIGHT":
+      return "signal-underweight";
     case "SELL":
       return "signal-sell";
     default:
@@ -27,8 +31,12 @@ function heroSignalClass(signal: TradeSignal): string {
   switch (signal) {
     case "BUY":
       return "summary-hero--buy";
+    case "OVERWEIGHT":
+      return "summary-hero--overweight";
     case "HOLD":
       return "summary-hero--hold";
+    case "UNDERWEIGHT":
+      return "summary-hero--underweight";
     case "SELL":
       return "summary-hero--sell";
     default:
@@ -168,7 +176,7 @@ function renderPanelContent(panel: TerminalPanel) {
 
 export function HighlightCards({ highlights }: HighlightCardsProps) {
   const { t } = usePreferences();
-  const deck = buildHighlightDeck(highlights);
+  const deck = buildHighlightDeck(highlights, t);
   const panels = deck.consoles.flatMap((consolePanel) => consolePanel.panels);
 
   return (
@@ -220,7 +228,13 @@ export function HighlightCards({ highlights }: HighlightCardsProps) {
         {panels.map((panel) => (
           <section
             key={panel.key}
-            className={`summary-panel${panel.span ? ` summary-panel--${panel.span}` : ""}`}
+            className={[
+              "summary-panel",
+              `summary-panel--${panel.variant}`,
+              panel.span ? `summary-panel--${panel.span}` : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             aria-label={panel.title}
           >
             <p className="summary-panel-kicker">{panel.title}</p>

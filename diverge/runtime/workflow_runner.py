@@ -1,0 +1,567 @@
+from __future__ import annotations
+
+import copy
+import json
+from collections.abc import Generator
+from typing import Any, Callable, Optional
+
+from google.adk.workflow import START, FunctionNode, Workflow
+
+from diverge.agents.analysts.fundamentals_analyst import FundamentalsAnalyst
+from diverge.agents.analysts.market_analyst import MarketAnalyst
+from diverge.agents.analysts.news_analyst import NewsAnalyst
+from diverge.agents.analysts.social_media_analyst import SocialMediaAnalyst
+from diverge.agents.base import DivergeAgentNode
+from diverge.agents.managers.portfolio_manager import PortfolioManager
+from diverge.agents.managers.research_manager import ResearchManager
+from diverge.agents.managers.summary_agent import SummaryAgent
+from diverge.agents.researchers.bear_researcher import BearResearcher
+from diverge.agents.researchers.bull_researcher import BullResearcher
+from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
+from diverge.agents.risk_mgmt.conservative_debator import ConservativeDebator
+from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
+from diverge.agents.risk_mgmt.debate_phase import get_total_risk_turn_limit
+from diverge.agents.trader.trader import Trader
+from diverge.common.dates import days_before_or_original
+from diverge.common.market_calendar import last_n_trading_days
+from diverge.common.symbols import resolve_symbol_market
+from diverge.runtime.analysis_schema import HISTORICAL_TRADE_FEEDBACK_KEY
+from diverge.runtime.messages import AdkMessage
+from diverge.runtime.tools import AdkToolCollection, create_adk_tool_collections
+
+
+DEFAULT_STOCK_DATA_TRADING_DAYS = 90
+DEFAULT_STOCK_DATA_CALENDAR_FALLBACK_DAYS = 126
+
+ANALYST_NODE_CLASSES: dict[str, type[DivergeAgentNode]] = {
+    "market": MarketAnalyst,
+    "social": SocialMediaAnalyst,
+    "news": NewsAnalyst,
+    "fundamentals": FundamentalsAnalyst,
+}
+
+
+class AdkWorkflowRunner:
+    """ADK 2.0 workflow facade for Diverge's multi-agent state machine."""
+
+    def __init__(
+        self,
+        *,
+        selected_analysts: list[str],
+        quick_llm: Any,
+        deep_llm: Any,
+        tool_nodes: Optional[dict[str, AdkToolCollection]] = None,
+        bull_memory: Any = None,
+        bear_memory: Any = None,
+        trader_memory: Any = None,
+        invest_judge_memory: Any = None,
+        portfolio_manager_memory: Any = None,
+        max_debate_rounds: int = 1,
+        max_risk_discuss_rounds: int = 1,
+        max_tool_iterations: int = 12,
+    ) -> None:
+        if not selected_analysts:
+            raise ValueError("Diverge ADK Workflow Error: no analysts selected!")
+
+        unsupported = [
+            analyst
+            for analyst in selected_analysts
+            if analyst not in ANALYST_NODE_CLASSES
+        ]
+        if unsupported:
+            raise ValueError(f"Unsupported analysts for ADK workflow: {unsupported}")
+
+        self.selected_analysts = list(selected_analysts)
+        self.quick_llm = quick_llm
+        self.deep_llm = deep_llm
+        self.tool_nodes = tool_nodes or create_adk_tool_collections()
+        self.max_debate_rounds = max_debate_rounds
+        self.max_risk_discuss_rounds = max_risk_discuss_rounds
+        self.max_tool_iterations = max_tool_iterations
+
+        self.analyst_nodes = {
+            analyst: ANALYST_NODE_CLASSES[analyst](self.quick_llm)
+            for analyst in self.selected_analysts
+        }
+        self.bull_researcher = BullResearcher(self.quick_llm, bull_memory)
+        self.bear_researcher = BearResearcher(self.quick_llm, bear_memory)
+        self.research_manager = ResearchManager(
+            self.deep_llm,
+            invest_judge_memory,
+        )
+        self.trader = Trader(self.quick_llm, trader_memory)
+        self.aggressive_analyst = AggressiveDebator(self.quick_llm)
+        self.conservative_analyst = ConservativeDebator(self.quick_llm)
+        self.neutral_analyst = NeutralDebator(self.quick_llm)
+        self.portfolio_manager = PortfolioManager(
+            self.deep_llm,
+            portfolio_manager_memory,
+        )
+        self.summary_agent = SummaryAgent(self.quick_llm)
+        self.workflow = self._build_workflow_definition()
+
+    def _build_workflow_definition(self) -> Workflow:
+        nodes = {
+            f"{name}_analyst": _function_node(self.analyst_nodes[name])
+            for name in self.selected_analysts
+        }
+        named_agents = {
+            "bull_researcher": self.bull_researcher,
+            "bear_researcher": self.bear_researcher,
+            "research_manager": self.research_manager,
+            "trader": self.trader,
+            "aggressive_analyst": self.aggressive_analyst,
+            "conservative_analyst": self.conservative_analyst,
+            "neutral_analyst": self.neutral_analyst,
+            "portfolio_manager": self.portfolio_manager,
+            "summary_agent": self.summary_agent,
+        }
+        for name, agent in named_agents.items():
+            nodes[name] = _function_node(agent)
+
+        ordered_names = [f"{name}_analyst" for name in self.selected_analysts]
+        ordered_names.extend(
+            [
+                "bull_researcher",
+                "bear_researcher",
+                "research_manager",
+                "trader",
+                "aggressive_analyst",
+                "conservative_analyst",
+                "neutral_analyst",
+                "portfolio_manager",
+                "summary_agent",
+            ]
+        )
+        edges: list[tuple[Any, Any]] = []
+        previous: Any = START
+        for name in ordered_names:
+            current = nodes[name]
+            edges.append((previous, current))
+            previous = current
+
+        return Workflow(name="diverge_adk_workflow", edges=edges, max_concurrency=1)
+
+    def invoke(self, init_state: dict[str, Any], **kwargs: Any) -> dict[str, Any]:
+        final_state = None
+        for final_state in self.stream(init_state, **kwargs):
+            pass
+        return final_state if final_state is not None else copy.deepcopy(init_state)
+
+    def stream(
+        self,
+        init_state: dict[str, Any],
+        **kwargs: Any,
+    ) -> Generator[dict[str, Any], None, None]:
+        state = copy.deepcopy(init_state)
+        max_iterations = _recursion_limit(kwargs) or self.max_tool_iterations
+
+        for analyst in self.selected_analysts:
+            yield from self._run_analyst(
+                state,
+                analyst,
+                max_tool_iterations=max_iterations,
+            )
+            self._clear_messages(state)
+
+        yield from self._run_node(state, self.bull_researcher)
+        while self._should_continue_research_debate(state):
+            next_node = (
+                self.bear_researcher
+                if state["investment_debate_state"]
+                .get("current_response", "")
+                .startswith("Bull")
+                else self.bull_researcher
+            )
+            yield from self._run_node(state, next_node)
+
+        yield from self._run_node(state, self.research_manager)
+        yield from self._run_node(state, self.trader)
+
+        yield from self._run_node(state, self.aggressive_analyst)
+        while self._should_continue_risk_debate(state):
+            latest_speaker = state["risk_debate_state"].get("latest_speaker", "")
+            if latest_speaker.startswith("Aggressive"):
+                next_node = self.conservative_analyst
+            elif latest_speaker.startswith("Conservative"):
+                next_node = self.neutral_analyst
+            else:
+                next_node = self.aggressive_analyst
+            yield from self._run_node(state, next_node)
+
+        yield from self._run_node(state, self.portfolio_manager)
+        yield from self._run_node(state, self.summary_agent)
+
+    def _run_analyst(
+        self,
+        state: dict[str, Any],
+        analyst: str,
+        *,
+        max_tool_iterations: int,
+    ) -> Generator[dict[str, Any], None, None]:
+        node = self.analyst_nodes[analyst]
+        report_key = _analyst_report_key(analyst)
+        for _ in range(max_tool_iterations):
+            yield from self._run_node(state, node)
+            last_message = _last_message(state)
+            tool_calls = list(getattr(last_message, "tool_calls", []) or [])
+            if (
+                state.get(report_key)
+                and not tool_calls
+                and _looks_like_incomplete_tool_preface(last_message)
+            ):
+                state[report_key] = ""
+                state.setdefault("messages", []).append(
+                    _human_message(_tool_retry_instruction(state, analyst))
+                )
+                yield _snapshot(state)
+                continue
+            if state.get(report_key) or not tool_calls:
+                return
+            tool_names = _tool_call_names(tool_calls)
+            _append_runtime_progress_event(
+                state,
+                current_agent=_agent_display_name(node),
+                message=(
+                    f"{_agent_display_name(node)} requested tools: "
+                    f"{', '.join(tool_names)}."
+                ),
+            )
+            yield _snapshot(state)
+            tool_summaries = self._append_tool_results(state, analyst, tool_calls)
+            _append_runtime_progress_event(
+                state,
+                current_agent=_agent_display_name(node),
+                message=(
+                    f"{_agent_display_name(node)} tool results ready: "
+                    f"{'; '.join(tool_summaries)}."
+                ),
+            )
+            yield _snapshot(state)
+
+        warning = {
+            "stage": f"{analyst}_analyst",
+            "message": "Tool loop reached the configured iteration limit.",
+        }
+        state.setdefault("runtime_warnings", []).append(warning)
+        yield _snapshot(state)
+
+    def _run_node(
+        self,
+        state: dict[str, Any],
+        node: Callable[..., dict[str, Any]],
+    ) -> Generator[dict[str, Any], None, None]:
+        agent_name = _agent_display_name(node)
+        _append_runtime_progress_event(
+            state,
+            current_agent=agent_name,
+            message=f"{agent_name} started.",
+        )
+        yield _snapshot(state)
+        delta = node(state)
+        _merge_state_delta(state, delta or {})
+        _append_runtime_progress_event(
+            state,
+            current_agent=agent_name,
+            message=f"{agent_name} completed{_delta_summary(delta or {})}.",
+        )
+        yield _snapshot(state)
+
+    def _append_tool_results(
+        self,
+        state: dict[str, Any],
+        analyst: str,
+        tool_calls: list[dict[str, Any]],
+    ) -> list[str]:
+        collection = self.tool_nodes[analyst]
+        summaries: list[str] = []
+        for tool_call in tool_calls:
+            tool_name = str(tool_call.get("name") or "")
+            if tool_name not in collection.tools_by_name:
+                content = f"Tool `{tool_name}` is not registered for {analyst}."
+                summaries.append(f"{tool_name or 'unknown tool'} unavailable")
+            else:
+                try:
+                    content = collection.invoke(
+                        tool_name,
+                        _contextual_tool_args(
+                            state,
+                            tool_name,
+                            _normalize_tool_args(tool_call.get("args")),
+                        ),
+                    )
+                    summaries.append(f"{tool_name} returned {len(str(content))} chars")
+                except Exception as exc:
+                    content = f"Tool `{tool_name}` failed: {exc}"
+                    summaries.append(f"{tool_name} failed")
+            state.setdefault("messages", []).append(
+                _tool_message(
+                    content,
+                    name=tool_name,
+                    tool_call_id=str(tool_call.get("id") or tool_name or "tool"),
+                )
+            )
+        return summaries
+
+    def _clear_messages(self, state: dict[str, Any]) -> None:
+        messages: list[Any] = []
+        trade_feedback = str(state.get(HISTORICAL_TRADE_FEEDBACK_KEY) or "").strip()
+        if trade_feedback:
+            messages.append(_human_message(trade_feedback))
+        messages.append(_human_message("Continue"))
+        state["messages"] = messages
+
+    def _should_continue_research_debate(self, state: dict[str, Any]) -> bool:
+        debate = state["investment_debate_state"]
+        return debate.get("count", 0) < 2 * self.max_debate_rounds
+
+    def _should_continue_risk_debate(self, state: dict[str, Any]) -> bool:
+        risk = state["risk_debate_state"]
+        return risk.get("count", 0) < get_total_risk_turn_limit(
+            self.max_risk_discuss_rounds
+        )
+
+
+def _function_node(agent: DivergeAgentNode) -> FunctionNode:
+    return FunctionNode(func=agent, name=agent.name)
+
+
+_AGENT_DISPLAY_NAMES = {
+    "market_analyst": "Market Analyst",
+    "social_media_analyst": "Social Analyst",
+    "news_analyst": "News Analyst",
+    "fundamentals_analyst": "Fundamentals Analyst",
+    "bull_researcher": "Bull Researcher",
+    "bear_researcher": "Bear Researcher",
+    "research_manager": "Research Manager",
+    "trader": "Trader",
+    "aggressive_analyst": "Aggressive Analyst",
+    "conservative_analyst": "Conservative Analyst",
+    "neutral_analyst": "Neutral Analyst",
+    "portfolio_manager": "Portfolio Manager",
+    "summary_agent": "Summary Agent",
+}
+
+_DELTA_REPORT_LABELS = {
+    "market_report": "market report",
+    "sentiment_report": "sentiment report",
+    "news_report": "news report",
+    "fundamentals_report": "fundamentals report",
+    "investment_plan": "research decision",
+    "trader_investment_plan": "trading plan",
+    "final_trade_decision": "portfolio decision",
+    "report_summary": "summary",
+}
+
+
+def _agent_display_name(node: Callable[..., dict[str, Any]]) -> str:
+    raw_name = str(getattr(node, "name", "") or node.__class__.__name__)
+    if raw_name in _AGENT_DISPLAY_NAMES:
+        return _AGENT_DISPLAY_NAMES[raw_name]
+    return raw_name.replace("_", " ").strip().title() or "Agent"
+
+
+def _append_runtime_progress_event(
+    state: dict[str, Any],
+    *,
+    current_agent: str,
+    message: str,
+) -> None:
+    events = state.setdefault("runtime_progress_events", [])
+    if not isinstance(events, list):
+        events = []
+        state["runtime_progress_events"] = events
+    events.append(
+        {
+            "id": f"runtime-progress-{len(events) + 1}",
+            "current_agent": current_agent,
+            "message": message,
+        }
+    )
+
+
+def _tool_call_names(tool_calls: list[dict[str, Any]]) -> list[str]:
+    names = [str(tool_call.get("name") or "").strip() for tool_call in tool_calls]
+    return [name for name in names if name] or ["unknown tool"]
+
+
+def _delta_summary(delta: dict[str, Any]) -> str:
+    labels: list[str] = []
+    for key, label in _DELTA_REPORT_LABELS.items():
+        value = delta.get(key)
+        if isinstance(value, str) and value.strip():
+            labels.append(label)
+
+    if not labels:
+        return ""
+    return f" with {', '.join(labels)}"
+
+
+def _analyst_report_key(analyst: str) -> str:
+    return {
+        "market": "market_report",
+        "social": "sentiment_report",
+        "news": "news_report",
+        "fundamentals": "fundamentals_report",
+    }[analyst]
+
+
+def _merge_state_delta(state: dict[str, Any], delta: dict[str, Any]) -> None:
+    for key, value in delta.items():
+        if key == "messages":
+            state.setdefault("messages", []).extend(value or [])
+        else:
+            state[key] = value
+
+
+def _last_message(state: dict[str, Any]) -> Any:
+    messages = state.get("messages") or []
+    return messages[-1] if messages else AdkMessage(content="")
+
+
+def _snapshot(state: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return copy.deepcopy(state)
+    except Exception:
+        return dict(state)
+
+
+def _normalize_tool_args(args: Any) -> dict[str, Any]:
+    if isinstance(args, dict):
+        return args
+    if isinstance(args, str):
+        try:
+            parsed = json.loads(args)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _contextual_tool_args(
+    state: dict[str, Any],
+    tool_name: str,
+    args: dict[str, Any],
+) -> dict[str, Any]:
+    normalized = dict(args)
+    ticker = str(state.get("company_of_interest") or "").strip().upper()
+    trade_date = str(state.get("trade_date") or "").strip()
+
+    if tool_name in {
+        "get_news",
+        "get_fundamentals",
+        "get_balance_sheet",
+        "get_cashflow",
+        "get_income_statement",
+        "get_insider_transactions",
+    }:
+        if "ticker" not in normalized and "symbol" in normalized:
+            normalized["ticker"] = normalized["symbol"]
+        if "ticker" not in normalized and ticker:
+            normalized["ticker"] = ticker
+
+    if tool_name in {"get_stock_data", "get_indicators"}:
+        if "symbol" not in normalized and "ticker" in normalized:
+            normalized["symbol"] = normalized["ticker"]
+        if "symbol" not in normalized and ticker:
+            normalized["symbol"] = ticker
+
+    if tool_name == "get_news" and trade_date:
+        normalized.setdefault("end_date", trade_date)
+        normalized.setdefault("start_date", _date_days_before(trade_date, 7))
+
+    if tool_name == "get_stock_data":
+        if trade_date:
+            normalized.setdefault("end_date", trade_date)
+        end_date = str(normalized.get("end_date") or "").strip()
+        if "start_date" not in normalized and end_date:
+            symbol = str(normalized.get("symbol") or ticker).strip()
+            normalized["start_date"] = _stock_data_start_date(symbol, end_date)
+
+    if tool_name == "get_global_news" and trade_date:
+        normalized.setdefault("curr_date", trade_date)
+
+    if tool_name == "get_indicators" and trade_date:
+        normalized.setdefault("curr_date", trade_date)
+
+    return normalized
+
+
+def _date_days_before(date_text: str, days: int) -> str:
+    return days_before_or_original(date_text, days)
+
+
+def _stock_data_start_date(symbol: str, end_date: str) -> str:
+    market = "us"
+    if symbol:
+        try:
+            market = resolve_symbol_market(symbol)
+        except ValueError:
+            market = "us"
+    trading_days = last_n_trading_days(
+        market,
+        end_date,
+        DEFAULT_STOCK_DATA_TRADING_DAYS,
+    )
+    if trading_days:
+        return trading_days[0].isoformat()
+    return days_before_or_original(end_date, DEFAULT_STOCK_DATA_CALENDAR_FALLBACK_DAYS)
+
+
+def _looks_like_incomplete_tool_preface(message: Any) -> bool:
+    content = str(getattr(message, "content", "") or "").strip()
+    if not content or "json-highlights" in content or len(content) > 800:
+        return False
+
+    lowered = content.lower()
+    intent_markers = (
+        "i'll",
+        "i’ll",
+        "i will",
+        "let me",
+        "i need to",
+        "first pull",
+        "first retrieve",
+        "first gather",
+    )
+    tool_markers = ("tool", "get_", "pull", "retrieve", "gather", "calculate")
+    return any(marker in lowered for marker in intent_markers) and any(
+        marker in lowered for marker in tool_markers
+    )
+
+
+def _tool_retry_instruction(state: dict[str, Any], analyst: str) -> str:
+    ticker = str(state.get("company_of_interest") or "").strip().upper()
+    trade_date = str(state.get("trade_date") or "").strip()
+    return (
+        "Your previous response described tool use but did not issue an executable "
+        f"tool call. For the {analyst} analyst step, call the required tool now "
+        f"using ticker/symbol {ticker} and current date {trade_date}. Do not write "
+        "the final report until tool results have been returned."
+    )
+
+
+def _human_message(content: str) -> Any:
+    try:
+        from langchain_core.messages import HumanMessage
+
+        return HumanMessage(content=content)
+    except Exception:
+        return ("human", content)
+
+
+def _tool_message(content: str, *, name: str, tool_call_id: str) -> Any:
+    try:
+        from langchain_core.messages import ToolMessage
+
+        return ToolMessage(content=content, name=name, tool_call_id=tool_call_id)
+    except Exception:
+        return AdkMessage(content=content, role="tool")
+
+
+def _recursion_limit(kwargs: dict[str, Any]) -> Optional[int]:
+    config = kwargs.get("config")
+    if not isinstance(config, dict):
+        return None
+    limit = config.get("recursion_limit")
+    return limit if isinstance(limit, int) and limit > 0 else None

@@ -4,25 +4,68 @@ import contextlib
 import contextvars
 import json
 import os
-import uuid
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Callable, Iterator, TypeVar
 
-from diverge.data_layout import resolve_data_dir
+from diverge.common.json_io import write_json_atomic
+from diverge.config.paths import resolve_data_source_usage_path
 
 
-VENDOR_ORDER = ("local", "akshare", "tushare", "fmp", "alpha_vantage", "yfinance", "massive")
+VENDOR_ORDER = (
+    "local",
+    "akshare",
+    "tushare",
+    "fmp",
+    "alpha_vantage",
+    "yfinance",
+    "massive",
+)
 MODULE_ORDER = ("analysis", "screener", "trade_journal", "unknown")
 DEFAULT_VENDOR_CONFIGS = {
-    "local": {"label": "Local Cache", "enabled": True, "daily_limit": None, "hourly_limit": None},
-    "akshare": {"label": "AkShare", "enabled": True, "daily_limit": None, "hourly_limit": None},
-    "tushare": {"label": "Tushare", "enabled": True, "daily_limit": None, "hourly_limit": None},
-    "fmp": {"label": "Financial Modeling Prep", "enabled": True, "daily_limit": 250, "hourly_limit": None},
-    "alpha_vantage": {"label": "Alpha Vantage", "enabled": True, "daily_limit": 25, "hourly_limit": None},
-    "yfinance": {"label": "Yahoo Finance", "enabled": True, "daily_limit": None, "hourly_limit": None},
-    "massive": {"label": "Massive", "enabled": True, "daily_limit": None, "hourly_limit": None},
+    "local": {
+        "label": "Local Cache",
+        "enabled": True,
+        "daily_limit": None,
+        "hourly_limit": None,
+    },
+    "akshare": {
+        "label": "AkShare",
+        "enabled": True,
+        "daily_limit": None,
+        "hourly_limit": None,
+    },
+    "tushare": {
+        "label": "Tushare",
+        "enabled": True,
+        "daily_limit": None,
+        "hourly_limit": None,
+    },
+    "fmp": {
+        "label": "Financial Modeling Prep",
+        "enabled": True,
+        "daily_limit": 250,
+        "hourly_limit": None,
+    },
+    "alpha_vantage": {
+        "label": "Alpha Vantage",
+        "enabled": True,
+        "daily_limit": 25,
+        "hourly_limit": None,
+    },
+    "yfinance": {
+        "label": "Yahoo Finance",
+        "enabled": True,
+        "daily_limit": None,
+        "hourly_limit": None,
+    },
+    "massive": {
+        "label": "Massive",
+        "enabled": True,
+        "daily_limit": None,
+        "hourly_limit": None,
+    },
 }
 DEFAULT_ROUTE_POLICIES = {
     ("analysis", "cn", "core_stock_apis"): ["tushare", "akshare"],
@@ -83,10 +126,7 @@ class QuotaWaitRequired(Exception):
 
 
 def _usage_path() -> Path:
-    configured = os.environ.get("DATA_SOURCE_USAGE_PATH")
-    if configured:
-        return Path(configured).resolve()
-    return (resolve_data_dir() / "data_source_usage.json").resolve()
+    return resolve_data_source_usage_path()
 
 
 @contextlib.contextmanager
@@ -128,12 +168,7 @@ def _load_state(path: Path) -> dict:
 
 
 def _write_state(path: Path, state: dict) -> None:
-    temp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temp_path.write_text(
-        json.dumps(_normalize_state(state), ensure_ascii=False, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
-    temp_path.replace(path)
+    write_json_atomic(path, _normalize_state(state), sort_keys=True)
 
 
 def _default_state() -> dict:
@@ -262,7 +297,9 @@ def _try_database_store(operation: Callable[[object], T]) -> T | object:
     database_store = _database_store()
     if database_store is None:
         if _database_governance_required():
-            raise RuntimeError("Database-backed data-source governance is required but unavailable")
+            raise RuntimeError(
+                "Database-backed data-source governance is required but unavailable"
+            )
         return _DATABASE_FALLBACK
     try:
         return operation(database_store)
@@ -308,7 +345,11 @@ def update_data_source_config(
     normalized_vendor = _normalize_vendor(vendor)
     if daily_limit is not None and daily_limit < 0:
         raise ValueError("daily_limit must be blank or a non-negative integer")
-    if hourly_limit is not _LIMIT_UNSET and hourly_limit is not None and hourly_limit < 0:
+    if (
+        hourly_limit is not _LIMIT_UNSET
+        and hourly_limit is not None
+        and hourly_limit < 0
+    ):
         raise ValueError("hourly_limit must be blank or a non-negative integer")
     database_result = _try_database_store(
         lambda store: store.update_data_source_config(
@@ -419,13 +460,15 @@ def _blocked_until_for_source(source: dict) -> str | None:
 
 def _next_hour_iso() -> str:
     now = datetime.now(timezone.utc)
-    next_hour = (now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1))
+    next_hour = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     return next_hour.isoformat()
 
 
 def _next_day_iso() -> str:
     now = datetime.now(timezone.utc)
-    next_day = (now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1))
+    next_day = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(
+        days=1
+    )
     return next_day.isoformat()
 
 
@@ -580,7 +623,9 @@ def record_data_source_call(
         else:
             usage["failure_count"] += 1
 
-        module_usage = usage["modules"].setdefault(normalized_module, _empty_module_usage())
+        module_usage = usage["modules"].setdefault(
+            normalized_module, _empty_module_usage()
+        )
         module_usage["total_calls"] += 1
         if success:
             module_usage["success_count"] += 1
@@ -598,7 +643,9 @@ def track_data_source_call(vendor: str, callback: Callable[[], T]) -> T:
                 reason=acquisition.reason or "Data source quota exhausted.",
                 blocked_until=acquisition.blocked_until,
             )
-        raise RuntimeError(acquisition.reason or f"Data source '{vendor}' is unavailable.")
+        raise RuntimeError(
+            acquisition.reason or f"Data source '{vendor}' is unavailable."
+        )
     try:
         result = callback()
     except Exception:
@@ -620,12 +667,18 @@ def _build_source_summary(state: dict, vendor: str, day_key: str) -> dict:
     daily_limit = config["daily_limit"]
     hourly_limit = config["hourly_limit"]
     hour_usage = _ensure_vendor_hour_usage(state, vendor, day_key, _current_hour_key())
-    remaining = None if daily_limit is None else max(daily_limit - usage["total_calls"], 0)
+    remaining = (
+        None if daily_limit is None else max(daily_limit - usage["total_calls"], 0)
+    )
     hourly_remaining = (
-        None if hourly_limit is None else max(hourly_limit - hour_usage["total_calls"], 0)
+        None
+        if hourly_limit is None
+        else max(hourly_limit - hour_usage["total_calls"], 0)
     )
     daily_exhausted = daily_limit is not None and usage["total_calls"] >= daily_limit
-    hour_exhausted = hourly_limit is not None and hour_usage["total_calls"] >= hourly_limit
+    hour_exhausted = (
+        hourly_limit is not None and hour_usage["total_calls"] >= hourly_limit
+    )
     modules = {
         module: dict(usage["modules"].get(module) or _empty_module_usage())
         for module in MODULE_ORDER
@@ -660,7 +713,9 @@ def _build_default_route_summary() -> list[dict]:
             "vendor_chain": list(vendor_chain),
             "default_vendor_chain": list(vendor_chain),
         }
-        for (module, market, category), vendor_chain in sorted(DEFAULT_ROUTE_POLICIES.items())
+        for (module, market, category), vendor_chain in sorted(
+            DEFAULT_ROUTE_POLICIES.items()
+        )
     ]
 
 
@@ -675,8 +730,7 @@ def get_data_source_usage_summary() -> dict:
         return {
             "date": day_key,
             "sources": [
-                _build_source_summary(state, vendor, day_key)
-                for vendor in VENDOR_ORDER
+                _build_source_summary(state, vendor, day_key) for vendor in VENDOR_ORDER
             ],
             "routes": _build_default_route_summary(),
         }

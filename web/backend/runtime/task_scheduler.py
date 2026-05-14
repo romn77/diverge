@@ -2,17 +2,15 @@ from __future__ import annotations
 
 import time
 import uuid
+import logging
 from contextlib import contextmanager
-from datetime import datetime, timezone
 from typing import Iterator
 
-from web.backend.runtime import task_store
+from web.backend.runtime import task_lifecycle, task_store
+from web.backend.runtime.task_logging import log_task_event
 
 TASK_KINDS = task_store.TASK_KINDS
-
-
-def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+logger = logging.getLogger(__name__)
 
 
 @contextmanager
@@ -42,7 +40,9 @@ def _scheduler_lock(store) -> Iterator[bool]:
                 pass
 
 
-def promote_due_tasks(store=None, *, now_ts: float | None = None) -> list[tuple[str, str]]:
+def promote_due_tasks(
+    store=None, *, now_ts: float | None = None
+) -> list[tuple[str, str]]:
     resolved_store = store or task_store.get_task_store()
     current_ts = time.time() if now_ts is None else now_ts
     promoted: list[tuple[str, str]] = []
@@ -52,23 +52,18 @@ def promote_due_tasks(store=None, *, now_ts: float | None = None) -> list[tuple[
             if payload is None or payload.get("status") in task_store.TERMINAL_STATUSES:
                 resolved_store.remove_task_refs(kind, task_id)
                 continue
-            payload["status"] = "queued"
-            payload["queued_at"] = _utc_iso()
-            payload["blocked_reason"] = None
-            payload["blocked_vendor"] = None
-            payload["blocked_until"] = None
-            resolved_store.save_task(kind, task_id, payload, enqueue=True)
-            resolved_store.append_event(
-                kind,
-                task_id,
-                {
-                    "timestamp": datetime.now().strftime("%H:%M:%S"),
-                    "status": "queued",
-                    "stage_status": {},
-                    "agent_status": {},
-                    "current_agent": None,
-                    "message": "Task returned to the execution queue.",
-                },
+            task_lifecycle.promote_payload_to_queue(
+                kind=kind,
+                task_id=task_id,
+                payload=payload,
+                store=resolved_store,
+            )
+            log_task_event(
+                logger,
+                "task_queue_promoted",
+                kind=kind,
+                task_id=task_id,
+                task=payload,
             )
             promoted.append((kind, task_id))
     return promoted
@@ -104,7 +99,11 @@ def _claim_next_locked(store) -> tuple[str, str] | None:
     if not candidates:
         return None
     analysis_candidate = candidates.get("analysis")
-    if slots_remaining <= 1 and analysis_running == 0 and analysis_candidate is not None:
+    if (
+        slots_remaining <= 1
+        and analysis_running == 0
+        and analysis_candidate is not None
+    ):
         return _mark_claimed(store, "analysis", analysis_candidate)
     kind, task_id = min(
         candidates.items(),
@@ -127,7 +126,9 @@ def claim_next_kind(kind: str, *, timeout: int = 5) -> str | None:
         if store.count_running() >= task_store.get_global_running_limit():
             return None
         if kind != "analysis":
-            slots_remaining = task_store.get_global_running_limit() - store.count_running()
+            slots_remaining = (
+                task_store.get_global_running_limit() - store.count_running()
+            )
             analysis_candidate = _first_eligible_task(store, "analysis")
             if (
                 slots_remaining <= 1
@@ -178,22 +179,17 @@ def _mark_claimed(store, kind: str, task_id: str) -> tuple[str, str] | None:
     if payload is None:
         store.ack(kind, task_id)
         return None
-    now_iso = _utc_iso()
-    payload["status"] = "running"
-    payload["started_at"] = now_iso
-    payload["worker_claimed_at"] = int(time.time())
-    payload["queue_position"] = None
-    store.save_task(kind, task_id, payload, enqueue=False)
-    store.append_event(
-        kind,
-        task_id,
-        {
-            "timestamp": datetime.now().strftime("%H:%M:%S"),
-            "status": "running",
-            "stage_status": {},
-            "agent_status": {},
-            "current_agent": None,
-            "message": "Task started.",
-        },
+    task_lifecycle.claim_payload_for_worker(
+        kind=kind,
+        task_id=task_id,
+        payload=payload,
+        store=store,
+    )
+    log_task_event(
+        logger,
+        "task_queue_claimed",
+        kind=kind,
+        task_id=task_id,
+        task=payload,
     )
     return kind, task_id

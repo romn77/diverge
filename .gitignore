@@ -20,12 +20,17 @@ web/frontend/lib/*
 !web/frontend/lib/api.ts
 !web/frontend/lib/api.test.mjs
 !web/frontend/lib/assetsApi.ts
+!web/frontend/lib/decisionCard.ts
 !web/frontend/lib/devServer.test.mjs
+!web/frontend/lib/fetchDecisionCard.ts
+!web/frontend/lib/fetchDecisionCard.test.mjs
 !web/frontend/lib/highlights.ts
 !web/frontend/lib/highlights.test.mjs
 !web/frontend/lib/highlightTerminal.ts
 !web/frontend/lib/highlightTerminal.test.ts
 !web/frontend/lib/highlightTerminalSkillAdoption.test.mjs
+!web/frontend/lib/reportSanitizer.ts
+!web/frontend/lib/reportSanitizer.test.mjs
 !web/frontend/lib/workbenchRoutes.ts
 !web/frontend/lib/workbenchRoutes.test.mjs
 !web/frontend/lib/uiPreferences.ts

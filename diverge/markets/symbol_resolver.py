@@ -6,17 +6,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from diverge.dataflows.cn_market_utils import (
+from diverge.common.symbols import (
     CN_TICKER_RE,
     US_TICKER_RE,
+    normalize_ticker_symbol,
     parse_and_normalize_cn_ticker,
 )
-from diverge.ticker_symbols import normalize_ticker_symbol
+from diverge.config.paths import resolve_manifest_path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_CN_MANIFEST = PROJECT_ROOT / "diverge" / "data" / "cn_manifest.csv"
-DEFAULT_US_MANIFEST = PROJECT_ROOT / "diverge" / "data" / "us_manifest.csv"
 SUPPORTED_MARKETS = {"cn", "us", "unknown"}
 SUPPORTED_ASSET_TYPES = {"equity", "etf", "unknown"}
 
@@ -108,7 +106,9 @@ def _resolve_without_manual(
             source="rule",
         )
 
-    return _unknown_resolution(raw_symbol, ["Unable to resolve symbol as CN/US equity or ETF."])
+    return _unknown_resolution(
+        raw_symbol, ["Unable to resolve symbol as CN/US equity or ETF."]
+    )
 
 
 def _find_manifest_match(
@@ -119,9 +119,17 @@ def _find_manifest_match(
 ) -> dict[str, Any] | None:
     normalized_candidates = _manifest_candidates(raw_symbol)
     for market, path in (
-        ("cn", Path(cn_manifest_path) if cn_manifest_path else DEFAULT_CN_MANIFEST),
-        ("us", Path(us_manifest_path) if us_manifest_path else DEFAULT_US_MANIFEST),
+        (
+            "cn",
+            Path(cn_manifest_path) if cn_manifest_path else resolve_manifest_path("cn"),
+        ),
+        (
+            "us",
+            Path(us_manifest_path) if us_manifest_path else resolve_manifest_path("us"),
+        ),
     ):
+        if path is None:
+            continue
         rows = _load_manifest(path)
         for candidate in normalized_candidates:
             row = rows.get(candidate)
@@ -153,10 +161,25 @@ def _manifest_candidates(raw_symbol: str) -> list[str]:
     return sorted(candidates)
 
 
-@lru_cache(maxsize=8)
 def _load_manifest(path: Path) -> dict[str, dict[str, str]]:
-    if not path.is_file():
+    resolved_path = Path(path).resolve()
+    try:
+        stat_result = resolved_path.stat()
+    except OSError:
         return {}
+    return _load_manifest_snapshot(
+        resolved_path,
+        stat_result.st_mtime_ns,
+        stat_result.st_size,
+    )
+
+
+@lru_cache(maxsize=16)
+def _load_manifest_snapshot(
+    path: Path,
+    mtime_ns: int,
+    size: int,
+) -> dict[str, dict[str, str]]:
     rows: dict[str, dict[str, str]] = {}
     with path.open("r", encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
@@ -205,17 +228,26 @@ def _manual_resolution(
     manual_exchange: str | None,
     manual_asset_type: str | None,
 ) -> dict[str, Any]:
-    market = _normalize_market(manual_market or rule_resolution.get("market") or "unknown")
+    market = _normalize_market(
+        manual_market or rule_resolution.get("market") or "unknown"
+    )
     exchange = _normalize_exchange(
-        manual_exchange if manual_exchange is not None else rule_resolution.get("exchange"),
+        manual_exchange
+        if manual_exchange is not None
+        else rule_resolution.get("exchange"),
         market,
     )
     asset_type = _normalize_asset_type(
         manual_asset_type or rule_resolution.get("asset_type") or "unknown"
     )
-    canonical_symbol = _manual_canonical_symbol(raw_symbol, market, exchange, rule_resolution)
+    canonical_symbol = _manual_canonical_symbol(
+        raw_symbol, market, exchange, rule_resolution
+    )
     warnings = ["Market was manually overridden."]
-    if rule_resolution.get("market") not in {None, "unknown"} and market != rule_resolution.get("market"):
+    if rule_resolution.get("market") not in {
+        None,
+        "unknown",
+    } and market != rule_resolution.get("market"):
         warnings.append("Manual override conflicts with rule-based market detection.")
     return _base_resolution(
         raw_symbol=raw_symbol,
@@ -235,7 +267,9 @@ def _manual_canonical_symbol(
     exchange: str | None,
     rule_resolution: dict[str, Any],
 ) -> str:
-    if market == rule_resolution.get("market") and rule_resolution.get("canonical_symbol"):
+    if market == rule_resolution.get("market") and rule_resolution.get(
+        "canonical_symbol"
+    ):
         return normalize_ticker_symbol(rule_resolution["canonical_symbol"])
     if market == "cn" and exchange in {"SH", "SZ"}:
         try:

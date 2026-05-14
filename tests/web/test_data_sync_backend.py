@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import nullcontext
+from datetime import date, datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -16,13 +17,26 @@ from web.backend.schemas.data_sync import (
     DataSyncFundamentalsPayload,
     DataSyncOhlcvPayload,
 )
+from web.backend.services import (
+    data_sync_audit,
+    data_sync_state,
+    fundamental_sync,
+    ohlcv_readiness,
+    ohlcv_sync,
+    ohlcv_sync_payloads,
+)
 
 
 def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
     actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
-        patch("web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
             return_value={"task_id": "sync-1", "status": "pending"},
@@ -33,7 +47,6 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
                 markets=["us"],
                 as_of_date="2026-04-28",
                 us_manifest_path="/tmp/us.csv",
-                run_screener_prewarm=True,
             )
         )
 
@@ -45,21 +58,30 @@ def test_create_ohlcv_sync_task_routes_to_runtime_with_admin_owner():
     assert kwargs["tenant_id"] == "tenant-a"
     assert kwargs["request_payload"]["markets"] == ["us"]
     assert kwargs["request_payload"]["top_k"] == 100
-    assert kwargs["request_payload"]["run_screener_prewarm"] is True
 
 
 def test_create_ohlcv_sync_task_records_audit_event_for_admin():
     actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
         patch("web.backend.routers.data_sync.auth.auth_enabled", return_value=True),
-        patch("web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
             return_value={"task_id": "sync-1", "status": "pending"},
         ),
-        patch("web.backend.routers.data_sync.auth.db_session", return_value=nullcontext("db")),
-        patch("web.backend.routers.data_sync.audit.record_audit_event_safely") as record_audit,
+        patch(
+            "web.backend.routers.data_sync.auth.db_session",
+            return_value=nullcontext("db"),
+        ),
+        patch(
+            "web.backend.routers.data_sync.audit.record_audit_event_safely"
+        ) as record_audit,
     ):
         data_sync_router.create_ohlcv_sync_task(
             DataSyncOhlcvPayload(
@@ -80,12 +102,19 @@ def test_create_ohlcv_sync_task_records_audit_event_for_admin():
 def test_create_ohlcv_sync_task_rejects_when_vendor_not_ready():
     actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready",
-            side_effect=data_sync_tasks.VendorDataNotReadyError("Tushare daily data is not ready."),
+            side_effect=data_sync_tasks.VendorDataNotReadyError(
+                "Tushare daily data is not ready."
+            ),
         ),
-        patch("web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task") as create_task,
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task"
+        ) as create_task,
     ):
         with pytest.raises(HTTPException) as exc_info:
             data_sync_router.create_ohlcv_sync_task(
@@ -103,7 +132,9 @@ def test_create_ohlcv_sync_task_rejects_when_vendor_not_ready():
 
 def test_create_fundamental_sync_task_routes_to_runtime():
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=None),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission", return_value=None
+        ),
         patch(
             "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
             return_value={"task_id": "sync-2", "status": "pending"},
@@ -132,8 +163,14 @@ def test_list_data_sync_jobs_is_tenant_scoped():
         SimpleNamespace(id="b", tenant_id="tenant-b", to_dict=lambda: {"id": "b"}),
     ]
     with (
-        patch("web.backend.routers.data_sync._require_admin_permission", return_value=actor),
-        patch("web.backend.routers.data_sync.data_sync_tasks.list_data_sync_tasks", return_value=jobs),
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.list_data_sync_tasks",
+            return_value=jobs,
+        ),
     ):
         response = data_sync_router.list_data_sync_jobs()
 
@@ -180,8 +217,229 @@ def test_worker_dispatches_data_sync_tasks_from_unified_queue(monkeypatch):
     assert store.processing_ids("data_sync") == []
 
 
+def test_worker_startup_restores_data_sync_tasks_when_redis_enabled(monkeypatch):
+    monkeypatch.setenv("TASK_BACKEND", "redis")
+    monkeypatch.setenv("WORKER_ONCE", "true")
+
+    with (
+        patch("web.backend.worker.analysis_tasks.restore_persisted_active_tasks"),
+        patch("web.backend.worker.screener_tasks.restore_persisted_screener_tasks"),
+        patch(
+            "web.backend.worker.data_sync_tasks.restore_persisted_data_sync_tasks"
+        ) as restore_data_sync,
+        patch("web.backend.worker.run_once", return_value=False),
+    ):
+        worker.main()
+
+    restore_data_sync.assert_called_once_with()
+
+
+def test_data_sync_audit_service_keeps_metadata_small():
+    task = data_sync_tasks.DataSyncTask(
+        id="sync-audit",
+        sync_type="ohlcv",
+        request_payload={
+            "markets": ["cn"],
+            "as_of_date": "2026-04-29",
+            "cn_data_source": "tushare",
+            "raw_prompt": "do not audit",
+            "portfolio": {"secret": "nope"},
+        },
+    )
+
+    metadata = data_sync_audit.data_sync_audit_metadata(
+        task,
+        result={
+            "symbols_total": 2,
+            "quality_reason_counts": {"ready": 2},
+            "raw_exception": "do not audit",
+        },
+        error="sanitized failure",
+    )
+
+    assert metadata == {
+        "sync_type": "ohlcv",
+        "markets": ["cn"],
+        "as_of_date": "2026-04-29",
+        "cn_data_source": "tushare",
+        "symbols_total": 2,
+        "quality_reason_counts": {"ready": 2},
+        "error": "sanitized failure",
+    }
+
+
+def test_data_sync_state_service_round_trips_task_payload():
+    task = data_sync_state.data_sync_task_from_payload(
+        {
+            "id": "sync-state",
+            "sync_type": "fundamentals",
+            "request_payload": {"market": "us", "symbols": ["MSFT"]},
+            "status": "running",
+            "progress_events": [{"message": "started"}],
+            "queue_position": 2,
+        }
+    )
+
+    assert task.id == "sync-state"
+    assert task.request_payload["symbols"] == ["MSFT"]
+    assert task.progress_events == [{"message": "started"}]
+    assert task.queue_position == 2
+    assert task.to_dict()["status"] == "running"
+
+    canceled = data_sync_state.canceled_progress(task)
+    assert canceled["status"] == "canceled"
+    assert canceled["message"] == "fundamentals sync canceled by request."
+    assert canceled["timestamp"]
+
+
+def test_ohlcv_sync_requires_existing_us_manifest(tmp_path, monkeypatch):
+    monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    with pytest.raises(RuntimeError, match="US data sync requires a manifest"):
+        data_sync_tasks.build_ohlcv_config_payload(
+            {"markets": ["us"], "as_of_date": "2026-04-28"}
+        )
+
+
+def test_ohlcv_sync_uses_data_dir_us_manifest(tmp_path, monkeypatch):
+    manifest_path = tmp_path / "data" / "manifest" / "us.csv"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text("symbol\nAAPL\n", encoding="utf-8")
+    monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+
+    config_payload = data_sync_tasks.build_ohlcv_config_payload(
+        {"markets": ["us"], "as_of_date": "2026-04-28"}
+    )
+
+    assert config_payload["us_manifest_path"] == str(manifest_path)
+
+
+def test_ohlcv_payload_service_injects_runtime_dirs_sources_and_manifest(
+    tmp_path,
+    monkeypatch,
+):
+    manifest_path = tmp_path / "manifest" / "us.csv"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text("symbol\nAAPL\n", encoding="utf-8")
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "SCREENER_RESULTS_DIR",
+        tmp_path / "runs",
+    )
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "SCREENER_CACHE_DIR",
+        tmp_path / "cache",
+    )
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "STOCK_HISTORY_DIR",
+        tmp_path / "history",
+    )
+    monkeypatch.setattr(
+        ohlcv_sync_payloads.app_config,
+        "resolve_manifest_path",
+        lambda market, project_root=None, *, require_exists=False: manifest_path
+        if market == "us"
+        else None,
+    )
+
+    config_payload = ohlcv_sync_payloads.build_ohlcv_config_payload(
+        {
+            "markets": ["us"],
+            "as_of_date": "2026-05-13",
+            "top_k": 250,
+            "us_data_source_fallbacks": ["yfinance"],
+        }
+    )
+
+    assert config_payload["top_k"] == 100
+    assert config_payload["output_dir"] == str(tmp_path / "runs")
+    assert config_payload["cache_dir"] == str(tmp_path / "cache")
+    assert config_payload["history_dir"] == str(tmp_path / "history")
+    assert config_payload["us_data_source"] == "yfinance"
+    assert config_payload["us_data_source_fallbacks"] == ["yfinance"]
+    assert config_payload["us_manifest_path"] == str(manifest_path)
+
+
+def test_ohlcv_sync_service_runs_payload_with_injected_collaborators(tmp_path):
+    captured = {}
+
+    def fake_ensure_vendor_ready(payload):
+        captured["ensure_payload"] = dict(payload)
+
+    def fake_build_config_payload(payload):
+        captured["build_payload"] = dict(payload)
+        return {
+            "markets": ["us"],
+            "as_of_date": "2026-04-29",
+            "top_k": 10,
+            "cache_dir": str(tmp_path / "cache"),
+            "history_dir": str(tmp_path / "history"),
+            "output_dir": str(tmp_path / "runs"),
+            "us_manifest_path": "/tmp/us.csv",
+        }
+
+    def fake_sync_ohlcv_cache(config, *, progress_callback=None):
+        captured["config"] = config
+        captured["progress_callback"] = progress_callback
+        return SyncResult(
+            sync_type="ohlcv",
+            markets=["us"],
+            source="yfinance",
+            status="completed",
+            symbols_total=1,
+            symbols_success=1,
+            symbols_failed=0,
+            rows_written=1,
+        )
+
+    result = ohlcv_sync.run_ohlcv_sync_payload(
+        {"markets": ["us"], "as_of_date": "2026-04-29"},
+        progress_callback=lambda *args, **kwargs: None,
+        ensure_vendor_ready=fake_ensure_vendor_ready,
+        build_config_payload=fake_build_config_payload,
+        sync_ohlcv_cache_fn=fake_sync_ohlcv_cache,
+    )
+
+    assert result["status"] == "completed"
+    assert captured["ensure_payload"]["markets"] == ["us"]
+    assert captured["config"].markets == ["us"]
+    assert captured["progress_callback"] is not None
+
+
+def test_ohlcv_sync_service_groups_loaded_universe_symbols(tmp_path):
+    def fake_build_config_payload(payload):
+        return {
+            "markets": ["cn"],
+            "as_of_date": "2026-04-29",
+            "top_k": 10,
+            "cache_dir": str(tmp_path / "cache"),
+        }
+
+    def fake_load_universe(config, *, cache_dir=None):
+        assert cache_dir == tmp_path / "cache"
+        return pd.DataFrame(
+            [
+                {"market": "cn", "symbol": " 000001.SZ "},
+                {"market": "cn", "symbol": "000001.SZ"},
+                {"market": "cn", "symbol": "600519.SH"},
+            ]
+        )
+
+    assert ohlcv_sync.resolve_universe_symbols(
+        {"markets": ["cn"], "as_of_date": "2026-04-29"},
+        build_config_payload=fake_build_config_payload,
+        load_universe_fn=fake_load_universe,
+    ) == {"cn": ["000001.SZ", "600519.SH"]}
+
+
 def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
-    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(
+        data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state"
+    )
     data_sync_tasks.data_sync_tasks.clear()
     task = data_sync_tasks.DataSyncTask(
         id="sync-completed",
@@ -199,8 +457,12 @@ def test_completed_data_sync_task_is_persisted_to_disk(tmp_path, monkeypatch):
     assert restored.result == {"status": "completed", "symbols_total": 1}
 
 
-def test_restore_persisted_data_sync_tasks_marks_running_tasks_failed(tmp_path, monkeypatch):
-    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+def test_restore_persisted_data_sync_tasks_marks_running_tasks_failed(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(
+        data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state"
+    )
     data_sync_tasks.data_sync_tasks.clear()
     task = data_sync_tasks.DataSyncTask(
         id="sync-recover",
@@ -225,7 +487,9 @@ def test_restore_persisted_data_sync_tasks_marks_running_tasks_failed(tmp_path, 
 
 
 def test_run_data_sync_task_records_completed_audit_event(tmp_path, monkeypatch):
-    monkeypatch.setattr(data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state")
+    monkeypatch.setattr(
+        data_sync_tasks.app_config, "SCREENER_STATE_DIR", tmp_path / "state"
+    )
     monkeypatch.setattr(data_sync_tasks.auth, "auth_enabled", lambda: True)
     data_sync_tasks.data_sync_tasks.clear()
     with patch("web.backend.runtime.data_sync_tasks.threading.Thread"):
@@ -245,9 +509,16 @@ def test_run_data_sync_task_records_completed_audit_event(tmp_path, monkeypatch)
     }
 
     with (
-        patch("web.backend.runtime.data_sync_tasks._run_ohlcv_task", return_value=result),
-        patch("web.backend.runtime.data_sync_tasks.auth.db_session", return_value=nullcontext("db")),
-        patch("web.backend.runtime.data_sync_tasks.audit.record_audit_event_safely") as record_audit,
+        patch(
+            "web.backend.runtime.data_sync_tasks._run_ohlcv_task", return_value=result
+        ),
+        patch(
+            "web.backend.runtime.data_sync_tasks.auth.db_session",
+            return_value=nullcontext("db"),
+        ),
+        patch(
+            "web.backend.runtime.data_sync_tasks.audit.record_audit_event_safely"
+        ) as record_audit,
     ):
         data_sync_tasks.run_data_sync_task(response["task_id"])
 
@@ -288,7 +559,7 @@ def test_fundamental_sync_can_build_symbols_from_us_manifest(tmp_path, monkeypat
             updated_at="",
         )
 
-    monkeypatch.setattr(data_sync_tasks, "sync_us_simfin_fundamentals", fake_sync)
+    monkeypatch.setattr(fundamental_sync, "sync_us_simfin_fundamentals", fake_sync)
 
     result = data_sync_tasks.run_fundamental_sync_payload(
         {
@@ -304,8 +575,9 @@ def test_fundamental_sync_can_build_symbols_from_us_manifest(tmp_path, monkeypat
     assert captured["tickers"] == ["AAPL", "MSFT"]
 
 
-def test_us_simfin_fundamental_sync_rejects_empty_symbol_list(monkeypatch):
+def test_us_simfin_fundamental_sync_rejects_empty_symbol_list(tmp_path, monkeypatch):
     monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     with pytest.raises(RuntimeError, match="symbols are required"):
         data_sync_tasks.run_fundamental_sync_payload(
             {
@@ -315,6 +587,54 @@ def test_us_simfin_fundamental_sync_rejects_empty_symbol_list(monkeypatch):
                 "as_of_date": "2026-04-28",
             }
         )
+
+
+def test_us_simfin_fundamental_sync_uses_data_dir_manifest(tmp_path, monkeypatch):
+    manifest_path = tmp_path / "data" / "manifest" / "us.csv"
+    manifest_path.parent.mkdir(parents=True)
+    manifest_path.write_text(
+        "symbol,name,exchange,sector,list_date,mktcap\n"
+        "AAPL,Apple,NASDAQ,Technology,19801212,100\n"
+        "MSFT,Microsoft,NASDAQ,Technology,19860313,90\n",
+        encoding="utf-8",
+    )
+    monkeypatch.delenv("SCREEN_US_MANIFEST_PATH", raising=False)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("SIMFIN_API_KEY", "test-key")
+    captured = {}
+
+    def fake_sync(**kwargs):
+        captured.update(kwargs)
+        return SyncResult(
+            sync_type="fundamentals",
+            markets=["us"],
+            source="simfin",
+            status="completed",
+            symbols_total=2,
+            symbols_success=2,
+            symbols_failed=0,
+            rows_written=2,
+            snapshot_path=None,
+            meta_path=None,
+            field_coverage=None,
+            missing_fields=[],
+            failed_symbols=[],
+            updated_at="",
+        )
+
+    monkeypatch.setattr(fundamental_sync, "sync_us_simfin_fundamentals", fake_sync)
+
+    result = data_sync_tasks.run_fundamental_sync_payload(
+        {
+            "market": "us",
+            "source": "simfin",
+            "symbols": [],
+            "as_of_date": "2026-04-28",
+        }
+    )
+
+    assert result["status"] == "completed"
+    assert captured["tickers"] == ["AAPL", "MSFT"]
 
 
 def test_us_simfin_fundamental_sync_rejects_symbols_over_daily_limit(monkeypatch):
@@ -331,6 +651,48 @@ def test_us_simfin_fundamental_sync_rejects_symbols_over_daily_limit(monkeypatch
         )
 
 
+def test_fundamental_sync_service_dedupes_explicit_symbols():
+    assert fundamental_sync.resolve_fundamental_symbols(
+        {
+            "market": "us",
+            "source": "simfin",
+            "symbols": [" aapl ", "AAPL", "msft", ""],
+        }
+    ) == ["AAPL", "MSFT"]
+
+
+def test_ohlcv_readiness_service_resolves_previous_day_before_cutoff():
+    ready_day = ohlcv_readiness.resolve_latest_ready_trading_day(
+        "cn",
+        "tushare",
+        now_for_timezone=lambda timezone_name: datetime(2026, 4, 29, 17, 59),
+    )
+
+    assert ready_day == date(2026, 4, 28)
+
+
+def test_ohlcv_readiness_service_accepts_injected_ready_probe():
+    calls = []
+
+    def fake_fetch_price_history(*args, **kwargs):
+        calls.append((args, kwargs))
+        return pd.DataFrame({"Date": ["2026-04-29"]})
+
+    ohlcv_readiness.ensure_ohlcv_vendor_ready(
+        {
+            "markets": ["cn"],
+            "as_of_date": "2026-04-29",
+            "cn_data_source": "tushare",
+        },
+        now_for_timezone=lambda timezone_name: datetime(2026, 4, 29, 18, 30),
+        fetch_price_history_fn=fake_fetch_price_history,
+    )
+
+    assert calls
+    assert calls[0][0][0] == "000001.SZ"
+    assert calls[0][1]["cn_data_source"] == "tushare"
+
+
 def test_tushare_ohlcv_sync_rejects_today_before_ready_cutoff(monkeypatch):
     monkeypatch.setattr(
         data_sync_tasks,
@@ -338,7 +700,9 @@ def test_tushare_ohlcv_sync_rejects_today_before_ready_cutoff(monkeypatch):
         lambda timezone_name: data_sync_tasks.datetime(2026, 4, 29, 17, 59),
     )
     with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"):
+        with pytest.raises(
+            RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"
+        ):
             data_sync_tasks.run_ohlcv_sync_payload(
                 {
                     "markets": ["cn"],
@@ -363,7 +727,9 @@ def test_tushare_ohlcv_sync_rejects_when_ready_probe_is_empty(monkeypatch):
     )
 
     with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"):
+        with pytest.raises(
+            RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"
+        ):
             data_sync_tasks.run_ohlcv_sync_payload(
                 {
                     "markets": ["cn"],
@@ -383,7 +749,9 @@ def test_massive_ohlcv_sync_uses_new_york_ready_cutoff(monkeypatch):
     )
 
     with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(RuntimeError, match="Massive daily data for 2026-04-29 is not ready"):
+        with pytest.raises(
+            RuntimeError, match="Massive daily data for 2026-04-29 is not ready"
+        ):
             data_sync_tasks.run_ohlcv_sync_payload(
                 {
                     "markets": ["us"],

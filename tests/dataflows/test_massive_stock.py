@@ -68,7 +68,10 @@ def test_fetch_massive_stock_df_paginates_and_normalizes_response():
     ):
         df = _fetch_massive_stock_df("AAPL", "2026-03-24", "2026-03-25")
 
-    assert df["Date"].tolist() == [pd.Timestamp("2026-03-24T00:00:00Z"), pd.Timestamp("2026-03-25T00:00:00Z")]
+    assert df["Date"].tolist() == [
+        pd.Timestamp("2026-03-24T00:00:00Z"),
+        pd.Timestamp("2026-03-25T00:00:00Z"),
+    ]
     assert df["Close"].tolist() == [101.0, 102.0]
     assert get_mock.call_count == 2
     first_call = get_mock.call_args_list[0]
@@ -147,7 +150,9 @@ def test_fetch_massive_stock_df_uses_massive_rate_limiter_for_each_page():
 
     with (
         patch("diverge.dataflows.massive_common.requests.get", get_mock),
-        patch("diverge.dataflows.massive_common._apply_massive_rate_limit") as mock_rate_limit,
+        patch(
+            "diverge.dataflows.massive_common._apply_massive_rate_limit"
+        ) as mock_rate_limit,
         patch.dict("os.environ", {"MASSIVE_API_KEY": "test-token"}, clear=False),
     ):
         _fetch_massive_stock_df("AAPL", "2026-03-24", "2026-03-25")
@@ -169,7 +174,9 @@ def test_get_stock_formats_massive_dataframe_as_string():
         ]
     )
 
-    with patch("diverge.dataflows.massive_stock._fetch_massive_stock_df", return_value=df):
+    with patch(
+        "diverge.dataflows.massive_stock._fetch_massive_stock_df", return_value=df
+    ):
         result = get_stock("AAPL", "2026-03-24", "2026-03-24")
 
     assert "Stock data for AAPL" in result

@@ -54,7 +54,9 @@ def calculate_dcf(
     if base_fcff is None:
         raise ValueError("free_cash_flow is required for DCF")
 
-    short_term_growth = float(resolve_short_term_growth(valuation_input.assumptions).value)
+    short_term_growth = float(
+        resolve_short_term_growth(valuation_input.assumptions).value
+    )
     resolved_terminal_growth_rate = float(
         resolve_assumption(
             valuation_input.assumptions,
@@ -99,7 +101,10 @@ def calculate_dcf(
     if capital_base > 0:
         resolved_wacc = (
             market_cap / capital_base * cost_of_equity
-            + total_debt / capital_base * resolved_cost_of_debt * (1 - resolved_tax_rate)
+            + total_debt
+            / capital_base
+            * resolved_cost_of_debt
+            * (1 - resolved_tax_rate)
         )
     else:
         resolved_wacc = cost_of_equity
@@ -125,8 +130,12 @@ def calculate_dcf(
 
     projection_years = len(growth_path)
     terminal_cash_flow = forecast_cash_flows[-1] * (1 + resolved_terminal_growth_rate)
-    terminal_value = terminal_cash_flow / (resolved_wacc - resolved_terminal_growth_rate)
-    discounted_terminal_value = terminal_value / ((1 + resolved_wacc) ** projection_years)
+    terminal_value = terminal_cash_flow / (
+        resolved_wacc - resolved_terminal_growth_rate
+    )
+    discounted_terminal_value = terminal_value / (
+        (1 + resolved_wacc) ** projection_years
+    )
     enterprise_value = sum(discounted_cash_flows) + discounted_terminal_value
 
     cash = latest.cash_and_equivalents or 0.0

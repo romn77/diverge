@@ -4,7 +4,8 @@ import re
 
 import pandas as pd
 
-from .market_calendar import count_trading_days
+from diverge.common.market_calendar import count_trading_days
+
 from .schema import ScreenRunConfig
 from .universe_rules import cap_market_bucket_rows, us_prefilter_drop_reason
 
@@ -65,8 +66,13 @@ def _apply_market_bucket_caps(
 
     capped_frames: list[pd.DataFrame] = []
     dropped_frames: list[pd.DataFrame] = []
-    for market, limit in (("cn", config.cn_universe_cap), ("us", config.us_universe_cap)):
-        market_rows = kept_df.loc[kept_df["market"] == market].copy().reset_index(drop=True)
+    for market, limit in (
+        ("cn", config.cn_universe_cap),
+        ("us", config.us_universe_cap),
+    ):
+        market_rows = (
+            kept_df.loc[kept_df["market"] == market].copy().reset_index(drop=True)
+        )
         if market_rows.empty:
             continue
 
@@ -79,7 +85,9 @@ def _apply_market_bucket_caps(
         if not dropped_rows.empty:
             dropped_frames.append(dropped_rows.assign(drop_reason=f"{market}_cap"))
 
-    other_rows = kept_df.loc[~kept_df["market"].isin({"cn", "us"})].copy().reset_index(drop=True)
+    other_rows = (
+        kept_df.loc[~kept_df["market"].isin({"cn", "us"})].copy().reset_index(drop=True)
+    )
     if not other_rows.empty:
         capped_frames.append(other_rows)
 

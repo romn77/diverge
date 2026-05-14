@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Trash2, XCircle } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
@@ -9,6 +10,14 @@ import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   cancelScreenerTask,
   cancelTask,
@@ -25,8 +34,20 @@ import {
   buildTaskHref,
 } from "@/lib/workbenchRoutes";
 
+type TaskActionTarget = {
+  action: "cancel" | "delete";
+  kind: "analysis" | "screener";
+  taskId: string;
+  label: string;
+  meta: string;
+};
+
 export function ActivityDashboard() {
   const { t } = usePreferences();
+  const [taskActionTarget, setTaskActionTarget] = useState<TaskActionTarget | null>(
+    null
+  );
+  const [isSubmittingTaskAction, setIsSubmittingTaskAction] = useState(false);
   const {
     activeJournalReviewTasks,
     activeScreenerTasks,
@@ -44,64 +65,106 @@ export function ActivityDashboard() {
     (task) => task.status === "failed" || task.status === "canceled"
   );
 
-  const confirmDeleteFailedTask = () =>
-    window.confirm(
-      t(
-        "activity.deleteFailedTaskConfirm",
-        "Delete this failed task record? This removes only the task record."
+  const requestDeleteTask = (task: Task) => {
+    setTaskActionTarget({
+      action: "delete",
+      kind: "analysis",
+      taskId: task.id,
+      label: task.ticker,
+      meta: task.error ?? task.analysis_date,
+    });
+  };
+
+  const requestDeleteScreenerTask = (task: ScreenerTask) => {
+    setTaskActionTarget({
+      action: "delete",
+      kind: "screener",
+      taskId: task.id,
+      label:
+        task.request_payload?.markets.join(", ") ||
+        t("activity.candidatePoolBuild", "Candidate pool build"),
+      meta:
+        task.error ??
+        task.request_payload?.as_of_date ??
+        t("activity.awaitingUpdate", "Awaiting next update"),
+    });
+  };
+
+  const requestCancelTask = (task: Task) => {
+    setTaskActionTarget({
+      action: "cancel",
+      kind: "analysis",
+      taskId: task.id,
+      label: task.ticker,
+      meta: formatAnalysisTaskMeta(task, t),
+    });
+  };
+
+  const requestCancelScreenerTask = (task: ScreenerTask) => {
+    setTaskActionTarget({
+      action: "cancel",
+      kind: "screener",
+      taskId: task.id,
+      label:
+        task.request_payload?.markets.join(", ") ||
+        t("activity.candidatePoolBuild", "Candidate pool build"),
+      meta: formatScreenerTaskMeta(task, t),
+    });
+  };
+
+  const handleConfirmTaskAction = async () => {
+    if (!taskActionTarget) {
+      return;
+    }
+    setIsSubmittingTaskAction(true);
+    try {
+      if (taskActionTarget.action === "delete") {
+        if (taskActionTarget.kind === "analysis") {
+          await deleteTask(taskActionTarget.taskId);
+          await refreshTasks();
+        } else {
+          await deleteScreenerTask(taskActionTarget.taskId);
+          await refreshScreenerTasks();
+        }
+      } else if (taskActionTarget.kind === "analysis") {
+        await cancelTask(taskActionTarget.taskId);
+        await refreshTasks();
+      } else {
+        await cancelScreenerTask(taskActionTarget.taskId);
+        await refreshScreenerTasks();
+      }
+      setTaskActionTarget(null);
+    } finally {
+      setIsSubmittingTaskAction(false);
+    }
+  };
+
+  const dialogIsDelete = taskActionTarget?.action === "delete";
+  const dialogTitle = dialogIsDelete
+    ? t("activity.deleteTaskDialogTitle", "Delete task record")
+    : t("activity.cancelTaskDialogTitle", "Cancel task");
+  const dialogDescription = dialogIsDelete
+    ? t(
+        "activity.deleteTaskDialogDescription",
+        "This removes only the task record. Reports, caches, and other jobs are kept."
       )
-    );
-
-  const handleDeleteTask = async (taskId: string) => {
-    if (!confirmDeleteFailedTask()) {
-      return;
-    }
-    await deleteTask(taskId);
-    await refreshTasks();
-  };
-
-  const handleDeleteScreenerTask = async (taskId: string) => {
-    if (!confirmDeleteFailedTask()) {
-      return;
-    }
-    await deleteScreenerTask(taskId);
-    await refreshScreenerTasks();
-  };
-
-  const confirmCancelTask = () =>
-    window.confirm(
-      t(
-        "activity.cancelTaskConfirm",
-        "Cancel this queued task? Running or finished tasks cannot be canceled."
-      )
-    );
-
-  const handleCancelTask = async (taskId: string) => {
-    if (!confirmCancelTask()) {
-      return;
-    }
-    await cancelTask(taskId);
-    await refreshTasks();
-  };
-
-  const handleCancelScreenerTask = async (taskId: string) => {
-    if (!confirmCancelTask()) {
-      return;
-    }
-    await cancelScreenerTask(taskId);
-    await refreshScreenerTasks();
-  };
+    : t(
+        "activity.cancelTaskDialogDescription",
+        "Running work will stop at the next safe step."
+      );
+  const dialogCancelLabel = dialogIsDelete
+    ? t("activity.keepTaskRecord", "Keep record")
+    : t("activity.keepTaskRunning", "Keep running");
+  const dialogConfirmLabel = dialogIsDelete
+    ? t("activity.confirmDeleteTask", "Delete record")
+    : t("activity.confirmCancelTask", "Cancel task");
 
   return (
-    <main className="workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+    <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-6">
         <PageHeader
           eyebrow={t("sidebar.nav.activity", "Activity")}
           title={t("activity.title", "Background work")}
-          description={t(
-            "activity.description",
-            "Monitor analysis and screener jobs in one place."
-          )}
           actions={
             <>
               <Button asChild variant="secondary">
@@ -140,7 +203,6 @@ export function ActivityDashboard() {
         <section className="grid gap-6 xl:grid-cols-2">
           <ActivityQueueSection
             title={t("activity.analysisTasks", "Analysis tasks")}
-            description={t("activity.analysisDescription", "Research jobs waiting or running.")}
             emptyLabel={t("activity.noAnalysisJobs", "No active analysis jobs.")}
             items={activeTasks.map((task) => ({
               href: buildTaskHref(task.id),
@@ -151,13 +213,12 @@ export function ActivityDashboard() {
                 ? t("activity.cancelTask", "Cancel task")
                 : undefined,
               onCancel: canCancelTask(task)
-                ? () => void handleCancelTask(task.id)
+                ? () => requestCancelTask(task)
                 : undefined,
             }))}
           />
           <ActivityQueueSection
             title={t("activity.failedAnalysisTasks", "Failed analysis tasks")}
-            description={t("activity.failedAnalysisDescription", "Failed research records that can be removed.")}
             emptyLabel={t("activity.noFailedAnalysisJobs", "No failed analysis jobs.")}
             items={failedTasks.map((task) => ({
               href: buildTaskHref(task.id),
@@ -170,16 +231,12 @@ export function ActivityDashboard() {
                   : undefined,
               onDelete:
                 task.status === "failed"
-                  ? () => void handleDeleteTask(task.id)
+                  ? () => requestDeleteTask(task)
                   : undefined,
             }))}
           />
           <ActivityQueueSection
             title={t("activity.screenerTasks", "Screener tasks")}
-            description={t(
-              "activity.screenerDescription",
-              "Candidate-pool builds currently in motion."
-            )}
             emptyLabel={t("activity.noScreenerJobs", "No active screener jobs.")}
             items={activeScreenerTasks.map((task) => ({
               href: buildScreenerTaskHref(task.id),
@@ -193,16 +250,12 @@ export function ActivityDashboard() {
                 ? t("activity.cancelTask", "Cancel task")
                 : undefined,
               onCancel: canCancelTask(task)
-                ? () => void handleCancelScreenerTask(task.id)
+                ? () => requestCancelScreenerTask(task)
                 : undefined,
             }))}
           />
           <ActivityQueueSection
             title={t("activity.journalReviewTasks", "Journal AI reviews")}
-            description={t(
-              "activity.journalReviewDescription",
-              "Automatic trade-review generation launched from journal submissions."
-            )}
             emptyLabel={t(
               "activity.noJournalReviewJobs",
               "No journal AI review activity yet."
@@ -218,7 +271,6 @@ export function ActivityDashboard() {
           />
           <ActivityQueueSection
             title={t("activity.failedScreenerTasks", "Failed screener tasks")}
-            description={t("activity.failedScreenerDescription", "Failed candidate-pool records that can be removed.")}
             emptyLabel={t("activity.noFailedScreenerJobs", "No failed screener jobs.")}
             items={failedScreenerTasks.map((task) => ({
               href: buildScreenerTaskHref(task.id),
@@ -236,12 +288,55 @@ export function ActivityDashboard() {
                   : undefined,
               onDelete:
                 task.status === "failed"
-                  ? () => void handleDeleteScreenerTask(task.id)
+                  ? () => requestDeleteScreenerTask(task)
                   : undefined,
             }))}
           />
         </section>
       </div>
+      <Dialog
+        open={taskActionTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !isSubmittingTaskAction) {
+            setTaskActionTarget(null);
+          }
+        }}
+      >
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-none sm:w-[34rem]">
+          <DialogHeader className="pr-12">
+            <DialogTitle className="text-2xl">{dialogTitle}</DialogTitle>
+            <DialogDescription>{dialogDescription}</DialogDescription>
+          </DialogHeader>
+          {taskActionTarget ? (
+            <div className="min-w-0 rounded-[22px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+              <p className="truncate text-sm font-semibold text-slate-900">
+                {taskActionTarget.label}
+              </p>
+              <p className="mt-1 truncate text-xs uppercase tracking-[0.14em] text-slate-500">
+                {taskActionTarget.meta}
+              </p>
+            </div>
+          ) : null}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isSubmittingTaskAction}
+              onClick={() => setTaskActionTarget(null)}
+            >
+              {dialogCancelLabel}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={isSubmittingTaskAction}
+              onClick={() => void handleConfirmTaskAction()}
+            >
+              {dialogConfirmLabel}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }
@@ -260,12 +355,10 @@ function ActivityMetric({
 
 function ActivityQueueSection({
   title,
-  description,
   emptyLabel,
   items,
 }: {
   title: string;
-  description: string;
   emptyLabel: string;
   items: Array<{
     href: string;
@@ -286,7 +379,6 @@ function ActivityQueueSection({
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             {title}
           </p>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">{description}</p>
         </div>
         <Badge variant="secondary" className="text-slate-500">
           {items.length}
@@ -359,10 +451,14 @@ function ActivityQueueSection({
 }
 
 function canCancelTask(task: Task | ScreenerTask): boolean {
+  if (task.cancel_requested_at) {
+    return false;
+  }
   return (
     task.status === "pending" ||
     task.status === "queued" ||
-    task.status === "waiting_for_quota"
+    task.status === "waiting_for_quota" ||
+    task.status === "running"
   );
 }
 

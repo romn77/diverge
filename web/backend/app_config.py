@@ -6,14 +6,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from diverge.data_layout import (
-    resolve_history_dir,
-    resolve_fundamentals_dir,
-    resolve_reports_dir,
-    resolve_screener_cache_dir,
-    resolve_screener_runs_dir,
-    resolve_screener_state_dir,
-    resolve_screener_tasks_dir,
+from diverge.config.paths import (
+    default_manifest_path as default_manifest_path,
+    get_data_paths,
+    resolve_manifest_path as _resolve_manifest_path,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -23,14 +19,16 @@ load_dotenv(PROJECT_ENV_FILE)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-REPORTS_DIR = resolve_reports_dir(PROJECT_ROOT)
-SCREENER_RESULTS_DIR = resolve_screener_runs_dir(PROJECT_ROOT)
-SCREENER_STATE_DIR = resolve_screener_state_dir(PROJECT_ROOT)
-SCREENER_TASKS_DIR = resolve_screener_tasks_dir(PROJECT_ROOT)
-SCREENER_CACHE_DIR = resolve_screener_cache_dir(PROJECT_ROOT)
-STOCK_HISTORY_DIR = resolve_history_dir(PROJECT_ROOT)
-FUNDAMENTALS_DIR = resolve_fundamentals_dir(PROJECT_ROOT)
-TMP_REPORTS_DIR = REPORTS_DIR / ".tmp"
+DATA_PATHS = get_data_paths(PROJECT_ROOT)
+REPORTS_DIR = DATA_PATHS.reports_dir
+SCREENER_RESULTS_DIR = DATA_PATHS.screener_runs_dir
+SCREENER_STATE_DIR = DATA_PATHS.screener_state_dir
+SCREENER_TASKS_DIR = DATA_PATHS.screener_tasks_dir
+SCREENER_CACHE_DIR = DATA_PATHS.screener_cache_dir
+STOCK_HISTORY_DIR = DATA_PATHS.history_dir
+FUNDAMENTALS_DIR = DATA_PATHS.fundamentals_dir
+MANIFEST_DIR = DATA_PATHS.manifest_dir
+TMP_REPORTS_DIR = DATA_PATHS.tmp_reports_dir
 
 TASKS_STATE_DIRNAME = ".tasks"
 ACTIVE_TASKS_DIRNAME = "active"
@@ -47,6 +45,19 @@ SCREENER_ARTIFACT_FILENAMES = {
 }
 
 DEFAULT_FRONTEND_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+def resolve_manifest_path(
+    market: str,
+    project_root: Path | None = None,
+    *,
+    require_exists: bool = False,
+) -> Path | None:
+    return _resolve_manifest_path(
+        market,
+        project_root,
+        require_exists=require_exists,
+    )
 
 
 def get_frontend_origins() -> list[str]:

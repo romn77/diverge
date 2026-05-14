@@ -5,15 +5,14 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePreferences } from "@/components/PreferencesProvider";
-import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { useWorkbench } from "@/components/WorkbenchProvider";
 import { MetricCard } from "@/components/workbench/MetricCard";
 import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  buildActivityHref,
   buildHomeHref,
   buildReportHref,
 } from "@/lib/workbenchRoutes";
@@ -105,12 +104,10 @@ function buildTickerGroupPanelId(ticker: string): string {
 export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   const router = useRouter();
   const { t } = usePreferences();
-  const { openAnalysisDialog } = useWorkbenchChrome();
   const {
     activeTasks,
     authState,
     loadingReports,
-    newAnalysisDisabled,
     reports,
     reportsError,
   } = useWorkbench();
@@ -188,90 +185,65 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
   }, [reportTickerGroups]);
 
   return (
-    <main className="analysis-density-page workbench-page-shell flex min-h-[100vh] flex-1 flex-col">
+    <main className="analysis-density-page workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-5">
         <PageHeader
           eyebrow={t("sidebar.nav.analysis", "Analysis")}
           title={t("home.analysisWorkspace", "Analysis workspace")}
-          description={t(
-            "home.workspaceDescription",
-            "Search reports and continue existing coverage."
-          )}
-          actions={
-            <>
-              <Button
-                type="button"
-                disabled={newAnalysisDisabled}
-                onClick={openAnalysisDialog}
-              >
-                {t("home.launchAnalysis", "New Analysis")}
-              </Button>
-              <Button asChild variant="secondary">
-                <Link href={buildActivityHref()}>
-                  {t("home.viewActivity", "View Activity")}
-                </Link>
-              </Button>
-            </>
-          }
         >
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              className="analysis-overview-metric"
-              label={t("home.metric.reportLibrary", "Report Library")}
-              value={`${scopedReports.length}`}
-              meta={
-                scopeFilter === "all"
-                  ? t("home.metric.reportLibraryMeta", "Total indexed reports")
-                  : t("home.metric.scopedReportLibraryMeta", "Reports in current scope")
-              }
-            />
-            <MetricCard
-              className="analysis-overview-metric"
-              label={t("home.recentTickers", "Tracked Tickers")}
-              value={`${trackedTickers.length}`}
-              meta={t("home.metric.trackedTickersMeta", "Coverage names in the library")}
-            />
-            <MetricCard
-              className="analysis-overview-metric"
-              label={t("home.metric.activeResearch", "Active Research")}
-              value={`${activeTasks.length}`}
-              meta={t("home.metric.activeResearchMeta", "In-flight analysis jobs")}
-            />
-          </div>
+          <div className="grid items-stretch gap-5 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+            <div className="grid h-full items-stretch gap-3 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <MetricCard
+                className="analysis-overview-metric"
+                label={t("home.metric.reportLibrary", "Report Library")}
+                value={`${scopedReports.length}`}
+                trendLabel={t("home.metric.reportLibraryScope", "Scope")}
+                trendValue={t(REPORT_SCOPE_LABEL_KEYS[scopeFilter], scopeFilter)}
+              />
+              <MetricCard
+                className="analysis-overview-metric"
+                label={t("home.recentTickers", "Tracked Tickers")}
+                value={`${trackedTickers.length}`}
+                trendLabel={t("home.metric.groupedReports", "Grouped reports")}
+                trendValue={`${reportTickerGroups.length}`}
+              />
+              <MetricCard
+                className="analysis-overview-metric"
+                label={t("home.metric.activeResearch", "Active Research")}
+                value={`${activeTasks.length}`}
+                trendLabel={t("activity.title", "Background work")}
+                trendValue={
+                  activeTasks.length > 0
+                    ? t("home.metric.activeResearchLive", "Live")
+                    : t("home.metric.activeResearchIdle", "Idle")
+                }
+                trendDirection={activeTasks.length > 0 ? "up" : "neutral"}
+              />
+            </div>
 
-          <div className="analysis-overview-search mt-5 rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
-            <label
-              htmlFor="home-report-search"
-              className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
-            >
-              {t("home.searchLabel", "Search reports")}
-            </label>
-            <Input
-              id="home-report-search"
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
-              className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
-            />
-            <p className="mt-2 text-sm text-slate-500">
-              {t(
-                "home.searchDeepLinkHint",
-                "Results update in place and keep the query in the URL for deep-linking."
-              )}
-            </p>
+            <div className="analysis-overview-search flex h-full flex-col justify-center rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
+              <label
+                htmlFor="home-report-search"
+                className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
+              >
+                {t("home.searchLabel", "Search reports")}
+              </label>
+              <Input
+                id="home-report-search"
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
+                className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
+              />
+            </div>
           </div>
         </PageHeader>
 
         <section className="analysis-report-section viewer-frame px-6 py-6 md:px-8">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  {deferredSearchQuery
-                    ? t("home.matchingReports", "Matching Reports")
-                    : t("home.recentReports", "Recent Reports")}
-                </p>
-                <h2 className="analysis-reports-title workbench-section-title mt-2 text-2xl">
+                <h2 className="analysis-reports-title workbench-section-title text-2xl">
                   {deferredSearchQuery
                     ? t("home.matchingReportCount", ({ count }) => `${count} matching reports`, {
                         count: matchingReports.length,
@@ -316,15 +288,25 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 {reportsError}
               </div>
             ) : loadingReports ? (
-              <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
-                {t("home.loadingReportIndex", "Loading report index...")}
+              <div
+                className="mt-5 space-y-3"
+                role="status"
+                aria-busy="true"
+                aria-live="polite"
+              >
+                <span className="sr-only">
+                  {t("home.loadingReportIndex", "Loading report index...")}
+                </span>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <Skeleton key={index} className="h-[68px] w-full rounded-[24px]" />
+                ))}
               </div>
             ) : matchingReports.length === 0 ? (
               <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
                 {t("home.noReportMatches", "No reports match this search yet.")}
               </div>
             ) : (
-              <div className="analysis-report-list mt-5 space-y-3">
+              <div className="analysis-report-list mt-5">
                 {reportTickerGroups.map((group) => {
                   const isExpanded = expandedTickerGroups[group.ticker] ?? false;
                   const panelId = buildTickerGroupPanelId(group.ticker);
@@ -380,35 +362,48 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                       {isExpanded ? (
                         <div id={panelId} className="analysis-report-children">
                           {group.reports.map((report) => (
-                            <Link
+                            <div
                               key={report.id}
-                              href={buildReportHref(report.id)}
-                              className="analysis-report-row group list-item-surface flex items-center justify-between gap-4 rounded-[24px] border border-[var(--border)] bg-white/88 px-4 py-4 hover:border-[var(--primary)]"
+                              className="analysis-report-row group flex items-center justify-between gap-4"
                             >
-                              <div className="min-w-0">
+                              <Link href={buildReportHref(report.id)} className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <p className="font-mono text-xs font-semibold text-slate-700">
                                     {formatReportTimestamp(report)}
                                   </p>
-                                  <Badge
-                                    variant={
-                                      report.visibility === "workspace" ? "success" : "secondary"
-                                    }
-                                    className="px-2 py-1 text-[10px]"
-                                  >
-                                    {report.visibility === "workspace"
-                                      ? t("home.visibility.workspace", "Workspace")
-                                      : t("home.visibility.private", "Private")}
-                                  </Badge>
+                                  {report.visibility ? (
+                                    <Badge
+                                      variant={
+                                        report.visibility === "workspace"
+                                          ? "success"
+                                          : "secondary"
+                                      }
+                                      className="px-2 py-1 text-[10px]"
+                                    >
+                                      {report.visibility === "workspace"
+                                        ? t("home.visibility.workspace", "Workspace")
+                                        : t("home.visibility.private", "Private")}
+                                    </Badge>
+                                  ) : null}
+                                  {report.visibility && report.visibility_admin_override ? (
+                                    <Badge variant="secondary" className="px-2 py-1 text-[10px]">
+                                      {t("home.visibility.adminOverride", "Admin adjusted")}
+                                    </Badge>
+                                  ) : null}
                                 </div>
                                 <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
                                   {report.id}
                                 </p>
+                              </Link>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <Link
+                                  href={buildReportHref(report.id)}
+                                  className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]"
+                                >
+                                  {t("common.open", "Open")}
+                                </Link>
                               </div>
-                              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--primary)]">
-                                {t("common.open", "Open")}
-                              </span>
-                            </Link>
+                            </div>
                           ))}
                         </div>
                       ) : null}

@@ -58,13 +58,17 @@ def get_asset_summary(
 @router.post("/api/assets")
 def create_asset(payload: AssetPositionCreatePayload, request: Request = None) -> dict:
     _require_asset_permission(request, auth.PERMISSION_ASSETS_WRITE)
-    return _run_asset_route(lambda: asset_service.create_asset_position(payload, request))
+    return _run_asset_route(
+        lambda: asset_service.create_asset_position(payload, request)
+    )
 
 
 @router.get("/api/assets/{position_id}")
 def get_asset(position_id: str, request: Request = None) -> dict:
     _require_asset_permission(request, auth.PERMISSION_ASSETS_READ)
-    return _run_asset_route(lambda: asset_service.get_asset_position(position_id, request))
+    return _run_asset_route(
+        lambda: asset_service.get_asset_position(position_id, request)
+    )
 
 
 @router.put("/api/assets/{position_id}")
@@ -82,7 +86,9 @@ def update_asset(
 @router.delete("/api/assets/{position_id}")
 def delete_asset(position_id: str, request: Request = None) -> dict:
     _require_asset_permission(request, auth.PERMISSION_ASSETS_WRITE)
-    return _run_asset_route(lambda: asset_service.delete_asset_position(position_id, request))
+    return _run_asset_route(
+        lambda: asset_service.delete_asset_position(position_id, request)
+    )
 
 
 @router.post("/api/assets/{position_id}/refresh")

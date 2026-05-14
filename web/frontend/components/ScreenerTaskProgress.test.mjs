@@ -24,6 +24,8 @@ test("ScreenerTaskProgress streams screener task updates and exposes a result ac
   assert.match(source, /blocked_vendor/);
   assert.match(source, /ScreenerQueueNotice/);
   assert.match(source, /screenerTask\.cancel/);
+  assert.match(source, /screenerTask\.terminate/);
+  assert.match(source, /cancel_requested_at/);
   assert.match(source, /nextTask\.progress_events \?\? \[\]/);
   assert.match(source, /setEvents\(existingEvents\)/);
   assert.match(source, /existingEvents\.length/);

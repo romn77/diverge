@@ -15,6 +15,10 @@ DEFAULT_TERMINAL_TTL_SECONDS = 7 * 24 * 60 * 60
 TASK_KINDS = ("analysis", "screener", "data_sync")
 
 
+class TaskCanceled(RuntimeError):
+    """Raised by cooperative task cancellation checks at safe boundaries."""
+
+
 def _dumps(payload: dict) -> str:
     return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
@@ -32,13 +36,19 @@ def _loads(value: Any) -> dict:
 class InMemoryTaskStore:
     def __init__(self):
         self.tasks: dict[str, dict[str, dict]] = {kind: {} for kind in TASK_KINDS}
-        self.events: dict[str, dict[str, list[dict]]] = {kind: {} for kind in TASK_KINDS}
+        self.events: dict[str, dict[str, list[dict]]] = {
+            kind: {} for kind in TASK_KINDS
+        }
         self.queue_names: dict[str, list[str]] = {kind: [] for kind in TASK_KINDS}
         self.processing_names: dict[str, list[str]] = {kind: [] for kind in TASK_KINDS}
-        self.delayed_names: dict[str, dict[str, float]] = {kind: {} for kind in TASK_KINDS}
+        self.delayed_names: dict[str, dict[str, float]] = {
+            kind: {} for kind in TASK_KINDS
+        }
         self.ids: dict[str, list[str]] = {kind: [] for kind in TASK_KINDS}
 
-    def save_task(self, kind: str, task_id: str, payload: dict, *, enqueue: bool = False) -> None:
+    def save_task(
+        self, kind: str, task_id: str, payload: dict, *, enqueue: bool = False
+    ) -> None:
         self.tasks.setdefault(kind, {})[task_id] = dict(payload)
         ids = self.ids.setdefault(kind, [])
         if task_id not in ids:
@@ -78,7 +88,11 @@ class InMemoryTaskStore:
 
     def count_running(self, kind: str | None = None) -> int:
         tasks = (
-            [task for task_by_kind in self.tasks.values() for task in task_by_kind.values()]
+            [
+                task
+                for task_by_kind in self.tasks.values()
+                for task in task_by_kind.values()
+            ]
             if kind is None
             else list(self.tasks.setdefault(kind, {}).values())
         )
@@ -142,7 +156,9 @@ class InMemoryTaskStore:
     def promote_due_delayed(self, kind: str, now_ts: float) -> list[str]:
         due_ids = [
             task_id
-            for task_id, blocked_until_ts in self.delayed_names.setdefault(kind, {}).items()
+            for task_id, blocked_until_ts in self.delayed_names.setdefault(
+                kind, {}
+            ).items()
             if blocked_until_ts <= now_ts
         ]
         for task_id in due_ids:
@@ -189,7 +205,9 @@ class RedisTaskStore:
     def _key(self, kind: str, suffix: str) -> str:
         return f"{self.prefix}:{kind}:{suffix}"
 
-    def save_task(self, kind: str, task_id: str, payload: dict, *, enqueue: bool = False) -> None:
+    def save_task(
+        self, kind: str, task_id: str, payload: dict, *, enqueue: bool = False
+    ) -> None:
         self.client.set(self._key(kind, f"task:{task_id}"), _dumps(payload))
         self.client.sadd(self._key(kind, "ids"), task_id)
         self._apply_terminal_ttl(kind, task_id, payload)
@@ -217,7 +235,11 @@ class RedisTaskStore:
         seen: set[str] = set()
         tasks: list[dict] = []
         for raw_task_id in ids:
-            task_id = raw_task_id.decode("utf-8") if isinstance(raw_task_id, bytes) else str(raw_task_id)
+            task_id = (
+                raw_task_id.decode("utf-8")
+                if isinstance(raw_task_id, bytes)
+                else str(raw_task_id)
+            )
             if task_id in seen:
                 continue
             seen.add(task_id)
@@ -229,16 +251,16 @@ class RedisTaskStore:
         return tasks
 
     def count_active(self, kind: str) -> int:
-        return sum(1 for task in self.list_tasks(kind) if task.get("status") in ACTIVE_STATUSES)
+        return sum(
+            1 for task in self.list_tasks(kind) if task.get("status") in ACTIVE_STATUSES
+        )
 
     def count_running(self, kind: str | None = None) -> int:
         if kind is not None:
             tasks = self.list_tasks(kind)
         else:
             tasks = [
-                task
-                for task_kind in TASK_KINDS
-                for task in self.list_tasks(task_kind)
+                task for task_kind in TASK_KINDS for task in self.list_tasks(task_kind)
             ]
         return sum(1 for task in tasks if task.get("status") in RUNNING_STATUSES)
 
@@ -271,7 +293,10 @@ class RedisTaskStore:
                 self.client.expire(event_key, ttl)
 
     def list_events(self, kind: str, task_id: str, start: int = 0) -> list[dict]:
-        values = self.client.lrange(self._key(kind, f"task:{task_id}:events"), start, -1) or []
+        values = (
+            self.client.lrange(self._key(kind, f"task:{task_id}:events"), start, -1)
+            or []
+        )
         return [_loads(value) for value in values]
 
     def enqueue(self, kind: str, task_id: str) -> None:
@@ -305,7 +330,11 @@ class RedisTaskStore:
     def recover_processing(self, kind: str) -> None:
         raw_ids = self.client.lrange(self._key(kind, "processing"), 0, -1) or []
         for raw_task_id in raw_ids:
-            task_id = raw_task_id.decode("utf-8") if isinstance(raw_task_id, bytes) else str(raw_task_id)
+            task_id = (
+                raw_task_id.decode("utf-8")
+                if isinstance(raw_task_id, bytes)
+                else str(raw_task_id)
+            )
             task = self.get_task(kind, task_id)
             if task is None or task.get("status") in TERMINAL_STATUSES:
                 self.ack(kind, task_id)
@@ -439,7 +468,9 @@ def get_terminal_ttl_seconds() -> int | None:
     try:
         parsed = int(raw_value)
     except ValueError as exc:
-        raise RuntimeError("TASK_STORE_TERMINAL_TTL_SECONDS must be an integer") from exc
+        raise RuntimeError(
+            "TASK_STORE_TERMINAL_TTL_SECONDS must be an integer"
+        ) from exc
     if parsed <= 0:
         return None
     return parsed
@@ -454,7 +485,9 @@ def get_task_store():
         return _TASK_STORE
     try:
         import redis
-    except ImportError as exc:  # pragma: no cover - dependency is present in production image.
+    except (
+        ImportError
+    ) as exc:  # pragma: no cover - dependency is present in production image.
         raise RuntimeError("redis package is required when TASK_BACKEND=redis") from exc
     redis_url = os.environ.get("REDIS_URL", "redis://redis:6379/0")
     _TASK_STORE = RedisTaskStore(

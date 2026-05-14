@@ -246,7 +246,7 @@ export function NewScreenerForm({
               <p className="mt-2 text-xs leading-5 text-slate-500">
                 {t(
                   "screener.marketHelp",
-                  "Disabled backend markets usually require server-side setup such as SCREEN_US_MANIFEST_PATH."
+                  "Disabled backend markets usually require server-side setup such as DATA_DIR/manifest/us.csv."
                 )}
               </p>
             </section>

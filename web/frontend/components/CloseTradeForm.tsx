@@ -75,15 +75,18 @@ export function CloseTradeForm({
       const normalizedExitTimestamp = normalizeRequiredTimestamp(
         exitTimestamp,
         t("tradeRecord.exitTime", "Exit time"),
-        record.exit_timestamp
+        record.exit_timestamp,
+        t
       );
       const normalizedExitPrice = parseRequiredNumber(
         exitPrice,
-        t("tradeRecord.exitPrice", "Exit price")
+        t("tradeRecord.exitPrice", "Exit price"),
+        t
       );
       const normalizedExitReason = requireText(
         exitReason,
-        t("tradeRecord.exitReason", "Exit reason")
+        t("tradeRecord.exitReason", "Exit reason"),
+        t
       );
       const saved = await updateTrade(record.trade_id, {
         exit_timestamp: normalizedExitTimestamp,
@@ -162,7 +165,7 @@ export function CloseTradeForm({
               <SelectContent>
                 {PLAN_EXECUTIONS.map((value) => (
                   <SelectItem key={value} value={value}>
-                    {value.replaceAll("_", " ")}
+                    {t(`tradeRecord.planExecution.${value}`, value.replaceAll("_", " "))}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -205,22 +208,42 @@ export function CloseTradeForm({
   );
 }
 
-function requireText(value: string, fieldName: string): string {
+function requireText(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      t("common.required", ({ field }) => `${field} is required.`, {
+        field: fieldName,
+      })
+    );
   }
   return normalized;
 }
 
-function parseRequiredNumber(value: string, fieldName: string): number {
+function parseRequiredNumber(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): number {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      t("common.required", ({ field }) => `${field} is required.`, {
+        field: fieldName,
+      })
+    );
   }
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) {
-    throw new Error(`${fieldName} must be numeric.`);
+    throw new Error(
+      t("common.mustBeNumeric", ({ field }) => `${field} must be numeric.`, {
+        field: fieldName,
+      })
+    );
   }
   return parsed;
 }
@@ -228,16 +251,21 @@ function parseRequiredNumber(value: string, fieldName: string): number {
 function normalizeRequiredTimestamp(
   value: string,
   fieldName: string,
-  originalValue: string | null
+  originalValue: string | null,
+  t: ReturnType<typeof usePreferences>["t"]
 ): string {
   const normalized = value.trim();
   if (!normalized) {
-    throw new Error(`${fieldName} is required.`);
+    throw new Error(
+      t("common.required", ({ field }) => `${field} is required.`, {
+        field: fieldName,
+      })
+    );
   }
   if (originalValue && normalized === toDateTimeLocalValue(originalValue)) {
     return originalValue;
   }
-  return toOffsetDateTimeString(parseDateTimeLocalValue(normalized, fieldName));
+  return toOffsetDateTimeString(parseDateTimeLocalValue(normalized, fieldName, t));
 }
 
 function toDateTimeLocalValue(value: string | null): string {
@@ -256,10 +284,20 @@ function toInputNumber(value: number | null): string {
   return typeof value === "number" ? String(value) : "";
 }
 
-function parseDateTimeLocalValue(value: string, fieldName: string): Date {
+function parseDateTimeLocalValue(
+  value: string,
+  fieldName: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): Date {
   const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
   if (!match) {
-    throw new Error(`${fieldName} must use YYYY-MM-DDTHH:MM format.`);
+    throw new Error(
+      t(
+        "common.invalidDateTimeFormat",
+        ({ field }) => `${field} must use YYYY-MM-DDTHH:MM format.`,
+        { field: fieldName }
+      )
+    );
   }
   const parsed = new Date(
     Number(match[1]),
@@ -271,7 +309,13 @@ function parseDateTimeLocalValue(value: string, fieldName: string): Date {
     0
   );
   if (Number.isNaN(parsed.getTime())) {
-    throw new Error(`${fieldName} must be a valid date and time.`);
+    throw new Error(
+      t(
+        "common.invalidDateTime",
+        ({ field }) => `${field} must be a valid date and time.`,
+        { field: fieldName }
+      )
+    );
   }
   return parsed;
 }

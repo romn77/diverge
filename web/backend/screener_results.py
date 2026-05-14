@@ -17,6 +17,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from diverge.common.json_io import write_json_atomic
 from diverge.screener.presets import normalize_filter_preset_selections
 from web.backend import app_config, auth, screener_runs
 
@@ -113,7 +114,9 @@ def _normalize_summary(value: dict[str, Any] | None) -> dict[str, Any]:
     if not value:
         return normalized
     for key in ("entered_symbols", "exited_symbols", "rank_changed_symbols"):
-        normalized[key] = [str(item) for item in value.get(key, []) if str(item).strip()]
+        normalized[key] = [
+            str(item) for item in value.get(key, []) if str(item).strip()
+        ]
     try:
         normalized["unchanged"] = int(value.get("unchanged", 0) or 0)
     except (TypeError, ValueError):
@@ -140,7 +143,11 @@ def _coerce_csv_value(value: str | None) -> Any:
     if lowered == "false":
         return False
     try:
-        if lowered.startswith("0") and lowered != "0" and not any(ch in lowered for ch in ".e"):
+        if (
+            lowered.startswith("0")
+            and lowered != "0"
+            and not any(ch in lowered for ch in ".e")
+        ):
             raise ValueError
         return int(candidate)
     except ValueError:
@@ -155,7 +162,11 @@ def _read_candidate_rows(candidates_path: Path) -> list[dict[str, Any]]:
         reader = csv.DictReader(handle)
         rows: list[dict[str, Any]] = []
         for raw_row in reader:
-            row = {str(key): _coerce_csv_value(value) for key, value in raw_row.items() if key}
+            row = {
+                str(key): _coerce_csv_value(value)
+                for key, value in raw_row.items()
+                if key
+            }
             rows.append(row)
         return rows
 
@@ -187,7 +198,12 @@ def _increment_hash_canonicalization_error() -> None:
 
 
 def _row_fingerprint(row: dict[str, Any]) -> str:
-    return json.dumps(_canonicalize_row(row), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return json.dumps(
+        _canonicalize_row(row),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    )
 
 
 _MISSING = object()
@@ -248,11 +264,7 @@ def _canonicalize_row(row: dict[str, Any]) -> dict[str, Any]:
         if key == "matched_reason_codes":
             raw_codes = row.get(key) or []
             normalized_codes = sorted(
-                {
-                    str(code).strip()
-                    for code in raw_codes
-                    if str(code).strip()
-                }
+                {str(code).strip() for code in raw_codes if str(code).strip()}
             )
             if normalized_codes:
                 canonical[key] = normalized_codes
@@ -468,17 +480,11 @@ def resolve_screener_result_state_path(
     owner_user_id: str | None = None,
     screener_key: str = DEFAULT_SCREENER_KEY,
 ) -> Path:
-    return app_config.SCREENER_STATE_DIR / _owner_directory(owner_user_id) / f"{screener_key}.json"
-
-
-def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = path.with_name(f".{path.name}.{hashlib.sha1(path.as_posix().encode()).hexdigest()}.tmp")
-    temp_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    return (
+        app_config.SCREENER_STATE_DIR
+        / _owner_directory(owner_user_id)
+        / f"{screener_key}.json"
     )
-    temp_path.replace(path)
 
 
 def _increment_legacy_read(context: str) -> None:
@@ -606,9 +612,13 @@ class ScreenerResultCandidate:
         self.markets = _normalize_markets(self.markets)
         self.universe_count = max(int(self.universe_count or 0), 0)
         self.match_count = max(int(self.match_count or len(self.rows)), 0)
-        self.filtered_count_by_reason = _normalize_reason_counts(self.filtered_count_by_reason)
+        self.filtered_count_by_reason = _normalize_reason_counts(
+            self.filtered_count_by_reason
+        )
         self.artifact_paths = _normalize_artifact_paths(self.artifact_paths)
-        self.source_legacy_run_id = _normalize_text(self.source_legacy_run_id) or self.source_run_id
+        self.source_legacy_run_id = (
+            _normalize_text(self.source_legacy_run_id) or self.source_run_id
+        )
         if self.duration_ms is not None:
             self.duration_ms = max(int(self.duration_ms), 0)
         self.result_hash = self.result_hash or result_hash(self.rows)
@@ -631,14 +641,18 @@ def _snapshot_from_payload(
         as_of_date=_normalize_text(payload.get("as_of_date")),
         markets=_normalize_markets(payload.get("markets")),
         candidate_count=max(int(payload.get("candidate_count") or 0), 0),
-        match_count=max(int(payload.get("match_count") or payload.get("candidate_count") or 0), 0),
+        match_count=max(
+            int(payload.get("match_count") or payload.get("candidate_count") or 0), 0
+        ),
         universe_count=max(int(payload.get("universe_count") or 0), 0),
         duration_ms=(
             max(int(payload.get("duration_ms")), 0)
             if payload.get("duration_ms") is not None
             else None
         ),
-        filtered_count_by_reason=_normalize_reason_counts(payload.get("filtered_count_by_reason")),
+        filtered_count_by_reason=_normalize_reason_counts(
+            payload.get("filtered_count_by_reason")
+        ),
         artifact_paths=_normalize_artifact_paths(payload.get("artifact_paths")),
         rows=list(payload.get("rows") or []),
         summary=(
@@ -652,7 +666,9 @@ def _snapshot_from_payload(
     )
 
 
-def _run_metadata_from_payload(payload: dict[str, Any] | None) -> ScreenerRunMetadata | None:
+def _run_metadata_from_payload(
+    payload: dict[str, Any] | None,
+) -> ScreenerRunMetadata | None:
     if not payload:
         return None
     return ScreenerRunMetadata(
@@ -661,7 +677,9 @@ def _run_metadata_from_payload(payload: dict[str, Any] | None) -> ScreenerRunMet
         as_of_date=_normalize_text(payload.get("as_of_date")),
         markets=_normalize_markets(payload.get("markets")),
         candidate_count=max(int(payload.get("candidate_count") or 0), 0),
-        match_count=max(int(payload.get("match_count") or payload.get("candidate_count") or 0), 0),
+        match_count=max(
+            int(payload.get("match_count") or payload.get("candidate_count") or 0), 0
+        ),
         universe_count=max(int(payload.get("universe_count") or 0), 0),
         status=str(payload.get("status") or "success"),
         owner_user_id=_normalize_text(payload.get("owner_user_id")),
@@ -673,7 +691,9 @@ def _run_metadata_from_payload(payload: dict[str, Any] | None) -> ScreenerRunMet
             if payload.get("duration_ms") is not None
             else None
         ),
-        filtered_count_by_reason=_normalize_reason_counts(payload.get("filtered_count_by_reason")),
+        filtered_count_by_reason=_normalize_reason_counts(
+            payload.get("filtered_count_by_reason")
+        ),
         artifact_paths=_normalize_artifact_paths(payload.get("artifact_paths")),
         result_hash=str(payload.get("result_hash") or ""),
         error_summary=_normalize_text(payload.get("error_summary")),
@@ -706,14 +726,15 @@ def load_screener_result_state(
         recent_runs=[
             metadata
             for item in list(payload.get("recent_runs") or [])
-            if (metadata := _run_metadata_from_payload(item)) is not None and metadata.id
+            if (metadata := _run_metadata_from_payload(item)) is not None
+            and metadata.id
         ],
     )
 
 
 def save_screener_result_state(state: ScreenerResultState) -> None:
     state.updated_at = _serialize_timestamp()
-    _write_json_atomic(
+    write_json_atomic(
         resolve_screener_result_state_path(state.owner_user_id, state.screener_key),
         asdict(state),
     )
@@ -744,7 +765,9 @@ def _protected_screener_run_ids(seed_state: ScreenerResultState) -> set[str]:
         except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             continue
         for slot in ("current_result", "previous_result"):
-            source_run_id = _normalize_text((payload.get(slot) or {}).get("source_run_id"))
+            source_run_id = _normalize_text(
+                (payload.get(slot) or {}).get("source_run_id")
+            )
             if source_run_id:
                 protected.add(source_run_id)
     return protected
@@ -774,7 +797,9 @@ def cleanup_obsolete_screener_run_artifacts(state: ScreenerResultState) -> list[
             shutil.rmtree(run_dir)
             removed.append(run_id)
         except OSError:
-            logger.exception("failed to remove obsolete screener run artifacts run_id=%s", run_id)
+            logger.exception(
+                "failed to remove obsolete screener run artifacts run_id=%s", run_id
+            )
     return removed
 
 
@@ -784,7 +809,9 @@ def _relative_screener_storage_path(path: Path) -> str:
     try:
         relative_path = resolved_path.relative_to(resolved_root)
     except ValueError as exc:
-        raise RuntimeError("Screener artifacts must stay under SCREENER_RESULTS_DIR") from exc
+        raise RuntimeError(
+            "Screener artifacts must stay under SCREENER_RESULTS_DIR"
+        ) from exc
     return relative_path.as_posix()
 
 
@@ -797,7 +824,9 @@ def _build_screener_artifact_manifest(run_dir: Path) -> dict[str, str]:
     return manifest
 
 
-def _read_legacy_run(run_dir: Path, owner_user_id: str | None = None) -> LegacyScreenerRun | None:
+def _read_legacy_run(
+    run_dir: Path, owner_user_id: str | None = None
+) -> LegacyScreenerRun | None:
     meta_path = run_dir / "run_meta.json"
     candidates_path = run_dir / "candidates.csv"
     if not meta_path.is_file() or not candidates_path.is_file():
@@ -808,7 +837,9 @@ def _read_legacy_run(run_dir: Path, owner_user_id: str | None = None) -> LegacyS
         meta_payload = json.loads(meta_path.read_text(encoding="utf-8"))
         rows = _read_candidate_rows(candidates_path)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, csv.Error) as exc:
-        raise RuntimeError(f"Failed to read legacy screener run '{run_dir.name}': {exc}") from exc
+        raise RuntimeError(
+            f"Failed to read legacy screener run '{run_dir.name}': {exc}"
+        ) from exc
 
     config_payload = dict(meta_payload.get("config") or {})
     artifact_paths = _normalize_artifact_paths(meta_payload.get("artifact_paths"))
@@ -841,7 +872,9 @@ def _read_legacy_run(run_dir: Path, owner_user_id: str | None = None) -> LegacyS
         universe_count=universe_count,
         candidate_count=max(int(meta_payload.get("candidate_count") or len(rows)), 0),
         duration_ms=duration_ms,
-        filtered_count_by_reason=_normalize_reason_counts(meta_payload.get("filtered_count_by_reason")),
+        filtered_count_by_reason=_normalize_reason_counts(
+            meta_payload.get("filtered_count_by_reason")
+        ),
         artifact_paths=artifact_paths,
         rows=rows,
         owner_user_id=owner_user_id,
@@ -971,8 +1004,12 @@ def _failed_run_metadata(
 ) -> ScreenerRunMetadata:
     request_payload = dict(getattr(task, "request_payload", {}) or {})
     config_payload = dict(getattr(task, "config_payload", {}) or {})
-    as_of_date = _normalize_text(request_payload.get("as_of_date") or config_payload.get("as_of_date"))
-    markets = _normalize_markets(request_payload.get("markets") or config_payload.get("markets"))
+    as_of_date = _normalize_text(
+        request_payload.get("as_of_date") or config_payload.get("as_of_date")
+    )
+    markets = _normalize_markets(
+        request_payload.get("markets") or config_payload.get("markets")
+    )
     return ScreenerRunMetadata(
         id=source_run_id,
         generated_at=_serialize_run_timestamp(),
@@ -1018,8 +1055,14 @@ def _clear_snapshot_summary(snapshot: ScreenerResultSnapshot) -> ScreenerResultS
 
 
 def _annotate_recent_runs(state: ScreenerResultState) -> None:
-    current_run_id = state.current_result.source_run_id if state.current_result is not None else None
-    previous_run_id = state.previous_result.source_run_id if state.previous_result is not None else None
+    current_run_id = (
+        state.current_result.source_run_id if state.current_result is not None else None
+    )
+    previous_run_id = (
+        state.previous_result.source_run_id
+        if state.previous_result is not None
+        else None
+    )
     for recent_run in state.recent_runs:
         if current_run_id and recent_run.id == current_run_id:
             recent_run.snapshot_slot = CURRENT_SNAPSHOT_SLOT
@@ -1032,7 +1075,9 @@ def _annotate_recent_runs(state: ScreenerResultState) -> None:
             recent_run.snapshot_available = False
 
 
-def _recent_run_preference_key(run: ScreenerRunMetadata) -> tuple[str, int, int, int, str]:
+def _recent_run_preference_key(
+    run: ScreenerRunMetadata,
+) -> tuple[str, int, int, int, str]:
     return (
         run.generated_at or "",
         1 if run.owner_user_id else 0,
@@ -1042,18 +1087,22 @@ def _recent_run_preference_key(run: ScreenerRunMetadata) -> tuple[str, int, int,
     )
 
 
-def _dedupe_recent_runs(recent_runs: list[ScreenerRunMetadata]) -> list[ScreenerRunMetadata]:
+def _dedupe_recent_runs(
+    recent_runs: list[ScreenerRunMetadata],
+) -> list[ScreenerRunMetadata]:
     unique_runs: dict[str, ScreenerRunMetadata] = {}
     for run in recent_runs:
         existing = unique_runs.get(run.id)
-        if existing is None or _recent_run_preference_key(run) > _recent_run_preference_key(
-            existing
-        ):
+        if existing is None or _recent_run_preference_key(
+            run
+        ) > _recent_run_preference_key(existing):
             unique_runs[run.id] = run
     return list(unique_runs.values())
 
 
-def _sort_recent_runs(recent_runs: list[ScreenerRunMetadata]) -> list[ScreenerRunMetadata]:
+def _sort_recent_runs(
+    recent_runs: list[ScreenerRunMetadata],
+) -> list[ScreenerRunMetadata]:
     return sorted(
         _dedupe_recent_runs(recent_runs),
         key=lambda run: (run.generated_at or "", run.id),
@@ -1095,7 +1144,10 @@ def _build_state_from_legacy_runs(
         owner_user_id=owner_user_id,
         current_result=current_snapshot,
         previous_result=previous_snapshot,
-        recent_runs=[_recent_run_from_legacy_run(legacy_run) for legacy_run in ordered_runs[:RECENT_RUN_LIMIT]],
+        recent_runs=[
+            _recent_run_from_legacy_run(legacy_run)
+            for legacy_run in ordered_runs[:RECENT_RUN_LIMIT]
+        ],
     )
     _increment_migration_seed(1 + int(previous_snapshot is not None))
     _annotate_recent_runs(state)
@@ -1151,7 +1203,9 @@ def migrate_legacy_screener_results(
     else:
         legacy_runs = _load_workspace_legacy_runs()
 
-    state = _build_state_from_legacy_runs(legacy_runs, owner_user_id=state_owner_user_id)
+    state = _build_state_from_legacy_runs(
+        legacy_runs, owner_user_id=state_owner_user_id
+    )
     if state is not None:
         save_screener_result_state(state)
     return state
@@ -1215,16 +1269,24 @@ def _snapshot_for_run_id(
     for state in candidate_states:
         if state is None:
             continue
-        if state.current_result is not None and state.current_result.source_run_id == run_id:
+        if (
+            state.current_result is not None
+            and state.current_result.source_run_id == run_id
+        ):
             return state.current_result, CURRENT_SNAPSHOT_SLOT
-        if state.previous_result is not None and state.previous_result.source_run_id == run_id:
+        if (
+            state.previous_result is not None
+            and state.previous_result.source_run_id == run_id
+        ):
             return state.previous_result, PREVIOUS_SNAPSHOT_SLOT
 
     raise HTTPException(status_code=404, detail=f"Screener run '{run_id}' not found")
 
 
 class ScreenerResultReadService:
-    def list_recent_runs(self, current_user: auth.User | None = None) -> list[dict[str, Any]]:
+    def list_recent_runs(
+        self, current_user: auth.User | None = None
+    ) -> list[dict[str, Any]]:
         recent_runs = _sort_recent_runs(_recent_runs_for_user(current_user))
         return [
             {
@@ -1241,7 +1303,9 @@ class ScreenerResultReadService:
             for run_metadata in recent_runs
         ]
 
-    def get_run(self, run_id: str, current_user: auth.User | None = None) -> dict[str, Any]:
+    def get_run(
+        self, run_id: str, current_user: auth.User | None = None
+    ) -> dict[str, Any]:
         snapshot, snapshot_slot = _snapshot_for_run_id(run_id, current_user)
         return {
             "id": snapshot.source_run_id,
@@ -1273,11 +1337,6 @@ class ScreenerResultReadService:
                 "pattern_score": None,
                 "fundamental_score": None,
                 "ranking_profile_id": None,
-                "score_contributions": "",
-                "matched_conditions": "",
-                "matched_condition_details": "",
-                "strategy_tags": "",
-                "risk_flags": "",
                 **dict(row),
                 "strategy_tags": row.get("strategy_tags") or "",
                 "risk_flags": row.get("risk_flags") or "",
@@ -1300,7 +1359,9 @@ def run_screener(task: Any, result: Any) -> ScreenerResultCandidate:
     run_dir = Path(result.run_dir).resolve()
     legacy_run = _read_legacy_run(run_dir, owner_user_id=owner_user_id)
     if legacy_run is None:
-        raise RuntimeError(f"Screener run artifacts are incomplete for '{run_dir.name}'")
+        raise RuntimeError(
+            f"Screener run artifacts are incomplete for '{run_dir.name}'"
+        )
 
     universe_count = legacy_run.universe_count
     if getattr(result, "universe_count_by_market", None):
@@ -1316,7 +1377,9 @@ def run_screener(task: Any, result: Any) -> ScreenerResultCandidate:
         as_of_date=legacy_run.as_of_date,
         markets=list(legacy_run.markets),
         universe_count=universe_count,
-        match_count=max(int(getattr(result, "candidate_count", legacy_run.candidate_count) or 0), 0),
+        match_count=max(
+            int(getattr(result, "candidate_count", legacy_run.candidate_count) or 0), 0
+        ),
         filtered_count_by_reason=dict(legacy_run.filtered_count_by_reason),
         artifact_paths=dict(legacy_run.artifact_paths),
         rows=list(legacy_run.rows),
@@ -1338,7 +1401,11 @@ def persist_screener_run(
     owner_user_id = getattr(task, "owner_user_id", None)
     tenant_id = getattr(task, "tenant_id", None)
     config_payload = dict(getattr(task, "config_payload", {}) or {})
-    screener_key = screener_key_for_config(config_payload) if config_payload else DEFAULT_SCREENER_KEY
+    screener_key = (
+        screener_key_for_config(config_payload)
+        if config_payload
+        else DEFAULT_SCREENER_KEY
+    )
     state = load_screener_result_state(None, screener_key) or ScreenerResultState(
         screener_key=screener_key,
         owner_user_id=None,
@@ -1346,14 +1413,19 @@ def persist_screener_run(
     existing_current = state.current_result
     existing_previous = state.previous_result
     if candidate is None:
-        failed_run_id = source_run_id or getattr(task, "run_id", None) or getattr(task, "id", "")
+        failed_run_id = (
+            source_run_id or getattr(task, "run_id", None) or getattr(task, "id", "")
+        )
         run_metadata = _failed_run_metadata(
             task=task,
             owner_user_id=None,
             error_summary=error_summary or "Screener run failed",
             source_run_id=failed_run_id or _serialize_run_timestamp(),
         )
-        recent_runs = [run_metadata, *[run for run in state.recent_runs if run.id != run_metadata.id]]
+        recent_runs = [
+            run_metadata,
+            *[run for run in state.recent_runs if run.id != run_metadata.id],
+        ]
         state.recent_runs = _sort_recent_runs(recent_runs)
         _annotate_recent_runs(state)
         save_screener_result_state(state)
@@ -1381,7 +1453,9 @@ def persist_screener_run(
         status = "no_change"
     else:
         _increment_snapshot_rotation()
-        next_snapshot.summary = _build_summary(next_snapshot.rows, existing_current.rows)
+        next_snapshot.summary = _build_summary(
+            next_snapshot.rows, existing_current.rows
+        )
         state.previous_result = _clear_snapshot_summary(existing_current)
         state.current_result = next_snapshot
         status = "success"
@@ -1394,7 +1468,11 @@ def persist_screener_run(
     _annotate_recent_runs(state)
     save_screener_result_state(state)
 
-    if auth.get_auth_settings().enabled and candidate.run_dir is not None and owner_user_id:
+    if (
+        auth.get_auth_settings().enabled
+        and candidate.run_dir is not None
+        and owner_user_id
+    ):
         with auth.db_session() as db:
             screener_runs.upsert_screener_run(
                 db,

@@ -28,7 +28,11 @@ def route_to_valuation_input(
     curr_date: str | None = None,
     freq: str = "annual",
 ):
-    market, _, _ = resolve_market_and_symbol("get_fundamentals", (ticker, curr_date), {})
+    market, _, _ = resolve_market_and_symbol(
+        "get_fundamentals", (ticker, curr_date), {}
+    )
     if market == "cn":
-        return build_akshare_valuation_input(ticker=ticker, curr_date=curr_date, freq=freq)
+        return build_akshare_valuation_input(
+            ticker=ticker, curr_date=curr_date, freq=freq
+        )
     return build_yfinance_valuation_input(ticker=ticker, curr_date=curr_date, freq=freq)

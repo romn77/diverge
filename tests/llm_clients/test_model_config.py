@@ -44,20 +44,50 @@ class ModelConfigTests(unittest.TestCase):
                 with self.subTest(provider=provider, label=label):
                     lowered_label = label.lower()
                     self.assertFalse(
-                        any(fragment.lower() in lowered_label for fragment in price_fragments)
+                        any(
+                            fragment.lower() in lowered_label
+                            for fragment in price_fragments
+                        )
                     )
 
     def test_provider_model_maps_are_assembled_from_named_option_constants(self):
-        self.assertIs(QUICK_MODEL_OPTIONS["openai"], model_config.OPENAI_QUICK_MODEL_OPTIONS)
-        self.assertIs(DEEP_MODEL_OPTIONS["openai"], model_config.OPENAI_DEEP_MODEL_OPTIONS)
-        self.assertIs(QUICK_MODEL_OPTIONS["deepseek"], model_config.DEEPSEEK_QUICK_MODEL_OPTIONS)
-        self.assertIs(DEEP_MODEL_OPTIONS["deepseek"], model_config.DEEPSEEK_DEEP_MODEL_OPTIONS)
-        self.assertIs(QUICK_MODEL_OPTIONS["siliconflow"], model_config.SILICONFLOW_QUICK_MODEL_OPTIONS)
-        self.assertIs(DEEP_MODEL_OPTIONS["siliconflow"], model_config.SILICONFLOW_DEEP_MODEL_OPTIONS)
-        self.assertIs(QUICK_MODEL_OPTIONS["xiaohumini"], model_config.XIAOHUMINI_QUICK_MODEL_OPTIONS)
-        self.assertIs(DEEP_MODEL_OPTIONS["xiaohumini"], model_config.XIAOHUMINI_DEEP_MODEL_OPTIONS)
-        self.assertIs(QUICK_MODEL_OPTIONS["sub2api"], model_config.SUB2API_QUICK_MODEL_OPTIONS)
-        self.assertIs(DEEP_MODEL_OPTIONS["sub2api"], model_config.SUB2API_DEEP_MODEL_OPTIONS)
+        self.assertIs(
+            QUICK_MODEL_OPTIONS["openai"], model_config.OPENAI_QUICK_MODEL_OPTIONS
+        )
+        self.assertIs(
+            DEEP_MODEL_OPTIONS["openai"], model_config.OPENAI_DEEP_MODEL_OPTIONS
+        )
+        self.assertIs(
+            QUICK_MODEL_OPTIONS["deepseek"], model_config.DEEPSEEK_QUICK_MODEL_OPTIONS
+        )
+        self.assertIs(
+            DEEP_MODEL_OPTIONS["deepseek"], model_config.DEEPSEEK_DEEP_MODEL_OPTIONS
+        )
+        self.assertIs(
+            QUICK_MODEL_OPTIONS["siliconflow"],
+            model_config.SILICONFLOW_QUICK_MODEL_OPTIONS,
+        )
+        self.assertIs(
+            DEEP_MODEL_OPTIONS["siliconflow"],
+            model_config.SILICONFLOW_DEEP_MODEL_OPTIONS,
+        )
+        self.assertIs(
+            QUICK_MODEL_OPTIONS["xiaohumini"],
+            model_config.XIAOHUMINI_QUICK_MODEL_OPTIONS,
+        )
+        self.assertIs(
+            DEEP_MODEL_OPTIONS["xiaohumini"], model_config.XIAOHUMINI_DEEP_MODEL_OPTIONS
+        )
+        self.assertIs(
+            QUICK_MODEL_OPTIONS["sub2api"], model_config.SUB2API_QUICK_MODEL_OPTIONS
+        )
+        self.assertIs(
+            DEEP_MODEL_OPTIONS["sub2api"], model_config.SUB2API_DEEP_MODEL_OPTIONS
+        )
+        self.assertIs(
+            QUICK_MODEL_OPTIONS["mimo"], model_config.MIMO_QUICK_MODEL_OPTIONS
+        )
+        self.assertIs(DEEP_MODEL_OPTIONS["mimo"], model_config.MIMO_DEEP_MODEL_OPTIONS)
 
     def test_validators_accept_all_shared_models_for_strict_providers(self):
         for provider in STRICT_VALIDATION_PROVIDERS:
@@ -80,8 +110,14 @@ class ModelConfigTests(unittest.TestCase):
         self.assertTrue(validate_model("openai", "gpt-5.5-pro"))
 
     def test_siliconflow_provider_exposes_requested_models(self):
-        provider_map = {provider: (label, base_url) for provider, label, base_url in PROVIDER_OPTIONS}
-        self.assertEqual(provider_map["siliconflow"], ("SiliconFlow", "https://api.siliconflow.cn/v1"))
+        provider_map = {
+            provider: (label, base_url)
+            for provider, label, base_url in PROVIDER_OPTIONS
+        }
+        self.assertEqual(
+            provider_map["siliconflow"],
+            ("SiliconFlow", "https://api.siliconflow.cn/v1"),
+        )
 
         model_ids = set(get_model_ids_for_provider("siliconflow"))
         expected_model_ids = {
@@ -130,7 +166,9 @@ class ModelConfigTests(unittest.TestCase):
 
         self.assertTrue(expected_models.issubset(quick_models))
         self.assertTrue(expected_models.issubset(deep_models))
-        self.assertTrue(expected_models.issubset(set(get_model_ids_for_provider("deepseek"))))
+        self.assertTrue(
+            expected_models.issubset(set(get_model_ids_for_provider("deepseek")))
+        )
 
     def test_xiaohumini_provider_exposes_cost_balanced_latest_models(self):
         quick_models = [model for _label, model in QUICK_MODEL_OPTIONS["xiaohumini"]]
@@ -156,20 +194,54 @@ class ModelConfigTests(unittest.TestCase):
             "MiniMax-M2.7",
         }
 
-        self.assertTrue(expected_latest_models.issubset(set(get_model_ids_for_provider("xiaohumini"))))
+        self.assertTrue(
+            expected_latest_models.issubset(
+                set(get_model_ids_for_provider("xiaohumini"))
+            )
+        )
 
     def test_sub2api_provider_exposes_openai_responses_models(self):
-        provider_map = {provider: (label, base_url) for provider, label, base_url in PROVIDER_OPTIONS}
-        self.assertEqual(provider_map["sub2api"], ("Sub2API", "https://cc.z2blog.com"))
+        provider_map = {
+            provider: (label, base_url)
+            for provider, label, base_url in PROVIDER_OPTIONS
+        }
+        self.assertEqual(
+            provider_map["sub2api"], ("Sub2API", "https://cc.z2blog.com/v1")
+        )
 
-        quick_models = {model for _label, model in QUICK_MODEL_OPTIONS["sub2api"]}
-        deep_models = {model for _label, model in DEEP_MODEL_OPTIONS["sub2api"]}
+        quick_models = [model for _label, model in QUICK_MODEL_OPTIONS["sub2api"]]
+        deep_models = [model for _label, model in DEEP_MODEL_OPTIONS["sub2api"]]
 
-        self.assertIn("gpt-5.4-mini", quick_models)
-        self.assertIn("gpt-5.4", quick_models)
-        self.assertIn("gpt-5.4", deep_models)
-        self.assertIn("gpt-5.4-pro", deep_models)
+        self.assertEqual(quick_models, ["gpt-5.4-mini", "gpt-5.2"])
+        self.assertEqual(deep_models, ["gpt-5.4", "gpt-5.5"])
         self.assertTrue(validate_model("sub2api", "gpt-5.4"))
+        self.assertTrue(validate_model("sub2api", "gpt-5.5"))
+        self.assertFalse(validate_model("sub2api", "gpt-4.1"))
+
+    def test_mimo_provider_exposes_openai_compatible_models(self):
+        provider_map = {
+            provider: (label, base_url)
+            for provider, label, base_url in PROVIDER_OPTIONS
+        }
+        self.assertEqual(
+            provider_map["mimo"], ("MiMo", "https://api.xiaomimimo.com/v1")
+        )
+
+        quick_models = {model for _label, model in QUICK_MODEL_OPTIONS["mimo"]}
+        deep_models = {model for _label, model in DEEP_MODEL_OPTIONS["mimo"]}
+
+        expected_models = {
+            "mimo-v2-flash",
+            "mimo-v2.5",
+            "mimo-v2-omni",
+            "mimo-v2.5-pro",
+            "mimo-v2-pro",
+        }
+        self.assertEqual(quick_models, expected_models)
+        self.assertEqual(deep_models, expected_models)
+        self.assertEqual(QUICK_MODEL_OPTIONS["mimo"][0][1], "mimo-v2-flash")
+        self.assertTrue(validate_model("mimo", "mimo-v2.5-pro"))
+        self.assertTrue(validate_model("mimo", "mimo-v2-flash"))
 
 
 if __name__ == "__main__":

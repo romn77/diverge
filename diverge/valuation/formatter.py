@@ -67,7 +67,9 @@ def format_valuation_sections(
         latest,
         assumptions=valuation_input.assumptions,
     )
-    sections.append(_format_multiples_summary(multiples, valuation_input.market.currency))
+    sections.append(
+        _format_multiples_summary(multiples, valuation_input.market.currency)
+    )
     sections.append(_format_assumptions(valuation_input, config))
     sections.append(_format_dcf_scenarios(valuation_input, config))
 

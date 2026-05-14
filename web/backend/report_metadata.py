@@ -6,9 +6,21 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, and_, inspect, or_, select
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    and_,
+    inspect,
+    or_,
+    select,
+)
 from sqlalchemy.orm import Mapped, Session, mapped_column
 
+from diverge.common.fields import normalize_optional_text
 from web.backend import auth
 
 REPORT_VISIBILITY_PRIVATE = "private"
@@ -42,17 +54,13 @@ def _normalize_text(value: str | None, field_name: str) -> str:
 
 
 def _normalize_optional_text(value: str | None) -> str | None:
-    if value is None or not value.strip():
-        return None
-    return value.strip()
+    return normalize_optional_text(value)
 
 
 def _normalize_visibility(value: str | None) -> str:
     candidate = (value or REPORT_VISIBILITY_PRIVATE).strip().lower()
     if candidate not in VALID_REPORT_VISIBILITIES:
-        raise auth.AuthValidationError(
-            "visibility must be one of private or workspace"
-        )
+        raise auth.AuthValidationError("visibility must be one of private or workspace")
     return candidate
 
 
@@ -151,7 +159,9 @@ def build_report_file_index(report_dir: Path) -> list[dict[str, Any]]:
 
     artifact_dir = report_dir / "artifacts"
     if artifact_dir.is_dir():
-        for artifact_path in sorted(path for path in artifact_dir.iterdir() if path.is_file()):
+        for artifact_path in sorted(
+            path for path in artifact_dir.iterdir() if path.is_file()
+        ):
             relative_path = artifact_path.relative_to(report_dir).as_posix()
             entries.append(
                 {
@@ -208,7 +218,12 @@ class ReportRun(auth.Base):
     __table_args__ = (
         Index("ix_report_runs_tenant_generated_at", "tenant_id", "generated_at"),
         Index("ix_report_runs_owner_generated_at", "owner_user_id", "generated_at"),
-        Index("ix_report_runs_tenant_visibility_generated_at", "tenant_id", "visibility", "generated_at"),
+        Index(
+            "ix_report_runs_tenant_visibility_generated_at",
+            "tenant_id",
+            "visibility",
+            "generated_at",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -223,6 +238,20 @@ class ReportRun(auth.Base):
         nullable=False,
     )
     visibility: Mapped[str] = mapped_column(String(32), nullable=False)
+    visibility_updated_by_user_id: Mapped[str | None] = mapped_column(
+        String(32),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    visibility_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+    visibility_admin_override: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
     ticker: Mapped[str] = mapped_column(String(32), nullable=False)
     generated_at: Mapped[str | None] = mapped_column(String(32), nullable=True)
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
@@ -288,7 +317,9 @@ def ensure_report_metadata_tables(settings: auth.AuthSettings | None = None) -> 
     inspector = inspect(auth.get_engine(resolved_settings))
     required_tables = ("report_runs", "report_files")
     missing_tables = [
-        table_name for table_name in required_tables if not inspector.has_table(table_name)
+        table_name
+        for table_name in required_tables
+        if not inspector.has_table(table_name)
     ]
     if missing_tables:
         joined = ", ".join(missing_tables)
@@ -319,7 +350,9 @@ def upsert_report_run(
     normalized_tenant_id = _normalize_optional_text(tenant_id)
     if normalized_tenant_id is None:
         owner = db.get(auth.User, normalized_owner_user_id)
-        normalized_tenant_id = owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        normalized_tenant_id = (
+            owner.tenant_id if owner is not None else auth.DEFAULT_TENANT_ID
+        )
     normalized_visibility = _normalize_visibility(visibility)
     normalized_ticker = _normalize_text(ticker, "ticker").upper()
     normalized_storage_path = _normalize_text(storage_path, "storage_path")
@@ -333,6 +366,7 @@ def upsert_report_run(
             tenant_id=normalized_tenant_id,
             owner_user_id=normalized_owner_user_id,
             visibility=normalized_visibility,
+            visibility_admin_override=False,
             ticker=normalized_ticker,
             generated_at=normalized_generated_at,
             storage_path=normalized_storage_path,
@@ -355,7 +389,9 @@ def upsert_report_run(
         db.add(
             ReportFile(
                 report_id=normalized_report_id,
-                relative_path=_normalize_text(entry.get("relative_path"), "relative_path"),
+                relative_path=_normalize_text(
+                    entry.get("relative_path"), "relative_path"
+                ),
                 entry_type=_normalize_text(entry.get("entry_type"), "entry_type"),
                 category_key=_normalize_optional_text(entry.get("category_key")),
                 artifact_type=_normalize_optional_text(entry.get("artifact_type")),
@@ -378,7 +414,10 @@ def list_report_runs(
     if tenant_id is not None:
         normalized_tenant_id = _normalize_text(tenant_id, "tenant_id")
         statement = statement.where(
-            or_(ReportRun.tenant_id == normalized_tenant_id, ReportRun.tenant_id.is_(None))
+            or_(
+                ReportRun.tenant_id == normalized_tenant_id,
+                ReportRun.tenant_id.is_(None),
+            )
         )
     if owner_user_id is not None:
         if include_workspace:
@@ -406,7 +445,10 @@ def get_report_run(
     if tenant_id is not None:
         normalized_tenant_id = _normalize_text(tenant_id, "tenant_id")
         statement = statement.where(
-            or_(ReportRun.tenant_id == normalized_tenant_id, ReportRun.tenant_id.is_(None))
+            or_(
+                ReportRun.tenant_id == normalized_tenant_id,
+                ReportRun.tenant_id.is_(None),
+            )
         )
     if owner_user_id is not None:
         if include_workspace:
@@ -461,6 +503,13 @@ def serialize_report_summary(record: ReportRun) -> dict[str, Any]:
         "date": date_str,
         "time": time_str,
         "visibility": record.visibility,
+        "visibility_updated_by_user_id": record.visibility_updated_by_user_id,
+        "visibility_updated_at": (
+            record.visibility_updated_at.isoformat()
+            if record.visibility_updated_at is not None
+            else None
+        ),
+        "visibility_admin_override": bool(record.visibility_admin_override),
         "tenant_id": record.tenant_id,
         "owner_user_id": record.owner_user_id,
     }
