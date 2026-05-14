@@ -23,7 +23,22 @@ domain can use `sg.<domain>` for frontend and `api.<domain>` for backend.
 
 ## Backend Demo Environment
 
-Allow the Vercel origin and use cross-site secure cookies:
+Use the API-only compose stack on the SG server:
+
+```bash
+docker compose -f compose.sg-vercel.yml build
+docker compose -f compose.sg-vercel.yml up -d --remove-orphans
+docker compose -f compose.sg-vercel.yml ps
+```
+
+This stack runs Nginx, FastAPI, the Redis task worker, prewarm workers, Postgres,
+Redis, backups, and optional Dozzle. It does not build or run the Next.js
+frontend. Nginx is the only public web entrypoint and forwards `/api/` to the
+backend over the Docker network. The backend, worker, and prewarm services all
+mount `./data:/app/data` so newly generated reports stay on the host.
+
+Allow the Vercel origin and use cross-site secure cookies when the frontend is
+served from `*.vercel.app`:
 
 ```bash
 FRONTEND_ORIGIN=https://<demo>.vercel.app
@@ -31,8 +46,13 @@ SESSION_COOKIE_SECURE=true
 SESSION_COOKIE_SAMESITE=none
 ```
 
-Keep `AUTH_ENABLED`, `AUTH_MODE`, `DATABASE_URL`, `TASK_BACKEND`, `REDIS_URL`,
-and `STORAGE_BACKEND` configured on the backend as usual.
+Keep `AUTH_ENABLED`, `AUTH_MODE`, `DATABASE_URL`, and `STORAGE_BACKEND`
+configured on the backend as usual. The compose file sets `TASK_BACKEND=redis`
+and uses the in-stack Redis URL for API and worker services.
+
+The public API must be HTTPS because the Vercel frontend is HTTPS and browsers
+will reject mixed-content API calls. Place TLS certificates at `deploy/certs/`
+for the Nginx container.
 
 ## Acceptance Checks
 

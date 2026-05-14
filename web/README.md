@@ -68,8 +68,8 @@ START_REDIS_DOCKER=true \
 
 With `TASK_BACKEND=redis`, the script verifies Redis before startup and launches `python -m web.backend.worker` alongside the API. Without `START_REDIS_DOCKER=true`, start Redis yourself first, for example `docker run --rm -p 6379:6379 redis:7-alpine`.
 
-For a Vercel-hosted Singapore frontend demo, deploy only `web/frontend` and keep
-the backend stack in its current environment. See
+For a Vercel-hosted Singapore frontend demo, deploy only `web/frontend` on
+Vercel and run the SG backend with `compose.sg-vercel.yml`. See
 `docs/deployment/vercel-sg-frontend-demo.md`.
 
 ### Option 2: Manual Start
@@ -262,3 +262,8 @@ Production defaults:
 - the frontend remains self-hosted, but `NEXT_PUBLIC_API_BASE_URL` keeps a future Vercel deployment possible
 
 See `docs/deployment/tencent-cloud-production.md` for the Tencent Cloud checklist, COS migration, backup, and future overseas storage notes.
+
+For the SG/Vercel split, use `compose.sg-vercel.yml` instead. It keeps Nginx,
+the backend, Redis worker, prewarm services, Postgres, Redis, backups, and
+optional Dozzle on the server while Vercel serves the frontend. Backend data is
+mounted from the host `./data` directory.
