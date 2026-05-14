@@ -8,3 +8,4 @@ arq==0.28.0
 redis>=5.3.1,<6
 cos-python-sdk-v5>=1.9.37
 simfin>=1.0.1
+sentry-sdk>=2.60.0

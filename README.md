@@ -247,7 +247,7 @@ docker compose -f compose.prod.yml build
 docker compose -f compose.prod.yml up -d
 ```
 
-`compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, and optional Tencent COS object storage. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
+`compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, optional Tencent COS object storage, and an opt-in Dozzle log viewer. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
 
 ## Monitoring With Sentry SaaS And Dozzle
 
@@ -257,7 +257,7 @@ Recommended production setup:
 Sentry SaaS: EU data storage location
 Server: Tencent Cloud
 Dozzle: server-local only, accessed through an SSH tunnel
-Sentry SDK: scrub sensitive data before sending events
+Sentry SDK: enabled by SENTRY_DSN, scrub sensitive data before sending events
 ```
 
 For Sentry SaaS, create the organization in the EU data storage location before
@@ -266,16 +266,24 @@ the Help Center currently lists US event data in Iowa, USA and EU event data in
 Frankfurt, Germany. The EU choice is a data residency and compliance preference,
 not a replacement for application-side redaction.
 
-Use environment variables for Sentry settings and keep DSNs out of source:
+The backend, Redis worker, and prewarm ARQ processes initialize Sentry when
+`SENTRY_DSN` is configured. Keep DSNs out of source and pass them through the
+environment or `.env` on the server:
 
 ```bash
 SENTRY_DSN=
 SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=
 SENTRY_TRACES_SAMPLE_RATE=0.05
+SENTRY_ERROR_SAMPLE_RATE=1.0
+SENTRY_LOG_BREADCRUMB_LEVEL=INFO
+SENTRY_LOG_EVENT_LEVEL=ERROR
+SENTRY_INCLUDE_LOCAL_VARIABLES=false
 ```
 
-When adding the Python/FastAPI SDK, keep default PII disabled and scrub events
-before upload:
+The Python/FastAPI SDK integration keeps default PII disabled, disables local
+variable capture, sends `ERROR` logs as Sentry events, and scrubs events before
+upload:
 
 ```python
 import os
@@ -349,7 +357,9 @@ sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN"),
     environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
     traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+    sample_rate=float(os.getenv("SENTRY_ERROR_SAMPLE_RATE", "1.0")),
     send_default_pii=False,
+    include_local_variables=False,
     before_send=before_send,
 )
 ```
@@ -361,16 +371,19 @@ diagnostic tags and context such as `task_id`, `symbol`, `market`, `agent`,
 integrations are added later, explicitly keep prompt capture disabled, for
 example with `include_prompts=False`.
 
-For Dozzle, run it on the Tencent Cloud host as a local-only container log view.
-Do not add an Nginx route or security group rule for the Dozzle port.
+For Dozzle, `compose.prod.yml` includes an opt-in `dozzle` service under the
+`ops` profile. It binds only to the Tencent Cloud host loopback interface by
+default. Do not add an Nginx route or security group rule for the Dozzle port.
 
 ```bash
-docker run -d \
-  --name diverge-dozzle \
-  --restart unless-stopped \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
-  -p 127.0.0.1:9999:8080 \
-  amir20/dozzle:latest
+docker compose -f compose.prod.yml --profile ops up -d dozzle
+```
+
+The default host port is `127.0.0.1:9999`; override it with `DOZZLE_PORT` if
+needed:
+
+```bash
+DOZZLE_PORT=19999 docker compose -f compose.prod.yml --profile ops up -d dozzle
 ```
 
 Open Dozzle through an SSH tunnel from your local machine:

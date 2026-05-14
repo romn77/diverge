@@ -7,6 +7,8 @@ from arq import cron
 from arq.connections import RedisSettings
 from arq.worker import func
 
+from web.backend.monitoring import initialize_sentry
+
 from diverge.worker.prewarm.config import (
     get_prewarm_max_tries,
     get_prewarm_queue_name,
@@ -15,6 +17,9 @@ from diverge.worker.prewarm.config import (
 )
 from diverge.worker.prewarm.scheduler import prewarm_due_tick
 from diverge.worker.prewarm.worker import run_market_prewarm
+
+
+initialize_sentry(default_service_name="prewarm")
 
 
 EVERY_5_MINUTES = set(range(0, 60, 5))
