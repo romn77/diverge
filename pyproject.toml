@@ -45,6 +45,7 @@ web = [
     "psycopg[binary]>=3.2.6",
     "argon2-cffi>=23.1.0",
     "cos-python-sdk-v5>=1.9.37",
+    "sentry-sdk>=2.60.0",
 ]
 
 [dependency-groups]
@@ -56,6 +57,7 @@ dev = [
     "alembic>=1.15.2",
     "psycopg[binary]>=3.2.6",
     "argon2-cffi>=23.1.0",
+    "sentry-sdk>=2.60.0",
     "pre-commit>=4.6.0",
     "pre-commit",
     "ruff",

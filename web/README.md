@@ -50,6 +50,13 @@ Task lifecycle logs include a stable `task_event` marker with fields such as
 production, use `scripts/ops-task-logs.sh [task_id]` or see
 `docs/operations/task-troubleshooting.md` for the full runbook.
 
+Sentry is opt-in for backend observability. Set `SENTRY_DSN` to initialize the
+FastAPI backend, Redis worker, and prewarm ARQ processes. The SDK keeps default
+PII disabled, disables local variable capture, sends `ERROR` logs as Sentry
+events, keeps lower-level logs as breadcrumbs, and scrubs configured sensitive
+keys before upload. Keep full prompts, LLM responses, holdings, trade records,
+provider raw responses, and full HTTP bodies out of Sentry.
+
 To exercise the production-style Redis worker path locally, run:
 
 ```bash

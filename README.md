@@ -257,7 +257,7 @@ Recommended production setup:
 Sentry SaaS: EU data storage location
 Server: Tencent Cloud
 Dozzle: server-local only, accessed through an SSH tunnel
-Sentry SDK: scrub sensitive data before sending events
+Sentry SDK: enabled by SENTRY_DSN, scrub sensitive data before sending events
 ```
 
 For Sentry SaaS, create the organization in the EU data storage location before
@@ -266,16 +266,24 @@ the Help Center currently lists US event data in Iowa, USA and EU event data in
 Frankfurt, Germany. The EU choice is a data residency and compliance preference,
 not a replacement for application-side redaction.
 
-Use environment variables for Sentry settings and keep DSNs out of source:
+The backend, Redis worker, and prewarm ARQ processes initialize Sentry when
+`SENTRY_DSN` is configured. Keep DSNs out of source and pass them through the
+environment or `.env` on the server:
 
 ```bash
 SENTRY_DSN=
 SENTRY_ENVIRONMENT=production
+SENTRY_RELEASE=
 SENTRY_TRACES_SAMPLE_RATE=0.05
+SENTRY_ERROR_SAMPLE_RATE=1.0
+SENTRY_LOG_BREADCRUMB_LEVEL=INFO
+SENTRY_LOG_EVENT_LEVEL=ERROR
+SENTRY_INCLUDE_LOCAL_VARIABLES=false
 ```
 
-When adding the Python/FastAPI SDK, keep default PII disabled and scrub events
-before upload:
+The Python/FastAPI SDK integration keeps default PII disabled, disables local
+variable capture, sends `ERROR` logs as Sentry events, and scrubs events before
+upload:
 
 ```python
 import os
@@ -349,7 +357,9 @@ sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN"),
     environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
     traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.05")),
+    sample_rate=float(os.getenv("SENTRY_ERROR_SAMPLE_RATE", "1.0")),
     send_default_pii=False,
+    include_local_variables=False,
     before_send=before_send,
 )
 ```

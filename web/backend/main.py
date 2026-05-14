@@ -42,6 +42,10 @@ from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.data_sync_tasks import restore_persisted_data_sync_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
 from web.backend.runtime import task_store
+from web.backend.monitoring import initialize_sentry
+
+
+initialize_sentry(default_service_name="backend")
 
 
 @asynccontextmanager

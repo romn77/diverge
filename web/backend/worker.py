@@ -5,6 +5,7 @@ import os
 import time
 from collections.abc import Callable
 
+from web.backend.monitoring import initialize_sentry
 from web.backend.runtime import (
     analysis_tasks,
     data_sync_tasks,
@@ -105,6 +106,7 @@ def main() -> None:
         level=os.environ.get("LOG_LEVEL", "INFO").upper(),
         format="%(asctime)s %(levelname)s %(name)s %(message)s",
     )
+    initialize_sentry(default_service_name="worker")
     if not task_store.redis_task_backend_enabled():
         raise RuntimeError("Worker requires TASK_BACKEND=redis")
 
