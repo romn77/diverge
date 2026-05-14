@@ -27,6 +27,9 @@ test("ScreenerResultsViewer loads candidate rows and renders observable indicato
   assert.match(source, /const RootTag = embedded \? "section" : "main"/);
   assert.match(source, /viewer-frame fade-in/);
   assert.doesNotMatch(source, /#[0-9A-Fa-f]{3,8}/);
+  assert.doesNotMatch(source, /rgba\(/);
+  assert.doesNotMatch(source, /bg-white/);
+  assert.doesNotMatch(source, /text-slate-/);
   assert.match(source, /overflow-x-auto/);
   assert.match(source, /global_rank/);
   assert.match(source, /close/);
@@ -96,8 +99,9 @@ test("ScreenerResultsViewer includes breakout filter controls for results explor
 
   assert.match(source, /breakoutFilter/);
   assert.match(source, /function SelectionChip/);
-  assert.match(source, /h-7/);
-  assert.match(source, /px-3/);
+  assert.match(source, /choice-pill choice-pill-sm/);
+  assert.match(source, /data-active=\{pressed\}/);
+  assert.match(source, /uppercase leading-none/);
   assert.doesNotMatch(source, /size="sm"/);
   assert.match(source, /screenerResults\.filter\.volume/);
   assert.match(source, /screenerResults\.filter\.\$\{option\.value\}/);

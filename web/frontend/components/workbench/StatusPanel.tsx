@@ -14,7 +14,7 @@ interface StatusPanelProps {
 const toneClass: Record<StatusPanelTone, string> = {
   primary: "text-[var(--primary)]",
   danger: "text-[var(--danger)]",
-  muted: "text-slate-500",
+  muted: "text-muted-foreground",
 };
 
 export function StatusPanel({
@@ -34,7 +34,7 @@ export function StatusPanel({
             {eyebrow}
           </p>
           <CardTitle>{title}</CardTitle>
-          <p className="mt-3 text-sm leading-6 text-slate-600">{body}</p>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">{body}</p>
         </CardHeader>
         {action ? (
           <CardContent className="flex justify-center pt-0">{action}</CardContent>

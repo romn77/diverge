@@ -194,7 +194,9 @@ export function TickerFinancialChart({
             <button
               key={option}
               type="button"
-              className={option === range ? "is-active" : ""}
+              aria-pressed={option === range}
+              data-active={option === range}
+              className="ticker-financial-chart__range-button"
               onClick={() => onRangeChange(option)}
             >
               {option}
@@ -277,13 +279,43 @@ function resolveChartTokens(container: HTMLElement) {
 }
 
 function withAlpha(color: string, alpha: number): string {
-  const rgbaMatch = color.match(/rgba?\(([^)]+)\)/);
-  if (!rgbaMatch) {
-    return color;
+  const normalized = color.trim();
+  const rgbaMatch = normalized.match(/^rgba?\(([^)]+)\)$/i);
+  if (rgbaMatch) {
+    const rawChannels = rgbaMatch[1].trim().replace(/\s*\/\s*[^,\s]+$/, "");
+    const channels = (
+      rawChannels.includes(",") ? rawChannels.split(",") : rawChannels.split(/\s+/)
+    )
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (channels.length === 3) {
+      const [red, green, blue] = channels;
+      return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+    }
   }
-  const channels = rgbaMatch[1].split(",").map((part) => part.trim());
-  const [red, green, blue] = channels;
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+
+  const hexMatch = normalized.match(
+    /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i
+  );
+  if (hexMatch) {
+    const hex = hexMatch[1];
+    const expanded =
+      hex.length === 3 || hex.length === 4
+        ? hex
+            .split("")
+            .map((character) => `${character}${character}`)
+            .join("")
+        : hex;
+    const red = Number.parseInt(expanded.slice(0, 2), 16);
+    const green = Number.parseInt(expanded.slice(2, 4), 16);
+    const blue = Number.parseInt(expanded.slice(4, 6), 16);
+    if ([red, green, blue].every(Number.isFinite)) {
+      return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+    }
+  }
+
+  return color;
 }
 
 function calculateChangePercent(value: number, base: number | null): number | null {

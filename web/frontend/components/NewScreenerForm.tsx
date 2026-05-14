@@ -234,8 +234,11 @@ export function NewScreenerForm({
                       key={market.value}
                       type="button"
                       disabled={!market.enabled}
-                      variant={active ? "default" : "secondary"}
+                      variant="secondary"
                       size="sm"
+                      data-active={active}
+                      aria-pressed={active}
+                      className="choice-pill"
                       onClick={() => toggleMarket(market.value)}
                     >
                       {t(`screener.market.${optionKey(market.value)}`, market.label)}
@@ -318,8 +321,11 @@ export function NewScreenerForm({
                       <Button
                         key={breakoutOption.value}
                         type="button"
-                        variant={active ? "default" : "secondary"}
+                        variant="secondary"
                         size="sm"
+                        data-active={active}
+                        aria-pressed={active}
+                        className="choice-pill"
                         onClick={() => toggleBreakoutType(breakoutOption.value)}
                       >
                         {t(

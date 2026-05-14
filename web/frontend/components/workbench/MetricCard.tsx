@@ -45,12 +45,12 @@ export function MetricCard({
     return (
       <Card className={cn("metric-card", className)}>
         <CardContent className="relative px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {label}
           </p>
           <p
             className={cn(
-              "metric-card-value mt-2 text-2xl font-semibold text-slate-900",
+              "metric-card-value mt-2 text-2xl font-semibold text-foreground",
               valueClassName
             )}
           >
@@ -65,7 +65,7 @@ export function MetricCard({
     <Card className={cn("metric-card", className)}>
       <CardContent className="relative px-4 py-3">
         <div className="flex min-h-5 items-start justify-between gap-3">
-          <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <p className="min-w-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
             {label}
           </p>
           {badge || action ? (
@@ -78,7 +78,7 @@ export function MetricCard({
         <div className="mt-2 flex items-end justify-between gap-3">
           <p
             className={cn(
-              "metric-card-value min-w-0 text-2xl font-semibold leading-none text-slate-900",
+              "metric-card-value min-w-0 text-2xl font-semibold leading-none text-foreground",
               valueClassName
             )}
           >

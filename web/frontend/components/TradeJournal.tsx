@@ -533,12 +533,10 @@ export function TradeJournal({
               onOpenSidebar ? (
                   <Button
                     type="button"
-                    variant={sidebarOpen ? "default" : "secondary"}
-                    className={`md:hidden ${
-                      sidebarOpen
-                        ? "bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-none"
-                        : "text-slate-600"
-                    }`}
+                    variant="secondary"
+                    data-active={sidebarOpen}
+                    aria-pressed={sidebarOpen}
+                    className="choice-pill md:hidden"
                     onClick={onOpenSidebar}
                   >
                     {t("common.menu", "Menu")}
@@ -732,12 +730,8 @@ export function TradeJournal({
                           type="button"
                           data-active={selectedWithinGroup}
                           variant="secondary"
-                          className={cn(
-                            "h-auto w-full flex-col gap-1 rounded-2xl px-2 py-3 text-center",
-                            selectedWithinGroup
-                              ? "border-[var(--primary)] bg-[var(--primary-soft)]/80 text-slate-900"
-                              : "bg-white/85 text-slate-700 hover:bg-white"
-                          )}
+                          aria-pressed={selectedWithinGroup}
+                          className="choice-card h-auto w-full flex-col gap-1 rounded-2xl px-2 py-3 text-center"
                           title={`${group.displaySymbol} · ${group.trades.length}`}
                           onClick={() => {
                             setSelectedTradeId(group.latestTrade.trade_id);
@@ -750,7 +744,7 @@ export function TradeJournal({
                           <span className="max-w-full truncate font-mono text-[11px] font-semibold">
                             {compactTickerLabel(group.displaySymbol)}
                           </span>
-                          <span className="rounded-full border border-[var(--border)] bg-white px-2 py-0.5 text-[10px] text-slate-500">
+                          <span className="button-count-chip">
                             {group.trades.length}
                           </span>
                         </Button>
@@ -760,12 +754,8 @@ export function TradeJournal({
                     return (
                       <div
                         key={group.ticker}
-                        className={cn(
-                          "rounded-[28px] border bg-white/70 p-3",
-                          selectedWithinGroup
-                            ? "border-[var(--primary)] shadow-[0_18px_36px_rgba(28,36,48,0.1)]"
-                            : "border-[var(--border)]"
-                        )}
+                        data-active={selectedWithinGroup}
+                        className="choice-card rounded-[28px] border p-3"
                       >
                         <Button
                           type="button"
@@ -817,12 +807,8 @@ export function TradeJournal({
                                   type="button"
                                   data-active={isSelected}
                                   variant="secondary"
-                                  className={cn(
-                                    "h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[24px] p-4 text-left whitespace-normal",
-                                    isSelected
-                                      ? "border-[var(--primary)] bg-[var(--primary-soft)]/75 text-slate-900 shadow-[0_14px_28px_rgba(28,36,48,0.1)] hover:bg-[var(--primary-soft)]/75"
-                                      : "bg-white/85 text-slate-900 hover:bg-white"
-                                  )}
+                                  aria-pressed={isSelected}
+                                  className="choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[24px] p-4 text-left whitespace-normal"
                                   onClick={() => setSelectedTradeId(trade.trade_id)}
                                 >
                                   <div className="flex items-start justify-between gap-4">

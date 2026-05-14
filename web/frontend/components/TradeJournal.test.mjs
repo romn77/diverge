@@ -100,8 +100,10 @@ test("TradeJournal keeps trade history metadata inside each record card", () => 
 
   assert.match(
     source,
-    /h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[24px\] p-4 text-left whitespace-normal/
+    /choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[24px\] p-4 text-left whitespace-normal/
   );
+  assert.match(source, /className="choice-pill md:hidden"/);
+  assert.match(source, /className="choice-card h-auto w-full flex-col gap-1 rounded-2xl/);
   assert.match(source, /<div className="mt-4 grid w-full gap-3 sm:grid-cols-2">/);
 });
 

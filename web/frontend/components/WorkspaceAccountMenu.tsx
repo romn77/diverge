@@ -183,7 +183,7 @@ export function WorkspaceAccountMenu({
         </Button>
       ) : null}
 
-        <div className="relative inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--popover)] p-1 shadow-[0_8px_22px_rgba(34,26,15,0.04)] backdrop-blur-xl">
+      <div className="workbench-account-menu-frame relative inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--popover)] p-1 backdrop-blur-xl">
           <DropdownMenu
             open={isAccountOpen}
             onOpenChange={(open) => {
@@ -215,22 +215,22 @@ export function WorkspaceAccountMenu({
                         {getUserInitials(authUser.display_name, authUser.email)}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                           {t("workspace.access", "Workspace Access")}
                         </p>
-                        <p className="mt-1 truncate text-sm font-semibold text-slate-900">
+                        <p className="mt-1 truncate text-sm font-semibold text-foreground">
                           {displayName}
                         </p>
-                        <p className="truncate text-xs text-slate-500">{authUser.email}</p>
+                        <p className="truncate text-xs text-muted-foreground">{authUser.email}</p>
                       </div>
                     </div>
 
                     <div className="mt-3 flex items-center justify-between gap-3 px-1">
-                      <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                      <span className="rounded-full border border-[var(--border)] bg-[var(--surface-strong)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                         {authUser.role}
                       </span>
                       {authUser.must_change_password ? (
-                        <span className="rounded-full border border-[rgba(163,53,53,0.18)] bg-[rgba(163,53,53,0.08)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--danger)]">
+                        <span className="rounded-full border border-[var(--danger-border)] bg-[var(--danger-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--danger)]">
                           {t("workspace.resetRequired", "Reset required")}
                         </span>
                       ) : null}
@@ -258,13 +258,13 @@ export function WorkspaceAccountMenu({
                     </div>
                   </>
                 ) : (
-                  <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
+                  <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-muted-foreground">
                     {t("workspace.syncing", "Session details are still syncing.")}
                   </div>
                 )
               ) : (
-                <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-slate-600">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
+                <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-4 text-sm text-muted-foreground">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                     {t("workspace.openMode", "Open Workspace")}
                   </p>
                   <p className="mt-2 leading-6">
@@ -287,9 +287,9 @@ export function WorkspaceAccountMenu({
             aria-controls={settingsDialogId}
             variant="secondary"
             size="icon"
-              className={`rounded-full ${
-                isSettingsOpen
-                  ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)] shadow-[var(--button-primary-shadow)]"
+            className={`rounded-full ${
+              isSettingsOpen
+                ? "border-[var(--accent-border)] bg-[var(--surface)] text-[var(--text)] shadow-[var(--button-secondary-shadow)]"
                 : "text-[var(--muted)]"
             }`}
             onClick={handleSettingsToggle}
@@ -311,19 +311,19 @@ export function WorkspaceAccountMenu({
               ref={settingsPanelRef}
               role="dialog"
               aria-labelledby="workspace-settings-title"
-              className="absolute right-0 top-full mt-2 w-[18rem] max-w-[calc(100vw-2rem)] rounded-[24px] border border-[var(--border)] bg-[var(--popover)] p-3 shadow-[0_22px_48px_rgba(18,28,41,0.18)] backdrop-blur-sm"
+              className="absolute right-0 top-full mt-2 w-[18rem] max-w-[calc(100vw-2rem)] rounded-[24px] border border-[var(--border)] bg-[var(--popover)] p-3 shadow-[var(--popover-shadow)] backdrop-blur-sm"
             >
               <div className="space-y-3">
                 <div className="rounded-[24px] border border-[var(--border)] bg-[var(--surface-strong)] p-3">
                   <p
                     id="workspace-settings-title"
-                    className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500"
+                    className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground"
                   >
                     {t("common.interfacePreferences", "Interface Preferences")}
                   </p>
                   <div className="mt-3 space-y-3">
                     <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                         {t("preferences.themeLabel", "Theme")}
                       </p>
                       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -331,9 +331,10 @@ export function WorkspaceAccountMenu({
                           <Button
                             key={themeValue}
                             type="button"
-                            variant={theme === themeValue ? "default" : "secondary"}
+                            variant="secondary"
                             size="sm"
                             data-active={theme === themeValue}
+                            aria-pressed={theme === themeValue}
                             className="pill-tab flex-1 justify-center px-3 py-2 text-center"
                             onClick={() => setTheme(themeValue)}
                           >
@@ -350,7 +351,7 @@ export function WorkspaceAccountMenu({
                     </div>
 
                     <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                         {t("preferences.languageLabel", "UI Language")}
                       </p>
                       <div className="mt-2 flex gap-2">
@@ -358,9 +359,10 @@ export function WorkspaceAccountMenu({
                           <Button
                             key={languageValue}
                             type="button"
-                            variant={language === languageValue ? "default" : "secondary"}
+                            variant="secondary"
                             size="sm"
                             data-active={language === languageValue}
+                            aria-pressed={language === languageValue}
                             className="pill-tab flex-1 justify-center px-3 py-2 text-center"
                             onClick={() => setLanguage(languageValue)}
                           >
@@ -373,7 +375,7 @@ export function WorkspaceAccountMenu({
                     </div>
 
                     <div className="rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                         {t("preferences.visualStyleLabel", "Visual Style")}
                       </p>
                       <div className="mt-2 flex gap-2">
@@ -381,9 +383,10 @@ export function WorkspaceAccountMenu({
                           <Button
                             key={styleValue}
                             type="button"
-                            variant={visualStyle === styleValue ? "default" : "secondary"}
+                            variant="secondary"
                             size="sm"
                             data-active={visualStyle === styleValue}
+                            aria-pressed={visualStyle === styleValue}
                             className="pill-tab flex-1 justify-center px-3 py-2 text-center"
                             onClick={() => setVisualStyle(styleValue)}
                           >
@@ -396,7 +399,7 @@ export function WorkspaceAccountMenu({
                     </div>
 
                     {settingsError ? (
-                      <div className="rounded-[20px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
+                      <div className="rounded-[20px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-4 text-sm text-[var(--danger)]">
                         <p>{settingsError}</p>
                         <Button
                           type="button"
@@ -409,7 +412,7 @@ export function WorkspaceAccountMenu({
                         </Button>
                       </div>
                     ) : !settingsLoading && outputLanguageOptions.length === 0 ? (
-                      <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-sm text-slate-600">
+                      <div className="rounded-[20px] border border-dashed border-[var(--border)] bg-[var(--surface)] px-4 py-4 text-sm text-muted-foreground">
                         {t(
                           "sidebar.noOutputLanguages",
                           "No output languages available."
@@ -417,14 +420,14 @@ export function WorkspaceAccountMenu({
                       </div>
                     ) : !settingsLoading ? (
                       <label className="block rounded-[22px] border border-[var(--border)] bg-[var(--surface)] p-3">
-                        <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
                           {t("analysis.outputLanguage", "Output Language")}
                         </span>
                         <Select
                           value={selectedOutputLanguageValue}
                           onValueChange={onOutputLanguageChange}
                         >
-                          <SelectTrigger className="mt-2 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900">
+                          <SelectTrigger className="mt-2 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-foreground">
                             <SelectValue placeholder={t("analysis.outputLanguage", "Output Language")} />
                           </SelectTrigger>
                           <SelectContent>
@@ -441,7 +444,7 @@ export function WorkspaceAccountMenu({
                           ))}
                           </SelectContent>
                         </Select>
-                        <p className="mt-2 text-xs leading-5 text-slate-500">
+                        <p className="mt-2 text-xs leading-5 text-muted-foreground">
                           {t(
                             "sidebar.outputLanguageHint",
                             "New analysis forms start with this output language by default."
@@ -454,7 +457,7 @@ export function WorkspaceAccountMenu({
               </div>
             </div>
           ) : null}
-        </div>
+      </div>
     </div>
   );
 }

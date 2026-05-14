@@ -14,8 +14,13 @@ test("stylful.css implements a skillshare-style playful visual system", () => {
   assert.match(source, /radial-gradient\(var\(--stylful-dot\) 0\.8px, transparent 0\.8px\)/);
   assert.match(source, /\.card-surface[\s\S]*?border:\s*2px solid var\(--stylful-pencil\)/);
   assert.match(source, /\.card-surface[\s\S]*?border-radius:\s*var\(--radius-wobble-card\)/);
+  assert.match(source, /\.choice-card/);
+  assert.match(source, /\.choice-pill\[data-active="true"\]/);
+  assert.match(source, /\.pill-tab\[data-state="active"\]/);
   assert.match(source, /\.sidebar-surface[\s\S]*?border-right:\s*2px dashed var\(--stylful-pencil-light\)/);
-  assert.match(source, /\.button-primary[\s\S]*?color:\s*var\(--primary-foreground\) !important/);
+  assert.match(source, /\.sidebar-surface \[data-active="true"\][\s\S]*?background:\s*var\(--surface\) !important/);
+  assert.match(source, /\.button-primary[\s\S]*?background:\s*var\(--surface\) !important/);
+  assert.match(source, /\.button-primary[\s\S]*?color:\s*var\(--stylful-pencil\) !important/);
   assert.match(source, /\.summary-panel::before/);
   assert.equal(source.includes("body::before"), false);
 });

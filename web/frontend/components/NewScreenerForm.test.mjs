@@ -17,6 +17,8 @@ test("NewScreenerForm is driven by backend screener config options and task crea
   assert.match(source, /<Button/);
   assert.match(source, /DialogContent/);
   assert.match(source, /Markets/i);
+  assert.match(source, /className="choice-pill"/);
+  assert.match(source, /data-active=\{active\}/);
   assert.match(source, /Top K/i);
   assert.doesNotMatch(source, /Limit Per Market/i);
   assert.doesNotMatch(source, /limit_per_market/);

@@ -163,7 +163,6 @@ export function ScreenerTaskProgress({
                 {task?.run_id ? (
                   <Button
                     type="button"
-                    className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105"
                     onClick={() => onViewRun(task.run_id!)}
                   >
                     {t("screenerTask.viewResults", "View Results")}

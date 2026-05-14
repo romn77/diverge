@@ -16,7 +16,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-11 w-full items-center justify-between rounded-2xl border border-input bg-[color:var(--surface-strong)] px-4 py-3 text-sm font-medium text-foreground shadow-[0_8px_16px_rgba(18,28,41,0.03)] transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[color:var(--ring-strong)] focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60 [&>span]:truncate",
+      "flex h-11 w-full items-center justify-between rounded-2xl border border-input bg-[color:var(--surface-strong)] px-4 py-3 text-sm font-medium text-foreground shadow-[var(--field-shadow)] transition placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-[color:var(--ring-strong)] focus:ring-offset-2 focus:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60 [&>span]:truncate",
       className
     )}
     {...props}
@@ -65,7 +65,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-[var(--z-modal)] max-h-96 min-w-[8rem] overflow-hidden rounded-[24px] border border-border bg-popover p-2 text-popover-foreground shadow-[0_22px_48px_rgba(18,28,41,0.18)]",
+        "relative z-[var(--z-modal)] max-h-96 min-w-[8rem] overflow-hidden rounded-[24px] border border-border bg-popover p-2 text-popover-foreground shadow-[var(--popover-shadow)]",
         position === "popper" && "translate-y-1",
         className
       )}

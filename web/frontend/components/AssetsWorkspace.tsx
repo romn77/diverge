@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -167,6 +168,7 @@ export function AssetsWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<AssetPositionRecord | null>(null);
   const [editingPositionId, setEditingPositionId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AssetDraft>(buildEmptyDraft());
 
@@ -248,27 +250,16 @@ export function AssetsWorkspace() {
     }
   };
 
-  const handleDelete = async (position: AssetPositionRecord) => {
-    const confirmed = window.confirm(
-      t(
-        "assets.confirmDelete",
-        ({ asset, platform, account }) =>
-          `Delete ${asset} from ${platform} / ${account}?`,
-        {
-          asset: position.asset_name,
-          platform: position.account.platform_name,
-          account: position.account.account_name,
-        }
-      )
-    );
-    if (!confirmed) {
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) {
       return;
     }
 
     setSubmitting(true);
     setError(null);
     try {
-      await deleteAssetPosition(position.id);
+      await deleteAssetPosition(deleteTarget.id);
+      setDeleteTarget(null);
       await loadSummary(false);
     } catch (nextError) {
       setError(
@@ -761,7 +752,7 @@ export function AssetsWorkspace() {
                             size="sm"
                             className="border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] text-[var(--danger)] hover:bg-[rgba(163,53,53,0.12)] hover:text-[var(--danger)]"
                             disabled={submitting}
-                            onClick={() => void handleDelete(position)}
+                            onClick={() => setDeleteTarget(position)}
                           >
                             {t("common.delete", "Delete")}
                           </Button>
@@ -776,6 +767,30 @@ export function AssetsWorkspace() {
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t("assets.deleteDialogTitle", "Delete asset")}
+        description={t(
+          "assets.deleteDialogDescription",
+          "This removes the asset position from the ledger. Existing report files are not changed."
+        )}
+        details={
+          deleteTarget
+            ? `${deleteTarget.asset_name} - ${deleteTarget.account.platform_name} / ${deleteTarget.account.account_name}`
+            : null
+        }
+        confirmLabel={t("common.delete", "Delete")}
+        confirmingLabel={t("assets.deleting", "Deleting")}
+        cancelLabel={t("common.cancel", "Cancel")}
+        isConfirming={submitting}
+        onConfirm={() => void handleConfirmDelete()}
+        onOpenChange={(open) => {
+          if (!open && !submitting) {
+            setDeleteTarget(null);
+          }
+        }}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={(open) => !open && setDialogOpen(false)}>
         <DialogContent
@@ -922,8 +937,11 @@ export function AssetsWorkspace() {
                   <Button
                     key={mode}
                     type="button"
-                    variant={active ? "default" : "secondary"}
+                    variant="secondary"
                     size="sm"
+                    data-active={active}
+                    aria-pressed={active}
+                    className="choice-pill"
                     onClick={() =>
                       setDraft((current) => ({
                         ...current,

@@ -250,10 +250,10 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               />
             </div>
 
-            <div className="analysis-overview-search flex h-full flex-col justify-center rounded-[28px] border border-[var(--border)] bg-white/88 p-4 md:p-5">
+            <div className="analysis-overview-search flex h-full flex-col justify-center rounded-[28px] border border-[var(--border)] bg-[var(--surface-translucent-strong)] p-4 md:p-5">
               <label
                 htmlFor="home-report-search"
-                className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500"
+                className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground"
               >
                 {t("home.searchLabel", "Search reports")}
               </label>
@@ -263,7 +263,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder={t("home.searchPlaceholderShort", "Ticker or report id")}
-                className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-slate-900"
+                className="mt-3 border-[var(--border-strong)] bg-[var(--surface-strong)] text-foreground"
               />
             </div>
           </div>
@@ -292,7 +292,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               <div
-                className="flex flex-wrap gap-2"
+                className="flex flex-wrap items-center gap-2"
                 role="group"
                 aria-label={t("home.scope.label", "Report scope")}
               >
@@ -300,13 +300,15 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                   <Button
                     key={scope}
                     type="button"
-                    variant={scopeFilter === scope ? "default" : "secondary"}
+                    variant="secondary"
                     size="sm"
+                    data-active={scopeFilter === scope}
+                    aria-pressed={scopeFilter === scope}
                     onClick={() => setScopeFilter(scope)}
-                    className={scopeFilter === scope ? "shadow-none" : "text-slate-700"}
+                    className="choice-pill"
                   >
                     {t(REPORT_SCOPE_LABEL_KEYS[scope], scope)}
-                    <span className="ml-2 rounded-full bg-white/55 px-2 py-0.5 text-[10px]">
+                    <span className="button-count-chip">
                       {reportScopeCounts[scope]}
                     </span>
                   </Button>
@@ -314,7 +316,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               </div>
 
               <div
-                className="flex flex-wrap gap-2"
+                className="flex flex-wrap items-center gap-2"
                 role="group"
                 aria-label={t("home.display.label", "Report display")}
               >
@@ -325,11 +327,12 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                     <Button
                       key={mode}
                       type="button"
-                      variant={isSelected ? "default" : "secondary"}
+                      variant="secondary"
                       size="sm"
+                      data-active={isSelected}
                       aria-pressed={isSelected}
                       onClick={() => setReportDisplayMode(mode)}
-                      className={isSelected ? "shadow-none" : "text-slate-700"}
+                      className="choice-pill"
                     >
                       <Icon size={14} aria-hidden="true" />
                       {t(REPORT_DISPLAY_MODE_LABEL_KEYS[mode], mode)}
@@ -340,7 +343,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             </div>
 
             {reportsError ? (
-              <div className="mt-5 rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
+              <div className="mt-5 rounded-[24px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-4 text-sm text-[var(--danger)]">
                 {reportsError}
               </div>
             ) : loadingReports ? (
@@ -358,7 +361,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                 ))}
               </div>
             ) : matchingReports.length === 0 ? (
-              <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-500">
+              <div className="mt-5 rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-muted-foreground">
                 {t("home.noReportMatches", "No reports match this search yet.")}
               </div>
             ) : reportDisplayMode === "calendar" ? (
@@ -370,7 +373,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                   >
                     <Link href={buildReportHref(report.id)} className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-mono text-xs font-semibold text-slate-700">
+                        <p className="font-mono text-xs font-semibold text-foreground">
                           {formatReportTimestamp(report)}
                         </p>
                         <Badge variant="secondary" className="px-2 py-1 text-[10px]">
@@ -394,7 +397,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                           </Badge>
                         ) : null}
                       </div>
-                      <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
+                      <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
                         {report.id}
                       </p>
                     </Link>
@@ -436,7 +439,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                           </span>
                           <span className="min-w-0">
                             <span className="flex flex-wrap items-center gap-2">
-                              <span className="analysis-report-ticker text-lg font-semibold text-slate-900">
+                              <span className="analysis-report-ticker text-lg font-semibold text-foreground">
                                 {group.ticker}
                               </span>
                               <Badge variant="secondary" className="px-2 py-1 text-[10px]">
@@ -472,7 +475,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                             >
                               <Link href={buildReportHref(report.id)} className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <p className="font-mono text-xs font-semibold text-slate-700">
+                                  <p className="font-mono text-xs font-semibold text-foreground">
                                     {formatReportTimestamp(report)}
                                   </p>
                                   {report.visibility ? (
@@ -495,7 +498,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                                     </Badge>
                                   ) : null}
                                 </div>
-                                <p className="mt-1 truncate font-mono text-[11px] text-slate-500">
+                                <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">
                                   {report.id}
                                 </p>
                               </Link>

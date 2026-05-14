@@ -16,6 +16,7 @@ test("admin users page wires the backend admin APIs and explicit forbidden handl
   const source = `${readFileSync(adminUsersPagePath, "utf8")}\n${readFileSync(adminConsolePagePath, "utf8")}`;
 
   assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/confirm-dialog"/);
   assert.match(source, /AdminConsolePage/);
   assert.match(source, /AdminPanel/);
   assert.match(source, /AdminNotice/);
@@ -25,6 +26,7 @@ test("admin users page wires the backend admin APIs and explicit forbidden handl
   assert.match(source, /from "@\/components\/ui\/sheet"/);
   assert.match(source, /AdminUserSummaryCards/);
   assert.match(source, /<Button/);
+  assert.match(source, /<ConfirmDialog/);
   assert.match(source, /listAdminUsers/);
   assert.match(source, /listAdminAnalysisLimits/);
   assert.match(source, /createAdminUser/);
@@ -45,6 +47,8 @@ test("admin users page wires the backend admin APIs and explicit forbidden handl
   assert.match(source, /Create Account/);
   assert.match(source, /Delete User/);
   assert.match(source, /Reset Password/);
+  assert.doesNotMatch(source, /window\.confirm/);
+  assert.doesNotMatch(source, /\bconfirm\(/);
 });
 
 test("admin users page keeps creation, quota, and selected-user editing in overlays", () => {

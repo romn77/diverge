@@ -373,9 +373,11 @@ export function NewAnalysisForm({
                     <Button
                       key={analyst.value}
                       type="button"
-                      variant={active ? "default" : "secondary"}
+                      variant="secondary"
                       size="sm"
-                      className="px-4"
+                      data-active={active}
+                      aria-pressed={active}
+                      className="choice-pill px-4"
                       onClick={() => toggleAnalyst(analyst.value)}
                     >
                       {t(
@@ -407,12 +409,10 @@ export function NewAnalysisForm({
                     <Button
                       key={option.value}
                       type="button"
-                      variant={active ? "default" : "secondary"}
-                      className={`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[24px] p-4 text-left whitespace-normal ${
-                        active
-                          ? "bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
-                          : "text-slate-600"
-                      }`}
+                      variant="secondary"
+                      data-active={active}
+                      aria-pressed={active}
+                      className="choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[24px] p-4 text-left whitespace-normal"
                       onClick={() =>
                         setFormState({
                           ...formState,
@@ -443,13 +443,11 @@ export function NewAnalysisForm({
                     <Button
                       key={profile.value}
                       type="button"
-                      variant={active ? "default" : "secondary"}
+                      variant="secondary"
                       disabled={!profile.enabled}
-                      className={`h-auto min-h-[116px] w-full flex-col items-stretch justify-start overflow-hidden rounded-[20px] p-4 text-left whitespace-normal ${
-                        active
-                          ? "bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
-                          : "text-slate-600"
-                      }`}
+                      data-active={active}
+                      aria-pressed={active}
+                      className="choice-card h-auto min-h-[116px] w-full flex-col items-stretch justify-start overflow-hidden rounded-[20px] p-4 text-left whitespace-normal"
                       onClick={() => onProfileChange(profile.value)}
                     >
                       <span className="min-w-0 text-sm font-semibold">

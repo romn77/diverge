@@ -77,7 +77,7 @@ test("Sidebar preserves grouped structure in collapsed rail and renders an in-he
   assert.doesNotMatch(source, /md:min-h-\[4\.25rem\]/);
   assert.match(source, /const desktopToggleClasses = \[/);
   assert.match(source, /hidden h-8 w-8 items-center justify-center rounded-full border border-\[var\(--border\)\] bg-\[var\(--surface\)\]/);
-  assert.match(source, /shadow-\[0_8px_18px_rgba\(18,28,41,0\.06\)\] transition active:translate-y-px motion-reduce:active:translate-y-0/);
+  assert.match(source, /shadow-\[var\(--button-secondary-shadow\)\] transition active:translate-y-px motion-reduce:active:translate-y-0/);
   assert.match(source, /hover:border-\[var\(--border-strong\)\] hover:bg-\[var\(--surface-hover\)\] hover:text-\[var\(--primary\)\] md:inline-flex/);
   assert.match(source, /isDesktopRail \? "" : "ml-auto"/);
   assert.match(source, /aria-expanded=\{!isDesktopRail\}/);
@@ -87,9 +87,12 @@ test("Sidebar preserves grouped structure in collapsed rail and renders an in-he
   assert.match(source, /d="M9\.5 3\.5 5 8l4\.5 4\.5"/);
   assert.match(source, /d="M13 3\.5 8\.5 8 13 12\.5"/);
   assert.match(source, /my-1\.5 flex justify-center/);
-  assert.match(source, /h-px w-6 bg-\[rgba\(36,32,28,0\.14\)\]/);
+  assert.match(source, /h-px w-6 bg-\[var\(--divider-soft\)\]/);
   assert.match(source, /sidebar-nav-link/);
   assert.match(source, /sidebar-rail-link/);
+  assert.match(source, /data-active=\{active\}/);
+  assert.match(source, /bg-\[var\(--surface\)\] text-\[var\(--text\)\]/);
+  assert.doesNotMatch(source, /bg-\[var\(--primary-soft\)\] text-\[var\(--primary-strong\)\]/);
   assert.doesNotMatch(source, /DesktopUtilityControl/);
   assert.doesNotMatch(source, /desktopToggleWrapperClasses/);
   assert.doesNotMatch(source, /pointer-events-none fixed top-1\/2 z-\[var\(--z-toast\)\]/);

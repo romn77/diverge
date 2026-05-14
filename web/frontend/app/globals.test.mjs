@@ -20,6 +20,16 @@ test("globals.css defines the simplified workbench surfaces and removes glass gr
   assert.match(source, /html\[data-theme="proof"\]/);
   assert.match(source, /html\[data-theme="everforest"\]/);
   assert.match(source, /--button-primary-shadow:/);
+  assert.match(source, /--success-soft:/);
+  assert.match(source, /--danger-border:/);
+  assert.match(source, /--surface-translucent:/);
+  assert.match(source, /--control-chip-bg:/);
+  assert.match(source, /--overlay-scrim:/);
+  assert.match(source, /--field-shadow:/);
+  assert.match(source, /--modal-shadow:/);
+  assert.match(source, /\.button-count-chip\s*\{/);
+  assert.match(source, /\.button-count-chip\s*\{[\s\S]*?height:\s*1\.25rem;/);
+  assert.match(source, /\.button-count-chip\s*\{[\s\S]*?line-height:\s*1;/);
   assert.equal(source.includes("backdrop-filter: blur(16px)"), false);
   assert.equal(source.includes(".app-shell::after"), false);
   assert.equal(source.includes("body::before"), false);
@@ -33,6 +43,11 @@ test("globals.css locks the workbench topbar to the shared chrome height", () =>
   assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?height:\s*var\(--workbench-topbar-height\);/);
   assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?min-height:\s*var\(--workbench-topbar-height\);/);
   assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?padding:\s*0 1rem;/);
+  assert.match(source, /\.workbench-topbar-secondary,\s*[\s\S]*?\.workbench-topbar-new\s*\{[\s\S]*?height:\s*2\.25rem;/);
+  assert.match(source, /\.workbench-topbar-secondary\s*\{[\s\S]*?box-shadow:\s*var\(--button-secondary-shadow\);/);
+  assert.match(source, /\.workbench-topbar-secondary:hover\s*\{[\s\S]*?border-color:\s*var\(--accent-border\);/);
+  assert.match(source, /\.workbench-account-menu-frame\s*\{[\s\S]*?box-shadow:\s*var\(--button-secondary-shadow\);/);
+  assert.doesNotMatch(source, /\.workbench-account-menu \.inline-flex/);
   assert.match(source, /@media \(min-width: 768px\)\s*\{[\s\S]*?:root\s*\{[\s\S]*?--workbench-topbar-height:\s*4\.25rem;/);
   assert.doesNotMatch(source, /\.workbench-topbar\s*\{[\s\S]*?padding:\s*0\.7rem 1rem;/);
 });
@@ -105,20 +120,34 @@ test("globals.css keeps analysis pages on the shared workbench content width", (
 test("globals.css preserves selected pill controls in dark mode", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 
+  assert.match(source, /\.pill-tab,\s*[\s\S]*?\.choice-pill\s*\{/);
+  assert.match(source, /\.choice-card\s*\{/);
+  assert.match(source, /\.pill-tab\[data-active="true"\],\s*[\s\S]*?\.pill-tab\[data-state="active"\]/);
+  assert.match(source, /\.pill-tab\[data-active="true"\]::after,\s*[\s\S]*?\.pill-tab\[data-state="active"\]::after/);
+  assert.match(source, /\.choice-card\[data-active="true"\]::after/);
+  assert.match(source, /\.sidebar-report-card\[data-active="true"\]::before/);
+  assert.match(source, /\.sidebar-nav-link\[data-active="true"\]::before/);
+  assert.match(source, /\.sidebar-rail-link\[data-active="true"\]::before/);
   assert.match(source, /html\[data-theme="dark"\] \.pill-tab\[data-active="true"\]/);
-  assert.match(source, /html\[data-theme="dark"\]\[data-visual-style="stylful"\] \.pill-tab\[data-active="true"\]/);
-  assert.match(source, /background:\s*var\(--primary\)/);
-  assert.match(source, /color:\s*var\(--primary-foreground\)/);
+  assert.match(source, /html\[data-theme="dark"\]\[data-visual-style="stylful"\] \.pill-tab\[data-active="true"\],/);
+  assert.match(source, /\.pill-tab\[data-active="true"\],\s*[\s\S]*?background:\s*var\(--surface\)/);
+  assert.match(source, /\.choice-card\[data-active="true"\]\s*\{[\s\S]*?background:\s*var\(--surface\)/);
+  assert.match(source, /\.sidebar-report-card\[data-active="true"\],\s*[\s\S]*?\.sidebar-history-card\[data-active="true"\]\s*\{[\s\S]*?background:\s*var\(--surface\);/);
+  assert.match(source, /html\[data-visual-style="stylful"\] \.sidebar-report-card\[data-active="true"\],[\s\S]*?background:\s*var\(--surface\);/);
 });
 
-test("globals.css gives primary buttons explicit token colors", () => {
+test("globals.css keeps primary buttons as highlighted surfaces instead of inverse fills", () => {
   const source = readFileSync(globalsCssPath, "utf8");
 
   assert.match(source, /\.button-primary\s*\{/);
-  assert.match(source, /border-color:\s*var\(--primary\)/);
-  assert.match(source, /background-color:\s*var\(--primary\)/);
-  assert.match(source, /color:\s*var\(--primary-foreground\)/);
+  assert.match(source, /border-color:\s*color-mix\(in srgb, var\(--primary\)/);
+  assert.match(source, /background-color:\s*var\(--surface\)/);
+  assert.match(source, /color:\s*var\(--text\)/);
+  assert.match(source, /\.button-primary::after/);
+  assert.match(source, /\.workbench-topbar-new::after/);
   assert.match(source, /\.button-primary:hover,\s*[\s\S]*?\.button-primary:active/);
+  assert.doesNotMatch(source, /\.button-primary\s*\{[^}]*?background-color:\s*var\(--primary\)/);
+  assert.doesNotMatch(source, /\.workbench-topbar-new\s*\{[^}]*?background:\s*var\(--primary\)/);
 });
 
 test("globals.css maps every in-use white alpha surface to a dark surface", () => {

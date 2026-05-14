@@ -318,11 +318,8 @@ export function TradeRecordForm({
                     key={tag}
                     type="button"
                     data-active={selected}
-                    className={`interactive-button focus-ring rounded-full border px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] ${
-                      selected
-                        ? "border-[var(--primary)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                        : "border-[var(--border)] bg-white text-slate-600"
-                    }`}
+                    aria-pressed={selected}
+                    className="choice-pill choice-pill-sm focus-ring"
                     onClick={() =>
                       setFormState((current) => ({
                         ...current,

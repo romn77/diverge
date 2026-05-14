@@ -28,6 +28,7 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -175,6 +176,7 @@ export default function AdminUsersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isQuotaDialogOpen, setIsQuotaDialogOpen] = useState(false);
+  const [isDeleteUserDialogOpen, setIsDeleteUserDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState<AdminUserCreateRequest>(
     createEmptyUserForm
@@ -432,9 +434,6 @@ export default function AdminUsersPage() {
     if (!selectedUser) {
       return;
     }
-    if (!window.confirm(`Delete ${selectedUser.email}?`)) {
-      return;
-    }
 
     setNotice(null);
     setIsMutating(true);
@@ -443,6 +442,7 @@ export default function AdminUsersPage() {
       await deleteAdminUser(selectedUser.id);
       setUsers((current) => current.filter((user) => user.id !== selectedUser.id));
       setSelectedUserId(null);
+      setIsDeleteUserDialogOpen(false);
       setNotice({
         kind: "success",
         message: `Deleted ${selectedUser.email}`,
@@ -886,6 +886,7 @@ export default function AdminUsersPage() {
       <Sheet open={Boolean(selectedUser)}
         onOpenChange={(open) => {
           if (!open) {
+            setIsDeleteUserDialogOpen(false);
             setSelectedUserId(null);
           }
         }}
@@ -994,9 +995,8 @@ export default function AdminUsersPage() {
                 </label>
                 <Button
                   type="submit"
-                  variant="secondary"
                   disabled={isMutating || !resetPassword.trim()}
-                  className="mt-4 bg-[var(--accent)] text-white hover:bg-[var(--accent)] hover:brightness-105"
+                  className="mt-4"
                 >
                   {isMutating ? "Resetting" : "Reset Password"}
                 </Button>
@@ -1059,7 +1059,7 @@ export default function AdminUsersPage() {
                   type="button"
                   variant="outline"
                   disabled={isMutating}
-                  onClick={() => void handleDeleteUser()}
+                  onClick={() => setIsDeleteUserDialogOpen(true)}
                   className="mt-4 border-[var(--danger)] text-[var(--danger)] hover:bg-[rgba(163,53,53,0.06)] hover:text-[var(--danger)]"
                 >
                   {isMutating ? "Deleting" : "Delete User"}
@@ -1069,6 +1069,23 @@ export default function AdminUsersPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+
+      <ConfirmDialog
+        open={isDeleteUserDialogOpen && selectedUser !== null}
+        title="Delete user"
+        description="Deleting a user revokes their active sessions. The backend protects the last active admin account."
+        details={selectedUser ? selectedUser.email : null}
+        confirmLabel="Delete User"
+        confirmingLabel="Deleting"
+        cancelLabel="Keep User"
+        isConfirming={isMutating}
+        onConfirm={() => void handleDeleteUser()}
+        onOpenChange={(open) => {
+          if (!open && !isMutating) {
+            setIsDeleteUserDialogOpen(false);
+          }
+        }}
+      />
     </>
   );
 }

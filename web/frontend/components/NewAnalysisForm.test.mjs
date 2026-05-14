@@ -21,6 +21,8 @@ test("NewAnalysisForm is driven by backend config options and task creation call
   assert.match(source, /Ticker/);
   assert.match(source, /Research Depth/i);
   assert.match(source, /Model Profile/i);
+  assert.match(source, /choice-pill px-4/);
+  assert.match(source, /choice-card h-auto w-full/);
   assert.match(source, /LLM Provider/i);
   assert.match(source, /Output Language/i);
   assert.match(source, /aria-label=\{t\("analysis\.dialog", "New analysis"\)\}/);
@@ -134,7 +136,7 @@ test("NewAnalysisForm keeps research depth descriptions contained within each op
 
   assert.match(
     source,
-    /className=\{`h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[24px\] p-4 text-left whitespace-normal/
+    /className="choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[24px\] p-4 text-left whitespace-normal"/
   );
   assert.match(source, /<p className="min-w-0 text-sm font-semibold">/);
   assert.match(source, /<p className="mt-2 min-w-0 break-words text-xs leading-5">/);
