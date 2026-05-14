@@ -249,6 +249,19 @@ docker compose -f compose.prod.yml up -d
 
 `compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, optional Tencent COS object storage, and an opt-in Dozzle log viewer. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
 
+SG/Vercel split deployment:
+
+```bash
+docker compose -f compose.sg-vercel.yml build
+docker compose -f compose.sg-vercel.yml up -d --remove-orphans
+```
+
+Use this when Vercel hosts `web/frontend` and the SG server runs Nginx as the
+HTTPS API entrypoint plus the API, workers, Redis, Postgres, backups, and
+optional Dozzle. The stack uses the host-mounted `./data:/app/data` directory
+for backend data. See
+`docs/deployment/vercel-sg-frontend-demo.md`.
+
 ## Monitoring With Sentry SaaS And Dozzle
 
 Recommended production setup:
