@@ -64,6 +64,13 @@ def resolve_ready_ohlcv_as_of_date(
     )
 
 
+def normalize_ready_ohlcv_payload_as_of_date(payload: dict[str, Any]) -> dict[str, Any]:
+    return ohlcv_readiness.normalize_ready_ohlcv_payload_as_of_date(
+        payload,
+        now_for_timezone=_now_for_vendor_timezone,
+    )
+
+
 def resolve_latest_ready_trading_day(
     market: str,
     source: str | None = None,
@@ -307,8 +314,9 @@ def run_ohlcv_sync_payload(
     *,
     progress_callback: Callable[..., None] | None = None,
 ) -> dict[str, Any]:
+    ready_payload = normalize_ready_ohlcv_payload_as_of_date(payload)
     return ohlcv_sync.run_ohlcv_sync_payload(
-        payload,
+        ready_payload,
         progress_callback=progress_callback,
         ensure_vendor_ready=ensure_ohlcv_vendor_ready,
         build_config_payload=build_ohlcv_config_payload,

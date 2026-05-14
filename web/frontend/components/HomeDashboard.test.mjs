@@ -106,12 +106,30 @@ test("HomeDashboard scopes counts and report results to the current search query
   assert.doesNotMatch(source, /snapshotSearchBody/);
 });
 
+test("HomeDashboard can switch report display between ticker and calendar order", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /type ReportDisplayMode = "ticker" \| "calendar"/);
+  assert.match(source, /REPORT_DISPLAY_MODES/);
+  assert.match(source, /REPORT_DISPLAY_MODE_LABEL_KEYS/);
+  assert.match(source, /compareReportsByCalendar/);
+  assert.match(source, /compareReportsByTicker/);
+  assert.match(source, /const calendarSortedReports = useMemo/);
+  assert.match(source, /reportDisplayMode === "calendar"/);
+  assert.match(source, /home\.display\.label/);
+  assert.match(source, /home\.display\.ticker/);
+  assert.match(source, /home\.display\.calendar/);
+  assert.match(source, /CalendarDays/);
+  assert.match(source, /Tags/);
+});
+
 test("HomeDashboard groups visible reports by ticker with collapsible children", () => {
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /interface ReportTickerGroup/);
   assert.match(source, /function groupReportsByTicker/);
-  assert.match(source, /const visibleReports = useMemo\(\(\) => matchingReports\.slice\(0, 8\)/);
+  assert.match(source, /const visibleReports = useMemo/);
+  assert.match(source, /sort\(compareReportsByTicker\)\.slice\(0, 8\)/);
   assert.match(source, /const reportTickerGroups = useMemo/);
   assert.match(source, /expandedTickerGroups/);
   assert.match(source, /aria-expanded=\{isExpanded\}/);

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PR Quality Review"
+  short_description: "Audit PR diffs for release-blocking risks"
+  default_prompt: "Use $pr-quality-review to audit this PR for release-blocking quality risks before merge."

@@ -130,6 +130,40 @@ def test_create_ohlcv_sync_task_rejects_when_vendor_not_ready():
     create_task.assert_not_called()
 
 
+def test_create_ohlcv_sync_task_queues_previous_ready_day_before_cutoff(monkeypatch):
+    actor = SimpleNamespace(id="admin-user", tenant_id="tenant-a")
+    monkeypatch.setattr(
+        data_sync_tasks,
+        "_now_for_vendor_timezone",
+        lambda timezone_name: data_sync_tasks.datetime(2026, 4, 29, 15, 30),
+    )
+
+    with (
+        patch(
+            "web.backend.routers.data_sync._require_admin_permission",
+            return_value=actor,
+        ),
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.ensure_ohlcv_vendor_ready"
+        ) as ensure_ready,
+        patch(
+            "web.backend.routers.data_sync.data_sync_tasks.create_data_sync_task",
+            return_value={"task_id": "sync-1", "status": "pending"},
+        ) as create_task,
+    ):
+        data_sync_router.create_ohlcv_sync_task(
+            DataSyncOhlcvPayload(
+                markets=["cn"],
+                as_of_date="2026-04-29",
+                cn_data_source="tushare",
+            )
+        )
+
+    ensure_ready.assert_called_once()
+    assert ensure_ready.call_args.args[0]["as_of_date"] == "2026-04-28"
+    assert create_task.call_args.kwargs["request_payload"]["as_of_date"] == "2026-04-28"
+
+
 def test_create_fundamental_sync_task_routes_to_runtime():
     with (
         patch(
@@ -671,6 +705,19 @@ def test_ohlcv_readiness_service_resolves_previous_day_before_cutoff():
     assert ready_day == date(2026, 4, 28)
 
 
+def test_ohlcv_readiness_service_normalizes_sync_payload_before_cutoff():
+    normalized = ohlcv_readiness.normalize_ready_ohlcv_payload_as_of_date(
+        {
+            "markets": ["cn"],
+            "as_of_date": "2026-04-29",
+            "cn_data_source": "tushare",
+        },
+        now_for_timezone=lambda timezone_name: datetime(2026, 4, 29, 15, 30),
+    )
+
+    assert normalized["as_of_date"] == "2026-04-28"
+
+
 def test_ohlcv_readiness_service_accepts_injected_ready_probe():
     calls = []
 
@@ -693,25 +740,29 @@ def test_ohlcv_readiness_service_accepts_injected_ready_probe():
     assert calls[0][1]["cn_data_source"] == "tushare"
 
 
-def test_tushare_ohlcv_sync_rejects_today_before_ready_cutoff(monkeypatch):
+def test_tushare_ohlcv_sync_uses_previous_ready_day_before_cutoff(monkeypatch):
     monkeypatch.setattr(
         data_sync_tasks,
         "_now_for_vendor_timezone",
         lambda timezone_name: data_sync_tasks.datetime(2026, 4, 29, 17, 59),
     )
-    with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(
-            RuntimeError, match="Tushare daily data for 2026-04-29 is not ready"
-        ):
-            data_sync_tasks.run_ohlcv_sync_payload(
-                {
-                    "markets": ["cn"],
-                    "as_of_date": "2026-04-29",
-                    "cn_data_source": "tushare",
-                }
-            )
+    with patch(
+        "web.backend.runtime.data_sync_tasks.sync_ohlcv_cache",
+        return_value={"status": "completed"},
+    ) as sync_cache:
+        result = data_sync_tasks.run_ohlcv_sync_payload(
+            {
+                "markets": ["cn"],
+                "as_of_date": "2026-04-29",
+                "cn_data_source": "tushare",
+                "cn_manifest_path": "/tmp/cn.csv",
+            }
+        )
 
-    sync_cache.assert_not_called()
+    assert result["status"] == "completed"
+    sync_cache.assert_called_once()
+    config = sync_cache.call_args.args[0]
+    assert config.as_of_date == "2026-04-28"
 
 
 def test_tushare_ohlcv_sync_rejects_when_ready_probe_is_empty(monkeypatch):
@@ -741,24 +792,27 @@ def test_tushare_ohlcv_sync_rejects_when_ready_probe_is_empty(monkeypatch):
     sync_cache.assert_not_called()
 
 
-def test_massive_ohlcv_sync_uses_new_york_ready_cutoff(monkeypatch):
+def test_massive_ohlcv_sync_uses_previous_ready_day_before_cutoff(monkeypatch):
     monkeypatch.setattr(
         data_sync_tasks,
         "_now_for_vendor_timezone",
         lambda timezone_name: data_sync_tasks.datetime(2026, 4, 29, 20, 30),
     )
 
-    with patch("web.backend.runtime.data_sync_tasks.sync_ohlcv_cache") as sync_cache:
-        with pytest.raises(
-            RuntimeError, match="Massive daily data for 2026-04-29 is not ready"
-        ):
-            data_sync_tasks.run_ohlcv_sync_payload(
-                {
-                    "markets": ["us"],
-                    "as_of_date": "2026-04-29",
-                    "us_data_source": "massive",
-                    "us_manifest_path": "/tmp/us.csv",
-                }
-            )
+    with patch(
+        "web.backend.runtime.data_sync_tasks.sync_ohlcv_cache",
+        return_value={"status": "completed"},
+    ) as sync_cache:
+        result = data_sync_tasks.run_ohlcv_sync_payload(
+            {
+                "markets": ["us"],
+                "as_of_date": "2026-04-29",
+                "us_data_source": "massive",
+                "us_manifest_path": "/tmp/us.csv",
+            }
+        )
 
-    sync_cache.assert_not_called()
+    assert result["status"] == "completed"
+    sync_cache.assert_called_once()
+    config = sync_cache.call_args.args[0]
+    assert config.as_of_date == "2026-04-28"

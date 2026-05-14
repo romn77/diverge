@@ -25,7 +25,9 @@ def create_ohlcv_sync_task(
     request: Request = None,
 ) -> dict:
     actor = _require_admin_permission(request)
-    request_payload = payload.model_dump()
+    request_payload = data_sync_tasks.normalize_ready_ohlcv_payload_as_of_date(
+        payload.model_dump()
+    )
     try:
         data_sync_tasks.ensure_ohlcv_vendor_ready(request_payload)
     except data_sync_tasks.VendorDataNotReadyError as exc:
