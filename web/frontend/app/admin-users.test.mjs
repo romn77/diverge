@@ -45,6 +45,9 @@ test("admin users page wires the backend admin APIs and explicit forbidden handl
   assert.match(source, /Usage this week/);
   assert.match(source, /Reset Usage/);
   assert.match(source, /Create Account/);
+  assert.match(source, /Username/);
+  assert.match(source, /formatAccountSubtitle/);
+  assert.match(source, /Search by name, username, email, or role/);
   assert.match(source, /Delete User/);
   assert.match(source, /Reset Password/);
   assert.doesNotMatch(source, /window\.confirm/);

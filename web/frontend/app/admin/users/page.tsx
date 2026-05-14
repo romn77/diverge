@@ -100,6 +100,7 @@ function createEmptyRoleLimitDrafts(): Record<UserRole, string> {
 function createEmptyUserForm(): AdminUserCreateRequest {
   return {
     email: "",
+    username: "",
     display_name: "",
     password: "",
     role: "viewer",
@@ -110,6 +111,7 @@ function createEmptyUserForm(): AdminUserCreateRequest {
 
 function createEditDraft(user: AuthUser): Required<AdminUserUpdateRequest> {
   return {
+    username: user.username,
     display_name: user.display_name,
     role: user.role,
     status: user.status,
@@ -153,6 +155,10 @@ function parseWeeklyLimitDraft(value: string): number | null {
 
 function formatWeeklyLimit(limit: number | null | undefined): string {
   return limit === null || limit === undefined ? "Unlimited" : `${limit} / week`;
+}
+
+function formatAccountSubtitle(user: AuthUser): string {
+  return user.username === user.email ? user.email : `${user.username} · ${user.email}`;
 }
 
 function getRoleLimit(limits: AdminAnalysisRoleLimit[], role: UserRole): number | null {
@@ -211,6 +217,7 @@ export default function AdminUsersPage() {
     return users.filter(
       (user) =>
         user.email.toLowerCase().includes(normalizedQuery) ||
+        user.username.toLowerCase().includes(normalizedQuery) ||
         user.display_name.toLowerCase().includes(normalizedQuery) ||
         user.role.toLowerCase().includes(normalizedQuery)
     );
@@ -636,7 +643,7 @@ export default function AdminUsersPage() {
                   type="search"
                   value={searchQuery}
                   onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search by name, email, or role"
+                  placeholder="Search by name, username, email, or role"
                   className="w-full bg-white pl-11"
                 />
               </label>
@@ -682,7 +689,7 @@ export default function AdminUsersPage() {
                               {user.display_name}
                             </p>
                             <p className="truncate text-xs text-slate-500">
-                              {user.email}
+                              {formatAccountSubtitle(user)}
                             </p>
                           </div>
                         </div>
@@ -762,6 +769,14 @@ export default function AdminUsersPage() {
               onChange={(value) =>
                 setCreateForm((current) => ({ ...current, email: value }))
               }
+            />
+            <TextField
+              label="Username"
+              value={createForm.username ?? ""}
+              onChange={(value) =>
+                setCreateForm((current) => ({ ...current, username: value }))
+              }
+              placeholder="Defaults to email"
             />
             <TextField
               label="Display Name"
@@ -897,7 +912,7 @@ export default function AdminUsersPage() {
               <SheetHeader>
                 <SheetTitle>Manage User</SheetTitle>
                 <SheetDescription>
-                  {selectedUser.display_name} · {selectedUser.email}
+                  {selectedUser.display_name} · {formatAccountSubtitle(selectedUser)}
                 </SheetDescription>
               </SheetHeader>
               <div className="mt-4 flex flex-wrap gap-2">
@@ -914,6 +929,15 @@ export default function AdminUsersPage() {
 
               {editForm ? (
                 <form className="mt-6 space-y-4" onSubmit={handleSaveUser}>
+                  <TextField
+                    label="Username"
+                    value={editForm.username}
+                    onChange={(value) =>
+                      setEditForm((current) =>
+                        current ? { ...current, username: value } : current
+                      )
+                    }
+                  />
                   <TextField
                     label="Display Name"
                     value={editForm.display_name}
@@ -1092,11 +1116,13 @@ export default function AdminUsersPage() {
 
 function TextField({
   label,
+  placeholder,
   type = "text",
   value,
   onChange,
 }: {
   label: string;
+  placeholder?: string;
   type?: string;
   value: string;
   onChange: (value: string) => void;
@@ -1108,6 +1134,7 @@ function TextField({
       </span>
       <Input
         type={type}
+        placeholder={placeholder}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="mt-2 bg-white"

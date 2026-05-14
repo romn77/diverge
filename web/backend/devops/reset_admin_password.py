@@ -44,6 +44,12 @@ def run_admin_password_reset(
                 exit_code=1, email=settings.bootstrap_admin_email
             )
 
+        if settings.bootstrap_admin_username:
+            auth.update_user(
+                db,
+                user.id,
+                username=settings.bootstrap_admin_username,
+            )
         updated_user = auth.reset_user_password(
             db,
             user.id,

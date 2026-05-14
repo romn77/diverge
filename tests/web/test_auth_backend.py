@@ -140,6 +140,36 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 auth.delete_user(db, default_admin.id)
                 self.assertIsNone(db.get(auth.User, default_admin.id))
 
+    def test_create_user_defaults_username_to_long_email_for_compatibility(self):
+        env = {
+            "AUTH_ENABLED": "true",
+            "AUTH_MODE": "required",
+            "DATABASE_URL": self.database_url,
+        }
+        long_email = f"{'analyst.' * 9}compat@example.com"
+        self.assertGreater(len(long_email), auth.MAX_USERNAME_LENGTH)
+
+        with patch.dict(os.environ, env, clear=False):
+            auth.reset_runtime_state()
+            auth.create_all_for_testing()
+            with auth.db_session() as db:
+                user = auth.create_user(
+                    db,
+                    email=long_email,
+                    display_name="Long Email User",
+                    password="LongEmail123",
+                    role=auth.UserRole.VIEWER.value,
+                )
+                self.assertEqual(user.username, long_email)
+                self.assertIs(
+                    auth.authenticate_user(
+                        db,
+                        email=long_email,
+                        password="LongEmail123",
+                    ),
+                    user,
+                )
+
     def _write_report(self, report_id: str = "SPY_20260305_155836") -> None:
         report_dir = app_config.REPORTS_DIR / report_id
         report_dir.mkdir(parents=True, exist_ok=True)
@@ -291,6 +321,9 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 )
                 self.assertTrue(login_payload["authenticated"])
                 self.assertEqual(login_payload["user"]["email"], "admin@example.com")
+                self.assertEqual(
+                    login_payload["user"]["username"], "admin@example.com"
+                )
                 self.assertTrue(login_payload["user"]["must_change_password"])
                 self.assertEqual(
                     login_payload["tenant"]["slug"], auth.DEFAULT_TENANT_SLUG
@@ -521,6 +554,7 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                     "/api/admin/users",
                     json={
                         "email": "operator@example.com",
+                        "username": "Operator.Login",
                         "display_name": "Operator User",
                         "password": "OperatorPass123",
                         "role": "operator",
@@ -530,6 +564,21 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
                 )
                 self.assertEqual(create_response.status_code, 200, create_response.text)
                 operator_id = create_response.json()["id"]
+                self.assertEqual(create_response.json()["username"], "operator.login")
+
+                conflict_response = await admin_client.post(
+                    "/api/admin/users",
+                    json={
+                        "email": "other-operator@example.com",
+                        "username": "operator@example.com",
+                        "display_name": "Other Operator",
+                        "password": "OperatorPass123",
+                        "role": "operator",
+                        "status": "active",
+                        "must_change_password": False,
+                    },
+                )
+                self.assertEqual(conflict_response.status_code, 409)
 
                 list_response = await admin_client.get("/api/admin/users")
                 self.assertEqual(list_response.status_code, 200)
@@ -537,9 +586,14 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
 
                 update_response = await admin_client.put(
                     f"/api/admin/users/{operator_id}",
-                    json={"display_name": "Operator Prime", "status": "disabled"},
+                    json={
+                        "username": "Operator.Prime",
+                        "display_name": "Operator Prime",
+                        "status": "disabled",
+                    },
                 )
                 self.assertEqual(update_response.status_code, 200)
+                self.assertEqual(update_response.json()["username"], "operator.prime")
                 self.assertEqual(
                     update_response.json()["display_name"], "Operator Prime"
                 )
@@ -562,9 +616,20 @@ class AuthBackendTests(AuthClientMixin, unittest.TestCase):
             async with self._client(
                 auth_enabled=True, auth_mode="required"
             ) as operator_client:
-                login_response = await operator_client.post(
+                legacy_login_response = await operator_client.post(
                     "/api/auth/login",
                     json={"email": "operator@example.com", "password": "ResetPass123"},
+                )
+                self.assertEqual(
+                    legacy_login_response.status_code,
+                    200,
+                    legacy_login_response.text,
+                )
+                await operator_client.post("/api/auth/logout")
+
+                login_response = await operator_client.post(
+                    "/api/auth/login",
+                    json={"account": "OPERATOR.PRIME", "password": "ResetPass123"},
                 )
                 self.assertEqual(login_response.status_code, 200, login_response.text)
                 self.assertEqual(

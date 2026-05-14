@@ -15,8 +15,15 @@ test("login page bootstraps from auth state and preserves the requested destinat
   assert.match(source, /router\.replace\(nextPath\)/);
   assert.match(source, /<Input/);
   assert.match(source, /await login\(\{/);
+  assert.match(source, /LOGIN_ACCOUNT_STORAGE_KEY/);
+  assert.match(source, /readLastLoginAccount/);
+  assert.match(source, /persistLastLoginAccount\(trimmedAccount\)/);
+  assert.match(source, /account:\s*trimmedAccount/);
+  assert.match(source, /autoComplete="username"/);
+  assert.match(source, /Username or email/);
   assert.match(source, /Sign In/);
   assert.match(source, /Diverge/);
+  assert.doesNotMatch(source, /type="email"/);
   assert.doesNotMatch(source, /Sign in to continue to your requested page\./);
 });
 

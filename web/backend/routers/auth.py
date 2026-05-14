@@ -28,13 +28,15 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
     if not settings.enabled:
         raise HTTPException(status_code=409, detail="Auth is disabled")
     client_ip = auth.client_ip_for_request(request)
-    auth.ensure_login_allowed(payload.email, client_ip)
+    login_identifier = payload.login_identifier
+    normalized_identifier = login_identifier.strip().lower()
+    auth.ensure_login_allowed(login_identifier, client_ip)
 
     try:
         with auth.db_session() as db:
             user = auth.authenticate_user(
                 db,
-                email=payload.email,
+                account=login_identifier,
                 password=payload.password,
             )
             session_token = auth.create_user_session(
@@ -55,7 +57,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
             )
             result = auth.build_auth_state_payload(user, db=db)
     except auth.AuthValidationError as exc:
-        auth.record_login_failure(payload.email, client_ip)
+        auth.record_login_failure(login_identifier, client_ip)
         with auth.db_session() as db:
             audit.record_audit_event_safely(
                 db,
@@ -63,18 +65,18 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
                 actor_user_id=None,
                 action="auth.login.failed",
                 resource_type="session",
-                metadata={"email": payload.email.strip().lower()},
+                metadata={"account": normalized_identifier},
                 request=request,
             )
         logger.warning(
-            "login failed email=%s ip=%s reason=%s",
-            payload.email.strip().lower(),
+            "login failed account=%s ip=%s reason=%s",
+            normalized_identifier,
             client_ip,
             exc,
         )
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     except auth.AuthPermissionError as exc:
-        auth.record_login_failure(payload.email, client_ip)
+        auth.record_login_failure(login_identifier, client_ip)
         with auth.db_session() as db:
             audit.record_audit_event_safely(
                 db,
@@ -82,12 +84,12 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
                 actor_user_id=None,
                 action="auth.login.denied",
                 resource_type="session",
-                metadata={"email": payload.email.strip().lower()},
+                metadata={"account": normalized_identifier},
                 request=request,
             )
         logger.warning(
-            "login denied email=%s ip=%s reason=%s",
-            payload.email.strip().lower(),
+            "login denied account=%s ip=%s reason=%s",
+            normalized_identifier,
             client_ip,
             exc,
         )
@@ -95,7 +97,7 @@ def login(payload: LoginPayload, request: Request, response: Response) -> dict:
     except Exception as exc:
         raise access.translate_auth_error(exc) from exc
 
-    auth.clear_login_failures(payload.email, client_ip)
+    auth.clear_login_failures(login_identifier, client_ip)
     auth.set_session_cookie(response, session_token)
     logger.info(
         "login success user_id=%s email=%s role=%s ip=%s",

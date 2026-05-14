@@ -884,6 +884,7 @@ def create_admin_user(payload: AdminUserCreatePayload, request: Request = None) 
             user = auth.create_user(
                 db,
                 email=payload.email,
+                username=payload.username,
                 display_name=payload.display_name,
                 password=payload.password,
                 role=payload.role,
@@ -932,6 +933,7 @@ def update_admin_user(
             user = auth.update_user(
                 db,
                 user_id,
+                username=payload.username,
                 display_name=payload.display_name,
                 role=payload.role,
                 status=payload.status,

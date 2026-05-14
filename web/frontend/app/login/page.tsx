@@ -9,6 +9,8 @@ import { usePreferences } from "@/components/PreferencesProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+const LOGIN_ACCOUNT_STORAGE_KEY = "diverge:last-login-account";
+
 function resolveNextPath(value: string | null): string {
   if (!value || !value.startsWith("/") || value.startsWith("//")) {
     return "/";
@@ -16,12 +18,34 @@ function resolveNextPath(value: string | null): string {
   return value;
 }
 
+function readLastLoginAccount(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  try {
+    return window.localStorage.getItem(LOGIN_ACCOUNT_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function persistLastLoginAccount(value: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(LOGIN_ACCOUNT_STORAGE_KEY, value);
+  } catch {
+    // Browsers can disable storage; login should still work.
+  }
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t } = usePreferences();
   const { authError, authState, authStatus, login, refreshSession } = useAuth();
-  const [email, setEmail] = useState("");
+  const [account, setAccount] = useState("");
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +56,10 @@ export default function LoginPage() {
   );
   const shouldSkipLogin =
     authStatus === "ready" && (!authState?.enabled || authState.authenticated);
+
+  useEffect(() => {
+    setAccount(readLastLoginAccount());
+  }, []);
 
   useEffect(() => {
     if (!shouldSkipLogin) {
@@ -49,10 +77,12 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
+      const trimmedAccount = account.trim();
       await login({
-        email,
+        account: trimmedAccount,
         password,
       });
+      persistLastLoginAccount(trimmedAccount);
       startTransition(() => {
         router.replace(nextPath);
       });
@@ -163,16 +193,16 @@ export default function LoginPage() {
             <form className="mt-8 space-y-4" onSubmit={handleSubmit}>
               <label className="block">
                 <span className="login-label">
-                  {t("auth.email", "Email")}
+                  {t("auth.account", "Account")}
                 </span>
                 <Input
-                  type="email"
-                  autoComplete="email"
+                  type="text"
+                  autoComplete="username"
                   required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  value={account}
+                  onChange={(event) => setAccount(event.target.value)}
                   className="login-input mt-2"
-                  placeholder="analyst@diverge.local"
+                  placeholder={t("auth.accountPlaceholder", "Username or email")}
                 />
               </label>
 
