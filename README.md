@@ -247,7 +247,7 @@ docker compose -f compose.prod.yml build
 docker compose -f compose.prod.yml up -d
 ```
 
-`compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, and optional Tencent COS object storage. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
+`compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, optional Tencent COS object storage, and an opt-in Dozzle log viewer. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
 
 ## Monitoring With Sentry SaaS And Dozzle
 
@@ -361,16 +361,19 @@ diagnostic tags and context such as `task_id`, `symbol`, `market`, `agent`,
 integrations are added later, explicitly keep prompt capture disabled, for
 example with `include_prompts=False`.
 
-For Dozzle, run it on the Tencent Cloud host as a local-only container log view.
-Do not add an Nginx route or security group rule for the Dozzle port.
+For Dozzle, `compose.prod.yml` includes an opt-in `dozzle` service under the
+`ops` profile. It binds only to the Tencent Cloud host loopback interface by
+default. Do not add an Nginx route or security group rule for the Dozzle port.
 
 ```bash
-docker run -d \
-  --name diverge-dozzle \
-  --restart unless-stopped \
-  -v /var/run/docker.sock:/var/run/docker.sock:ro \
-  -p 127.0.0.1:9999:8080 \
-  amir20/dozzle:latest
+docker compose -f compose.prod.yml --profile ops up -d dozzle
+```
+
+The default host port is `127.0.0.1:9999`; override it with `DOZZLE_PORT` if
+needed:
+
+```bash
+DOZZLE_PORT=19999 docker compose -f compose.prod.yml --profile ops up -d dozzle
 ```
 
 Open Dozzle through an SSH tunnel from your local machine:
