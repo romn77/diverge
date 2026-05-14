@@ -35,6 +35,17 @@
   --success: #2e7653;
   --danger: #a33535;
   --danger-foreground: #fffaf5;
+  --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
+  --success-border: color-mix(in srgb, var(--success) 24%, transparent);
+  --danger-soft: color-mix(in srgb, var(--danger) 10%, transparent);
+  --danger-border: color-mix(in srgb, var(--danger) 24%, transparent);
+  --accent-border: color-mix(in srgb, var(--accent) 24%, transparent);
+  --surface-translucent: color-mix(in srgb, var(--surface) 72%, transparent);
+  --surface-translucent-strong: color-mix(in srgb, var(--surface) 88%, transparent);
+  --control-chip-bg: color-mix(in srgb, var(--surface) 60%, var(--primary-soft) 40%);
+  --control-chip-fg: var(--text);
+  --divider-soft: color-mix(in srgb, var(--border-strong) 70%, transparent);
+  --overlay-scrim: color-mix(in srgb, black 42%, transparent);
   --ring-strong: rgba(93, 116, 112, 0.28);
   --interactive-hover-filter: brightness(0.985);
   --interactive-active-filter: brightness(0.96);
@@ -57,6 +68,11 @@
     0 1px 0 rgba(255, 255, 255, 0.78) inset;
   --button-primary-shadow: 0 8px 18px rgba(36, 32, 28, 0.12);
   --button-secondary-shadow: 0 6px 14px rgba(18, 28, 41, 0.045);
+  --button-danger-shadow: 0 12px 24px color-mix(in srgb, var(--danger) 16%, transparent);
+  --field-shadow: 0 8px 16px color-mix(in srgb, var(--text) 3%, transparent);
+  --modal-shadow: 0 28px 80px color-mix(in srgb, var(--text) 18%, transparent);
+  --popover-shadow: 0 22px 48px color-mix(in srgb, var(--text) 14%, transparent);
+  --subtle-inset-shadow: 0 1px 0 color-mix(in srgb, white 18%, transparent) inset;
   --body-radial-primary: transparent;
   --body-radial-secondary: transparent;
   --body-gradient-start: #fbf8f2;
@@ -788,6 +804,8 @@ html[data-theme="proof"] .login-shell {
 .sidebar-report-card,
 .sidebar-ticker-card,
 .sidebar-history-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid rgba(22, 34, 51, 0.08);
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
@@ -797,11 +815,42 @@ html[data-theme="proof"] .login-shell {
 .sidebar-report-card[data-active="true"],
 .sidebar-history-card[data-active="true"] {
   border-color: rgba(93, 116, 112, 0.24);
-  background:
-    linear-gradient(180deg, rgba(255, 253, 248, 0.98) 0%, rgba(225, 232, 229, 0.9) 100%);
-  box-shadow:
-    0 18px 34px rgba(28, 36, 48, 0.1),
-    0 1px 0 rgba(255, 255, 255, 0.75) inset;
+  background: var(--surface);
+  box-shadow: var(--button-secondary-shadow);
+}
+
+.sidebar-report-card[data-active="true"]::before,
+.sidebar-history-card[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.8rem;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.sidebar-nav-link,
+.sidebar-utility-link,
+.sidebar-rail-link {
+  position: relative;
+  overflow: hidden;
+}
+
+.sidebar-nav-link[data-active="true"]::before,
+.sidebar-utility-link[data-active="true"]::before,
+.sidebar-rail-link[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.45rem;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.sidebar-rail-link[data-active="true"]::before {
+  inset-block: 0.55rem;
 }
 
 .sidebar-token {
@@ -914,24 +963,40 @@ html[data-theme="proof"] .login-shell {
 
 .workbench-topbar-secondary,
 .workbench-topbar-new {
+  height: 2.25rem;
   min-height: 2.25rem;
   gap: 0.45rem;
   padding: 0.45rem 0.8rem;
   font-size: 0.78rem;
   font-weight: 700;
+  line-height: 1;
   white-space: nowrap;
 }
 
 .workbench-topbar-secondary {
   background: color-mix(in srgb, var(--surface) 78%, transparent);
   color: var(--text);
-  box-shadow: 0 8px 20px rgba(18, 28, 41, 0.04);
+  box-shadow: var(--button-secondary-shadow);
 }
 
 .workbench-topbar-new {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--button-secondary-shadow);
+}
+
+.workbench-topbar-new::after {
+  content: "";
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.22rem;
+  left: 0.8rem;
+  height: 2px;
+  border-radius: 999px;
   background: var(--primary);
-  color: var(--primary-foreground);
-  box-shadow: var(--button-primary-shadow);
 }
 
 .workbench-topbar-secondary:hover,
@@ -940,13 +1005,15 @@ html[data-theme="proof"] .login-shell {
 }
 
 .workbench-topbar-secondary:hover {
-  border-color: rgba(93, 116, 112, 0.28);
+  border-color: var(--accent-border);
   background: var(--surface);
   color: var(--primary);
 }
 
 .workbench-topbar-new:hover {
-  background: var(--primary-strong);
+  border-color: var(--accent-border);
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .workbench-topbar-secondary:disabled,
@@ -956,8 +1023,8 @@ html[data-theme="proof"] .login-shell {
   transform: none;
 }
 
-.workbench-account-menu .inline-flex {
-  box-shadow: 0 8px 18px rgba(18, 28, 41, 0.045);
+.workbench-account-menu-frame {
+  box-shadow: var(--button-secondary-shadow);
 }
 
 .workbench-page-header {
@@ -1026,18 +1093,22 @@ html[data-theme="proof"] .login-shell {
   min-height: 2.25rem;
   padding: 0.5rem 1rem;
   font-size: 0.82rem;
+  line-height: 1;
   letter-spacing: 0.02em;
   box-shadow: 0 6px 14px rgba(18, 28, 41, 0.035);
 }
 
 .workbench-page-header-actions .button-primary {
-  border-color: color-mix(in srgb, var(--primary) 86%, var(--surface) 14%);
-  background-color: color-mix(in srgb, var(--primary) 92%, var(--surface) 8%);
-  box-shadow: var(--button-primary-shadow);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
+  background-color: var(--surface);
+  color: var(--text);
+  box-shadow: var(--button-secondary-shadow);
 }
 
 .workbench-page-header-actions .button-primary:hover {
-  filter: var(--interactive-hover-filter);
+  border-color: var(--accent-border);
+  background-color: var(--surface-hover);
+  color: var(--text);
 }
 
 .workbench-page-header-body {
@@ -1160,6 +1231,24 @@ html[data-theme="proof"] .login-shell {
   height: 2.35rem;
   padding: 0.55rem 1rem;
   font-size: 0.8125rem;
+  line-height: 1;
+}
+
+.button-count-chip {
+  display: inline-flex;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.5rem;
+  border-radius: 999px;
+  background: var(--control-chip-bg);
+  color: var(--control-chip-fg);
+  padding-inline: 0.4rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .analysis-overview-metrics {
@@ -1466,12 +1555,14 @@ html[data-theme="proof"] .login-shell {
 }
 
 .ticker-financial-chart__ranges button {
+  position: relative;
   min-width: 2.35rem;
   cursor: pointer;
-  border: 0;
+  overflow: hidden;
+  border: 1px solid transparent;
   border-radius: 999px;
   background: transparent;
-  padding: 0.35rem 0.55rem;
+  padding: 0.32rem 0.55rem;
   color: var(--chart-label);
   font-size: 0.72rem;
   font-weight: 800;
@@ -1479,14 +1570,34 @@ html[data-theme="proof"] .login-shell {
   transition:
     background-color 160ms ease,
     color 160ms ease,
+    border-color 160ms ease,
     box-shadow 160ms ease;
 }
 
-.ticker-financial-chart__ranges button:hover,
-.ticker-financial-chart__ranges button.is-active {
+.ticker-financial-chart__ranges button::after {
+  content: "";
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.12rem;
+  left: 0.55rem;
+  height: 2px;
+  border-radius: 999px;
   background: var(--primary);
-  color: var(--primary-foreground);
-  box-shadow: 0 8px 18px rgba(18, 28, 41, 0.1);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 160ms ease;
+}
+
+.ticker-financial-chart__ranges button:hover,
+.ticker-financial-chart__ranges button[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--button-secondary-shadow);
+}
+
+.ticker-financial-chart__ranges button[data-active="true"]::after {
+  transform: scaleX(1);
 }
 
 .ticker-financial-chart__canvas-wrap {
@@ -1672,17 +1783,20 @@ html[data-theme="proof"] .login-shell {
   contain: inline-size;
 }
 
-.pill-tab {
+.pill-tab,
+.choice-pill {
+  position: relative;
+  overflow: visible;
   border-radius: 999px;
-  border: 1px solid rgba(22, 34, 51, 0.1);
+  border: 1px solid var(--border);
   min-height: 40px;
   padding: 0.55rem 0.9rem;
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: #4b5a6b;
-  background: rgba(255, 255, 255, 0.68);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.82) inset;
+  color: var(--muted);
+  background: var(--surface);
+  box-shadow: var(--button-secondary-shadow);
   transition:
     transform 150ms ease,
     border-color 150ms ease,
@@ -1691,29 +1805,147 @@ html[data-theme="proof"] .login-shell {
     box-shadow 150ms ease;
 }
 
-.pill-tab:hover {
-  transform: translateY(-1px);
-  border-color: rgba(28, 56, 83, 0.24);
-  color: #1d2d40;
-  background: rgba(255, 255, 255, 0.92);
+.pill-tab::after,
+.choice-pill::after {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -2px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--primary);
+  opacity: 0;
+  transform: scaleX(0.72);
+  transform-origin: center;
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease,
+    background-color 150ms ease;
 }
 
-.pill-tab[data-active="true"] {
-  border-color: rgba(28, 56, 83, 0.92);
-  background: #1c2430;
-  color: #fff9f1;
-  box-shadow: 0 12px 24px rgba(28, 36, 48, 0.18);
+.pill-tab:hover,
+.choice-pill:hover {
+  transform: translateY(-1px);
+  border-color: var(--accent-border);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.pill-tab[data-active="true"],
+.pill-tab[data-state="active"],
+.choice-pill[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow:
+    var(--button-secondary-shadow),
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.pill-tab[data-active="true"]::after,
+.pill-tab[data-state="active"]::after,
+.choice-pill[data-active="true"]::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.pill-tab[data-active="true"] .button-count-chip,
+.pill-tab[data-state="active"] .button-count-chip,
+.choice-pill[data-active="true"] .button-count-chip {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+
+.choice-pill-sm {
+  min-height: 1.85rem;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+}
+
+.choice-card {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: var(--button-secondary-shadow);
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    background-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.choice-card::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: 0;
+  height: 3px;
+  border-radius: 999px 999px 0 0;
+  background: var(--primary);
+  opacity: 0;
+  transform: scaleX(0.72);
+  transition:
+    opacity 150ms ease,
+    transform 150ms ease;
+}
+
+.choice-card:hover {
+  border-color: var(--accent-border);
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.choice-card[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow:
+    var(--button-secondary-shadow),
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 10%, transparent);
+}
+
+.choice-card[data-active="true"]::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.choice-card .button-count-chip {
+  margin-left: 0;
 }
 
 .button-primary {
-  border-color: var(--primary);
-  background-color: var(--primary);
-  color: var(--primary-foreground);
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border) 58%);
+  background-color: var(--surface);
+  color: var(--text);
+  box-shadow:
+    var(--button-secondary-shadow),
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent);
+}
+
+.button-primary::after {
+  content: "";
+  position: absolute;
+  right: 0.8rem;
+  bottom: 0.22rem;
+  left: 0.8rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--primary);
 }
 
 .button-primary:hover,
 .button-primary:active {
-  color: var(--primary-foreground);
+  border-color: var(--accent-border);
+  background-color: var(--surface-hover);
+  color: var(--text);
 }
 
 .focus-ring:focus-visible {
@@ -1862,24 +2094,33 @@ html[data-visual-style="stylful"] .summary-queue-item {
 }
 
 html[data-visual-style="stylful"] .sidebar-report-card[data-active="true"],
-html[data-visual-style="stylful"] .sidebar-history-card[data-active="true"],
-html[data-visual-style="stylful"] .pill-tab[data-active="true"] {
+html[data-visual-style="stylful"] .sidebar-history-card[data-active="true"] {
   border-color: color-mix(in srgb, var(--primary) 70%, var(--accent) 30%);
-  background:
-    linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 58%, var(--accent) 42%) 100%);
-  color: var(--primary-foreground);
-  box-shadow: var(--button-primary-shadow);
+  background: var(--surface);
+  color: var(--stylful-pencil);
+  box-shadow: 2px 2px 0 color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
-html[data-visual-style="stylful"] .pill-tab {
+html[data-visual-style="stylful"] .pill-tab,
+html[data-visual-style="stylful"] .choice-pill {
   border-color: color-mix(in srgb, var(--primary) 18%, var(--border) 82%);
   background: color-mix(in srgb, var(--surface) 88%, var(--primary-soft) 12%);
   color: var(--text);
 }
 
-html[data-visual-style="stylful"] .pill-tab:hover {
+html[data-visual-style="stylful"] .pill-tab:hover,
+html[data-visual-style="stylful"] .choice-pill:hover {
   border-color: color-mix(in srgb, var(--primary) 38%, var(--accent) 18%);
   color: var(--primary-strong);
+}
+
+html[data-visual-style="stylful"] .pill-tab[data-active="true"],
+html[data-visual-style="stylful"] .pill-tab[data-state="active"],
+html[data-visual-style="stylful"] .choice-pill[data-active="true"] {
+  border-color: color-mix(in srgb, var(--primary) 54%, var(--accent) 46%);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--button-secondary-shadow);
 }
 
 html[data-visual-style="stylful"] .stage-card {
@@ -3122,26 +3363,32 @@ html[data-theme="dark"] .viewer-signal-badge {
   color: var(--text);
 }
 
-html[data-theme="dark"] .pill-tab {
+html[data-theme="dark"] .pill-tab,
+html[data-theme="dark"] .choice-pill {
   color: var(--text);
-  background: rgba(24, 34, 47, 0.86);
+  background: var(--surface);
 }
 
-html[data-theme="dark"] .pill-tab:hover {
-  background: rgba(29, 42, 57, 0.96);
+html[data-theme="dark"] .pill-tab:hover,
+html[data-theme="dark"] .choice-pill:hover {
+  background: var(--surface-hover);
   color: var(--text);
 }
 
-html[data-theme="dark"] .pill-tab[data-active="true"] {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--primary-foreground);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+html[data-theme="dark"] .pill-tab[data-active="true"],
+html[data-theme="dark"] .pill-tab[data-state="active"],
+html[data-theme="dark"] .choice-pill[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--button-secondary-shadow);
 }
 
-html[data-theme="dark"] .pill-tab[data-active="true"]:hover {
-  background: var(--primary);
-  color: var(--primary-foreground);
+html[data-theme="dark"] .pill-tab[data-active="true"]:hover,
+html[data-theme="dark"] .pill-tab[data-state="active"]:hover,
+html[data-theme="dark"] .choice-pill[data-active="true"]:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 html[data-theme="dark"] .focus-ring:focus-visible {
@@ -3354,26 +3601,32 @@ html[data-theme="everforest"] .markdown-content tbody tr:hover {
 }
 
 html[data-theme="everforest"] .viewer-signal-badge,
-html[data-theme="everforest"] .pill-tab {
-  background: rgba(52, 63, 68, 0.88);
+html[data-theme="everforest"] .pill-tab,
+html[data-theme="everforest"] .choice-pill {
+  background: var(--surface);
   color: var(--text);
 }
 
-html[data-theme="everforest"] .pill-tab:hover {
-  background: rgba(61, 72, 77, 0.96);
+html[data-theme="everforest"] .pill-tab:hover,
+html[data-theme="everforest"] .choice-pill:hover {
+  background: var(--surface-hover);
   color: var(--text);
 }
 
-html[data-theme="everforest"] .pill-tab[data-active="true"] {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--primary-foreground);
-  box-shadow: 0 12px 24px rgba(167, 192, 128, 0.2);
+html[data-theme="everforest"] .pill-tab[data-active="true"],
+html[data-theme="everforest"] .pill-tab[data-state="active"],
+html[data-theme="everforest"] .choice-pill[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--button-secondary-shadow);
 }
 
-html[data-theme="everforest"] .pill-tab[data-active="true"]:hover {
-  background: var(--primary);
-  color: var(--primary-foreground);
+html[data-theme="everforest"] .pill-tab[data-active="true"]:hover,
+html[data-theme="everforest"] .pill-tab[data-state="active"]:hover,
+html[data-theme="everforest"] .choice-pill[data-active="true"]:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 html[data-theme="everforest"] .focus-ring:focus-visible {
@@ -3552,12 +3805,14 @@ html[data-theme="dark"][data-visual-style="stylful"] .sidebar-surface {
     linear-gradient(180deg, color-mix(in srgb, var(--surface) 90%, var(--primary-soft) 10%) 0%, var(--surface-quiet) 100%);
 }
 
-html[data-theme="dark"][data-visual-style="stylful"] .pill-tab[data-active="true"] {
+html[data-theme="dark"][data-visual-style="stylful"] .pill-tab[data-active="true"],
+html[data-theme="dark"][data-visual-style="stylful"] .pill-tab[data-state="active"],
+html[data-theme="dark"][data-visual-style="stylful"] .choice-pill[data-active="true"],
+html[data-theme="dark"][data-visual-style="stylful"] .choice-card[data-active="true"] {
   border-color: color-mix(in srgb, var(--primary) 70%, var(--accent) 30%);
-  background:
-    linear-gradient(135deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 56%, var(--accent) 44%) 100%);
-  color: var(--primary-foreground);
-  box-shadow: var(--button-primary-shadow);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--button-secondary-shadow);
 }
 
 html[data-theme="dark"][data-visual-style="stylful"] .bg-white,

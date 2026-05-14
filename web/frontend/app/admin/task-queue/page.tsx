@@ -16,6 +16,7 @@ import { StatusPanel } from "@/components/workbench/StatusPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ApiError,
   cancelDataSyncJob,
@@ -66,6 +67,19 @@ const ACTIVE_DATA_SYNC_STATUSES = new Set<TaskStatus>([
 const DATA_SYNC_REFRESH_INTERVAL_MS = 3000;
 const DEFAULT_SYNC_DATE = new Date().toISOString().slice(0, 10);
 
+type AdminQueueConfirmTarget =
+  | {
+      action: "cancel-data-sync";
+      taskId: string;
+      label: string;
+    }
+  | {
+      action: "remove-stale";
+      kind: AdminTaskQueueItem["kind"];
+      taskId: string;
+      label: string;
+    };
+
 export default function AdminTaskQueuePage() {
   const router = useRouter();
   const { authState, authStatus, refreshSession } = useAuth();
@@ -76,6 +90,9 @@ export default function AdminTaskQueuePage() {
   const [syncAsOfDate, setSyncAsOfDate] = useState(DEFAULT_SYNC_DATE);
   const [syncSource, setSyncSource] = useState("tushare");
   const [creatingSync, setCreatingSync] = useState(false);
+  const [confirmTarget, setConfirmTarget] = useState<AdminQueueConfirmTarget | null>(
+    null
+  );
   const [cancelingDataSyncJob, setCancelingDataSyncJob] = useState<string | null>(null);
   const [removingQueueItemId, setRemovingQueueItemId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -201,50 +218,63 @@ export default function AdminTaskQueuePage() {
     }
   };
 
-  const handleCancelDataSyncJob = async (taskId: string) => {
-    if (!window.confirm("Cancel this data sync task? Running work stops at the next safe step.")) {
-      return;
-    }
-    setCancelingDataSyncJob(taskId);
-    setPageError(null);
-    try {
-      await cancelDataSyncJob(taskId);
-      await loadTaskQueue();
-      await refreshSelectedDataSyncJob(taskId, { silent: true });
-    } catch (error) {
-      if (!handleAuthBoundary(error)) {
-        setPageError(error instanceof Error ? error.message : "Unable to cancel data sync");
-      }
-    } finally {
-      setCancelingDataSyncJob(null);
-    }
+  const handleCancelDataSyncJob = (job: DataSyncTask) => {
+    setConfirmTarget({
+      action: "cancel-data-sync",
+      taskId: job.id,
+      label: `${job.sync_type} sync`,
+    });
   };
 
-  const handleRemoveStaleQueueItem = async (
+  const handleRemoveStaleQueueItem = (
     kind: AdminTaskQueueItem["kind"],
-    taskId: string
+    taskId: string,
+    label: string
   ) => {
-    if (
-      !window.confirm(
-        "Remove this stale queue record? This only clears an orphaned admin queue row."
-      )
-    ) {
+    setConfirmTarget({
+      action: "remove-stale",
+      kind,
+      taskId,
+      label,
+    });
+  };
+
+  const handleConfirmQueueAction = async () => {
+    if (!confirmTarget) {
       return;
     }
-    const itemKey = `${kind}:${taskId}`;
-    setRemovingQueueItemId(itemKey);
+
     setPageError(null);
+
+    if (confirmTarget.action === "cancel-data-sync") {
+      setCancelingDataSyncJob(confirmTarget.taskId);
+      try {
+        await cancelDataSyncJob(confirmTarget.taskId);
+        await loadTaskQueue();
+        await refreshSelectedDataSyncJob(confirmTarget.taskId, { silent: true });
+        setConfirmTarget(null);
+      } catch (error) {
+        if (!handleAuthBoundary(error)) {
+          setPageError(error instanceof Error ? error.message : "Unable to cancel data sync");
+        }
+      } finally {
+        setCancelingDataSyncJob(null);
+      }
+      return;
+    }
+
+    const itemKey = `${confirmTarget.kind}:${confirmTarget.taskId}`;
+    setRemovingQueueItemId(itemKey);
     try {
-      await deleteAdminTaskQueueItem(kind, taskId);
-      if (selectedDataSyncJob?.id === taskId) {
+      await deleteAdminTaskQueueItem(confirmTarget.kind, confirmTarget.taskId);
+      if (selectedDataSyncJob?.id === confirmTarget.taskId) {
         setSelectedDataSyncJob(null);
       }
       await loadTaskQueue();
+      setConfirmTarget(null);
     } catch (error) {
       if (!handleAuthBoundary(error)) {
-        setPageError(
-          error instanceof Error ? error.message : "Unable to remove stale task"
-        );
+        setPageError(error instanceof Error ? error.message : "Unable to remove stale task");
       }
     } finally {
       setRemovingQueueItemId(null);
@@ -274,6 +304,9 @@ export default function AdminTaskQueuePage() {
     }, DATA_SYNC_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(intervalId);
   }, [refreshSelectedDataSyncJob, selectedDataSyncJob]);
+
+  const isConfirmingQueueAction = Boolean(cancelingDataSyncJob || removingQueueItemId);
+  const confirmIsRemoveStale = confirmTarget?.action === "remove-stale";
 
   if (authStatus === "loading" || loading) {
     return (
@@ -435,6 +468,27 @@ export default function AdminTaskQueuePage() {
           cancelingTaskId={cancelingDataSyncJob}
           onCancel={handleCancelDataSyncJob}
         />
+
+        <ConfirmDialog
+          open={confirmTarget !== null}
+          title={confirmIsRemoveStale ? "Remove stale queue record" : "Cancel data sync task"}
+          description={
+            confirmIsRemoveStale
+              ? "Remove this stale queue record? This only clears an orphaned admin queue row. It does not delete reports or task artifacts."
+              : "Running work stops at the next safe step."
+          }
+          details={confirmTarget ? `${confirmTarget.label} - ${confirmTarget.taskId}` : null}
+          confirmLabel={confirmIsRemoveStale ? "Remove record" : "Cancel task"}
+          confirmingLabel={confirmIsRemoveStale ? "Removing" : "Canceling"}
+          cancelLabel={confirmIsRemoveStale ? "Keep record" : "Keep running"}
+          isConfirming={isConfirmingQueueAction}
+          onConfirm={() => void handleConfirmQueueAction()}
+          onOpenChange={(open) => {
+            if (!open && !isConfirmingQueueAction) {
+              setConfirmTarget(null);
+            }
+          }}
+        />
     </AdminConsolePage>
   );
 }
@@ -456,7 +510,11 @@ function QueueSection({
   loadingDataSyncTaskId: string | null;
   removingQueueItemId: string | null;
   onInspectDataSync: (taskId: string) => void;
-  onRemoveStale: (kind: AdminTaskQueueItem["kind"], taskId: string) => void;
+  onRemoveStale: (
+    kind: AdminTaskQueueItem["kind"],
+    taskId: string,
+    label: string
+  ) => void;
 }) {
   return (
     <Card className="rounded-[14px]">
@@ -503,7 +561,7 @@ function QueueSection({
                         variant="secondary"
                         className="h-8 px-3 text-[10px]"
                         disabled={removingQueueItemId === `${task.kind}:${task.task_id}`}
-                        onClick={() => onRemoveStale(task.kind, task.task_id)}
+                        onClick={() => onRemoveStale(task.kind, task.task_id, task.label)}
                       >
                         <Trash2 className="size-3.5" />
                         {removingQueueItemId === `${task.kind}:${task.task_id}`
@@ -563,7 +621,7 @@ function DataSyncDetails({
   job: DataSyncTask | null;
   loadingTaskId: string | null;
   cancelingTaskId: string | null;
-  onCancel: (taskId: string) => void;
+  onCancel: (job: DataSyncTask) => void;
 }) {
   const canCancel =
     job &&
@@ -592,7 +650,7 @@ function DataSyncDetails({
                 size="sm"
                 variant="secondary"
                 disabled={cancelingTaskId === job.id}
-                onClick={() => onCancel(job.id)}
+                onClick={() => onCancel(job)}
               >
                 <XCircle className="size-4" />
                 {cancelingTaskId === job.id

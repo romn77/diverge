@@ -282,7 +282,7 @@ export function TaskProgress({
                 </Button>
               ) : null}
               {task?.report_id ? (
-                <Button type="button" className="bg-[var(--accent)] hover:bg-[var(--accent)] hover:brightness-105" onClick={() => onViewReport(task.report_id!)}>
+                <Button type="button" onClick={() => onViewReport(task.report_id!)}>
                   {t("task.viewReport", "View Report")}
                 </Button>
               ) : null}

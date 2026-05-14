@@ -99,6 +99,10 @@ scripts/check-database.sh --upgrade --bootstrap-admin
 - Frontend code uses Next.js, React, TypeScript, Tailwind CSS, Radix primitives,
   and `lucide-react` icons. Keep operational Workbench screens dense, scannable,
   and consistent with existing components.
+- For frontend UI or theme work, use
+  `.agents/skills/workbench-ui-theme-audit/SKILL.md` to audit buttons, controls,
+  surfaces, and visual states across light/dark/stylful themes before calling
+  the change done.
 - Frontend tests are Node built-in test files (`*.test.mjs` / `*.test.ts`) run
   by `npm test`; they often assert source contracts and UI copy.
 - Use focused tests for the touched area first, then broaden when changing shared

@@ -118,7 +118,7 @@ export function Sidebar({
       : "h-16 flex items-center md:h-[var(--workbench-topbar-height)]",
   ].join(" ");
   const desktopToggleClasses = [
-    "focus-ring hidden h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-slate-500 shadow-[0_8px_18px_rgba(18,28,41,0.06)] transition active:translate-y-px motion-reduce:active:translate-y-0 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)] md:inline-flex",
+    "focus-ring hidden h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-muted-foreground shadow-[var(--button-secondary-shadow)] transition active:translate-y-px motion-reduce:active:translate-y-0 hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)] hover:text-[var(--primary)] md:inline-flex",
     isDesktopRail ? "" : "ml-auto",
   ].join(" ");
   const collapseLabel = t("sidebar.collapse", "Collapse sidebar");
@@ -139,12 +139,12 @@ export function Sidebar({
     <div className="flex min-h-full flex-col">
       <div className={headerClasses}>
         <Link href={buildHomeHref()} className="flex min-w-0 items-center gap-2">
-          <div className="grid h-[2.15rem] w-[2.15rem] shrink-0 place-items-center rounded-md border border-[var(--border)] bg-white/70 text-[var(--primary)]">
+          <div className="grid h-[2.15rem] w-[2.15rem] shrink-0 place-items-center rounded-md border border-[var(--border)] bg-[var(--surface-translucent)] text-[var(--primary)]">
             <DivergeMark className="h-6 w-6" />
           </div>
           {!isDesktopRail ? (
             <div className="min-w-0">
-              <p className="font-heading text-[14px] font-bold leading-5 text-slate-900">Diverge</p>
+              <p className="font-heading text-[14px] font-bold leading-5 text-foreground">Diverge</p>
             </div>
           ) : null}
         </Link>
@@ -226,7 +226,7 @@ export function Sidebar({
             </div>
 
             <div className="my-1.5 flex justify-center" aria-hidden="true">
-              <span className="h-px w-6 bg-[rgba(36,32,28,0.14)]" />
+              <span className="h-px w-6 bg-[var(--divider-soft)]" />
             </div>
 
             <div className="flex flex-col items-center gap-1.5">
@@ -253,7 +253,7 @@ export function Sidebar({
 
           <div className="mt-auto mb-4 w-full border-t border-[var(--border)] pt-3">
             <div className="mb-2.5 flex justify-center" aria-hidden="true">
-              <span className="h-4 w-px bg-[rgba(36,32,28,0.14)]" />
+              <span className="h-4 w-px bg-[var(--divider-soft)]" />
             </div>
             <div className="flex justify-center">
               <RailLinkButton
@@ -389,8 +389,8 @@ function SidebarSectionHeading({
 }) {
   return (
     <div
-      className={`px-1.5 text-[9px] font-bold uppercase tracking-[0.14em] ${
-        muted ? "text-slate-400" : "text-slate-500"
+      className={`px-1.5 text-[9px] font-bold uppercase tracking-[0.14em] text-muted-foreground ${
+        muted ? "opacity-75" : ""
       }`}
     >
       {title}
@@ -419,23 +419,23 @@ function SidebarNavLink({
       data-active={active}
       className={`sidebar-nav-link focus-ring group flex items-center gap-2 rounded-md border px-2 py-1.5 transition ${
         active
-          ? "border-[var(--border-strong)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-          : "border-transparent bg-white/50 text-slate-700 hover:border-[var(--border)] hover:bg-white/75"
+          ? "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text)]"
+          : "border-transparent bg-[var(--surface-translucent)] text-foreground hover:border-[var(--border)] hover:bg-[color:var(--surface-hover)]"
       }`}
       onClick={onClick}
     >
       <div
         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md border ${
           active
-            ? "border-[rgba(93,116,112,0.24)] bg-white/80 text-[var(--primary-strong)]"
-            : "border-[var(--border)] bg-white/70 text-slate-500"
+            ? "border-[var(--accent-border)] bg-[var(--surface-translucent-strong)] text-[var(--primary-strong)]"
+            : "border-[var(--border)] bg-[var(--surface-translucent)] text-muted-foreground"
         }`}
       >
         {children}
       </div>
       <div className="min-w-0">
         <div className="block text-[12px] font-bold leading-4">{label}</div>
-        <div className="block text-[10px] leading-3.5 text-slate-500">{meta}</div>
+        <div className="block text-[10px] leading-3.5 text-muted-foreground">{meta}</div>
       </div>
     </Link>
   );
@@ -464,22 +464,22 @@ function SidebarUtilityLink({
       data-active={active}
       className={`sidebar-utility-link focus-ring flex items-center justify-between gap-2 rounded-md border px-2 py-1.5 transition ${
         active
-          ? "border-[var(--accent)] bg-[var(--accent-soft)] text-slate-900"
-          : "border-[var(--border)] bg-white/58 text-slate-700 hover:border-[var(--border-strong)] hover:bg-white/80"
+          ? "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text)]"
+          : "border-[var(--border)] bg-[var(--surface-translucent)] text-foreground hover:border-[var(--border-strong)] hover:bg-[color:var(--surface-hover)]"
       }`}
       onClick={onClick}
     >
       <div className="flex min-w-0 items-center gap-2">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-white/70 text-slate-500">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-translucent)] text-muted-foreground">
           {children}
         </div>
         <div className="min-w-0">
           <div className="block text-[12px] font-bold leading-4">{label}</div>
-          <div className="block truncate text-[10px] leading-3.5 text-slate-500">{meta}</div>
+          <div className="block truncate text-[10px] leading-3.5 text-muted-foreground">{meta}</div>
         </div>
       </div>
       {badge ? (
-        <span className="shrink-0 rounded bg-[var(--accent)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-white">
+        <span className="shrink-0 rounded bg-[var(--primary)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--primary-foreground)]">
           {badge}
         </span>
       ) : null}
@@ -507,18 +507,19 @@ function RailLinkButton({
   return (
     <Link
       href={href}
+      data-active={active}
       title={title}
       aria-label={label}
       onClick={onClick}
       className={`sidebar-rail-link relative inline-flex h-9 w-9 items-center justify-center rounded-md border transition ${
         active
-          ? "border-[var(--border-strong)] bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-          : "border-[var(--border)] bg-white/70 text-slate-600 hover:border-[var(--primary)] hover:bg-white hover:text-[var(--primary)]"
+          ? "border-[var(--border-strong)] bg-[var(--surface)] text-[var(--text)]"
+          : "border-[var(--border)] bg-[var(--surface-translucent)] text-muted-foreground hover:border-[var(--primary)] hover:bg-[color:var(--surface-hover)] hover:text-[var(--primary)]"
       }`}
     >
       {children}
       {typeof count === "number" && count > 0 ? (
-        <span className="absolute -right-1 -top-1 rounded bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-semibold text-white">
+        <span className="absolute -right-1 -top-1 rounded bg-[var(--primary)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--primary-foreground)]">
           {count}
         </span>
       ) : null}

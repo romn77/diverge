@@ -83,6 +83,9 @@ test("HomeDashboard distinguishes private and workspace shared reports", () => {
   assert.match(source, /home\.scope\.all/);
   assert.match(source, /home\.scope\.mine/);
   assert.match(source, /home\.scope\.workspace/);
+  assert.match(source, /className="choice-pill"/);
+  assert.match(source, /data-active=\{scopeFilter === scope\}/);
+  assert.match(source, /data-active=\{isSelected\}/);
   assert.match(source, /home\.visibility\.private/);
   assert.match(source, /home\.visibility\.workspace/);
   assert.match(source, /home\.visibility\.adminOverride/);

@@ -11,6 +11,7 @@ test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog 
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/card"/);
+  assert.match(source, /from "@\/components\/ui\/confirm-dialog"/);
   assert.match(source, /from "@\/components\/workbench\/PageHeader"/);
   assert.match(source, /from "@\/components\/ui\/dialog"/);
   assert.match(source, /from "@\/components\/ui\/input"/);
@@ -23,7 +24,10 @@ test("AssetsWorkspace uses the shared UI primitives for its asset editor dialog 
   assert.match(source, /<Table/);
   assert.match(source, /<Badge/);
   assert.match(source, /DialogContent/);
+  assert.match(source, /ConfirmDialog/);
   assert.doesNotMatch(source, /AccessibleDialog/);
+  assert.doesNotMatch(source, /window\.confirm/);
+  assert.doesNotMatch(source, /\bconfirm\(/);
   assert.doesNotMatch(source, /<button/);
   assert.doesNotMatch(source, /<input/);
   assert.match(source, /baseCurrency/);

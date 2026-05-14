@@ -4,19 +4,19 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold tracking-[0.04em] transition active:translate-y-px motion-reduce:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full text-sm font-semibold leading-none tracking-[0.04em] align-middle transition active:translate-y-px motion-reduce:active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-60 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
         default:
-          "button-primary border shadow-[var(--button-primary-shadow)] hover:brightness-[0.985] active:brightness-[0.96]",
+          "button-primary border",
         secondary:
           "border border-border bg-[var(--surface)] text-foreground shadow-[var(--button-secondary-shadow)] hover:bg-[color:var(--surface-hover)]",
         outline:
           "border border-border bg-transparent text-foreground hover:bg-[color:var(--surface-hover)]",
         ghost: "border border-transparent bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground",
         destructive:
-          "border border-destructive bg-destructive text-destructive-foreground shadow-[0_14px_28px_rgba(163,53,53,0.14)] hover:brightness-[0.98]",
+          "border border-destructive bg-destructive text-destructive-foreground shadow-[var(--button-danger-shadow)] hover:brightness-[0.98]",
       },
       size: {
         default: "h-11 px-5 py-3",

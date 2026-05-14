@@ -890,9 +890,11 @@ export function ReportViewer({
                         onClick={() => {
                           setSelectedFile(file);
                         }}
-                        variant={selectedFile === file ? "default" : "secondary"}
+                        variant="secondary"
                         size="sm"
-                        className="whitespace-nowrap"
+                        data-active={selectedFile === file}
+                        aria-pressed={selectedFile === file}
+                        className="choice-pill whitespace-nowrap"
                         aria-controls="report-content-panel"
                       >
                         {localizeFileLabel(file, t)}

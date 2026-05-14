@@ -24,7 +24,11 @@ test("WorkspaceAccountMenu exposes a compact utility bar for the shell overlay",
   assert.match(source, /onOutputLanguageChange:\s*\(value:\s*string\)/);
   assert.match(source, /className="workbench-account-menu pointer-events-auto relative z-\[var\(--z-sidebar\)\] ml-auto flex shrink-0 items-center gap-2"/);
   assert.match(source, /pointer-events-auto/);
+  assert.match(source, /workbench-account-menu-frame relative inline-flex/);
   assert.match(source, /inline-flex items-center gap-1\.5 rounded-full/);
+  assert.doesNotMatch(source, /shadow-\[0_/);
+  assert.doesNotMatch(source, /rgba\(/);
+  assert.doesNotMatch(source, /text-slate-/);
   assert.match(source, /h-8 w-8/);
   assert.doesNotMatch(source, /max-w-\[1600px\]/);
   assert.doesNotMatch(source, /fixed right-4 top-4 z-\[55\]/);
@@ -37,6 +41,12 @@ test("WorkspaceAccountMenu exposes a compact utility bar for the shell overlay",
   assert.match(source, /data-active=\{theme === themeValue\}/);
   assert.match(source, /data-active=\{language === languageValue\}/);
   assert.match(source, /data-active=\{visualStyle === styleValue\}/);
+  assert.match(source, /aria-pressed=\{theme === themeValue\}/);
+  assert.match(source, /aria-pressed=\{language === languageValue\}/);
+  assert.match(source, /aria-pressed=\{visualStyle === styleValue\}/);
+  assert.doesNotMatch(source, /variant=\{theme === themeValue \? "default" : "secondary"\}/);
+  assert.doesNotMatch(source, /variant=\{language === languageValue \? "default" : "secondary"\}/);
+  assert.doesNotMatch(source, /variant=\{visualStyle === styleValue \? "default" : "secondary"\}/);
   assert.match(source, /\(\["normal", "stylful"\] as const\)/);
   assert.match(source, /t\("workspace\.resetRequired", "Reset required"\)/);
   assert.match(source, /t\("common\.settings", "Settings"\)/);

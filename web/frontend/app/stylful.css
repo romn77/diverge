@@ -64,6 +64,7 @@ html[data-visual-style="stylful"] .card-surface,
 html[data-visual-style="stylful"] .viewer-frame,
 html[data-visual-style="stylful"] .modal-panel,
 html[data-visual-style="stylful"] .summary-panel,
+html[data-visual-style="stylful"] .choice-card,
 html[data-visual-style="stylful"] .summary-column,
 html[data-visual-style="stylful"] .summary-table-wrap,
 html[data-visual-style="stylful"] .summary-matrix-card,
@@ -83,12 +84,14 @@ html[data-visual-style="stylful"] .viewer-meta-card {
 
 html[data-visual-style="stylful"] .card-surface:nth-of-type(3n + 2),
 html[data-visual-style="stylful"] .viewer-frame:nth-of-type(3n + 2),
+html[data-visual-style="stylful"] .choice-card:nth-of-type(3n + 2),
 html[data-visual-style="stylful"] .summary-panel:nth-child(3n + 2) {
   border-radius: var(--radius-wobble-card-alt) !important;
 }
 
 html[data-visual-style="stylful"] .card-surface:hover,
 html[data-visual-style="stylful"] .viewer-frame:hover,
+html[data-visual-style="stylful"] .choice-card:hover,
 html[data-visual-style="stylful"] .summary-panel:hover {
   box-shadow: 5px 5px 0 var(--stylful-shadow-strong) !important;
   translate: -1px -1px;
@@ -168,7 +171,7 @@ html[data-visual-style="stylful"] .sidebar-surface button:hover {
 html[data-visual-style="stylful"] .sidebar-surface [data-active="true"] {
   border-color: var(--stylful-pencil) !important;
   border-left: 3px dashed var(--primary) !important;
-  background: var(--stylful-active) !important;
+  background: var(--surface) !important;
   color: var(--stylful-pencil) !important;
   box-shadow: 2px 2px 0 color-mix(in srgb, var(--primary) 18%, transparent) !important;
   translate: none;
@@ -201,9 +204,9 @@ html[data-visual-style="stylful"] button.button-primary,
 html[data-visual-style="stylful"] a.button-primary {
   border: 3px solid var(--stylful-pencil) !important;
   border-radius: var(--radius-wobble-btn) !important;
-  background: var(--primary) !important;
-  color: var(--primary-foreground) !important;
-  box-shadow: 4px 4px 0 var(--stylful-shadow-strong) !important;
+  background: var(--surface) !important;
+  color: var(--stylful-pencil) !important;
+  box-shadow: 3px 3px 0 var(--stylful-shadow) !important;
 }
 
 html[data-visual-style="stylful"] .bg-\[var\(--primary\)\]:hover {
@@ -212,12 +215,13 @@ html[data-visual-style="stylful"] .bg-\[var\(--primary\)\]:hover {
 }
 
 html[data-visual-style="stylful"] .button-primary:hover {
-  color: var(--primary-foreground) !important;
+  color: var(--stylful-pencil) !important;
   box-shadow: 2px 2px 0 var(--stylful-shadow-strong) !important;
   translate: 2px 2px;
 }
 
 html[data-visual-style="stylful"] .pill-tab,
+html[data-visual-style="stylful"] .choice-pill,
 html[data-visual-style="stylful"] .stage-card,
 html[data-visual-style="stylful"] .summary-list-item,
 html[data-visual-style="stylful"] .summary-queue-item,
@@ -228,6 +232,7 @@ html[data-visual-style="stylful"] select {
 }
 
 html[data-visual-style="stylful"] .pill-tab,
+html[data-visual-style="stylful"] .choice-pill,
 html[data-visual-style="stylful"] .stage-card,
 html[data-visual-style="stylful"] .summary-list-item,
 html[data-visual-style="stylful"] .summary-queue-item {
@@ -236,11 +241,33 @@ html[data-visual-style="stylful"] .summary-queue-item {
   box-shadow: 2px 2px 0 var(--stylful-shadow) !important;
 }
 
-html[data-visual-style="stylful"] .pill-tab[data-active="true"] {
+html[data-visual-style="stylful"] .pill-tab[data-active="true"],
+html[data-visual-style="stylful"] .pill-tab[data-state="active"],
+html[data-visual-style="stylful"] .choice-pill[data-active="true"] {
   border-color: var(--stylful-pencil) !important;
-  background: var(--stylful-pencil) !important;
-  color: var(--bg) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
   box-shadow: 3px 3px 0 var(--stylful-shadow-strong) !important;
+}
+
+html[data-visual-style="stylful"] .pill-tab[data-active="true"]::after,
+html[data-visual-style="stylful"] .pill-tab[data-state="active"]::after,
+html[data-visual-style="stylful"] .choice-pill[data-active="true"]::after {
+  bottom: -3px;
+  height: 4px;
+  background: var(--primary) !important;
+}
+
+html[data-visual-style="stylful"] .choice-card[data-active="true"] {
+  border-color: var(--stylful-pencil) !important;
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  box-shadow: 3px 3px 0 var(--stylful-shadow-strong) !important;
+}
+
+html[data-visual-style="stylful"] .choice-card[data-active="true"]::after {
+  height: 4px;
+  background: var(--primary) !important;
 }
 
 html[data-visual-style="stylful"] input,

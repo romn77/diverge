@@ -238,7 +238,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
     : "flex min-h-dvh flex-1 flex-col p-2 md:h-dvh md:overflow-hidden md:p-3 lg:p-4";
   const cardClassName = embedded
     ? "viewer-frame fade-in"
-    : "fade-in rounded-[30px] bg-white/95";
+    : "fade-in rounded-[30px] bg-card";
   const contentClassName = embedded ? "p-3 md:p-4" : "p-5 md:p-6";
 
   return (
@@ -251,11 +251,11 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
                 {t("screenerResults.kicker", "Screener Results")}
               </p>
-              <h1 className="font-heading mt-2 text-2xl font-bold tracking-tight text-slate-900 md:text-[1.7rem]">
+              <h1 className="font-heading mt-2 text-2xl font-bold tracking-tight text-foreground md:text-[1.7rem]">
                 {run?.id ?? runId}
               </h1>
             </div>
-            <div className="text-right text-sm text-slate-600">
+            <div className="text-right text-sm text-muted-foreground">
               <p>{formatAsOfDate(run?.as_of_date ?? null, locale)}</p>
               <p>
                 {t("screenerResults.candidates", ({ count }) => `${count} candidates`, {
@@ -296,7 +296,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
           </div>
 
           {loadError ? (
-            <div className="mt-8 rounded-[24px] border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-4 text-sm text-[var(--danger)]">
+            <div className="mt-8 rounded-[24px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-4 text-sm text-[var(--danger)]">
               {loadError}
             </div>
           ) : null}
@@ -307,7 +307,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                 <Badge
                   key={reason}
                   variant="secondary"
-                  className="text-slate-600"
+                  className="text-muted-foreground"
                 >
                   {reason}: {count}
                 </Badge>
@@ -316,7 +316,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
           ) : null}
 
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-y border-[var(--border)] py-3">
-            <div className="text-xs font-medium text-slate-600">
+            <div className="text-xs font-medium text-muted-foreground">
               {sortedRows.length > 0
                 ? t(
                     "screenerResults.pagination.range",
@@ -330,7 +330,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                 : t("screenerResults.pagination.empty", "0 results")}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {t("screenerResults.pagination.rows", "Rows")}
               </span>
               {PAGE_SIZE_OPTIONS.map((size) => (
@@ -350,7 +350,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden />
                 </PaginationIconButton>
-                <span className="min-w-[4.5rem] text-center text-xs font-semibold text-slate-700">
+                <span className="min-w-[4.5rem] text-center text-xs font-semibold text-foreground">
                   {safePageIndex + 1} / {pageCount}
                 </span>
                 <PaginationIconButton
@@ -426,10 +426,10 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className="bg-white">
+              <TableBody className="bg-[var(--surface)]">
                 {isLoading ? (
                   <TableRow>
-                    <TableCell className="py-6 text-slate-500" colSpan={17}>
+                    <TableCell className="py-6 text-muted-foreground" colSpan={17}>
                       {t(
                         "screenerResults.loadingCandidates",
                         "Loading screener candidates..."
@@ -438,7 +438,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                   </TableRow>
                 ) : sortedRows.length === 0 ? (
                   <TableRow>
-                    <TableCell className="py-6 text-slate-500" colSpan={17}>
+                    <TableCell className="py-6 text-muted-foreground" colSpan={17}>
                       {t("screenerResults.empty", "No screener candidates available.")}
                     </TableCell>
                   </TableRow>
@@ -447,7 +447,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                     <TableRow
                       key={`${row.symbol}-${row.market}`}
                     >
-                      <TableCell className="font-semibold text-slate-900">{row.symbol}</TableCell>
+                      <TableCell className="font-semibold text-foreground">{row.symbol}</TableCell>
                       <TableCell>
                         <TickerSparkline
                           className="h-7 min-w-[96px]"
@@ -488,7 +488,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                         <TagStrip
                           label="Pattern"
                           value={formatBreakoutType(row.breakout_type, t)}
-                          tone="bg-[rgba(93,116,112,0.12)] text-[var(--primary)]"
+                          tone="bg-[var(--primary-soft)] text-[var(--primary-strong)]"
                           compact
                         />
                       </TableCell>
@@ -499,7 +499,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                         <TagStrip
                           label="Strategy"
                           value={row.strategy_tags}
-                          tone="bg-[rgba(28,56,83,0.08)] text-[var(--accent)]"
+                          tone="bg-[var(--accent-soft)] text-[var(--accent)]"
                           compact
                         />
                       </TableCell>
@@ -507,7 +507,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                         <TagStrip
                           label="Risk"
                           value={row.risk_flags}
-                          tone="bg-[rgba(163,53,53,0.08)] text-[var(--danger)]"
+                          tone="bg-[var(--danger-soft)] text-[var(--danger)]"
                           compact
                         />
                       </TableCell>
@@ -515,7 +515,7 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                         <TagStrip
                           label="Matched"
                           value={row.matched_conditions}
-                          tone="bg-[rgba(49,104,142,0.1)] text-sky-700"
+                          tone="bg-[var(--accent-surface)] text-[var(--accent)]"
                           compact
                         />
                       </TableCell>
@@ -567,15 +567,12 @@ function SelectionChip({
   onClick: () => void;
   children: ReactNode;
 }) {
-  const tone = pressed
-    ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[var(--button-primary-shadow)]"
-    : "border-border bg-[var(--surface)] text-slate-700 shadow-[var(--button-secondary-shadow)] hover:bg-[color:var(--surface-hover)]";
-
   return (
     <button
       type="button"
       aria-pressed={pressed}
-      className={`inline-flex h-7 items-center justify-center rounded-full border px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-background ${tone}`}
+      data-active={pressed}
+      className="choice-pill choice-pill-sm inline-flex items-center justify-center border uppercase leading-none align-middle transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ring-strong)] focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       onClick={onClick}
     >
       {children}
@@ -599,7 +596,7 @@ function PaginationIconButton({
       type="button"
       aria-label={label}
       disabled={disabled}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-slate-700 shadow-[var(--button-secondary-shadow)] transition hover:bg-[color:var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-muted-foreground shadow-[var(--button-secondary-shadow)] transition hover:bg-[color:var(--surface-hover)] disabled:cursor-not-allowed disabled:opacity-40"
       onClick={onClick}
     >
       {children}
@@ -625,7 +622,7 @@ function TagStrip({
 
   if (tokens.length === 0) {
     return (
-      <span className="text-xs text-slate-400">
+      <span className="text-xs text-muted-foreground">
         {compact ? "—" : `${label}: none`}
       </span>
     );

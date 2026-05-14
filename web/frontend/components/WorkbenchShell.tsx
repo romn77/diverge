@@ -162,7 +162,7 @@ export function WorkbenchShell({ children }: { children: ReactNode }) {
         action={
           <button
             type="button"
-            className="interactive-button focus-ring rounded-full border border-[var(--primary)] bg-[var(--primary)] px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em] text-white"
+            className="button-primary interactive-button focus-ring rounded-full border px-5 py-3 text-xs font-semibold uppercase tracking-[0.22em]"
             onClick={() => void refreshSession()}
           >
             {t("workbench.retrySession", "Retry Session Bootstrap")}

@@ -28,6 +28,8 @@ test("TradeRecordForm keeps the manual trade payload aligned with backend schema
   assert.match(source, /Capture the setup, trigger, invalidation, and risk plan/);
   assert.match(source, /Market Resolution/);
   assert.match(source, /Strategy Tags/);
+  assert.match(source, /choice-pill choice-pill-sm focus-ring/);
+  assert.match(source, /aria-pressed=\{selected\}/);
   assert.match(source, /Add Blank Reference/);
 });
 

@@ -31,6 +31,7 @@ test("frontend exposes the first-wave shadcn-style UI primitives under component
     "badge.tsx",
     "button.tsx",
     "card.tsx",
+    "confirm-dialog.tsx",
     "dialog.tsx",
     "dropdown-menu.tsx",
     "input.tsx",
@@ -49,6 +50,7 @@ test("frontend exposes the first-wave shadcn-style UI primitives under component
 
   const buttonSource = readFileSync(path.join(uiRoot, "button.tsx"), "utf8");
   const cardSource = readFileSync(path.join(uiRoot, "card.tsx"), "utf8");
+  const confirmDialogSource = readFileSync(path.join(uiRoot, "confirm-dialog.tsx"), "utf8");
   const dialogSource = readFileSync(path.join(uiRoot, "dialog.tsx"), "utf8");
   const sheetSource = readFileSync(path.join(uiRoot, "sheet.tsx"), "utf8");
   const selectSource = readFileSync(path.join(uiRoot, "select.tsx"), "utf8");
@@ -57,10 +59,17 @@ test("frontend exposes the first-wave shadcn-style UI primitives under component
   assert.match(buttonSource, /class-variance-authority/);
   assert.match(buttonSource, /@radix-ui\/react-slot/);
   assert.match(buttonSource, /button-primary/);
+  assert.match(buttonSource, /font-semibold leading-none/);
+  assert.match(buttonSource, /align-middle/);
   assert.match(buttonSource, /export \{ Button, buttonVariants \}/);
-  assert.match(tabsSource, /border border-transparent/);
+  assert.match(confirmDialogSource, /export function ConfirmDialog/);
+  assert.match(confirmDialogSource, /DialogContent/);
+  assert.match(confirmDialogSource, /variant="destructive"/);
+  assert.match(confirmDialogSource, /AlertTriangle/);
+  assert.match(tabsSource, /pill-tab/);
   assert.match(tabsSource, /shrink-0/);
-  assert.doesNotMatch(tabsSource, /data-\[state=active\]:border data-\[state=active\]:border-\[var\(--primary\)\]/);
+  assert.doesNotMatch(tabsSource, /data-\[state=active\]:bg/);
+  assert.doesNotMatch(tabsSource, /data-\[state=active\]:shadow/);
   assert.match(dialogSource, /@radix-ui\/react-dialog/);
   assert.match(dialogSource, /DialogContent/);
   assert.match(selectSource, /@radix-ui\/react-select/);
