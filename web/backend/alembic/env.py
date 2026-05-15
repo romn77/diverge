@@ -19,6 +19,7 @@ from web.backend import (  # noqa: E402,F401
     data_sources,
     job_records,
     llm_models,
+    opportunity_models,
     report_metadata,
     screener_runs,
     search_quota,

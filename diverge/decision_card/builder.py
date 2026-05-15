@@ -18,6 +18,7 @@ from diverge.decision_card.quality import apply_quality_gates
 from diverge.decision_card.schema import (
     DecisionCard,
     EvidenceItem,
+    OpportunityEvidence,
     PortfolioRating,
 )
 
@@ -152,9 +153,7 @@ def _build_position_guidance(value: Any) -> dict[str, str | None] | None:
     if not isinstance(value, dict):
         return None
     item = {
-        "suggested_exposure": _clean_optional_string(
-            value.get("suggested_exposure")
-        ),
+        "suggested_exposure": _clean_optional_string(value.get("suggested_exposure")),
         "max_exposure": _clean_optional_string(value.get("max_exposure")),
         "sizing_rationale": _clean_optional_string(value.get("sizing_rationale")),
         "risk_budget_note": _clean_optional_string(value.get("risk_budget_note")),
@@ -213,7 +212,7 @@ def _base_payload(
     raw_signal: str | None,
 ) -> dict[str, Any]:
     return {
-        "card_version": "1.1",
+        "card_version": "1.2",
         "report_id": report_id,
         "symbol": symbol,
         "name": None,
@@ -278,7 +277,7 @@ def _payload_from_decision_card_block(
     )
     payload.update(
         {
-            "card_version": block.get("card_version") or "1.1",
+            "card_version": block.get("card_version") or "1.2",
             "name": block.get("name") if isinstance(block.get("name"), str) else None,
             "market": block.get("market")
             if block.get("market") in {"cn", "us", "hk", "unknown"}
@@ -327,9 +326,7 @@ def _payload_from_decision_card_block(
             "data_quality_notes": _coerce_string_list(
                 block.get("data_quality_notes"), max_items=20
             ),
-            "trade_readiness": _normalize_trade_readiness(
-                block.get("trade_readiness")
-            ),
+            "trade_readiness": _normalize_trade_readiness(block.get("trade_readiness")),
             "trade_readiness_reason": _clean_optional_string(
                 block.get("trade_readiness_reason")
             ),
@@ -341,9 +338,7 @@ def _payload_from_decision_card_block(
                 block.get("data_quality_summary")
             ),
             "why_not": _build_why_not(block.get("why_not")),
-            "action_playbook": _build_action_playbook(
-                block.get("action_playbook")
-            ),
+            "action_playbook": _build_action_playbook(block.get("action_playbook")),
             "position_guidance": _build_position_guidance(
                 block.get("position_guidance")
             ),
@@ -447,6 +442,54 @@ def build_fallback_decision_card(
     return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
 
 
+def _opportunity_evidence_from_state(final_state: dict) -> OpportunityEvidence | None:
+    context = final_state.get("opportunity_context")
+    if not isinstance(context, dict) or not context:
+        return None
+    return OpportunityEvidence(
+        trigger=_clean_optional_string(context.get("trigger") or context.get("source")),
+        theme_id=_clean_optional_string(context.get("theme_id")),
+        theme_name=_clean_optional_string(context.get("theme_name")),
+        candidate_type=_clean_optional_string(context.get("candidate_type")),
+        source_run_id=_clean_optional_string(context.get("source_run_id")),
+        backtest_summary=context.get("backtest_summary")
+        if isinstance(context.get("backtest_summary"), dict)
+        else None,
+        risk_flags=_coerce_string_list(context.get("risk_flags")),
+    )
+
+
+def _attach_opportunity_evidence(card: DecisionCard, final_state: dict) -> DecisionCard:
+    evidence = _opportunity_evidence_from_state(final_state)
+    if evidence is None:
+        return card
+    card.opportunity_evidence = evidence
+    sample_size = None
+    if isinstance(evidence.backtest_summary, dict):
+        sample_size = evidence.backtest_summary.get("sample_size")
+    if sample_size:
+        validation_note = f"Opportunity Radar validation sample size: {sample_size}."
+    else:
+        validation_note = "Opportunity Radar historical validation was unavailable or sample size was insufficient."
+        if validation_note not in card.data_quality_notes:
+            card.data_quality_notes.append(validation_note)
+    point = evidence.trigger or "Opportunity Radar trigger"
+    if len(card.key_reasons) < 5:
+        card.key_reasons.append(
+            EvidenceItem(
+                pillar="opportunity",
+                point=point,
+                evidence=validation_note,
+                strength="medium" if sample_size else "weak",
+                source="Opportunity Radar",
+                data_date=None,
+                confidence="medium" if sample_size else "low",
+                limitation=None if sample_size else "insufficient_sample",
+            )
+        )
+    return card
+
+
 def build_decision_card(
     *,
     final_state: dict,
@@ -467,7 +510,12 @@ def build_decision_card(
             analysis_date=analysis_date,
             raw_signal=raw_signal,
         )
-        return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
+        return _attach_opportunity_evidence(
+            apply_quality_gates(
+                DecisionCard(**payload), output_language=output_language
+            ),
+            final_state,
+        )
 
     highlights_block = extract_highlights_block(final_decision)
     if highlights_block:
@@ -478,7 +526,12 @@ def build_decision_card(
             analysis_date=analysis_date,
             raw_signal=raw_signal,
         )
-        return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
+        return _attach_opportunity_evidence(
+            apply_quality_gates(
+                DecisionCard(**payload), output_language=output_language
+            ),
+            final_state,
+        )
 
     rating = extract_rating_from_text(final_decision)
     if rating:
@@ -498,12 +551,17 @@ def build_decision_card(
         fallback.data_quality_notes.append(
             "DecisionCard was derived from unstructured final decision text."
         )
-        return apply_quality_gates(fallback, output_language=output_language)
+        return _attach_opportunity_evidence(
+            apply_quality_gates(fallback, output_language=output_language), final_state
+        )
 
-    return build_fallback_decision_card(
-        symbol=symbol,
-        report_id=report_id,
-        analysis_date=analysis_date,
-        raw_signal=raw_signal,
-        output_language=output_language,
+    return _attach_opportunity_evidence(
+        build_fallback_decision_card(
+            symbol=symbol,
+            report_id=report_id,
+            analysis_date=analysis_date,
+            raw_signal=raw_signal,
+            output_language=output_language,
+        ),
+        final_state,
     )

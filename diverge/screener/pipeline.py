@@ -7,6 +7,7 @@ from typing import Callable
 import pandas as pd
 
 from .schema import ScreenRunConfig, ScreenRunResult
+from .strategy_pipeline import run_strategy_screen
 from .stages import (
     evaluate_screen_stage,
     prepare_universe_stage,
@@ -92,6 +93,8 @@ def run_screen(
     config: ScreenRunConfig,
     progress_callback: Callable[..., None] | None = None,
 ) -> ScreenRunResult:
+    if getattr(config, "mode", "preset") == "strategy":
+        return run_strategy_screen(config)
     started_at = time.perf_counter()
     cache_root = Path(config.cache_dir)
     history_root = Path(config.history_dir)

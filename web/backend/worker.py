@@ -5,11 +5,14 @@ import os
 import time
 from collections.abc import Callable
 
+from web.backend import app_config
 from web.backend.monitoring import initialize_sentry
 from web.backend.runtime import (
     analysis_tasks,
+    backtest_tasks,
     data_sync_tasks,
     market_brief_tasks,
+    opportunity_tasks,
     screener_tasks,
     task_scheduler,
     task_store,
@@ -106,6 +109,18 @@ def run_once(*, timeout: int = 5) -> bool:
             runner=market_brief_tasks.run_market_brief_task,
         )
 
+    if kind == "opportunity":
+        return _run_claimed_task(
+            kind="opportunity",
+            task_id=task_id,
+            runner=opportunity_tasks.run_opportunity_task,
+        )
+
+    if kind == "backtest":
+        return _run_claimed_task(
+            kind="backtest", task_id=task_id, runner=backtest_tasks.run_backtest_task
+        )
+
     return False
 
 
@@ -127,6 +142,9 @@ def main() -> None:
     screener_tasks.restore_persisted_screener_tasks()
     data_sync_tasks.restore_persisted_data_sync_tasks()
     market_brief_tasks.restore_persisted_market_brief_tasks()
+    if app_config.opportunity_radar_enabled():
+        opportunity_tasks.restore_persisted_opportunity_tasks()
+        backtest_tasks.restore_persisted_backtest_tasks()
 
     worker_once = os.environ.get("WORKER_ONCE", "").lower() in {"1", "true", "yes"}
     while True:

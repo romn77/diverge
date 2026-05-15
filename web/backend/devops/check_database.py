@@ -50,6 +50,9 @@ REQUIRED_TABLES = (
     "search_global_configs",
     "search_provider_configs",
     "search_provider_usage",
+    "opportunity_runs",
+    "backtest_runs",
+    "watchlist_items",
     "job_records",
 )
 

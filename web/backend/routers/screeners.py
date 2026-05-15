@@ -240,3 +240,33 @@ def get_screener_run_endpoint(run_id: str, request: Request) -> dict:
 def get_screener_run_candidates_endpoint(run_id: str, request: Request) -> list[dict]:
     current_user = access.require_screener_user(request)
     return screener_service.get_screener_run_candidates(run_id, current_user)
+
+
+@router.post("/api/screener/strategy-runs")
+def create_strategy_screener_run(
+    payload: dict = Body(default=None),
+    request: Request = None,
+) -> dict:
+    current_user = access.require_screener_user(
+        request,
+        permission=auth.PERMISSION_SCREENER_CREATE,
+    )
+    body = dict(payload or {})
+    config_payload = {
+        "markets": body.get("markets") or [body.get("market") or "cn"],
+        "as_of_date": body.get("as_of_date")
+        or body.get("trade_date")
+        or date.today().isoformat(),
+        "top_k": int(body.get("top_k") or 50),
+        "mode": "strategy",
+        "strategy_id": body.get("strategy_id") or "theme_capital_breakout_v1",
+        "strategy_config": body.get("strategy_config"),
+        "factor_snapshot_path": body.get("factor_snapshot_path"),
+        "history_cache_policy": "cache_only",
+    }
+    return screener_tasks.create_screener_task(
+        request_payload=body,
+        config_payload=config_payload,
+        owner_user_id=current_user.id if current_user is not None else None,
+        tenant_id=getattr(current_user, "tenant_id", None),
+    )

@@ -35,6 +35,14 @@ export function buildMarketBriefHref(): string {
   return "/market-briefs";
 }
 
+export function buildOpportunitiesHref(runId?: string | null): string {
+  if (!runId) {
+    return "/opportunities";
+  }
+  const searchParams = new URLSearchParams({ runId });
+  return `/opportunities?${searchParams.toString()}`;
+}
+
 export function buildLoginHref(nextPath?: string | null): string {
   const searchParams = new URLSearchParams({
     next: resolveNextPath(nextPath),

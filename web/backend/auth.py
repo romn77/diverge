@@ -361,6 +361,9 @@ PERMISSION_ANALYSIS_CREATE = "analysis:create"
 PERMISSION_ANALYSIS_READ = "analysis:read"
 PERMISSION_SCREENER_CREATE = "screener:create"
 PERMISSION_SCREENER_READ = "screener:read"
+PERMISSION_OPPORTUNITY_READ = "opportunity:read"
+PERMISSION_OPPORTUNITY_RUN = "opportunity:run"
+PERMISSION_OPPORTUNITY_WRITE = "opportunity:write"
 PERMISSION_ASSETS_READ = "assets:read"
 PERMISSION_ASSETS_WRITE = "assets:write"
 PERMISSION_JOURNAL_READ = "journal:read"
@@ -380,6 +383,9 @@ WORKBENCH_PERMISSIONS = {
     PERMISSION_ANALYSIS_READ,
     PERMISSION_SCREENER_CREATE,
     PERMISSION_SCREENER_READ,
+    PERMISSION_OPPORTUNITY_READ,
+    PERMISSION_OPPORTUNITY_RUN,
+    PERMISSION_OPPORTUNITY_WRITE,
     PERMISSION_ASSETS_READ,
     PERMISSION_ASSETS_WRITE,
     PERMISSION_JOURNAL_READ,
@@ -394,7 +400,8 @@ ALL_PERMISSIONS = WORKBENCH_PERMISSIONS | ADMIN_PERMISSIONS
 ROLE_PERMISSION_PRESETS = {
     UserRole.ADMIN.value: ALL_PERMISSIONS,
     UserRole.OPERATOR.value: WORKBENCH_PERMISSIONS,
-    UserRole.VIEWER.value: WORKBENCH_PERMISSIONS,
+    UserRole.VIEWER.value: WORKBENCH_PERMISSIONS
+    - {PERMISSION_OPPORTUNITY_RUN, PERMISSION_OPPORTUNITY_WRITE},
 }
 
 
@@ -886,9 +893,7 @@ def get_user_by_account(db: Session, account: str) -> User | None:
     except AuthValidationError:
         return None
     matches = list(
-        db.scalars(
-            select(User).where(User.username == normalized_username).limit(2)
-        )
+        db.scalars(select(User).where(User.username == normalized_username).limit(2))
     )
     if len(matches) != 1:
         return None

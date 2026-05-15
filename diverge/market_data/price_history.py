@@ -126,6 +126,11 @@ class HistoryFetchExecutor:
                     )
                     return FetchedHistoryFrame(frame=frame, source=self.last_source)
                 except US_FALLBACK_ERRORS as exc:
+                    if (
+                        isinstance(exc, VendorDataEmptyError)
+                        and len(self.us_source_chain) == 1
+                    ):
+                        raise
                     last_error = exc
                     if attempt >= len(RETRY_BACKOFF_SECONDS):
                         break

@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import {
   ApiError,
+  getConfigOptions,
   listJournalReviewTasks,
   listReports,
   listScreenerRuns,
@@ -54,6 +55,7 @@ interface WorkbenchContextValue {
   activeScreenerTasks: ScreenerTask[];
   newAnalysisDisabled: boolean;
   newScreenerDisabled: boolean;
+  opportunityRadarEnabled: boolean;
   logout: ReturnType<typeof useAuth>["logout"];
 }
 
@@ -106,6 +108,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const [journalReviewTasks, setJournalReviewTasks] = useState<JournalReviewTask[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [reportsError, setReportsError] = useState<string | null>(null);
+  const [opportunityRadarEnabled, setOpportunityRadarEnabled] = useState(false);
 
   const authEnabled = authState?.enabled ?? false;
   const canAccessWorkbench =
@@ -113,6 +116,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const canManageUsers = hasPermission(authState, "admin:users");
   const canCreateAnalysis = hasPermission(authState, "analysis:create");
   const canCreateScreener = hasPermission(authState, "screener:create");
+  const canReadOpportunity = hasPermission(authState, "opportunity:read");
 
   const handleProtectedError = useCallback(
     (error: unknown): boolean => {
@@ -145,6 +149,24 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       setLoadingReports(false);
     }
   }, [canAccessWorkbench, handleProtectedError]);
+
+
+
+  const refreshWorkbenchConfig = useCallback(async () => {
+    if (!canAccessWorkbench) {
+      setOpportunityRadarEnabled(false);
+      return;
+    }
+    try {
+      const options = await getConfigOptions();
+      setOpportunityRadarEnabled(Boolean(options.ui_settings?.opportunity_radar_enabled) && canReadOpportunity);
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+      setOpportunityRadarEnabled(false);
+    }
+  }, [canAccessWorkbench, canReadOpportunity, handleProtectedError]);
 
   const refreshTasks = useCallback(async () => {
     if (!canAccessWorkbench) {
@@ -231,6 +253,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
 
     setScreenerRuns([]);
   }, [canAccessWorkbench, refreshScreenerRuns]);
+
+  useEffect(() => {
+    void refreshWorkbenchConfig();
+  }, [refreshWorkbenchConfig]);
 
   useEffect(() => {
     if (!canAccessWorkbench) {
@@ -362,6 +388,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       journalReviewTasks,
       newAnalysisDisabled: !canCreateAnalysis,
       newScreenerDisabled: !canCreateScreener,
+      opportunityRadarEnabled,
       recentReports,
       recentTickers,
       refreshJournalReviewTasks,
@@ -392,6 +419,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       loadingReports,
       logout,
       journalReviewTasks,
+      opportunityRadarEnabled,
       recentReports,
       recentTickers,
       refreshJournalReviewTasks,

@@ -100,6 +100,11 @@ class ScreenRunConfig:
     filter_preset_selections: dict[str, str] = field(default_factory=dict)
     ranking_profile_id: str | None = None
     include_fundamentals: bool = False
+    mode: str = "preset"
+    strategy_id: str | None = None
+    strategy_config: dict | None = None
+    strategy_config_path: str | None = None
+    factor_snapshot_path: str | None = None
     fundamental_dir: str = field(default_factory=_default_fundamentals_dir)
     cn_fundamental_source: str = "tushare"
     us_fundamental_source: str = "simfin"
@@ -148,6 +153,15 @@ class ScreenRunConfig:
         self.fundamental_dir = self.fundamental_dir.strip()
         self.cn_fundamental_source = self.cn_fundamental_source.strip().lower()
         self.us_fundamental_source = self.us_fundamental_source.strip().lower()
+        self.mode = str(self.mode or "preset").strip().lower()
+        if self.mode not in {"preset", "strategy"}:
+            raise ValueError("mode must be one of {'preset', 'strategy'}")
+        if self.strategy_id is not None:
+            self.strategy_id = str(self.strategy_id).strip() or None
+        if self.strategy_config_path is not None:
+            self.strategy_config_path = str(self.strategy_config_path).strip() or None
+        if self.factor_snapshot_path is not None:
+            self.factor_snapshot_path = str(self.factor_snapshot_path).strip() or None
 
         try:
             parsed_date = datetime.strptime(self.as_of_date, "%Y-%m-%d").date()
@@ -240,8 +254,18 @@ class ScreenRunConfig:
             )[1:]
         ]
 
-        if "us" in self.markets and not self.us_manifest_path:
+        if (
+            "us" in self.markets
+            and not self.us_manifest_path
+            and self.mode != "strategy"
+        ):
             raise ValueError("us_manifest_path is required when 'us' is in markets")
+        if self.mode == "strategy" and not (
+            self.factor_snapshot_path or self.strategy_config
+        ):
+            raise ValueError(
+                "strategy mode requires factor_snapshot_path or strategy_config"
+            )
 
 
 @dataclass(slots=True)
