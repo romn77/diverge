@@ -10,17 +10,28 @@ from diverge.market_brief.schema import MarketBriefMarket
 
 
 DEFAULT_MARKET_BRIEF_TIMES = (time(8, 30), time(9, 0), time(9, 20))
-DEFAULT_MARKET_BRIEF_MARKETS: tuple[MarketBriefMarket, ...] = ("cn", "hk", "us")
+DEFAULT_MARKET_BRIEF_MARKETS: tuple[MarketBriefMarket, ...] = ("cn", "us")
+DEFAULT_MARKET_TIMEZONES: dict[MarketBriefMarket, str] = {
+    "cn": "Asia/Shanghai",
+    "us": "America/New_York",
+}
+DISABLED_MARKET_ALIASES = {"h", "hongkong", "hong_kong", "hk"}
 DEFAULT_SCHEDULER_QUEUE_NAME = "arq:market-brief:scheduler"
 DEFAULT_WORKFLOW_TTL_SECONDS = 14 * 24 * 60 * 60
 
 
 @dataclass(frozen=True)
-class MarketBriefScheduleConfig:
-    enabled: bool
+class MarketBriefMarketSchedule:
+    market: MarketBriefMarket
     timezone: ZoneInfo
     times: tuple[time, ...]
+
+
+@dataclass(frozen=True)
+class MarketBriefScheduleConfig:
+    enabled: bool
     markets: tuple[MarketBriefMarket, ...]
+    schedules: tuple[MarketBriefMarketSchedule, ...]
     output_language: str
     report_visibility: str
     scheduler_provider: str
@@ -51,33 +62,79 @@ def _parse_time(value: str) -> time:
         hour_text, minute_text = value.strip().split(":", 1)
         return time(hour=int(hour_text), minute=int(minute_text))
     except Exception as exc:
-        raise RuntimeError("MARKET_BRIEF_TIMES must use HH:MM values") from exc
+        raise RuntimeError("Market brief time values must use HH:MM") from exc
 
 
-def _parse_times_env() -> tuple[time, ...]:
-    raw_value = os.environ.get("MARKET_BRIEF_TIMES")
-    if raw_value is None:
-        return DEFAULT_MARKET_BRIEF_TIMES
+def _parse_times_value(name: str, raw_value: str) -> tuple[time, ...]:
     values = tuple(_parse_time(part) for part in raw_value.split(",") if part.strip())
     if not values:
-        raise RuntimeError("MARKET_BRIEF_TIMES must include at least one time")
+        raise RuntimeError(f"{name} must include at least one time")
     return values
+
+
+def _parse_times_env(name: str, default: tuple[time, ...]) -> tuple[time, ...]:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+    return _parse_times_value(name, raw_value)
 
 
 def _parse_markets_env() -> tuple[MarketBriefMarket, ...]:
     raw_value = os.environ.get("MARKET_BRIEF_MARKETS")
     if raw_value is None:
         return DEFAULT_MARKET_BRIEF_MARKETS
-    return tuple(normalize_markets(raw_value.split(",")))
+    requested_markets = [
+        value.strip()
+        for value in raw_value.split(",")
+        if value.strip() and value.strip().lower() not in DISABLED_MARKET_ALIASES
+    ]
+    if not requested_markets:
+        raise RuntimeError("MARKET_BRIEF_MARKETS must include at least cn or us")
+    return tuple(normalize_markets(requested_markets))
+
+
+def _market_env_name(market: MarketBriefMarket, suffix: str) -> str:
+    return f"MARKET_BRIEF_{market.upper()}_{suffix}"
+
+
+def _market_timezone(market: MarketBriefMarket) -> ZoneInfo:
+    env_name = _market_env_name(market, "TIMEZONE")
+    timezone_name = (
+        os.environ.get(env_name) or DEFAULT_MARKET_TIMEZONES[market]
+    ).strip()
+    try:
+        return ZoneInfo(timezone_name or DEFAULT_MARKET_TIMEZONES[market])
+    except Exception as exc:
+        raise RuntimeError(f"{env_name} must be a valid IANA timezone") from exc
+
+
+def _market_times(market: MarketBriefMarket) -> tuple[time, ...]:
+    env_name = _market_env_name(market, "TIMES")
+    raw_value = os.environ.get(env_name)
+    if raw_value is not None:
+        return _parse_times_value(env_name, raw_value)
+    return _parse_times_env("MARKET_BRIEF_TIMES", DEFAULT_MARKET_BRIEF_TIMES)
+
+
+def _market_schedules(
+    markets: tuple[MarketBriefMarket, ...],
+) -> tuple[MarketBriefMarketSchedule, ...]:
+    return tuple(
+        MarketBriefMarketSchedule(
+            market=market,
+            timezone=_market_timezone(market),
+            times=_market_times(market),
+        )
+        for market in markets
+    )
 
 
 def get_market_brief_schedule_config() -> MarketBriefScheduleConfig:
-    timezone_name = os.environ.get("MARKET_BRIEF_TIMEZONE", "Asia/Shanghai").strip()
+    markets = _parse_markets_env()
     return MarketBriefScheduleConfig(
         enabled=_bool_env("MARKET_BRIEF_ENABLED", False),
-        timezone=ZoneInfo(timezone_name or "Asia/Shanghai"),
-        times=_parse_times_env(),
-        markets=_parse_markets_env(),
+        markets=markets,
+        schedules=_market_schedules(markets),
         output_language=os.environ.get("MARKET_BRIEF_OUTPUT_LANGUAGE", "zh-CN").strip()
         or "zh-CN",
         report_visibility=(

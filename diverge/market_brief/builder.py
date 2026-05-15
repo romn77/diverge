@@ -22,7 +22,7 @@ from diverge.market_brief.sources.market_data import collect_market_snapshots
 from diverge.market_brief.sources.web_search import collect_web_search_sources
 
 
-DEFAULT_MARKETS: tuple[MarketBriefMarket, ...] = ("cn", "hk", "us")
+DEFAULT_MARKETS: tuple[MarketBriefMarket, ...] = ("cn", "us")
 SUPPORTED_MARKETS = set(DEFAULT_MARKETS)
 DEFAULT_TIMEZONE = "Asia/Shanghai"
 
@@ -35,6 +35,7 @@ class MarketBriefBuildRequest:
     slot: str | None = None
     automation_key: str | None = None
     scheduler_provider: str | None = None
+    output_timezone: str = DEFAULT_TIMEZONE
     now_utc: datetime | None = None
 
 
@@ -46,12 +47,10 @@ def normalize_markets(markets: list[str] | None) -> list[MarketBriefMarket]:
         candidate = str(value).strip().lower()
         if candidate in {"a", "ashare", "a-share", "a_share", "china", "cn"}:
             candidate = "cn"
-        elif candidate in {"h", "hongkong", "hong_kong", "hk"}:
-            candidate = "hk"
         elif candidate in {"usa", "nyse", "nasdaq", "us"}:
             candidate = "us"
         if candidate not in SUPPORTED_MARKETS:
-            raise ValueError("markets must contain only cn, hk, or us")
+            raise ValueError("markets must contain only cn or us")
         market = candidate  # type: ignore[assignment]
         if market not in normalized:
             normalized.append(market)
@@ -60,8 +59,8 @@ def normalize_markets(markets: list[str] | None) -> list[MarketBriefMarket]:
     return normalized
 
 
-def _local_generated_at(now_utc: datetime) -> datetime:
-    return coerce_utc(now_utc).astimezone(ZoneInfo(DEFAULT_TIMEZONE))
+def _local_generated_at(now_utc: datetime, timezone_name: str) -> datetime:
+    return coerce_utc(now_utc).astimezone(ZoneInfo(timezone_name or DEFAULT_TIMEZONE))
 
 
 def _brief_id(now_local: datetime) -> str:
@@ -160,30 +159,13 @@ def _build_ambush_directions(
                 ],
             )
         )
-    if "hk" in markets:
-        directions.append(
-            MarketBriefTheme(
-                title="Hong Kong China-beta and ADR relay",
-                summary=(
-                    "Use Hang Seng Index, China internet, and financial leaders to judge "
-                    "whether overnight ADR moves are being accepted."
-                ),
-                markets=["hk"],
-                validation_signals=[
-                    "Hang Seng opens with breadth across internet, financials, and property.",
-                ],
-                invalidation_signals=[
-                    "ADR-positive names fail to hold the first pullback.",
-                ],
-            )
-        )
     if "us" in markets:
         directions.append(
             MarketBriefTheme(
                 title="US rates and mega-cap leadership",
                 summary=(
                     "Use futures, Treasury yields, and mega-cap breadth to decide whether "
-                    "US risk appetite supports later A/H context."
+                    "US risk appetite supports later cross-market context."
                 ),
                 markets=["us"],
                 validation_signals=[
@@ -221,7 +203,7 @@ def _build_risks(
                 severity="medium",
                 markets=[
                     "us",
-                    *[market for market in markets if market in {"cn", "hk"}],
+                    *[market for market in markets if market == "cn"],
                 ],
                 mitigation="Track Treasury yields, dollar index proxies, and US index futures.",
             )
@@ -255,7 +237,8 @@ def _build_validation_signals(
 def build_market_brief(request: MarketBriefBuildRequest) -> PremarketBrief:
     markets = normalize_markets(request.markets)
     now_utc = coerce_utc(request.now_utc)
-    now_local = _local_generated_at(now_utc)
+    output_timezone = request.output_timezone or DEFAULT_TIMEZONE
+    now_local = _local_generated_at(now_utc, output_timezone)
     calendar = build_market_calendar(markets, now_utc=now_utc)
     trading_days = {item.market: item.trading_day for item in calendar}
     primary_trading_day = _primary_trading_day(trading_days)
@@ -272,7 +255,7 @@ def build_market_brief(request: MarketBriefBuildRequest) -> PremarketBrief:
     source_count = len(sources)
     summary = (
         f"{market_labels} premarket brief generated at "
-        f"{now_local.strftime('%Y-%m-%d %H:%M')} {DEFAULT_TIMEZONE}. "
+        f"{now_local.strftime('%Y-%m-%d %H:%M')} {output_timezone}. "
         f"{source_count} source link(s) collected; verify the opening tape before action."
     )
     brief = PremarketBrief(

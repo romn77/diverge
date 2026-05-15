@@ -5,7 +5,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 
-MarketBriefMarket = Literal["cn", "hk", "us"]
+MarketBriefMarket = Literal["cn", "us"]
 MarketBriefTrigger = Literal["manual", "scheduled"]
 
 

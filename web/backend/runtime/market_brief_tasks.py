@@ -363,6 +363,7 @@ def run_market_brief_task(task_id: str) -> None:
             slot=payload.get("slot"),
             automation_key=payload.get("automation_key"),
             scheduler_provider=payload.get("scheduler_provider"),
+            output_timezone=str(payload.get("output_timezone") or "Asia/Shanghai"),
         )
         _append_progress(
             task_id, "Collecting market data and sources.", stage="sources"

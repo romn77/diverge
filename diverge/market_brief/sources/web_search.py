@@ -10,7 +10,6 @@ from diverge.market_brief.schema import MarketBriefMarket, MarketBriefSource
 DEFAULT_ALLOWED_DOMAINS = (
     "sse.com.cn",
     "szse.cn",
-    "hkex.com.hk",
     "pbc.gov.cn",
     "csrc.gov.cn",
     "stats.gov.cn",
@@ -23,7 +22,6 @@ DEFAULT_ALLOWED_DOMAINS = (
 
 MARKET_QUERY_TERMS: dict[MarketBriefMarket, str] = {
     "cn": "A shares China market policy liquidity earnings premarket",
-    "hk": "Hong Kong stocks Hang Seng China ADR policy premarket",
     "us": "US stocks S&P 500 Nasdaq Federal Reserve Treasury yields premarket",
 }
 

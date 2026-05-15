@@ -40,13 +40,13 @@ def test_market_brief_manual_task_creates_pending_task(tmp_path):
             "web.backend.runtime.market_brief_tasks.start_market_brief_task_thread"
         ) as start_thread,
     ):
-        payload = MarketBriefCreatePayload(markets=["cn", "hk", "us"])
+        payload = MarketBriefCreatePayload(markets=["cn", "us"])
         result = market_briefs_router.create_market_brief_task(payload)
 
         assert result["status"] == "pending"
         start_thread.assert_called_once()
         task = market_brief_tasks.get_market_brief_task(result["task_id"])
-        assert task.request_payload["markets"] == ["cn", "hk", "us"]
+        assert task.request_payload["markets"] == ["cn", "us"]
         assert task.request_payload["trigger"] == "manual"
 
 
@@ -65,7 +65,7 @@ def test_market_brief_run_writes_report_artifact(tmp_path):
         collect_snapshots.return_value = []
         result = market_brief_tasks.create_market_brief_task(
             request_payload={
-                "markets": ["cn", "hk", "us"],
+                "markets": ["cn", "us"],
                 "output_language": "zh-CN",
                 "report_visibility": "workspace",
                 "trigger": "manual",
@@ -81,7 +81,7 @@ def test_market_brief_run_writes_report_artifact(tmp_path):
         assert artifact_path.is_file()
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
         assert payload["type"] == "premarket_brief"
-        assert payload["markets"] == ["cn", "hk", "us"]
+        assert payload["markets"] == ["cn", "us"]
         assert (report_dir / "complete_report.md").is_file()
 
         index = market_brief_service.list_market_briefs(
@@ -107,9 +107,8 @@ def test_market_brief_scheduler_tick_enqueues_redis_task(monkeypatch):
     fake_store = task_store.InMemoryTaskStore()
     monkeypatch.setenv("TASK_BACKEND", "redis")
     monkeypatch.setenv("MARKET_BRIEF_ENABLED", "true")
-    monkeypatch.setenv("MARKET_BRIEF_TIMES", "08:30")
-    monkeypatch.setenv("MARKET_BRIEF_MARKETS", "cn,hk,us")
-    monkeypatch.setenv("MARKET_BRIEF_TIMEZONE", "Asia/Shanghai")
+    monkeypatch.setenv("MARKET_BRIEF_MARKETS", "us")
+    monkeypatch.setenv("MARKET_BRIEF_US_TIMES", "08:30")
 
     with (
         patch("web.backend.runtime.task_store.get_task_store", return_value=fake_store),
@@ -123,11 +122,23 @@ def test_market_brief_scheduler_tick_enqueues_redis_task(monkeypatch):
         payload = asyncio.run(
             scheduler.market_brief_due_tick(
                 {"redis": FakeRedis()},
-                now_utc=datetime(2026, 5, 15, 0, 30, tzinfo=timezone.utc),
+                now_utc=datetime(2026, 5, 15, 12, 30, tzinfo=timezone.utc),
             )
         )
     assert payload["enqueued"]
+    assert payload["enqueued"][0]["timezone"] == "America/New_York"
     task_id = payload["enqueued"][0]["task_id"]
     stored = fake_store.get_task("market_brief", task_id)
-    assert stored["request_payload"]["markets"] == ["cn", "hk", "us"]
+    assert stored["request_payload"]["markets"] == ["us"]
     assert stored["request_payload"]["trigger"] == "scheduled"
+    assert stored["request_payload"]["output_timezone"] == "America/New_York"
+
+
+def test_market_brief_schedule_config_ignores_disabled_hk(monkeypatch):
+    from diverge.worker.market_brief.config import get_market_brief_schedule_config
+
+    monkeypatch.setenv("MARKET_BRIEF_MARKETS", "cn,hk,us")
+
+    config = get_market_brief_schedule_config()
+
+    assert config.markets == ("cn", "us")

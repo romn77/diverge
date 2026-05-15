@@ -209,7 +209,7 @@ class BackendMainTests(unittest.TestCase):
                 {
                     "type": "premarket_brief",
                     "brief_id": "premarket_brief_20260515_083000",
-                    "markets": ["cn", "hk"],
+                    "markets": ["cn", "us"],
                     "trading_day": "2026-05-15",
                     "information_cutoff_at": "2026-05-15T08:30:00+08:00",
                     "data_quality_level": "high",
@@ -253,7 +253,7 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(payload["cutoff_date"], "2026-05-09")
         self.assertEqual(len(payload["briefs"]), 1)
         self.assertEqual(payload["latest"]["report_id"], "MARKET_BRIEF_20260515_083000")
-        self.assertEqual(payload["latest"]["markets"], ["cn", "hk"])
+        self.assertEqual(payload["latest"]["markets"], ["cn", "us"])
         self.assertEqual(payload["latest"]["source_count"], 1)
         self.assertIn("High dividend", payload["latest"]["main_themes"])
 

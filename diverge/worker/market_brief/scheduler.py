@@ -7,7 +7,7 @@ from typing import Any
 
 from diverge.common.market_calendar import is_market_trading_day
 from diverge.worker.market_brief.config import (
-    MarketBriefScheduleConfig,
+    MarketBriefMarketSchedule,
     get_market_brief_schedule_config,
     get_market_brief_workflow_ttl_seconds,
     market_brief_job_id,
@@ -25,17 +25,16 @@ def _coerce_utc(now_utc: datetime | None) -> datetime:
     return now_utc.astimezone(timezone.utc)
 
 
-def _slot_for_now(config: MarketBriefScheduleConfig, now_utc: datetime) -> str | None:
-    local_now = now_utc.astimezone(config.timezone)
-    for slot in config.times:
+def _slot_for_now(schedule: MarketBriefMarketSchedule, now_utc: datetime) -> str | None:
+    local_now = now_utc.astimezone(schedule.timezone)
+    for slot in schedule.times:
         if local_now.hour == slot.hour and local_now.minute == slot.minute:
             return slot.strftime("%H:%M")
     return None
 
 
-def _has_due_market(config: MarketBriefScheduleConfig, now_utc: datetime) -> bool:
-    local_day = now_utc.astimezone(config.timezone).date()
-    return any(is_market_trading_day(market, local_day) for market in config.markets)
+def _timezone_key(schedule: MarketBriefMarketSchedule) -> str:
+    return getattr(schedule.timezone, "key", str(schedule.timezone))
 
 
 def _workflow_key(job_id: str) -> str:
@@ -93,55 +92,78 @@ async def market_brief_due_tick(
     if not config.enabled:
         return {"enqueued": [], "skipped": [{"reason": "disabled"}]}
 
-    slot = _slot_for_now(config, current_utc)
-    if slot is None:
+    due_schedules = [
+        (schedule, slot)
+        for schedule in config.schedules
+        if (slot := _slot_for_now(schedule, current_utc)) is not None
+    ]
+    if not due_schedules:
         return {"enqueued": [], "skipped": [{"reason": "not_due"}]}
 
-    if not _has_due_market(config, current_utc):
-        return {"enqueued": [], "skipped": [{"reason": "not_trading_day"}]}
-
-    local_day = current_utc.astimezone(config.timezone).date().isoformat()
-    job_id = market_brief_job_id(
-        brief_date=local_day,
-        slot=slot,
-        markets=tuple(config.markets),
-    )
     redis = ctx["redis"]
-    status = await _workflow_status(redis, job_id)
-    if status in ACTIVE_STATUSES:
-        return {
-            "enqueued": [],
-            "skipped": [{"job_id": job_id, "reason": "already_queued_or_done"}],
-        }
-
     from web.backend.runtime import market_brief_tasks, task_store
 
     if not task_store.redis_task_backend_enabled():
         return {"enqueued": [], "skipped": [{"reason": "task_backend_not_redis"}]}
 
+    enqueued: list[dict[str, Any]] = []
+    skipped: list[dict[str, Any]] = []
     owner_user_id, tenant_id = market_brief_tasks.resolve_automation_owner()
-    task = market_brief_tasks.create_market_brief_task(
-        task_id=job_id,
-        owner_user_id=owner_user_id,
-        tenant_id=tenant_id,
-        request_payload={
-            "markets": list(config.markets),
-            "output_language": config.output_language,
-            "report_visibility": config.report_visibility,
-            "trigger": "scheduled",
+    for schedule, slot in due_schedules:
+        local_day = current_utc.astimezone(schedule.timezone).date()
+        if not is_market_trading_day(schedule.market, local_day):
+            skipped.append(
+                {
+                    "market": schedule.market,
+                    "slot": slot,
+                    "reason": "not_trading_day",
+                }
+            )
+            continue
+
+        local_day_text = local_day.isoformat()
+        job_id = market_brief_job_id(
+            brief_date=local_day_text,
+            slot=slot,
+            markets=(schedule.market,),
+        )
+        status = await _workflow_status(redis, job_id)
+        if status in ACTIVE_STATUSES:
+            skipped.append(
+                {
+                    "job_id": job_id,
+                    "market": schedule.market,
+                    "reason": "already_queued_or_done",
+                }
+            )
+            continue
+
+        timezone_name = _timezone_key(schedule)
+        task = market_brief_tasks.create_market_brief_task(
+            task_id=job_id,
+            owner_user_id=owner_user_id,
+            tenant_id=tenant_id,
+            request_payload={
+                "markets": [schedule.market],
+                "output_language": config.output_language,
+                "output_timezone": timezone_name,
+                "report_visibility": config.report_visibility,
+                "trigger": "scheduled",
+                "slot": slot,
+                "automation_key": job_id,
+                "scheduler_provider": config.scheduler_provider,
+            },
+        )
+        workflow_payload = {
+            "job_id": job_id,
+            "task_id": task["task_id"],
+            "status": task["status"],
             "slot": slot,
-            "automation_key": job_id,
-            "scheduler_provider": config.scheduler_provider,
-        },
-    )
-    workflow_payload = {
-        "job_id": job_id,
-        "task_id": task["task_id"],
-        "status": task["status"],
-        "slot": slot,
-        "brief_date": local_day,
-        "markets": list(config.markets),
-        "updated_at": current_utc.isoformat(),
-    }
-    await _mark_queued(redis, job_id, workflow_payload)
-    return {"enqueued": [workflow_payload], "skipped": []}
+            "brief_date": local_day_text,
+            "markets": [schedule.market],
+            "timezone": timezone_name,
+            "updated_at": current_utc.isoformat(),
+        }
+        await _mark_queued(redis, job_id, workflow_payload)
+        enqueued.append(workflow_payload)
+    return {"enqueued": enqueued, "skipped": skipped}

@@ -8,12 +8,11 @@ const source = readFileSync(
   "utf8"
 );
 
-test("MarketBriefDashboard exposes manual A/H/US brief generation without changing home", () => {
+test("MarketBriefDashboard exposes manual A/US brief generation without changing home", () => {
   assert.match(source, /createMarketBriefTask/);
   assert.match(source, /listMarketBriefs/);
   assert.match(source, /listMarketBriefTasks/);
   assert.match(source, /"cn"/);
-  assert.match(source, /"hk"/);
   assert.match(source, /"us"/);
   assert.match(source, /aria-pressed/);
   assert.match(source, /buildReportHref/);

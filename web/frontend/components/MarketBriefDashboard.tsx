@@ -22,7 +22,6 @@ import { buildReportHref } from "@/lib/workbenchRoutes";
 
 const MARKET_OPTIONS: Array<{ value: MarketBriefMarket; label: string }> = [
   { value: "cn", label: "A-share" },
-  { value: "hk", label: "Hong Kong" },
   { value: "us", label: "US" },
 ];
 
@@ -39,7 +38,6 @@ export function MarketBriefDashboard() {
   const [tasks, setTasks] = useState<MarketBriefTask[]>([]);
   const [selectedMarkets, setSelectedMarkets] = useState<MarketBriefMarket[]>([
     "cn",
-    "hk",
     "us",
   ]);
   const [loading, setLoading] = useState(true);

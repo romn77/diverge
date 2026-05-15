@@ -480,7 +480,7 @@ export interface ReportStructure {
   }>;
 }
 
-export type MarketBriefMarket = "cn" | "hk" | "us";
+export type MarketBriefMarket = "cn" | "us";
 
 export interface MarketBriefSummary {
   type: "premarket_brief";
@@ -529,6 +529,7 @@ export interface MarketBriefTask {
     slot?: string | null;
     automation_key?: string | null;
     scheduler_provider?: string | null;
+    output_timezone?: string | null;
   };
   owner_user_id?: string | null;
   tenant_id?: string | null;

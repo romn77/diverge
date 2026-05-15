@@ -9,19 +9,16 @@ from diverge.market_brief.schema import MarketBriefMarket, MarketCalendarItem
 
 MARKET_LABELS: dict[MarketBriefMarket, str] = {
     "cn": "A-share",
-    "hk": "Hong Kong",
     "us": "US",
 }
 
 MARKET_TIMEZONES: dict[MarketBriefMarket, str] = {
     "cn": "Asia/Shanghai",
-    "hk": "Asia/Hong_Kong",
     "us": "America/New_York",
 }
 
 MARKET_OPEN_CLOSE: dict[MarketBriefMarket, tuple[time, time]] = {
     "cn": (time(9, 30), time(15, 0)),
-    "hk": (time(9, 30), time(16, 0)),
     "us": (time(9, 30), time(16, 0)),
 }
 

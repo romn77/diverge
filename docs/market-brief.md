@@ -14,7 +14,7 @@ POST /api/market-briefs/tasks
 
 ```json
 {
-  "markets": ["cn", "hk", "us"],
+  "markets": ["cn", "us"],
   "output_language": "zh-CN",
   "report_visibility": "workspace"
 }
@@ -23,8 +23,10 @@ POST /api/market-briefs/tasks
 Supported markets:
 
 - `cn`: A-share
-- `hk`: Hong Kong
 - `us`: US
+
+Hong Kong (`hk`) is temporarily disabled until the project has a reliable HKEX
+holiday calendar and market data feed.
 
 ## Automatic Trigger
 
@@ -38,12 +40,17 @@ TASK_BACKEND=redis
 REDIS_URL=redis://redis:6379/0
 MARKET_BRIEF_ENABLED=true
 MARKET_BRIEF_SCHEDULER_PROVIDER=arq
-MARKET_BRIEF_TIMEZONE=Asia/Shanghai
 MARKET_BRIEF_TIMES=08:30,09:00,09:20
-MARKET_BRIEF_MARKETS=cn,hk,us
+MARKET_BRIEF_MARKETS=cn,us
+MARKET_BRIEF_CN_TIMEZONE=Asia/Shanghai
+MARKET_BRIEF_US_TIMEZONE=America/New_York
 MARKET_BRIEF_REPORT_VISIBILITY=workspace
 MARKET_BRIEF_SCHEDULER_QUEUE_NAME=arq:market-brief:scheduler
 ```
+
+`MARKET_BRIEF_TIMES` is interpreted in each enabled market's timezone. Override
+one market independently with `MARKET_BRIEF_CN_TIMES` or `MARKET_BRIEF_US_TIMES`.
+For example, US brief slots use New York time by default.
 
 Run the scheduler with:
 

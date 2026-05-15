@@ -13,11 +13,6 @@ INDEX_REFERENCES: dict[MarketBriefMarket, dict[str, str]] = {
         "name": "SSE Composite",
         "currency": "CNY",
     },
-    "hk": {
-        "symbol": "^HSI",
-        "name": "Hang Seng Index",
-        "currency": "HKD",
-    },
     "us": {
         "symbol": "^GSPC",
         "name": "S&P 500",
