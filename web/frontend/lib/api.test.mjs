@@ -31,6 +31,10 @@ test("frontend API exposes the 7-day market brief index", () => {
   assert.match(source, /interface MarketBriefSummary/);
   assert.match(source, /interface MarketBriefIndexResponse/);
   assert.match(source, /export async function listMarketBriefs/);
+  assert.match(source, /export async function createMarketBriefTask/);
+  assert.match(source, /export async function listMarketBriefTasks/);
+  assert.match(source, /export async function getMarketBriefTask/);
+  assert.match(source, /export function subscribeToMarketBriefTask/);
   assert.match(source, /\/api\/market-briefs/);
   assert.match(source, /latest:\s*MarketBriefSummary \| null/);
   assert.match(source, /briefs:\s*MarketBriefSummary\[\]/);

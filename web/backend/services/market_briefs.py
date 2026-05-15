@@ -8,6 +8,9 @@ from zoneinfo import ZoneInfo
 
 from fastapi import Request
 
+from diverge.market_brief.schema import PremarketBrief
+from diverge.market_brief.storage import save_market_brief_report
+from web.backend import app_config, auth, report_metadata, storage
 from web.backend.services import reports as report_service
 
 
@@ -249,4 +252,51 @@ def list_market_briefs(
         "cutoff_date": cutoff_day.isoformat(),
         "latest": summaries[0] if summaries else None,
         "briefs": summaries,
+    }
+
+
+def publish_market_brief(
+    brief: PremarketBrief,
+    *,
+    owner_user_id: str | None,
+    tenant_id: str | None,
+    report_visibility: str,
+) -> dict[str, Any]:
+    result = save_market_brief_report(
+        brief,
+        reports_dir=app_config.REPORTS_DIR,
+        tmp_reports_dir=app_config.tmp_reports_dir(),
+    )
+
+    if auth.auth_enabled() and owner_user_id:
+        metadata_payload = report_metadata.build_report_metadata(
+            result.report_dir,
+            report_id=result.report_id,
+        )
+        file_entries = report_metadata.build_report_file_index(result.report_dir)
+        with auth.db_session() as db:
+            report_metadata.upsert_report_run(
+                db,
+                report_id=result.report_id,
+                owner_user_id=owner_user_id,
+                tenant_id=tenant_id,
+                visibility=report_visibility,
+                ticker=str(metadata_payload["ticker"] or "MARKET_BRIEF"),
+                generated_at=metadata_payload["generated_at"],
+                storage_path=str(metadata_payload["storage_path"] or result.report_id),
+                file_entries=file_entries,
+            )
+
+    if report_service.storage_backend_is_remote():
+        storage.upload_directory(result.report_dir, f"reports/{result.report_id}")
+
+    return {
+        "report_id": result.report_id,
+        "report_dir": str(result.report_dir),
+        "artifact_path": "artifacts/premarket_brief.json",
+        "markets": list(brief.markets),
+        "trading_day": brief.trading_day,
+        "data_quality_level": brief.data_quality_level,
+        "source_count": len(brief.sources),
+        "quality_warnings": list(brief.quality_warnings),
     }

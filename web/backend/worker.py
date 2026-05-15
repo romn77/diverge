@@ -9,6 +9,7 @@ from web.backend.monitoring import initialize_sentry
 from web.backend.runtime import (
     analysis_tasks,
     data_sync_tasks,
+    market_brief_tasks,
     screener_tasks,
     task_scheduler,
     task_store,
@@ -98,6 +99,13 @@ def run_once(*, timeout: int = 5) -> bool:
             kind="data_sync", task_id=task_id, runner=data_sync_tasks.run_data_sync_task
         )
 
+    if kind == "market_brief":
+        return _run_claimed_task(
+            kind="market_brief",
+            task_id=task_id,
+            runner=market_brief_tasks.run_market_brief_task,
+        )
+
     return False
 
 
@@ -118,6 +126,7 @@ def main() -> None:
     analysis_tasks.restore_persisted_active_tasks()
     screener_tasks.restore_persisted_screener_tasks()
     data_sync_tasks.restore_persisted_data_sync_tasks()
+    market_brief_tasks.restore_persisted_market_brief_tasks()
 
     worker_once = os.environ.get("WORKER_ONCE", "").lower() in {"1", "true", "yes"}
     while True:

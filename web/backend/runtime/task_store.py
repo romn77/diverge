@@ -12,7 +12,7 @@ ACTIVE_STATUSES = {"pending", "queued", "waiting_for_quota", "running"}
 RUNNING_STATUSES = {"running"}
 TERMINAL_STATUSES = {"completed", "failed", "canceled"}
 DEFAULT_TERMINAL_TTL_SECONDS = 7 * 24 * 60 * 60
-TASK_KINDS = ("analysis", "screener", "data_sync")
+TASK_KINDS = ("analysis", "screener", "data_sync", "market_brief")
 
 
 class TaskCanceled(RuntimeError):

@@ -41,6 +41,7 @@ from web.backend.routers import (
 )
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.data_sync_tasks import restore_persisted_data_sync_tasks
+from web.backend.runtime.market_brief_tasks import restore_persisted_market_brief_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
 from web.backend.runtime import task_store
 from web.backend.monitoring import initialize_sentry
@@ -67,6 +68,7 @@ async def _app_lifespan(_: FastAPI):
         restore_persisted_active_tasks()
         restore_persisted_screener_tasks()
         restore_persisted_data_sync_tasks()
+        restore_persisted_market_brief_tasks()
         job_records.recover_stale_running_job_records()
     yield
 

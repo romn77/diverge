@@ -31,6 +31,10 @@ export function buildActivityHref(): string {
   return "/activity";
 }
 
+export function buildMarketBriefHref(): string {
+  return "/market-briefs";
+}
+
 export function buildLoginHref(nextPath?: string | null): string {
   const searchParams = new URLSearchParams({
     next: resolveNextPath(nextPath),
