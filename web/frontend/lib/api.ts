@@ -13,6 +13,9 @@ export type Permission =
   | "analysis:read"
   | "screener:create"
   | "screener:read"
+  | "opportunity:read"
+  | "opportunity:run"
+  | "opportunity:write"
   | "assets:read"
   | "assets:write"
   | "journal:read"
@@ -887,6 +890,143 @@ export interface ScreenerPresetRecord {
   config: ScreenTaskCreateRequest;
   created_at: string;
   updated_at: string;
+}
+
+
+
+export interface OpportunityRunSummary {
+  run_id: string;
+  status: string;
+  trade_date: string;
+  market: string;
+  candidate_count: number;
+  generated_at?: string | null;
+  artifact_manifest?: Record<string, string>;
+}
+
+export interface MarketPulse {
+  trade_date: string;
+  market: string;
+  market_regime: string;
+  summary: string;
+  top_themes: string[];
+  risk_notes: string[];
+  data_quality_notes: string[];
+}
+
+export interface ThemeRadarItem {
+  theme_id: string;
+  theme_name: string;
+  hot_score: number;
+  capital_score: number;
+  momentum_score?: number;
+  breadth_score?: number;
+  catalyst_score?: number;
+  stage: string;
+  leaders: string[];
+  watch_symbols: string[];
+  backtest_summary?: BacktestSnapshotSummary | null;
+  risk_flags?: string[];
+}
+
+export interface ThemeRadarResponse {
+  trade_date: string;
+  market: string;
+  themes: ThemeRadarItem[];
+}
+
+export interface OpportunityCandidate {
+  symbol: string;
+  name?: string | null;
+  market?: string | null;
+  theme_id?: string | null;
+  theme_name?: string | null;
+  candidate_type: string;
+  stock_score: number;
+  theme_hot_score?: number | null;
+  capital_score?: number | null;
+  technical_score?: number | null;
+  catalyst_score?: number | null;
+  backtest_signal?: string | null;
+  recommended_next_step?: string | null;
+  reason: string;
+  risk_flags: string[];
+  data_quality_flags: Array<Record<string, unknown>>;
+  backtest_summary?: BacktestSnapshotSummary | null;
+}
+
+export interface CandidatePoolResponse {
+  trade_date: string;
+  market: string;
+  strategy_ids: string[];
+  candidates: OpportunityCandidate[];
+}
+
+export interface OpportunityEvent {
+  event_id: string;
+  trade_date: string;
+  scope: string;
+  event_type: string;
+  symbol?: string;
+  theme_id?: string | null;
+  score?: number | null;
+  evidence?: string[];
+  source_run_id?: string;
+  next_step?: string;
+}
+
+export interface WatchlistItem {
+  id?: string;
+  symbol: string;
+  market?: string;
+  name?: string | null;
+  theme_id?: string | null;
+  status: string;
+  reason?: string | null;
+  source_run_id?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface BacktestSnapshotSummary {
+  strategy_id?: string;
+  run_id?: string;
+  engine?: string;
+  status?: string;
+  sample_size?: number;
+  holding_periods?: Record<string, {
+    sample_size?: number;
+    win_rate?: number;
+    avg_return?: number;
+    median_return?: number;
+    max_adverse_excursion_median?: number | null;
+  }>;
+  risk_notes?: string[];
+  data_quality_notes?: string[];
+}
+
+export interface OpportunityRunRequest {
+  trade_date?: string | null;
+  market?: string;
+  strategy_ids?: string[];
+  factor_snapshot_path?: string | null;
+  price_history_path?: string | null;
+  cost_model_id?: string | null;
+  force?: boolean;
+}
+
+export interface OpportunityTaskCreateResponse {
+  task_id: string;
+  status: string;
+  run_id?: string;
+}
+
+export interface CandidateAnalyzeRequest {
+  run_id?: string | null;
+  analysis_date?: string | null;
+  output_language?: string | null;
+  model_profile?: string | null;
+  opportunity_context?: Record<string, unknown> | null;
+  report_visibility?: "private" | "workspace";
 }
 
 export interface DataSyncOhlcvRequest {
@@ -2090,4 +2230,63 @@ export function subscribeToScreenerTask(
   return () => {
     eventSource.close();
   };
+}
+
+
+export async function listOpportunityRuns(): Promise<OpportunityRunSummary[]> {
+  return requestJson<OpportunityRunSummary[]>("/api/opportunities/runs", {
+    cache: "no-store",
+  });
+}
+
+export async function getOpportunityRun(runId: string): Promise<OpportunityRunSummary> {
+  return requestJson<OpportunityRunSummary>(`/api/opportunities/runs/${runId}`, {
+    cache: "no-store",
+  });
+}
+
+export async function getOpportunityMarketPulse(runId: string): Promise<MarketPulse> {
+  return requestJson<MarketPulse>(`/api/opportunities/runs/${runId}/market-pulse`, { cache: "no-store" });
+}
+
+export async function getOpportunityThemes(runId: string): Promise<ThemeRadarResponse> {
+  return requestJson<ThemeRadarResponse>(`/api/opportunities/runs/${runId}/themes`, { cache: "no-store" });
+}
+
+export async function getOpportunityCandidates(runId: string): Promise<CandidatePoolResponse> {
+  return requestJson<CandidatePoolResponse>(`/api/opportunities/runs/${runId}/candidates`, { cache: "no-store" });
+}
+
+export async function getOpportunityEvents(runId: string): Promise<OpportunityEvent[]> {
+  return requestJson<OpportunityEvent[]>(`/api/opportunities/runs/${runId}/events`, { cache: "no-store" });
+}
+
+export async function listOpportunityWatchlist(): Promise<WatchlistItem[]> {
+  return requestJson<WatchlistItem[]>("/api/opportunities/watchlist", { cache: "no-store" });
+}
+
+export async function addOpportunityWatchlistItem(payload: WatchlistItem): Promise<{ id: string; symbol: string; status: string }> {
+  return requestJson<{ id: string; symbol: string; status: string }>("/api/opportunities/watchlist", createJsonRequestInit("POST", payload));
+}
+
+export async function deleteOpportunityWatchlistItem(symbol: string): Promise<{ deleted: boolean; symbol: string }> {
+  return requestJson<{ deleted: boolean; symbol: string }>(`/api/opportunities/watchlist/${encodeURIComponent(symbol)}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+}
+
+export async function createOpportunityRun(payload: OpportunityRunRequest): Promise<OpportunityTaskCreateResponse> {
+  return requestJson<OpportunityTaskCreateResponse>("/api/opportunities/run", createJsonRequestInit("POST", payload));
+}
+
+
+export async function analyzeOpportunityCandidate(
+  symbol: string,
+  payload: CandidateAnalyzeRequest = {}
+): Promise<{ task_id: string; status: string; report_id?: string }> {
+  return requestJson<{ task_id: string; status: string; report_id?: string }>(
+    `/api/opportunities/candidates/${encodeURIComponent(symbol)}/analyze`,
+    createJsonRequestInit("POST", payload)
+  );
 }

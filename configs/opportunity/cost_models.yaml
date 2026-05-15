@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "models": {
+    "cn_a_share_default": {
+      "market": "cn",
+      "buy_fee": 0.0003,
+      "sell_fee": 0.0003,
+      "stamp_tax_sell": 0.0005,
+      "slippage": 0.001
+    }
+  }
+}

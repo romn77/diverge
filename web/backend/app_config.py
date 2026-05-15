@@ -25,6 +25,9 @@ SCREENER_RESULTS_DIR = DATA_PATHS.screener_runs_dir
 SCREENER_STATE_DIR = DATA_PATHS.screener_state_dir
 SCREENER_TASKS_DIR = DATA_PATHS.screener_tasks_dir
 SCREENER_CACHE_DIR = DATA_PATHS.screener_cache_dir
+OPPORTUNITY_RUNS_DIR = (DATA_PATHS.data_dir / "opportunity" / "runs").resolve()
+OPPORTUNITY_TASKS_DIR = (DATA_PATHS.data_dir / "opportunity" / "tasks").resolve()
+BACKTEST_RUNS_DIR = (DATA_PATHS.data_dir / "backtest" / "runs").resolve()
 STOCK_HISTORY_DIR = DATA_PATHS.history_dir
 FUNDAMENTALS_DIR = DATA_PATHS.fundamentals_dir
 MANIFEST_DIR = DATA_PATHS.manifest_dir
@@ -45,6 +48,26 @@ SCREENER_ARTIFACT_FILENAMES = {
 }
 
 DEFAULT_FRONTEND_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+def opportunity_radar_enabled() -> bool:
+    return os.environ.get("OPPORTUNITY_RADAR_ENABLED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def ensure_opportunity_dependencies() -> None:
+    if not opportunity_radar_enabled():
+        return
+    try:
+        import pyarrow  # noqa: F401
+    except ImportError as exc:
+        raise RuntimeError(
+            "OPPORTUNITY_RADAR_ENABLED requires installing the .[opportunity] extra for Parquet support."
+        ) from exc
 
 
 def resolve_manifest_path(
