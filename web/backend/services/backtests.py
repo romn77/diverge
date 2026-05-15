@@ -10,12 +10,37 @@ from fastapi import HTTPException
 from diverge.backtest.event_study import run_backtest_snapshot
 from diverge.backtest.storage import write_backtest_artifacts
 from diverge.opportunity.storage import read_ndjson, read_table, write_json
-from web.backend import app_config
+from web.backend import app_config, auth
 from web.backend.services import opportunities
 
 
 def _run_dir(run_id: str) -> Path:
+    if "/" in run_id or "\\" in run_id or ".." in run_id:
+        raise HTTPException(
+            status_code=404, detail=f"Backtest run '{run_id}' not found"
+        )
     return app_config.BACKTEST_RUNS_DIR / run_id
+
+
+def _run_meta(run_id: str) -> dict[str, Any]:
+    path = _run_dir(run_id) / "run_meta.json"
+    if not path.is_file():
+        raise HTTPException(
+            status_code=404, detail=f"Backtest run '{run_id}' not found"
+        )
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _assert_run_access(run_id: str, current_user=None) -> None:
+    if not auth.auth_enabled() or current_user is None:
+        return
+    meta = _run_meta(run_id)
+    run_tenant_id = meta.get("tenant_id")
+    user_tenant_id = getattr(current_user, "tenant_id", None)
+    if run_tenant_id is not None and run_tenant_id != user_tenant_id:
+        raise HTTPException(
+            status_code=404, detail=f"Backtest run '{run_id}' not found"
+        )
 
 
 def _table_records(path: Path) -> list[dict[str, Any]]:
@@ -25,7 +50,13 @@ def _table_records(path: Path) -> list[dict[str, Any]]:
     return frame.where(pd.notna(frame), None).to_dict(orient="records")
 
 
-def run_snapshot(payload: dict[str, Any], *, run_id: str) -> dict[str, Any]:
+def run_snapshot(
+    payload: dict[str, Any],
+    *,
+    run_id: str,
+    owner_user_id: str | None = None,
+    tenant_id: str | None = None,
+) -> dict[str, Any]:
     opportunities.require_enabled()
     signals_path = payload.get("signal_events_path")
     price_path = payload.get("price_history_path")
@@ -70,6 +101,8 @@ def run_snapshot(payload: dict[str, Any], *, run_id: str) -> dict[str, Any]:
         run_dir / "run_meta.json",
         {
             "run_id": run_id,
+            "tenant_id": tenant_id,
+            "owner_user_id": owner_user_id,
             "strategy_id": snapshot.get("strategy_id"),
             "status": snapshot.get("status"),
             "sample_size": snapshot.get("sample_size"),
@@ -79,7 +112,8 @@ def run_snapshot(payload: dict[str, Any], *, run_id: str) -> dict[str, Any]:
     return snapshot
 
 
-def get_snapshot(run_id: str) -> dict[str, Any]:
+def get_snapshot(run_id: str, current_user=None) -> dict[str, Any]:
+    _assert_run_access(run_id, current_user)
     path = _run_dir(run_id) / "backtest_snapshot.json"
     if not path.is_file():
         raise HTTPException(
@@ -88,26 +122,30 @@ def get_snapshot(run_id: str) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def get_metrics(run_id: str) -> dict[str, Any]:
+def get_metrics(run_id: str, current_user=None) -> dict[str, Any]:
+    _assert_run_access(run_id, current_user)
     path = _run_dir(run_id) / "backtest_metrics.json"
     if not path.is_file():
-        return get_snapshot(run_id).get("holding_periods") or {}
+        return get_snapshot(run_id, current_user).get("holding_periods") or {}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def get_signals(run_id: str) -> list[dict[str, Any]]:
+def get_signals(run_id: str, current_user=None) -> list[dict[str, Any]]:
+    _assert_run_access(run_id, current_user)
     run_dir = _run_dir(run_id)
     return _table_records(run_dir / "signal_events.parquet") or []
 
 
-def get_outcomes(run_id: str) -> list[dict[str, Any]]:
+def get_outcomes(run_id: str, current_user=None) -> list[dict[str, Any]]:
+    _assert_run_access(run_id, current_user)
     run_dir = _run_dir(run_id)
     parquet_path = run_dir / "signal_outcomes.parquet"
     csv_path = run_dir / "signal_outcomes.csv"
     return _table_records(parquet_path if parquet_path.is_file() else csv_path)
 
 
-def get_parameter_scan(run_id: str) -> list[dict[str, Any]]:
+def get_parameter_scan(run_id: str, current_user=None) -> list[dict[str, Any]]:
+    _assert_run_access(run_id, current_user)
     run_dir = _run_dir(run_id)
     parquet_path = run_dir / "parameter_scan.parquet"
     csv_path = run_dir / "parameter_scan.csv"

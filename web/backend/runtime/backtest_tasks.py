@@ -118,7 +118,12 @@ def run_backtest_task(task_id: str) -> None:
     task.started_at = task.started_at or _utc_iso()
     _append(task, _event("running", "Backtest Snapshot is running."))
     try:
-        result = backtests.run_snapshot(task.request_payload, run_id=task_id)
+        result = backtests.run_snapshot(
+            task.request_payload,
+            run_id=task_id,
+            owner_user_id=task.owner_user_id,
+            tenant_id=task.tenant_id,
+        )
         task = get_task(task_id)
         task.status = "completed"
         task.finished_at = _utc_iso()

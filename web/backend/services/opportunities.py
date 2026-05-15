@@ -17,9 +17,22 @@ def require_enabled() -> None:
 
 
 def initialize_opportunity_runtime() -> None:
-    if app_config.opportunity_radar_enabled():
-        app_config.ensure_opportunity_dependencies()
+    if not app_config.opportunity_radar_enabled():
+        return
+    app_config.ensure_opportunity_dependencies()
     opportunity_models.initialize_opportunity_runtime()
+
+
+def _assert_run_access(run_meta: dict[str, Any], current_user=None) -> None:
+    if not auth.auth_enabled() or current_user is None:
+        return
+    run_tenant_id = run_meta.get("tenant_id")
+    user_tenant_id = getattr(current_user, "tenant_id", None)
+    if run_tenant_id is not None and run_tenant_id != user_tenant_id:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Opportunity run '{run_meta.get('run_id')}' not found",
+        )
 
 
 def list_runs(current_user=None) -> list[dict[str, Any]]:
@@ -34,9 +47,13 @@ def list_runs(current_user=None) -> list[dict[str, Any]]:
 def get_run(run_id: str, current_user=None) -> dict[str, Any]:
     require_enabled()
     try:
-        return load_radar_artifact(
+        run_meta = load_radar_artifact(
             run_id, "run_meta.json", project_root=app_config.PROJECT_ROOT
         )
+        _assert_run_access(run_meta, current_user)
+        return run_meta
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=404, detail=f"Opportunity run '{run_id}' not found"
@@ -55,9 +72,15 @@ def get_artifact(run_id: str, artifact_name: str, current_user=None) -> Any:
     }
     filename = filename_by_name.get(artifact_name, artifact_name)
     try:
+        run_meta = load_radar_artifact(
+            run_id, "run_meta.json", project_root=app_config.PROJECT_ROOT
+        )
+        _assert_run_access(run_meta, current_user)
         return load_radar_artifact(
             run_id, filename, project_root=app_config.PROJECT_ROOT
         )
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=404, detail=f"Opportunity artifact '{artifact_name}' not found"

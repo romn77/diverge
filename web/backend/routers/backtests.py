@@ -32,35 +32,39 @@ def create_snapshot(payload: BacktestSnapshotPayload, request: Request = None) -
 
 @router.get("/api/backtests/tasks")
 def list_backtest_tasks(request: Request = None) -> list[dict]:
-    _current_user(request)
-    return [task.to_dict() for task in backtest_tasks.list_tasks()]
+    user = _current_user(request)
+    return [
+        task.to_dict()
+        for task in backtest_tasks.list_tasks()
+        if not auth.auth_enabled() or task.tenant_id == getattr(user, "tenant_id", None)
+    ]
 
 
 @router.get("/api/backtests/{run_id}")
 def get_snapshot(run_id: str, request: Request = None) -> dict:
-    _current_user(request)
-    return backtests.get_snapshot(run_id)
+    user = _current_user(request)
+    return backtests.get_snapshot(run_id, user)
 
 
 @router.get("/api/backtests/{run_id}/metrics")
 def get_metrics(run_id: str, request: Request = None) -> dict:
-    _current_user(request)
-    return backtests.get_metrics(run_id)
+    user = _current_user(request)
+    return backtests.get_metrics(run_id, user)
 
 
 @router.get("/api/backtests/{run_id}/signals")
 def get_signals(run_id: str, request: Request = None) -> list[dict]:
-    _current_user(request)
-    return backtests.get_signals(run_id)
+    user = _current_user(request)
+    return backtests.get_signals(run_id, user)
 
 
 @router.get("/api/backtests/{run_id}/outcomes")
 def get_outcomes(run_id: str, request: Request = None) -> list[dict]:
-    _current_user(request)
-    return backtests.get_outcomes(run_id)
+    user = _current_user(request)
+    return backtests.get_outcomes(run_id, user)
 
 
 @router.get("/api/backtests/{run_id}/parameter-scan")
 def get_parameter_scan(run_id: str, request: Request = None) -> list[dict]:
-    _current_user(request)
-    return backtests.get_parameter_scan(run_id)
+    user = _current_user(request)
+    return backtests.get_parameter_scan(run_id, user)

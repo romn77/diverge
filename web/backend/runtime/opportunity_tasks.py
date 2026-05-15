@@ -220,6 +220,53 @@ def cancel_opportunity_task(task_id: str) -> str:
     )
 
 
+def _tenant_scoped_payload(
+    request_payload: dict[str, Any], tenant_id: str | None
+) -> dict[str, Any]:
+    payload = dict(request_payload)
+    if tenant_id is not None and not payload.get("tenant_id"):
+        payload["tenant_id"] = tenant_id
+    return payload
+
+
+def _tasks_for_idempotency() -> list[OpportunityTask]:
+    if task_store.redis_task_backend_enabled():
+        return [
+            _from_payload(payload)
+            for payload in task_store.get_task_store().list_tasks(KIND)
+        ]
+    with _lock:
+        return list(_tasks.values())
+
+
+def _matching_active_task(
+    *, planned_run_id: str, request_payload: dict[str, Any], tenant_id: str | None
+) -> OpportunityTask | None:
+    for existing in _tasks_for_idempotency():
+        if existing.request_payload.get("force"):
+            continue
+        existing_run_id, _, _, _, _ = plan_radar_run_id(existing.request_payload)
+        if (
+            existing_run_id == planned_run_id
+            and existing.status in task_store.ACTIVE_STATUSES
+            and existing.tenant_id == tenant_id
+        ):
+            return existing
+    return None
+
+
+def _cached_run_matches_tenant(run_meta: Path, tenant_id: str | None) -> bool:
+    if not run_meta.is_file():
+        return False
+    if tenant_id is None:
+        return True
+    try:
+        payload = json.loads(run_meta.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    return payload.get("tenant_id") in {None, tenant_id}
+
+
 def create_opportunity_task(
     *,
     request_payload: dict[str, Any],
@@ -227,6 +274,7 @@ def create_opportunity_task(
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
     opportunity_service.require_enabled()
+    request_payload = _tenant_scoped_payload(request_payload, tenant_id)
     planned_run_id, _, _, _, _ = plan_radar_run_id(request_payload)
     if not request_payload.get("force"):
         run_meta = (
@@ -234,30 +282,25 @@ def create_opportunity_task(
             / planned_run_id
             / "run_meta.json"
         )
-        if run_meta.is_file():
+        if _cached_run_matches_tenant(run_meta, tenant_id):
             return {
                 "task_id": "",
                 "run_id": planned_run_id,
                 "status": "completed",
                 "cached": True,
             }
-        with _lock:
-            for existing in _tasks.values():
-                if existing.request_payload.get("force"):
-                    continue
-                existing_run_id, _, _, _, _ = plan_radar_run_id(
-                    existing.request_payload
-                )
-                if (
-                    existing_run_id == planned_run_id
-                    and existing.status in task_store.ACTIVE_STATUSES
-                ):
-                    return {
-                        "task_id": existing.id,
-                        "run_id": planned_run_id,
-                        "status": existing.status,
-                        "cached": False,
-                    }
+        existing = _matching_active_task(
+            planned_run_id=planned_run_id,
+            request_payload=request_payload,
+            tenant_id=tenant_id,
+        )
+        if existing is not None:
+            return {
+                "task_id": existing.id,
+                "run_id": planned_run_id,
+                "status": existing.status,
+                "cached": False,
+            }
     task_id = uuid.uuid4().hex
     now = _utc_iso()
     task = OpportunityTask(

@@ -153,6 +153,7 @@ def plan_radar_run_id(
     ]
     config_hash = _hash_payload(
         {
+            "tenant_id": request.get("tenant_id"),
             "trade_date": trade_date,
             "market": market,
             "strategy_ids": strategy_ids,
@@ -166,8 +167,25 @@ def plan_radar_run_id(
     return run_id, trade_date, market, strategy_ids, config_hash
 
 
+def _run_dir_matches_tenant(run_dir: Path, tenant_id: str | None) -> bool:
+    if tenant_id is None:
+        return True
+    meta_path = run_dir / "run_meta.json"
+    if not meta_path.is_file():
+        return False
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    return meta.get("tenant_id") in {None, tenant_id}
+
+
 def _revision_run_dir(
-    base_run_id: str, *, force: bool, project_root: Path | None = None
+    base_run_id: str,
+    *,
+    force: bool,
+    project_root: Path | None = None,
+    tenant_id: str | None = None,
 ) -> tuple[str, Path, int, bool]:
     base_dir = opportunity_runs_dir(project_root)
     run_dir = base_dir / base_run_id
@@ -178,7 +196,7 @@ def _revision_run_dir(
             1,
             False,
         )
-    if not force:
+    if not force and _run_dir_matches_tenant(run_dir, tenant_id):
         return base_run_id, run_dir, 1, True
     revision = 2
     while True:
@@ -191,6 +209,8 @@ def _revision_run_dir(
                 revision,
                 False,
             )
+        if not force and _run_dir_matches_tenant(candidate_dir, tenant_id):
+            return candidate_id, candidate_dir, revision, True
         revision += 1
 
 
@@ -202,11 +222,16 @@ def run_opportunity_radar(
     project_root: Path | None = None,
 ) -> dict[str, Any]:
     request = dict(payload or {})
+    if tenant_id is not None and not request.get("tenant_id"):
+        request["tenant_id"] = tenant_id
     base_run_id, trade_date, market, strategy_ids, config_hash = plan_radar_run_id(
         request
     )
     run_id, run_dir, revision, cached = _revision_run_dir(
-        base_run_id, force=bool(request.get("force")), project_root=project_root
+        base_run_id,
+        force=bool(request.get("force")),
+        project_root=project_root,
+        tenant_id=tenant_id,
     )
     if cached:
         return {
