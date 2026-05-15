@@ -29,6 +29,7 @@ class AnalysisContextPackRequest:
     analysis_date: str
     output_language: str
     portfolio_context: str | None = None
+    opportunity_context: dict[str, Any] | None = None
     reports_dir: Path | None = None
     visible_trade_ids: Collection[str] | None = None
     analysis_run_id: str | None = None
@@ -38,6 +39,7 @@ class AnalysisContextPackRequest:
 class AnalysisContextPack:
     trade_feedback: HistoricalTradeFeedback
     portfolio_context: str
+    opportunity_context: dict[str, Any] | None = None
     search_context: SearchToolContext | None = None
 
     @property
@@ -52,6 +54,7 @@ class AnalysisContextPack:
         return {
             **self.trade_feedback.initial_state_fields(),
             "portfolio_context": self.portfolio_context,
+            "opportunity_context": self.opportunity_context,
         }
 
 
@@ -106,6 +109,7 @@ def build_analysis_context_pack(
             reviews=trade_feedback_payload.get("reviews"),
         ),
         portfolio_context=(request.portfolio_context or "").strip(),
+        opportunity_context=request.opportunity_context,
         search_context=search_context,
     )
 

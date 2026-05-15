@@ -163,9 +163,7 @@ def validate_trade_readiness(
     resolved = _readiness_for_card(card)
     card.trade_readiness = resolved
     if previous != resolved or not _clean_text(card.trade_readiness_reason):
-        card.trade_readiness_reason = _readiness_reason(
-            resolved, card, output_language
-        )
+        card.trade_readiness_reason = _readiness_reason(resolved, card, output_language)
 
     if card.data_quality_level == "weak":
         _append_blocking_item(
@@ -255,13 +253,19 @@ def _playbook_fallbacks(
             if cn
             else "Use staged execution only when the entry or add condition is met.",
             add_condition
-            or ("等待价格和风险信号确认。" if cn else "Wait for price and risk confirmation."),
+            or (
+                "等待价格和风险信号确认。"
+                if cn
+                else "Wait for price and risk confirmation."
+            ),
             "若核心趋势或基本面假设被破坏，则暂停执行。"
             if cn
             else "Pause execution if the core trend or fundamental thesis breaks.",
         ),
         "watch": (
-            "加入观察，不追价。" if cn else "Keep on watch; do not chase before confirmation.",
+            "加入观察，不追价。"
+            if cn
+            else "Keep on watch; do not chase before confirmation.",
             add_condition
             or (
                 "等待明确的价格、成交量或基本面触发条件。"
@@ -363,7 +367,11 @@ def _position_guidance_fallback(
     card: DecisionCard, output_language: str | None
 ) -> PositionGuidance:
     cn = _is_cn(output_language)
-    fallback = "维持当前决策节奏，不需要新增资金动作。" if cn else "No new capital action is required for this decision stance."
+    fallback = (
+        "维持当前决策节奏，不需要新增资金动作。"
+        if cn
+        else "No new capital action is required for this decision stance."
+    )
     suggested = {
         "READY": "触发条件满足时可考虑小比例、分批执行。"
         if cn
@@ -413,12 +421,11 @@ def ensure_position_guidance(
 def apply_decision_intelligence(
     card: DecisionCard, *, output_language: str | None = None
 ) -> DecisionCard:
-    card.card_version = "1.1"
+    card.card_version = "1.2"
     previous_quality_level = card.data_quality_level
     card.data_quality_level = resolve_data_quality_level(card)
-    if (
-        previous_quality_level != card.data_quality_level
-        or not _clean_text(card.data_quality_summary)
+    if previous_quality_level != card.data_quality_level or not _clean_text(
+        card.data_quality_summary
     ):
         card.data_quality_summary = _data_quality_summary(
             card.data_quality_level, output_language

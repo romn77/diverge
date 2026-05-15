@@ -16,6 +16,7 @@ def create_initial_state(
     historical_trade_feedback: str = "",
     historical_trade_reviews: Optional[List[dict]] = None,
     portfolio_context: str = "",
+    opportunity_context: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     messages: list[object] = [("human", company_name)]
     if historical_trade_feedback:
@@ -32,6 +33,7 @@ def create_initial_state(
         HISTORICAL_TRADE_FEEDBACK_KEY: historical_trade_feedback,
         HISTORICAL_TRADE_REVIEWS_KEY: historical_trade_reviews or [],
         "portfolio_context": portfolio_context or "",
+        "opportunity_context": opportunity_context or None,
         "investment_debate_state": InvestDebateState(
             {
                 "bull_history": "",

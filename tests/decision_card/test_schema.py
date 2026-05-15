@@ -42,7 +42,7 @@ def test_valid_decision_card_passes_validation():
 
     assert card.rating == "OVERWEIGHT"
     assert card.action == "WATCH"
-    assert card.card_version == "1.1"
+    assert card.card_version == "1.2"
 
 
 def test_decision_card_accepts_v1_1_intelligence_fields():

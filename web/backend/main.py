@@ -18,6 +18,7 @@ from web.backend import (
     data_sources,
     job_records,
     llm_models,
+    opportunity_models,
     screener_results,
     report_metadata,
     screener_runs,
@@ -28,10 +29,12 @@ from web.backend.routers import (
     admin as admin_router,
     assets as assets_router,
     auth as auth_router,
+    backtests as backtests_router,
     config as config_router,
     data_sync as data_sync_router,
     health as health_router,
     market_resolution as market_resolution_router,
+    opportunities as opportunities_router,
     reports as reports_router,
     screeners as screeners_router,
     tasks as tasks_router,
@@ -40,6 +43,8 @@ from web.backend.routers import (
 )
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.data_sync_tasks import restore_persisted_data_sync_tasks
+from web.backend.runtime.opportunity_tasks import restore_persisted_opportunity_tasks
+from web.backend.runtime.backtest_tasks import restore_persisted_backtest_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
 from web.backend.runtime import task_store
 from web.backend.monitoring import initialize_sentry
@@ -58,6 +63,9 @@ async def _app_lifespan(_: FastAPI):
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
     screener_results.initialize_screener_result_runtime()
+    if app_config.opportunity_radar_enabled():
+        app_config.ensure_opportunity_dependencies()
+        opportunity_models.initialize_opportunity_runtime()
     trade_entries.initialize_trade_entries_runtime()
     asset_entries.initialize_asset_runtime()
     audit.ensure_audit_tables()
@@ -66,6 +74,9 @@ async def _app_lifespan(_: FastAPI):
         restore_persisted_active_tasks()
         restore_persisted_screener_tasks()
         restore_persisted_data_sync_tasks()
+        if app_config.opportunity_radar_enabled():
+            restore_persisted_opportunity_tasks()
+            restore_persisted_backtest_tasks()
         job_records.recover_stale_running_job_records()
     yield
 
@@ -95,6 +106,8 @@ for router in (
     tasks_router.router,
     data_sync_router.router,
     screeners_router.router,
+    opportunities_router.router,
+    backtests_router.router,
     ticker_history_router.router,
     config_router.router,
 ):

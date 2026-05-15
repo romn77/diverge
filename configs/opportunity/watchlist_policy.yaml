@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "auto_add": {
+    "enabled": true,
+    "min_score": 80,
+    "candidate_types": ["leader", "confirmed"],
+    "max_new_items_per_run": 20
+  },
+  "status_transitions": {
+    "confirm_min_days": 2,
+    "confirm_min_score": 75,
+    "cooling_score_drop": -15,
+    "invalidate_score_below": 45
+  }
+}

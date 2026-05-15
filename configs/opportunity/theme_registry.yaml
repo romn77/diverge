@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "themes": [
+    {"theme_id": "ai_compute", "theme_name": "AI Compute", "aliases": ["AI算力", "人工智能算力"], "source_ids": ["ths:ai_compute", "eastmoney:ai_compute"]},
+    {"theme_id": "semiconductor", "theme_name": "Semiconductor", "aliases": ["半导体"], "source_ids": ["ths:semiconductor", "eastmoney:semiconductor"]},
+    {"theme_id": "robotics", "theme_name": "Robotics", "aliases": ["机器人"], "source_ids": ["ths:robotics", "eastmoney:robotics"]}
+  ]
+}
