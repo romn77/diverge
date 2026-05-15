@@ -103,10 +103,35 @@ scripts/check-database.sh --upgrade --bootstrap-admin
   `.agents/skills/workbench-ui-theme-audit/SKILL.md` to audit buttons, controls,
   surfaces, and visual states across light/dark/stylful themes before calling
   the change done.
+- For automated testing of Workbench business flows, use
+  `.agents/skills/workbench-automation-testing/SKILL.md`. Business-flow E2E
+  should be browser-first: drive the same UI journey a user would take, and use
+  API/pytest checks only for fixture setup, cleanup, hidden permission/state
+  assertions, or edge cases the browser cannot observe well.
 - Frontend tests are Node built-in test files (`*.test.mjs` / `*.test.ts`) run
   by `npm test`; they often assert source contracts and UI copy.
 - Use focused tests for the touched area first, then broaden when changing shared
   contracts such as auth, task state, screener behavior, storage, or API schemas.
+
+## Automated Business Testing
+
+- When a change affects a user-facing Workbench workflow, prefer a browser-driven
+  Playwright or agent-browser E2E path over an API-only test. A test that never
+  opens the browser is an API integration test, not business E2E.
+- Start from the business actor and outcome: report discovery/review, launching
+  analysis to completed report, building screener candidates, login/permissions,
+  assets, journal, activity/queue observability, or deployment smoke.
+- Keep E2E deterministic with temp `DATA_DIR` fixtures, test adapters, or
+  deterministic runner modes. Do not depend on live LLM calls, live market-data
+  vendors, real secrets, or local runtime data in default automation.
+- API and pytest coverage should support business E2E by protecting hidden
+  contracts such as auth/tenant scoping, audit metadata, task-store state,
+  path traversal, malformed payloads, and migration behavior.
+- Browser tests should use accessible roles/labels first. Add narrow
+  `data-testid` selectors only for dense controls, translated/high-churn copy,
+  icon-only actions, or repeated labels.
+- Record the browser journey exercised, fixture mode, commands run, skipped
+  checks, and residual risk whenever adding or reviewing automation.
 
 ## Subagent Development
 
