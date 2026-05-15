@@ -38,9 +38,6 @@ Common environment variables:
 Server usage after copying the generated files:
   gunzip -c diverge-images-<TAG>.tar.gz | docker load
   docker compose -f compose.prod.yml -f compose.images-<TAG>.yml up -d
-
-No-nginx public IP usage:
-  docker compose -f compose.no-nginx.yml -f compose.images-<TAG>.yml up -d
 USAGE
 }
 
@@ -176,6 +173,3 @@ echo
 echo "Copy both files to the server, then run:"
 echo "  gunzip -c $(basename "$IMAGE_ARCHIVE") | docker load"
 echo "  docker compose -f compose.prod.yml -f $(basename "$COMPOSE_OVERRIDE") up -d"
-echo
-echo "Without a domain/nginx, use:"
-echo "  docker compose -f compose.no-nginx.yml -f $(basename "$COMPOSE_OVERRIDE") up -d"

@@ -3,6 +3,7 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ENV_FILE:-$PROJECT_ROOT/.env}"
+COMPOSE_FILE="${COMPOSE_FILE:-compose.prod.yml}"
 
 cd "$PROJECT_ROOT"
 
@@ -28,21 +29,24 @@ source "$ENV_FILE"
 set +a
 
 DATA_DIR="${DATA_DIR:-$PROJECT_ROOT/data}"
-FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 
 mkdir -p "$DATA_DIR/reports" "$DATA_DIR/manifest"
 
 echo "Building Docker images..."
-docker compose build
+docker compose -f "$COMPOSE_FILE" build
 
 echo "Starting services..."
-docker compose up -d
+docker compose -f "$COMPOSE_FILE" up -d
 
 echo
 echo "Deployment complete."
-echo "Frontend: http://localhost:${FRONTEND_PORT}"
-echo "Backend API: http://localhost:8000"
+echo "Compose file: $COMPOSE_FILE"
+if [ -n "${PUBLIC_HOSTNAME:-}" ]; then
+  echo "Frontend/API: https://${PUBLIC_HOSTNAME}"
+else
+  echo "Frontend/API: http://localhost"
+fi
 echo
 echo "Logs:"
-echo "  docker compose logs -f backend"
-echo "  docker compose logs -f frontend"
+echo "  docker compose -f $COMPOSE_FILE logs -f backend"
+echo "  docker compose -f $COMPOSE_FILE logs -f frontend"

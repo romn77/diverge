@@ -35,6 +35,16 @@ You can override ports before launch:
 BACKEND_PORT=8010 FRONTEND_PORT=3010 ./start.sh
 ```
 
+You can also point the start script at a non-default environment file. This is
+useful for local development against remote SH development support services:
+
+```bash
+ENV_FILE=configs/env/sh-dev.env ./start.sh
+```
+
+See `../docs/operations/sh-dev-support-services.md` for the tunnel, service check,
+startup, and data sync helper scripts.
+
 The start script writes process logs to files and streams them in the current terminal by default:
 
 ```bash
@@ -226,24 +236,6 @@ cd frontend && npm run build
 
 Both servers are ready for production deployment once built.
 
-## Single-Host Docker Compose
-
-From the repository root:
-
-```bash
-cp .env.example .env
-# update FRONTEND_PORT, FRONTEND_ORIGIN, NEXT_PUBLIC_API_BASE_URL and any provider keys you need
-
-./scripts/deploy-single-host.sh
-```
-
-Notes:
-
-- frontend host port is controlled by `FRONTEND_PORT`
-- backend remains on `8000`
-- backend CORS uses `FRONTEND_ORIGIN`
-- frontend API target is compiled from `NEXT_PUBLIC_API_BASE_URL`
-
 ## Production MVP On Tencent Cloud
 
 Use `compose.prod.yml` for the domestic production MVP stack. It adds Nginx, Redis, a dedicated worker, and a backup service around the existing frontend/backend/Postgres services:
@@ -252,6 +244,9 @@ Use `compose.prod.yml` for the domestic production MVP stack. It adds Nginx, Red
 docker compose -f compose.prod.yml build
 docker compose -f compose.prod.yml up -d
 ```
+
+The root `./scripts/deploy-single-host.sh` helper runs the same compose file by
+default.
 
 Production defaults:
 

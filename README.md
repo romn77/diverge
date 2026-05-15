@@ -48,7 +48,7 @@ This fork currently includes:
 - Market-routed valuation input builders for US and CN instruments, DCF/multiples helpers, and generated valuation report sections.
 - Web Workbench for reports, analysis tasks, screener tasks, candidate review, assets, trades, feedback loops, and ticker history.
 - Optional auth and admin operations backed by PostgreSQL, including tenant-scoped users, module permissions, role limits, audit events, data-source enablement, daily/hourly source limits, and route policy editing.
-- Local single-host deployment plus production-style Docker Compose with Postgres, Redis worker, Nginx, backup service, and optional Tencent Cloud COS storage.
+- Local Web Workbench startup plus production-style Docker Compose with Postgres, Redis worker, Nginx, backup service, and optional Tencent Cloud COS storage.
 
 ## Repository Layout
 
@@ -256,13 +256,6 @@ See `web/README.md` for backend endpoints, auth rollout, metadata backfill, and 
 
 ## Docker Deployment
 
-Single-host development/preview deployment:
-
-```bash
-cp .env.example .env
-./scripts/deploy-single-host.sh
-```
-
 Production MVP compose stack:
 
 ```bash
@@ -271,6 +264,9 @@ docker compose -f compose.prod.yml up -d
 ```
 
 `compose.prod.yml` adds Nginx, Redis, a dedicated worker, PostgreSQL, backup service, optional Tencent COS object storage, and an opt-in Dozzle log viewer. See `docs/deployment/tencent-cloud-production.md` for the deployment checklist and backup/restore notes.
+
+The convenience wrapper `./scripts/deploy-single-host.sh` runs the same stack
+with `compose.prod.yml` by default.
 
 SG/Vercel split deployment:
 

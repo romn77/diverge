@@ -208,7 +208,7 @@ Nightly or manual release lane:
 ```bash
 python -m pytest -q
 cd web/frontend && npm run lint
-docker compose up -d postgres redis
+docker compose -f compose.prod.yml up -d postgres redis
 scripts/check-database.sh --upgrade --bootstrap-admin
 cd web/frontend && npm run test:e2e:smoke
 ```

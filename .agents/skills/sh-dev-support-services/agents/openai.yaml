@@ -1,0 +1,4 @@
+interface:
+  display_name: "SH Dev Support Services"
+  short_description: "Local Workbench with SH Postgres/Redis"
+  default_prompt: "Use $sh-dev-support-services to start, check, or troubleshoot the local Workbench against SH development Postgres and Redis."

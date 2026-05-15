@@ -3,7 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$ROOT_DIR/.env"
+ENV_FILE="${ENV_FILE:-$ROOT_DIR/.env}"
+case "$ENV_FILE" in
+    /*) ;;
+    *) ENV_FILE="$ROOT_DIR/$ENV_FILE" ;;
+esac
 if [ -f "$ENV_FILE" ]; then
     set -a
     . "$ENV_FILE"
@@ -17,6 +21,10 @@ if [ -z "${PYTHON_BIN:-}" ]; then
     fi
 fi
 DATA_DIR="${DATA_DIR:-$ROOT_DIR/data}"
+case "$DATA_DIR" in
+    /*) ;;
+    *) DATA_DIR="$ROOT_DIR/$DATA_DIR" ;;
+esac
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-3000}"
 FRONTEND_ORIGIN="${FRONTEND_ORIGIN:-http://localhost:${FRONTEND_PORT},http://127.0.0.1:${FRONTEND_PORT}}"
@@ -39,6 +47,7 @@ TASK_USER_PENDING_LIMIT_ADMIN="${TASK_USER_PENDING_LIMIT_ADMIN:-10}"
 TASK_USER_PENDING_LIMIT_OPERATOR="${TASK_USER_PENDING_LIMIT_OPERATOR:-5}"
 TASK_USER_PENDING_LIMIT_VIEWER="${TASK_USER_PENDING_LIMIT_VIEWER:-2}"
 REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379/0}"
+TASK_STORE_PREFIX="${TASK_STORE_PREFIX:-diverge}"
 START_REDIS_DOCKER="${START_REDIS_DOCKER:-false}"
 REDIS_CONTAINER_NAME="${REDIS_CONTAINER_NAME:-diverge-redis}"
 REDIS_PORT="${REDIS_PORT:-6379}"
@@ -255,6 +264,7 @@ export TASK_USER_PENDING_LIMIT_ADMIN="$TASK_USER_PENDING_LIMIT_ADMIN"
 export TASK_USER_PENDING_LIMIT_OPERATOR="$TASK_USER_PENDING_LIMIT_OPERATOR"
 export TASK_USER_PENDING_LIMIT_VIEWER="$TASK_USER_PENDING_LIMIT_VIEWER"
 export REDIS_URL="$REDIS_URL"
+export TASK_STORE_PREFIX="$TASK_STORE_PREFIX"
 export STORAGE_BACKEND="$STORAGE_BACKEND"
 export LOG_LEVEL="$BACKEND_LOG_LEVEL"
 ensure_redis_available
@@ -265,7 +275,7 @@ if [ "$AUTH_ENABLED" = "true" ]; then
         fi
         echo -e "${RED}Auth database migration failed before backend startup.${NC}" >&2
         echo "When AUTH_ENABLED=true, start the configured database first." >&2
-        echo "For the default local stack: docker compose up -d postgres" >&2
+        echo "For the production compose stack: docker compose -f compose.prod.yml up -d postgres" >&2
         echo "Or set AUTH_ENABLED=false in .env to use the filesystem-only workbench." >&2
         exit 1
     fi
@@ -332,6 +342,7 @@ echo -e "Backend:  ${BLUE}http://localhost:${BACKEND_PORT}${NC}"
 echo -e "Frontend: ${BLUE}http://localhost:${FRONTEND_PORT}${NC}"
 echo
 echo "Reports found: $(find "$DATA_DIR/reports" -mindepth 1 -maxdepth 1 -type d | wc -l)"
+echo "Environment file: $ENV_FILE"
 echo "Frontend origin: $FRONTEND_ORIGIN"
 echo "Frontend API target: $NEXT_PUBLIC_API_BASE_URL"
 echo "Task backend: $TASK_BACKEND"
@@ -340,6 +351,7 @@ echo "Backend log: $BACKEND_LOG"
 echo "Frontend log: $FRONTEND_LOG"
 if [ "$TASK_BACKEND" = "redis" ]; then
     echo "Redis URL: $REDIS_URL"
+    echo "Task store prefix: $TASK_STORE_PREFIX"
     echo "Running limits: global=$TASK_GLOBAL_RUNNING_LIMIT user=$TASK_USER_RUNNING_LIMIT"
     echo "Queue limits: global=$TASK_GLOBAL_PENDING_LIMIT admin=$TASK_USER_PENDING_LIMIT_ADMIN operator=$TASK_USER_PENDING_LIMIT_OPERATOR viewer=$TASK_USER_PENDING_LIMIT_VIEWER"
     echo "Worker log: $WORKER_LOG"
