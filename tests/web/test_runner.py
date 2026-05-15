@@ -5,25 +5,15 @@ from pathlib import Path
 from unittest.mock import patch
 
 from diverge.runner import (
+    ADK_NATIVE_ANALYSIS_RUNTIME,
+    ANALYSIS_RUNTIME_ENV,
     AnalysisRequest,
     AnalysisTracker,
     build_analysis_config,
+    resolve_analysis_runtime,
     run_analysis_streaming,
     save_report_to_disk,
 )
-
-
-class _FakePropagator:
-    def create_initial_state(self, *_args, **_kwargs):
-        return {}
-
-    def get_graph_args(self):
-        return {}
-
-
-class _FakeDivergeGraph:
-    def __init__(self, *_args, **_kwargs):
-        self.propagator = _FakePropagator()
 
 
 class AnalysisTrackerTests(unittest.TestCase):
@@ -337,13 +327,9 @@ class AnalysisTrackerTests(unittest.TestCase):
                 "diverge.runner.get_trade_feedback_payload",
                 return_value={"prompt": "", "reviews": []},
             ) as mock_feedback:
-                with patch(
-                    "diverge.runner.DivergeGraph",
-                    _FakeDivergeGraph,
-                ):
-                    generator = run_analysis_streaming(request, Path(temp_dir))
-                    next(generator)
-                    generator.close()
+                generator = run_analysis_streaming(request, Path(temp_dir))
+                next(generator)
+                generator.close()
 
         mock_feedback.assert_called_once_with(
             "MSFT",
@@ -398,6 +384,82 @@ class AnalysisTrackerTests(unittest.TestCase):
         config = build_analysis_config(request)
 
         self.assertEqual(config["backend_url"], "https://cc.z2blog.com")
+
+    def test_resolve_analysis_runtime_defaults_to_adk_native(self):
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(resolve_analysis_runtime(), ADK_NATIVE_ANALYSIS_RUNTIME)
+
+    def test_resolve_analysis_runtime_accepts_adk_native(self):
+        self.assertEqual(
+            resolve_analysis_runtime(ADK_NATIVE_ANALYSIS_RUNTIME),
+            ADK_NATIVE_ANALYSIS_RUNTIME,
+        )
+
+    def test_resolve_analysis_runtime_rejects_legacy_wrapper(self):
+        with self.assertRaises(ValueError):
+            resolve_analysis_runtime("legacy_adk_wrapper")
+
+    def test_run_analysis_streaming_can_dispatch_to_adk_native_runtime(self):
+        request = AnalysisRequest(
+            ticker="MSFT",
+            analysis_date="2026-04-03",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+        )
+
+        def fake_stream_analysis_state_chunks(**kwargs):
+            self.assertEqual(kwargs["selected_analysts"], ["market"])
+            self.assertEqual(kwargs["init_agent_state"]["company_of_interest"], "MSFT")
+            yield {
+                "market_report": "ADK native market report",
+                "runtime_progress_events": [
+                    {
+                        "id": "runtime-progress-1",
+                        "current_agent": "Market Analyst",
+                        "message": "Market Analyst completed with market report.",
+                    }
+                ],
+            }
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            from diverge.runtime.adk_native import runner as adk_native_runner
+
+            with patch.dict(
+                "os.environ",
+                {ANALYSIS_RUNTIME_ENV: ADK_NATIVE_ANALYSIS_RUNTIME},
+            ):
+                with patch(
+                    "diverge.runner.get_trade_feedback_payload",
+                    return_value={"prompt": "", "reviews": []},
+                ):
+                    with patch.object(
+                        adk_native_runner,
+                        "stream_analysis_state_chunks",
+                        fake_stream_analysis_state_chunks,
+                    ):
+                        generator = run_analysis_streaming(
+                            request,
+                            Path(temp_dir),
+                        )
+                        first = next(generator)
+                        second = next(generator)
+                        try:
+                            while True:
+                                next(generator)
+                        except StopIteration as stop:
+                            final_state = stop.value
+
+        self.assertIn("Analyzing MSFT", first.message)
+        self.assertEqual(
+            second.message,
+            "Market Analyst completed with market report.",
+        )
+        self.assertEqual(final_state["market_report"], "ADK native market report")
 
 
 if __name__ == "__main__":

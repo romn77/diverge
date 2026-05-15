@@ -1,4 +1,4 @@
-from diverge.graph.propagation import Propagator
+from diverge.runtime.state import Propagator
 
 
 def test_create_initial_state_initializes_v3_metadata_fields():

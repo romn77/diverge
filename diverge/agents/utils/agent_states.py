@@ -97,9 +97,24 @@ class AgentState(TypedDict):
         RiskDebateState, "Current state of the debate on evaluating risk"
     ]
     final_trade_decision: Annotated[str, "Final decision made by the Risk Analysts"]
+    portfolio_decision_card: NotRequired[
+        Annotated[
+            dict[str, object],
+            "Schema-validated structured Portfolio Manager decision card",
+        ]
+    ]
+    portfolio_decision_structured: NotRequired[
+        Annotated[
+            dict[str, object],
+            "Full schema-validated Portfolio Manager structured output",
+        ]
+    ]
     runtime_warnings: NotRequired[
         Annotated[list[dict[str, str]], "Non-fatal runtime warnings surfaced to users"]
     ]
     report_summary: NotRequired[
         Annotated[str, "Concise Summary Agent output for the complete report"]
+    ]
+    report_summary_structured: NotRequired[
+        Annotated[dict[str, object], "Schema-validated Summary Agent output"]
     ]

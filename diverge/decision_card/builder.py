@@ -152,9 +152,7 @@ def _build_position_guidance(value: Any) -> dict[str, str | None] | None:
     if not isinstance(value, dict):
         return None
     item = {
-        "suggested_exposure": _clean_optional_string(
-            value.get("suggested_exposure")
-        ),
+        "suggested_exposure": _clean_optional_string(value.get("suggested_exposure")),
         "max_exposure": _clean_optional_string(value.get("max_exposure")),
         "sizing_rationale": _clean_optional_string(value.get("sizing_rationale")),
         "risk_budget_note": _clean_optional_string(value.get("risk_budget_note")),
@@ -327,9 +325,7 @@ def _payload_from_decision_card_block(
             "data_quality_notes": _coerce_string_list(
                 block.get("data_quality_notes"), max_items=20
             ),
-            "trade_readiness": _normalize_trade_readiness(
-                block.get("trade_readiness")
-            ),
+            "trade_readiness": _normalize_trade_readiness(block.get("trade_readiness")),
             "trade_readiness_reason": _clean_optional_string(
                 block.get("trade_readiness_reason")
             ),
@@ -341,9 +337,7 @@ def _payload_from_decision_card_block(
                 block.get("data_quality_summary")
             ),
             "why_not": _build_why_not(block.get("why_not")),
-            "action_playbook": _build_action_playbook(
-                block.get("action_playbook")
-            ),
+            "action_playbook": _build_action_playbook(block.get("action_playbook")),
             "position_guidance": _build_position_guidance(
                 block.get("position_guidance")
             ),
@@ -447,6 +441,17 @@ def build_fallback_decision_card(
     return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
 
 
+def _structured_card_from_state(final_state: dict) -> dict[str, Any] | None:
+    value = final_state.get("portfolio_decision_card")
+    if isinstance(value, dict):
+        return value
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump(mode="json")
+        return dumped if isinstance(dumped, dict) else None
+    return None
+
+
 def build_decision_card(
     *,
     final_state: dict,
@@ -458,6 +463,24 @@ def build_decision_card(
     final_decision = _as_text(final_state.get("final_trade_decision"))
     raw_signal = final_decision or None
 
+    structured_card = _structured_card_from_state(final_state)
+    if structured_card:
+        try:
+            payload = _payload_from_decision_card_block(
+                structured_card,
+                symbol=symbol,
+                report_id=report_id,
+                analysis_date=analysis_date,
+                raw_signal=raw_signal,
+            )
+            card = DecisionCard(**payload)
+            card.data_quality_notes.append(
+                "DecisionCard was sourced from ADK output_schema state."
+            )
+            return apply_quality_gates(card, output_language=output_language)
+        except ValidationError:
+            pass
+
     decision_card_block = extract_decision_card_block(final_decision)
     if decision_card_block:
         payload = _payload_from_decision_card_block(
@@ -467,7 +490,9 @@ def build_decision_card(
             analysis_date=analysis_date,
             raw_signal=raw_signal,
         )
-        return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
+        return apply_quality_gates(
+            DecisionCard(**payload), output_language=output_language
+        )
 
     highlights_block = extract_highlights_block(final_decision)
     if highlights_block:
@@ -478,7 +503,9 @@ def build_decision_card(
             analysis_date=analysis_date,
             raw_signal=raw_signal,
         )
-        return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
+        return apply_quality_gates(
+            DecisionCard(**payload), output_language=output_language
+        )
 
     rating = extract_rating_from_text(final_decision)
     if rating:

@@ -1,10 +1,8 @@
 import unittest
 
-from diverge.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
-from diverge.agents.risk_mgmt.conservative_debator import (
-    create_conservative_debator,
-)
-from diverge.agents.risk_mgmt.neutral_debator import create_neutral_debator
+from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
+from diverge.agents.risk_mgmt.conservative_debator import ConservativeDebator
+from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
 
 
 class _FakeResponse:
@@ -51,9 +49,9 @@ class RiskDebatePromptModeTests(unittest.TestCase):
             with self.subTest(node=name):
                 llm = _FakeLLM()
                 node = {
-                    "aggressive": create_aggressive_debator,
-                    "conservative": create_conservative_debator,
-                    "neutral": create_neutral_debator,
+                    "aggressive": AggressiveDebator,
+                    "conservative": ConservativeDebator,
+                    "neutral": NeutralDebator,
                 }[name](llm)
                 state = _base_state()
                 state["risk_debate_state"]["count"] = 0
@@ -72,9 +70,9 @@ class RiskDebatePromptModeTests(unittest.TestCase):
 
     def test_risk_debators_use_rebuttal_mode_after_opening_cycle(self):
         cases = [
-            ("aggressive", create_aggressive_debator),
-            ("conservative", create_conservative_debator),
-            ("neutral", create_neutral_debator),
+            ("aggressive", AggressiveDebator),
+            ("conservative", ConservativeDebator),
+            ("neutral", NeutralDebator),
         ]
 
         for name, factory in cases:
@@ -97,9 +95,9 @@ class RiskDebatePromptModeTests(unittest.TestCase):
         ]
 
         cases = [
-            ("aggressive", create_aggressive_debator),
-            ("conservative", create_conservative_debator),
-            ("neutral", create_neutral_debator),
+            ("aggressive", AggressiveDebator),
+            ("conservative", ConservativeDebator),
+            ("neutral", NeutralDebator),
         ]
 
         for name, factory in cases:

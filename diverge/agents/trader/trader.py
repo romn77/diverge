@@ -1,4 +1,4 @@
-from diverge.agents.base import DivergeAgentNode
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
@@ -15,7 +15,7 @@ class Trader(DivergeAgentNode):
     name = "trader"
     sender_name = "Trader"
 
-    def run(self, state):
+    def build_call(self, state):
         company_name = state["company_of_interest"]
         instrument_context = build_instrument_context(company_name)
         investment_plan = state["investment_plan"]
@@ -94,19 +94,16 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {style_instruction}
 {language_instruction}"""
 
-        result = self.llm.invoke(
-            AdkPrompt(
+        return AgentCallSpec(
+            prompt=AdkPrompt(
                 system_message=system_prompt,
                 messages=(context,),
-            )
+            ),
         )
 
+    def apply_response(self, state, spec, response):
         return {
-            "messages": [result],
-            "trader_investment_plan": result.content,
+            "messages": [response],
+            "trader_investment_plan": response.content,
             "sender": self.sender_name,
         }
-
-
-def create_trader(llm, memory):
-    return Trader(llm, memory)

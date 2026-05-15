@@ -149,11 +149,26 @@ python -m diverge.data.cn_manifest
 
 Both helpers write to `DATA_DIR/manifest/` by default. CN screening uses `cn.csv` when present and otherwise falls back to the configured CN source chain; US screening requires `DATA_DIR/manifest/us.csv`.
 
+### ADK Web Debugging
+
+The ADK-native analysis workflow is also exposed as a standard ADK app for
+framework-level debugging:
+
+```bash
+adk web adk_apps
+```
+
+Select the `diverge_analysis` app in ADK Web. The app initializes Diverge
+analysis state from the ADK session/user message and then runs the same native
+workflow used by the Web Workbench runtime. To narrow the analyst set for this
+debug entrypoint, set `DIVERGE_ADK_WEB_ANALYSTS=market,news`.
+
 ## Python Usage
 
 ```python
 from diverge.default_config import DEFAULT_CONFIG
-from diverge.graph.trading_graph import DivergeGraph
+from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
+from diverge.runtime.state import Propagator
 
 config = DEFAULT_CONFIG.copy()
 config["llm_provider"] = "openai"
@@ -162,8 +177,16 @@ config["quick_think_llm"] = "gpt-5.4-mini"
 config["market"] = "auto"
 config["output_language"] = "en"
 
-ta = DivergeGraph(debug=True, config=config)
-trace = list(ta.stream("NVDA", "2026-01-15", config["output_language"]))
+propagator = Propagator(max_recur_limit=config["max_recur_limit"])
+init_state = propagator.create_initial_state("NVDA", "2026-01-15", config["output_language"])
+trace = list(
+    stream_analysis_state_chunks(
+        selected_analysts=["market", "social", "news", "fundamentals"],
+        config=config,
+        init_agent_state=init_state,
+        graph_args=propagator.get_graph_args(),
+    )
+)
 final_state = trace[-1]
 print(final_state["final_trade_decision"])
 ```

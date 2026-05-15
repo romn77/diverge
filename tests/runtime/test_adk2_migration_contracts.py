@@ -9,8 +9,6 @@ from unittest.mock import patch
 
 import pytest
 
-from diverge.graph.trading_graph import DivergeGraph
-
 
 def test_pyproject_pins_adk_2_beta_and_removes_langgraph():
     pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
@@ -38,65 +36,29 @@ def test_agent_state_is_framework_owned_not_langgraph_owned():
     assert "langgraph" not in source
 
 
-def test_diverge_graph_exposes_runtime_facade_without_nested_graph_stream():
-    graph = DivergeGraph.__new__(DivergeGraph)
-
-    assert hasattr(graph, "stream")
-    assert hasattr(graph, "invoke")
-    assert not hasattr(graph, "propagate")
-    assert not hasattr(graph, "graph")
-
-
-def test_diverge_graph_runtime_facade_accepts_ticker_date_or_initial_state():
-    graph = DivergeGraph.__new__(DivergeGraph)
-    captured = []
-
-    def create_initial_state(ticker, trade_date, output_language):
-        return {
-            "company_of_interest": ticker,
-            "trade_date": trade_date,
-            "output_language": output_language,
-        }
-
-    def stream(init_state, **args):
-        captured.append(("stream", init_state, args))
-        yield {"final_trade_decision": "BUY"}
-
-    def invoke(init_state, **args):
-        captured.append(("invoke", init_state, args))
-        return {"final_trade_decision": "HOLD"}
-
-    graph.propagator = SimpleNamespace(
-        create_initial_state=create_initial_state,
-        get_graph_args=lambda: {"recursion_limit": 8},
-    )
-    graph.workflow_runner = SimpleNamespace(stream=stream, invoke=invoke)
-
-    assert list(graph.stream("MSFT", "2026-03-20", "en", recursion_limit=3)) == [
-        {"final_trade_decision": "BUY"}
-    ]
-    assert graph.invoke({"company_of_interest": "NVDA"}, recursion_limit=5) == {
-        "final_trade_decision": "HOLD"
-    }
-    assert captured == [
-        (
-            "stream",
-            {
-                "company_of_interest": "MSFT",
-                "trade_date": "2026-03-20",
-                "output_language": "en",
-            },
-            {"recursion_limit": 3},
-        ),
-        ("invoke", {"company_of_interest": "NVDA"}, {"recursion_limit": 5}),
-    ]
-
-
-def test_runner_uses_diverge_graph_stream_facade():
+def test_runner_uses_adk_native_runtime_directly():
     source = Path("diverge/runner.py").read_text(encoding="utf-8")
 
-    assert ".graph.stream" not in source
-    assert "graph.stream(" in source
+    assert "DivergeGraph" not in source
+    assert "graph.stream(" not in source
+    assert "stream_analysis_state_chunks(" in source
+
+
+def test_adk_web_standard_app_entrypoint_exists():
+    agent_entrypoint = Path("adk_apps/diverge_analysis/agent.py").read_text(
+        encoding="utf-8"
+    )
+    web_app = Path("diverge/runtime/adk_native/web_app.py").read_text(encoding="utf-8")
+
+    assert "app = build_adk_web_app()" in agent_entrypoint
+    assert "from google.adk.apps import App" in web_app
+    assert "FunctionNode" in web_app
+    assert "build_native_analysis_workflow(" in web_app
+
+
+def test_legacy_graph_runtime_modules_are_removed():
+    assert not list(Path("diverge/graph").glob("*.py"))
+    assert not Path("diverge/runtime/workflow_runner.py").exists()
 
 
 def test_runtime_agents_use_adk_prompt_envelope_not_langchain_templates():
@@ -119,8 +81,11 @@ def test_runtime_agents_use_adk_prompt_envelope_not_langchain_templates():
         assert "MessagesPlaceholder" not in source, path
         assert "langchain_core.prompts" not in source, path
         assert "AdkPrompt" in source, path
-        assert "llm.invoke(prompt)" not in source, path
-        assert "llm.invoke(messages)" not in source, path
+        assert "def run(" not in source, path
+        assert "def build_call(" in source, path
+        assert "def apply_response(" in source, path
+        assert ".invoke(" not in source, path
+        assert "bind_tools(" not in source, path
 
 
 def test_agent_tools_use_local_tool_wrapper_not_langchain_tool_decorator():
@@ -329,6 +294,51 @@ def test_adk_prompt_system_message_uses_gemini_system_instruction():
     assert model.request.contents[0].parts[0].text == "Analyze NIO."
 
 
+def test_adk_chat_model_sets_response_schema_from_agent_call_spec():
+    from pydantic import BaseModel
+
+    from diverge.runtime.messages import AdkPrompt
+    from diverge.runtime.model_factory import AdkChatModel
+
+    class StructuredAnswer(BaseModel):
+        answer: str
+
+    class Part:
+        text = '{"answer":"ok"}'
+        function_call = None
+
+    class Content:
+        parts = [Part()]
+
+    class Response:
+        content = Content()
+
+    class CaptureModel:
+        model = "gemini-test"
+
+        def __init__(self):
+            self.request = None
+
+        async def generate_content_async(self, request, *, stream):
+            self.request = request
+            yield Response()
+
+    model = CaptureModel()
+    chat_model = AdkChatModel(model, timeout=1)
+
+    response = chat_model.invoke(
+        AdkPrompt(
+            system_message="Answer with structured JSON.",
+            messages=(("user", "Say ok."),),
+        ),
+        output_schema=StructuredAnswer,
+    )
+
+    assert response.content == '{"answer":"ok"}'
+    assert model.request.config.response_schema is StructuredAnswer
+    assert model.request.config.response_mime_type == "application/json"
+
+
 def test_sub2api_litellm_api_base_uses_openai_compatible_v1_endpoint():
     from diverge.runtime.model_factory import _litellm_kwargs
 
@@ -495,27 +505,34 @@ def test_adk_prompt_conversion_preserves_tool_call_ids_for_litellm():
     assert [content.role for content in prompt_contents] == ["user"]
 
 
-def test_diverge_graph_passes_round_limits_to_adk_runtime():
-    with (
-        patch("diverge.graph.trading_graph.set_config"),
-        patch("diverge.graph.trading_graph.FinancialSituationMemory"),
-        patch("diverge.graph.trading_graph.create_adk_model") as create_adk_model,
-        patch("diverge.graph.trading_graph.AdkWorkflowRunner") as runner_cls,
-    ):
-        create_adk_model.return_value = object()
-        config = {
-            "llm_provider": "google",
-            "quick_think_llm": "gemini-3.1-flash-preview",
-            "deep_think_llm": "gemini-3.1-pro-preview",
-            "backend_url": None,
-            "data_cache_dir": "/tmp/diverge-cache",
-            "eval_results_dir": "/tmp/diverge-eval",
-            "max_debate_rounds": 2,
-            "max_risk_discuss_rounds": 4,
-        }
+def test_adk_native_runner_builds_decision_nodes_from_round_limits():
+    from diverge.runtime.adk_native.runner import (
+        _NativeRuntimeResources,
+        _build_native_decision_nodes,
+    )
 
-        DivergeGraph(selected_analysts=["market"], config=config)
+    resources = _NativeRuntimeResources(
+        quick_thinking_llm=object(),
+        deep_thinking_llm=object(),
+        tool_nodes={},
+        bull_memory=object(),
+        bear_memory=object(),
+        trader_memory=object(),
+        invest_judge_memory=object(),
+        portfolio_manager_memory=object(),
+    )
+    nodes = _build_native_decision_nodes(
+        resources,
+        {"max_debate_rounds": 2, "max_risk_discuss_rounds": 4},
+    )
+    names = [node.name for node in nodes]
 
-    kwargs = runner_cls.call_args.kwargs
-    assert kwargs["max_debate_rounds"] == 2
-    assert kwargs["max_risk_discuss_rounds"] == 4
+    assert names[:4] == [
+        "bull_researcher_1",
+        "bear_researcher_1",
+        "bull_researcher_2",
+        "bear_researcher_2",
+    ]
+    assert len([name for name in names if name.startswith("aggressive_analyst")]) == 5
+    assert len([name for name in names if name.startswith("conservative_analyst")]) == 5
+    assert len([name for name in names if name.startswith("neutral_analyst")]) == 5

@@ -1,4 +1,4 @@
-from diverge.agents.base import DivergeAgentNode
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
     get_language_instruction,
@@ -17,7 +17,7 @@ from diverge.runtime.messages import AdkPrompt
 class NeutralDebator(DivergeAgentNode):
     name = "neutral_analyst"
 
-    def run(self, state) -> dict:
+    def build_call(self, state) -> AgentCallSpec:
         risk_debate_state = state["risk_debate_state"]
         history = risk_debate_state.get("history", "")
         neutral_history = risk_debate_state.get("neutral_history", "")
@@ -136,28 +136,40 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {style_instruction}
 {language_instruction}"""
 
-        response = self.llm.invoke(AdkPrompt(system_message=prompt))
+        return AgentCallSpec(
+            prompt=AdkPrompt(system_message=prompt),
+            metadata={
+                "history": history,
+                "aggressive_history": risk_debate_state.get("aggressive_history", ""),
+                "conservative_history": risk_debate_state.get(
+                    "conservative_history", ""
+                ),
+                "neutral_history": neutral_history,
+                "current_aggressive_response": risk_debate_state.get(
+                    "current_aggressive_response", ""
+                ),
+                "current_conservative_response": risk_debate_state.get(
+                    "current_conservative_response", ""
+                ),
+                "count": risk_debate_state["count"],
+            },
+        )
 
+    def apply_response(self, state, spec, response) -> dict:
         argument = f"Neutral Analyst: {response.content}"
 
         new_risk_debate_state = {
-            "history": history + "\n" + argument,
-            "aggressive_history": risk_debate_state.get("aggressive_history", ""),
-            "conservative_history": risk_debate_state.get("conservative_history", ""),
-            "neutral_history": neutral_history + "\n" + argument,
+            "history": spec.metadata["history"] + "\n" + argument,
+            "aggressive_history": spec.metadata["aggressive_history"],
+            "conservative_history": spec.metadata["conservative_history"],
+            "neutral_history": spec.metadata["neutral_history"] + "\n" + argument,
             "latest_speaker": "Neutral",
-            "current_aggressive_response": risk_debate_state.get(
-                "current_aggressive_response", ""
-            ),
-            "current_conservative_response": risk_debate_state.get(
-                "current_conservative_response", ""
-            ),
+            "current_aggressive_response": spec.metadata["current_aggressive_response"],
+            "current_conservative_response": spec.metadata[
+                "current_conservative_response"
+            ],
             "current_neutral_response": argument,
-            "count": risk_debate_state["count"] + 1,
+            "count": spec.metadata["count"] + 1,
         }
 
         return {"risk_debate_state": new_risk_debate_state}
-
-
-def create_neutral_debator(llm):
-    return NeutralDebator(llm)

@@ -1,4 +1,4 @@
-from diverge.agents.base import DivergeAgentNode
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
     get_language_instruction,
@@ -13,7 +13,7 @@ from diverge.runtime.messages import AdkPrompt
 class BearResearcher(DivergeAgentNode):
     name = "bear_researcher"
 
-    def run(self, state) -> dict:
+    def build_call(self, state) -> AgentCallSpec:
         investment_debate_state = state["investment_debate_state"]
         history = investment_debate_state.get("history", "")
         bear_history = investment_debate_state.get("bear_history", "")
@@ -96,20 +96,25 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
 {language_instruction}
 """
 
-        response = self.llm.invoke(AdkPrompt(system_message=prompt))
+        return AgentCallSpec(
+            prompt=AdkPrompt(system_message=prompt),
+            metadata={
+                "history": history,
+                "bear_history": bear_history,
+                "bull_history": investment_debate_state.get("bull_history", ""),
+                "count": investment_debate_state["count"],
+            },
+        )
 
+    def apply_response(self, state, spec, response) -> dict:
         argument = f"Bear Analyst: {response.content}"
 
         new_investment_debate_state = {
-            "history": history + "\n" + argument,
-            "bear_history": bear_history + "\n" + argument,
-            "bull_history": investment_debate_state.get("bull_history", ""),
+            "history": spec.metadata["history"] + "\n" + argument,
+            "bear_history": spec.metadata["bear_history"] + "\n" + argument,
+            "bull_history": spec.metadata["bull_history"],
             "current_response": argument,
-            "count": investment_debate_state["count"] + 1,
+            "count": spec.metadata["count"] + 1,
         }
 
         return {"investment_debate_state": new_investment_debate_state}
-
-
-def create_bear_researcher(llm, memory):
-    return BearResearcher(llm, memory)

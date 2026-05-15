@@ -1,20 +1,22 @@
 import unittest
+import json
 from unittest.mock import patch
 
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-from diverge.agents.analysts.fundamentals_analyst import create_fundamentals_analyst
-from diverge.agents.managers.portfolio_manager import create_portfolio_manager
-from diverge.agents.managers.research_manager import create_research_manager
-from diverge.agents.researchers.bear_researcher import create_bear_researcher
-from diverge.agents.researchers.bull_researcher import create_bull_researcher
-from diverge.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
-from diverge.agents.risk_mgmt.conservative_debator import (
-    create_conservative_debator,
+from diverge.agents.analysts.fundamentals_analyst import FundamentalsAnalyst
+from diverge.agents.managers.portfolio_manager import (
+    PortfolioManager,
+    PortfolioManagerStructuredOutput,
 )
-from diverge.agents.risk_mgmt.neutral_debator import create_neutral_debator
-from diverge.agents.trader.trader import create_trader
+from diverge.agents.managers.research_manager import ResearchManager
+from diverge.agents.researchers.bear_researcher import BearResearcher
+from diverge.agents.researchers.bull_researcher import BullResearcher
+from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
+from diverge.agents.risk_mgmt.conservative_debator import ConservativeDebator
+from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
+from diverge.agents.trader.trader import Trader
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
 
@@ -59,6 +61,18 @@ class _FailingLLM:
 class _ConnectionFailingLLM:
     def invoke(self, _prompt):
         raise RuntimeError("Connection error.")
+
+
+class _StructuredLLM:
+    def __init__(self, payload):
+        self.payload = payload
+        self.prompts = []
+        self.output_schema = None
+
+    def invoke(self, prompt, *, output_schema=None):
+        self.prompts.append(prompt)
+        self.output_schema = output_schema
+        return _FakeResponse(json.dumps(self.payload))
 
 
 def _base_state():
@@ -123,20 +137,20 @@ def _valuation_input():
 class PromptHighlightsRuntimeTests(unittest.TestCase):
     def test_prompt_nodes_with_json_highlights_do_not_raise_runtime_format_errors(self):
         cases = [
-            ("bull", create_bull_researcher(_FakeLLM(), _FakeMemory()), _base_state()),
-            ("bear", create_bear_researcher(_FakeLLM(), _FakeMemory()), _base_state()),
+            ("bull", BullResearcher(_FakeLLM(), _FakeMemory()), _base_state()),
+            ("bear", BearResearcher(_FakeLLM(), _FakeMemory()), _base_state()),
             (
                 "research_manager",
-                create_research_manager(_FakeLLM(), _FakeMemory()),
+                ResearchManager(_FakeLLM(), _FakeMemory()),
                 _base_state(),
             ),
-            ("trader", create_trader(_FakeLLM(), _FakeMemory()), _base_state()),
-            ("aggressive", create_aggressive_debator(_FakeLLM()), _base_state()),
-            ("conservative", create_conservative_debator(_FakeLLM()), _base_state()),
-            ("neutral", create_neutral_debator(_FakeLLM()), _base_state()),
+            ("trader", Trader(_FakeLLM(), _FakeMemory()), _base_state()),
+            ("aggressive", AggressiveDebator(_FakeLLM()), _base_state()),
+            ("conservative", ConservativeDebator(_FakeLLM()), _base_state()),
+            ("neutral", NeutralDebator(_FakeLLM()), _base_state()),
             (
                 "portfolio_manager",
-                create_portfolio_manager(_FakeLLM(), _FakeMemory()),
+                PortfolioManager(_FakeLLM(), _FakeMemory()),
                 _base_state(),
             ),
         ]
@@ -148,7 +162,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
 
     def test_upstream_prompts_define_evidence_contracts_without_final_verdict(self):
         trader_llm = _FakeLLM()
-        create_trader(trader_llm, _FakeMemory())(_base_state())
+        Trader(trader_llm, _FakeMemory())(_base_state())
         trader_prompt = trader_llm.prompts[0].to_string()
 
         self.assertIn("execution planner", trader_prompt)
@@ -158,7 +172,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertNotIn("Conclude your narrative analysis", trader_prompt)
 
         risk_llm = _FakeLLM()
-        create_aggressive_debator(risk_llm)(_base_state())
+        AggressiveDebator(risk_llm)(_base_state())
         risk_prompt = risk_llm.prompts[0].to_string()
 
         self.assertIn('"risk_budget"', risk_prompt)
@@ -187,7 +201,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 tool_calls=[],
             )
         )
-        node = create_fundamentals_analyst(llm)
+        node = FundamentalsAnalyst(llm)
         state = _base_state()
         state["messages"] = [HumanMessage(content="Analyze fundamentals")]
 
@@ -197,7 +211,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertIn('"category": "fundamentals"', result["fundamentals_report"])
 
     def test_portfolio_manager_gateway_timeout_returns_fallback_decision(self):
-        node = create_portfolio_manager(_FailingLLM(), _FakeMemory())
+        node = PortfolioManager(_FailingLLM(), _FakeMemory())
 
         result = node(_base_state())
 
@@ -214,7 +228,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
 
     def test_portfolio_manager_prompt_uses_user_facing_portfolio_context(self):
         llm = _FakeLLM()
-        node = create_portfolio_manager(llm, _FakeMemory())
+        node = PortfolioManager(llm, _FakeMemory())
         state = _base_state()
         state["output_language"] = "cn"
 
@@ -227,7 +241,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertIn("internal implementation terms", prompt)
 
     def test_portfolio_manager_connection_error_returns_fallback_decision(self):
-        node = create_portfolio_manager(_ConnectionFailingLLM(), _FakeMemory())
+        node = PortfolioManager(_ConnectionFailingLLM(), _FakeMemory())
 
         result = node(_base_state())
 
@@ -241,6 +255,42 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(result["runtime_warnings"][0]["stage"], "Portfolio Manager")
         self.assertIn("Connection error.", result["runtime_warnings"][0]["message"])
+
+    def test_portfolio_manager_schema_output_sets_decision_card_state(self):
+        llm = _StructuredLLM(
+            {
+                "decision_report": "## Portfolio Manager Decision\n\nRating: OVERWEIGHT.",
+                "decision_card": {
+                    "rating": "OVERWEIGHT",
+                    "action": "ADD",
+                    "confidence": "medium",
+                    "conviction_score": 72,
+                    "time_horizon": "5-20 trading days",
+                    "one_line_summary": "Add gradually while respecting valuation risk.",
+                    "thesis": "The setup is constructive, but sizing should remain staged.",
+                    "key_reasons": [
+                        {
+                            "pillar": "portfolio",
+                            "point": "Balanced upside",
+                            "evidence": "Risk debate supports staged exposure.",
+                            "strength": "medium",
+                        }
+                    ],
+                    "key_risks": ["Valuation risk"],
+                    "trade_readiness": "WAITING_FOR_TRIGGER",
+                    "data_quality_level": "partial",
+                },
+            }
+        )
+        node = PortfolioManager(llm, _FakeMemory())
+
+        result = node(_base_state())
+
+        self.assertIs(llm.output_schema, PortfolioManagerStructuredOutput)
+        self.assertEqual(result["portfolio_decision_card"]["rating"], "OVERWEIGHT")
+        self.assertIn("```json-decision-card", result["final_trade_decision"])
+        self.assertIn('"rating": "OVERWEIGHT"', result["final_trade_decision"])
+        self.assertEqual(result["runtime_warnings"], [])
 
 
 if __name__ == "__main__":

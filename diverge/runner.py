@@ -1,6 +1,7 @@
 import datetime
 import copy
 import json
+import os
 from collections.abc import Collection
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -8,7 +9,6 @@ from typing import Generator, Optional
 
 from diverge.analysis.options import ANALYST_AGENT_NAMES, ANALYST_ORDER, AnalystType
 from diverge.default_config import DEFAULT_CONFIG
-from diverge.graph.trading_graph import DivergeGraph
 from diverge.llm_clients.model_config import (
     PROVIDER_OPTIONS,
     get_provider_base_url,
@@ -25,6 +25,7 @@ from diverge.runtime.analysis_context import (
     use_search_context,
 )
 from diverge.runtime.analysis_schema import trade_feedback_artifact_from_state
+from diverge.runtime.state import Propagator
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
@@ -53,6 +54,8 @@ VALID_OUTPUT_LANGUAGES = {"en", "cn"}
 OPENAI_REASONING_EFFORTS = {"low", "medium", "high"}
 GOOGLE_THINKING_LEVELS = {"high", "minimal"}
 MARKET_DATA_SOURCES = {"yfinance", "massive"}
+ANALYSIS_RUNTIME_ENV = "DIVERGE_ANALYSIS_RUNTIME"
+ADK_NATIVE_ANALYSIS_RUNTIME = "adk_native"
 
 
 def _coerce_analyst_key(value: str | AnalystType) -> str:
@@ -61,6 +64,18 @@ def _coerce_analyst_key(value: str | AnalystType) -> str:
 
 def _timestamp() -> str:
     return datetime.datetime.now().strftime("%H:%M:%S")
+
+
+def resolve_analysis_runtime(raw_value: str | None = None) -> str:
+    runtime = (raw_value or os.environ.get(ANALYSIS_RUNTIME_ENV) or "").strip().lower()
+    if not runtime:
+        return ADK_NATIVE_ANALYSIS_RUNTIME
+    if runtime != ADK_NATIVE_ANALYSIS_RUNTIME:
+        raise ValueError(
+            f"Unsupported {ANALYSIS_RUNTIME_ENV}={runtime!r}; "
+            f"expected {ADK_NATIVE_ANALYSIS_RUNTIME!r}"
+        )
+    return runtime
 
 
 def extract_content_string(content):
@@ -637,18 +652,22 @@ def run_analysis_streaming(
     )
 
     with use_search_context(context_pack):
-        graph = DivergeGraph(
-            selected_analysts,
-            config=config,
-            debug=True,
+        resolve_analysis_runtime()
+        from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
+
+        propagator = Propagator(
+            max_recur_limit=config.get(
+                "max_recur_limit",
+                DEFAULT_CONFIG["max_recur_limit"],
+            )
         )
-        init_agent_state = graph.propagator.create_initial_state(
+        init_agent_state = propagator.create_initial_state(
             request.ticker,
             request.analysis_date,
             request.output_language,
             **context_pack.initial_state_kwargs(),
         )
-        args = graph.propagator.get_graph_args()
+        args = propagator.get_graph_args()
 
         yield tracker.to_progress(
             status="running",
@@ -656,7 +675,12 @@ def run_analysis_streaming(
         )
 
         trace = []
-        for chunk in graph.stream(init_agent_state, **args):
+        for chunk in stream_analysis_state_chunks(
+            selected_analysts=selected_analysts,
+            config=config,
+            init_agent_state=init_agent_state,
+            graph_args=args,
+        ):
             trace.append(chunk)
             progress = tracker.consume_chunk(chunk, status="running")
             if progress is not None:

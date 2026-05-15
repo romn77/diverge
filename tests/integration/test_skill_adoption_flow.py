@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from diverge.agents.analysts.fundamentals_analyst import (
-    create_fundamentals_analyst,
+    FundamentalsAnalyst,
 )
 from diverge.runner import save_report_to_disk
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
@@ -69,7 +69,7 @@ def test_skill_adoption_flow_generates_valuation_report_and_artifacts(
     mock_get_valuation_ready_fundamentals.return_value = _valuation_input()
 
     llm = _FakeLLM()
-    node = create_fundamentals_analyst(llm)
+    node = FundamentalsAnalyst(llm)
     state = {
         "trade_date": "2026-03-20",
         "company_of_interest": "MSFT",

@@ -86,6 +86,48 @@ def test_build_decision_card_prefers_json_decision_card():
     assert "Price levels were removed" in " ".join(card.data_quality_notes)
 
 
+def test_build_decision_card_prefers_adk_schema_state_over_legacy_markdown():
+    final_state = {
+        "portfolio_decision_card": {
+            "rating": "OVERWEIGHT",
+            "action": "ADD",
+            "confidence": "medium",
+            "conviction_score": 70,
+            "time_horizon": "5-20 trading days",
+            "one_line_summary": "Schema state should win.",
+            "thesis": "The ADK output_schema sidecar is the stable system output.",
+            "key_reasons": [
+                {
+                    "pillar": "portfolio",
+                    "point": "Schema source",
+                    "evidence": "Structured sidecar was produced.",
+                    "strength": "medium",
+                }
+            ],
+        },
+        "final_trade_decision": """Legacy markdown.
+
+```json-decision-card
+{
+  "rating": "SELL",
+  "action": "EXIT",
+  "confidence": "low",
+  "conviction_score": 10,
+  "time_horizon": "now",
+  "one_line_summary": "Legacy parser should not win.",
+  "thesis": "Legacy block should be fallback only."
+}
+```
+""",
+    }
+
+    card = build_decision_card(final_state=final_state, symbol="MSFT")
+
+    assert card.rating == "OVERWEIGHT"
+    assert card.action == "ADD"
+    assert "ADK output_schema state" in " ".join(card.data_quality_notes)
+
+
 def test_build_decision_card_uses_language_aware_fallbacks():
     card = build_decision_card(
         final_state={
