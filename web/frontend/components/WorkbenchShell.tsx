@@ -290,6 +290,12 @@ function getWorkbenchPageChrome(
     };
   }
 
+  if (pathname.startsWith("/market-briefs")) {
+    return {
+      title: t("marketBrief.title", "Premarket brief"),
+    };
+  }
+
   if (pathname.startsWith("/reports")) {
     return {
       title: t("workbench.reportViewer", "Research Report"),

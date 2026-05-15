@@ -77,7 +77,7 @@ def test_build_decision_card_prefers_json_decision_card():
     assert card.key_reasons[0].limitation == "Segment margins unavailable"
     assert card.price_plan.stop_loss is None
     assert card.price_plan.take_profit is None
-    assert card.card_version == "1.1"
+    assert card.card_version == "1.2"
     assert card.trade_readiness == "WAITING_FOR_TRIGGER"
     assert card.data_quality_level == "partial"
     assert card.why_not is not None

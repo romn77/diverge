@@ -1,0 +1,4 @@
+interface:
+  display_name: "Workbench Automation Testing"
+  short_description: "Browser-first business E2E for Diverge"
+  default_prompt: "Use $workbench-automation-testing to plan or implement browser-first business E2E tests for a Diverge Workbench workflow."

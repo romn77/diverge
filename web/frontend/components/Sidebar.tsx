@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
+import { Radar } from "lucide-react";
 import { DivergeMark } from "@/components/BrandMark";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
@@ -17,6 +18,7 @@ import {
   buildAssetsHref,
   buildHomeHref,
   buildJournalHref,
+  buildOpportunitiesHref,
   buildScreenerHref,
 } from "@/lib/workbenchRoutes";
 
@@ -31,7 +33,7 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { t } = usePreferences();
-  const { activeScreenerTasks, activeTasks } = useWorkbench();
+  const { activeScreenerTasks, activeTasks, opportunityRadarEnabled } = useWorkbench();
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
@@ -53,6 +55,7 @@ export function Sidebar({
   const totalActive = activeTasks.length + activeScreenerTasks.length;
   const analysisLabel = t("sidebar.nav.analysis", "Analysis");
   const screenerLabel = t("sidebar.nav.screener", "Screener");
+  const opportunityLabel = t("sidebar.nav.opportunities", "Opportunities");
   const assetsLabel = t("sidebar.nav.assets", "Assets");
   const journalLabel = t("sidebar.nav.journal", "Journal");
   const activityLabel = t("sidebar.nav.activity", "Activity");
@@ -63,6 +66,8 @@ export function Sidebar({
   const isAnalysisActive = pathname === "/" || pathname.startsWith("/reports/");
   const isScreenerActive =
     pathname === buildScreenerHref() || pathname.startsWith("/screeners/");
+  const isOpportunityActive =
+    pathname === buildOpportunitiesHref() || pathname.startsWith("/opportunities/");
   const isAssetsActive =
     pathname === buildAssetsHref() || pathname.startsWith("/assets/");
   const isJournalActive = pathname === buildJournalHref();
@@ -223,6 +228,17 @@ export function Sidebar({
               >
                 <ScreenerIcon />
               </RailLinkButton>
+              {opportunityRadarEnabled ? (
+                <RailLinkButton
+                  href={buildOpportunitiesHref()}
+                  label={opportunityLabel}
+                  title={opportunityLabel}
+                  active={isOpportunityActive}
+                  onClick={handleNavSelection}
+                >
+                  <Radar className="h-4 w-4" aria-hidden />
+                </RailLinkButton>
+              ) : null}
             </div>
 
             <div className="my-1.5 flex justify-center" aria-hidden="true">
@@ -291,6 +307,17 @@ export function Sidebar({
               >
                 <ScreenerIcon />
               </SidebarNavLink>
+              {opportunityRadarEnabled ? (
+                <SidebarNavLink
+                  href={buildOpportunitiesHref()}
+                  label={opportunityLabel}
+                  meta={t("sidebar.meta.opportunities", "Radar and watchlist")}
+                  active={isOpportunityActive}
+                  onClick={handleNavSelection}
+                >
+                  <Radar className="h-4 w-4" aria-hidden />
+                </SidebarNavLink>
+              ) : null}
             </SidebarSection>
 
             <SidebarSection title={t("sidebar.section.portfolio", "Portfolio")}>

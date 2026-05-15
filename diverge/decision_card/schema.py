@@ -38,6 +38,7 @@ TradeReadiness = Literal[
 DataQualityLevel = Literal["complete", "partial", "weak", "insufficient"]
 
 EvidencePillar = Literal[
+    "opportunity",
     "technical",
     "fundamentals",
     "valuation",
@@ -90,8 +91,18 @@ class PositionGuidance(BaseModel):
     risk_budget_note: str | None = None
 
 
+class OpportunityEvidence(BaseModel):
+    trigger: str | None = None
+    theme_id: str | None = None
+    theme_name: str | None = None
+    candidate_type: str | None = None
+    source_run_id: str | None = None
+    backtest_summary: dict | None = None
+    risk_flags: list[str] = Field(default_factory=list)
+
+
 class DecisionCard(BaseModel):
-    card_version: str = "1.1"
+    card_version: str = "1.2"
 
     report_id: str | None = None
     symbol: str
@@ -133,3 +144,4 @@ class DecisionCard(BaseModel):
     why_not: WhyNot | None = None
     action_playbook: ActionPlaybook | None = None
     position_guidance: PositionGuidance | None = None
+    opportunity_evidence: OpportunityEvidence | None = None

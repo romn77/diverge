@@ -164,6 +164,7 @@ class AnalysisRequest:
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
+    opportunity_context: Optional[dict] = None
     market_data_source: str = "massive"
     ticker_exchange: Optional[str] = None
 
@@ -642,6 +643,7 @@ def run_analysis_streaming(
             analysis_date=request.analysis_date,
             output_language=request.output_language,
             portfolio_context=request.portfolio_context,
+            opportunity_context=request.opportunity_context,
             reports_dir=reports_dir,
             visible_trade_ids=visible_trade_ids,
             analysis_run_id=analysis_run_id,

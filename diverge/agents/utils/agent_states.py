@@ -73,6 +73,11 @@ class AgentState(TypedDict):
     portfolio_context: NotRequired[
         Annotated[str | None, "Current owner-scoped holdings and exposure summary"]
     ]
+    opportunity_context: NotRequired[
+        Annotated[
+            dict[str, object] | None, "Structured opportunity radar trigger context"
+        ]
+    ]
 
     sender: Annotated[str, "Agent that sent this message"]
 

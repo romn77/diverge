@@ -151,6 +151,28 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
             }
         )
 
+    premarket_brief_path = artifacts_dir / "premarket_brief.json"
+    if premarket_brief_path.is_file():
+        summary = None
+        try:
+            payload = json.loads(premarket_brief_path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict):
+                summary = (
+                    payload.get("summary")
+                    or payload.get("executive_summary")
+                    or payload.get("one_line_summary")
+                )
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            summary = None
+
+        results.append(
+            {
+                "type": "premarket_brief",
+                "path": "artifacts/premarket_brief.json",
+                "summary": summary,
+            }
+        )
+
     search_evidence_path = artifacts_dir / "search_evidence.json"
     if search_evidence_path.is_file():
         summary = None

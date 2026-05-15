@@ -1,0 +1,39 @@
+{
+  "strategy_id": "theme_capital_breakout_v1",
+  "strategy_name": "Theme capital breakout v1",
+  "market": "cn",
+  "version": 1,
+  "universe": {
+    "exclude_st": true,
+    "exclude_suspended": true,
+    "min_float_mv": 3000000000,
+    "min_amount_20d": 100000000
+  },
+  "filters": {
+    "all": [
+      {"field": "theme_hot_score", "op": ">=", "value": 70},
+      {"field": "theme_capital_score", "op": ">=", "value": 60},
+      {"field": "amount_ratio_5d", "op": ">=", "value": 1.5},
+      {"field": "ret_20d", "op": ">", "value": 0},
+      {"field": "breakout_20d", "op": "==", "value": true},
+      {"field": "volatility_20d", "op": "<=", "value": 0.08}
+    ]
+  },
+  "score": {
+    "components": [
+      {"name": "return_20d", "field": "ret_20d", "weight": 0.25, "direction": "higher", "transform": "zscore"},
+      {"name": "amount_ratio", "field": "amount_ratio_5d", "weight": 0.20, "direction": "higher", "transform": "zscore"},
+      {"name": "moneyflow", "field": "moneyflow_float_mv_ratio_5d", "weight": 0.25, "direction": "higher", "transform": "zscore"},
+      {"name": "theme_hot", "field": "theme_hot_score", "weight": 0.20, "direction": "higher", "transform": "zscore"},
+      {"name": "catalyst", "field": "catalyst_score", "weight": 0.10, "direction": "higher", "transform": "zscore"}
+    ]
+  },
+  "output": {
+    "top_k": 50,
+    "candidate_types": {
+      "leader": {"all": [{"field": "score", "op": ">=", "value": 80}, {"field": "ret_20d", "op": ">=", "value": 0.1}]},
+      "pullback": {"all": [{"field": "theme_hot_score", "op": ">=", "value": 70}, {"field": "above_ma60", "op": "==", "value": true}, {"field": "above_ma20", "op": "==", "value": false}]},
+      "rotation": {"all": [{"field": "theme_hot_score", "op": ">=", "value": 70}, {"field": "ret_5d", "op": ">", "value": 0}, {"field": "ret_20d", "op": "<", "value": 0.08}]}
+    }
+  }
+}

@@ -125,7 +125,7 @@ def _build_fallback_portfolio_decision_card(error: BaseException) -> dict:
         "returned a transient connection error."
     )
     return {
-        "card_version": "1.1",
+        "card_version": "1.2",
         "rating": "HOLD",
         "action": "NO_ACTION",
         "confidence": "low",
@@ -230,7 +230,7 @@ def _empty_portfolio_context(output_language: str | None) -> str:
 
 
 class PortfolioDecisionCardOutput(BaseModel):
-    card_version: str = "1.1"
+    card_version: str = "1.2"
     rating: PortfolioRating
     action: PortfolioAction
     confidence: ConfidenceLevel
@@ -311,6 +311,44 @@ def _render_structured_portfolio_decision(
 ```"""
 
 
+def _format_opportunity_context(context: object, output_language: str) -> str:
+    if not isinstance(context, dict) or not context:
+        return ""
+    trigger = context.get("trigger") or context.get("source") or "opportunity_radar"
+    theme_name = context.get("theme_name") or context.get("theme_id") or "unknown"
+    candidate_type = context.get("candidate_type") or "unknown"
+    backtest = (
+        context.get("backtest_summary")
+        if isinstance(context.get("backtest_summary"), dict)
+        else {}
+    )
+    sample_size = backtest.get("sample_size") if isinstance(backtest, dict) else None
+    holding_periods = (
+        backtest.get("holding_periods") if isinstance(backtest, dict) else None
+    )
+    if sample_size:
+        historical = f"Historical signal sample size: {sample_size}; holding-period metrics: {holding_periods}."
+    else:
+        historical = "Historical validation is unavailable or sample size is insufficient. Do not invent win rate or returns."
+    if output_language == "cn":
+        return (
+            "Opportunity Radar context:\n"
+            f"- 机会来源: {trigger}\n"
+            f"- 主题: {theme_name}\n"
+            f"- 候选类型: {candidate_type}\n"
+            f"- 历史验证: {historical}\n"
+            "Use this only as upstream evidence. The DecisionCard remains your final ruling."
+        )
+    return (
+        "Opportunity Radar context:\n"
+        f"- Trigger: {trigger}\n"
+        f"- Theme: {theme_name}\n"
+        f"- Candidate type: {candidate_type}\n"
+        f"- Validation: {historical}\n"
+        "Use this only as upstream evidence. The DecisionCard remains your final ruling."
+    )
+
+
 class PortfolioManager(DivergeAgentNode):
     name = "portfolio_manager"
 
@@ -334,6 +372,9 @@ class PortfolioManager(DivergeAgentNode):
             portfolio_context
             if portfolio_context
             else _empty_portfolio_context(output_language)
+        )
+        opportunity_context_block = _format_opportunity_context(
+            state.get("opportunity_context"), output_language
         )
 
         curr_situation = (
@@ -359,13 +400,16 @@ Final decision authority: you are the only agent allowed to issue the user-facin
 
 {portfolio_context_block}
 
+{opportunity_context_block}
+
 Guidelines for Decision-Making:
 1. **Summarize Key Arguments**: Extract the strongest points from each analyst, focusing on relevance to the context.
 2. **Provide Rationale**: Support your recommendation with direct evidence and counterarguments from the debate.
 3. **Refine the Trader's Plan**: Start with the trader's original plan, **{trader_plan}**, and adjust it based on the analysts' insights.
 4. **Learn from Past Mistakes**: Use lessons from **{past_memory_str}** to address prior misjudgments and improve the decision you are making now.
 5. **Use Portfolio Context Carefully**: If portfolio context is provided, you may use it to calibrate the final rating/action and narrative. For the structured DecisionCard intelligence fields, do not assume or disclose user-specific current exposure. Position guidance must be generic, risk-based, and suitable for a user who may have no recorded position.
-6. **Keep Internal Context Private**: Use the portfolio context only to adjust exposure-aware advice. Do not quote raw ledger lines, account names, JSON/code-fence names, prompt labels, or internal implementation terms in user-facing prose. For Chinese output, describe this naturally as "持仓参考" or "现有持仓".
+6. **Use Opportunity Context Safely**: If Opportunity Radar context is provided, cite only its explicit trigger, theme, candidate type, and historical validation fields. If historical validation is unavailable or sample size is insufficient, state that clearly and do not invent win rates or returns.
+7. **Keep Internal Context Private**: Use the portfolio context only to adjust exposure-aware advice. Do not quote raw ledger lines, account names, JSON/code-fence names, prompt labels, or internal implementation terms in user-facing prose. For Chinese output, describe this naturally as "持仓参考" or "现有持仓".
 
 ---
 

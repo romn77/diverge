@@ -35,6 +35,7 @@ from web.backend.schemas.ticker_history import (
     TickerHistoryBatchPayload,
 )
 from web.backend.services import config as config_service
+from web.backend.services import market_briefs as market_brief_service
 from web.backend.services import reports as report_service
 from web.backend.services import screeners as screener_service
 from web.backend.services import ticker_history as ticker_history_service
@@ -193,6 +194,68 @@ class BackendMainTests(unittest.TestCase):
             report_service.resolve_report_dir(".trade_feedback")
 
         self.assertEqual(context.exception.status_code, 404)
+
+    def test_market_briefs_list_only_retains_recent_premarket_artifacts(self):
+        recent_dir = backend_config.REPORTS_DIR / "MARKET_BRIEF_20260515_083000"
+        recent_dir.mkdir(parents=True)
+        (recent_dir / "complete_report.md").write_text(
+            "# Trading Analysis Report: MARKET_BRIEF\n\nGenerated: 2026-05-15 08:30:00\n\n",
+            encoding="utf-8",
+        )
+        artifacts_dir = recent_dir / "artifacts"
+        artifacts_dir.mkdir()
+        (artifacts_dir / "premarket_brief.json").write_text(
+            json.dumps(
+                {
+                    "type": "premarket_brief",
+                    "brief_id": "premarket_brief_20260515_083000",
+                    "markets": ["cn", "us"],
+                    "trading_day": "2026-05-15",
+                    "information_cutoff_at": "2026-05-15T08:30:00+08:00",
+                    "data_quality_level": "high",
+                    "summary": "Policy and liquidity remain the morning focus.",
+                    "main_themes": [{"title": "High dividend"}, "AI hardware"],
+                    "risks": [{"risk": "FX pressure"}],
+                    "opening_validation_signals": [
+                        {"signal": "Northbound proxy strength"}
+                    ],
+                    "sources": [{"url": "https://example.test/source"}],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        stale_dir = backend_config.REPORTS_DIR / "MARKET_BRIEF_20260507_083000"
+        stale_dir.mkdir(parents=True)
+        (stale_dir / "complete_report.md").write_text(
+            "# Trading Analysis Report: MARKET_BRIEF\n\nGenerated: 2026-05-07 08:30:00\n\n",
+            encoding="utf-8",
+        )
+        stale_artifacts_dir = stale_dir / "artifacts"
+        stale_artifacts_dir.mkdir()
+        (stale_artifacts_dir / "premarket_brief.json").write_text(
+            json.dumps(
+                {"brief_id": "premarket_brief_20260507", "trading_day": "2026-05-07"}
+            ),
+            encoding="utf-8",
+        )
+
+        ordinary_dir = backend_config.REPORTS_DIR / "SPY_20260515_090000"
+        ordinary_dir.mkdir(parents=True)
+        (ordinary_dir / "complete_report.md").write_text(
+            "# Trading Analysis Report: SPY\n\nGenerated: 2026-05-15 09:00:00\n\n",
+            encoding="utf-8",
+        )
+
+        payload = market_brief_service.list_market_briefs(today=date(2026, 5, 15))
+
+        self.assertEqual(payload["retention_days"], 7)
+        self.assertEqual(payload["cutoff_date"], "2026-05-09")
+        self.assertEqual(len(payload["briefs"]), 1)
+        self.assertEqual(payload["latest"]["report_id"], "MARKET_BRIEF_20260515_083000")
+        self.assertEqual(payload["latest"]["markets"], ["cn", "us"])
+        self.assertEqual(payload["latest"]["source_count"], 1)
+        self.assertIn("High dividend", payload["latest"]["main_themes"])
 
     def test_post_tasks_creates_a_pending_task_and_status_endpoint(self):
         payload = {

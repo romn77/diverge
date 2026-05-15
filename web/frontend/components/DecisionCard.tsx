@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Gauge,
   ListChecks,
+  Radar,
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
@@ -154,6 +155,12 @@ function formatDeltaValue(value: string | number | null): string {
   return value === null || value === undefined ? "N/A" : String(value);
 }
 
+function formatPercentLabel(value: number | null | undefined): string {
+  return typeof value === "number" && Number.isFinite(value)
+    ? `${(value * 100).toFixed(1)}%`
+    : "N/A";
+}
+
 function DecisionDeltaStrip({ delta }: { delta?: DecisionDelta | null }) {
   const { t } = usePreferences();
   if (!delta) {
@@ -235,6 +242,61 @@ function WhyNotPanel({ whyNot }: { whyNot: WhyNot }) {
           </div>
         ))}
       </div>
+    </section>
+  );
+}
+
+function OpportunityEvidencePanel({ card }: { card: DecisionCardModel }) {
+  const { t } = usePreferences();
+  const evidence = card.opportunity_evidence;
+  if (!evidence) {
+    return null;
+  }
+  const holdingPeriods = evidence.backtest_summary?.holding_periods ?? {};
+  const fiveDay = holdingPeriods["5d"];
+  const riskFlags = evidence.risk_flags ?? [];
+  const sampleSize = evidence.backtest_summary?.sample_size ?? 0;
+  const validation = sampleSize > 0
+    ? t(
+        "decisionCard.opportunityValidation",
+        ({ sample, winRate, avgReturn }) =>
+          `Historical sample ${sample}; 5D win ${winRate}; 5D average ${avgReturn}.`,
+        {
+          sample: sampleSize,
+          winRate: formatPercentLabel(fiveDay?.win_rate),
+          avgReturn: formatPercentLabel(fiveDay?.avg_return),
+        }
+      )
+    : t(
+        "decisionCard.opportunityInsufficient",
+        "Historical validation is unavailable or sample size is insufficient."
+      );
+
+  return (
+    <section className="decision-section">
+      <div className="decision-section-title">
+        <Radar className="size-4" aria-hidden />
+        {t("decisionCard.opportunityEvidence", "Opportunity Evidence")}
+      </div>
+      <div className="decision-playbook-grid">
+        <div>
+          <span>{t("decisionCard.opportunitySource", "Source")}</span>
+          <p>{evidence.trigger || t("decisionCard.notProvided", "Not provided")}</p>
+        </div>
+        <div>
+          <span>{t("decisionCard.opportunityTheme", "Theme")}</span>
+          <p>{evidence.theme_name || evidence.theme_id || t("decisionCard.notProvided", "Not provided")}</p>
+        </div>
+        <div>
+          <span>{t("decisionCard.opportunityValidationLabel", "Validation")}</span>
+          <p>{validation}</p>
+        </div>
+      </div>
+      {riskFlags.length > 0 && (
+        <p className="decision-playbook-note">
+          {riskFlags.join(" · ")}
+        </p>
+      )}
     </section>
   );
 }
@@ -350,6 +412,8 @@ export function DecisionCard({ card, delta }: DecisionCardProps) {
       )}
 
       <DecisionDeltaStrip delta={delta} />
+
+      <OpportunityEvidencePanel card={card} />
 
       <WhyNotPanel whyNot={whyNot} />
 

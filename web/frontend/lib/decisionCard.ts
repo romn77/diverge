@@ -18,6 +18,7 @@ export type PortfolioAction =
 export type ConfidenceLevel = "high" | "medium" | "low";
 
 export type EvidencePillar =
+  | "opportunity"
   | "technical"
   | "fundamentals"
   | "valuation"
@@ -77,6 +78,26 @@ export interface PositionGuidance {
   risk_budget_note: string | null;
 }
 
+export interface OpportunityEvidence {
+  trigger?: string | null;
+  theme_id?: string | null;
+  theme_name?: string | null;
+  candidate_type?: string | null;
+  source_run_id?: string | null;
+  backtest_summary?: {
+    sample_size?: number;
+    holding_periods?: Record<string, {
+      sample_size?: number;
+      win_rate?: number;
+      avg_return?: number;
+      median_return?: number;
+      max_adverse_excursion_median?: number | null;
+    }>;
+    [key: string]: unknown;
+  } | null;
+  risk_flags?: string[];
+}
+
 export interface DecisionCard {
   card_version: string;
   report_id: string | null;
@@ -109,6 +130,7 @@ export interface DecisionCard {
   why_not?: WhyNot | null;
   action_playbook?: ActionPlaybook | null;
   position_guidance?: PositionGuidance | null;
+  opportunity_evidence?: OpportunityEvidence | null;
 }
 
 export interface FieldDelta {

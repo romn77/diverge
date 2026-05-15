@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "defaults": {
+    "analysts": ["market", "news", "fundamentals", "sentiment"],
+    "research_depth": 3,
+    "model_profile": "default",
+    "output_language": "cn",
+    "market_data_source": "tushare",
+    "report_visibility": "private",
+    "auto_analyze_top_n": 0
+  }
+}
