@@ -480,6 +480,35 @@ export interface ReportStructure {
   }>;
 }
 
+export interface MarketBriefSummary {
+  type: "premarket_brief";
+  report_id: string | null;
+  brief_id: string;
+  date: string;
+  time: string | null;
+  title: string;
+  summary: string | null;
+  markets: string[];
+  trading_day: string | null;
+  generated_at: string | null;
+  information_cutoff_at: string | null;
+  data_quality_level: string | null;
+  main_themes: string[];
+  risks: string[];
+  opening_validation_signals: string[];
+  quality_warnings: string[];
+  source_count: number;
+  artifact_path: string;
+}
+
+export interface MarketBriefIndexResponse {
+  retention_days: number;
+  today: string;
+  cutoff_date: string;
+  latest: MarketBriefSummary | null;
+  briefs: MarketBriefSummary[];
+}
+
 export interface AnalysisReference {
   analysis_date: string;
   report_path: string;
@@ -1674,6 +1703,12 @@ export async function resetAdminUserUsage(
 
 export async function listReports(): Promise<Report[]> {
   return requestJson<Report[]>("/api/reports", {
+    cache: "no-store",
+  });
+}
+
+export async function listMarketBriefs(): Promise<MarketBriefIndexResponse> {
+  return requestJson<MarketBriefIndexResponse>("/api/market-briefs", {
     cache: "no-store",
   });
 }
