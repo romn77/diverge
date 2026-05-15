@@ -51,11 +51,13 @@ class AnalysisContextPack:
         return self.trade_feedback.reviews()
 
     def initial_state_kwargs(self) -> dict[str, Any]:
-        return {
+        fields = {
             **self.trade_feedback.initial_state_fields(),
             "portfolio_context": self.portfolio_context,
-            "opportunity_context": self.opportunity_context,
         }
+        if self.opportunity_context is not None:
+            fields["opportunity_context"] = self.opportunity_context
+        return fields
 
 
 @dataclass(frozen=True)
