@@ -33,6 +33,7 @@ from web.backend.routers import (
     config as config_router,
     data_sync as data_sync_router,
     health as health_router,
+    market_briefs as market_briefs_router,
     market_resolution as market_resolution_router,
     opportunities as opportunities_router,
     reports as reports_router,
@@ -43,6 +44,7 @@ from web.backend.routers import (
 )
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.data_sync_tasks import restore_persisted_data_sync_tasks
+from web.backend.runtime.market_brief_tasks import restore_persisted_market_brief_tasks
 from web.backend.runtime.opportunity_tasks import restore_persisted_opportunity_tasks
 from web.backend.runtime.backtest_tasks import restore_persisted_backtest_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
@@ -74,6 +76,7 @@ async def _app_lifespan(_: FastAPI):
         restore_persisted_active_tasks()
         restore_persisted_screener_tasks()
         restore_persisted_data_sync_tasks()
+        restore_persisted_market_brief_tasks()
         if app_config.opportunity_radar_enabled():
             restore_persisted_opportunity_tasks()
             restore_persisted_backtest_tasks()
@@ -100,6 +103,7 @@ for router in (
     auth_router.router,
     admin_router.router,
     reports_router.router,
+    market_briefs_router.router,
     market_resolution_router.router,
     trades_router.router,
     assets_router.router,

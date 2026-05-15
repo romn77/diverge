@@ -27,6 +27,19 @@ test("frontend API exposes market resolution and AI-generated trade review endpo
   assert.match(source, /\/api\/trades\/\$\{tradeId\}\/reviews\/\$\{reviewType\}\/generate/);
 });
 
+test("frontend API exposes the 7-day market brief index", () => {
+  assert.match(source, /interface MarketBriefSummary/);
+  assert.match(source, /interface MarketBriefIndexResponse/);
+  assert.match(source, /export async function listMarketBriefs/);
+  assert.match(source, /export async function createMarketBriefTask/);
+  assert.match(source, /export async function listMarketBriefTasks/);
+  assert.match(source, /export async function getMarketBriefTask/);
+  assert.match(source, /export function subscribeToMarketBriefTask/);
+  assert.match(source, /\/api\/market-briefs/);
+  assert.match(source, /latest:\s*MarketBriefSummary \| null/);
+  assert.match(source, /briefs:\s*MarketBriefSummary\[\]/);
+});
+
 test("journal APIs normalize legacy trade payloads before components receive them", () => {
   assert.match(source, /function normalizeTradeRecord\(value: unknown\): TradeRecord/);
   assert.match(source, /strategy_tags: normalizeStringArray\(record\.strategy_tags\)/);

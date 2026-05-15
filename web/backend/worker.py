@@ -11,6 +11,7 @@ from web.backend.runtime import (
     analysis_tasks,
     backtest_tasks,
     data_sync_tasks,
+    market_brief_tasks,
     opportunity_tasks,
     screener_tasks,
     task_scheduler,
@@ -101,6 +102,13 @@ def run_once(*, timeout: int = 5) -> bool:
             kind="data_sync", task_id=task_id, runner=data_sync_tasks.run_data_sync_task
         )
 
+    if kind == "market_brief":
+        return _run_claimed_task(
+            kind="market_brief",
+            task_id=task_id,
+            runner=market_brief_tasks.run_market_brief_task,
+        )
+
     if kind == "opportunity":
         return _run_claimed_task(
             kind="opportunity",
@@ -133,6 +141,7 @@ def main() -> None:
     analysis_tasks.restore_persisted_active_tasks()
     screener_tasks.restore_persisted_screener_tasks()
     data_sync_tasks.restore_persisted_data_sync_tasks()
+    market_brief_tasks.restore_persisted_market_brief_tasks()
     if app_config.opportunity_radar_enabled():
         opportunity_tasks.restore_persisted_opportunity_tasks()
         backtest_tasks.restore_persisted_backtest_tasks()

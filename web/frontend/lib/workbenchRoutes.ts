@@ -31,6 +31,10 @@ export function buildActivityHref(): string {
   return "/activity";
 }
 
+export function buildMarketBriefHref(): string {
+  return "/market-briefs";
+}
+
 export function buildOpportunitiesHref(runId?: string | null): string {
   if (!runId) {
     return "/opportunities";

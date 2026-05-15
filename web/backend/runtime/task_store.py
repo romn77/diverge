@@ -16,6 +16,7 @@ TASK_KINDS = (
     "analysis",
     "screener",
     "data_sync",
+    "market_brief",
     "opportunity",
     "backtest",
     "journal_review",
