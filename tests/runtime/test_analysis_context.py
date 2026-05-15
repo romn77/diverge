@@ -60,6 +60,29 @@ def test_build_analysis_context_pack_normalizes_feedback_and_portfolio_context()
     }
 
 
+def test_analysis_context_pack_passes_opportunity_context_when_present():
+    opportunity_context = {
+        "trigger": "theme_breakout",
+        "theme_id": "ai_compute",
+    }
+    pack = build_analysis_context_pack(
+        AnalysisContextPackRequest(
+            ticker="MSFT",
+            analysis_date="2026-04-20",
+            output_language="en",
+            opportunity_context=opportunity_context,
+        ),
+        adapters=AnalysisContextPackAdapters(
+            get_trade_feedback_payload=lambda *_args, **_kwargs: {
+                "prompt": "",
+                "reviews": [],
+            },
+        ),
+    )
+
+    assert pack.initial_state_kwargs()["opportunity_context"] == opportunity_context
+
+
 def test_search_context_pack_creates_session_and_restores_contextvar():
     created_sessions = []
 

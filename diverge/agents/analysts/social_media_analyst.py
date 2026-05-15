@@ -1,4 +1,6 @@
-from diverge.agents.base import DivergeAgentNode
+from contextlib import contextmanager
+
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -17,7 +19,7 @@ from diverge.runtime.messages import AdkPrompt
 class SocialMediaAnalyst(DivergeAgentNode):
     name = "social_media_analyst"
 
-    def run(self, state):
+    def build_call(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -86,35 +88,38 @@ class SocialMediaAnalyst(DivergeAgentNode):
             messages=tuple(state["messages"]),
         )
 
+        return AgentCallSpec(
+            prompt=prompt,
+            tools=tuple(tools),
+            metadata={
+                "agent": "Social Analyst",
+                "ticker": ticker,
+                "analysis_date": current_date,
+                "language": output_language,
+            },
+        )
+
+    @contextmanager
+    def call_context(self, state, spec):
         context_token = None
         parent_context = current_search_context.get()
         if parent_context is not None:
             context_token = current_search_context.set(
-                parent_context.model_copy(
-                    update={
-                        "agent": "Social Analyst",
-                        "ticker": ticker,
-                        "analysis_date": current_date,
-                        "language": output_language,
-                    }
-                )
+                parent_context.model_copy(update=spec.metadata)
             )
         try:
-            result = self.llm.bind_tools(tools).invoke(prompt)
+            yield
         finally:
             if context_token is not None:
                 current_search_context.reset(context_token)
 
+    def apply_response(self, state, spec, response):
         report = ""
 
-        if len(result.tool_calls) == 0:
-            report = result.content
+        if len(response.tool_calls) == 0:
+            report = response.content
 
         return {
-            "messages": [result],
+            "messages": [response],
             "sentiment_report": report,
         }
-
-
-def create_social_media_analyst(llm):
-    return SocialMediaAnalyst(llm)

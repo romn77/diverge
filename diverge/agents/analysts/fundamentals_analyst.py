@@ -1,4 +1,4 @@
-from diverge.agents.base import DivergeAgentNode
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -30,7 +30,7 @@ from diverge.valuation.formatter import (
 class FundamentalsAnalyst(DivergeAgentNode):
     name = "fundamentals_analyst"
 
-    def run(self, state):
+    def build_call(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -79,22 +79,31 @@ class FundamentalsAnalyst(DivergeAgentNode):
             ),
             messages=tuple(state["messages"]),
         )
-        result = self.llm.bind_tools(tools).invoke(prompt)
+        return AgentCallSpec(
+            prompt=prompt,
+            tools=tuple(tools),
+            metadata={
+                "ticker": ticker,
+                "current_date": current_date,
+                "earnings_report_section": earnings_context.report_section,
+            },
+        )
 
+    def apply_response(self, state, spec, response):
         report = ""
         instrument_type = state.get("instrument_type")
         valuation_applicability = state.get("valuation_applicability")
         valuation_applicability_reason = state.get("valuation_applicability_reason")
 
-        if len(result.tool_calls) == 0:
+        if len(response.tool_calls) == 0:
             report = inject_earnings_section(
-                result.content,
-                earnings_context.report_section,
+                response.content,
+                spec.metadata["earnings_report_section"],
             )
             try:
                 valuation_input = get_valuation_ready_fundamentals(
-                    ticker,
-                    curr_date=current_date,
+                    spec.metadata["ticker"],
+                    curr_date=spec.metadata["current_date"],
                     freq="annual",
                 )
                 instrument_type = valuation_input.instrument_type
@@ -116,13 +125,9 @@ class FundamentalsAnalyst(DivergeAgentNode):
                 )
 
         return {
-            "messages": [result],
+            "messages": [response],
             "fundamentals_report": report,
             "instrument_type": instrument_type,
             "valuation_applicability": valuation_applicability,
             "valuation_applicability_reason": valuation_applicability_reason,
         }
-
-
-def create_fundamentals_analyst(llm):
-    return FundamentalsAnalyst(llm)

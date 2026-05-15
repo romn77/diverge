@@ -3,10 +3,10 @@ import unittest
 from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
 from langchain_core.runnables import RunnableLambda
 
-from diverge.agents.analysts.market_analyst import create_market_analyst
-from diverge.agents.trader.trader import create_trader
+from diverge.agents.analysts.market_analyst import MarketAnalyst
+from diverge.agents.trader.trader import Trader
 from diverge.agents.utils.agent_utils import create_msg_delete
-from diverge.graph.propagation import Propagator
+from diverge.runtime.state import Propagator
 
 
 class _FakeLLM:
@@ -65,7 +65,7 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
             historical_trade_feedback="Historical trade feedback for ticker MSFT:\n1. Prior lesson",
         )
 
-        node = create_market_analyst(llm)
+        node = MarketAnalyst(llm)
         node(state)
 
         self.assertIn("Historical trade feedback for ticker MSFT", llm.prompts[0])
@@ -74,7 +74,7 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
         llm = _FakeLLM()
         state = Propagator().create_initial_state("MSFT", "2026-04-01")
 
-        node = create_market_analyst(llm)
+        node = MarketAnalyst(llm)
         node(state)
 
         self.assertIn("past 120 trading days", llm.prompts[0])
@@ -82,7 +82,7 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
 
     def test_trader_prompt_contains_historical_trade_feedback(self):
         llm = _FakeLLM()
-        node = create_trader(llm, _FakeMemory())
+        node = Trader(llm, _FakeMemory())
         state = {
             "company_of_interest": "MSFT",
             "investment_plan": "Buy the pullback.",

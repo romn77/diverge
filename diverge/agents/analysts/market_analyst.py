@@ -1,4 +1,4 @@
-from diverge.agents.base import DivergeAgentNode
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -16,7 +16,7 @@ from diverge.runtime.messages import AdkPrompt
 class MarketAnalyst(DivergeAgentNode):
     name = "market_analyst"
 
-    def run(self, state):
+    def build_call(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -109,18 +109,15 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
             ),
             messages=tuple(state["messages"]),
         )
-        result = self.llm.bind_tools(tools).invoke(prompt)
+        return AgentCallSpec(prompt=prompt, tools=tuple(tools))
 
+    def apply_response(self, state, spec, response):
         report = ""
 
-        if len(result.tool_calls) == 0:
-            report = result.content
+        if len(response.tool_calls) == 0:
+            report = response.content
 
         return {
-            "messages": [result],
+            "messages": [response],
             "market_report": report,
         }
-
-
-def create_market_analyst(llm):
-    return MarketAnalyst(llm)

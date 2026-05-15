@@ -1,9 +1,13 @@
 import re
 from typing import Any
 
-from diverge.agents.base import DivergeAgentNode
+from pydantic import BaseModel, Field
+
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import get_language_instruction
+from diverge.decision_card.schema import PortfolioAction, PortfolioRating
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 def _section(title: str, content: str | None, limit: int = 8000) -> str:
@@ -119,9 +123,7 @@ def _drop_leading_meta_sentences(text: str) -> str:
     for sentence in sentences:
         normalized = sentence.lower()
         has_meta_marker = any(marker in normalized for marker in _META_SENTENCE_MARKERS)
-        has_decision_marker = any(
-            marker in normalized for marker in _DECISION_MARKERS
-        )
+        has_decision_marker = any(marker in normalized for marker in _DECISION_MARKERS)
         if not has_meta_marker or has_decision_marker:
             break
         drop_count += 1
@@ -153,10 +155,25 @@ def sanitize_report_summary_output(content: Any) -> str:
     return " ".join(text.split()).strip()
 
 
+class ReportSummaryOutput(BaseModel):
+    summary_text: str = Field(
+        description="One compact user-facing executive summary paragraph."
+    )
+    language: str = Field(description="Output language code, such as en or cn.")
+    final_rating: PortfolioRating | None = Field(
+        default=None,
+        description="Final portfolio rating if available.",
+    )
+    primary_action: PortfolioAction | None = Field(
+        default=None,
+        description="Primary portfolio action if available.",
+    )
+
+
 class SummaryAgent(DivergeAgentNode):
     name = "summary_agent"
 
-    def run(self, state) -> dict:
+    def build_call(self, state) -> AgentCallSpec:
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         debate = state.get("investment_debate_state") or {}
@@ -190,6 +207,7 @@ Requirements:
 - Do not include markdown headings, code fences, JSON, citations, role labels, chain-of-thought, private reasoning, or meta commentary about the task.
 - Start directly with the final decision or recommendation; do not begin with phrases like "The user asked", "I need to", "Based on the prompt", or "好的".
 - Do not invent facts that are not present in the report context.
+- Return only the structured response requested by the runtime schema.
 
 Complete report context:
 
@@ -197,9 +215,22 @@ Complete report context:
 
 {language_instruction}"""
 
-        response = self.llm.invoke(AdkPrompt(system_message=prompt))
-        return {"report_summary": sanitize_report_summary_output(response.content)}
+        return AgentCallSpec(
+            prompt=AdkPrompt(system_message=prompt),
+            output_schema=ReportSummaryOutput,
+            output_key="report_summary_structured",
+        )
 
+    def apply_response(self, state, spec, response) -> dict:
+        try:
+            structured = parse_structured_output(response.content, ReportSummaryOutput)
+        except Exception:
+            return {"report_summary": sanitize_report_summary_output(response.content)}
 
-def create_summary_agent(llm):
-    return SummaryAgent(llm)
+        summary_text = sanitize_report_summary_output(structured.summary_text)
+        payload = structured.model_dump(mode="json")
+        payload["summary_text"] = summary_text
+        return {
+            "report_summary": summary_text,
+            "report_summary_structured": payload,
+        }

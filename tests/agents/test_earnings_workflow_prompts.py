@@ -4,9 +4,9 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from diverge.agents.analysts.fundamentals_analyst import (
-    create_fundamentals_analyst,
+    FundamentalsAnalyst,
 )
-from diverge.agents.analysts.news_analyst import create_news_analyst
+from diverge.agents.analysts.news_analyst import NewsAnalyst
 
 
 class _FakeLLM:
@@ -43,7 +43,7 @@ def _base_state():
 
 def test_news_analyst_uses_preview_mode_prompt_when_future_earnings_event_exists():
     llm = _FakeLLM()
-    node = create_news_analyst(llm)
+    node = NewsAnalyst(llm)
     state = _base_state()
     state["earnings_event"] = {
         "earnings_date": "2026-03-25",
@@ -66,7 +66,7 @@ def test_fundamentals_analyst_uses_post_earnings_mode_prompt_when_event_has_pass
 ):
     mock_get_valuation_ready_fundamentals.side_effect = RuntimeError("skip valuation")
     llm = _FakeLLM()
-    node = create_fundamentals_analyst(llm)
+    node = FundamentalsAnalyst(llm)
     state = _base_state()
     state["earnings_event"] = {
         "earnings_date": "2026-03-15",
@@ -86,7 +86,7 @@ def test_fundamentals_analyst_uses_post_earnings_mode_prompt_when_event_has_pass
 
 def test_news_analyst_falls_back_cleanly_when_no_earnings_event_data_exists():
     llm = _FakeLLM()
-    node = create_news_analyst(llm)
+    node = NewsAnalyst(llm)
 
     node(_base_state())
 

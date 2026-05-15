@@ -6,12 +6,13 @@ import contextlib
 import json
 import logging
 import os
+import queue
 import re
 import shlex
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Iterable, Optional
@@ -47,6 +48,7 @@ _RETRYABLE_LLM_STATUS_CODES = {408, 409, 429, 500, 502, 503, 504}
 _litellm_loop_lock = threading.Lock()
 _litellm_loop: asyncio.AbstractEventLoop | None = None
 _litellm_loop_thread: threading.Thread | None = None
+_litellm_loop_queue: queue.Queue[tuple[Any, Future[Any]] | None] | None = None
 
 
 _OPENAI_COMPATIBLE_PROVIDERS = {
@@ -644,8 +646,12 @@ class _BoundAdkChatModel:
     chat_model: "AdkChatModel"
     tools: tuple[Any, ...]
 
-    def invoke(self, prompt: Any):
-        return self.chat_model.invoke(prompt, tools=self.tools)
+    def invoke(self, prompt: Any, *, output_schema: Any | None = None):
+        return self.chat_model.invoke(
+            prompt,
+            tools=self.tools,
+            output_schema=output_schema,
+        )
 
 
 class AdkChatModel:
@@ -682,15 +688,27 @@ class AdkChatModel:
         except Exception:
             return _BoundAdkChatModel(self, tuple(tools))
 
-    def invoke(self, prompt: Any, *, tools: Iterable[Any] | None = None):
+    def invoke(
+        self,
+        prompt: Any,
+        *,
+        tools: Iterable[Any] | None = None,
+        output_schema: Any | None = None,
+    ):
         is_litellm_model = isinstance(self.model, LiteLlm)
         return _run_coro_blocking(
-            self._invoke_async(prompt, tools=tools),
+            self._invoke_async(prompt, tools=tools, output_schema=output_schema),
             persistent_loop=is_litellm_model,
             flush_litellm_logging=is_litellm_model,
         )
 
-    async def _invoke_async(self, prompt: Any, *, tools: Iterable[Any] | None = None):
+    async def _invoke_async(
+        self,
+        prompt: Any,
+        *,
+        tools: Iterable[Any] | None = None,
+        output_schema: Any | None = None,
+    ):
         tool_registry = _adk_tools_from_legacy_tools(tools)
         generation_config = _copy_generation_config(self.generation_config)
         _set_system_instruction(
@@ -703,6 +721,8 @@ class AdkChatModel:
             tools_dict=tool_registry,
             config=generation_config,
         )
+        if output_schema is not None:
+            request.set_output_schema(output_schema)
 
         model_name = str(getattr(self.model, "model", None) or request.model or "")
         content_count = len(request.contents or [])
@@ -830,13 +850,16 @@ def _run_coro_on_litellm_loop(coro):
     except RuntimeError:
         running_loop = None
     if running_loop is loop:
+        coro.close()
         raise RuntimeError("Cannot synchronously wait on the persistent LiteLLM loop")
 
-    try:
-        future = asyncio.run_coroutine_threadsafe(coro, loop)
-    except Exception:
+    future: Future[Any] = Future()
+    with _litellm_loop_lock:
+        work_queue = _litellm_loop_queue
+    if work_queue is None:
         coro.close()
-        raise
+        raise RuntimeError("Persistent LiteLLM event loop is not running")
+    work_queue.put((coro, future))
 
     try:
         return future.result()
@@ -847,43 +870,62 @@ def _run_coro_on_litellm_loop(coro):
 
 
 def _get_litellm_loop() -> asyncio.AbstractEventLoop:
-    global _litellm_loop, _litellm_loop_thread
+    global _litellm_loop, _litellm_loop_thread, _litellm_loop_queue
 
     with _litellm_loop_lock:
         if (
             _litellm_loop is not None
-            and _litellm_loop.is_running()
+            and not _litellm_loop.is_closed()
             and _litellm_loop_thread is not None
             and _litellm_loop_thread.is_alive()
+            and _litellm_loop_queue is not None
         ):
             return _litellm_loop
 
-        loop = asyncio.new_event_loop()
         ready = threading.Event()
+        loop_holder: dict[str, asyncio.AbstractEventLoop] = {}
+        work_queue: queue.Queue[tuple[Any, Future[Any]] | None] = queue.Queue()
         thread = threading.Thread(
             target=_run_litellm_loop_forever,
-            args=(loop, ready),
+            args=(loop_holder, work_queue, ready),
             name="diverge-litellm-asyncio-loop",
             daemon=True,
         )
-        _litellm_loop = loop
         _litellm_loop_thread = thread
+        _litellm_loop_queue = work_queue
         thread.start()
         if not ready.wait(timeout=_LITELLM_LOOP_START_TIMEOUT_SECONDS):
             _litellm_loop = None
             _litellm_loop_thread = None
+            _litellm_loop_queue = None
             raise RuntimeError("Timed out starting persistent LiteLLM event loop")
+        loop = loop_holder["loop"]
+        _litellm_loop = loop
         return loop
 
 
 def _run_litellm_loop_forever(
-    loop: asyncio.AbstractEventLoop,
+    loop_holder: dict[str, asyncio.AbstractEventLoop],
+    work_queue: queue.Queue[tuple[Any, Future[Any]] | None],
     ready: threading.Event,
 ) -> None:
+    loop = asyncio.new_event_loop()
+    loop_holder["loop"] = loop
     asyncio.set_event_loop(loop)
-    loop.call_soon(ready.set)
+    ready.set()
     try:
-        loop.run_forever()
+        while True:
+            item = work_queue.get()
+            if item is None:
+                break
+            coro, future = item
+            if not future.set_running_or_notify_cancel():
+                coro.close()
+                continue
+            try:
+                future.set_result(loop.run_until_complete(coro))
+            except BaseException as exc:
+                future.set_exception(exc)
     finally:
         pending = [task for task in asyncio.all_tasks(loop) if not task.done()]
         for task in pending:
@@ -906,24 +948,28 @@ def _shutdown_litellm_loop_for_tests() -> None:
 
 
 def _shutdown_litellm_loop() -> None:
-    global _litellm_loop, _litellm_loop_thread
+    global _litellm_loop, _litellm_loop_thread, _litellm_loop_queue
 
     with _litellm_loop_lock:
         loop = _litellm_loop
         thread = _litellm_loop_thread
+        work_queue = _litellm_loop_queue
         _litellm_loop = None
         _litellm_loop_thread = None
+        _litellm_loop_queue = None
 
-    if loop is None or loop.is_closed():
+    if loop is None or loop.is_closed() or work_queue is None:
         return
-    if loop.is_running():
+    if (
+        thread is not None
+        and thread.is_alive()
+        and threading.current_thread() is not thread
+    ):
         with contextlib.suppress(Exception):
-            future = asyncio.run_coroutine_threadsafe(
-                _flush_litellm_logging_worker(),
-                loop,
-            )
+            future: Future[Any] = Future()
+            work_queue.put((_flush_litellm_logging_worker(), future))
             future.result(timeout=_LITELLM_LOOP_SHUTDOWN_TIMEOUT_SECONDS)
-        loop.call_soon_threadsafe(loop.stop)
+    work_queue.put(None)
     if (
         thread is not None
         and thread.is_alive()

@@ -7,7 +7,6 @@ _EXPORTS = {
     "AdkChatModel": ("diverge.runtime.model_factory", "AdkChatModel"),
     "AdkPrompt": ("diverge.runtime.messages", "AdkPrompt"),
     "AdkToolCollection": ("diverge.runtime.tools", "AdkToolCollection"),
-    "AdkWorkflowRunner": ("diverge.runtime.workflow_runner", "AdkWorkflowRunner"),
     "Propagator": ("diverge.runtime.state", "Propagator"),
     "create_adk_generation_config": (
         "diverge.runtime.model_factory",

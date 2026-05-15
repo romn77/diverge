@@ -5,20 +5,20 @@ import inspect
 
 from google.adk.workflow import FunctionNode
 
-from diverge.agents.analysts.fundamentals_analyst import create_fundamentals_analyst
-from diverge.agents.analysts.market_analyst import create_market_analyst
-from diverge.agents.analysts.news_analyst import create_news_analyst
-from diverge.agents.analysts.social_media_analyst import create_social_media_analyst
+from diverge.agents.analysts.fundamentals_analyst import FundamentalsAnalyst
+from diverge.agents.analysts.market_analyst import MarketAnalyst
+from diverge.agents.analysts.news_analyst import NewsAnalyst
+from diverge.agents.analysts.social_media_analyst import SocialMediaAnalyst
 from diverge.agents.base import DivergeAgentNode
-from diverge.agents.managers.portfolio_manager import create_portfolio_manager
-from diverge.agents.managers.research_manager import create_research_manager
-from diverge.agents.managers.summary_agent import create_summary_agent
-from diverge.agents.researchers.bear_researcher import create_bear_researcher
-from diverge.agents.researchers.bull_researcher import create_bull_researcher
-from diverge.agents.risk_mgmt.aggressive_debator import create_aggressive_debator
-from diverge.agents.risk_mgmt.conservative_debator import create_conservative_debator
-from diverge.agents.risk_mgmt.neutral_debator import create_neutral_debator
-from diverge.agents.trader.trader import create_trader
+from diverge.agents.managers.portfolio_manager import PortfolioManager
+from diverge.agents.managers.research_manager import ResearchManager
+from diverge.agents.managers.summary_agent import SummaryAgent
+from diverge.agents.researchers.bear_researcher import BearResearcher
+from diverge.agents.researchers.bull_researcher import BullResearcher
+from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
+from diverge.agents.risk_mgmt.conservative_debator import ConservativeDebator
+from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
+from diverge.agents.trader.trader import Trader
 
 
 class FakeMemory:
@@ -26,23 +26,23 @@ class FakeMemory:
         return []
 
 
-def test_prompt_agent_factories_return_explicit_agent_node_objects():
+def test_prompt_agent_classes_create_explicit_agent_node_objects():
     llm = object()
     memory = FakeMemory()
     agents = [
-        create_market_analyst(llm),
-        create_social_media_analyst(llm),
-        create_news_analyst(llm),
-        create_fundamentals_analyst(llm),
-        create_bull_researcher(llm, memory),
-        create_bear_researcher(llm, memory),
-        create_research_manager(llm, memory),
-        create_trader(llm, memory),
-        create_aggressive_debator(llm),
-        create_conservative_debator(llm),
-        create_neutral_debator(llm),
-        create_portfolio_manager(llm, memory),
-        create_summary_agent(llm),
+        MarketAnalyst(llm),
+        SocialMediaAnalyst(llm),
+        NewsAnalyst(llm),
+        FundamentalsAnalyst(llm),
+        BullResearcher(llm, memory),
+        BearResearcher(llm, memory),
+        ResearchManager(llm, memory),
+        Trader(llm, memory),
+        AggressiveDebator(llm),
+        ConservativeDebator(llm),
+        NeutralDebator(llm),
+        PortfolioManager(llm, memory),
+        SummaryAgent(llm),
     ]
 
     names = [agent.name for agent in agents]
@@ -59,13 +59,13 @@ def test_prompt_agent_factories_return_explicit_agent_node_objects():
 
 
 def test_explicit_agent_nodes_are_plain_callable_objects():
-    agent = create_summary_agent(object())
+    agent = SummaryAgent(object())
 
     assert not hasattr(agent, "to_adk_function_node")
 
 
 def test_adk_can_wrap_explicit_agent_objects_directly():
-    agent = create_summary_agent(object())
+    agent = SummaryAgent(object())
     node = FunctionNode(func=agent, name=agent.name)
 
     assert node.name == agent.name

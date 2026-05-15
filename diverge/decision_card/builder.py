@@ -442,6 +442,17 @@ def build_fallback_decision_card(
     return apply_quality_gates(DecisionCard(**payload), output_language=output_language)
 
 
+def _structured_card_from_state(final_state: dict) -> dict[str, Any] | None:
+    value = final_state.get("portfolio_decision_card")
+    if isinstance(value, dict):
+        return value
+    model_dump = getattr(value, "model_dump", None)
+    if callable(model_dump):
+        dumped = model_dump(mode="json")
+        return dumped if isinstance(dumped, dict) else None
+    return None
+
+
 def _opportunity_evidence_from_state(final_state: dict) -> OpportunityEvidence | None:
     context = final_state.get("opportunity_context")
     if not isinstance(context, dict) or not context:
@@ -500,6 +511,27 @@ def build_decision_card(
 ) -> DecisionCard:
     final_decision = _as_text(final_state.get("final_trade_decision"))
     raw_signal = final_decision or None
+
+    structured_card = _structured_card_from_state(final_state)
+    if structured_card:
+        try:
+            payload = _payload_from_decision_card_block(
+                structured_card,
+                symbol=symbol,
+                report_id=report_id,
+                analysis_date=analysis_date,
+                raw_signal=raw_signal,
+            )
+            card = DecisionCard(**payload)
+            card.data_quality_notes.append(
+                "DecisionCard was sourced from ADK output_schema state."
+            )
+            return _attach_opportunity_evidence(
+                apply_quality_gates(card, output_language=output_language),
+                final_state,
+            )
+        except ValidationError:
+            pass
 
     decision_card_block = extract_decision_card_block(final_decision)
     if decision_card_block:

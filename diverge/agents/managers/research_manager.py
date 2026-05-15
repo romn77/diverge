@@ -1,4 +1,4 @@
-from diverge.agents.base import DivergeAgentNode
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
     get_language_instruction,
@@ -14,7 +14,7 @@ from diverge.runtime.messages import AdkPrompt
 class ResearchManager(DivergeAgentNode):
     name = "research_manager"
 
-    def run(self, state) -> dict:
+    def build_call(self, state) -> AgentCallSpec:
         instrument_context = build_instrument_context(state["company_of_interest"])
         history = state["investment_debate_state"].get("history", "")
         market_research_report = state["market_report"]
@@ -93,22 +93,27 @@ Keep the fence, JSON keys, and enum literals in English exactly as shown, even w
 
 {style_instruction}
 {language_instruction}"""
-        response = self.llm.invoke(AdkPrompt(system_message=prompt))
+        return AgentCallSpec(
+            prompt=AdkPrompt(system_message=prompt),
+            metadata={
+                "history": investment_debate_state.get("history", ""),
+                "bear_history": investment_debate_state.get("bear_history", ""),
+                "bull_history": investment_debate_state.get("bull_history", ""),
+                "count": investment_debate_state["count"],
+            },
+        )
 
+    def apply_response(self, state, spec, response) -> dict:
         new_investment_debate_state = {
             "judge_decision": response.content,
-            "history": investment_debate_state.get("history", ""),
-            "bear_history": investment_debate_state.get("bear_history", ""),
-            "bull_history": investment_debate_state.get("bull_history", ""),
+            "history": spec.metadata["history"],
+            "bear_history": spec.metadata["bear_history"],
+            "bull_history": spec.metadata["bull_history"],
             "current_response": response.content,
-            "count": investment_debate_state["count"],
+            "count": spec.metadata["count"],
         }
 
         return {
             "investment_debate_state": new_investment_debate_state,
             "investment_plan": response.content,
         }
-
-
-def create_research_manager(llm, memory):
-    return ResearchManager(llm, memory)

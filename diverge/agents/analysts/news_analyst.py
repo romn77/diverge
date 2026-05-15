@@ -1,4 +1,6 @@
-from diverge.agents.base import DivergeAgentNode
+from contextlib import contextmanager
+
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -21,7 +23,7 @@ from diverge.runtime.messages import AdkPrompt
 class NewsAnalyst(DivergeAgentNode):
     name = "news_analyst"
 
-    def run(self, state):
+    def build_call(self, state):
         current_date = state["trade_date"]
         ticker = state["company_of_interest"]
         instrument_context = build_instrument_context(ticker)
@@ -100,38 +102,48 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
             ),
             messages=tuple(state["messages"]),
         )
+        return AgentCallSpec(
+            prompt=prompt,
+            tools=tuple(tools),
+            metadata={
+                "agent": "News Analyst",
+                "ticker": ticker,
+                "analysis_date": current_date,
+                "language": output_language,
+                "earnings_report_section": earnings_context.report_section,
+            },
+        )
+
+    @contextmanager
+    def call_context(self, state, spec):
         context_token = None
         parent_context = current_search_context.get()
         if parent_context is not None:
             context_token = current_search_context.set(
                 parent_context.model_copy(
                     update={
-                        "agent": "News Analyst",
-                        "ticker": ticker,
-                        "analysis_date": current_date,
-                        "language": output_language,
+                        key: value
+                        for key, value in spec.metadata.items()
+                        if key != "earnings_report_section"
                     }
                 )
             )
         try:
-            result = self.llm.bind_tools(tools).invoke(prompt)
+            yield
         finally:
             if context_token is not None:
                 current_search_context.reset(context_token)
 
+    def apply_response(self, state, spec, response):
         report = ""
 
-        if len(result.tool_calls) == 0:
+        if len(response.tool_calls) == 0:
             report = inject_earnings_section(
-                result.content,
-                earnings_context.report_section,
+                response.content,
+                spec.metadata["earnings_report_section"],
             )
 
         return {
-            "messages": [result],
+            "messages": [response],
             "news_report": report,
         }
-
-
-def create_news_analyst(llm):
-    return NewsAnalyst(llm)

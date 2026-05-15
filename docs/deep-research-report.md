@@ -25,11 +25,11 @@
 
 | 问题 | 位置 | 严重性 | 影响 | 修复建议 |
 |---|---|---:|---|---|
-| 可变默认参数 | `diverge/graph/trading_graph.py:41`，`__init__(selected_analysts=[...])`。[R18] | 中 | 典型 Python 可维护性隐患；今天没副作用，不代表未来不会被修改触发共享状态。 | 改为 `None`，在函数体内赋默认值。 |
+| 运行入口迁移残留 | 旧 `diverge/graph` runtime 已移除，分析入口收拢到 ADK-native workflow。[R18] | 低 | 需要同步文档与外部调用示例，避免新代码继续引用历史 graph API。 | 对外示例统一使用 `run_analysis_streaming` 或 `stream_analysis_state_chunks`。 |
 | 队列容量判断与 SSE 序列化重复 | `web/backend/routers/tasks.py` 与 `web/backend/routers/screeners.py` 有相似的任务创建、限流和事件流逻辑。[R20] | 中 | 同一套规则要改两处，容易出现分析/筛选行为漂移。 | 抽出 `queue_guard.py` 和 `sse.py`，统一 active/pending/user-limit 逻辑。 |
 | 报告头解析重复 | `web/backend/services/reports.py` 与 `web/backend/report_metadata.py` 各自实现了标题/生成时间解析。[R10][R11] | 低 | 报告格式一旦调整，要双改；容易出现索引结果和实际展示不一致。 | 抽成共享 parser，并以单元测试锁定格式。 |
 | orchestrator/service 过胖 | `web/backend/runtime/analysis_tasks.py`、`diverge/runner.py`、`web/backend/services/assets.py` 都同时承担多项职责。[R21][R22][R23] | 高 | 测试难、复用差，也让权限与审计很难精准下沉。 | 分出 `report_publisher`、`portfolio_context_builder`、`analysis_task_orchestrator` 等更窄的应用服务。 |
-| 状态 schema 命名漂移 | `DivergeGraph` 持久化日志时写入 `trader_investment_decision`，主流程普遍使用 `trader_investment_plan`，`trade_feedback` 又读取前者。[R18][R19] | 中 | 下游消费方要记两套 key；后续做搜索、索引、公开副本时容易踩坑。 | 统一 schema 名称；为旧日志提供一次性迁移脚本。 |
+| 状态 schema 命名漂移 | 历史日志可能包含 `trader_investment_decision`，主流程使用 `trader_investment_plan`，`trade_feedback` 兼容读取前者。[R18][R19] | 中 | 下游消费方要记两套 key；后续做搜索、索引、公开副本时容易踩坑。 | 统一 schema 名称；为旧日志提供一次性迁移脚本。 |
 | 依赖与配置源不够单一 | `pyproject.toml` 和后端 requirements 使用浮动约束；仓库有 `uv.lock`，但生产安装入口和 CI 审计门禁仍需明确。[R15][R16] | 中 | 多入口安装容易造成环境漂移；仅存在 lockfile 不等于生产路径一定使用 lockfile。 | 明确生产安装以 `uv.lock` 或等效锁定产物为准；清理重复依赖和重复 env key；在 CI 中校验一致性。 |
 | 测试覆盖“不均衡”而非“没有” | README 列出 focused checks，但没有 coverage/lint/type-check 门禁说明。[R17] | 中 | 主干流程回归能力不错，但资产、交易日志、多租户权限矩阵、公开/私有可见性切换仍缺专测。 | 补 permission matrix、assets/trades、public/private visibility、migration/backfill 专项测试。 |
 
@@ -53,7 +53,7 @@ flowchart LR
     A --> JNL[组合-日志]
 
     ANA --> Q[task_store/Redis或本地队列]
-    ANA --> RUN[runner + DivergeGraph]
+    ANA --> RUN[runner + ADK-native workflow]
     ANA --> RM[(report_runs/report_files)]
     ANA --> REP[reports目录]
 
@@ -78,7 +78,7 @@ flowchart LR
 
 | 模块 | 当前职责 | 上下游依赖 | 边界评价 |
 |---|---|---|---|
-| 研究-分析 | 创建任务、排队、调用 `DivergeGraph`、写报告、写报告元数据 | 依赖资产模块生成 `portfolio_context`；依赖日志模块回放 `visible_trade_ids`/historical feedback；依赖共享队列与数据源治理。[R21][R22][R23][R24] | 业务价值最高，但边界最不干净；属于“个性化研究输出”。 |
+| 研究-分析 | 创建任务、排队、调用 ADK-native runtime、写报告、写报告元数据 | 依赖资产模块生成 `portfolio_context`；依赖日志模块回放 `visible_trade_ids`/historical feedback；依赖共享队列与数据源治理。[R21][R22][R23][R24] | 业务价值最高，但边界最不干净；属于“个性化研究输出”。 |
 | 研究-筛选 | 创建筛选任务、解析 markets/manifest、运行 `run_screen`、保存候选与运行元数据 | 与分析共享任务队列和 vendor routing；通过 `screener_runs.owner_user_id` 做 owner scope。[R20][R26] | 边界比分析清晰，但与分析共享资源池；当前没有筛选项设置，也没有 visibility 维度。 |
 | 组合-资产 | 账户/仓位/估值快照管理，并把持仓摘要拼成 prompt context | DB 原生存储；调用 `MarketDataClient`；直接服务分析模块。[R23] | 域模型是清楚的，但暴露给分析的接口是“字符串 prompt”，不是稳定 DTO。 |
 | 组合-日志 | 交易记录/复盘生成/反馈回放；文件与 DB 索引混合持久化 | 依赖报告目录中的分析快照；反向喂给分析模块。[R22][R24] | 边界最模糊：既是日志，又是 research memory，还依赖文件系统路径。 |

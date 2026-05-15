@@ -1,4 +1,6 @@
-from diverge.agents.managers.summary_agent import create_summary_agent
+import json
+
+from diverge.agents.managers.summary_agent import ReportSummaryOutput, SummaryAgent
 
 
 class _FakeResponse:
@@ -17,6 +19,18 @@ class _FakeLLM:
     def invoke(self, prompt):
         self.prompt = prompt
         return _FakeResponse(self.content)
+
+
+class _SchemaFakeLLM:
+    def __init__(self, payload):
+        self.payload = payload
+        self.prompt = ""
+        self.output_schema = None
+
+    def invoke(self, prompt, *, output_schema=None):
+        self.prompt = prompt
+        self.output_schema = output_schema
+        return _FakeResponse(json.dumps(self.payload))
 
 
 def _base_state():
@@ -45,7 +59,7 @@ def _base_state():
 
 def test_summary_agent_builds_concise_report_summary_from_final_state():
     llm = _FakeLLM()
-    agent = create_summary_agent(llm)
+    agent = SummaryAgent(llm)
 
     result = agent(_base_state())
 
@@ -65,7 +79,7 @@ def test_summary_agent_strips_model_self_talk_from_report_summary():
         "最终投资决策为**减持（UNDERWEIGHT）**。"
         "主要论点是估值偏高、动能转弱，风险来自AI资本开支周期和政策转向。"
     )
-    agent = create_summary_agent(llm)
+    agent = SummaryAgent(llm)
 
     result = agent(_base_state())
 
@@ -73,3 +87,21 @@ def test_summary_agent_strips_model_self_talk_from_report_summary():
     assert "用户要求" not in result["report_summary"]
     assert "我需要" not in result["report_summary"]
     assert "**" not in result["report_summary"]
+
+
+def test_summary_agent_uses_adk_output_schema_when_model_supports_it():
+    llm = _SchemaFakeLLM(
+        {
+            "summary_text": "HOLD while waiting for a cleaner trigger.",
+            "language": "en",
+            "final_rating": "HOLD",
+            "primary_action": "WATCH",
+        }
+    )
+    agent = SummaryAgent(llm)
+
+    result = agent(_base_state())
+
+    assert llm.output_schema is ReportSummaryOutput
+    assert result["report_summary"] == "HOLD while waiting for a cleaner trigger."
+    assert result["report_summary_structured"]["final_rating"] == "HOLD"

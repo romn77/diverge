@@ -5,7 +5,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from diverge.agents.analysts.fundamentals_analyst import (
-    create_fundamentals_analyst,
+    FundamentalsAnalyst,
 )
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
@@ -78,7 +78,7 @@ def test_fundamentals_report_includes_valuation_sections_before_highlights(
         )
     )
 
-    node = create_fundamentals_analyst(llm)
+    node = FundamentalsAnalyst(llm)
     result = node(_state())
     report = result["fundamentals_report"]
 
@@ -110,7 +110,7 @@ def test_fundamentals_report_surfaces_valuation_preparation_failures(
         )
     )
 
-    node = create_fundamentals_analyst(llm)
+    node = FundamentalsAnalyst(llm)
     result = node(_state())
     report = result["fundamentals_report"]
 

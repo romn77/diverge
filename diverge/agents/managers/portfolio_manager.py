@@ -1,7 +1,9 @@
 import json
 import logging
 
-from diverge.agents.base import DivergeAgentNode
+from pydantic import BaseModel, Field
+
+from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_evidence_rules_instruction,
@@ -9,7 +11,20 @@ from diverge.agents.utils.agent_utils import (
     get_research_note_style_instruction,
     get_trade_feedback_message,
 )
+from diverge.decision_card.schema import (
+    ActionPlaybook,
+    ConfidenceLevel,
+    DataQualityLevel,
+    EvidenceItem,
+    PortfolioAction,
+    PortfolioRating,
+    PositionGuidance,
+    PricePlan,
+    TradeReadiness,
+    WhyNot,
+)
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 logger = logging.getLogger(__name__)
 
@@ -62,21 +77,23 @@ def _format_transient_llm_warning(error: BaseException) -> dict[str, str]:
     }
 
 
-def _build_fallback_portfolio_decision(
-    *, instrument_context: str, error: BaseException
-) -> str:
-    error_note = str(error).strip()[:500] or error.__class__.__name__
+def _format_structured_output_warning(error: BaseException) -> dict[str, str]:
+    return {
+        "stage": "Portfolio Manager",
+        "kind": "structured_output_validation_failed",
+        "message": (
+            "Portfolio Manager response did not match the ADK output schema; "
+            f"using raw model text and legacy decision-card fallback. Error type: {error.__class__.__name__}"
+        ),
+    }
+
+
+def _build_fallback_portfolio_highlights() -> dict:
     summary = (
         "Portfolio Manager LLM request failed before producing a final ruling; "
         "treat this as a low-confidence no-action fallback and review the full report."
     )
-    thesis = (
-        "The analyst, trader, and risk debate sections were generated, but the final "
-        "Portfolio Manager synthesis could not be completed because the model gateway "
-        "returned a transient connection error."
-    )
-
-    highlights = {
+    return {
         "category": "portfolio_decision",
         "signal": "HOLD",
         "signal_confidence": "low",
@@ -94,7 +111,20 @@ def _build_fallback_portfolio_decision(
             "LLM gateway connection failure may have prevented risk adjustments from being synthesized.",
         ],
     }
-    decision_card = {
+
+
+def _build_fallback_portfolio_decision_card(error: BaseException) -> dict:
+    error_note = str(error).strip()[:500] or error.__class__.__name__
+    summary = (
+        "Portfolio Manager LLM request failed before producing a final ruling; "
+        "treat this as a low-confidence no-action fallback and review the full report."
+    )
+    thesis = (
+        "The analyst, trader, and risk debate sections were generated, but the final "
+        "Portfolio Manager synthesis could not be completed because the model gateway "
+        "returned a transient connection error."
+    )
+    return {
         "card_version": "1.2",
         "rating": "HOLD",
         "action": "NO_ACTION",
@@ -163,6 +193,15 @@ def _build_fallback_portfolio_decision(
         },
     }
 
+
+def _build_fallback_portfolio_decision(
+    *, instrument_context: str, error: BaseException
+) -> str:
+    highlights = _build_fallback_portfolio_highlights()
+    decision_card = _build_fallback_portfolio_decision_card(error)
+    summary = decision_card["one_line_summary"]
+    thesis = decision_card["thesis"]
+
     return f"""## Portfolio Manager Fallback Decision
 
 {instrument_context}
@@ -188,6 +227,88 @@ def _empty_portfolio_context(output_language: str | None) -> str:
     if (output_language or "en").lower() == "cn":
         return "当前持仓参考：\n- 未提供该用户的已跟踪持仓。"
     return "Current portfolio reference:\n- No tracked holdings were provided for this user."
+
+
+class PortfolioDecisionCardOutput(BaseModel):
+    card_version: str = "1.2"
+    rating: PortfolioRating
+    action: PortfolioAction
+    confidence: ConfidenceLevel
+    conviction_score: int = Field(ge=0, le=100)
+    time_horizon: str
+    one_line_summary: str
+    thesis: str
+    price_plan: PricePlan = Field(default_factory=PricePlan)
+    suggested_position: str | None = None
+    key_reasons: list[EvidenceItem] = Field(default_factory=list, max_length=5)
+    key_risks: list[str] = Field(default_factory=list, max_length=5)
+    catalysts: list[str] = Field(default_factory=list, max_length=5)
+    watch_items: list[str] = Field(default_factory=list, max_length=5)
+    data_quality_notes: list[str] = Field(default_factory=list, max_length=20)
+    trade_readiness: TradeReadiness | None = None
+    trade_readiness_reason: str | None = None
+    blocking_items: list[str] = Field(default_factory=list, max_length=5)
+    data_quality_level: DataQualityLevel | None = None
+    data_quality_summary: str | None = None
+    why_not: WhyNot | None = None
+    action_playbook: ActionPlaybook | None = None
+    position_guidance: PositionGuidance | None = None
+
+
+class PortfolioManagerStructuredOutput(BaseModel):
+    decision_report: str = Field(
+        description=(
+            "User-facing Portfolio Manager markdown narrative without JSON code "
+            "fences. It should include the final rating, rationale, and action plan."
+        )
+    )
+    decision_card: PortfolioDecisionCardOutput
+
+
+def _highlights_from_decision_card(card: PortfolioDecisionCardOutput) -> dict:
+    actions = []
+    if card.action_playbook and card.action_playbook.do_now:
+        actions = [
+            {"action": action, "priority": "immediate"}
+            for action in card.action_playbook.do_now[:3]
+        ]
+    elif card.price_plan.add_condition:
+        actions = [{"action": card.price_plan.add_condition, "priority": "conditional"}]
+
+    return {
+        "category": "portfolio_decision",
+        "signal": card.rating,
+        "signal_confidence": card.confidence,
+        "summary": card.one_line_summary,
+        "final_decision": card.rating,
+        "decision_basis": card.thesis,
+        "strategic_actions": actions,
+        "risk_warnings": card.key_risks,
+    }
+
+
+def _render_structured_portfolio_decision(
+    structured: PortfolioManagerStructuredOutput,
+) -> str:
+    report = structured.decision_report.strip()
+    if not report:
+        report = (
+            f"## Portfolio Manager Decision\n\n"
+            f"**Rating**: {structured.decision_card.rating}\n\n"
+            f"**Executive Summary**: {structured.decision_card.one_line_summary}\n\n"
+            f"**Investment Thesis**: {structured.decision_card.thesis}"
+        )
+    highlights = _highlights_from_decision_card(structured.decision_card)
+    decision_card = structured.decision_card.model_dump(mode="json")
+    return f"""{report}
+
+```json-highlights
+{_json_block(highlights)}
+```
+
+```json-decision-card
+{_json_block(decision_card)}
+```"""
 
 
 def _format_opportunity_context(context: object, output_language: str) -> str:
@@ -231,7 +352,7 @@ def _format_opportunity_context(context: object, output_language: str) -> str:
 class PortfolioManager(DivergeAgentNode):
     name = "portfolio_manager"
 
-    def run(self, state) -> dict:
+    def build_call(self, state) -> AgentCallSpec:
         instrument_context = build_instrument_context(state["company_of_interest"])
 
         history = state["risk_debate_state"]["history"]
@@ -318,111 +439,90 @@ Guidelines for Decision-Making:
 
 Be decisive and ground every conclusion in specific evidence from the analysts.
 
-After your complete decision, append a structured highlights block:
+Return only the structured response requested by the runtime schema:
+- `decision_report`: user-facing markdown narrative without JSON code fences.
+- `decision_card`: the structured final decision object.
 
-```json-highlights
-{{
-  "category": "portfolio_decision",
-  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
-  "signal_confidence": "high or medium or low",
-  "summary": "1-2 sentence executive summary of your final ruling",
-  "final_decision": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
-  "decision_basis": "one sentence explaining the primary reason",
-  "strategic_actions": [
-    {{
-      "action": "action description",
-      "priority": "immediate or conditional or long-term"
-    }}
-  ],
-  "risk_warnings": ["warning 1", "warning 2"]
-}}
-```
+For `decision_card`, use English enum literals exactly:
+- rating: BUY, OVERWEIGHT, HOLD, UNDERWEIGHT, SELL
+- action: OPEN, ADD, MAINTAIN, TRIM, EXIT, WATCH, NO_ACTION, AVOID
+- confidence: high, medium, low
+- trade_readiness: READY, WAITING_FOR_TRIGGER, BLOCKED_BY_RISK, DATA_INSUFFICIENT, NO_ACTION_REQUIRED
+- data_quality_level: complete, partial, weak, insufficient
 
-After the json-highlights block, append a second structured block:
-
-```json-decision-card
-{{
-  "card_version": "1.1",
-  "rating": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
-  "action": "OPEN or ADD or MAINTAIN or TRIM or EXIT or WATCH or NO_ACTION or AVOID",
-  "confidence": "high or medium or low",
-  "conviction_score": 0,
-  "time_horizon": "short phrase, e.g. 5-20 trading days",
-  "one_line_summary": "one sentence actionable summary",
-  "thesis": "2-3 sentence investment thesis",
-  "price_plan": {{
-    "current_price": null,
-    "entry_zone": null,
-    "add_condition": "condition for adding or opening position",
-    "stop_loss": null,
-    "take_profit": null,
-    "invalidation": ["condition that invalidates the thesis"],
-    "risk_reward_note": "brief risk/reward comment"
-  }},
-  "suggested_position": "position sizing guidance, or null",
-  "key_reasons": [
-    {{
-      "pillar": "technical or fundamentals or valuation or news or sentiment or risk or portfolio or macro",
-      "point": "short reason",
-      "evidence": "specific evidence from the analysts' reports",
-      "strength": "strong or medium or weak",
-      "source": "agent/report/tool source, or unknown",
-      "data_date": "YYYY-MM-DD or unknown",
-      "confidence": "high or medium or low",
-      "limitation": "missing/stale/ambiguous input, or null"
-    }}
-  ],
-  "key_risks": ["risk 1", "risk 2"],
-  "catalysts": ["catalyst 1"],
-  "watch_items": ["what to monitor next"],
-  "data_quality_notes": ["data limitation, missing input, or stale source warning"],
-  "trade_readiness": "READY or WAITING_FOR_TRIGGER or BLOCKED_BY_RISK or DATA_INSUFFICIENT or NO_ACTION_REQUIRED",
-  "trade_readiness_reason": "one sentence explaining whether the setup is actionable now",
-  "blocking_items": ["items preventing action now"],
-  "data_quality_level": "complete or partial or weak or insufficient",
-  "data_quality_summary": "one sentence explaining how data quality affects the decision",
-  "why_not": {{
-    "why_not_more_bullish": "why the ruling is not more bullish",
-    "why_not_more_bearish": "why the ruling is not more bearish",
-    "why_not_act_now": "why the user should not act more aggressively right now"
-  }},
-  "action_playbook": {{
-    "do_now": ["immediate action or no-action instruction"],
-    "trigger_to_act": ["condition that would justify action"],
-    "invalidation": ["condition that invalidates the thesis or action plan"],
-    "execution_notes": ["generic execution note, optional"]
-  }},
-  "position_guidance": {{
-    "suggested_exposure": "generic risk-based sizing guidance, or null",
-    "max_exposure": "generic maximum exposure guidance, or null",
-    "sizing_rationale": "generic sizing rationale, or null",
-    "risk_budget_note": "generic risk budget note, not user-specific"
-  }}
-}}
-```
-
-Keep the `json-highlights` and `json-decision-card` fences, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language. Do not invent exact price levels if the reports do not provide reliable current price or technical levels. If price levels are unavailable, use null and explain the limitation in data_quality_notes. Rating and action are different concepts. Conviction_score reflects opportunity, risk, evidence strength, and data quality. Key_reasons must cite concrete evidence from analyst reports.
+Do not invent exact price levels if the reports do not provide reliable current price or technical levels. If price levels are unavailable, use null and explain the limitation in data_quality_notes. Rating and action are different concepts. Conviction_score reflects opportunity, risk, evidence strength, and data quality. Key_reasons must cite concrete evidence from analyst reports.
 Do not generate Portfolio Fit, Decision Journal, Opportunity Queue, or Conviction Breakdown fields. Do not write phrases such as "your current position", "your portfolio", "你当前仓位", or "你的组合" inside `position_guidance`; keep it generic and risk-based.
 
 {style_instruction}
 {language_instruction}"""
 
         runtime_warnings = list(state.get("runtime_warnings") or [])
-        try:
-            response = self.llm.invoke(AdkPrompt(system_message=prompt))
-            response_content = response.content
-        except Exception as exc:
-            if not _is_transient_llm_error(exc):
-                raise
-            logger.exception(
-                "Portfolio Manager LLM failed with a transient error; using fallback final decision."
-            )
-            response_content = _build_fallback_portfolio_decision(
-                instrument_context=instrument_context,
-                error=exc,
-            )
-            runtime_warnings.append(_format_transient_llm_warning(exc))
+        return AgentCallSpec(
+            prompt=AdkPrompt(system_message=prompt),
+            output_schema=PortfolioManagerStructuredOutput,
+            output_key="portfolio_decision_structured",
+            metadata={
+                "instrument_context": instrument_context,
+                "risk_debate_state": risk_debate_state,
+                "runtime_warnings": runtime_warnings,
+            },
+        )
 
+    def apply_response(self, state, spec, response) -> dict:
+        runtime_warnings = list(spec.metadata["runtime_warnings"])
+        try:
+            structured = parse_structured_output(
+                response.content,
+                PortfolioManagerStructuredOutput,
+            )
+        except Exception as exc:
+            runtime_warnings.append(_format_structured_output_warning(exc))
+            return self._build_result(
+                spec=spec,
+                response_content=response.content,
+                runtime_warnings=runtime_warnings,
+            )
+
+        decision_card = structured.decision_card.model_dump(mode="json")
+        structured_payload = structured.model_dump(mode="json")
+        return self._build_result(
+            spec=spec,
+            response_content=_render_structured_portfolio_decision(structured),
+            runtime_warnings=runtime_warnings,
+            portfolio_decision_card=decision_card,
+            portfolio_decision_structured=structured_payload,
+        )
+
+    def handle_call_error(self, state, spec, error: Exception) -> dict | None:
+        if not _is_transient_llm_error(error):
+            return None
+
+        logger.exception(
+            "Portfolio Manager LLM failed with a transient error; using fallback final decision."
+        )
+        runtime_warnings = list(spec.metadata["runtime_warnings"])
+        runtime_warnings.append(_format_transient_llm_warning(error))
+        portfolio_decision_card = _build_fallback_portfolio_decision_card(error)
+        return self._build_result(
+            spec=spec,
+            response_content=_build_fallback_portfolio_decision(
+                instrument_context=spec.metadata["instrument_context"],
+                error=error,
+            ),
+            runtime_warnings=runtime_warnings,
+            portfolio_decision_card=portfolio_decision_card,
+        )
+
+    def _build_result(
+        self,
+        *,
+        spec: AgentCallSpec,
+        response_content: str,
+        runtime_warnings: list[dict],
+        portfolio_decision_card: dict | None = None,
+        portfolio_decision_structured: dict | None = None,
+    ) -> dict:
+        risk_debate_state = spec.metadata["risk_debate_state"]
         new_risk_debate_state = {
             "judge_decision": response_content,
             "history": risk_debate_state["history"],
@@ -440,12 +540,13 @@ Do not generate Portfolio Fit, Decision Journal, Opportunity Queue, or Convictio
             "count": risk_debate_state["count"],
         }
 
-        return {
+        result = {
             "risk_debate_state": new_risk_debate_state,
             "final_trade_decision": response_content,
             "runtime_warnings": runtime_warnings,
         }
-
-
-def create_portfolio_manager(llm, memory):
-    return PortfolioManager(llm, memory)
+        if portfolio_decision_card is not None:
+            result["portfolio_decision_card"] = portfolio_decision_card
+        if portfolio_decision_structured is not None:
+            result["portfolio_decision_structured"] = portfolio_decision_structured
+        return result

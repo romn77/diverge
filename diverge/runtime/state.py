@@ -65,8 +65,11 @@ def create_initial_state(
         "investment_plan": "",
         "trader_investment_plan": "",
         "final_trade_decision": "",
+        "portfolio_decision_card": None,
+        "portfolio_decision_structured": None,
         "runtime_warnings": [],
         "report_summary": "",
+        "report_summary_structured": None,
     }
 
 
