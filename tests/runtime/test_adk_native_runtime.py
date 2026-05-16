@@ -16,6 +16,7 @@ from diverge.runtime.adk_native.web_app import initialize_adk_web_state
 from diverge.runtime.adk_native.workflow import build_analysis_workflow
 from diverge.runtime.analysis_schema import HISTORICAL_TRADE_FEEDBACK_KEY
 from diverge.runtime.state import create_initial_state
+from diverge.runtime.tool_loop import looks_like_incomplete_tool_preface
 from diverge.runtime.tools import AdkToolCollection
 
 
@@ -47,6 +48,27 @@ def test_progress_adapter_extracts_event_actions_state_delta():
         state_delta_from_event(event)["runtime_progress_events"][0]["current_agent"]
         == "Market Analyst"
     )
+
+
+def test_tool_preface_detector_retries_chinese_literal_tool_calls():
+    content = (
+        "我们需要先获取股票数据，然后调用指标。"
+        + "需要确认参数。" * 120
+        + "\n\n```python\nget_stock_data(ticker='AMD', days=120)\n```"
+    )
+
+    assert looks_like_incomplete_tool_preface(AIMessage(content=content))
+
+
+def test_tool_preface_detector_accepts_completed_highlight_report():
+    content = (
+        "使用 get_stock_data 和 get_indicators 得到的证据显示趋势偏强。\n\n"
+        "```json-highlights\n"
+        '{"category":"market","signal":"HOLD","signal_confidence":"medium"}\n'
+        "```"
+    )
+
+    assert not looks_like_incomplete_tool_preface(AIMessage(content=content))
 
 
 def test_analysis_workflow_uses_native_nodes_without_bridge():
@@ -249,4 +271,3 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
     assert chunks[-1]["investment_plan"]
     assert chunks[-1]["trader_investment_plan"]
     assert chunks[-1]["final_trade_decision"]
-    assert chunks[-1]["report_summary"]

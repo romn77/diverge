@@ -1,4 +1,10 @@
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    ResearchDecisionStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
     get_language_instruction,
@@ -9,6 +15,7 @@ from diverge.agents.utils.agent_utils import (
 
 from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 class ResearchManager(DivergeAgentNode):
@@ -62,7 +69,7 @@ Here is the debate:
 Debate History:
 {history}
 
-After your complete decision, append a structured highlights block in the following exact format:
+Use the following structure for the `highlights` field in your structured response:
 
 ```json-highlights
 {{
@@ -89,31 +96,62 @@ After your complete decision, append a structured highlights block in the follow
 }}
 ```
 
-Keep the fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language; free-form string values should follow the report language.
+Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in another language; free-form string values should follow the report language.
 
 {style_instruction}
-{language_instruction}"""
+{language_instruction}
+{structured_agent_output_instruction()}"""
         return AgentCallSpec(
             prompt=AdkPrompt(system_message=prompt),
+            output_schema=ResearchDecisionStructuredOutput,
+            output_key="research_decision_structured",
             metadata={
                 "history": investment_debate_state.get("history", ""),
                 "bear_history": investment_debate_state.get("bear_history", ""),
                 "bull_history": investment_debate_state.get("bull_history", ""),
+                "current_bull_response": investment_debate_state.get(
+                    "current_bull_response", ""
+                ),
+                "current_bear_response": investment_debate_state.get(
+                    "current_bear_response", ""
+                ),
                 "count": investment_debate_state["count"],
             },
         )
 
     def apply_response(self, state, spec, response) -> dict:
+        try:
+            structured = parse_structured_output(
+                response.content,
+                ResearchDecisionStructuredOutput,
+            )
+        except Exception:
+            rendered = response.content
+        else:
+            rendered = render_markdown_with_highlights(
+                structured.report_markdown,
+                structured.highlights,
+            )
+
         new_investment_debate_state = {
-            "judge_decision": response.content,
+            "judge_decision": rendered,
             "history": spec.metadata["history"],
             "bear_history": spec.metadata["bear_history"],
             "bull_history": spec.metadata["bull_history"],
-            "current_response": response.content,
+            "current_response": rendered,
+            "current_bull_response": spec.metadata["current_bull_response"],
+            "current_bear_response": spec.metadata["current_bear_response"],
             "count": spec.metadata["count"],
         }
 
-        return {
+        result = {
             "investment_debate_state": new_investment_debate_state,
-            "investment_plan": response.content,
+            "investment_plan": rendered,
         }
+        if "structured" in locals():
+            result["structured_agent_outputs"] = merge_structured_agent_output(
+                state,
+                agent_name=self.name,
+                payload=structured.model_dump(mode="json"),
+            )
+        return result

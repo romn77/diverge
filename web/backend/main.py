@@ -65,9 +65,7 @@ async def _app_lifespan(_: FastAPI):
     report_metadata.initialize_report_metadata_runtime()
     screener_runs.initialize_screener_runtime()
     screener_results.initialize_screener_result_runtime()
-    if app_config.opportunity_radar_enabled():
-        app_config.ensure_opportunity_dependencies()
-        opportunity_models.initialize_opportunity_runtime()
+    opportunity_models.initialize_opportunity_runtime()
     trade_entries.initialize_trade_entries_runtime()
     asset_entries.initialize_asset_runtime()
     audit.ensure_audit_tables()
@@ -77,9 +75,8 @@ async def _app_lifespan(_: FastAPI):
         restore_persisted_screener_tasks()
         restore_persisted_data_sync_tasks()
         restore_persisted_market_brief_tasks()
-        if app_config.opportunity_radar_enabled():
-            restore_persisted_opportunity_tasks()
-            restore_persisted_backtest_tasks()
+        restore_persisted_opportunity_tasks()
+        restore_persisted_backtest_tasks()
         job_records.recover_stale_running_job_records()
     yield
 

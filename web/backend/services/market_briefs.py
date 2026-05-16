@@ -213,7 +213,7 @@ def list_market_briefs(
     cutoff_day = current_day - timedelta(days=max(retention_days, 1) - 1)
     summaries: list[dict[str, Any]] = []
 
-    for report in report_service.list_reports(request):
+    for report in report_service.list_reports(request, include_market_briefs=True):
         if not isinstance(report, dict):
             continue
 

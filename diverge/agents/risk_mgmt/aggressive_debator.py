@@ -1,4 +1,10 @@
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    AggressiveRiskStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
     get_language_instruction,
@@ -12,6 +18,7 @@ from diverge.agents.risk_mgmt.debate_phase import (
     get_risk_debate_mode,
 )
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 class AggressiveDebator(DivergeAgentNode):
@@ -94,7 +101,7 @@ Here is the current conversation history: {history}
 {trade_feedback_message}
 
 {engagement_instruction}
-After your complete argument, append a structured highlights block:
+Use the following structure for the `highlights` field in your structured response:
 
 ```json-highlights
 {{
@@ -127,12 +134,15 @@ After your complete argument, append a structured highlights block:
   ]
 }}
 ```
-Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
+Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
 {style_instruction}
-{language_instruction}"""
+{language_instruction}
+{structured_agent_output_instruction()}"""
 
         return AgentCallSpec(
             prompt=AdkPrompt(system_message=prompt),
+            output_schema=AggressiveRiskStructuredOutput,
+            output_key="risk_aggressive_structured",
             metadata={
                 "history": history,
                 "aggressive_history": aggressive_history,
@@ -151,7 +161,20 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
         )
 
     def apply_response(self, state, spec, response) -> dict:
-        argument = f"Aggressive Analyst: {response.content}"
+        try:
+            structured = parse_structured_output(
+                response.content,
+                AggressiveRiskStructuredOutput,
+            )
+        except Exception:
+            rendered = response.content
+        else:
+            rendered = render_markdown_with_highlights(
+                structured.report_markdown,
+                structured.highlights,
+            )
+
+        argument = f"Aggressive Analyst: {rendered}"
 
         new_risk_debate_state = {
             "history": spec.metadata["history"] + "\n" + argument,
@@ -167,4 +190,11 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English exactl
             "count": spec.metadata["count"] + 1,
         }
 
-        return {"risk_debate_state": new_risk_debate_state}
+        result = {"risk_debate_state": new_risk_debate_state}
+        if "structured" in locals():
+            result["structured_agent_outputs"] = merge_structured_agent_output(
+                state,
+                agent_name=self.name,
+                payload=structured.model_dump(mode="json"),
+            )
+        return result

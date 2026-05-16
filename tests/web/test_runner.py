@@ -235,15 +235,19 @@ class AnalysisTrackerTests(unittest.TestCase):
                 "investment_debate_state": {
                     "bull_history": "Bull Analyst: Free cash flow remains durable.",
                     "bear_history": "Bear Analyst: Multiple compression is still a risk.",
+                    "current_bull_response": "Bull Analyst: Final bull case only.",
+                    "current_bear_response": "Bear Analyst: Final bear case only.",
                     "judge_decision": "Research Manager: BUY with disciplined sizing.",
                 },
                 "risk_debate_state": {
                     "aggressive_history": "Aggressive Analyst: Momentum confirms the setup.",
                     "conservative_history": "Conservative Analyst: Guard against event volatility.",
                     "neutral_history": "Neutral Analyst: Keep exposure balanced.",
+                    "current_aggressive_response": "Aggressive Analyst: Final aggressive case only.",
+                    "current_conservative_response": "Conservative Analyst: Final conservative case only.",
+                    "current_neutral_response": "Neutral Analyst: Final neutral case only.",
                     "judge_decision": "Portfolio Manager: BUY with risk controls.",
                 },
-                "report_summary": "BUY with disciplined sizing; fundamentals are durable, while event volatility and valuation are the key risks.",
                 "historical_trade_feedback": "Historical trade feedback for ticker MSFT:\n1. Respect the planned stop.",
                 "historical_trade_reviews": [
                     {
@@ -264,8 +268,12 @@ class AnalysisTrackerTests(unittest.TestCase):
             report_path = save_report_to_disk(final_state, "MSFT", Path(temp_dir))
 
             fundamentals_path = Path(temp_dir) / "1_analysts" / "fundamentals.md"
+            bull_path = Path(temp_dir) / "2_research" / "bull.md"
+            bear_path = Path(temp_dir) / "2_research" / "bear.md"
+            aggressive_path = Path(temp_dir) / "4_risk" / "aggressive.md"
+            conservative_path = Path(temp_dir) / "4_risk" / "conservative.md"
+            neutral_path = Path(temp_dir) / "4_risk" / "neutral.md"
             thesis_path = Path(temp_dir) / "artifacts" / "thesis.json"
-            summary_path = Path(temp_dir) / "artifacts" / "summary.json"
             trade_feedback_path = Path(temp_dir) / "artifacts" / "trade_feedback.json"
             runtime_warnings_path = (
                 Path(temp_dir) / "artifacts" / "runtime_warnings.json"
@@ -273,10 +281,34 @@ class AnalysisTrackerTests(unittest.TestCase):
 
             self.assertTrue(report_path.is_file())
             self.assertTrue(fundamentals_path.is_file())
+            self.assertTrue(bull_path.is_file())
+            self.assertTrue(bear_path.is_file())
+            self.assertTrue(aggressive_path.is_file())
+            self.assertTrue(conservative_path.is_file())
+            self.assertTrue(neutral_path.is_file())
             self.assertTrue(thesis_path.is_file())
-            self.assertTrue(summary_path.is_file())
             self.assertTrue(trade_feedback_path.is_file())
             self.assertTrue(runtime_warnings_path.is_file())
+            self.assertEqual(
+                bull_path.read_text(encoding="utf-8"),
+                "Bull Analyst: Final bull case only.",
+            )
+            self.assertEqual(
+                bear_path.read_text(encoding="utf-8"),
+                "Bear Analyst: Final bear case only.",
+            )
+            self.assertEqual(
+                aggressive_path.read_text(encoding="utf-8"),
+                "Aggressive Analyst: Final aggressive case only.",
+            )
+            self.assertEqual(
+                conservative_path.read_text(encoding="utf-8"),
+                "Conservative Analyst: Final conservative case only.",
+            )
+            self.assertEqual(
+                neutral_path.read_text(encoding="utf-8"),
+                "Neutral Analyst: Final neutral case only.",
+            )
             self.assertIn(
                 "## DCF Summary", fundamentals_path.read_text(encoding="utf-8")
             )
@@ -288,11 +320,6 @@ class AnalysisTrackerTests(unittest.TestCase):
             thesis_payload = json.loads(thesis_path.read_text(encoding="utf-8"))
             self.assertEqual(thesis_payload["type"], "thesis")
             self.assertEqual(thesis_payload["ticker"], "MSFT")
-
-            summary_payload = json.loads(summary_path.read_text(encoding="utf-8"))
-            self.assertEqual(summary_payload["type"], "summary")
-            self.assertEqual(summary_payload["ticker"], "MSFT")
-            self.assertIn("disciplined sizing", summary_payload["summary"])
 
             trade_feedback_payload = json.loads(
                 trade_feedback_path.read_text(encoding="utf-8")

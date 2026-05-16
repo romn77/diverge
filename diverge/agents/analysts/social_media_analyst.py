@@ -1,6 +1,12 @@
 from contextlib import contextmanager
 
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    SentimentReportStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -14,6 +20,7 @@ from diverge.agents.utils.news_data_tools import get_news
 from diverge.agents.utils.search_tools import web_search_evidence
 from diverge.research.search.session import current_search_context
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 class SocialMediaAnalyst(DivergeAgentNode):
@@ -45,7 +52,7 @@ class SocialMediaAnalyst(DivergeAgentNode):
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + f"\n\n{web_search_instruction}"
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
-            + """ After the markdown table, also append a structured highlights block. Keep the fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in Chinese; free-form string values should follow the report language.
+            + """ Use the following structure for the `highlights` field in your structured response. Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in Chinese; free-form string values should follow the report language.
 
 ```json-highlights
 {
@@ -83,6 +90,7 @@ class SocialMediaAnalyst(DivergeAgentNode):
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"
+                f"\n{structured_agent_output_instruction()}"
                 f"\nFor your reference, the current date is {current_date}. {instrument_context}"
             ),
             messages=tuple(state["messages"]),
@@ -91,6 +99,8 @@ class SocialMediaAnalyst(DivergeAgentNode):
         return AgentCallSpec(
             prompt=prompt,
             tools=tuple(tools),
+            output_schema=SentimentReportStructuredOutput,
+            output_key="sentiment_report_structured",
             metadata={
                 "agent": "Social Analyst",
                 "ticker": ticker,
@@ -117,7 +127,27 @@ class SocialMediaAnalyst(DivergeAgentNode):
         report = ""
 
         if len(response.tool_calls) == 0:
-            report = response.content
+            try:
+                structured = parse_structured_output(
+                    response.content,
+                    SentimentReportStructuredOutput,
+                )
+            except Exception:
+                report = response.content
+            else:
+                report = render_markdown_with_highlights(
+                    structured.report_markdown,
+                    structured.highlights,
+                )
+                return {
+                    "messages": [response],
+                    "sentiment_report": report,
+                    "structured_agent_outputs": merge_structured_agent_output(
+                        state,
+                        agent_name=self.name,
+                        payload=structured.model_dump(mode="json"),
+                    ),
+                }
 
         return {
             "messages": [response],

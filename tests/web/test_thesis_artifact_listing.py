@@ -52,7 +52,7 @@ class ThesisArtifactListingTests(unittest.TestCase):
         self.assertEqual(payload["artifacts"][0]["path"], "artifacts/thesis.json")
         self.assertEqual(payload["artifacts"][0]["type"], "thesis")
 
-    def test_report_structure_exposes_summary_artifact_metadata_when_present(self):
+    def test_report_structure_ignores_legacy_summary_artifacts(self):
         report_dir = app_config.REPORTS_DIR / "MSFT_20260320_100000"
         artifact_dir = report_dir / "artifacts"
         artifact_dir.mkdir(parents=True)
@@ -64,7 +64,7 @@ class ThesisArtifactListingTests(unittest.TestCase):
             json.dumps(
                 {
                     "ticker": "MSFT",
-                    "summary": "BUY with disciplined sizing around valuation risk.",
+                    "summary": "Legacy summary that should no longer be surfaced.",
                 }
             ),
             encoding="utf-8",
@@ -80,43 +80,8 @@ class ThesisArtifactListingTests(unittest.TestCase):
         )
 
         payload = get_structure("MSFT_20260320_100000")
-        self.assertEqual(payload["artifacts"][0]["path"], "artifacts/summary.json")
-        self.assertEqual(payload["artifacts"][0]["type"], "summary")
-        self.assertEqual(
-            payload["artifacts"][0]["summary"],
-            "BUY with disciplined sizing around valuation risk.",
-        )
-
-    def test_report_structure_hides_summary_artifact_model_self_talk(self):
-        report_dir = app_config.REPORTS_DIR / "SMH_20260511_100000"
-        artifact_dir = report_dir / "artifacts"
-        artifact_dir.mkdir(parents=True)
-        (report_dir / "complete_report.md").write_text(
-            "# Trading Analysis Report: SMH\n\nGenerated: 2026-05-11 10:00:00\n\n",
-            encoding="utf-8",
-        )
-        (artifact_dir / "summary.json").write_text(
-            json.dumps(
-                {
-                    "ticker": "SMH",
-                    "summary": (
-                        "好的，用户要求我作为Summary Agent来创建执行摘要。"
-                        "我需要把这些信息综合成约300字的中文段落。"
-                        "基于对SMH截至2026年5月11日的多维度研究辩论，"
-                        "最终投资决策为**减持（UNDERWEIGHT）**。"
-                    ),
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        payload = get_structure("SMH_20260511_100000")
-
-        self.assertEqual(payload["artifacts"][0]["path"], "artifacts/summary.json")
-        self.assertEqual(
-            payload["artifacts"][0]["summary"],
-            "基于对SMH截至2026年5月11日的多维度研究辩论，最终投资决策为减持（UNDERWEIGHT）。",
-        )
+        self.assertEqual(payload["artifacts"][0]["path"], "artifacts/thesis.json")
+        self.assertEqual(payload["artifacts"][0]["type"], "thesis")
 
     def test_report_structure_exposes_trade_feedback_artifact_metadata_when_present(
         self,

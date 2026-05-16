@@ -14,7 +14,6 @@ from diverge.opportunity.radar import plan_radar_run_id, run_opportunity_radar
 from diverge.opportunity.storage import opportunity_runs_dir
 from web.backend import app_config, auth, opportunity_models, storage
 from web.backend.runtime import task_lifecycle, task_store
-from web.backend.services import opportunities as opportunity_service
 
 KIND = "opportunity"
 _tasks: dict[str, "OpportunityTask"] = {}
@@ -273,7 +272,6 @@ def create_opportunity_task(
     owner_user_id: str | None = None,
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
-    opportunity_service.require_enabled()
     request_payload = _tenant_scoped_payload(request_payload, tenant_id)
     planned_run_id, _, _, _, _ = plan_radar_run_id(request_payload)
     if not request_payload.get("force"):

@@ -5,11 +5,20 @@ import logging
 from pathlib import Path
 
 from fastapi import HTTPException, Request
-
-from diverge.agents.managers.summary_agent import sanitize_report_summary_output
 from web.backend import access, app_config, audit, auth, report_metadata, storage
 
 logger = logging.getLogger(__name__)
+MARKET_BRIEF_REPORT_ID_PREFIX = "MARKET_BRIEF_"
+MARKET_BRIEF_REPORT_TICKER = "MARKET_BRIEF"
+
+
+def is_market_brief_report_summary(report: dict) -> bool:
+    report_id = str(report.get("id") or "").strip().upper()
+    ticker = str(report.get("ticker") or "").strip().upper()
+    return (
+        report_id.startswith(MARKET_BRIEF_REPORT_ID_PREFIX)
+        or ticker == MARKET_BRIEF_REPORT_TICKER
+    )
 
 
 def parse_complete_report_header(
@@ -51,29 +60,6 @@ def scan_artifacts(report_dir: Path) -> list[dict]:
         return []
 
     results = []
-    summary_path = artifacts_dir / "summary.json"
-    if summary_path.is_file():
-        summary = None
-        try:
-            payload = json.loads(summary_path.read_text(encoding="utf-8"))
-            if isinstance(payload, dict):
-                raw_summary = payload.get("summary")
-                summary = (
-                    sanitize_report_summary_output(raw_summary)
-                    if raw_summary is not None
-                    else None
-                )
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-            summary = None
-
-        results.append(
-            {
-                "type": "summary",
-                "path": "artifacts/summary.json",
-                "summary": summary,
-            }
-        )
-
     thesis_path = artifacts_dir / "thesis.json"
     if thesis_path.is_file():
         summary = None
@@ -231,7 +217,7 @@ def storage_backend_is_remote() -> bool:
     return storage.os.environ.get("STORAGE_BACKEND", "local").strip().lower() != "local"
 
 
-def list_reports_from_storage() -> list[dict]:
+def list_reports_from_storage(*, include_market_briefs: bool = False) -> list[dict]:
     report_ids: set[str] = set()
     for key in storage.get_storage().list("reports"):
         parts = key.split("/")
@@ -254,14 +240,14 @@ def list_reports_from_storage() -> list[dict]:
                 ticker = parsed_ticker
         except Exception:
             pass
-        results.append(
-            {
-                "id": report_id,
-                "ticker": ticker,
-                "date": date_str,
-                "time": time_str,
-            }
-        )
+        summary = {
+            "id": report_id,
+            "ticker": ticker,
+            "date": date_str,
+            "time": time_str,
+        }
+        if include_market_briefs or not is_market_brief_report_summary(summary):
+            results.append(summary)
     results.sort(key=lambda row: (row["date"] or "", row["time"] or ""), reverse=True)
     return results
 
@@ -315,7 +301,11 @@ def build_report_structure_from_index(
     }
 
 
-def list_reports(request: Request | None = None) -> list[dict]:
+def list_reports(
+    request: Request | None = None,
+    *,
+    include_market_briefs: bool = False,
+) -> list[dict]:
     if auth.auth_enabled():
         try:
             with auth.db_session() as db:
@@ -327,9 +317,16 @@ def list_reports(request: Request | None = None) -> list[dict]:
                     owner_user_id=owner_scope,
                     include_workspace=owner_scope is not None,
                 )
-                return [
+                results = [
                     report_metadata.serialize_report_summary(record)
                     for record in records
+                ]
+                if include_market_briefs:
+                    return results
+                return [
+                    report
+                    for report in results
+                    if not is_market_brief_report_summary(report)
                 ]
         except HTTPException:
             raise
@@ -338,7 +335,9 @@ def list_reports(request: Request | None = None) -> list[dict]:
 
     if not app_config.REPORTS_DIR.is_dir():
         if storage_backend_is_remote():
-            return list_reports_from_storage()
+            return list_reports_from_storage(
+                include_market_briefs=include_market_briefs
+            )
         return []
 
     results = []
@@ -351,14 +350,14 @@ def list_reports(request: Request | None = None) -> list[dict]:
         if ticker is None:
             ticker = report_id
 
-        results.append(
-            {
-                "id": report_id,
-                "ticker": ticker,
-                "date": date_str,
-                "time": time_str,
-            }
-        )
+        summary = {
+            "id": report_id,
+            "ticker": ticker,
+            "date": date_str,
+            "time": time_str,
+        }
+        if include_market_briefs or not is_market_brief_report_summary(summary):
+            results.append(summary)
 
     results.sort(key=lambda row: (row["date"] or "", row["time"] or ""), reverse=True)
     return results

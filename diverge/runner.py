@@ -16,7 +16,6 @@ from diverge.llm_clients.model_config import (
 from diverge.llm_clients.validators import validate_model
 from diverge.common.market_calendar import resolve_market_trading_date
 from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
-from diverge.agents.managers.summary_agent import sanitize_report_summary_output
 from diverge.research.thesis_tracker import build_thesis_artifact
 from diverge.runtime.analysis_context import (
     AnalysisContextPackAdapters,
@@ -46,7 +45,6 @@ STAGE_AGENT_MAP = {
     "Trading": ("Trader",),
     "Risk": tuple(RISK_TEAM),
     "Portfolio": ("Portfolio Manager",),
-    "Summary": ("Summary Agent",),
 }
 VALID_PROVIDERS = {provider for provider, _label, _base_url in PROVIDER_OPTIONS}
 VALID_RESEARCH_DEPTHS = {1, 3, 5}
@@ -279,8 +277,6 @@ class AnalysisTracker:
         for agent_name in RISK_TEAM:
             self.agent_status[agent_name] = "pending"
         self.agent_status["Portfolio Manager"] = "pending"
-        self.agent_status["Summary Agent"] = "pending"
-
         self.report_sections = {}
         for analyst_key in self.selected_analysts:
             report_key = {
@@ -346,9 +342,6 @@ class AnalysisTracker:
             dirty = True
 
         if self._update_risk_status(chunk):
-            dirty = True
-
-        if self._update_summary_status(chunk):
             dirty = True
 
         if not dirty:
@@ -584,14 +577,7 @@ class AnalysisTracker:
             for agent in RISK_TEAM:
                 dirty = self.update_agent_status(agent, "completed") or dirty
             dirty = self.update_agent_status("Portfolio Manager", "completed") or dirty
-            dirty = self.update_agent_status("Summary Agent", "in_progress") or dirty
-
         return dirty
-
-    def _update_summary_status(self, chunk: dict) -> bool:
-        if not chunk.get("report_summary"):
-            return False
-        return self.update_agent_status("Summary Agent", "completed")
 
     def _write_partial_artifact(self, section_name: str, content: str) -> None:
         stage_dir_name, file_name = SECTION_FILE_MAP[section_name]
@@ -743,18 +729,20 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         research_dir = save_path / "2_research"
         debate = final_state["investment_debate_state"]
         research_parts = []
-        if debate.get("bull_history"):
+        bull_report = debate.get("current_bull_response") or debate.get("bull_history")
+        bear_report = debate.get("current_bear_response") or debate.get("bear_history")
+        if bull_report:
             research_dir.mkdir(exist_ok=True)
             (research_dir / "bull.md").write_text(
-                debate["bull_history"], encoding="utf-8"
+                bull_report, encoding="utf-8"
             )
-            research_parts.append(("Bull Researcher", debate["bull_history"]))
-        if debate.get("bear_history"):
+            research_parts.append(("Bull Researcher", bull_report))
+        if bear_report:
             research_dir.mkdir(exist_ok=True)
             (research_dir / "bear.md").write_text(
-                debate["bear_history"], encoding="utf-8"
+                bear_report, encoding="utf-8"
             )
-            research_parts.append(("Bear Researcher", debate["bear_history"]))
+            research_parts.append(("Bear Researcher", bear_report))
         if debate.get("judge_decision"):
             research_dir.mkdir(exist_ok=True)
             (research_dir / "manager.md").write_text(
@@ -781,24 +769,33 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         risk_dir = save_path / "4_risk"
         risk = final_state["risk_debate_state"]
         risk_parts = []
-        if risk.get("aggressive_history"):
+        aggressive_report = risk.get("current_aggressive_response") or risk.get(
+            "aggressive_history"
+        )
+        conservative_report = risk.get("current_conservative_response") or risk.get(
+            "conservative_history"
+        )
+        neutral_report = risk.get("current_neutral_response") or risk.get(
+            "neutral_history"
+        )
+        if aggressive_report:
             risk_dir.mkdir(exist_ok=True)
             (risk_dir / "aggressive.md").write_text(
-                risk["aggressive_history"], encoding="utf-8"
+                aggressive_report, encoding="utf-8"
             )
-            risk_parts.append(("Aggressive Analyst", risk["aggressive_history"]))
-        if risk.get("conservative_history"):
+            risk_parts.append(("Aggressive Analyst", aggressive_report))
+        if conservative_report:
             risk_dir.mkdir(exist_ok=True)
             (risk_dir / "conservative.md").write_text(
-                risk["conservative_history"], encoding="utf-8"
+                conservative_report, encoding="utf-8"
             )
-            risk_parts.append(("Conservative Analyst", risk["conservative_history"]))
-        if risk.get("neutral_history"):
+            risk_parts.append(("Conservative Analyst", conservative_report))
+        if neutral_report:
             risk_dir.mkdir(exist_ok=True)
             (risk_dir / "neutral.md").write_text(
-                risk["neutral_history"], encoding="utf-8"
+                neutral_report, encoding="utf-8"
             )
-            risk_parts.append(("Neutral Analyst", risk["neutral_history"]))
+            risk_parts.append(("Neutral Analyst", neutral_report))
         if risk_parts:
             content = "\n\n".join(f"### {name}\n{text}" for name, text in risk_parts)
             sections.append(f"## IV. Risk Management Team Decision\n\n{content}")
@@ -840,17 +837,6 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         json.dumps(thesis_artifact, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    if final_state.get("report_summary"):
-        summary_text = sanitize_report_summary_output(final_state["report_summary"])
-        summary_artifact = {
-            "type": "summary",
-            "ticker": ticker,
-            "summary": summary_text,
-        }
-        (artifacts_dir / "summary.json").write_text(
-            json.dumps(summary_artifact, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
     trade_feedback_artifact = trade_feedback_artifact_from_state(
         final_state,
         ticker=ticker,

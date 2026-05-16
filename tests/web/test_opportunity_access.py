@@ -9,38 +9,23 @@ import pytest
 from fastapi import HTTPException
 
 from web.backend import app_config, auth
-from web.backend.runtime import opportunity_tasks, task_store
+from web.backend.routers import opportunities as opportunities_router
+from web.backend.runtime import analysis_tasks, opportunity_tasks, task_store
+from web.backend.schemas.opportunities import CandidateAnalyzePayload
 from web.backend.services import backtests, opportunities
 
 
-def test_opportunity_service_returns_404_when_feature_flag_disabled(monkeypatch):
-    monkeypatch.delenv("OPPORTUNITY_RADAR_ENABLED", raising=False)
+def test_opportunity_service_lists_runs_by_default(monkeypatch, tmp_path):
+    monkeypatch.setattr(app_config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
 
-    with pytest.raises(HTTPException) as excinfo:
-        opportunities.require_enabled()
-
-    assert excinfo.value.status_code == 404
+    assert opportunities.list_runs() == []
 
 
-def test_opportunity_runtime_initialization_is_noop_when_feature_flag_disabled(
-    monkeypatch,
-):
-    monkeypatch.delenv("OPPORTUNITY_RADAR_ENABLED", raising=False)
-
-    with patch(
-        "web.backend.services.opportunities.opportunity_models.initialize_opportunity_runtime"
-    ) as initialize_tables:
-        opportunities.initialize_opportunity_runtime()
-
-    initialize_tables.assert_not_called()
-
-
-def test_backend_lifespan_skips_opportunity_tables_and_tasks_when_disabled(
+def test_backend_lifespan_initializes_opportunity_tables_and_tasks_by_default(
     monkeypatch,
 ):
     from web.backend import main
-
-    monkeypatch.delenv("OPPORTUNITY_RADAR_ENABLED", raising=False)
 
     async def run_lifespan_once():
         async with main._app_lifespan(None):
@@ -67,9 +52,6 @@ def test_backend_lifespan_skips_opportunity_tables_and_tasks_when_disabled(
         patch("web.backend.main.restore_persisted_screener_tasks"),
         patch("web.backend.main.restore_persisted_data_sync_tasks"),
         patch(
-            "web.backend.main.app_config.ensure_opportunity_dependencies"
-        ) as ensure_deps,
-        patch(
             "web.backend.main.opportunity_models.initialize_opportunity_runtime"
         ) as initialize_tables,
         patch(
@@ -79,15 +61,14 @@ def test_backend_lifespan_skips_opportunity_tables_and_tasks_when_disabled(
     ):
         asyncio.run(run_lifespan_once())
 
-    ensure_deps.assert_not_called()
-    initialize_tables.assert_not_called()
-    restore_opportunity.assert_not_called()
-    restore_backtest.assert_not_called()
+    initialize_tables.assert_called_once()
+    restore_opportunity.assert_called_once()
+    restore_backtest.assert_called_once()
 
 
 def test_opportunity_artifacts_are_tenant_scoped(monkeypatch, tmp_path):
-    monkeypatch.setenv("OPPORTUNITY_RADAR_ENABLED", "true")
     monkeypatch.setattr(app_config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setattr(auth, "auth_enabled", lambda: True)
 
     run_dir = tmp_path / "data" / "opportunity" / "runs" / "run-a"
@@ -114,6 +95,38 @@ def test_opportunity_artifacts_are_tenant_scoped(monkeypatch, tmp_path):
         opportunities.get_artifact("run-a", "candidates", other_tenant)
 
     assert excinfo.value.status_code == 404
+
+
+def test_opportunity_candidate_analysis_uses_supported_analyst_keys(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(app_config, "REPORTS_DIR", tmp_path / "reports")
+    monkeypatch.setattr(auth, "auth_enabled", lambda: False)
+    monkeypatch.setattr(task_store, "redis_task_backend_enabled", lambda: False)
+    analysis_tasks.tasks.clear()
+
+    try:
+        with patch("web.backend.runtime.analysis_tasks.start_task_thread") as start_task:
+            result = opportunities_router.analyze_candidate(
+                "300002.SZ",
+                CandidateAnalyzePayload(
+                    run_id="run-a",
+                    analysis_date="2026-05-14",
+                    opportunity_context={
+                        "source": "opportunity_radar",
+                        "symbol": "300002.SZ",
+                        "theme": "AI Compute",
+                    },
+                ),
+            )
+
+        task = analysis_tasks.get_task(result["task_id"])
+        assert result["status"] == "pending"
+        assert task.request.analysts == ["market", "social", "news", "fundamentals"]
+        assert "sentiment" not in task.request.analysts
+        start_task.assert_called_once_with(result["task_id"])
+    finally:
+        analysis_tasks.tasks.clear()
 
 
 def test_backtest_artifacts_and_tasks_are_tenant_scoped(monkeypatch, tmp_path):
@@ -144,8 +157,8 @@ def test_backtest_artifacts_and_tasks_are_tenant_scoped(monkeypatch, tmp_path):
 def test_opportunity_task_idempotency_checks_task_store_in_redis_mode(
     monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("OPPORTUNITY_RADAR_ENABLED", "true")
     monkeypatch.setattr(app_config, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     store = task_store.InMemoryTaskStore()
     monkeypatch.setattr(task_store, "_TASK_STORE", store)
     monkeypatch.setattr(task_store, "redis_task_backend_enabled", lambda: True)

@@ -18,7 +18,6 @@ from diverge.agents.analysts.news_analyst import NewsAnalyst
 from diverge.agents.analysts.social_media_analyst import SocialMediaAnalyst
 from diverge.agents.managers.portfolio_manager import PortfolioManager
 from diverge.agents.managers.research_manager import ResearchManager
-from diverge.agents.managers.summary_agent import SummaryAgent
 from diverge.agents.researchers.bear_researcher import BearResearcher
 from diverge.agents.researchers.bull_researcher import BullResearcher
 from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
@@ -260,7 +259,6 @@ def _build_native_decision_nodes(
                     resources.portfolio_manager_memory,
                 ),
             ),
-            _state_agent("summary_agent", SummaryAgent(resources.quick_thinking_llm)),
         ]
     )
     return nodes

@@ -1,4 +1,10 @@
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    TraderStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
@@ -9,6 +15,7 @@ from diverge.agents.utils.agent_utils import (
     get_upstream_decision_boundary_instruction,
 )
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 class Trader(DivergeAgentNode):
@@ -54,7 +61,7 @@ class Trader(DivergeAgentNode):
 
 {trade_feedback_message}
 
-Append a structured highlights block at the end of your response:
+Use the following structure for the `highlights` field in your structured response:
 
 ```json-highlights
 {{
@@ -89,21 +96,44 @@ Append a structured highlights block at the end of your response:
 }}
 ```
 
-Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
+Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
 
 {style_instruction}
-{language_instruction}"""
+{language_instruction}
+{structured_agent_output_instruction()}"""
 
         return AgentCallSpec(
             prompt=AdkPrompt(
                 system_message=system_prompt,
                 messages=(context,),
             ),
+            output_schema=TraderStructuredOutput,
+            output_key="trader_structured",
         )
 
     def apply_response(self, state, spec, response):
-        return {
+        try:
+            structured = parse_structured_output(
+                response.content,
+                TraderStructuredOutput,
+            )
+        except Exception:
+            rendered = response.content
+        else:
+            rendered = render_markdown_with_highlights(
+                structured.report_markdown,
+                structured.highlights,
+            )
+
+        result = {
             "messages": [response],
-            "trader_investment_plan": response.content,
+            "trader_investment_plan": rendered,
             "sender": self.sender_name,
         }
+        if "structured" in locals():
+            result["structured_agent_outputs"] = merge_structured_agent_output(
+                state,
+                agent_name=self.name,
+                payload=structured.model_dump(mode="json"),
+            )
+        return result

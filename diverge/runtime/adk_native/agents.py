@@ -41,7 +41,6 @@ _AGENT_DISPLAY_NAMES = {
     "conservative_analyst": "Conservative Analyst",
     "neutral_analyst": "Neutral Analyst",
     "portfolio_manager": "Portfolio Manager",
-    "summary_agent": "Summary Agent",
 }
 
 _DELTA_REPORT_LABELS = {
@@ -52,7 +51,6 @@ _DELTA_REPORT_LABELS = {
     "investment_plan": "research decision",
     "trader_investment_plan": "trading plan",
     "final_trade_decision": "portfolio decision",
-    "report_summary": "summary",
 }
 
 

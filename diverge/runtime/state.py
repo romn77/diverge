@@ -40,6 +40,8 @@ def create_initial_state(
                 "bear_history": "",
                 "history": "",
                 "current_response": "",
+                "current_bull_response": "",
+                "current_bear_response": "",
                 "judge_decision": "",
                 "count": 0,
             }
@@ -67,6 +69,7 @@ def create_initial_state(
         "final_trade_decision": "",
         "portfolio_decision_card": None,
         "portfolio_decision_structured": None,
+        "structured_agent_outputs": {},
         "runtime_warnings": [],
         "report_summary": "",
         "report_summary_structured": None,
