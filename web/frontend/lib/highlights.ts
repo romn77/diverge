@@ -147,6 +147,8 @@ type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string
 
 const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
 const HIGHLIGHTS_BLOCK_RE_GLOBAL = /```json-highlights[ \t]*\r?\n[\s\S]*?\r?\n?```/g;
+const HIGHLIGHTS_BLOCK_RE_CAPTURE_GLOBAL =
+  /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/g;
 const DECISION_CARD_BLOCK_RE_GLOBAL =
   /```json-decision-card[ \t]*\r?\n[\s\S]*?\r?\n?```/g;
 const TRADE_SIGNALS = [
@@ -520,55 +522,50 @@ export function parseHighlights(markdown: string): {
   highlights: ReportHighlights | null;
   cleanMarkdown: string;
 } {
-  const firstBlock = markdown.match(HIGHLIGHTS_BLOCK_RE);
-  if (!firstBlock) {
+  const blocks = [...markdown.matchAll(HIGHLIGHTS_BLOCK_RE_CAPTURE_GLOBAL)];
+  if (blocks.length === 0) {
     return {
       highlights: null,
       cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }
 
-  const rawJson = firstBlock[1]?.trim();
-  if (!rawJson) {
-    return {
-      highlights: null,
-      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
-    };
-  }
-
-  let parsed: JsonValue;
-  try {
-    parsed = JSON.parse(rawJson) as JsonValue;
-  } catch {
-    return {
-      highlights: null,
-      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
-    };
-  }
-
-  if (!isObject(parsed)) {
-    return {
-      highlights: null,
-      cleanMarkdown: stripStructuredDecisionBlocks(markdown),
-    };
-  }
-
-  if (parsed.signal === undefined) {
-    const fallbackSignal = extractSignalFromMarkdown(markdown);
-    if (fallbackSignal) {
-      parsed.signal = fallbackSignal;
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const rawJson = blocks[index]?.[1]?.trim();
+    if (!rawJson) {
+      continue;
     }
-  }
 
-  if (!validateReportHighlights(parsed)) {
+    let parsed: JsonValue;
+    try {
+      parsed = JSON.parse(rawJson) as JsonValue;
+    } catch {
+      continue;
+    }
+
+    if (!isObject(parsed)) {
+      continue;
+    }
+
+    if (parsed.signal === undefined) {
+      const fallbackSignal = extractSignalFromMarkdown(markdown);
+      if (fallbackSignal) {
+        parsed.signal = fallbackSignal;
+      }
+    }
+
+    if (!validateReportHighlights(parsed)) {
+      continue;
+    }
+
     return {
-      highlights: null,
+      highlights: parsed,
       cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }
 
   return {
-    highlights: parsed,
+    highlights: null,
     cleanMarkdown: stripStructuredDecisionBlocks(markdown),
   };
 }

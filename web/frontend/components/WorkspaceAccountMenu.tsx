@@ -183,7 +183,7 @@ export function WorkspaceAccountMenu({
         </Button>
       ) : null}
 
-      <div className="workbench-account-menu-frame relative inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--popover)] p-1 backdrop-blur-xl">
+      <div className="workbench-account-menu-frame relative inline-flex items-center gap-1.5 rounded-[12px] border border-[var(--border)] bg-[var(--popover)] p-1 backdrop-blur-xl">
           <DropdownMenu
             open={isAccountOpen}
             onOpenChange={(open) => {

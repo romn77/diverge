@@ -133,18 +133,48 @@ test("ReportViewer exposes authorized report visibility changes", () => {
   assert.doesNotMatch(source, /<option value="workspace"/);
 });
 
-test("ReportViewer loads and renders decision_card artifacts before complete markdown", () => {
+test("ReportViewer loads and renders decision_card artifacts in a dedicated tab before complete markdown", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
+  assert.match(source, /const DECISION_CARD_TAB_KEY = "decision_card"/);
+  assert.match(source, /function hasDecisionCardArtifact/);
+  assert.match(source, /if \(hasDecisionCardArtifact\(structure\)\) \{\s*return DECISION_CARD_TAB_KEY;/);
   assert.match(source, /fetchDecisionCard/);
   assert.match(source, /fetchDecisionDelta/);
   assert.match(source, /artifact\.type\.toLowerCase\(\) === "decision_card"/);
   assert.match(source, /artifact\.type\.toLowerCase\(\) === "decision_delta"/);
+  assert.match(source, /const hasDecisionCardTab = Boolean\(decisionCardPath\)/);
+  assert.match(source, /\{hasDecisionCardTab && \(\s*<TabsTrigger value=\{DECISION_CARD_TAB_KEY\}>/);
+  assert.match(source, /selectedTab === DECISION_CARD_TAB_KEY/);
   assert.match(source, /<DecisionCardView card=\{decisionCard\} delta=\{decisionDelta\}/);
   assert.match(source, /<DecisionCardSkeleton/);
   assert.match(source, /decision-raw-details/);
   assert.match(source, /formatDecisionCardJson\(decisionCard, decisionDelta\)/);
-  assert.match(source, /decisionCard \|\| isDecisionCardLoading \? "off" : "single"/);
+  assert.doesNotMatch(source, /decisionCard \|\| isDecisionCardLoading \? "off" : "single"/);
+
+  const decisionTabIndex = source.indexOf("<TabsTrigger value={DECISION_CARD_TAB_KEY}>");
+  const completeTabIndex = source.indexOf('<TabsTrigger value="complete">');
+  assert.notEqual(decisionTabIndex, -1);
+  assert.notEqual(completeTabIndex, -1);
+  assert.ok(
+    decisionTabIndex < completeTabIndex,
+    "decision card tab should appear before the complete report tab"
+  );
+
+  const decisionBodyIndex = source.indexOf(") : selectedTab === DECISION_CARD_TAB_KEY ? (");
+  const completeBodyIndex = source.indexOf(') : selectedTab === "complete" ? (');
+  const decisionCardIndex = source.indexOf("<DecisionCardView", decisionBodyIndex);
+  assert.notEqual(decisionBodyIndex, -1);
+  assert.notEqual(completeBodyIndex, -1);
+  assert.notEqual(decisionCardIndex, -1);
+  assert.ok(
+    decisionBodyIndex < completeBodyIndex,
+    "decision card body should be a separate branch before complete markdown"
+  );
+  assert.ok(
+    decisionCardIndex < completeBodyIndex,
+    "decision card should not render inside the complete report branch"
+  );
 });
 
 test("ReportViewer keeps tab changes smooth by caching report content instead of blanking the body", () => {
@@ -177,14 +207,16 @@ test("ReportViewer keeps the summary body free of unresolved signal badges", () 
   assert.doesNotMatch(source, /<Badge/);
 });
 
-test("ReportViewer promotes a dedicated summary tab instead of a right-side summary rail", () => {
+test("ReportViewer removes the dedicated summary tab and relies on the decision card", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
-  assert.match(source, /const SUMMARY_TAB_KEY = "summary"/);
-  assert.match(source, /setSelectedTab\(SUMMARY_TAB_KEY\)/);
-  assert.match(source, /selectedTab === SUMMARY_TAB_KEY/);
-  assert.match(source, /SummaryPanel/);
-  assert.match(source, /artifact\.type\.toLowerCase\(\) === "summary"/);
+  assert.match(source, /function getDefaultReportTab/);
+  assert.match(source, /setSelectedTab\(getDefaultReportTab\(data\)\)/);
+  assert.doesNotMatch(source, /SUMMARY_TAB_KEY/);
+  assert.doesNotMatch(source, /findSummaryText/);
+  assert.doesNotMatch(source, /hasSummaryTab/);
+  assert.doesNotMatch(source, /SummaryPanel/);
+  assert.doesNotMatch(source, /artifact\.type\.toLowerCase\(\) === "summary"/);
   assert.doesNotMatch(source, /artifact\.type\.toLowerCase\(\) === "thesis"/);
   assert.doesNotMatch(source, /report\.summaryFallback/);
   assert.match(source, /TabsTrigger/);

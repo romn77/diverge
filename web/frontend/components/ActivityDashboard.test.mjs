@@ -20,11 +20,15 @@ test("ActivityDashboard centralizes in-flight analysis and screener monitoring",
   assert.doesNotMatch(source, /window\.confirm/);
   assert.match(source, /buildTaskHref/);
   assert.match(source, /buildScreenerTaskHref/);
+  assert.match(source, /buildOpportunityTaskHref/);
   assert.match(source, /t\("activity\.title", "Background work"\)/);
   assert.match(source, /t\("activity\.analysisTasks", "Analysis tasks"\)/);
   assert.match(source, /t\("activity\.screenerTasks", "Screener tasks"\)/);
+  assert.match(source, /t\("activity\.opportunityTasks", "Opportunity radar tasks"\)/);
   assert.match(source, /t\("activity\.journalReviewTasks", "Journal AI reviews"\)/);
   assert.match(source, /journalReviewTasks/);
+  assert.match(source, /activeOpportunityTasks/);
+  assert.match(source, /formatOpportunityTaskMeta/);
   assert.match(source, /formatJournalReviewTaskMeta/);
   assert.match(source, /t\("activity\.metric\.totalMeta", "Combined background jobs"\)/);
 });
@@ -50,6 +54,7 @@ test("ActivityDashboard shows queued quota-aware work and exposes cancel actions
   assert.match(source, /XCircle/);
   assert.match(source, /cancelTask/);
   assert.match(source, /cancelScreenerTask/);
+  assert.match(source, /cancelOpportunityTask/);
   assert.match(source, /waiting_for_quota/);
   assert.match(source, /queue_position/);
   assert.match(source, /activity\.waitingForQuota/);

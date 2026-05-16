@@ -10,11 +10,14 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
 
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
-  assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /from "@\/components\/ui\/dropdown-menu"/);
+  assert.match(source, /from "@\/components\/ui\/input-group"/);
+  assert.match(source, /from "@\/components\/ui\/select"/);
   assert.match(source, /from "@\/components\/workbench\/PageHeader"/);
   assert.match(source, /usePreferences/);
   assert.match(source, /<PageHeader/);
-  assert.match(source, /<Input/);
+  assert.match(source, /<InputGroup/);
+  assert.match(source, /<InputGroupInput/);
   assert.match(source, /<Badge/);
   assert.match(source, /t\("home\.searchLabel", "Search reports"\)/);
   assert.match(source, /t\("home\.recentTickers", "Tracked Tickers"\)/);
@@ -83,8 +86,11 @@ test("HomeDashboard distinguishes private and workspace shared reports", () => {
   assert.match(source, /home\.scope\.all/);
   assert.match(source, /home\.scope\.mine/);
   assert.match(source, /home\.scope\.workspace/);
-  assert.match(source, /className="choice-pill"/);
-  assert.match(source, /data-active=\{scopeFilter === scope\}/);
+  assert.match(source, /<Select/);
+  assert.match(source, /value=\{scopeFilter\}/);
+  assert.match(source, /setScopeFilter\(value as ReportScopeFilter\)/);
+  assert.match(source, /analysis-report-toolbar-select/);
+  assert.match(source, /analysis-report-view-toggle/);
   assert.match(source, /data-active=\{isSelected\}/);
   assert.match(source, /home\.visibility\.private/);
   assert.match(source, /home\.visibility\.workspace/);
@@ -113,10 +119,16 @@ test("HomeDashboard can switch report display between ticker and calendar order"
   const source = readFileSync(componentPath, "utf8");
 
   assert.match(source, /type ReportDisplayMode = "ticker" \| "calendar"/);
+  assert.match(source, /type ReportSortMode = "latest" \| "ticker" \| "count"/);
   assert.match(source, /REPORT_DISPLAY_MODES/);
   assert.match(source, /REPORT_DISPLAY_MODE_LABEL_KEYS/);
+  assert.match(source, /REPORT_SORT_MODES/);
+  assert.match(source, /REPORT_SORT_LABEL_KEYS/);
   assert.match(source, /compareReportsByCalendar/);
   assert.match(source, /compareReportsByTicker/);
+  assert.match(source, /compareReportsBySort/);
+  assert.match(source, /reportSortMode/);
+  assert.match(source, /home\.sort\.label/);
   assert.match(source, /const calendarSortedReports = useMemo/);
   assert.match(source, /reportDisplayMode === "calendar"/);
   assert.match(source, /home\.display\.label/);
@@ -131,13 +143,22 @@ test("HomeDashboard groups visible reports by ticker with collapsible children",
 
   assert.match(source, /interface ReportTickerGroup/);
   assert.match(source, /function groupReportsByTicker/);
-  assert.match(source, /const visibleReports = useMemo/);
-  assert.match(source, /sort\(compareReportsByTicker\)\.slice\(0, 8\)/);
+  assert.match(source, /function compareReportTickerGroups/);
+  assert.match(source, /function getGroupVisibilityBucket/);
+  assert.match(source, /const tickerReportCounts = useMemo/);
   assert.match(source, /const reportTickerGroups = useMemo/);
+  assert.match(source, /groupReportsByTicker\(matchingReports\)/);
+  assert.match(source, /compareReportTickerGroups\(left, right, reportSortMode\)/);
   assert.match(source, /expandedTickerGroups/);
   assert.match(source, /aria-expanded=\{isExpanded\}/);
   assert.match(source, /analysis-report-group-header/);
   assert.match(source, /analysis-report-children/);
+  assert.match(source, /analysis-report-list-head/);
+  assert.match(source, /analysis-report-grid/);
+  assert.match(source, /analysis-report-child-row/);
+  assert.match(source, /function ReportRowActions/);
+  assert.match(source, /<DropdownMenu/);
+  assert.match(source, /analysis-report-row-menu/);
   assert.doesNotMatch(source, /analysis-report-list mt-5 space-y-3/);
   assert.doesNotMatch(source, /analysis-report-row group list-item-surface/);
   assert.match(source, /home\.reportGroupCount/);

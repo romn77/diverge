@@ -63,6 +63,16 @@ test("screener task stream resumes from a cursor instead of replaying all events
   assert.match(source, /new EventSource\(url\.toString\(\)/);
 });
 
+test("opportunity task API exposes task polling, cancellation, and resumable streams", () => {
+  assert.match(source, /export interface OpportunityTask/);
+  assert.match(source, /export async function listOpportunityTasks/);
+  assert.match(source, /export async function getOpportunityTask/);
+  assert.match(source, /export async function cancelOpportunityTask/);
+  assert.match(source, /export function subscribeToOpportunityTask/);
+  assert.match(source, /\/api\/opportunities\/tasks/);
+  assert.match(source, /\/api\/opportunities\/tasks\/\$\{taskId\}\/stream/);
+});
+
 test("screener API types include US market data source selection", () => {
   assert.match(source, /us_data_sources:\s*Array/);
   assert.match(source, /us_data_source:\s*string/);

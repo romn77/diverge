@@ -26,7 +26,7 @@ function loadHighlightsModule() {
   return compiledModule.exports;
 }
 
-test("parseHighlights removes every json-highlights block after parsing the first valid block", () => {
+test("parseHighlights removes every json-highlights block after parsing the last valid block", () => {
   const { parseHighlights } = loadHighlightsModule();
   const markdown = [
     "Opening thesis.",
@@ -66,7 +66,7 @@ test("parseHighlights removes every json-highlights block after parsing the firs
 
   const result = parseHighlights(markdown);
 
-  assert.equal(result.highlights?.summary, "First structured summary.");
+  assert.equal(result.highlights?.summary, "Second structured summary.");
   assert.equal(result.cleanMarkdown.includes("json-highlights"), false);
   assert.match(result.cleanMarkdown, /Opening thesis/);
   assert.match(result.cleanMarkdown, /Follow-up debate/);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Hash } from "lucide-react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,7 +11,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import {
   Select,
   SelectContent,
@@ -144,6 +155,22 @@ export function NewAnalysisForm({
 
     return configOptions.models[selectedProvider] ?? { quick: [], deep: [] };
   }, [configOptions, selectedProvider]);
+  const selectedLanguageOption =
+    configOptions?.output_languages.find(
+      (option) => option.value === formState?.output_language
+    ) ?? null;
+  const selectedProfileLabel = selectedProfileOption
+    ? t(
+        `analysis.modelProfile.${optionKey(selectedProfileOption.value)}`,
+        selectedProfileOption.label
+      )
+    : formState?.model_profile ?? "";
+  const selectedLanguageLabel = selectedLanguageOption
+    ? t(
+        `analysis.outputLanguage.${optionKey(selectedLanguageOption.value)}`,
+        selectedLanguageOption.label
+      )
+    : formState?.output_language ?? "";
 
   useEffect(() => {
     if (!configOptions || !formState || formState.model_profile !== "custom") {
@@ -271,7 +298,7 @@ export function NewAnalysisForm({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <DialogHeader className="pr-12">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
+          <p className="text-xs font-semibold text-[var(--primary)]">
             {t("analysis.kicker", "Launch Analysis")}
           </p>
           <DialogTitle>{t("analysis.title", "New Analysis")}</DialogTitle>
@@ -284,335 +311,332 @@ export function NewAnalysisForm({
         </DialogHeader>
 
         {loadingOptions || !formState || !configOptions ? (
-          <div className="mt-8 rounded-3xl border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-5 py-8 text-sm text-slate-600">
+          <div className="analysis-form-section mt-6 border-dashed text-sm text-muted-foreground">
             {t("analysis.loadingOptions", "Loading analysis options...")}
           </div>
         ) : (
-          <div className="mt-8 grid gap-6">
-            <section className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-              <label className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-                <span className="field-label text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                  {t("analysis.ticker", "Ticker")}
-                </span>
-                <Input
-                  type="text"
-                  value={formState.ticker}
-                  onChange={(event) =>
-                    setFormState({
-                      ...formState,
-                      ticker: event.target.value.toUpperCase(),
-                    })
-                  }
-                  className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900"
-                  placeholder="SPY"
-                />
-              </label>
+          <FieldGroup className="mt-6 gap-4">
+            <div className="analysis-form-layout">
+              <div className="analysis-form-primary">
+                <section className="analysis-form-section">
+                  <Field>
+                    <FieldLabel htmlFor="analysis-ticker">
+                      {t("analysis.ticker", "Ticker")}
+                    </FieldLabel>
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <Hash aria-hidden="true" />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        id="analysis-ticker"
+                        type="text"
+                        value={formState.ticker}
+                        onChange={(event) =>
+                          setFormState({
+                            ...formState,
+                            ticker: event.target.value.toUpperCase(),
+                          })
+                        }
+                        className="font-semibold"
+                        placeholder="SPY"
+                      />
+                    </InputGroup>
+                  </Field>
+                </section>
 
-              <AnalysisSelectField
-                label={t("analysis.tickerExchange", "Exchange")}
-                value={formState.ticker_exchange ?? "auto"}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    ticker_exchange: value as TaskCreateRequest["ticker_exchange"],
-                  })
-                }
-                hint={t(
-                  "analysis.tickerExchangeHint",
-                  "Auto adds SH or SZ for plain 6-digit CN tickers. BJ is not supported yet."
-                )}
-                className="field-shell block rounded-3xl border border-[var(--border)] bg-white/90 p-4"
-              >
-                <SelectItem value="auto">
-                  {t("analysis.tickerExchange.auto", "Auto")}
-                </SelectItem>
-                <SelectItem value="SH">
-                  {t("analysis.tickerExchange.sh", "SH")}
-                </SelectItem>
-                <SelectItem value="SZ">
-                  {t("analysis.tickerExchange.sz", "SZ")}
-                </SelectItem>
-                <SelectItem value="BJ">
-                  {t("analysis.tickerExchange.bj", "BJ")}
-                </SelectItem>
-              </AnalysisSelectField>
-            </section>
-
-            <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-              <AnalysisSelectField
-                label={t("analysis.reportVisibility", "Report Visibility")}
-                value={formState.report_visibility}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    report_visibility: value as ReportVisibility,
-                  })
-                }
-                hint={t(
-                  "analysis.reportVisibilityHint",
-                  "Private reports stay visible only to you. Workspace reports are visible to users in this tenant."
-                )}
-              >
-                <SelectItem value="private">
-                  {t("analysis.visibility.private", "Private")}
-                </SelectItem>
-                <SelectItem value="workspace">
-                  {t("analysis.visibility.workspace", "Workspace")}
-                </SelectItem>
-              </AnalysisSelectField>
-            </section>
-
-            <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                {t("analysis.analysts", "Analysts")}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-3">
-                {configOptions.analysts.map((analyst) => {
-                  const active = formState.analysts.includes(analyst.value);
-                  return (
-                    <Button
-                      key={analyst.value}
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      data-active={active}
-                      aria-pressed={active}
-                      className="choice-pill px-4"
-                      onClick={() => toggleAnalyst(analyst.value)}
-                    >
-                      {t(
-                        `analysis.analyst.${optionKey(analyst.value)}`,
-                        analyst.label
-                      )}
-                    </Button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
-                {t("analysis.researchDepth", "Research Depth")}
-              </p>
-              <div className="mt-3 grid gap-3 md:grid-cols-3">
-                {configOptions.research_depth.map((option) => {
-                  const active = formState.research_depth === option.value;
-                  const localizedLabel = t(
-                    `analysis.depth.${option.value}`,
-                    option.label
-                  );
-                  const localizedDescription = t(
-                    `analysis.depthDescription.${option.value}`,
-                    option.description
-                  );
-                  return (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant="secondary"
-                      data-active={active}
-                      aria-pressed={active}
-                      className="choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[24px] p-4 text-left whitespace-normal"
-                      onClick={() =>
-                        setFormState({
-                          ...formState,
-                          research_depth: Number(option.value),
-                        })
-                      }
-                    >
-                      <p className="min-w-0 text-sm font-semibold">{localizedLabel}</p>
-                      {localizedDescription ? (
-                        <p className="mt-2 min-w-0 break-words text-xs leading-5">
-                          {localizedDescription}
-                        </p>
-                      ) : null}
-                    </Button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-[var(--border)] bg-white/90 p-4">
-              <p className="text-sm font-semibold text-[var(--text-primary)]">
-                {t("analysis.modelProfile", "Model Profile")}
-              </p>
-              <div className="mt-3 grid gap-3 md:grid-cols-4">
-                {profileOptions.map((profile) => {
-                  const active = formState.model_profile === profile.value;
-                  return (
-                    <Button
-                      key={profile.value}
-                      type="button"
-                      variant="secondary"
-                      disabled={!profile.enabled}
-                      data-active={active}
-                      aria-pressed={active}
-                      className="choice-card h-auto min-h-[116px] w-full flex-col items-stretch justify-start overflow-hidden rounded-[20px] p-4 text-left whitespace-normal"
-                      onClick={() => onProfileChange(profile.value)}
-                    >
-                      <span className="min-w-0 text-sm font-semibold">
-                        {t(`analysis.modelProfile.${optionKey(profile.value)}`, profile.label)}
-                      </span>
-                      <span className="mt-2 min-w-0 break-words text-xs leading-5">
-                        {t(
-                          `analysis.modelProfile.${optionKey(profile.value)}.description`,
-                          profile.description
-                        )}
-                      </span>
-                      {!profile.enabled && profile.disabled_reason ? (
-                        <span className="mt-2 min-w-0 break-words text-xs leading-5">
-                          {profile.disabled_reason}
-                        </span>
-                      ) : null}
-                    </Button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:grid-cols-2">
-              {isCustomModelProfile ? (
-              <AnalysisSelectField
-                label={t("analysis.provider", "LLM Provider")}
-                value={formState.llm_provider ?? ""}
-                onChange={onProviderChange}
-                hint={
-                  enabledProviderOptions.length > 0
-                    ? t(
-                        "analysis.providerHint",
-                        "Only providers with a configured API key are shown."
-                      )
-                    : providerUnavailableLabel
-                }
-              >
-                {enabledProviderOptions.map((provider) => {
-                  const providerLabel = t(
-                    `analysis.provider.${optionKey(provider.value)}`,
-                    provider.label
-                  );
-                  return (
-                    <SelectItem
-                      key={provider.value}
-                      value={provider.value}
-                    >
-                      {providerLabel}
-                    </SelectItem>
-                  );
-                })}
-              </AnalysisSelectField>
-              ) : null}
-
-              <AnalysisSelectField
-                label={t("analysis.outputLanguage", "Output Language")}
-                value={formState.output_language}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    output_language: value,
-                  })
-                }
-              >
-                {configOptions.output_languages.map((language) => (
-                  <SelectItem key={language.value} value={language.value}>
-                    {t(
-                      `analysis.outputLanguage.${optionKey(language.value)}`,
-                      language.label
+                <section className="analysis-form-section">
+                  <AnalysisSelectField
+                    label={t("analysis.reportVisibility", "Report Visibility")}
+                    value={formState.report_visibility}
+                    onChange={(value) =>
+                      setFormState({
+                        ...formState,
+                        report_visibility: value as ReportVisibility,
+                      })
+                    }
+                    hint={t(
+                      "analysis.reportVisibilityHint",
+                      "Private reports stay visible only to you. Workspace reports are visible to users in this tenant."
                     )}
-                  </SelectItem>
-                ))}
-              </AnalysisSelectField>
+                  >
+                    <SelectItem value="private">
+                      {t("analysis.visibility.private", "Private")}
+                    </SelectItem>
+                    <SelectItem value="workspace">
+                      {t("analysis.visibility.workspace", "Workspace")}
+                    </SelectItem>
+                  </AnalysisSelectField>
+                </section>
 
-              {isCustomModelProfile ? (
-              <AnalysisSelectField
-                label={t("analysis.quickModel", "Quick Model")}
-                value={formState.quick_think_llm ?? ""}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    quick_think_llm: value,
-                  })
-                }
-              >
-                {selectedModels.quick.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </AnalysisSelectField>
-              ) : null}
+                <section className="analysis-form-section">
+                  <p className="analysis-form-section-title">
+                    {t("analysis.analysts", "Analysts")}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {configOptions.analysts.map((analyst) => {
+                      const active = formState.analysts.includes(analyst.value);
+                      return (
+                        <Button
+                          key={analyst.value}
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          data-active={active}
+                          aria-pressed={active}
+                          className="choice-pill px-4"
+                          onClick={() => toggleAnalyst(analyst.value)}
+                        >
+                          {t(
+                            `analysis.analyst.${optionKey(analyst.value)}`,
+                            analyst.label
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </section>
 
-              {isCustomModelProfile ? (
-              <AnalysisSelectField
-                label={t("analysis.deepModel", "Deep Model")}
-                value={formState.deep_think_llm ?? ""}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    deep_think_llm: value,
-                  })
-                }
-              >
-                {selectedModels.deep.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </AnalysisSelectField>
-              ) : null}
-            </section>
+                <section className="analysis-form-section">
+                  <p className="analysis-form-section-title">
+                    {t("analysis.researchDepth", "Research Depth")}
+                  </p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    {configOptions.research_depth.map((option) => {
+                      const active = formState.research_depth === Number(option.value);
+                      const localizedLabel = t(
+                        `analysis.depth.${option.value}`,
+                        option.label
+                      );
+                      const localizedDescription = t(
+                        `analysis.depthDescription.${option.value}`,
+                        option.description
+                      );
+                      return (
+                        <Button
+                          key={option.value}
+                          type="button"
+                          variant="secondary"
+                          data-active={active}
+                          aria-pressed={active}
+                          className="choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-[12px] p-3 text-left whitespace-normal"
+                          onClick={() =>
+                            setFormState({
+                              ...formState,
+                              research_depth: Number(option.value),
+                            })
+                          }
+                        >
+                          <p className="min-w-0 text-sm font-semibold">
+                            {localizedLabel}
+                          </p>
+                          {localizedDescription ? (
+                            <p className="mt-2 min-w-0 break-words text-xs leading-5">
+                              {localizedDescription}
+                            </p>
+                          ) : null}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </section>
 
-            {selectedProvider === "openai" ? (
-              <AnalysisSelectField
-                label={t("analysis.openaiReasoning", "OpenAI Reasoning Effort")}
-                value={formState.openai_reasoning_effort ?? ""}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    openai_reasoning_effort: value,
-                  })
-                }
-                className="rounded-3xl border border-[var(--border)] bg-white/90 p-4"
-              >
-                  {configOptions.provider_settings.openai?.openai_reasoning_effort?.map(
-                    (option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(
-                          `analysis.reasoning.${optionKey(option.value)}`,
-                          option.label
+                <details
+                  className="analysis-form-advanced"
+                  open={isCustomModelProfile || undefined}
+                >
+                  <summary>
+                    <span>{t("analysis.advancedSettings", "Model & output")}</span>
+                    <span>
+                      {selectedProfileLabel}
+                      {selectedLanguageLabel ? ` · ${selectedLanguageLabel}` : ""}
+                    </span>
+                  </summary>
+                  <div className="analysis-form-advanced-body">
+                    <section className="analysis-form-section">
+                      <p className="analysis-form-section-title">
+                        {t("analysis.modelProfile", "Model Profile")}
+                      </p>
+                      <div className="mt-3 grid gap-3 md:grid-cols-4">
+                        {profileOptions.map((profile) => {
+                          const active = formState.model_profile === profile.value;
+                          return (
+                            <Button
+                              key={profile.value}
+                              type="button"
+                              variant="secondary"
+                              disabled={!profile.enabled}
+                              data-active={active}
+                              aria-pressed={active}
+                              className="choice-card h-auto min-h-[104px] w-full flex-col items-stretch justify-start overflow-hidden rounded-[12px] p-3 text-left whitespace-normal"
+                              onClick={() => onProfileChange(profile.value)}
+                            >
+                              <span className="min-w-0 text-sm font-semibold">
+                                {t(
+                                  `analysis.modelProfile.${optionKey(profile.value)}`,
+                                  profile.label
+                                )}
+                              </span>
+                              <span className="mt-2 min-w-0 break-words text-xs leading-5">
+                                {t(
+                                  `analysis.modelProfile.${optionKey(profile.value)}.description`,
+                                  profile.description
+                                )}
+                              </span>
+                              {!profile.enabled && profile.disabled_reason ? (
+                                <span className="mt-2 min-w-0 break-words text-xs leading-5">
+                                  {profile.disabled_reason}
+                                </span>
+                              ) : null}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    </section>
+
+                    <section className="analysis-form-section grid gap-4 md:grid-cols-2">
+                      {isCustomModelProfile ? (
+                        <AnalysisSelectField
+                          label={t("analysis.provider", "LLM Provider")}
+                          value={formState.llm_provider ?? ""}
+                          onChange={onProviderChange}
+                          hint={
+                            enabledProviderOptions.length > 0
+                              ? t(
+                                  "analysis.providerHint",
+                                  "Only providers with a configured API key are shown."
+                                )
+                              : providerUnavailableLabel
+                          }
+                        >
+                          {enabledProviderOptions.map((provider) => {
+                            const providerLabel = t(
+                              `analysis.provider.${optionKey(provider.value)}`,
+                              provider.label
+                            );
+                            return (
+                              <SelectItem key={provider.value} value={provider.value}>
+                                {providerLabel}
+                              </SelectItem>
+                            );
+                          })}
+                        </AnalysisSelectField>
+                      ) : null}
+
+                      <AnalysisSelectField
+                        label={t("analysis.outputLanguage", "Output Language")}
+                        value={formState.output_language}
+                        onChange={(value) =>
+                          setFormState({
+                            ...formState,
+                            output_language: value,
+                          })
+                        }
+                      >
+                        {configOptions.output_languages.map((language) => (
+                          <SelectItem key={language.value} value={language.value}>
+                            {t(
+                              `analysis.outputLanguage.${optionKey(language.value)}`,
+                              language.label
+                            )}
+                          </SelectItem>
+                        ))}
+                      </AnalysisSelectField>
+
+                      {isCustomModelProfile ? (
+                        <AnalysisSelectField
+                          label={t("analysis.quickModel", "Quick Model")}
+                          value={formState.quick_think_llm ?? ""}
+                          onChange={(value) =>
+                            setFormState({
+                              ...formState,
+                              quick_think_llm: value,
+                            })
+                          }
+                        >
+                          {selectedModels.quick.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </AnalysisSelectField>
+                      ) : null}
+
+                      {isCustomModelProfile ? (
+                        <AnalysisSelectField
+                          label={t("analysis.deepModel", "Deep Model")}
+                          value={formState.deep_think_llm ?? ""}
+                          onChange={(value) =>
+                            setFormState({
+                              ...formState,
+                              deep_think_llm: value,
+                            })
+                          }
+                        >
+                          {selectedModels.deep.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </AnalysisSelectField>
+                      ) : null}
+                    </section>
+
+                    {selectedProvider === "openai" ? (
+                      <AnalysisSelectField
+                        label={t("analysis.openaiReasoning", "OpenAI Reasoning Effort")}
+                        value={formState.openai_reasoning_effort ?? ""}
+                        onChange={(value) =>
+                          setFormState({
+                            ...formState,
+                            openai_reasoning_effort: value,
+                          })
+                        }
+                        className="analysis-form-section"
+                      >
+                        {configOptions.provider_settings.openai?.openai_reasoning_effort?.map(
+                          (option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(
+                                `analysis.reasoning.${optionKey(option.value)}`,
+                                option.label
+                              )}
+                            </SelectItem>
+                          )
                         )}
-                      </SelectItem>
-                    )
-                  )}
-              </AnalysisSelectField>
-            ) : null}
+                      </AnalysisSelectField>
+                    ) : null}
 
-            {selectedProvider === "google" ? (
-              <AnalysisSelectField
-                label={t("analysis.googleThinking", "Google Thinking Level")}
-                value={formState.google_thinking_level ?? ""}
-                onChange={(value) =>
-                  setFormState({
-                    ...formState,
-                    google_thinking_level: value,
-                  })
-                }
-                className="rounded-3xl border border-[var(--border)] bg-white/90 p-4"
-              >
-                  {configOptions.provider_settings.google?.google_thinking_level?.map(
-                    (option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {t(
-                          `analysis.googleThinking.${optionKey(option.value)}`,
-                          option.label
+                    {selectedProvider === "google" ? (
+                      <AnalysisSelectField
+                        label={t("analysis.googleThinking", "Google Thinking Level")}
+                        value={formState.google_thinking_level ?? ""}
+                        onChange={(value) =>
+                          setFormState({
+                            ...formState,
+                            google_thinking_level: value,
+                          })
+                        }
+                        className="analysis-form-section"
+                      >
+                        {configOptions.provider_settings.google?.google_thinking_level?.map(
+                          (option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {t(
+                                `analysis.googleThinking.${optionKey(option.value)}`,
+                                option.label
+                              )}
+                            </SelectItem>
+                          )
                         )}
-                      </SelectItem>
-                    )
-                  )}
-              </AnalysisSelectField>
-            ) : null}
+                      </AnalysisSelectField>
+                    ) : null}
+                  </div>
+                </details>
+              </div>
+            </div>
 
             {error ? (
-              <div className="rounded-2xl border border-[rgba(163,53,53,0.2)] bg-[rgba(163,53,53,0.08)] px-4 py-3 text-sm text-[var(--danger)]">
+              <div className="rounded-[10px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-3 text-sm text-[var(--danger)]">
                 {error}
               </div>
             ) : null}
@@ -636,7 +660,7 @@ export function NewAnalysisForm({
                   : t("analysis.start", "Start Analysis")}
               </Button>
             </div>
-          </div>
+          </FieldGroup>
         )}
       </DialogContent>
     </Dialog>
@@ -659,18 +683,18 @@ function AnalysisSelectField({
   children: ReactNode;
 }) {
   return (
-    <label className={className ?? "block"}>
-      <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+    <Field className={className}>
+      <FieldLabel>
         {label}
-      </span>
+      </FieldLabel>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className="mt-3 border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-slate-900">
+        <SelectTrigger className="border-[var(--border)] bg-[var(--surface-strong)] font-semibold text-foreground">
           <SelectValue placeholder={label} />
         </SelectTrigger>
         <SelectContent>{children}</SelectContent>
       </Select>
-      {hint ? <p className="mt-2 text-xs leading-5 text-slate-500">{hint}</p> : null}
-    </label>
+      {hint ? <FieldDescription>{hint}</FieldDescription> : null}
+    </Field>
   );
 }
 

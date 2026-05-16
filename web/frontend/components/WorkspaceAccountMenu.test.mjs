@@ -25,7 +25,7 @@ test("WorkspaceAccountMenu exposes a compact utility bar for the shell overlay",
   assert.match(source, /className="workbench-account-menu pointer-events-auto relative z-\[var\(--z-sidebar\)\] ml-auto flex shrink-0 items-center gap-2"/);
   assert.match(source, /pointer-events-auto/);
   assert.match(source, /workbench-account-menu-frame relative inline-flex/);
-  assert.match(source, /inline-flex items-center gap-1\.5 rounded-full/);
+  assert.match(source, /inline-flex items-center gap-1\.5 rounded-\[12px\]/);
   assert.doesNotMatch(source, /shadow-\[0_/);
   assert.doesNotMatch(source, /rgba\(/);
   assert.doesNotMatch(source, /text-slate-/);

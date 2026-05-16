@@ -14,13 +14,21 @@ test("NewAnalysisForm is driven by backend config options and task creation call
   assert.match(source, /defaultOutputLanguage:\s*string \| null/);
   assert.match(source, /from "@\/components\/ui\/button"/);
   assert.match(source, /from "@\/components\/ui\/dialog"/);
-  assert.match(source, /from "@\/components\/ui\/input"/);
+  assert.match(source, /from "@\/components\/ui\/field"/);
+  assert.match(source, /from "@\/components\/ui\/input-group"/);
   assert.match(source, /from "@\/components\/ui\/select"/);
   assert.match(source, /<Button/);
+  assert.match(source, /<InputGroup/);
+  assert.match(source, /<InputGroupInput/);
   assert.match(source, /DialogContent/);
   assert.match(source, /Ticker/);
   assert.match(source, /Research Depth/i);
   assert.match(source, /Model Profile/i);
+  assert.doesNotMatch(source, /analysis-form-summary/);
+  assert.doesNotMatch(source, /AnalysisSummaryItem/);
+  assert.doesNotMatch(source, /analysis\.summary/);
+  assert.match(source, /analysis-form-advanced/);
+  assert.match(source, /analysis\.advancedSettings/);
   assert.match(source, /choice-pill px-4/);
   assert.match(source, /choice-card h-auto w-full/);
   assert.match(source, /LLM Provider/i);
@@ -73,18 +81,18 @@ test("NewAnalysisForm lets users choose private or workspace report visibility",
   assert.match(source, /report_visibility:\s*value as ReportVisibility/);
 });
 
-test("NewAnalysisForm lets users choose automatic or explicit CN exchange labels", () => {
+test("NewAnalysisForm defaults exchange routing to auto without showing a selector", () => {
   const source = readFileSync(formPath, "utf8");
 
   assert.match(source, /ticker_exchange:\s*"auto"/);
-  assert.match(source, /analysis\.tickerExchange/);
-  assert.match(source, /analysis\.tickerExchangeHint/);
-  assert.match(source, /value=\{formState\.ticker_exchange \?\? "auto"\}/);
-  assert.match(source, /ticker_exchange:\s*value as TaskCreateRequest\["ticker_exchange"\]/);
-  assert.match(source, /<SelectItem value="auto">/);
-  assert.match(source, /<SelectItem value="SH">/);
-  assert.match(source, /<SelectItem value="SZ">/);
-  assert.match(source, /<SelectItem value="BJ">/);
+  assert.doesNotMatch(source, /analysis\.tickerExchange/);
+  assert.doesNotMatch(source, /analysis\.tickerExchangeHint/);
+  assert.doesNotMatch(source, /value=\{formState\.ticker_exchange \?\? "auto"\}/);
+  assert.doesNotMatch(source, /ticker_exchange:\s*value as TaskCreateRequest\["ticker_exchange"\]/);
+  assert.doesNotMatch(source, /<SelectItem value="auto">/);
+  assert.doesNotMatch(source, /<SelectItem value="SH">/);
+  assert.doesNotMatch(source, /<SelectItem value="SZ">/);
+  assert.doesNotMatch(source, /<SelectItem value="BJ">/);
 });
 
 test("NewAnalysisForm lets the backend resolve the latest ready analysis date", () => {
@@ -136,7 +144,7 @@ test("NewAnalysisForm keeps research depth descriptions contained within each op
 
   assert.match(
     source,
-    /className="choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[24px\] p-4 text-left whitespace-normal"/
+    /className="choice-card h-auto w-full flex-col items-stretch justify-start overflow-hidden rounded-\[12px\] p-3 text-left whitespace-normal"/
   );
   assert.match(source, /<p className="min-w-0 text-sm font-semibold">/);
   assert.match(source, /<p className="mt-2 min-w-0 break-words text-xs leading-5">/);

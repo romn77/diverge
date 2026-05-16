@@ -16,6 +16,7 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /useWorkbench/);
   assert.match(source, /buildHomeHref/);
   assert.match(source, /buildAssetsHref/);
+  assert.match(source, /buildMarketBriefHref/);
   assert.match(source, /buildScreenerHref/);
   assert.match(source, /buildJournalHref/);
   assert.match(source, /buildActivityHref/);
@@ -27,15 +28,19 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /mt-auto mb-4 w-full border-t border-\[var\(--border\)\] pt-3/);
   assert.match(source, /mt-auto mb-4 border-t border-\[var\(--border\)\] pt-2\.5/);
   assert.match(source, /t\("sidebar\.nav\.analysis", "Analysis"\)/);
+  assert.match(source, /t\("sidebar\.nav\.marketBrief", "Market Brief"\)/);
   assert.match(source, /t\("sidebar\.nav\.screener", "Screener"\)/);
   assert.match(source, /t\("sidebar\.nav\.assets", "Assets"\)/);
   assert.match(source, /t\("sidebar\.nav\.journal", "Journal"\)/);
   assert.match(source, /t\("sidebar\.nav\.activity", "Activity"\)/);
   assert.match(source, /t\("sidebar\.meta\.analysis", "Reports and search"\)/);
+  assert.match(source, /t\("sidebar\.meta\.marketBrief", "Daily market briefs"\)/);
   assert.match(source, /t\("sidebar\.meta\.screener", "Runs and candidates"\)/);
   assert.match(source, /t\("sidebar\.meta\.assets", "Ledger and exposure"\)/);
   assert.match(source, /t\("sidebar\.meta\.journal", "Trade review"\)/);
   assert.match(source, /t\("sidebar\.noActiveWork", "No active background work"\)/);
+  assert.match(source, /activeOpportunityTasks/);
+  assert.match(source, /pathname\.startsWith\("\/opportunity-tasks\/"\)/);
   assert.doesNotMatch(source, /CreateMenu/);
   assert.match(source, /const isMobileDrawerOpen = isMobileViewport && isOpen/);
   assert.match(source, /const isDesktopRail = !isMobileViewport && isDesktopCollapsed/);
@@ -48,6 +53,7 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /Collapse sidebar/);
   assert.match(source, /Expand sidebar/);
   assert.match(source, /pathname === "\/" \|\| pathname\.startsWith\("\/reports\/"\)/);
+  assert.match(source, /pathname === buildMarketBriefHref\(\) \|\| pathname\.startsWith\("\/market-briefs\/"\)/);
   assert.match(source, /pathname === buildAssetsHref\(\) \|\| pathname\.startsWith\("\/assets\/"\)/);
   assert.match(source, /pathname === buildActivityHref\(\)/);
 });

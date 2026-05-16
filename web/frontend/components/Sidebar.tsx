@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { usePathname } from "next/navigation";
-import { Radar } from "lucide-react";
+import { Newspaper, Radar } from "lucide-react";
 import { DivergeMark } from "@/components/BrandMark";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbench } from "@/components/WorkbenchProvider";
@@ -18,6 +18,7 @@ import {
   buildAssetsHref,
   buildHomeHref,
   buildJournalHref,
+  buildMarketBriefHref,
   buildOpportunitiesHref,
   buildScreenerHref,
 } from "@/lib/workbenchRoutes";
@@ -33,7 +34,12 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const { t } = usePreferences();
-  const { activeScreenerTasks, activeTasks, opportunityRadarEnabled } = useWorkbench();
+  const {
+    activeOpportunityTasks,
+    activeScreenerTasks,
+    activeTasks,
+    canAccessOpportunityRadar,
+  } = useWorkbench();
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
 
@@ -52,8 +58,10 @@ export function Sidebar({
 
   const isMobileDrawerOpen = isMobileViewport && isOpen;
   const isDesktopRail = !isMobileViewport && isDesktopCollapsed;
-  const totalActive = activeTasks.length + activeScreenerTasks.length;
+  const totalActive =
+    activeTasks.length + activeScreenerTasks.length + activeOpportunityTasks.length;
   const analysisLabel = t("sidebar.nav.analysis", "Analysis");
+  const marketBriefLabel = t("sidebar.nav.marketBrief", "Market Brief");
   const screenerLabel = t("sidebar.nav.screener", "Screener");
   const opportunityLabel = t("sidebar.nav.opportunities", "Opportunities");
   const assetsLabel = t("sidebar.nav.assets", "Assets");
@@ -64,17 +72,22 @@ export function Sidebar({
     "Workbench navigation"
   );
   const isAnalysisActive = pathname === "/" || pathname.startsWith("/reports/");
+  const isMarketBriefActive =
+    pathname === buildMarketBriefHref() || pathname.startsWith("/market-briefs/");
   const isScreenerActive =
     pathname === buildScreenerHref() || pathname.startsWith("/screeners/");
   const isOpportunityActive =
-    pathname === buildOpportunitiesHref() || pathname.startsWith("/opportunities/");
+    pathname === buildOpportunitiesHref() ||
+    pathname.startsWith("/opportunities/") ||
+    pathname.startsWith("/opportunity-tasks/");
   const isAssetsActive =
     pathname === buildAssetsHref() || pathname.startsWith("/assets/");
   const isJournalActive = pathname === buildJournalHref();
   const isActivityActive =
     pathname === buildActivityHref() ||
     pathname.startsWith("/tasks/") ||
-    pathname.startsWith("/screener-tasks/");
+    pathname.startsWith("/screener-tasks/") ||
+    pathname.startsWith("/opportunity-tasks/");
 
   useEffect(() => {
     if (!isMobileDrawerOpen) {
@@ -220,6 +233,15 @@ export function Sidebar({
                 <AnalysisIcon />
               </RailLinkButton>
               <RailLinkButton
+                href={buildMarketBriefHref()}
+                label={marketBriefLabel}
+                title={marketBriefLabel}
+                active={isMarketBriefActive}
+                onClick={handleNavSelection}
+              >
+                <Newspaper className="h-4 w-4" aria-hidden />
+              </RailLinkButton>
+              <RailLinkButton
                 href={buildScreenerHref()}
                 label={screenerLabel}
                 title={screenerLabel}
@@ -228,7 +250,7 @@ export function Sidebar({
               >
                 <ScreenerIcon />
               </RailLinkButton>
-              {opportunityRadarEnabled ? (
+              {canAccessOpportunityRadar ? (
                 <RailLinkButton
                   href={buildOpportunitiesHref()}
                   label={opportunityLabel}
@@ -299,6 +321,15 @@ export function Sidebar({
                 <AnalysisIcon />
               </SidebarNavLink>
               <SidebarNavLink
+                href={buildMarketBriefHref()}
+                label={marketBriefLabel}
+                meta={t("sidebar.meta.marketBrief", "Daily market briefs")}
+                active={isMarketBriefActive}
+                onClick={handleNavSelection}
+              >
+                <Newspaper className="h-4 w-4" aria-hidden />
+              </SidebarNavLink>
+              <SidebarNavLink
                 href={buildScreenerHref()}
                 label={screenerLabel}
                 meta={t("sidebar.meta.screener", "Runs and candidates")}
@@ -307,7 +338,7 @@ export function Sidebar({
               >
                 <ScreenerIcon />
               </SidebarNavLink>
-              {opportunityRadarEnabled ? (
+              {canAccessOpportunityRadar ? (
                 <SidebarNavLink
                   href={buildOpportunitiesHref()}
                   label={opportunityLabel}

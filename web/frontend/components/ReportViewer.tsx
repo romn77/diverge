@@ -33,7 +33,7 @@ interface ReportViewerProps {
   sidebarOpen?: boolean;
 }
 
-const SUMMARY_TAB_KEY = "summary";
+const DECISION_CARD_TAB_KEY = "decision_card";
 
 const CATEGORY_MAP: Record<string, { dir: string; label: string }> = {
   analysts: { dir: "1_analysts", label: "Analysts" },
@@ -225,7 +225,7 @@ function resolveReportContentPath(
   tabKey: string,
   selectedFile: string | null
 ): string | null {
-  if (tabKey === SUMMARY_TAB_KEY) {
+  if (tabKey === DECISION_CARD_TAB_KEY) {
     return null;
   }
 
@@ -239,6 +239,27 @@ function resolveReportContentPath(
   }
 
   return `${categoryInfo.dir}/${selectedFile}.md`;
+}
+
+function hasDecisionCardArtifact(structure: ReportStructure | null): boolean {
+  return Boolean(
+    structure?.artifacts.some(
+      (artifact) => artifact.type.toLowerCase() === "decision_card"
+    )
+  );
+}
+
+function getDefaultReportTab(structure: ReportStructure): string {
+  if (hasDecisionCardArtifact(structure)) {
+    return DECISION_CARD_TAB_KEY;
+  }
+  if (structure.has_complete) {
+    return "complete";
+  }
+  const firstCategory = Object.keys(CATEGORY_MAP).find(
+    (key) => structure.categories[key]?.length
+  );
+  return firstCategory ?? "complete";
 }
 
 function formatGeneratedLabel(
@@ -286,7 +307,7 @@ export function ReportViewer({
   const { locale, t } = usePreferences();
   const { authState, refreshReports } = useWorkbench();
   const [structure, setStructure] = useState<ReportStructure | null>(null);
-  const [selectedTab, setSelectedTab] = useState(SUMMARY_TAB_KEY);
+  const [selectedTab, setSelectedTab] = useState("complete");
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [decisionCard, setDecisionCard] = useState<DecisionCardModel | null>(null);
@@ -329,7 +350,7 @@ export function ReportViewer({
         }
 
         setStructure(data);
-        setSelectedTab(SUMMARY_TAB_KEY);
+        setSelectedTab(getDefaultReportTab(data));
         setSelectedFile(null);
         setContent("");
         contentCacheRef.current.clear();
@@ -432,7 +453,7 @@ export function ReportViewer({
         return;
       }
 
-      if (selectedTab === SUMMARY_TAB_KEY) {
+      if (selectedTab === DECISION_CARD_TAB_KEY) {
         requestIdRef.current += 1;
         setContent("");
         setError(null);
@@ -504,7 +525,9 @@ export function ReportViewer({
 
   const categoryFiles = useMemo(
     () =>
-      selectedTab !== SUMMARY_TAB_KEY && selectedTab !== "complete" && structure
+      selectedTab !== DECISION_CARD_TAB_KEY &&
+      selectedTab !== "complete" &&
+      structure
         ? structure.categories[selectedTab] || []
         : [],
     [selectedTab, structure]
@@ -518,10 +541,14 @@ export function ReportViewer({
     [structure]
   );
 
-  const selectedCategoryMeta = selectedTab !== "complete" ? CATEGORY_MAP[selectedTab] : null;
+  const selectedCategoryMeta =
+    selectedTab !== "complete" &&
+    selectedTab !== DECISION_CARD_TAB_KEY
+      ? CATEGORY_MAP[selectedTab]
+      : null;
   const selectedCategoryLabel =
-    selectedTab === SUMMARY_TAB_KEY
-      ? t("report.summary", "Summary")
+    selectedTab === DECISION_CARD_TAB_KEY
+      ? t("report.decisionCard", "Decision Card")
       : selectedCategoryMeta
         ? t(`report.category.${selectedTab}`, selectedCategoryMeta.label)
         : null;
@@ -540,14 +567,7 @@ export function ReportViewer({
       selectedCategoryLabel ??
       t("report.completeReport", "Complete Report"),
   ].join(" / ");
-  const summaryArtifact = useMemo(
-    () =>
-      structure?.artifacts.find(
-        (artifact) => artifact.type.toLowerCase() === "summary"
-      ) ?? null,
-    [structure]
-  );
-  const summaryText = summaryArtifact?.summary?.trim() ?? "";
+  const hasDecisionCardTab = Boolean(decisionCardPath);
   const currentUserId = authState?.user?.id ?? null;
   const canUpdateVisibility =
     structure &&
@@ -594,7 +614,7 @@ export function ReportViewer({
     (tabKey: string) => {
       setSelectedTab(tabKey);
 
-      if (tabKey === SUMMARY_TAB_KEY) {
+      if (tabKey === DECISION_CARD_TAB_KEY) {
         setSelectedFile(null);
         return;
       }
@@ -746,8 +766,8 @@ export function ReportViewer({
                                   aria-hidden
                                 />
                                 {selectedFileLabel ??
-                                  (selectedTab === SUMMARY_TAB_KEY
-                                    ? t("report.summary", "Summary")
+                                  (selectedTab === DECISION_CARD_TAB_KEY
+                                    ? t("report.decisionCard", "Decision Card")
                                     : selectedCategoryMeta
                                       ? t(
                                           "report.categoryView",
@@ -760,7 +780,7 @@ export function ReportViewer({
                                         )
                                       : t("report.completeReport", "Complete Report"))}
                               </span>
-                              {selectedTab !== SUMMARY_TAB_KEY &&
+                              {selectedTab !== DECISION_CARD_TAB_KEY &&
                                 selectedTab !== "complete" &&
                                 categoryFiles.length > 0 && (
                                   <span>
@@ -862,9 +882,11 @@ export function ReportViewer({
               <div className="min-w-0 w-full max-w-full">
                 <Tabs value={selectedTab} onValueChange={handleTabChange}>
                   <TabsList className="scrollbar-none flex min-w-0 w-full max-w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none">
-                    <TabsTrigger value={SUMMARY_TAB_KEY}>
-                      {t("report.summary", "Summary")}
-                    </TabsTrigger>
+                    {hasDecisionCardTab && (
+                      <TabsTrigger value={DECISION_CARD_TAB_KEY}>
+                        {t("report.decisionCard", "Decision Card")}
+                      </TabsTrigger>
+                    )}
                     <TabsTrigger value="complete">
                       {t("report.completeReport", "Complete Report")}
                     </TabsTrigger>
@@ -878,7 +900,7 @@ export function ReportViewer({
               </div>
             </div>
 
-            {selectedTab !== SUMMARY_TAB_KEY &&
+            {selectedTab !== DECISION_CARD_TAB_KEY &&
               selectedTab !== "complete" &&
               categoryFiles.length > 0 && (
               <div className="report-subtab-rail border-b border-[var(--border)] px-4 py-3 md:px-8">
@@ -925,15 +947,10 @@ export function ReportViewer({
                 <div className="rounded-[18px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
                   {error}
                 </div>
-              ) : selectedTab === SUMMARY_TAB_KEY ? (
-                <SummaryPanel
-                  summaryText={summaryText}
-                  t={t}
-                />
-              ) : selectedTab === "complete" ? (
+              ) : selectedTab === DECISION_CARD_TAB_KEY ? (
                 <>
                   {isDecisionCardLoading && <DecisionCardSkeleton />}
-                  {decisionCard && (
+                  {decisionCard ? (
                     <>
                       <DecisionCardView card={decisionCard} delta={decisionDelta} />
                       <details className="decision-raw-details">
@@ -956,15 +973,18 @@ export function ReportViewer({
                         </pre>
                       </details>
                     </>
-                  )}
-                  <MarkdownContent
-                    content={content}
-                    isLoading={isLoading}
-                    highlightMode={
-                      decisionCard || isDecisionCardLoading ? "off" : "single"
-                    }
-                  />
+                  ) : !isDecisionCardLoading ? (
+                    <div className="py-8 text-center text-sm text-[var(--muted)]">
+                      {t("report.noDecisionCard", "Decision card unavailable")}
+                    </div>
+                  ) : null}
                 </>
+              ) : selectedTab === "complete" ? (
+                <MarkdownContent
+                  content={content}
+                  isLoading={isLoading}
+                  highlightMode="single"
+                />
               ) : categoryFiles.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-500">
                   {t("report.noCategoryData", "No data available for this category")}
@@ -1022,28 +1042,5 @@ function SummaryMetric({
       <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
       </CardContent>
     </Card>
-  );
-}
-
-function SummaryPanel({
-  summaryText,
-  t,
-}: {
-  summaryText: string;
-  t: ReturnType<typeof usePreferences>["t"];
-}) {
-  return (
-    <div className="space-y-6">
-      <Card className="report-summary-card rounded-[28px] border">
-        <CardContent className="px-5 py-5 md:px-6">
-        <p className="viewer-meta-label">{t("report.summary", "Summary")}</p>
-        {summaryText ? (
-          <p className="mt-4 text-sm leading-7 text-slate-700 md:text-[15px]">
-            {summaryText}
-          </p>
-        ) : null}
-        </CardContent>
-      </Card>
-    </div>
   );
 }
