@@ -1,6 +1,6 @@
 ---
 name: workbench-ui-theme-audit
-description: Audit and harden Diverge Web Workbench UI theme adaptation across buttons, controls, surfaces, and states. Use when asked to inspect UI, fix theme mismatches, review visual consistency, or change frontend components that must work in light, dark, proof, everforest, and stylful modes.
+description: Use when asked to plan, build, refactor, review, or restyle any Workbench frontend page, component, layout, theme, or shared UI primitive that must preserve the existing visual system across light, dark, proof, everforest, and stylful modes.
 ---
 
 # Workbench UI Theme Audit
@@ -19,6 +19,28 @@ layers:
 
 The goal is to make components theme-native by construction, not just patched by
 global dark-mode overrides.
+
+## Default Stance
+
+Default to design preservation, not redesign.
+
+- Extend the established Workbench visual language unless the task explicitly
+  asks for a redesign.
+- Keep page information architecture, density, spacing rhythm, typography
+  direction, radius language, shadow language, and motion style stable by
+  default.
+- Unless the task explicitly asks for a design change, style-element edits such
+  as color, type scale, spacing, radius, border treatment, shadow treatment,
+  and motion should follow the site-wide design language.
+- Do not introduce a new visual language unless the task explicitly calls for
+  one.
+- Do not "freshen up" a page while solving an unrelated product or data task.
+- If a surface looks weak, first fix it by using shared primitives, semantic
+  tokens, or existing workbench classes before inventing a new local pattern.
+
+Treat this skill as required for any `web/frontend/app/**/*.tsx`,
+`web/frontend/components/**/*.tsx`, `web/frontend/app/globals.css`, or
+`web/frontend/app/stylful.css` edit, not just explicit theme tickets.
 
 ## Current Audit Snapshot
 
@@ -84,6 +106,21 @@ rg -n '(bg-|text-|border-|ring-|shadow-).*?(slate|zinc|neutral|stone|gray|white|
    - Update `stylful.css` when the visual style needs a specific border,
      radius, shadow, or sketch treatment.
 
+6. Decide whether the change is preserving or redesigning the page.
+   - Preserving: keep the existing shell, content order, typography system,
+     token set, and visual personality while fixing the local issue.
+   - Redesigning: any intentional shift in page hierarchy, hero treatment,
+     card grammar, button style, radius/shadow direction, or motion language.
+   - If the task did not explicitly request redesign, stay in preserving mode.
+
+7. Freeze debt unless you are explicitly paying it down.
+   - Existing hard-coded color debt may remain temporarily, but do not spread it
+     to new files or add new raw color tokens to existing files.
+   - Prefer shrinking debt by migrating touched surfaces to shared primitives or
+     semantic tokens.
+   - If you must keep or add debt for a justified case such as chart internals,
+     document it and update the baseline test intentionally.
+
 ## Token Rules
 
 Use semantic tokens and shared classes:
@@ -112,6 +149,16 @@ Avoid these in workbench components unless explicitly justified:
 - literal hex/rgb/rgba colors in JSX class names
 - selected states that set only the background but not the foreground
 - nested count chips inside active buttons that keep `bg-white/*`
+
+Avoid these behavioral design changes unless explicitly requested:
+
+- route-level layout rewrites while doing unrelated feature work
+- replacing established workbench typography with a new font mood
+- swapping the current radius/shadow system for a new card language
+- introducing decorative gradients, hero art, or motion concepts that change
+  the product's overall visual identity
+- moving page-level actions, filters, or summary blocks into a new hierarchy
+  without a user request to redesign the page
 
 ## Button And Control Checklist
 
@@ -143,7 +190,7 @@ Run focused source-contract tests when UI primitives or stylful behavior change:
 
 ```bash
 cd web/frontend
-node --test app/stylful.test.mjs components/ui-layer.test.mjs
+node --test app/stylful.test.mjs components/ui-layer.test.mjs lib/themeGuard.test.mjs
 ```
 
 Run broader frontend checks when page components or shared tokens changed:
@@ -157,6 +204,7 @@ npm run build
 A theme fix is not done until:
 
 - The static scan has no new hard-coded color utilities outside allowed cases.
+- `lib/themeGuard.test.mjs` passes, so the design-debt baseline did not expand.
 - The changed route was visually checked in light and dark.
 - Stylful mode was checked if the changed element has border, radius, shadow, or
   active-state styling.

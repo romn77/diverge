@@ -1086,6 +1086,32 @@ export interface OpportunityTaskCreateResponse {
   task_id: string;
   status: string;
   run_id?: string;
+  cached?: boolean;
+}
+
+export interface OpportunityTask {
+  id: string;
+  request_payload: OpportunityRunRequest | null;
+  owner_user_id?: string | null;
+  tenant_id?: string | null;
+  status: TaskStatus;
+  latest_progress: ProgressEvent | null;
+  progress_events: ProgressEvent[];
+  result?: {
+    run_id?: string | null;
+    status?: string | null;
+    cached?: boolean;
+    candidate_count?: number | null;
+    run_dir?: string | null;
+  } | null;
+  error?: string | null;
+  created_at?: string | null;
+  queued_at?: string | null;
+  started_at?: string | null;
+  finished_at?: string | null;
+  queue_position?: number | null;
+  cancel_requested_at?: string | null;
+  canceled_at?: string | null;
 }
 
 export interface CandidateAnalyzeRequest {
@@ -1217,6 +1243,7 @@ export interface ScreenerRunDetail extends ScreenerRunSummary {
 
 export interface ScreenerCandidateRow {
   symbol: string;
+  name?: string | null;
   market: string;
   global_rank: number;
   market_rank?: number;
@@ -2406,6 +2433,30 @@ export async function getOpportunityEvents(runId: string): Promise<OpportunityEv
   return requestJson<OpportunityEvent[]>(`/api/opportunities/runs/${runId}/events`, { cache: "no-store" });
 }
 
+export async function listOpportunityTasks(): Promise<OpportunityTask[]> {
+  return requestJson<OpportunityTask[]>("/api/opportunities/tasks", {
+    cache: "no-store",
+  });
+}
+
+export async function getOpportunityTask(taskId: string): Promise<OpportunityTask> {
+  return requestJson<OpportunityTask>(`/api/opportunities/tasks/${taskId}`, {
+    cache: "no-store",
+  });
+}
+
+export async function cancelOpportunityTask(
+  taskId: string
+): Promise<CancelTaskResponse> {
+  return requestJson<CancelTaskResponse>(
+    `/api/opportunities/tasks/${taskId}/cancel`,
+    {
+      method: "POST",
+      credentials: "include",
+    }
+  );
+}
+
 export async function listOpportunityWatchlist(): Promise<WatchlistItem[]> {
   return requestJson<WatchlistItem[]>("/api/opportunities/watchlist", { cache: "no-store" });
 }
@@ -2423,6 +2474,44 @@ export async function deleteOpportunityWatchlistItem(symbol: string): Promise<{ 
 
 export async function createOpportunityRun(payload: OpportunityRunRequest): Promise<OpportunityTaskCreateResponse> {
   return requestJson<OpportunityTaskCreateResponse>("/api/opportunities/run", createJsonRequestInit("POST", payload));
+}
+
+export function subscribeToOpportunityTask(
+  taskId: string,
+  onEvent: (event: ProgressEvent) => void,
+  onError?: (error: Error) => void,
+  startCursor = 0
+): () => void {
+  const url = new URL(buildApiUrl(`/api/opportunities/tasks/${taskId}/stream`));
+  if (startCursor > 0) {
+    url.searchParams.set("cursor", String(startCursor));
+  }
+
+  const eventSource = new EventSource(url.toString(), {
+    withCredentials: true,
+  });
+
+  eventSource.onmessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data) as ProgressEvent;
+      onEvent(payload);
+    } catch (error) {
+      onError?.(
+        error instanceof Error
+          ? error
+          : new Error("Unable to parse opportunity task stream event")
+      );
+    }
+  };
+
+  eventSource.onerror = () => {
+    onError?.(new Error("Opportunity task progress stream disconnected"));
+    eventSource.close();
+  };
+
+  return () => {
+    eventSource.close();
+  };
 }
 
 

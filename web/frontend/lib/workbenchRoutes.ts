@@ -43,6 +43,10 @@ export function buildOpportunitiesHref(runId?: string | null): string {
   return `/opportunities?${searchParams.toString()}`;
 }
 
+export function buildOpportunityTaskHref(taskId: string): string {
+  return `/opportunity-tasks/${encodeURIComponent(taskId)}`;
+}
+
 export function buildLoginHref(nextPath?: string | null): string {
   const searchParams = new URLSearchParams({
     next: resolveNextPath(nextPath),

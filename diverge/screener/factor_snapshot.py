@@ -72,6 +72,14 @@ _COLUMN_ALIASES = {
 }
 
 
+def _numeric_column_or_default(
+    frame: pd.DataFrame, column: str, default: int | float = 0
+) -> pd.Series:
+    if column in frame.columns:
+        return pd.to_numeric(frame[column], errors="coerce")
+    return pd.Series(default, index=frame.index, dtype="float64")
+
+
 def normalize_factor_snapshot(
     frame: pd.DataFrame, *, trade_date: str | None = None, source: str = "local_cache"
 ) -> pd.DataFrame:
@@ -96,12 +104,9 @@ def normalize_factor_snapshot(
     if "data_quality_flags" not in result.columns:
         result["data_quality_flags"] = "[]"
     if "moneyflow_float_mv_ratio_5d" not in result.columns:
-        numerator = pd.to_numeric(
-            result.get("moneyflow_net_amount_5d", 0), errors="coerce"
-        )
-        denominator = pd.to_numeric(result.get("float_mv", 0), errors="coerce").replace(
-            0, pd.NA
-        )
+        numerator = _numeric_column_or_default(result, "moneyflow_net_amount_5d")
+        denominator = _numeric_column_or_default(result, "float_mv")
+        denominator = denominator.mask(denominator == 0)
         result["moneyflow_float_mv_ratio_5d"] = (numerator / denominator).fillna(0)
     for column in DEFAULT_FACTOR_COLUMNS:
         if column not in result.columns:

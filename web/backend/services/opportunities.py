@@ -11,18 +11,6 @@ from diverge.opportunity.radar import list_radar_runs, load_radar_artifact
 from web.backend import app_config, auth, opportunity_models
 
 
-def require_enabled() -> None:
-    if not app_config.opportunity_radar_enabled():
-        raise HTTPException(status_code=404, detail="Opportunity Radar is disabled")
-
-
-def initialize_opportunity_runtime() -> None:
-    if not app_config.opportunity_radar_enabled():
-        return
-    app_config.ensure_opportunity_dependencies()
-    opportunity_models.initialize_opportunity_runtime()
-
-
 def _assert_run_access(run_meta: dict[str, Any], current_user=None) -> None:
     if not auth.auth_enabled() or current_user is None:
         return
@@ -36,7 +24,6 @@ def _assert_run_access(run_meta: dict[str, Any], current_user=None) -> None:
 
 
 def list_runs(current_user=None) -> list[dict[str, Any]]:
-    require_enabled()
     tenant_id = getattr(current_user, "tenant_id", None)
     runs = list_radar_runs(project_root=app_config.PROJECT_ROOT)
     if tenant_id is not None:
@@ -45,7 +32,6 @@ def list_runs(current_user=None) -> list[dict[str, Any]]:
 
 
 def get_run(run_id: str, current_user=None) -> dict[str, Any]:
-    require_enabled()
     try:
         run_meta = load_radar_artifact(
             run_id, "run_meta.json", project_root=app_config.PROJECT_ROOT
@@ -61,7 +47,6 @@ def get_run(run_id: str, current_user=None) -> dict[str, Any]:
 
 
 def get_artifact(run_id: str, artifact_name: str, current_user=None) -> Any:
-    require_enabled()
     filename_by_name = {
         "market_pulse": "market_pulse.json",
         "themes": "theme_radar.json",
@@ -93,7 +78,6 @@ def _watchlist_file(owner_user_id: str | None) -> Path:
 
 
 def list_watchlist(current_user=None) -> list[dict[str, Any]]:
-    require_enabled()
     if auth.auth_enabled() and current_user is not None:
         try:
             with auth.db_session() as db:
@@ -130,7 +114,6 @@ def list_watchlist(current_user=None) -> list[dict[str, Any]]:
 
 
 def upsert_watchlist_item(payload: dict[str, Any], current_user=None) -> dict[str, Any]:
-    require_enabled()
     owner_user_id = getattr(current_user, "id", None)
     tenant_id = getattr(current_user, "tenant_id", None)
     if auth.auth_enabled() and current_user is not None:
@@ -175,7 +158,6 @@ def upsert_watchlist_item(payload: dict[str, Any], current_user=None) -> dict[st
 
 
 def delete_watchlist_item(symbol: str, current_user=None) -> dict[str, Any]:
-    require_enabled()
     owner_user_id = getattr(current_user, "id", None)
     if auth.auth_enabled() and current_user is not None:
         with auth.db_session() as db:
@@ -206,7 +188,6 @@ def delete_watchlist_item(symbol: str, current_user=None) -> dict[str, Any]:
 def build_candidate_opportunity_context(
     symbol: str, run_id: str | None, current_user=None
 ) -> dict[str, Any]:
-    require_enabled()
     context: dict[str, Any] = {"symbol": symbol, "source": "opportunity_radar"}
     if not run_id:
         return context

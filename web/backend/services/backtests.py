@@ -11,7 +11,6 @@ from diverge.backtest.event_study import run_backtest_snapshot
 from diverge.backtest.storage import write_backtest_artifacts
 from diverge.opportunity.storage import read_ndjson, read_table, write_json
 from web.backend import app_config, auth
-from web.backend.services import opportunities
 
 
 def _run_dir(run_id: str) -> Path:
@@ -57,7 +56,6 @@ def run_snapshot(
     owner_user_id: str | None = None,
     tenant_id: str | None = None,
 ) -> dict[str, Any]:
-    opportunities.require_enabled()
     signals_path = payload.get("signal_events_path")
     price_path = payload.get("price_history_path")
     if not signals_path or not price_path:

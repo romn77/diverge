@@ -4,6 +4,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from diverge.analysis.options import ANALYST_ORDER
 from diverge.runner import AnalysisRequest
 from web.backend import access, audit, auth
 from web.backend.runtime import analysis_tasks, opportunity_tasks
@@ -32,7 +33,6 @@ def _get_authorized_task(task_id: str, current_user):
 def _current_user(
     request: Request | None, permission: str = auth.PERMISSION_OPPORTUNITY_READ
 ):
-    opportunity_service.require_enabled()
     if not auth.auth_enabled() or request is None:
         return None
     with auth.db_session() as db:
@@ -208,7 +208,7 @@ def analyze_candidate(
         analysis_request = AnalysisRequest(
             ticker=symbol,
             analysis_date=analysis_date,
-            analysts=["market", "news", "fundamentals", "sentiment"],
+            analysts=list(ANALYST_ORDER),
             research_depth=3,
             model_profile=payload.model_profile or "default",
             llm_provider="openai",

@@ -94,6 +94,9 @@ test("top-level workbench copy stays short and action-oriented", () => {
   assert.match(preferencesSource, /"workbench\.preparingBody":\s*"正在检查会话。"/);
   assert.match(preferencesSource, /"analysis\.description":\s*"选择 ticker 和参数后开始分析。"/);
   assert.match(preferencesSource, /"screenerDashboard\.description":\s*"发起筛选并查看候选池。"/);
-  assert.match(preferencesSource, /"activity\.description":\s*"集中查看分析和筛选任务。"/);
+  assert.match(
+    preferencesSource,
+    /"activity\.description":\s*"集中查看分析、筛选和机会雷达任务。"/
+  );
   assert.match(preferencesSource, /"assets\.description":\s*"查看账户、持仓和资产敞口。"/);
 });

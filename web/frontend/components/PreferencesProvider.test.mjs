@@ -62,6 +62,15 @@ test("uiPreferences defines persisted preference cookie keys with zh translation
   assert.match(source, /"auth\.workspaceCredentials": "工作台凭据"/);
   assert.match(source, /"activity\.title": "后台任务"/);
   assert.match(source, /"assets\.title": "组合资产台账"/);
+  assert.match(source, /"marketBrief\.title": "每日市场简报"/);
+  assert.match(source, /"marketBrief\.run": "生成简报"/);
+  assert.match(source, /"marketBrief\.market\.cn": "A 股"/);
+  assert.match(source, /"marketBrief\.error\.load": "无法加载市场简报。"/);
+  assert.match(source, /"marketBrief\.error\.run": "无法生成市场简报。"/);
+  assert.match(source, /"opportunity\.title": "机会雷达"/);
+  assert.match(source, /"opportunity\.runId": "运行 ID"/);
+  assert.match(source, /"opportunity\.enum\.candidateType\.watch": "观察"/);
+  assert.match(source, /"opportunity\.enum\.event\.entry_candidate": "入场候选"/);
   assert.match(source, /"screenerDashboard\.queueSnapshot": "队列快照"/);
   assert.match(source, /"screenerDashboard\.configPanel": "筛选配置"/);
   assert.match(source, /"screenerDashboard\.collapseConfig": "收起配置"/);

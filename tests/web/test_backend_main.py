@@ -183,6 +183,33 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(len(reports), 1)
         self.assertEqual(reports[0]["id"], "SPY_20260305_155836")
 
+    def test_list_reports_excludes_market_briefs_by_default(self):
+        report_dir = backend_config.REPORTS_DIR / "SPY_20260515_090000"
+        report_dir.mkdir(parents=True)
+        (report_dir / "complete_report.md").write_text(
+            "# Trading Analysis Report: SPY\n\nGenerated: 2026-05-15 09:00:00\n\n",
+            encoding="utf-8",
+        )
+
+        brief_dir = backend_config.REPORTS_DIR / "MARKET_BRIEF_20260515_083000"
+        brief_dir.mkdir(parents=True)
+        (brief_dir / "complete_report.md").write_text(
+            "# Trading Analysis Report: MARKET_BRIEF\n\nGenerated: 2026-05-15 08:30:00\n\n",
+            encoding="utf-8",
+        )
+
+        reports = report_service.list_reports()
+        all_reports = report_service.list_reports(include_market_briefs=True)
+
+        self.assertEqual(
+            [report["id"] for report in reports],
+            ["SPY_20260515_090000"],
+        )
+        self.assertEqual(
+            [report["id"] for report in all_reports],
+            ["SPY_20260515_090000", "MARKET_BRIEF_20260515_083000"],
+        )
+
     def test_resolve_report_dir_rejects_tmp_report_id(self):
         with self.assertRaises(HTTPException) as context:
             report_service.resolve_report_dir(".tmp")

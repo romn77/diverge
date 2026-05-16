@@ -443,84 +443,98 @@ export function ScreenerResultsViewer({ runId, embedded = false }: ScreenerResul
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedRows.map((row) => (
-                    <TableRow
-                      key={`${row.symbol}-${row.market}`}
-                    >
-                      <TableCell className="font-semibold text-foreground">{row.symbol}</TableCell>
-                      <TableCell>
-                        <TickerSparkline
-                          className="h-7 min-w-[96px]"
-                          points={trendSeriesByTicker[seriesKey(row.symbol, row.market)] ?? []}
-                          loading={
-                            loadingTrendSeries &&
-                            !trendSeriesByTicker[seriesKey(row.symbol, row.market)]
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>{row.market}</TableCell>
-                      <TableCell className="text-right tabular-nums">{row.global_rank}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatNumber(row.close, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatMovingAverageGap(row, "ma20", locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatMovingAverageGap(row, "ma60", locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatPercent(row.ret_20, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatPercent(row.ret_60, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatNumber(row.rsi, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatPercent(row.atr_pct, locale)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatCompactNumber(row.avg_amount_20d, locale)}
-                      </TableCell>
-                      <TableCell>
-                        <TagStrip
-                          label="Pattern"
-                          value={formatBreakoutType(row.breakout_type, t)}
-                          tone="bg-[var(--primary-soft)] text-[var(--primary-strong)]"
-                          compact
-                        />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatRatio(row.breakout_volume_ratio, locale)}
-                      </TableCell>
-                      <TableCell>
-                        <TagStrip
-                          label="Strategy"
-                          value={row.strategy_tags}
-                          tone="bg-[var(--accent-soft)] text-[var(--accent)]"
-                          compact
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TagStrip
-                          label="Risk"
-                          value={row.risk_flags}
-                          tone="bg-[var(--danger-soft)] text-[var(--danger)]"
-                          compact
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <TagStrip
-                          label="Matched"
-                          value={row.matched_conditions}
-                          tone="bg-[var(--accent-surface)] text-[var(--accent)]"
-                          compact
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  paginatedRows.map((row) => {
+                    const candidateName = formatCandidateName(row);
+
+                    return (
+                      <TableRow
+                        key={`${row.symbol}-${row.market}`}
+                      >
+                        <TableCell className="min-w-[8rem]">
+                          <div className="font-semibold text-foreground">{row.symbol}</div>
+                          {candidateName ? (
+                            <div
+                              className="mt-0.5 max-w-[10rem] truncate text-[11px] font-medium text-muted-foreground"
+                              title={candidateName}
+                            >
+                              {candidateName}
+                            </div>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <TickerSparkline
+                            className="h-7 min-w-[96px]"
+                            points={trendSeriesByTicker[seriesKey(row.symbol, row.market)] ?? []}
+                            loading={
+                              loadingTrendSeries &&
+                              !trendSeriesByTicker[seriesKey(row.symbol, row.market)]
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>{row.market}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.global_rank}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatNumber(row.close, locale)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatMovingAverageGap(row, "ma20", locale)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatMovingAverageGap(row, "ma60", locale)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatPercent(row.ret_20, locale)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatPercent(row.ret_60, locale)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatNumber(row.rsi, locale)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatPercent(row.atr_pct, locale)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatCompactNumber(row.avg_amount_20d, locale)}
+                        </TableCell>
+                        <TableCell>
+                          <TagStrip
+                            label="Pattern"
+                            value={formatBreakoutType(row.breakout_type, t)}
+                            tone="bg-[var(--primary-soft)] text-[var(--primary-strong)]"
+                            compact
+                          />
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatRatio(row.breakout_volume_ratio, locale)}
+                        </TableCell>
+                        <TableCell>
+                          <TagStrip
+                            label="Strategy"
+                            value={row.strategy_tags}
+                            tone="bg-[var(--accent-soft)] text-[var(--accent)]"
+                            compact
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TagStrip
+                            label="Risk"
+                            value={row.risk_flags}
+                            tone="bg-[var(--danger-soft)] text-[var(--danger)]"
+                            compact
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <TagStrip
+                            label="Matched"
+                            value={row.matched_conditions}
+                            tone="bg-[var(--accent-surface)] text-[var(--accent)]"
+                            compact
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -537,6 +551,14 @@ function matchesBreakoutFilter(row: ScreenerCandidateRow, breakoutFilter: string
     return true;
   }
   return row.breakout_type === breakoutFilter;
+}
+
+function formatCandidateName(row: ScreenerCandidateRow): string | null {
+  const candidateName = String(row.name ?? "").trim();
+  if (!candidateName || candidateName === row.symbol) {
+    return null;
+  }
+  return candidateName;
 }
 
 function formatBreakoutType(

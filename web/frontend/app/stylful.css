@@ -225,6 +225,11 @@ html[data-visual-style="stylful"] .choice-pill,
 html[data-visual-style="stylful"] .stage-card,
 html[data-visual-style="stylful"] .summary-list-item,
 html[data-visual-style="stylful"] .summary-queue-item,
+html[data-visual-style="stylful"] .analysis-report-toolbar-select,
+html[data-visual-style="stylful"] .analysis-report-view-toggle,
+html[data-visual-style="stylful"] .analysis-form-summary,
+html[data-visual-style="stylful"] .analysis-form-advanced summary,
+html[data-visual-style="stylful"] [data-slot="input-group"],
 html[data-visual-style="stylful"] input,
 html[data-visual-style="stylful"] textarea,
 html[data-visual-style="stylful"] select {
@@ -235,10 +240,15 @@ html[data-visual-style="stylful"] .pill-tab,
 html[data-visual-style="stylful"] .choice-pill,
 html[data-visual-style="stylful"] .stage-card,
 html[data-visual-style="stylful"] .summary-list-item,
-html[data-visual-style="stylful"] .summary-queue-item {
+html[data-visual-style="stylful"] .summary-queue-item,
+html[data-visual-style="stylful"] .analysis-report-toolbar-select,
+html[data-visual-style="stylful"] .analysis-report-view-toggle,
+html[data-visual-style="stylful"] .analysis-form-summary,
+html[data-visual-style="stylful"] .analysis-form-advanced summary,
+html[data-visual-style="stylful"] [data-slot="input-group"] {
   border-width: 2px !important;
   border-color: var(--stylful-pencil-light) !important;
-  box-shadow: 2px 2px 0 var(--stylful-shadow) !important;
+  box-shadow: 1px 1px 0 var(--stylful-shadow) !important;
 }
 
 html[data-visual-style="stylful"] .pill-tab[data-active="true"],
@@ -247,7 +257,7 @@ html[data-visual-style="stylful"] .choice-pill[data-active="true"] {
   border-color: var(--stylful-pencil) !important;
   background: var(--surface) !important;
   color: var(--text) !important;
-  box-shadow: 3px 3px 0 var(--stylful-shadow-strong) !important;
+  box-shadow: 2px 2px 0 var(--stylful-shadow-strong) !important;
 }
 
 html[data-visual-style="stylful"] .pill-tab[data-active="true"]::after,

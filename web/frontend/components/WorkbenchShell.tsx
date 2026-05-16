@@ -296,13 +296,31 @@ function getWorkbenchPageChrome(
     };
   }
 
+  if (pathname.startsWith("/opportunities")) {
+    return {
+      title: t("opportunity.title", "Opportunity Radar"),
+    };
+  }
+
   if (pathname.startsWith("/reports")) {
     return {
       title: t("workbench.reportViewer", "Research Report"),
     };
   }
 
-  if (pathname.startsWith("/tasks") || pathname.startsWith("/screener-tasks")) {
+  if (pathname.startsWith("/screener-tasks")) {
+    return {
+      title: t("screenerTask.title", "Candidate Pool Build"),
+    };
+  }
+
+  if (pathname.startsWith("/opportunity-tasks")) {
+    return {
+      title: t("opportunityTask.title", "Opportunity Radar Run"),
+    };
+  }
+
+  if (pathname.startsWith("/tasks")) {
     return {
       title: t("workbench.taskProgress", "Task Progress"),
     };

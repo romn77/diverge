@@ -6,11 +6,16 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from diverge.agents.analysts.fundamentals_analyst import FundamentalsAnalyst
+from diverge.agents.analysts.market_analyst import MarketAnalyst
 from diverge.agents.managers.portfolio_manager import (
     PortfolioManager,
     PortfolioManagerStructuredOutput,
 )
 from diverge.agents.managers.research_manager import ResearchManager
+from diverge.agents.report_output import (
+    MarketReportStructuredOutput,
+    ResearchDecisionStructuredOutput,
+)
 from diverge.agents.researchers.bear_researcher import BearResearcher
 from diverge.agents.researchers.bull_researcher import BullResearcher
 from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
@@ -75,10 +80,24 @@ class _StructuredLLM:
         return _FakeResponse(json.dumps(self.payload))
 
 
+class _StructuredToolLLM:
+    def __init__(self, payload):
+        self.payload = payload
+        self.prompts = []
+        self.output_schema = None
+        self.tools = None
+
+    def invoke(self, prompt, *, tools=None, output_schema=None):
+        self.prompts.append(prompt)
+        self.tools = tools
+        self.output_schema = output_schema
+        return AIMessage(content=json.dumps(self.payload), tool_calls=[])
+
+
 def _base_state():
-    return {
-        "company_of_interest": "QQQ",
-        "trade_date": "2026-03-06",
+        return {
+            "company_of_interest": "QQQ",
+            "trade_date": "2026-03-06",
         "output_language": "en",
         "market_report": "market report",
         "sentiment_report": "sentiment report",
@@ -91,6 +110,8 @@ def _base_state():
             "bull_history": "bull history",
             "bear_history": "bear history",
             "current_response": "prior response",
+            "current_bull_response": "bull current",
+            "current_bear_response": "bear current",
             "count": 1,
         },
         "risk_debate_state": {
@@ -210,6 +231,49 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertIn("## DCF Summary", result["fundamentals_report"])
         self.assertIn('"category": "fundamentals"', result["fundamentals_report"])
 
+    def test_market_analyst_schema_output_sets_structured_sidecar(self):
+        llm = _StructuredToolLLM(
+            {
+                "report_markdown": "## Market view\n\nTrend is improving with confirmation.",
+                "highlights": {
+                    "category": "market",
+                    "signal": "HOLD",
+                    "signal_confidence": "medium",
+                    "summary": "Trend is constructive but not decisive.",
+                    "stance": "neutral",
+                    "trend_direction": "bullish",
+                    "key_levels": {
+                        "support": ["100"],
+                        "resistance": ["120"],
+                    },
+                    "indicators": [
+                        {
+                            "name": "rsi",
+                            "value": "56",
+                            "interpretation": "Momentum is balanced.",
+                        }
+                    ],
+                    "evidence_blocks": [],
+                    "unknowns": [],
+                },
+            }
+        )
+        node = MarketAnalyst(llm)
+        state = _base_state()
+        state["messages"] = [HumanMessage(content="Analyze market")]
+
+        result = node(state)
+
+        self.assertIs(llm.output_schema, MarketReportStructuredOutput)
+        self.assertIn("## Market view", result["market_report"])
+        self.assertIn("```json-highlights", result["market_report"])
+        self.assertEqual(
+            result["structured_agent_outputs"]["market_analyst"]["highlights"][
+                "category"
+            ],
+            "market",
+        )
+
     def test_portfolio_manager_gateway_timeout_returns_fallback_decision(self):
         node = PortfolioManager(_FailingLLM(), _FakeMemory())
 
@@ -291,6 +355,39 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertIn("```json-decision-card", result["final_trade_decision"])
         self.assertIn('"rating": "OVERWEIGHT"', result["final_trade_decision"])
         self.assertEqual(result["runtime_warnings"], [])
+
+    def test_research_manager_schema_output_sets_structured_sidecar(self):
+        llm = _StructuredLLM(
+            {
+                "report_markdown": "## Research decision\n\nFavor the bear case for now.",
+                "highlights": {
+                    "category": "research_decision",
+                    "signal": "HOLD",
+                    "signal_confidence": "medium",
+                    "summary": "Near-term risk dominates.",
+                    "stance": "bearish",
+                    "decision": "HOLD",
+                    "aligned_with": "bear",
+                    "rationale": "Short-term evidence favors caution.",
+                    "action_items": ["Wait for cleaner confirmation."],
+                    "evidence_blocks": [],
+                    "unknowns": [],
+                },
+            }
+        )
+        node = ResearchManager(llm, _FakeMemory())
+
+        result = node(_base_state())
+
+        self.assertIs(llm.output_schema, ResearchDecisionStructuredOutput)
+        self.assertIn("## Research decision", result["investment_plan"])
+        self.assertIn("```json-highlights", result["investment_plan"])
+        self.assertEqual(
+            result["structured_agent_outputs"]["research_manager"]["highlights"][
+                "aligned_with"
+            ],
+            "bear",
+        )
 
 
 if __name__ == "__main__":

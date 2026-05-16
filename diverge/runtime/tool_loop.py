@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from diverge.common.dates import days_before_or_original
@@ -11,6 +12,12 @@ from diverge.runtime.messages import AdkMessage
 
 DEFAULT_STOCK_DATA_TRADING_DAYS = 90
 DEFAULT_STOCK_DATA_CALENDAR_FALLBACK_DAYS = 126
+TOOL_INVOCATION_RE = re.compile(
+    r"\b(?:get_stock_data|get_indicators|get_news|get_global_news|"
+    r"get_fundamentals|get_balance_sheet|get_cashflow|get_income_statement|"
+    r"get_insider_transactions|web_search_evidence)\s*\(",
+    re.IGNORECASE,
+)
 
 
 def normalize_tool_args(args: Any) -> dict[str, Any]:
@@ -97,10 +104,38 @@ def stock_data_start_date(symbol: str, end_date: str) -> str:
 
 def looks_like_incomplete_tool_preface(message: Any) -> bool:
     content = str(getattr(message, "content", "") or "").strip()
-    if not content or "json-highlights" in content or len(content) > 800:
+    if not content or "json-highlights" in content:
         return False
 
     lowered = content.lower()
+    if TOOL_INVOCATION_RE.search(content):
+        tool_preface_markers = (
+            "call",
+            "calling",
+            "tool",
+            "first",
+            "retrieve",
+            "gather",
+            "calculate",
+            "调用",
+            "工具",
+            "获取",
+            "计算",
+            "指标",
+            "首先",
+            "然后",
+            "我将",
+            "我会",
+            "我们需要",
+            "需要先",
+            "开始调用",
+        )
+        if any(marker in lowered for marker in tool_preface_markers):
+            return True
+
+    if len(content) > 800:
+        return False
+
     intent_markers = (
         "i'll",
         "i’ll",
@@ -110,8 +145,26 @@ def looks_like_incomplete_tool_preface(message: Any) -> bool:
         "first pull",
         "first retrieve",
         "first gather",
+        "我将",
+        "我会",
+        "我们需要",
+        "需要先",
+        "先调用",
+        "开始调用",
     )
-    tool_markers = ("tool", "get_", "pull", "retrieve", "gather", "calculate")
+    tool_markers = (
+        "tool",
+        "get_",
+        "pull",
+        "retrieve",
+        "gather",
+        "calculate",
+        "调用",
+        "工具",
+        "获取",
+        "计算",
+        "指标",
+    )
     return any(marker in lowered for marker in intent_markers) and any(
         marker in lowered for marker in tool_markers
     )

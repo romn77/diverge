@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { Play, RefreshCw } from "lucide-react";
+import { ChevronDown, Play, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   createMarketBriefTask,
   getMarketBriefTask,
@@ -20,9 +28,9 @@ import {
 import { buildReportHref } from "@/lib/workbenchRoutes";
 
 
-const MARKET_OPTIONS: Array<{ value: MarketBriefMarket; label: string }> = [
-  { value: "cn", label: "A-share" },
-  { value: "us", label: "US" },
+const MARKET_OPTIONS: Array<{ value: MarketBriefMarket; labelKey: string; fallback: string }> = [
+  { value: "cn", labelKey: "marketBrief.market.cn", fallback: "A-share" },
+  { value: "us", labelKey: "marketBrief.market.us", fallback: "US" },
 ];
 
 
@@ -32,14 +40,10 @@ function isActiveTask(task: MarketBriefTask): boolean {
 
 
 export function MarketBriefDashboard() {
-  const { t } = usePreferences();
+  const { language, t } = usePreferences();
   const { setTopbarActions } = useWorkbenchChrome();
   const [briefIndex, setBriefIndex] = useState<MarketBriefIndexResponse | null>(null);
   const [tasks, setTasks] = useState<MarketBriefTask[]>([]);
-  const [selectedMarkets, setSelectedMarkets] = useState<MarketBriefMarket[]>([
-    "cn",
-    "us",
-  ]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,10 +63,10 @@ export function MarketBriefDashboard() {
 
   useEffect(() => {
     void refresh().catch((loadError) => {
-      setError(loadError instanceof Error ? loadError.message : "Unable to load brief");
+      setError(loadError instanceof Error ? loadError.message : t("marketBrief.error.load", "Unable to load brief"));
       setLoading(false);
     });
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     setTopbarActions(
@@ -105,28 +109,19 @@ export function MarketBriefDashboard() {
     return () => window.clearInterval(timer);
   }, [activeTasks]);
 
-  const toggleMarket = (market: MarketBriefMarket) => {
-    setSelectedMarkets((current) => {
-      if (current.includes(market)) {
-        return current.length === 1 ? current : current.filter((item) => item !== market);
-      }
-      return [...current, market];
-    });
-  };
-
-  const handleRun = async () => {
+  const handleRun = async (markets: MarketBriefMarket[]) => {
     setRunning(true);
     setError(null);
     try {
       const result = await createMarketBriefTask({
-        markets: selectedMarkets,
-        output_language: "zh-CN",
+        markets,
+        output_language: language === "zh" ? "zh-CN" : "en-US",
         report_visibility: "workspace",
       });
       const task = await getMarketBriefTask(result.task_id);
       setTasks((current) => [task, ...current.filter((item) => item.id !== task.id)]);
     } catch (runError) {
-      setError(runError instanceof Error ? runError.message : "Unable to run brief");
+      setError(runError instanceof Error ? runError.message : t("marketBrief.error.run", "Unable to run brief"));
     } finally {
       setRunning(false);
     }
@@ -146,35 +141,42 @@ export function MarketBriefDashboard() {
                   {t("marketBrief.title", "Premarket brief")}
                 </h2>
               </div>
-              <Button type="button" onClick={() => void handleRun()} disabled={running}>
-                <Play className="size-4" aria-hidden />
-                <span>
-                  {running
-                    ? t("marketBrief.running", "Running")
-                    : t("marketBrief.run", "Run brief")}
-                </span>
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap gap-2" aria-label={t("marketBrief.markets", "Markets")}>
-              {MARKET_OPTIONS.map((market) => {
-                const selected = selectedMarkets.includes(market.value);
-                return (
-                  <button
-                    key={market.value}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => toggleMarket(market.value)}
-                    className={`focus-ring rounded-md border px-3 py-2 text-xs font-semibold transition ${
-                      selected
-                        ? "border-[var(--border-strong)] bg-[var(--primary)] text-[var(--primary-foreground)]"
-                        : "border-[var(--border)] bg-[var(--surface)] text-[var(--text)] hover:bg-[color:var(--surface-hover)]"
-                    }`}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button type="button" disabled={running}>
+                    <Play className="size-4" aria-hidden />
+                    <span>
+                      {running
+                        ? t("marketBrief.running", "Running")
+                        : t("marketBrief.run", "Run brief")}
+                    </span>
+                    <ChevronDown className="size-4" aria-hidden />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[13rem]">
+                  <DropdownMenuLabel>
+                    {t("marketBrief.chooseMarket", "Choose market")}
+                  </DropdownMenuLabel>
+                  {MARKET_OPTIONS.map((market) => (
+                    <DropdownMenuItem
+                      key={market.value}
+                      disabled={running}
+                      onSelect={() => void handleRun([market.value])}
+                    >
+                      {t(market.labelKey, market.fallback)}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={running}
+                    onSelect={() =>
+                      void handleRun(MARKET_OPTIONS.map((market) => market.value))
+                    }
                   >
-                    {market.label}
-                  </button>
-                );
-              })}
+                    {t("marketBrief.market.all", "A-share + US")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {error ? (
@@ -223,11 +225,11 @@ export function MarketBriefDashboard() {
                       <div className="mt-3 flex flex-wrap gap-2">
                         {brief.markets.map((market) => (
                           <Badge key={market} variant="secondary">
-                            {market.toUpperCase()}
+                            {formatMarketBriefMarket(market, t)}
                           </Badge>
                         ))}
                         <Badge variant="outline">
-                          {brief.data_quality_level ?? "unknown"}
+                          {formatQualityLevel(brief.data_quality_level, t)}
                         </Badge>
                       </div>
                     </Link>
@@ -257,9 +259,9 @@ export function MarketBriefDashboard() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <p className="truncate text-sm font-semibold text-[var(--text)]">
-                        {task.request_payload.markets.join(", ").toUpperCase()}
+                        {formatMarketBriefMarkets(task.request_payload.markets, t)}
                       </p>
-                      <Badge variant="outline">{task.status}</Badge>
+                      <Badge variant="outline">{t(`task.status.${task.status}`, task.status)}</Badge>
                     </div>
                     <p className="mt-2 text-xs leading-5 text-muted-foreground">
                       {task.latest_progress?.message ?? task.created_at ?? task.id}
@@ -286,4 +288,41 @@ export function MarketBriefDashboard() {
       </div>
     </main>
   );
+}
+
+function formatMarketBriefMarkets(
+  markets: string[] | readonly string[],
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  return markets.map((market) => formatMarketBriefMarket(market, t)).join(", ");
+}
+
+function formatMarketBriefMarket(
+  market: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const normalized = market.toLowerCase();
+  if (normalized === "cn") {
+    return t("marketBrief.market.cn", "A-share");
+  }
+  if (normalized === "us") {
+    return t("marketBrief.market.us", "US");
+  }
+  return market.toUpperCase();
+}
+
+function formatQualityLevel(
+  qualityLevel: string | null,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const normalized = (qualityLevel ?? "unknown").toLowerCase();
+  return t(`marketBrief.quality.${normalized}`, humanizeCode(normalized));
+}
+
+function humanizeCode(value: string): string {
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .join(" ");
 }

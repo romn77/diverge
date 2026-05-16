@@ -26,6 +26,12 @@ test("WorkbenchShell renders the page title and utility bar together in the top 
   assert.match(source, /setTopbarActions/);
   assert.doesNotMatch(source, /buildHomeHref\(nextQuery\)/);
   assert.match(source, /t\("home\.launchAnalysis", "New Analysis"\)/);
+  assert.match(source, /pathname\.startsWith\("\/opportunities"\)/);
+  assert.match(source, /t\("opportunity\.title", "Opportunity Radar"\)/);
+  assert.match(source, /t\("marketBrief\.title", "Premarket brief"\)/);
+  assert.match(source, /t\("screenerTask\.title", "Candidate Pool Build"\)/);
+  assert.match(source, /t\("opportunityTask\.title", "Opportunity Radar Run"\)/);
+  assert.match(source, /pathname\.startsWith\("\/opportunity-tasks"\)/);
   assert.doesNotMatch(source, /workbench-topbar-eyebrow/);
 
   const headerIndex = source.indexOf("<WorkspaceAccountMenu");

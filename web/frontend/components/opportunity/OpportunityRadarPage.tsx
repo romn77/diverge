@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  ApiError,
   addOpportunityWatchlistItem,
   analyzeOpportunityCandidate,
   createOpportunityRun,
@@ -49,7 +50,11 @@ import {
   type ThemeRadarResponse,
   type WatchlistItem,
 } from "@/lib/api";
-import { buildOpportunitiesHref, buildTaskHref } from "@/lib/workbenchRoutes";
+import {
+  buildOpportunitiesHref,
+  buildOpportunityTaskHref,
+  buildTaskHref,
+} from "@/lib/workbenchRoutes";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
 
@@ -67,9 +72,27 @@ const EMPTY_ARTIFACTS: RunArtifacts = {
   events: [],
 };
 
+async function ignoreMissingOpportunityArtifact<T>(
+  promise: Promise<T>,
+  fallback: T
+): Promise<T> {
+  try {
+    return await promise;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return fallback;
+    }
+    throw error;
+  }
+}
+
 export function OpportunityRadarPage() {
-  const { t } = usePreferences();
-  const { opportunityRadarEnabled } = useWorkbench();
+  const { language, t } = usePreferences();
+  const {
+    activeOpportunityTasks,
+    canAccessOpportunityRadar,
+    refreshOpportunityTasks,
+  } = useWorkbench();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedRunId = searchParams.get("runId");
@@ -86,9 +109,10 @@ export function OpportunityRadarPage() {
     () => runs.find((run) => run.run_id === selectedRunId) ?? null,
     [runs, selectedRunId]
   );
+  const firstActiveOpportunityTask = activeOpportunityTasks[0] ?? null;
 
   const refreshRuns = useCallback(async () => {
-    if (!opportunityRadarEnabled) {
+    if (!canAccessOpportunityRadar) {
       setRuns([]);
       setSelectedRunId(null);
       setArtifacts(EMPTY_ARTIFACTS);
@@ -100,19 +124,27 @@ export function OpportunityRadarPage() {
     try {
       const nextRuns = await listOpportunityRuns();
       setRuns(nextRuns);
-      const nextRunId = requestedRunId || nextRuns[0]?.run_id || null;
+      const requestedRun = requestedRunId
+        ? nextRuns.find((run) => run.run_id === requestedRunId)
+        : null;
+      const nextRunId = requestedRun?.run_id ?? nextRuns[0]?.run_id ?? null;
       setSelectedRunId(nextRunId);
       if (nextRunId && nextRunId !== requestedRunId) {
         router.replace(buildOpportunitiesHref(nextRunId));
+      } else if (!nextRunId && requestedRunId) {
+        router.replace(buildOpportunitiesHref());
+      }
+      if (!nextRunId) {
+        setLoadState("ready");
       }
     } catch (error) {
       setLoadState("error");
       setErrorMessage(error instanceof Error ? error.message : t("opportunity.error.loadRuns", "Unable to load opportunity runs"));
     }
-  }, [opportunityRadarEnabled, requestedRunId, router, t]);
+  }, [canAccessOpportunityRadar, requestedRunId, router, t]);
 
   const refreshWatchlist = useCallback(async () => {
-    if (!opportunityRadarEnabled) {
+    if (!canAccessOpportunityRadar) {
       return;
     }
     try {
@@ -120,7 +152,7 @@ export function OpportunityRadarPage() {
     } catch {
       setWatchlist([]);
     }
-  }, [opportunityRadarEnabled]);
+  }, [canAccessOpportunityRadar]);
 
   useEffect(() => {
     void refreshRuns();
@@ -128,7 +160,7 @@ export function OpportunityRadarPage() {
   }, [refreshRuns, refreshWatchlist]);
 
   useEffect(() => {
-    if (!selectedRunId || !opportunityRadarEnabled) {
+    if (!selectedRunId || !selectedRun || !canAccessOpportunityRadar) {
       setArtifacts(EMPTY_ARTIFACTS);
       return;
     }
@@ -139,10 +171,10 @@ export function OpportunityRadarPage() {
       setErrorMessage(null);
       try {
         const [marketPulse, themes, candidates, events] = await Promise.all([
-          getOpportunityMarketPulse(selectedRunId),
-          getOpportunityThemes(selectedRunId),
-          getOpportunityCandidates(selectedRunId),
-          getOpportunityEvents(selectedRunId),
+          ignoreMissingOpportunityArtifact(getOpportunityMarketPulse(selectedRunId), null),
+          ignoreMissingOpportunityArtifact(getOpportunityThemes(selectedRunId), null),
+          ignoreMissingOpportunityArtifact(getOpportunityCandidates(selectedRunId), null),
+          ignoreMissingOpportunityArtifact(getOpportunityEvents(selectedRunId), []),
         ]);
         if (!isActive) {
           return;
@@ -163,13 +195,18 @@ export function OpportunityRadarPage() {
     return () => {
       isActive = false;
     };
-  }, [opportunityRadarEnabled, selectedRunId, t]);
+  }, [canAccessOpportunityRadar, selectedRun, selectedRunId, t]);
 
   const runRadar = async () => {
     setPendingAction("run");
     setErrorMessage(null);
     try {
       const result = await createOpportunityRun({ market: "cn" });
+      if (result.task_id && result.status !== "completed" && !result.cached) {
+        void refreshOpportunityTasks();
+        router.push(buildOpportunityTaskHref(result.task_id));
+        return;
+      }
       if (result.run_id) {
         router.push(buildOpportunitiesHref(result.run_id));
       }
@@ -222,6 +259,7 @@ export function OpportunityRadarPage() {
     try {
       const result = await analyzeOpportunityCandidate(candidate.symbol, {
         run_id: selectedRunId,
+        output_language: language === "zh" ? "cn" : "en",
         opportunity_context: buildOpportunityContext(candidate, selectedRunId),
       });
       if (result.task_id) {
@@ -241,7 +279,7 @@ export function OpportunityRadarPage() {
     [watchlist]
   );
 
-  if (!opportunityRadarEnabled) {
+  if (!canAccessOpportunityRadar) {
     return (
       <main className="flex min-h-dvh flex-1 flex-col p-2 md:p-4">
         <Card className="viewer-frame fade-in">
@@ -250,10 +288,10 @@ export function OpportunityRadarPage() {
               <Radar className="h-5 w-5 text-[var(--primary)]" aria-hidden />
               <div>
                 <h1 className="font-heading text-xl font-bold text-foreground">
-                  {t("opportunity.disabled.title", "Opportunity Radar is disabled")}
+                  {t("opportunity.unavailable.title", "Opportunity Radar is unavailable")}
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {t("opportunity.disabled.body", "Enable OPPORTUNITY_RADAR_ENABLED to use this workspace.")}
+                  {t("opportunity.unavailable.body", "Current account does not have Opportunity Radar access.")}
                 </p>
               </div>
             </div>
@@ -277,7 +315,9 @@ export function OpportunityRadarPage() {
                   {selectedRun?.trade_date ?? t("opportunity.latest", "Latest run")}
                 </h1>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {artifacts.marketPulse?.summary ?? t("opportunity.summary.empty", "No run has been loaded yet.")}
+                  {artifacts.marketPulse?.summary
+                    ? localizeOpportunityText(artifacts.marketPulse.summary, t)
+                    : t("opportunity.summary.empty", "No run has been loaded yet.")}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -289,6 +329,17 @@ export function OpportunityRadarPage() {
                   <Play className="h-4 w-4" aria-hidden />
                   {t("opportunity.run", "Run Radar")}
                 </Button>
+                {firstActiveOpportunityTask ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => router.push(buildOpportunityTaskHref(firstActiveOpportunityTask.id))}
+                  >
+                    <Activity className="h-4 w-4" aria-hidden />
+                    {t("opportunity.activeTask", "Active radar task")}
+                  </Button>
+                ) : null}
               </div>
             </div>
 
@@ -366,12 +417,18 @@ function MarketPulsePanel({ pulse, loading }: { pulse: MarketPulse | null; loadi
         {loading ? <PanelEmpty label={t("common.loading", "Loading")} /> : null}
         {!loading && pulse ? (
           <div className="mt-3 grid gap-3 md:grid-cols-3">
-            <Metric label={t("opportunity.regime", "Regime")} value={pulse.market_regime} />
-            <Metric label={t("opportunity.topThemes", "Top Themes")} value={pulse.top_themes.slice(0, 3).join(" / ") || "—"} />
+            <Metric
+              label={t("opportunity.regime", "Regime")}
+              value={localizeOpportunityCode(pulse.market_regime, "opportunity.enum.regime", t)}
+            />
+            <Metric
+              label={t("opportunity.topThemes", "Top Themes")}
+              value={pulse.top_themes.slice(0, 3).map((theme) => formatThemeName(theme, theme, t)).join(" / ") || "—"}
+            />
             <Metric label={t("opportunity.riskNotes", "Risk Notes")} value={String(pulse.risk_notes.length)} />
           </div>
         ) : null}
-        {!loading && pulse ? <p className="mt-3 text-sm text-muted-foreground">{pulse.summary}</p> : null}
+        {!loading && pulse ? <p className="mt-3 text-sm text-muted-foreground">{localizeOpportunityText(pulse.summary, t)}</p> : null}
         {!loading && !pulse ? <PanelEmpty label={t("opportunity.empty.market", "No market pulse artifact.")} /> : null}
       </CardContent>
     </Card>
@@ -400,10 +457,10 @@ function ThemeRadarTable({ themes, loading }: { themes: ThemeRadarResponse["them
               {!loading && themes.length === 0 ? <EmptyRow colSpan={5} label={t("opportunity.empty.themes", "No themes detected.")} /> : null}
               {!loading && themes.map((theme) => (
                 <TableRow key={theme.theme_id}>
-                  <TableCell className="font-semibold text-foreground">{theme.theme_name}</TableCell>
+                  <TableCell className="font-semibold text-foreground">{formatThemeName(theme.theme_id, theme.theme_name, t)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatNumber(theme.hot_score)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatNumber(theme.capital_score)}</TableCell>
-                  <TableCell><Badge variant="secondary">{theme.stage}</Badge></TableCell>
+                  <TableCell><Badge variant="secondary">{localizeOpportunityCode(theme.stage, "opportunity.enum.stage", t)}</Badge></TableCell>
                   <TableCell>{theme.leaders.join(" / ") || "—"}</TableCell>
                 </TableRow>
               ))}
@@ -462,10 +519,16 @@ function CandidatePoolTable({
                       </button>
                       {candidate.name ? <div className="text-[10px] text-muted-foreground">{candidate.name}</div> : null}
                     </TableCell>
-                    <TableCell><Badge variant="secondary">{candidate.candidate_type}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {localizeOpportunityCode(candidate.candidate_type, "opportunity.enum.candidateType", t)}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">{formatNumber(candidate.stock_score)}</TableCell>
-                    <TableCell>{candidate.theme_name ?? candidate.theme_id ?? "—"}</TableCell>
-                    <TableCell>{candidate.recommended_next_step ?? "WATCH"}</TableCell>
+                    <TableCell>{formatThemeName(candidate.theme_id, candidate.theme_name, t)}</TableCell>
+                    <TableCell>
+                      {localizeOpportunityCode(candidate.recommended_next_step ?? "WATCH", "opportunity.enum.nextStep", t)}
+                    </TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <IconButton label={t("opportunity.view", "View candidate")} onClick={() => onSelect(candidate)}>
@@ -533,7 +596,9 @@ function WatchlistMonitor({
             <div key={item.id ?? item.symbol} className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold text-foreground">{item.symbol}</div>
-                <div className="truncate text-xs text-muted-foreground">{item.status} · {item.theme_id ?? "—"}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                  {localizeOpportunityCode(item.status, "opportunity.enum.watchlistStatus", t)} · {formatThemeName(item.theme_id, item.theme_id, t)}
+                </div>
               </div>
               <IconButton label={t("common.delete", "Delete")} disabled={pendingAction === `remove:${item.symbol}`} onClick={() => void onRemove(item.symbol)}>
                 <X className="h-4 w-4" aria-hidden />
@@ -558,10 +623,14 @@ function OpportunityEventTimeline({ events, loading }: { events: OpportunityEven
           {!loading && events.slice(0, 10).map((event) => (
             <div key={event.event_id} className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-foreground">{event.event_type}</span>
+                <span className="text-xs font-semibold text-foreground">
+                  {localizeOpportunityCode(event.event_type, "opportunity.enum.event", t)}
+                </span>
                 <span className="text-[10px] text-muted-foreground">{event.trade_date}</span>
               </div>
-              <p className="mt-1 text-xs text-muted-foreground">{event.evidence?.[0] ?? event.symbol ?? event.theme_id ?? "—"}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {localizeOpportunityText(event.evidence?.[0] ?? event.symbol ?? event.theme_id ?? "—", t)}
+              </p>
             </div>
           ))}
         </div>
@@ -598,19 +667,26 @@ function CandidateDetailSheet({
           <div className="mt-5 space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Metric label={t("opportunity.score", "Score")} value={formatNumber(candidate.stock_score)} />
-              <Metric label={t("opportunity.type", "Type")} value={candidate.candidate_type} />
-              <Metric label={t("opportunity.theme", "Theme")} value={candidate.theme_name ?? candidate.theme_id ?? "—"} />
+              <Metric
+                label={t("opportunity.type", "Type")}
+                value={localizeOpportunityCode(candidate.candidate_type, "opportunity.enum.candidateType", t)}
+              />
+              <Metric label={t("opportunity.theme", "Theme")} value={formatThemeName(candidate.theme_id, candidate.theme_name, t)} />
               <Metric label={t("opportunity.runId", "Run")} value={runId ?? "—"} />
             </div>
             <section className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
               <h3 className="text-sm font-semibold text-foreground">{t("opportunity.reason", "Reason")}</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{candidate.reason}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{localizeOpportunityText(candidate.reason, t)}</p>
             </section>
             <section className="rounded-md border border-[var(--border)] bg-[var(--surface)] p-3">
               <h3 className="text-sm font-semibold text-foreground">{t("opportunity.riskFlags", "Risk Flags")}</h3>
               <div className="mt-2 flex flex-wrap gap-2">
                 {candidate.risk_flags.length === 0 ? <span className="text-sm text-muted-foreground">—</span> : null}
-                {candidate.risk_flags.map((flag) => <Badge key={flag} variant="secondary">{flag}</Badge>)}
+                {candidate.risk_flags.map((flag) => (
+                  <Badge key={flag} variant="secondary">
+                    {localizeOpportunityCode(flag, "opportunity.enum.riskFlag", t)}
+                  </Badge>
+                ))}
               </div>
             </section>
             <div className="flex flex-wrap gap-2">
@@ -687,6 +763,82 @@ function IconButton({
       {children}
     </button>
   );
+}
+
+function localizeOpportunityCode(
+  value: string | null | undefined,
+  keyPrefix: string,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const normalized = String(value ?? "").trim();
+  if (!normalized) {
+    return "—";
+  }
+  return t(`${keyPrefix}.${normalized.toLowerCase()}`, humanizeCode(normalized));
+}
+
+function localizeOpportunityText(
+  value: string | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const text = String(value ?? "").trim();
+  if (!text) {
+    return "—";
+  }
+
+  if (text === "Matched configured strategy filters and ranked by weighted factor score.") {
+    return t(
+      "opportunity.reason.weightedFactors",
+      "Matched configured strategy filters and ranked by weighted factor score."
+    );
+  }
+  if (text === "Candidate matched the configured opportunity strategy.") {
+    return t(
+      "opportunity.reason.matchedStrategy",
+      "Candidate matched the configured opportunity strategy."
+    );
+  }
+  if (text === "Candidate matched configured rules.") {
+    return t("opportunity.reason.matchedRules", "Candidate matched configured rules.");
+  }
+  if (text === "Some hot themes may be short-term overheated.") {
+    return t(
+      "opportunity.risk.shortTermOverheated",
+      "Some hot themes may be short-term overheated."
+    );
+  }
+
+  const topThemesMatch = /^Top themes:\s*(.+)\.$/.exec(text);
+  if (topThemesMatch) {
+    const themes = topThemesMatch[1]
+      .split(",")
+      .map((theme) => formatThemeName(theme.trim(), theme.trim(), t))
+      .join("、");
+    return t("opportunity.summary.topThemes", ({ themes: value }) => `Top themes: ${value}.`, { themes });
+  }
+
+  return text;
+}
+
+function formatThemeName(
+  themeId: string | null | undefined,
+  themeName: string | null | undefined,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  const normalizedThemeId = String(themeId ?? "").trim().toLowerCase();
+  const normalizedThemeName = String(themeName ?? "").trim();
+  if (normalizedThemeId === "ai_compute" || normalizedThemeName.toLowerCase() === "ai compute") {
+    return t("opportunity.themeName.ai_compute", normalizedThemeName || "AI Compute");
+  }
+  return normalizedThemeName || (normalizedThemeId ? humanizeCode(normalizedThemeId) : "—");
+}
+
+function humanizeCode(value: string): string {
+  return value
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .join(" ");
 }
 
 function formatNumber(value: number | null | undefined): string {

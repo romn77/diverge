@@ -46,6 +46,9 @@ test("ScreenerResultsViewer loads candidate rows and renders observable indicato
   assert.match(source, /trendSparkline/);
   assert.match(source, /strategy_tags/);
   assert.match(source, /risk_flags/);
+  assert.match(source, /function formatCandidateName/);
+  assert.match(source, /String\(row\.name \?\? ""\)\.trim\(\)/);
+  assert.match(source, /title=\{candidateName\}/);
   assert.match(source, /pressed=\{sortKey === column\.key\}/);
   assert.match(source, /aria-pressed=\{pressed\}/);
 });

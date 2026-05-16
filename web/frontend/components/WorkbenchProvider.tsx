@@ -12,13 +12,14 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import {
   ApiError,
-  getConfigOptions,
   listJournalReviewTasks,
+  listOpportunityTasks,
   listReports,
   listScreenerRuns,
   listScreenerTasks,
   listTasks,
   type JournalReviewTask,
+  type OpportunityTask,
   type Report,
   type Permission,
   type ScreenerRunSummary,
@@ -41,21 +42,24 @@ interface WorkbenchContextValue {
   recentTickers: string[];
   refreshReports: () => Promise<void>;
   refreshJournalReviewTasks: () => Promise<void>;
+  refreshOpportunityTasks: () => Promise<void>;
   refreshScreenerRuns: () => Promise<void>;
   refreshScreenerTasks: () => Promise<void>;
   refreshSession: ReturnType<typeof useAuth>["refreshSession"];
   refreshTasks: () => Promise<void>;
   reportsByTicker: Array<{ ticker: string; reports: Report[] }>;
   journalReviewTasks: JournalReviewTask[];
+  opportunityTasks: OpportunityTask[];
   screenerRuns: ScreenerRunSummary[];
   screenerTasks: ScreenerTask[];
   tasks: Task[];
   activeTasks: Task[];
   activeJournalReviewTasks: JournalReviewTask[];
+  activeOpportunityTasks: OpportunityTask[];
   activeScreenerTasks: ScreenerTask[];
   newAnalysisDisabled: boolean;
   newScreenerDisabled: boolean;
-  opportunityRadarEnabled: boolean;
+  canAccessOpportunityRadar: boolean;
   logout: ReturnType<typeof useAuth>["logout"];
 }
 
@@ -105,10 +109,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const [screenerRuns, setScreenerRuns] = useState<ScreenerRunSummary[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [screenerTasks, setScreenerTasks] = useState<ScreenerTask[]>([]);
+  const [opportunityTasks, setOpportunityTasks] = useState<OpportunityTask[]>([]);
   const [journalReviewTasks, setJournalReviewTasks] = useState<JournalReviewTask[]>([]);
   const [loadingReports, setLoadingReports] = useState(true);
   const [reportsError, setReportsError] = useState<string | null>(null);
-  const [opportunityRadarEnabled, setOpportunityRadarEnabled] = useState(false);
 
   const authEnabled = authState?.enabled ?? false;
   const canAccessWorkbench =
@@ -117,6 +121,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const canCreateAnalysis = hasPermission(authState, "analysis:create");
   const canCreateScreener = hasPermission(authState, "screener:create");
   const canReadOpportunity = hasPermission(authState, "opportunity:read");
+  const canAccessOpportunityRadar = canAccessWorkbench && canReadOpportunity;
 
   const handleProtectedError = useCallback(
     (error: unknown): boolean => {
@@ -149,24 +154,6 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       setLoadingReports(false);
     }
   }, [canAccessWorkbench, handleProtectedError]);
-
-
-
-  const refreshWorkbenchConfig = useCallback(async () => {
-    if (!canAccessWorkbench) {
-      setOpportunityRadarEnabled(false);
-      return;
-    }
-    try {
-      const options = await getConfigOptions();
-      setOpportunityRadarEnabled(Boolean(options.ui_settings?.opportunity_radar_enabled) && canReadOpportunity);
-    } catch (error) {
-      if (handleProtectedError(error)) {
-        return;
-      }
-      setOpportunityRadarEnabled(false);
-    }
-  }, [canAccessWorkbench, canReadOpportunity, handleProtectedError]);
 
   const refreshTasks = useCallback(async () => {
     if (!canAccessWorkbench) {
@@ -210,6 +197,20 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     }
   }, [canAccessWorkbench, handleProtectedError]);
 
+  const refreshOpportunityTasks = useCallback(async () => {
+    if (!canAccessOpportunityRadar) {
+      return;
+    }
+
+    try {
+      setOpportunityTasks(await listOpportunityTasks());
+    } catch (error) {
+      if (handleProtectedError(error)) {
+        return;
+      }
+    }
+  }, [canAccessOpportunityRadar, handleProtectedError]);
+
   const refreshJournalReviewTasks = useCallback(async () => {
     if (!canAccessWorkbench) {
       return;
@@ -228,6 +229,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const hasActiveScreenerTasks = useMemo(
     () => screenerTasks.some(hasActiveTaskStatus),
     [screenerTasks]
+  );
+  const hasActiveOpportunityTasks = useMemo(
+    () => opportunityTasks.some(hasActiveTaskStatus),
+    [opportunityTasks]
   );
   const hasActiveJournalReviewTasks = useMemo(
     () => journalReviewTasks.some(hasActiveTaskStatus),
@@ -253,10 +258,6 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
 
     setScreenerRuns([]);
   }, [canAccessWorkbench, refreshScreenerRuns]);
-
-  useEffect(() => {
-    void refreshWorkbenchConfig();
-  }, [refreshWorkbenchConfig]);
 
   useEffect(() => {
     if (!canAccessWorkbench) {
@@ -297,6 +298,26 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       window.clearInterval(intervalId);
     };
   }, [canAccessWorkbench, hasActiveScreenerTasks, refreshScreenerTasks]);
+
+  useEffect(() => {
+    if (!canAccessOpportunityRadar) {
+      setOpportunityTasks([]);
+      return;
+    }
+
+    void refreshOpportunityTasks();
+    if (!hasActiveOpportunityTasks) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshOpportunityTasks();
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [canAccessOpportunityRadar, hasActiveOpportunityTasks, refreshOpportunityTasks]);
 
   useEffect(() => {
     if (!canAccessWorkbench) {
@@ -367,6 +388,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     () => journalReviewTasks.filter(hasActiveTaskStatus),
     [journalReviewTasks]
   );
+  const activeOpportunityTasks = useMemo(
+    () => opportunityTasks.filter(hasActiveTaskStatus),
+    [opportunityTasks]
+  );
   const activeScreenerTasks = useMemo(
     () => screenerTasks.filter(hasActiveTaskStatus),
     [screenerTasks]
@@ -375,6 +400,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const value = useMemo<WorkbenchContextValue>(
     () => ({
       activeJournalReviewTasks,
+      activeOpportunityTasks,
       activeScreenerTasks,
       activeTasks,
       authEnabled,
@@ -382,16 +408,18 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       authState,
       authStatus,
       canAccessWorkbench,
+      canAccessOpportunityRadar,
       canManageUsers,
       loadingReports,
       logout,
       journalReviewTasks,
+      opportunityTasks,
       newAnalysisDisabled: !canCreateAnalysis,
       newScreenerDisabled: !canCreateScreener,
-      opportunityRadarEnabled,
       recentReports,
       recentTickers,
       refreshJournalReviewTasks,
+      refreshOpportunityTasks,
       refreshReports,
       refreshScreenerRuns,
       refreshScreenerTasks,
@@ -407,11 +435,13 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     [
       activeScreenerTasks,
       activeJournalReviewTasks,
+      activeOpportunityTasks,
       activeTasks,
       authEnabled,
       authError,
       authState,
       authStatus,
+      canAccessOpportunityRadar,
       canAccessWorkbench,
       canCreateAnalysis,
       canCreateScreener,
@@ -419,10 +449,11 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       loadingReports,
       logout,
       journalReviewTasks,
-      opportunityRadarEnabled,
+      opportunityTasks,
       recentReports,
       recentTickers,
       refreshJournalReviewTasks,
+      refreshOpportunityTasks,
       refreshReports,
       refreshScreenerRuns,
       refreshScreenerTasks,

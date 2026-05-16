@@ -1,4 +1,10 @@
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    FundamentalsReportStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -21,6 +27,7 @@ from diverge.research.earnings import (
     inject_earnings_section,
 )
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 from diverge.valuation.formatter import (
     format_valuation_sections,
     inject_valuation_sections,
@@ -61,8 +68,8 @@ class FundamentalsAnalyst(DivergeAgentNode):
             + " Use the available tools: `get_fundamentals` for comprehensive company analysis, `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements, and `get_insider_transactions` for recent insider activity."
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
             + f"\n\n{earnings_context.prompt_instruction}"
-            + ' At the very end of your report, append exactly one fenced `json-highlights` block using this schema:\n```json-highlights\n{\n  "category": "fundamentals",\n  "signal": "BUY|OVERWEIGHT|HOLD|UNDERWEIGHT|SELL",\n  "signal_confidence": "high|medium|low",\n  "summary": "string",\n  "stance": "bullish|neutral|bearish|mixed",\n  "metrics": [\n    {\n      "name": "string",\n      "value": "string",\n      "assessment": "string"\n    }\n  ],\n  "financial_health": "string",\n  "evidence_blocks": [\n    {\n      "claim": "fundamental claim",\n      "evidence": "specific reported metric or fact",\n      "source": "tool/source name",\n      "data_date": "YYYY-MM-DD or unknown",\n      "confidence": "high|medium|low",\n      "limitation": "missing/stale/ambiguous input, or null"\n    }\n  ],\n  "unknowns": ["material fundamental unknown or unavailable input"]\n}\n```'
-            + " Keep fence/keys/enums as English constants; free-form values should follow the report language."
+            + ' Use the following structure for the `highlights` field in your structured response:\n```json-highlights\n{\n  "category": "fundamentals",\n  "signal": "BUY|OVERWEIGHT|HOLD|UNDERWEIGHT|SELL",\n  "signal_confidence": "high|medium|low",\n  "summary": "string",\n  "stance": "bullish|neutral|bearish|mixed",\n  "metrics": [\n    {\n      "name": "string",\n      "value": "string",\n      "assessment": "string"\n    }\n  ],\n  "financial_health": "string",\n  "evidence_blocks": [\n    {\n      "claim": "fundamental claim",\n      "evidence": "specific reported metric or fact",\n      "source": "tool/source name",\n      "data_date": "YYYY-MM-DD or unknown",\n      "confidence": "high|medium|low",\n      "limitation": "missing/stale/ambiguous input, or null"\n    }\n  ],\n  "unknowns": ["material fundamental unknown or unavailable input"]\n}\n```'
+            + " Keep keys/enums as English constants; free-form values should follow the report language."
         )
 
         prompt = AdkPrompt(
@@ -75,6 +82,7 @@ class FundamentalsAnalyst(DivergeAgentNode):
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"
+                f"\n{structured_agent_output_instruction()}"
                 f"\nFor your reference, the current date is {current_date}. {instrument_context}"
             ),
             messages=tuple(state["messages"]),
@@ -82,6 +90,8 @@ class FundamentalsAnalyst(DivergeAgentNode):
         return AgentCallSpec(
             prompt=prompt,
             tools=tuple(tools),
+            output_schema=FundamentalsReportStructuredOutput,
+            output_key="fundamentals_report_structured",
             metadata={
                 "ticker": ticker,
                 "current_date": current_date,
@@ -96,8 +106,20 @@ class FundamentalsAnalyst(DivergeAgentNode):
         valuation_applicability_reason = state.get("valuation_applicability_reason")
 
         if len(response.tool_calls) == 0:
+            structured_payload = None
+            try:
+                structured = parse_structured_output(
+                    response.content,
+                    FundamentalsReportStructuredOutput,
+                )
+            except Exception:
+                base_report = response.content
+            else:
+                base_report = structured.report_markdown
+                structured_payload = structured.model_dump(mode="json")
+
             report = inject_earnings_section(
-                response.content,
+                base_report,
                 spec.metadata["earnings_report_section"],
             )
             try:
@@ -123,6 +145,24 @@ class FundamentalsAnalyst(DivergeAgentNode):
                     report,
                     "## Valuation Availability\n\nValuation sections unavailable due to unexpected preparation failure.",
                 )
+
+            if structured_payload is not None:
+                report = render_markdown_with_highlights(
+                    report,
+                    structured.highlights,
+                )
+                return {
+                    "messages": [response],
+                    "fundamentals_report": report,
+                    "instrument_type": instrument_type,
+                    "valuation_applicability": valuation_applicability,
+                    "valuation_applicability_reason": valuation_applicability_reason,
+                    "structured_agent_outputs": merge_structured_agent_output(
+                        state,
+                        agent_name=self.name,
+                        payload=structured_payload,
+                    ),
+                }
 
         return {
             "messages": [response],

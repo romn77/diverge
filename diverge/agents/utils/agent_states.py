@@ -13,6 +13,8 @@ class InvestDebateState(TypedDict):
     ]  # Bullish Conversation history
     history: Annotated[str, "Conversation history"]  # Conversation history
     current_response: Annotated[str, "Latest response"]  # Last response
+    current_bull_response: Annotated[str, "Latest bull response"]
+    current_bear_response: Annotated[str, "Latest bear response"]
     judge_decision: Annotated[str, "Final judge decision"]  # Last response
     count: Annotated[int, "Length of the current conversation"]  # Conversation length
 
@@ -112,6 +114,12 @@ class AgentState(TypedDict):
         Annotated[
             dict[str, object],
             "Full schema-validated Portfolio Manager structured output",
+        ]
+    ]
+    structured_agent_outputs: NotRequired[
+        Annotated[
+            dict[str, dict[str, object]],
+            "Schema-validated structured sidecars for intermediate agent outputs",
         ]
     ]
     runtime_warnings: NotRequired[

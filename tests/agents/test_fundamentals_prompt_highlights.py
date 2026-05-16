@@ -15,6 +15,11 @@ class _FakeLLM:
         self.prompts = []
         self.response = response
 
+    def invoke(self, prompt, *, tools=None, output_schema=None):
+        del tools, output_schema
+        self.prompts.append(prompt)
+        return self.response
+
     def bind_tools(self, tools):
         def _invoke(prompt):
             self.prompts.append(prompt.to_string())

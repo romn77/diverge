@@ -155,7 +155,6 @@ def get_config_options_payload(request: Request | None = None) -> dict:
         "defaults": {},
         "ui_settings": {
             llm_models.SHOW_CUSTOM_ANALYSIS_PROFILE_SETTING: include_custom_profile,
-            "opportunity_radar_enabled": app_config.opportunity_radar_enabled(),
         },
         "provider_settings": {
             "openai": {"openai_reasoning_effort": OPENAI_REASONING_OPTIONS},

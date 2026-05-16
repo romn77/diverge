@@ -50,26 +50,6 @@ SCREENER_ARTIFACT_FILENAMES = {
 DEFAULT_FRONTEND_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 
-def opportunity_radar_enabled() -> bool:
-    return os.environ.get("OPPORTUNITY_RADAR_ENABLED", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-
-
-def ensure_opportunity_dependencies() -> None:
-    if not opportunity_radar_enabled():
-        return
-    try:
-        import pyarrow  # noqa: F401
-    except ImportError as exc:
-        raise RuntimeError(
-            "OPPORTUNITY_RADAR_ENABLED requires installing the .[opportunity] extra for Parquet support."
-        ) from exc
-
-
 def resolve_manifest_path(
     market: str,
     project_root: Path | None = None,

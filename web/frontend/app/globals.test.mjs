@@ -28,7 +28,7 @@ test("globals.css defines the simplified workbench surfaces and removes glass gr
   assert.match(source, /--field-shadow:/);
   assert.match(source, /--modal-shadow:/);
   assert.match(source, /\.button-count-chip\s*\{/);
-  assert.match(source, /\.button-count-chip\s*\{[\s\S]*?height:\s*1\.25rem;/);
+  assert.match(source, /\.button-count-chip\s*\{[\s\S]*?height:\s*1rem;/);
   assert.match(source, /\.button-count-chip\s*\{[\s\S]*?line-height:\s*1;/);
   assert.equal(source.includes("backdrop-filter: blur(16px)"), false);
   assert.equal(source.includes(".app-shell::after"), false);
@@ -43,7 +43,7 @@ test("globals.css locks the workbench topbar to the shared chrome height", () =>
   assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?height:\s*var\(--workbench-topbar-height\);/);
   assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?min-height:\s*var\(--workbench-topbar-height\);/);
   assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?padding:\s*0 1rem;/);
-  assert.match(source, /\.workbench-topbar-secondary,\s*[\s\S]*?\.workbench-topbar-new\s*\{[\s\S]*?height:\s*2\.25rem;/);
+  assert.match(source, /\.workbench-topbar-secondary,\s*[\s\S]*?\.workbench-topbar-new\s*\{[\s\S]*?height:\s*2rem;/);
   assert.match(source, /\.workbench-topbar-secondary\s*\{[\s\S]*?box-shadow:\s*var\(--button-secondary-shadow\);/);
   assert.match(source, /\.workbench-topbar-secondary:hover\s*\{[\s\S]*?border-color:\s*var\(--accent-border\);/);
   assert.match(source, /\.workbench-account-menu-frame\s*\{[\s\S]*?box-shadow:\s*var\(--button-secondary-shadow\);/);
@@ -109,12 +109,25 @@ test("globals.css keeps analysis pages on the shared workbench content width", (
   assert.match(source, /\.analysis-overview-title\s*\{[\s\S]*?font-size:\s*2rem;/);
   assert.match(source, /\.analysis-overview-metric \.metric-card-value\s*\{[\s\S]*?font-size:\s*1\.55rem;/);
   assert.match(source, /\.analysis-reports-title\s*\{[\s\S]*?font-size:\s*1\.55rem;/);
-  assert.match(source, /\.analysis-report-list\s*\{[\s\S]*?border-radius:\s*14px;/);
+  assert.match(source, /\.analysis-report-list\s*\{[\s\S]*?border-radius:\s*10px;/);
   assert.match(source, /\.analysis-report-group\s*\{[\s\S]*?border-top:\s*1px solid color-mix/);
   assert.doesNotMatch(source, /\.analysis-report-group\s*\{[^}]*box-shadow:/);
-  assert.match(source, /\.analysis-report-group-header\s*\{[\s\S]*?padding:\s*0\.95rem 1rem;/);
+  assert.match(source, /\.analysis-report-list-head\s*\{/);
+  assert.match(source, /\.analysis-report-list-head\s*\{[\s\S]*?font-weight:\s*650;/);
+  assert.match(source, /\.analysis-report-list-head\s*\{[\s\S]*?letter-spacing:\s*0;/);
+  assert.match(source, /\.analysis-report-list-head\s*\{[\s\S]*?text-transform:\s*none;/);
+  assert.match(source, /\.analysis-report-grid\s*\{/);
+  assert.match(source, /\.analysis-report-ticker\s*\{[\s\S]*?color:\s*color-mix\(in srgb, var\(--text\) 88%, var\(--muted\) 12%\);/);
+  assert.match(source, /\.analysis-report-ticker\s*\{[\s\S]*?font-size:\s*0\.86rem;/);
+  assert.match(source, /\.analysis-report-ticker\s*\{[\s\S]*?font-weight:\s*600;/);
+  assert.match(source, /\.analysis-report-id\s*\{[\s\S]*?font-family:\s*inherit;/);
+  assert.match(source, /\.analysis-report-id\s*\{[\s\S]*?font-weight:\s*600;/);
+  assert.match(source, /\.analysis-report-date-cell\s*\{[\s\S]*?font-family:\s*inherit;/);
+  assert.match(source, /\.analysis-report-date-cell\s*\{[\s\S]*?font-variant-numeric:\s*tabular-nums;/);
+  assert.match(source, /\.analysis-report-group-header\s*\{[\s\S]*?padding:\s*0\.65rem 0\.85rem;/);
   assert.match(source, /\.analysis-report-children\s*\{[\s\S]*?gap:\s*0;/);
-  assert.match(source, /\.analysis-report-row\s*\{[\s\S]*?padding:\s*0\.8rem 1rem;/);
+  assert.match(source, /\.analysis-report-row\s*\{[\s\S]*?padding:\s*0\.55rem 0\.85rem;/);
+  assert.match(source, /\.analysis-report-child-row::before/);
 });
 
 test("globals.css preserves selected pill controls in dark mode", () => {
@@ -244,5 +257,5 @@ test("globals.css keeps report, chart, and form surfaces theme-token driven", ()
   assert.match(source, /\.ticker-price-panel\s*\{\s*background:\s*var\(--chart-panel-bg\);/);
   assert.match(source, /\.field-shell\s*\{\s*border-color:\s*var\(--border\);\s*background:\s*var\(--surface\);/);
   assert.match(source, /\.workbench-topbar\s*\{[\s\S]*?color-mix\(in srgb, var\(--surface\) 92%, transparent\)/);
-  assert.match(source, /\.analysis-report-list\s*\{[\s\S]*?color-mix\(in srgb, var\(--surface\) 84%, transparent\)/);
+  assert.match(source, /\.analysis-report-list\s*\{[\s\S]*?background:\s*var\(--surface\);/);
 });

@@ -21,6 +21,7 @@ test("workbench route helpers cover the route-driven destinations", () => {
   assert.match(source, /next: resolveNextPath\(nextPath\)/);
   assert.match(source, /return `\/reports\/\$\{encodeURIComponent\(reportId\)\}`;/);
   assert.match(source, /return `\/tasks\/\$\{encodeURIComponent\(taskId\)\}`;/);
+  assert.match(source, /return `\/opportunity-tasks\/\$\{encodeURIComponent\(taskId\)\}`;/);
   assert.match(source, /export function buildScreenerHref/);
   assert.match(source, /return "\/screeners";/);
   assert.match(source, /new URLSearchParams\(\{ runId \}\)/);

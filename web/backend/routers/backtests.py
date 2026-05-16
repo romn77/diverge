@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from web.backend import access, auth
 from web.backend.runtime import backtest_tasks
 from web.backend.schemas.backtests import BacktestSnapshotPayload
-from web.backend.services import backtests, opportunities
+from web.backend.services import backtests
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
 
@@ -13,7 +13,6 @@ router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)]
 def _current_user(
     request: Request | None, permission: str = auth.PERMISSION_OPPORTUNITY_READ
 ):
-    opportunities.require_enabled()
     if not auth.auth_enabled() or request is None:
         return None
     with auth.db_session() as db:

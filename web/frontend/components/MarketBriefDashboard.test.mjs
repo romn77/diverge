@@ -14,7 +14,23 @@ test("MarketBriefDashboard exposes manual A/US brief generation without changing
   assert.match(source, /listMarketBriefTasks/);
   assert.match(source, /"cn"/);
   assert.match(source, /"us"/);
-  assert.match(source, /aria-pressed/);
+  assert.match(source, /DropdownMenuTrigger/);
+  assert.match(source, /DropdownMenuContent/);
+  assert.match(source, /DropdownMenuItem/);
+  assert.match(source, /handleRun\(\[market\.value\]\)/);
+  assert.match(source, /MARKET_OPTIONS\.map\(\(market\) => market\.value\)/);
+  assert.doesNotMatch(source, /selectedMarkets/);
+  assert.doesNotMatch(source, /toggleMarket/);
+  assert.doesNotMatch(source, /aria-pressed/);
+  assert.match(source, /language === "zh" \? "zh-CN" : "en-US"/);
+  assert.match(source, /marketBrief\.chooseMarket/);
+  assert.match(source, /marketBrief\.market\.cn/);
+  assert.match(source, /marketBrief\.market\.us/);
+  assert.match(source, /marketBrief\.market\.all/);
+  assert.match(source, /marketBrief\.error\.load/);
+  assert.match(source, /marketBrief\.error\.run/);
+  assert.match(source, /formatMarketBriefMarket/);
+  assert.match(source, /task\.status\.\$\{task\.status\}/);
   assert.match(source, /buildReportHref/);
 });
 

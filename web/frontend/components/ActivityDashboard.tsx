@@ -19,16 +19,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  cancelOpportunityTask,
   cancelScreenerTask,
   cancelTask,
   deleteScreenerTask,
   deleteTask,
   type JournalReviewTask,
+  type OpportunityTask,
   type ScreenerTask,
   type Task,
 } from "@/lib/api";
 import {
   buildHomeHref,
+  buildOpportunityTaskHref,
   buildScreenerHref,
   buildScreenerTaskHref,
   buildTaskHref,
@@ -36,7 +39,7 @@ import {
 
 type TaskActionTarget = {
   action: "cancel" | "delete";
-  kind: "analysis" | "screener";
+  kind: "analysis" | "screener" | "opportunity";
   taskId: string;
   label: string;
   meta: string;
@@ -50,16 +53,21 @@ export function ActivityDashboard() {
   const [isSubmittingTaskAction, setIsSubmittingTaskAction] = useState(false);
   const {
     activeJournalReviewTasks,
+    activeOpportunityTasks,
     activeScreenerTasks,
     activeTasks,
     journalReviewTasks,
+    refreshOpportunityTasks,
     refreshScreenerTasks,
     refreshTasks,
     screenerTasks,
     tasks,
   } = useWorkbench();
   const totalActive =
-    activeTasks.length + activeScreenerTasks.length + activeJournalReviewTasks.length;
+    activeTasks.length +
+    activeScreenerTasks.length +
+    activeOpportunityTasks.length +
+    activeJournalReviewTasks.length;
   const failedTasks = tasks.filter((task) => task.status === "failed" || task.status === "canceled");
   const failedScreenerTasks = screenerTasks.filter(
     (task) => task.status === "failed" || task.status === "canceled"
@@ -112,6 +120,19 @@ export function ActivityDashboard() {
     });
   };
 
+  const requestCancelOpportunityTask = (task: OpportunityTask) => {
+    setTaskActionTarget({
+      action: "cancel",
+      kind: "opportunity",
+      taskId: task.id,
+      label:
+        task.request_payload?.trade_date ||
+        task.result?.run_id ||
+        t("activity.opportunityRadarRun", "Opportunity radar run"),
+      meta: formatOpportunityTaskMeta(task, t),
+    });
+  };
+
   const handleConfirmTaskAction = async () => {
     if (!taskActionTarget) {
       return;
@@ -122,16 +143,19 @@ export function ActivityDashboard() {
         if (taskActionTarget.kind === "analysis") {
           await deleteTask(taskActionTarget.taskId);
           await refreshTasks();
-        } else {
+        } else if (taskActionTarget.kind === "screener") {
           await deleteScreenerTask(taskActionTarget.taskId);
           await refreshScreenerTasks();
         }
       } else if (taskActionTarget.kind === "analysis") {
         await cancelTask(taskActionTarget.taskId);
         await refreshTasks();
-      } else {
+      } else if (taskActionTarget.kind === "screener") {
         await cancelScreenerTask(taskActionTarget.taskId);
         await refreshScreenerTasks();
+      } else {
+        await cancelOpportunityTask(taskActionTarget.taskId);
+        await refreshOpportunityTasks();
       }
       setTaskActionTarget(null);
     } finally {
@@ -176,7 +200,7 @@ export function ActivityDashboard() {
             </>
           }
         >
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <ActivityMetric
               label={t("activity.metric.total", "Total Active")}
               value={`${totalActive}`}
@@ -191,6 +215,11 @@ export function ActivityDashboard() {
               label={t("activity.metric.screener", "Screener Jobs")}
               value={`${activeScreenerTasks.length}`}
               meta={t("activity.metric.screenerMeta", "Candidate builds in flight")}
+            />
+            <ActivityMetric
+              label={t("activity.metric.opportunity", "Radar Jobs")}
+              value={`${activeOpportunityTasks.length}`}
+              meta={t("activity.metric.opportunityMeta", "Opportunity radar runs")}
             />
             <ActivityMetric
               label={t("activity.metric.journal", "Journal AI Reviews")}
@@ -251,6 +280,28 @@ export function ActivityDashboard() {
                 : undefined,
               onCancel: canCancelTask(task)
                 ? () => requestCancelScreenerTask(task)
+                : undefined,
+            }))}
+          />
+          <ActivityQueueSection
+            title={t("activity.opportunityTasks", "Opportunity radar tasks")}
+            emptyLabel={t(
+              "activity.noOpportunityJobs",
+              "No active opportunity radar jobs."
+            )}
+            items={activeOpportunityTasks.map((task) => ({
+              href: buildOpportunityTaskHref(task.id),
+              label:
+                task.request_payload?.trade_date ||
+                task.result?.run_id ||
+                t("activity.opportunityRadarRun", "Opportunity radar run"),
+              meta: formatOpportunityTaskMeta(task, t),
+              status: t(`task.status.${task.status}`, task.status),
+              cancelLabel: canCancelTask(task)
+                ? t("activity.cancelTask", "Cancel task")
+                : undefined,
+              onCancel: canCancelTask(task)
+                ? () => requestCancelOpportunityTask(task)
                 : undefined,
             }))}
           />
@@ -450,7 +501,7 @@ function ActivityQueueSection({
   );
 }
 
-function canCancelTask(task: Task | ScreenerTask): boolean {
+function canCancelTask(task: Task | ScreenerTask | OpportunityTask): boolean {
   if (task.cancel_requested_at) {
     return false;
   }
@@ -487,6 +538,20 @@ function formatScreenerTaskMeta(
   }
   return (
     task.request_payload?.as_of_date ??
+    t("activity.awaitingUpdate", "Awaiting next update")
+  );
+}
+
+function formatOpportunityTaskMeta(
+  task: OpportunityTask,
+  t: ReturnType<typeof usePreferences>["t"]
+): string {
+  if (task.status === "queued" || task.status === "pending") {
+    return formatQueueMeta(task.queue_position, t);
+  }
+  return (
+    task.latest_progress?.message ??
+    task.request_payload?.market ??
     t("activity.awaitingUpdate", "Awaiting next update")
   );
 }

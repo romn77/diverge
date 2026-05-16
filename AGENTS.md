@@ -99,10 +99,20 @@ scripts/check-database.sh --upgrade --bootstrap-admin
 - Frontend code uses Next.js, React, TypeScript, Tailwind CSS, Radix primitives,
   and `lucide-react` icons. Keep operational Workbench screens dense, scannable,
   and consistent with existing components.
-- For frontend UI or theme work, use
-  `.agents/skills/workbench-ui-theme-audit/SKILL.md` to audit buttons, controls,
-  surfaces, and visual states across light/dark/stylful themes before calling
-  the change done.
+- For any frontend page, component, layout, styling, or theme work, use
+  `.agents/skills/workbench-ui-theme-audit/SKILL.md` before editing and before
+  calling the change done.
+- Frontend changes should extend the existing Workbench visual system rather
+  than redesign it by default. Do not change page information architecture,
+  visual direction, typography, radius language, shadow language, or motion
+  style unless the task explicitly asks for a redesign.
+- Unless the task explicitly asks for a design change, style-element edits such
+  as color, type scale, spacing, radius, border treatment, shadow treatment,
+  and motion should follow the site-wide design language.
+- Treat new hard-coded Tailwind color utilities, raw `rgb(...)`/`rgba(...)`, and
+  literal hex colors inside `web/frontend` TSX files as design debt. Prefer
+  shared primitives and semantic tokens, and do not expand the existing debt
+  baseline unless the task explicitly requires it.
 - For automated testing of Workbench business flows, use
   `.agents/skills/workbench-automation-testing/SKILL.md`. Business-flow E2E
   should be browser-first: drive the same UI journey a user would take, and use

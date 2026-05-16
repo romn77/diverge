@@ -18,8 +18,10 @@ test("WorkbenchProvider only polls task queues while active tasks exist", () => 
   assert.match(source, /function hasActiveTaskStatus/);
   assert.match(source, /const hasActiveTasks = useMemo\(\(\) => tasks\.some\(hasActiveTaskStatus\), \[tasks\]\)/);
   assert.match(source, /const hasActiveScreenerTasks = useMemo/);
+  assert.match(source, /const hasActiveOpportunityTasks = useMemo/);
   assert.match(source, /const hasActiveJournalReviewTasks = useMemo/);
   assert.match(source, /if \(!hasActiveTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshTasks\(\);/s);
   assert.match(source, /if \(!hasActiveScreenerTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshScreenerTasks\(\);/s);
+  assert.match(source, /if \(!hasActiveOpportunityTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshOpportunityTasks\(\);/s);
   assert.match(source, /if \(!hasActiveJournalReviewTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshJournalReviewTasks\(\);/s);
 });

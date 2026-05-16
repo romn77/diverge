@@ -1,4 +1,10 @@
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    MarketReportStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -11,6 +17,7 @@ from diverge.agents.utils.agent_utils import (
 from diverge.agents.utils.core_stock_tools import get_stock_data
 from diverge.agents.utils.technical_indicators_tools import get_indicators
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 class MarketAnalyst(DivergeAgentNode):
@@ -60,7 +67,7 @@ Volume-Based Indicators:
 
 - Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. When calling get_stock_data, request only the past 120 trading days ending at the current date; do not request a longer price-history window. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. After the markdown table, also append a structured highlights block in the following exact format (replace values with your actual analysis findings). This block MUST use the json-highlights code fence:
+            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. Use the following structure for the `highlights` field in your structured response (replace values with your actual analysis findings):
 
 ```json-highlights
 {
@@ -92,7 +99,7 @@ Volume-Based Indicators:
 }
 ```
 
-Keep the `json-highlights` fence, JSON keys, and enum literals in English constants exactly as shown; free-form string values should follow the report language."""
+Keep the JSON keys and enum literals in English constants exactly as shown; free-form string values should follow the report language."""
         )
 
         prompt = AdkPrompt(
@@ -105,17 +112,43 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"
+                f"\n{structured_agent_output_instruction()}"
                 f"\nFor your reference, the current date is {current_date}. {instrument_context}"
             ),
             messages=tuple(state["messages"]),
         )
-        return AgentCallSpec(prompt=prompt, tools=tuple(tools))
+        return AgentCallSpec(
+            prompt=prompt,
+            tools=tuple(tools),
+            output_schema=MarketReportStructuredOutput,
+            output_key="market_report_structured",
+        )
 
     def apply_response(self, state, spec, response):
         report = ""
 
         if len(response.tool_calls) == 0:
-            report = response.content
+            try:
+                structured = parse_structured_output(
+                    response.content,
+                    MarketReportStructuredOutput,
+                )
+            except Exception:
+                report = response.content
+            else:
+                report = render_markdown_with_highlights(
+                    structured.report_markdown,
+                    structured.highlights,
+                )
+                return {
+                    "messages": [response],
+                    "market_report": report,
+                    "structured_agent_outputs": merge_structured_agent_output(
+                        state,
+                        agent_name=self.name,
+                        payload=structured.model_dump(mode="json"),
+                    ),
+                }
 
         return {
             "messages": [response],

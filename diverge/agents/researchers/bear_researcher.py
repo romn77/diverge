@@ -1,4 +1,10 @@
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    BearCaseStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
     get_language_instruction,
@@ -8,6 +14,7 @@ from diverge.agents.utils.agent_utils import (
     get_upstream_decision_boundary_instruction,
 )
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 class BearResearcher(DivergeAgentNode):
@@ -18,7 +25,10 @@ class BearResearcher(DivergeAgentNode):
         history = investment_debate_state.get("history", "")
         bear_history = investment_debate_state.get("bear_history", "")
 
-        current_response = investment_debate_state.get("current_response", "")
+        current_response = investment_debate_state.get(
+            "current_bull_response",
+            investment_debate_state.get("current_response", ""),
+        )
         output_language = state.get("output_language", "en")
         language_instruction = get_language_instruction(output_language)
         style_instruction = get_research_note_style_instruction(output_language)
@@ -64,7 +74,7 @@ Reflections from similar situations and lessons learned: {past_memory_str}
 {trade_feedback_message}
 Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
 
-After your complete analysis, append a structured highlights block:
+Use the following structure for the `highlights` field in your structured response:
 
 ```json-highlights
 {{
@@ -91,30 +101,58 @@ After your complete analysis, append a structured highlights block:
   "unknowns": ["material unresolved question"]
 }}
 ```
-Keep the `json-highlights` fence, JSON keys, and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
+Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
 {style_instruction}
 {language_instruction}
+{structured_agent_output_instruction()}
 """
 
         return AgentCallSpec(
             prompt=AdkPrompt(system_message=prompt),
+            output_schema=BearCaseStructuredOutput,
+            output_key="bear_case_structured",
             metadata={
                 "history": history,
                 "bear_history": bear_history,
                 "bull_history": investment_debate_state.get("bull_history", ""),
+                "current_bull_response": investment_debate_state.get(
+                    "current_bull_response", current_response
+                ),
                 "count": investment_debate_state["count"],
             },
         )
 
     def apply_response(self, state, spec, response) -> dict:
-        argument = f"Bear Analyst: {response.content}"
+        try:
+            structured = parse_structured_output(
+                response.content,
+                BearCaseStructuredOutput,
+            )
+        except Exception:
+            rendered = response.content
+        else:
+            rendered = render_markdown_with_highlights(
+                structured.report_markdown,
+                structured.highlights,
+            )
+
+        argument = f"Bear Analyst: {rendered}"
 
         new_investment_debate_state = {
             "history": spec.metadata["history"] + "\n" + argument,
             "bear_history": spec.metadata["bear_history"] + "\n" + argument,
             "bull_history": spec.metadata["bull_history"],
             "current_response": argument,
+            "current_bull_response": spec.metadata["current_bull_response"],
+            "current_bear_response": argument,
             "count": spec.metadata["count"] + 1,
         }
 
-        return {"investment_debate_state": new_investment_debate_state}
+        result = {"investment_debate_state": new_investment_debate_state}
+        if "structured" in locals():
+            result["structured_agent_outputs"] = merge_structured_agent_output(
+                state,
+                agent_name=self.name,
+                payload=structured.model_dump(mode="json"),
+            )
+        return result

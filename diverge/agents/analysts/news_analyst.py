@@ -1,6 +1,12 @@
 from contextlib import contextmanager
 
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
+from diverge.agents.report_output import (
+    NewsReportStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
+    structured_agent_output_instruction,
+)
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     get_analyst_evidence_role_instruction,
@@ -18,6 +24,7 @@ from diverge.research.earnings import (
 )
 from diverge.research.search.session import current_search_context
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
 
 
 class NewsAnalyst(DivergeAgentNode):
@@ -54,7 +61,7 @@ class NewsAnalyst(DivergeAgentNode):
             + f"\n\n{web_search_instruction}"
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
             + f"\n\n{earnings_context.prompt_instruction}"
-            + """ After the markdown table, append exactly one structured highlights block in this exact format:
+            + """ Use the following structure for the `highlights` field in your structured response:
 
 ```json-highlights
 {
@@ -85,7 +92,7 @@ class NewsAnalyst(DivergeAgentNode):
 }
 ```
 
-Keep the `json-highlights` fence, JSON keys, and enum literals in English constants exactly as shown (`category` must be `news`; `signal` must be one of `BUY`, `OVERWEIGHT`, `HOLD`, `UNDERWEIGHT`, `SELL`; `signal_confidence` must be one of `high`, `medium`, `low`; `stance` must be one of `bullish`, `neutral`, `bearish`, `mixed`; `market_impact` must be one of `positive`, `negative`, `neutral`, `mixed`). Free-form string values should follow the report language. `signal_confidence` and `macro_outlook` are optional when uncertain."""
+Keep the JSON keys and enum literals in English constants exactly as shown (`category` must be `news`; `signal` must be one of `BUY`, `OVERWEIGHT`, `HOLD`, `UNDERWEIGHT`, `SELL`; `signal_confidence` must be one of `high`, `medium`, `low`; `stance` must be one of `bullish`, `neutral`, `bearish`, `mixed`; `market_impact` must be one of `positive`, `negative`, `neutral`, `mixed`). Free-form string values should follow the report language. `signal_confidence` and `macro_outlook` are optional when uncertain."""
         )
 
         prompt = AdkPrompt(
@@ -98,6 +105,7 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"
+                f"\n{structured_agent_output_instruction()}"
                 f"\nFor your reference, the current date is {current_date}. {instrument_context}"
             ),
             messages=tuple(state["messages"]),
@@ -105,6 +113,8 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
         return AgentCallSpec(
             prompt=prompt,
             tools=tuple(tools),
+            output_schema=NewsReportStructuredOutput,
+            output_key="news_report_structured",
             metadata={
                 "agent": "News Analyst",
                 "ticker": ticker,
@@ -138,10 +148,33 @@ Keep the `json-highlights` fence, JSON keys, and enum literals in English consta
         report = ""
 
         if len(response.tool_calls) == 0:
-            report = inject_earnings_section(
-                response.content,
-                spec.metadata["earnings_report_section"],
-            )
+            try:
+                structured = parse_structured_output(
+                    response.content,
+                    NewsReportStructuredOutput,
+                )
+            except Exception:
+                report = inject_earnings_section(
+                    response.content,
+                    spec.metadata["earnings_report_section"],
+                )
+            else:
+                report = render_markdown_with_highlights(
+                    inject_earnings_section(
+                        structured.report_markdown,
+                        spec.metadata["earnings_report_section"],
+                    ),
+                    structured.highlights,
+                )
+                return {
+                    "messages": [response],
+                    "news_report": report,
+                    "structured_agent_outputs": merge_structured_agent_output(
+                        state,
+                        agent_name=self.name,
+                        payload=structured.model_dump(mode="json"),
+                    ),
+                }
 
         return {
             "messages": [response],
