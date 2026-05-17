@@ -87,6 +87,9 @@ test("task APIs rely on automatic analysis data routing and expose failed task d
   assert.match(source, /owner_user_id\?:\s*string \| null/);
   assert.match(source, /report_visibility:\s*ReportVisibility/);
   assert.match(source, /export async function updateReportVisibility/);
+  assert.match(source, /interface DeleteReportResponse/);
+  assert.match(source, /export async function deleteReport/);
+  assert.match(source, /\/api\/reports\/\$\{reportId\}/);
   assert.match(source, /export async function deleteTask/);
   assert.match(source, /export async function deleteScreenerTask/);
   assert.match(source, /method:\s*"DELETE"/);

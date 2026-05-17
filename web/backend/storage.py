@@ -264,3 +264,15 @@ def download_prefix(
         target.write_bytes(storage_backend.get_bytes(key))
         downloaded.append(target)
     return downloaded
+
+
+def delete_prefix(prefix: str, *, backend: StorageBackend | None = None) -> list[str]:
+    storage_backend = backend or get_storage()
+    normalized_prefix = normalize_key(prefix)
+    deleted: list[str] = []
+    for key in storage_backend.list(normalized_prefix):
+        if key != normalized_prefix and not key.startswith(f"{normalized_prefix}/"):
+            continue
+        storage_backend.delete(key)
+        deleted.append(key)
+    return deleted

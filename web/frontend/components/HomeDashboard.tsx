@@ -17,11 +17,13 @@ import { MetricCard } from "@/components/workbench/MetricCard";
 import { PageHeader } from "@/components/workbench/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -41,7 +43,7 @@ import {
   buildHomeHref,
   buildReportHref,
 } from "@/lib/workbenchRoutes";
-import type { Report } from "@/lib/api";
+import { deleteReport, type Report } from "@/lib/api";
 
 interface HomeDashboardProps {
   initialSearchQuery: string;
@@ -212,10 +214,16 @@ function ReportRowActions({
   href,
   menuLabel,
   openLabel,
+  deleteLabel,
+  canDelete,
+  onDelete,
 }: {
   href: string;
   menuLabel: string;
   openLabel: string;
+  deleteLabel: string;
+  canDelete: boolean;
+  onDelete: () => void;
 }) {
   return (
     <DropdownMenu>
@@ -235,6 +243,20 @@ function ReportRowActions({
           <DropdownMenuItem asChild>
             <Link href={href}>{openLabel}</Link>
           </DropdownMenuItem>
+          {canDelete ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-[var(--danger)] focus:text-[var(--danger)]"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  onDelete();
+                }}
+              >
+                {deleteLabel}
+              </DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -250,6 +272,7 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
     loadingReports,
     reports,
     reportsError,
+    refreshReports,
   } = useWorkbench();
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [scopeFilter, setScopeFilter] = useState<ReportScopeFilter>("all");
@@ -257,8 +280,12 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
     useState<ReportDisplayMode>("ticker");
   const [reportSortMode, setReportSortMode] = useState<ReportSortMode>("latest");
   const [expandedTickerGroups, setExpandedTickerGroups] = useState<Record<string, boolean>>({});
+  const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
+  const [isDeletingReport, setIsDeletingReport] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const deferredSearchQuery = useDeferredValue(searchQuery.trim().toLowerCase());
   const currentUserId = authState?.user?.id ?? null;
+  const canDeleteGeneratedReports = authState?.user?.role === "admin";
 
   const searchMatchedReports = useMemo(() => {
     return reports.filter((report) => matchesReportQuery(report, deferredSearchQuery));
@@ -351,6 +378,27 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
       return nextState;
     });
   }, [reportTickerGroups]);
+
+  const handleConfirmDeleteReport = async () => {
+    if (!deleteTarget) {
+      return;
+    }
+    setIsDeletingReport(true);
+    setDeleteError(null);
+    try {
+      await deleteReport(deleteTarget.id);
+      setDeleteTarget(null);
+      await refreshReports();
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error
+          ? error.message
+          : t("home.deleteReportError", "Unable to delete report")
+      );
+    } finally {
+      setIsDeletingReport(false);
+    }
+  };
 
   return (
     <main className="analysis-density-page workbench-page-shell flex min-h-dvh flex-1 flex-col">
@@ -501,9 +549,9 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
               </div>
             </div>
 
-            {reportsError ? (
+            {reportsError || deleteError ? (
               <div className="mt-5 rounded-[24px] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-4 py-4 text-sm text-[var(--danger)]">
-                {reportsError}
+                {reportsError || deleteError}
               </div>
             ) : loadingReports ? (
               <div
@@ -570,6 +618,9 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                           href={buildReportHref(report.id)}
                           menuLabel={t("home.reportActions", "Report actions")}
                           openLabel={t("common.open", "Open")}
+                          deleteLabel={t("home.deleteReport", "Delete report")}
+                          canDelete={canDeleteGeneratedReports}
+                          onDelete={() => setDeleteTarget(report)}
                         />
                       </span>
                     </div>
@@ -694,6 +745,9 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
                                     href={buildReportHref(report.id)}
                                     menuLabel={t("home.reportActions", "Report actions")}
                                     openLabel={t("common.open", "Open")}
+                                    deleteLabel={t("home.deleteReport", "Delete report")}
+                                    canDelete={canDeleteGeneratedReports}
+                                    onDelete={() => setDeleteTarget(report)}
                                   />
                                 </span>
                               </div>
@@ -708,6 +762,24 @@ export function HomeDashboard({ initialSearchQuery }: HomeDashboardProps) {
             )}
         </section>
       </div>
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title={t("home.deleteReportDialogTitle", "Delete report")}
+        description={t(
+          "home.deleteReportDialogDescription",
+          "This removes the generated report files and report index entry. It does not delete task history, usage, trades, or user data."
+        )}
+        details={deleteTarget ? deleteTarget.id : null}
+        confirmLabel={t("home.deleteReportConfirm", "Delete report")}
+        confirmingLabel={t("home.deleteReportDeleting", "Deleting...")}
+        isConfirming={isDeletingReport}
+        onConfirm={() => void handleConfirmDeleteReport()}
+        onOpenChange={(open) => {
+          if (!open && !isDeletingReport) {
+            setDeleteTarget(null);
+          }
+        }}
+      />
     </main>
   );
 }

@@ -10,6 +10,7 @@ test("HomeDashboard is analysis-focused and keeps browse modules in page content
 
   assert.match(source, /from "@\/components\/ui\/badge"/);
   assert.match(source, /from "@\/components\/ui\/button"/);
+  assert.match(source, /from "@\/components\/ui\/confirm-dialog"/);
   assert.match(source, /from "@\/components\/ui\/dropdown-menu"/);
   assert.match(source, /from "@\/components\/ui\/input-group"/);
   assert.match(source, /from "@\/components\/ui\/select"/);
@@ -159,6 +160,11 @@ test("HomeDashboard groups visible reports by ticker with collapsible children",
   assert.match(source, /function ReportRowActions/);
   assert.match(source, /<DropdownMenu/);
   assert.match(source, /analysis-report-row-menu/);
+  assert.match(source, /deleteReport/);
+  assert.match(source, /canDeleteGeneratedReports/);
+  assert.match(source, /home\.deleteReport/);
+  assert.match(source, /<ConfirmDialog/);
+  assert.match(source, /It does not delete task history, usage, trades, or user data\./);
   assert.doesNotMatch(source, /analysis-report-list mt-5 space-y-3/);
   assert.doesNotMatch(source, /analysis-report-row group list-item-surface/);
   assert.match(source, /home\.reportGroupCount/);
