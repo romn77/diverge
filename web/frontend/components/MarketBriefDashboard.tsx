@@ -120,6 +120,9 @@ export function MarketBriefDashboard() {
       });
       const task = await getMarketBriefTask(result.task_id);
       setTasks((current) => [task, ...current.filter((item) => item.id !== task.id)]);
+      if (!isActiveTask(task)) {
+        await refresh();
+      }
     } catch (runError) {
       setError(runError instanceof Error ? runError.message : t("marketBrief.error.run", "Unable to run brief"));
     } finally {
@@ -128,7 +131,7 @@ export function MarketBriefDashboard() {
   };
 
   return (
-    <main className="flex min-h-dvh flex-1 flex-col px-4 py-6 md:px-7 lg:px-9">
+    <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-5">
         <Card className="card-surface rounded-[24px]">
           <CardContent className="space-y-5 p-5 md:p-6">
@@ -187,7 +190,7 @@ export function MarketBriefDashboard() {
           </CardContent>
         </Card>
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.5fr)]">
+        <section>
           <Card className="card-surface rounded-[24px]">
             <CardContent className="p-5 md:p-6">
               <div className="flex items-center justify-between gap-3">
@@ -242,59 +245,10 @@ export function MarketBriefDashboard() {
               </div>
             </CardContent>
           </Card>
-
-          <Card className="card-surface rounded-[24px]">
-            <CardContent className="p-5 md:p-6">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-base font-bold text-[var(--text)]">
-                  {t("marketBrief.tasks", "Generation tasks")}
-                </h2>
-                <Badge variant="secondary">{activeTasks.length}</Badge>
-              </div>
-              <div className="mt-4 space-y-3">
-                {tasks.slice(0, 6).map((task) => (
-                  <div
-                    key={task.id}
-                    className="rounded-[14px] border border-[var(--border)] bg-[var(--surface)] px-4 py-3"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="truncate text-sm font-semibold text-[var(--text)]">
-                        {formatMarketBriefMarkets(task.request_payload.markets, t)}
-                      </p>
-                      <Badge variant="outline">{t(`task.status.${task.status}`, task.status)}</Badge>
-                    </div>
-                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
-                      {task.latest_progress?.message ?? task.created_at ?? task.id}
-                    </p>
-                    {task.report_id ? (
-                      <Link
-                        href={buildReportHref(task.report_id)}
-                        className="mt-3 inline-flex text-xs font-semibold text-[var(--primary)] underline-offset-4 hover:underline"
-                      >
-                        {t("marketBrief.openReport", "Open report")}
-                      </Link>
-                    ) : null}
-                  </div>
-                ))}
-                {!tasks.length ? (
-                  <p className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-muted-foreground">
-                    {t("marketBrief.noTasks", "No brief tasks yet.")}
-                  </p>
-                ) : null}
-              </div>
-            </CardContent>
-          </Card>
         </section>
       </div>
     </main>
   );
-}
-
-function formatMarketBriefMarkets(
-  markets: string[] | readonly string[],
-  t: ReturnType<typeof usePreferences>["t"]
-): string {
-  return markets.map((market) => formatMarketBriefMarket(market, t)).join(", ");
 }
 
 function formatMarketBriefMarket(
