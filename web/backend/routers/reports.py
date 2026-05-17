@@ -39,3 +39,8 @@ def update_visibility(
     return report_service.update_report_visibility(
         report_id, payload.visibility, request
     )
+
+
+@router.delete("/api/reports/{report_id}")
+def delete_report(report_id: str, request: Request = None) -> dict:
+    return report_service.delete_report_artifacts(report_id, request)

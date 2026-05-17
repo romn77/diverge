@@ -432,6 +432,13 @@ export interface DeleteAdminUserResponse {
   user_id: string;
 }
 
+export interface DeleteReportResponse {
+  deleted: boolean;
+  report_id: string;
+  storage_path: string;
+  deleted_storage_keys: number;
+}
+
 export interface ResetAdminUserUsageResponse {
   user_id: string;
   reset_count: number;
@@ -1965,6 +1972,13 @@ export async function updateReportVisibility(
   return requestJson<Report>(
     `/api/reports/${reportId}/visibility`,
     createJsonRequestInit("PATCH", { visibility })
+  );
+}
+
+export async function deleteReport(reportId: string): Promise<DeleteReportResponse> {
+  return requestJson<DeleteReportResponse>(
+    `/api/reports/${reportId}`,
+    createJsonRequestInit("DELETE")
   );
 }
 

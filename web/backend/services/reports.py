@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 from pathlib import Path
 
 from fastapi import HTTPException, Request
@@ -201,15 +202,20 @@ def resolve_report_dir(report_id: str) -> Path:
 
 
 def resolve_report_dir_from_storage_path(storage_path: str) -> Path:
+    report_dir = _resolve_report_storage_dir(storage_path)
+    if not report_dir.is_dir() and storage_backend_is_remote():
+        storage.download_prefix(f"reports/{storage_path}", report_dir)
+    if not report_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report_dir
+
+
+def _resolve_report_storage_dir(storage_path: str) -> Path:
     report_dir = (app_config.REPORTS_DIR / storage_path).resolve()
     try:
         report_dir.relative_to(app_config.REPORTS_DIR.resolve())
     except ValueError as exc:
         raise HTTPException(status_code=404, detail="Report not found") from exc
-    if not report_dir.is_dir() and storage_backend_is_remote():
-        storage.download_prefix(f"reports/{storage_path}", report_dir)
-    if not report_dir.is_dir():
-        raise HTTPException(status_code=404, detail="Report not found")
     return report_dir
 
 
@@ -506,6 +512,71 @@ def update_report_visibility(
             payload = report_metadata.serialize_report_summary(record)
             db.commit()
             return payload
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise access.translate_auth_error(exc) from exc
+
+
+def delete_report_artifacts(
+    report_id: str,
+    request: Request | None = None,
+) -> dict:
+    if not auth.auth_enabled():
+        raise HTTPException(status_code=409, detail="Auth is disabled")
+    try:
+        with auth.db_session() as db:
+            current_user = _require_report_user(db, request)
+            if not access.is_admin_user(current_user):
+                raise auth.AuthPermissionError("Only admin can delete reports")
+
+            record = report_metadata.get_report_run(
+                db,
+                report_id,
+                tenant_id=current_user.tenant_id,
+            )
+            payload = report_metadata.serialize_report_summary(record)
+            if is_market_brief_report_summary(payload):
+                raise auth.AuthPermissionError(
+                    "Market brief reports cannot be deleted from the analysis library"
+                )
+
+            storage_path = record.storage_path
+            report_dir = _resolve_report_storage_dir(storage_path)
+            if report_dir.exists():
+                if not report_dir.is_dir():
+                    raise HTTPException(status_code=409, detail="Report path is invalid")
+                shutil.rmtree(report_dir)
+            deleted_storage_keys: list[str] = []
+            if storage_backend_is_remote():
+                deleted_storage_keys = storage.delete_prefix(f"reports/{storage_path}")
+
+            audit.record_audit_event_safely(
+                db,
+                tenant_id=current_user.tenant_id,
+                actor_user_id=current_user.id,
+                action="report.deleted",
+                resource_type="report",
+                resource_id=record.id,
+                metadata={
+                    "ticker": record.ticker,
+                    "owner_user_id": record.owner_user_id,
+                    "visibility": record.visibility,
+                    "storage_path": storage_path,
+                },
+                request=request,
+            )
+            db.query(report_metadata.ReportFile).filter(
+                report_metadata.ReportFile.report_id == record.id
+            ).delete(synchronize_session=False)
+            db.delete(record)
+            db.commit()
+            return {
+                "deleted": True,
+                "report_id": report_id,
+                "storage_path": storage_path,
+                "deleted_storage_keys": len(deleted_storage_keys),
+            }
     except HTTPException:
         raise
     except Exception as exc:

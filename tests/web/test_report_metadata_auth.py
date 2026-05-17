@@ -44,6 +44,7 @@ class ReportMetadataAuthTests(unittest.TestCase):
                 "SESSION_COOKIE_SECURE": "false",
                 "SESSION_COOKIE_SAMESITE": "lax",
                 "SESSION_TTL_HOURS": "24",
+                "TASK_BACKEND": "local",
             },
             clear=False,
         )
@@ -76,9 +77,18 @@ class ReportMetadataAuthTests(unittest.TestCase):
                 role=auth.UserRole.OPERATOR,
                 must_change_password=False,
             )
+            self.admin = auth.create_user(
+                db,
+                email="admin@example.com",
+                display_name="Admin",
+                password="admin-password",
+                role=auth.UserRole.ADMIN,
+                must_change_password=False,
+            )
             self.owner_id = self.owner.id
             self.collaborator_id = self.collaborator.id
             self.operator_id = self.operator.id
+            self.admin_id = self.admin.id
 
     def tearDown(self):
         app_config.REPORTS_DIR = self.original_reports_dir
@@ -267,6 +277,88 @@ class ReportMetadataAuthTests(unittest.TestCase):
                     params={"path": "artifacts/manual.json"},
                 )
                 self.assertEqual(unindexed_response.status_code, 404)
+
+        asyncio.run(scenario())
+
+    def test_admin_delete_report_removes_generated_artifacts_only(self):
+        async def scenario():
+            report_dir = self._write_report(
+                "MSFT_20260420_093000",
+                owner_user_id=self.owner_id,
+                visibility=report_metadata.REPORT_VISIBILITY_PRIVATE,
+            )
+
+            async with app_client(app) as client:
+                owner_login = await client.post(
+                    "/api/auth/login",
+                    json={"email": "owner@example.com", "password": "owner-password"},
+                )
+                self.assertEqual(owner_login.status_code, 200)
+
+                owner_delete = await client.delete(
+                    "/api/reports/MSFT_20260420_093000"
+                )
+                self.assertEqual(owner_delete.status_code, 403)
+                self.assertTrue(report_dir.exists())
+
+                admin_login = await client.post(
+                    "/api/auth/login",
+                    json={"email": "admin@example.com", "password": "admin-password"},
+                )
+                self.assertEqual(admin_login.status_code, 200)
+
+                delete_response = await client.delete(
+                    "/api/reports/MSFT_20260420_093000"
+                )
+                self.assertEqual(delete_response.status_code, 200)
+                self.assertEqual(
+                    delete_response.json()["report_id"], "MSFT_20260420_093000"
+                )
+
+                missing_response = await client.get(
+                    "/api/reports/MSFT_20260420_093000/structure"
+                )
+                self.assertEqual(missing_response.status_code, 404)
+
+            self.assertFalse(report_dir.exists())
+            with auth.db_session() as db:
+                self.assertIsNone(
+                    db.get(report_metadata.ReportRun, "MSFT_20260420_093000")
+                )
+                self.assertEqual(
+                    report_metadata.list_report_files(
+                        db, "MSFT_20260420_093000"
+                    ),
+                    [],
+                )
+
+        asyncio.run(scenario())
+
+    def test_admin_delete_report_rejects_market_brief_artifacts(self):
+        async def scenario():
+            report_dir = self._write_report(
+                "MARKET_BRIEF_20260420_093000",
+                owner_user_id=self.owner_id,
+                visibility=report_metadata.REPORT_VISIBILITY_WORKSPACE,
+            )
+
+            async with app_client(app) as client:
+                admin_login = await client.post(
+                    "/api/auth/login",
+                    json={"email": "admin@example.com", "password": "admin-password"},
+                )
+                self.assertEqual(admin_login.status_code, 200)
+
+                delete_response = await client.delete(
+                    "/api/reports/MARKET_BRIEF_20260420_093000"
+                )
+                self.assertEqual(delete_response.status_code, 403)
+
+            self.assertTrue(report_dir.exists())
+            with auth.db_session() as db:
+                self.assertIsNotNone(
+                    db.get(report_metadata.ReportRun, "MARKET_BRIEF_20260420_093000")
+                )
 
         asyncio.run(scenario())
 
