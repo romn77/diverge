@@ -281,29 +281,31 @@ export function OpportunityRadarPage() {
 
   if (!canAccessOpportunityRadar) {
     return (
-      <main className="flex min-h-dvh flex-1 flex-col p-2 md:p-4">
-        <Card className="viewer-frame fade-in">
-          <CardContent className="p-5 md:p-6">
-            <div className="flex items-center gap-3">
-              <Radar className="h-5 w-5 text-[var(--primary)]" aria-hidden />
-              <div>
-                <h1 className="font-heading text-xl font-bold text-foreground">
-                  {t("opportunity.unavailable.title", "Opportunity Radar is unavailable")}
-                </h1>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {t("opportunity.unavailable.body", "Current account does not have Opportunity Radar access.")}
-                </p>
+      <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
+        <div className="workbench-content-frame">
+          <Card className="viewer-frame fade-in">
+            <CardContent className="p-5 md:p-6">
+              <div className="flex items-center gap-3">
+                <Radar className="h-5 w-5 text-[var(--primary)]" aria-hidden />
+                <div>
+                  <h1 className="font-heading text-xl font-bold text-foreground">
+                    {t("opportunity.unavailable.title", "Opportunity Radar is unavailable")}
+                  </h1>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {t("opportunity.unavailable.body", "Current account does not have Opportunity Radar access.")}
+                  </p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-dvh flex-1 flex-col p-2 md:h-dvh md:overflow-hidden md:p-3 lg:p-4">
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
+    <main className="workbench-page-shell flex min-h-dvh min-w-0 flex-1 flex-col md:h-dvh md:overflow-hidden">
+      <div className="workbench-content-frame flex min-h-0 max-w-full flex-1 flex-col gap-4 overflow-hidden">
         <Card className="viewer-frame fade-in shrink-0">
           <CardContent className="p-4 md:p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">

@@ -30,8 +30,16 @@ test("MarketBriefDashboard exposes manual A/US brief generation without changing
   assert.match(source, /marketBrief\.error\.load/);
   assert.match(source, /marketBrief\.error\.run/);
   assert.match(source, /formatMarketBriefMarket/);
-  assert.match(source, /task\.status\.\$\{task\.status\}/);
   assert.match(source, /buildReportHref/);
+});
+
+test("MarketBriefDashboard keeps task status activity out of the brief page", () => {
+  assert.match(source, /className="workbench-content-frame space-y-5"/);
+  assert.match(source, /workbench-page-shell/);
+  assert.match(source, /isActiveTask/);
+  assert.doesNotMatch(source, /marketBrief\.tasks/);
+  assert.doesNotMatch(source, /marketBrief\.noTasks/);
+  assert.doesNotMatch(source, /task\.status\.\$\{task\.status\}/);
 });
 
 test("MarketBriefDashboard uses tokenized workbench surfaces", () => {

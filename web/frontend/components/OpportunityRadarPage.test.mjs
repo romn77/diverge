@@ -33,3 +33,11 @@ test("OpportunityRadarPage routes new radar runs through task progress before re
   assert.match(source, /const \{ language, t \} = usePreferences\(\)/);
   assert.match(source, /output_language:\s*language === "zh" \? "cn" : "en"/);
 });
+
+test("OpportunityRadarPage uses the shared responsive workbench width frame", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /workbench-page-shell/);
+  assert.match(source, /workbench-content-frame/);
+  assert.doesNotMatch(source, /<main className="flex min-h-dvh flex-1 flex-col p-2/);
+});
