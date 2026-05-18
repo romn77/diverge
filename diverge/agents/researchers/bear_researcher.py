@@ -6,8 +6,10 @@ from diverge.agents.report_output import (
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
+    format_untrusted_context_block,
     get_evidence_rules_instruction,
     get_language_instruction,
+    get_memory_skepticism_instruction,
     get_research_note_style_instruction,
     get_thesis_stress_test_instruction,
     get_trade_feedback_message,
@@ -34,6 +36,7 @@ class BearResearcher(DivergeAgentNode):
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
         evidence_rules_instruction = get_evidence_rules_instruction()
+        memory_skepticism_instruction = get_memory_skepticism_instruction()
         decision_boundary_instruction = get_upstream_decision_boundary_instruction()
         stress_test_instruction = get_thesis_stress_test_instruction("bearish")
         market_research_report = state["market_report"]
@@ -48,11 +51,48 @@ class BearResearcher(DivergeAgentNode):
         for i, rec in enumerate(past_memories, 1):
             past_memory_str += rec["recommendation"] + "\n\n"
 
+        market_report_block = format_untrusted_context_block(
+            "market_research_report",
+            market_research_report,
+            limit=4000,
+        )
+        sentiment_report_block = format_untrusted_context_block(
+            "sentiment_report",
+            sentiment_report,
+            limit=4000,
+        )
+        news_report_block = format_untrusted_context_block(
+            "news_report",
+            news_report,
+            limit=4000,
+        )
+        fundamentals_report_block = format_untrusted_context_block(
+            "fundamentals_report",
+            fundamentals_report,
+            limit=4000,
+        )
+        history_block = format_untrusted_context_block(
+            "investment_debate_history",
+            history,
+            limit=4000,
+        )
+        current_response_block = format_untrusted_context_block(
+            "latest_bull_argument",
+            current_response,
+            limit=4000,
+        )
+        past_memory_block = format_untrusted_context_block(
+            "past_decision_memory",
+            past_memory_str,
+            limit=4000,
+        )
+
         prompt = f"""You are a Bear Analyst stress-testing the bearish case against the stock. Your goal is to present a well-reasoned argument emphasizing risks, challenges, and negative indicators while clearly acknowledging material contrary evidence. Leverage the provided research and data to highlight potential downsides and counter bullish arguments effectively.
 
 {stress_test_instruction}
 {decision_boundary_instruction}
 {evidence_rules_instruction}
+{memory_skepticism_instruction}
 
 Key points to focus on:
 
@@ -64,23 +104,30 @@ Key points to focus on:
 
 Resources available:
 
-Market research report: {market_research_report}
-Social media sentiment report: {sentiment_report}
-Latest world affairs news: {news_report}
-Company fundamentals report: {fundamentals_report}
-Conversation history of the debate: {history}
-Last bull argument: {current_response}
-Reflections from similar situations and lessons learned: {past_memory_str}
+Market research report:
+{market_report_block}
+Social media sentiment report:
+{sentiment_report_block}
+Latest world affairs news:
+{news_report_block}
+Company fundamentals report:
+{fundamentals_report_block}
+Conversation history of the debate:
+{history_block}
+Last bull argument:
+{current_response_block}
+Reflections from similar situations and lessons learned:
+{past_memory_block}
 {trade_feedback_message}
 Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
 
-Use the following structure for the `highlights` field in your structured response:
+Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:
 
 ```json-highlights
 {{
   "category": "bear_case",
-  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
-  "signal_confidence": "high or medium or low",
+  "signal": "HOLD",
+  "signal_confidence": "medium",
   "summary": "1-2 sentence executive summary of your bear case",
   "stance": "bearish",
   "contrary_evidence": ["strongest evidence against the bear case"],
@@ -94,7 +141,7 @@ Use the following structure for the `highlights` field in your structured respon
       "evidence": "specific report-backed fact",
       "source": "analyst report or memory source",
       "data_date": "YYYY-MM-DD or unknown",
-      "confidence": "high or medium or low",
+      "confidence": "medium",
       "limitation": "missing/stale/ambiguous input, or null"
     }}
   ],

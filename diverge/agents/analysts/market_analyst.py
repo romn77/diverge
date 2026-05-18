@@ -67,16 +67,16 @@ Volume-Based Indicators:
 
 - Select indicators that provide diverse and complementary information. Avoid redundancy (e.g., do not select both rsi and stochrsi). Also briefly explain why they are suitable for the given market context. When you tool call, please use the exact name of the indicators provided above as they are defined parameters, otherwise your call will fail. Please make sure to call get_stock_data first to retrieve the CSV that is needed to generate indicators. When calling get_stock_data, request only the past 120 trading days ending at the current date; do not request a longer price-history window. Then use get_indicators with the specific indicator names. Write a very detailed and nuanced report of the trends you observe. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."""
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. Use the following structure for the `highlights` field in your structured response (replace values with your actual analysis findings):
+            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read. Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:
 
 ```json-highlights
 {
   "category": "market",
-  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
-  "signal_confidence": "high or medium or low",
+  "signal": "HOLD",
+  "signal_confidence": "medium",
   "summary": "1-2 sentence executive summary of your analysis",
-  "stance": "bullish or neutral or bearish or mixed",
-  "trend_direction": "bullish or bearish or neutral or mixed",
+  "stance": "neutral",
+  "trend_direction": "neutral",
   "key_levels": {
     "support": ["level1", "level2"],
     "resistance": ["level1", "level2"]
@@ -84,14 +84,14 @@ Volume-Based Indicators:
   "indicators": [
     {"name": "indicator name", "value": "current value", "interpretation": "brief meaning"}
   ],
-  "volatility": "high or moderate or low",
+  "volatility": "moderate",
   "evidence_blocks": [
     {
       "claim": "technical claim",
       "evidence": "specific OHLC/indicator evidence",
       "source": "get_stock_data or get_indicators",
       "data_date": "YYYY-MM-DD or unknown",
-      "confidence": "high or medium or low",
+      "confidence": "medium",
       "limitation": "missing/stale/ambiguous input, or null"
     }
   ],
@@ -104,11 +104,9 @@ Keep the JSON keys and enum literals in English constants exactly as shown; free
 
         prompt = AdkPrompt(
             system_message=(
-                "You are a helpful AI assistant, collaborating with other assistants."
-                " Use the provided tools to progress towards answering the question."
-                " If you are unable to fully answer, that's OK; another assistant with different tools"
-                " will help where you left off. Execute what you can to make progress."
-                f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
+                f"Available tools: {', '.join([tool.name for tool in tools])}. "
+                "Use them only for the market/technical evidence task described below.\n"
+                f"{system_message}"
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"

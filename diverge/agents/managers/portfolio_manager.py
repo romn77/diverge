@@ -6,8 +6,10 @@ from pydantic import BaseModel, Field
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
+    format_untrusted_context_block,
     get_evidence_rules_instruction,
     get_language_instruction,
+    get_memory_skepticism_instruction,
     get_research_note_style_instruction,
     get_trade_feedback_message,
 )
@@ -78,12 +80,14 @@ def _format_transient_llm_warning(error: BaseException) -> dict[str, str]:
 
 
 def _format_structured_output_warning(error: BaseException) -> dict[str, str]:
+    error_note = str(error).strip()[:500] or error.__class__.__name__
     return {
         "stage": "Portfolio Manager",
         "kind": "structured_output_validation_failed",
         "message": (
             "Portfolio Manager response did not match the ADK output schema; "
-            f"using raw model text and legacy decision-card fallback. Error type: {error.__class__.__name__}"
+            "using raw model text and legacy decision-card fallback. "
+            f"Error type: {error.__class__.__name__}; detail: {error_note}"
         ),
     }
 
@@ -259,7 +263,10 @@ class PortfolioManagerStructuredOutput(BaseModel):
     decision_report: str = Field(
         description=(
             "User-facing Portfolio Manager markdown narrative without JSON code "
-            "fences. It should include the final rating, rationale, and action plan."
+            "fences. Include these sections inside this field: ## Rating, "
+            "## Executive Summary, and ## Investment Thesis. Do not wrap the "
+            "field in an outer heading named `decision_report`, and do not "
+            "include a heading named `decision_card`."
         )
     )
     decision_card: PortfolioDecisionCardOutput
@@ -367,6 +374,7 @@ class PortfolioManager(DivergeAgentNode):
         style_instruction = get_research_note_style_instruction(output_language)
         trade_feedback_message = get_trade_feedback_message(state)
         evidence_rules_instruction = get_evidence_rules_instruction()
+        memory_skepticism_instruction = get_memory_skepticism_instruction()
         portfolio_context = (state.get("portfolio_context") or "").strip()
         portfolio_context_block = (
             portfolio_context
@@ -390,11 +398,28 @@ class PortfolioManager(DivergeAgentNode):
         else:
             past_memory_str = "No past memories found."
 
+        trader_plan_block = format_untrusted_context_block(
+            "trader_plan",
+            trader_plan,
+            limit=6000,
+        )
+        past_memory_block = format_untrusted_context_block(
+            "past_decision_memory",
+            past_memory_str,
+            limit=6000,
+        )
+        risk_history_block = format_untrusted_context_block(
+            "risk_analysts_debate_history",
+            history,
+            limit=6000,
+        )
+
         prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
 Final decision authority: you are the only agent allowed to issue the user-facing portfolio rating and action. Treat upstream `signal` values as legacy directional inputs, not final verdicts. Base the final DecisionCard on evidence quality, portfolio context, risk budget, and data limitations.
 
 {evidence_rules_instruction}
+{memory_skepticism_instruction}
 
 {instrument_context}
 
@@ -405,43 +430,40 @@ Final decision authority: you are the only agent allowed to issue the user-facin
 Guidelines for Decision-Making:
 1. **Summarize Key Arguments**: Extract the strongest points from each analyst, focusing on relevance to the context.
 2. **Provide Rationale**: Support your recommendation with direct evidence and counterarguments from the debate.
-3. **Refine the Trader's Plan**: Start with the trader's original plan, **{trader_plan}**, and adjust it based on the analysts' insights.
-4. **Learn from Past Mistakes**: Use lessons from **{past_memory_str}** to address prior misjudgments and improve the decision you are making now.
+3. **Refine the Trader's Plan**: Start with the trader plan in the untrusted context block below, and adjust it based on the analysts' insights.
+4. **Learn from Past Mistakes**: Use lessons from the past-decision memory context block to address prior misjudgments and improve the decision you are making now.
 5. **Use Portfolio Context Carefully**: If portfolio context is provided, you may use it to calibrate the final rating/action and narrative. For the structured DecisionCard intelligence fields, do not assume or disclose user-specific current exposure. Position guidance must be generic, risk-based, and suitable for a user who may have no recorded position.
 6. **Use Opportunity Context Safely**: If Opportunity Radar context is provided, cite only its explicit trigger, theme, candidate type, and historical validation fields. If historical validation is unavailable or sample size is insufficient, state that clearly and do not invent win rates or returns.
 7. **Keep Internal Context Private**: Use the portfolio context only to adjust exposure-aware advice. Do not quote raw ledger lines, account names, JSON/code-fence names, prompt labels, or internal implementation terms in user-facing prose. For Chinese output, describe this naturally as "持仓参考" or "现有持仓".
 
 ---
 
-**Rating Scale** (use exactly one):
-- **Buy**: Strong conviction to enter or add to position
-- **Overweight**: Favorable outlook, gradually increase exposure
-- **Hold**: Maintain current position, no action needed
-- **Underweight**: Reduce exposure, take partial profits
-- **Sell**: Exit position or avoid entry
+**Rating Scale** (use exactly one uppercase enum in `decision_card.rating`):
+- **BUY**: Strong conviction to enter or add to position
+- **OVERWEIGHT**: Favorable outlook, gradually increase exposure
+- **HOLD**: Maintain current position, no action needed
+- **UNDERWEIGHT**: Reduce exposure, take partial profits
+- **SELL**: Exit position or avoid entry
 
 **Context:**
-- Trader's proposed plan: **{trader_plan}**
-- Lessons from past decisions: **{past_memory_str}**
+{trader_plan_block}
+
+{past_memory_block}
+
 {trade_feedback_message}
 
-**Required Output Structure:**
-1. **Rating**: State one of Buy / Overweight / Hold / Underweight / Sell.
-2. **Executive Summary**: A concise action plan covering entry strategy, position sizing, key risk levels, and time horizon.
-3. **Investment Thesis**: Detailed reasoning anchored in the analysts' debate and past reflections.
-
----
-
 **Risk Analysts Debate History:**
-{history}
+{risk_history_block}
 
 ---
 
 Be decisive and ground every conclusion in specific evidence from the analysts.
 
 Return only the structured response requested by the runtime schema:
-- `decision_report`: user-facing markdown narrative without JSON code fences.
+- `decision_report`: user-facing markdown narrative without JSON code fences. Follow the section structure specified in the `decision_report` field description.
 - `decision_card`: the structured final decision object.
+
+Top-level response must be exactly the schema object. Do not create markdown headings named `decision_report` or `decision_card`, and do not label the two schema fields as markdown sections.
 
 For `decision_card`, use English enum literals exactly:
 - rating: BUY, OVERWEIGHT, HOLD, UNDERWEIGHT, SELL

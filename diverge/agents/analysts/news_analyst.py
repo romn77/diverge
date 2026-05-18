@@ -61,16 +61,16 @@ class NewsAnalyst(DivergeAgentNode):
             + f"\n\n{web_search_instruction}"
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
             + f"\n\n{earnings_context.prompt_instruction}"
-            + """ Use the following structure for the `highlights` field in your structured response:
+            + """ Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:
 
 ```json-highlights
 {
   "category": "news",
-  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
+  "signal": "HOLD",
   "signal_confidence": "medium",
   "summary": "concise summary of the key news implications",
-  "stance": "bullish or neutral or bearish or mixed",
-  "market_impact": "mixed",
+  "stance": "neutral",
+  "market_impact": "neutral",
   "key_events": [
     {
       "event": "event name/description",
@@ -84,7 +84,7 @@ class NewsAnalyst(DivergeAgentNode):
       "evidence": "specific source-backed fact",
       "source": "get_news, get_global_news, or web_search_evidence result",
       "data_date": "YYYY-MM-DD or unknown",
-      "confidence": "high or medium or low",
+      "confidence": "medium",
       "limitation": "missing/stale/ambiguous input, or null"
     }
   ],
@@ -97,11 +97,9 @@ Keep the JSON keys and enum literals in English constants exactly as shown (`cat
 
         prompt = AdkPrompt(
             system_message=(
-                "You are a helpful AI assistant, collaborating with other assistants."
-                " Use the provided tools to progress towards answering the question."
-                " If you are unable to fully answer, that's OK; another assistant with different tools"
-                " will help where you left off. Execute what you can to make progress."
-                f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
+                f"Available tools: {', '.join([tool.name for tool in tools])}. "
+                "Use them only for the news/macro evidence task described below.\n"
+                f"{system_message}"
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"

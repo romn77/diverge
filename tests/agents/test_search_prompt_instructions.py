@@ -21,6 +21,15 @@ def test_news_and_sentiment_prompts_explain_conditional_web_search_budget():
         assert "Bocha" not in source
 
 
+def test_news_prompt_marks_highlight_example_values_as_non_defaults():
+    source = _source("diverge/agents/analysts/news_analyst.py")
+
+    assert "illustrative placeholders, not defaults" in source
+    assert '"signal": "HOLD"' in source
+    assert '"stance": "neutral"' in source
+    assert '"market_impact": "neutral"' in source
+
+
 def test_portfolio_and_other_non_news_agents_do_not_reference_web_search_tool():
     for path in (
         "diverge/agents/managers/portfolio_manager.py",

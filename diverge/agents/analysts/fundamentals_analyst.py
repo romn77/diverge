@@ -68,17 +68,15 @@ class FundamentalsAnalyst(DivergeAgentNode):
             + " Use the available tools: `get_fundamentals` for comprehensive company analysis, `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements, and `get_insider_transactions` for recent insider activity."
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
             + f"\n\n{earnings_context.prompt_instruction}"
-            + ' Use the following structure for the `highlights` field in your structured response:\n```json-highlights\n{\n  "category": "fundamentals",\n  "signal": "BUY|OVERWEIGHT|HOLD|UNDERWEIGHT|SELL",\n  "signal_confidence": "high|medium|low",\n  "summary": "string",\n  "stance": "bullish|neutral|bearish|mixed",\n  "metrics": [\n    {\n      "name": "string",\n      "value": "string",\n      "assessment": "string"\n    }\n  ],\n  "financial_health": "string",\n  "evidence_blocks": [\n    {\n      "claim": "fundamental claim",\n      "evidence": "specific reported metric or fact",\n      "source": "tool/source name",\n      "data_date": "YYYY-MM-DD or unknown",\n      "confidence": "high|medium|low",\n      "limitation": "missing/stale/ambiguous input, or null"\n    }\n  ],\n  "unknowns": ["material fundamental unknown or unavailable input"]\n}\n```'
+            + ' Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:\n```json-highlights\n{\n  "category": "fundamentals",\n  "signal": "HOLD",\n  "signal_confidence": "medium",\n  "summary": "1-2 sentence executive summary of fundamental analysis",\n  "stance": "neutral",\n  "metrics": [\n    {\n      "name": "metric name",\n      "value": "metric value",\n      "assessment": "brief assessment"\n    }\n  ],\n  "financial_health": "brief financial health assessment",\n  "evidence_blocks": [\n    {\n      "claim": "fundamental claim",\n      "evidence": "specific reported metric or fact",\n      "source": "tool/source name",\n      "data_date": "YYYY-MM-DD or unknown",\n      "confidence": "medium",\n      "limitation": "missing/stale/ambiguous input, or null"\n    }\n  ],\n  "unknowns": ["material fundamental unknown or unavailable input"]\n}\n```'
             + " Keep keys/enums as English constants; free-form values should follow the report language."
         )
 
         prompt = AdkPrompt(
             system_message=(
-                "You are a helpful AI assistant, collaborating with other assistants."
-                " Use the provided tools to progress towards answering the question."
-                " If you are unable to fully answer, that's OK; another assistant with different tools"
-                " will help where you left off. Execute what you can to make progress."
-                f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
+                f"Available tools: {', '.join([tool.name for tool in tools])}. "
+                "Use them only for the fundamentals evidence task described below.\n"
+                f"{system_message}"
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"

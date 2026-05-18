@@ -4,19 +4,13 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from diverge.agents.base import AgentCallSpec, DivergeAgentNode
-from diverge.agents.utils.agent_utils import get_language_instruction
+from diverge.agents.utils.agent_utils import (
+    format_prompt_section,
+    get_language_instruction,
+)
 from diverge.decision_card.schema import PortfolioAction, PortfolioRating
 from diverge.runtime.messages import AdkPrompt
 from diverge.runtime.structured_output import parse_structured_output
-
-
-def _section(title: str, content: str | None, limit: int = 8000) -> str:
-    text = (content or "").strip()
-    if not text:
-        return f"## {title}\nNot available."
-    if len(text) > limit:
-        text = text[:limit].rstrip() + "\n...[truncated]"
-    return f"## {title}\n{text}"
 
 
 _THINKING_BLOCK_RE = re.compile(
@@ -181,18 +175,36 @@ class SummaryAgent(DivergeAgentNode):
 
         full_report_context = "\n\n".join(
             [
-                _section("Market Analyst", state.get("market_report")),
-                _section("Social Analyst", state.get("sentiment_report")),
-                _section("News Analyst", state.get("news_report")),
-                _section("Fundamentals Analyst", state.get("fundamentals_report")),
-                _section("Bull Researcher", debate.get("bull_history")),
-                _section("Bear Researcher", debate.get("bear_history")),
-                _section("Research Manager", debate.get("judge_decision")),
-                _section("Trader", state.get("trader_investment_plan")),
-                _section("Aggressive Risk Analyst", risk.get("aggressive_history")),
-                _section("Conservative Risk Analyst", risk.get("conservative_history")),
-                _section("Neutral Risk Analyst", risk.get("neutral_history")),
-                _section("Portfolio Manager", risk.get("judge_decision")),
+                format_prompt_section("Market Analyst", state.get("market_report")),
+                format_prompt_section("Social Analyst", state.get("sentiment_report")),
+                format_prompt_section("News Analyst", state.get("news_report")),
+                format_prompt_section(
+                    "Fundamentals Analyst",
+                    state.get("fundamentals_report"),
+                ),
+                format_prompt_section("Bull Researcher", debate.get("bull_history")),
+                format_prompt_section("Bear Researcher", debate.get("bear_history")),
+                format_prompt_section(
+                    "Research Manager",
+                    debate.get("judge_decision"),
+                ),
+                format_prompt_section("Trader", state.get("trader_investment_plan")),
+                format_prompt_section(
+                    "Aggressive Risk Analyst",
+                    risk.get("aggressive_history"),
+                ),
+                format_prompt_section(
+                    "Conservative Risk Analyst",
+                    risk.get("conservative_history"),
+                ),
+                format_prompt_section(
+                    "Neutral Risk Analyst",
+                    risk.get("neutral_history"),
+                ),
+                format_prompt_section(
+                    "Portfolio Manager",
+                    risk.get("judge_decision"),
+                ),
             ]
         )
 
