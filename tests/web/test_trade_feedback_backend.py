@@ -12,6 +12,9 @@ from web.backend import app_config, auth
 from web.backend.runtime import journal_review_tasks, task_store
 from web.backend.schemas.trades import (
     AnalysisReferencePayload,
+    TradePlanCreatePayload,
+    TradePlanExecutePayload,
+    TradePlanLinkPayload,
     TradeRecordCreatePayload,
     TradeRecordUpdatePayload,
     TradeReviewGeneratePayload,
@@ -19,9 +22,13 @@ from web.backend.schemas.trades import (
 )
 from web.backend.services.trades import (
     create_trade,
+    create_trade_plan,
+    execute_trade_plan,
     generate_configured_trade_review,
     get_ticker_trade_feedback,
     get_trade,
+    link_trade_to_plan,
+    list_trade_plans,
     save_trade_review,
     update_trade,
 )
@@ -127,6 +134,28 @@ class TradeFeedbackBackendTests(unittest.TestCase):
                     full_state_log_path="data/eval_results/MSFT/DivergeStrategy_logs/full_states_log_2026-04-01.json",
                 )
             ],
+        }
+        payload.update(overrides)
+        return payload
+
+    def _plan_payload(self, **overrides):
+        payload = {
+            "raw_symbol": "MSFT",
+            "side": "long",
+            "source": "manual",
+            "strategy_tags": ["pullback"],
+            "entry_condition": "Buy only after a controlled pullback near support.",
+            "thesis": "Cloud momentum remains durable.",
+            "invalidation_condition": "Cloud demand weakens or support fails.",
+            "risk_rule": "Stop on a close below support.",
+            "reward_target": "Trim near prior high and exit remainder at 2R.",
+            "position_plan": "Use 3% portfolio weight with 0.5% account risk.",
+            "planned_horizon": "swing_1_4w",
+            "stop_loss": 408.0,
+            "take_profit": None,
+            "expires_at": "2026-04-03T16:00:00+00:00",
+            "notes": "Manual plan.",
+            "analysis_references": [],
         }
         payload.update(overrides)
         return payload
@@ -417,6 +446,90 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             activity_tasks[0]["latest_progress"]["message"],
             "Trade journal AI review generation completed (1/1 reviews).",
         )
+
+    def test_trade_plan_execute_creates_plan_linked_record(self):
+        plan = create_trade_plan(TradePlanCreatePayload(**self._plan_payload()))
+
+        result = execute_trade_plan(
+            plan["plan_id"],
+            TradePlanExecutePayload(
+                entry_timestamp="2026-04-02T15:30:00+00:00",
+                entry_price=420.0,
+                size=10,
+                execution_note="Executed manually after the pullback held.",
+            ),
+        )
+
+        self.assertEqual(result["plan"]["status"], "executed")
+        self.assertEqual(
+            result["plan"]["linked_trade_id"], result["record"]["trade_id"]
+        )
+        self.assertEqual(result["record"]["originating_plan_id"], plan["plan_id"])
+        self.assertEqual(
+            result["record"]["originating_plan_snapshot"]["position_plan"],
+            "Use 3% portfolio weight with 0.5% account risk.",
+        )
+        self.assertEqual(
+            result["record"]["execution_note"],
+            "Executed manually after the pullback held.",
+        )
+        self.assertEqual(list_trade_plans(status="planned"), [])
+        self.assertEqual(
+            [item["plan_id"] for item in list_trade_plans(status="executed")],
+            [plan["plan_id"]],
+        )
+
+    def test_unplanned_trade_can_link_to_matching_plan_once(self):
+        plan = create_trade_plan(TradePlanCreatePayload(**self._plan_payload()))
+        record = create_trade(TradeRecordCreatePayload(**self._trade_payload()))
+
+        result = link_trade_to_plan(
+            record["trade_id"],
+            TradePlanLinkPayload(
+                plan_id=plan["plan_id"],
+                execution_note="Forgot to pick the plan while recording.",
+            ),
+        )
+
+        self.assertEqual(result["plan"]["status"], "executed")
+        self.assertEqual(result["record"]["originating_plan_id"], plan["plan_id"])
+        self.assertEqual(
+            result["record"]["originating_plan_snapshot"]["entry_condition"],
+            "Buy only after a controlled pullback near support.",
+        )
+
+        other_plan = create_trade_plan(
+            TradePlanCreatePayload(
+                **self._plan_payload(
+                    expires_at="2026-04-04T16:00:00+00:00",
+                    entry_condition="Different pullback plan.",
+                )
+            )
+        )
+        with self.assertRaises(HTTPException) as context:
+            link_trade_to_plan(
+                record["trade_id"],
+                TradePlanLinkPayload(plan_id=other_plan["plan_id"]),
+            )
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("already linked", context.exception.detail)
+
+    def test_trade_plan_link_rejects_late_entry(self):
+        plan = create_trade_plan(
+            TradePlanCreatePayload(
+                **self._plan_payload(expires_at="2026-04-01T09:00:00+00:00")
+            )
+        )
+        record = create_trade(TradeRecordCreatePayload(**self._trade_payload()))
+
+        with self.assertRaises(HTTPException) as context:
+            link_trade_to_plan(
+                record["trade_id"],
+                TradePlanLinkPayload(plan_id=plan["plan_id"]),
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertIn("after the trade plan expiry", context.exception.detail)
 
 
 if __name__ == "__main__":

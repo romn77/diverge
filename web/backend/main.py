@@ -24,6 +24,7 @@ from web.backend import (
     screener_runs,
     search_quota,
     trade_entries,
+    trade_plan_entries,
 )
 from web.backend.routers import (
     admin as admin_router,
@@ -67,6 +68,7 @@ async def _app_lifespan(_: FastAPI):
     screener_results.initialize_screener_result_runtime()
     opportunity_models.initialize_opportunity_runtime()
     trade_entries.initialize_trade_entries_runtime()
+    trade_plan_entries.initialize_trade_plan_entries_runtime()
     asset_entries.initialize_asset_runtime()
     audit.ensure_audit_tables()
     job_records.initialize_job_record_runtime()

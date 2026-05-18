@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from diverge.trade_feedback import create_trade_record as create_trade_record_file
+from diverge.trade_plans import create_trade_plan as create_trade_plan_file
 from web.backend import app_config, auth, backfill_metadata, report_metadata
 from web.backend.main import app
 from tests.web.http_harness import app_client
@@ -114,11 +115,33 @@ class MetadataBackfillTests(unittest.TestCase):
         )
         return record["trade_id"]
 
+    def _write_trade_plan(self) -> str:
+        plan = create_trade_plan_file(
+            {
+                "raw_symbol": "MSFT",
+                "side": "long",
+                "strategy_tags": ["pullback"],
+                "entry_condition": "Buy support retest.",
+                "thesis": "Cloud durability remains underpriced.",
+                "invalidation_condition": "Cloud demand weakens materially.",
+                "risk_rule": "Stop on close below support.",
+                "reward_target": "Trim at prior high and exit remainder at 2R.",
+                "position_plan": "Use 3% portfolio weight with 0.5% account risk.",
+                "planned_horizon": "swing_1_4w",
+                "stop_loss": 405.0,
+                "expires_at": "2026-04-03T16:00:00+00:00",
+                "analysis_references": [],
+            },
+            reports_dir=self.reports_dir,
+        )
+        return plan["plan_id"]
+
     def test_backfill_indexes_reports_trades_and_screener_runs_under_bootstrap_admin(
         self,
     ):
         self._write_report()
         self._write_trade()
+        self._write_trade_plan()
         self._write_screener_run()
 
         with patch.dict(os.environ, self.env, clear=True):
@@ -129,6 +152,7 @@ class MetadataBackfillTests(unittest.TestCase):
             self.assertEqual(summary.reports, 1)
             self.assertEqual(summary.report_files, 3)
             self.assertEqual(summary.trades, 1)
+            self.assertEqual(summary.trade_plans, 1)
             self.assertEqual(summary.screener_runs, 1)
 
             with auth.db_session() as db:

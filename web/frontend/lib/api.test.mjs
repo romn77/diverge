@@ -51,9 +51,50 @@ test("journal APIs normalize legacy trade payloads before components receive the
   assert.match(source, /function normalizeTradeReview\(value: unknown/);
   assert.match(source, /improvement_actions: normalizeStringArray/);
   assert.match(source, /function normalizeTradeDetail\(value: unknown\): TradeDetail/);
+  assert.match(source, /execution_note: stringValue\(record\.execution_note\)/);
+  assert.match(source, /originating_plan_id: nullableStringValue\(record\.originating_plan_id\)/);
+  assert.match(
+    source,
+    /originating_plan_snapshot: normalizeTradePlanSnapshot\(\s*record\.originating_plan_snapshot\s*\)/
+  );
   assert.match(source, /return Array\.isArray\(data\) \? data\.map\(normalizeTradeRecord\) : \[\]/);
   assert.match(source, /return normalizeTradeDetail\(data\)/);
   assert.match(source, /return normalizeTradeReview\(data\)/);
+});
+
+test("trade plan APIs expose typed CRUD, execution, link, and payload normalization", () => {
+  const tradeCreateRequest = source.match(/export interface TradeRecordCreateRequest \{[\s\S]*?\n\}/)?.[0] ?? "";
+  const tradeUpdateRequest = source.match(/export interface TradeRecordUpdateRequest \{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(source, /export interface TradePlan/);
+  assert.match(source, /export interface TradePlanSnapshot/);
+  assert.match(source, /export interface TradePlanCreateRequest/);
+  assert.match(source, /export interface TradePlanUpdateRequest/);
+  assert.match(source, /export interface TradePlanExecuteRequest/);
+  assert.match(source, /export interface TradePlanLinkRequest/);
+  assert.match(source, /function normalizeTradePlan\(value: unknown\): TradePlan/);
+  assert.match(source, /function normalizeTradePlanSnapshot\(value: unknown\): TradePlanSnapshot \| null/);
+  assert.match(source, /strategy_tags: normalizeStringArray\(plan\.strategy_tags\)/);
+  assert.match(
+    source,
+    /analysis_references: normalizeAnalysisReferences\(plan\.analysis_references\)/
+  );
+  assert.match(source, /export async function listTradePlans/);
+  assert.match(source, /export async function createTradePlan/);
+  assert.match(source, /export async function getTradePlan/);
+  assert.match(source, /export async function updateTradePlan/);
+  assert.match(source, /export async function deleteTradePlan/);
+  assert.match(source, /export async function executeTradePlan/);
+  assert.match(source, /export async function linkTradeToPlan/);
+  assert.match(source, /\/api\/trade-plans/);
+  assert.match(source, /\/api\/trade-plans\/\$\{planId\}/);
+  assert.match(source, /\/api\/trade-plans\/\$\{planId\}\/execute/);
+  assert.match(source, /\/api\/trades\/\$\{tradeId\}\/link-plan/);
+  assert.doesNotMatch(tradeCreateRequest, /originating_plan_id/);
+  assert.doesNotMatch(tradeUpdateRequest, /originating_plan_id/);
+  assert.doesNotMatch(tradeCreateRequest, /originating_plan_snapshot/);
+  assert.doesNotMatch(tradeUpdateRequest, /originating_plan_snapshot/);
+  assert.doesNotMatch(tradeCreateRequest, /execution_note/);
+  assert.doesNotMatch(tradeUpdateRequest, /execution_note/);
 });
 
 test("screener task stream resumes from a cursor instead of replaying all events", () => {

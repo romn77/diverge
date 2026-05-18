@@ -29,6 +29,7 @@ REQUIRED_TABLES = (
     "user_permissions",
     "audit_events",
     "trade_entries",
+    "trade_plan_entries",
     "screener_runs",
     "report_runs",
     "report_files",
@@ -165,6 +166,7 @@ def run_database_check(
             f"reports={summary.reports} "
             f"report_files={summary.report_files} "
             f"trades={summary.trades} "
+            f"trade_plans={summary.trade_plans} "
             f"screener_runs={summary.screener_runs}",
             file=output,
         )

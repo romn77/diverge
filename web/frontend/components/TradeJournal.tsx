@@ -23,13 +23,17 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  deleteTradePlan,
   generateTradeReview,
   getTickerTradeFeedback,
   getTrade,
+  listTradePlans,
   listTrades,
   type Report,
   type TradeDetail,
   type TradeFeedbackPayload,
+  type TradePlan,
+  type TradePlanMutationResponse,
   type TradeRecord,
   type TradeReview,
   type TradeReviewGenerateRequest,
@@ -38,6 +42,8 @@ import {
 import { cn } from "@/lib/utils";
 import { TickerPricePanel } from "./TickerPricePanel";
 import { CloseTradeForm } from "./CloseTradeForm";
+import { TradePlanExecuteForm } from "./TradePlanExecuteForm";
+import { TradePlanForm } from "./TradePlanForm";
 import { TradeRecordForm } from "./TradeRecordForm";
 import { TradeReviewForm } from "./TradeReviewForm";
 
@@ -76,6 +82,7 @@ export function TradeJournal({
   const { locale, t } = usePreferences();
   const { setTopbarActions } = useWorkbenchChrome();
   const [trades, setTrades] = useState<TradeRecord[]>([]);
+  const [tradePlans, setTradePlans] = useState<TradePlan[]>([]);
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
   const [tradeDetail, setTradeDetail] = useState<TradeDetail | null>(null);
   const [feedback, setFeedback] = useState<TradeFeedbackPayload | null>(null);
@@ -90,12 +97,18 @@ export function TradeJournal({
   const [historyPaneWidth, setHistoryPaneWidth] = useState(420);
   const [isResizingHistory, setIsResizingHistory] = useState(false);
   const [loadingTrades, setLoadingTrades] = useState(true);
+  const [loadingPlans, setLoadingPlans] = useState(true);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [tradesError, setTradesError] = useState<string | null>(null);
+  const [plansError, setPlansError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [showCreatePlan, setShowCreatePlan] = useState(false);
   const [showCreateTrade, setShowCreateTrade] = useState(false);
+  const [editingPlan, setEditingPlan] = useState<TradePlan | null>(null);
+  const [executingPlan, setExecutingPlan] = useState<TradePlan | null>(null);
   const [showEditTrade, setShowEditTrade] = useState(false);
   const [showCloseTrade, setShowCloseTrade] = useState(false);
+  const [deletingPlanId, setDeletingPlanId] = useState<string | null>(null);
   const [editingReviewType, setEditingReviewType] = useState<TradeReviewType | null>(
     null
   );
@@ -104,6 +117,42 @@ export function TradeJournal({
   const [reviewGenerationError, setReviewGenerationError] =
     useState<ReviewGenerationError | null>(null);
   const historyGridRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadPlans = async () => {
+      setLoadingPlans(true);
+      setPlansError(null);
+
+      try {
+        const data = await listTradePlans({ status: "planned" });
+        if (!isActive) {
+          return;
+        }
+        setTradePlans(data);
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+        setTradePlans([]);
+        setPlansError(
+          error instanceof Error
+            ? error.message
+            : t("journal.error.loadPlans", "Unable to load trade plans")
+        );
+      } finally {
+        if (isActive) {
+          setLoadingPlans(false);
+        }
+      }
+    };
+
+    void loadPlans();
+    return () => {
+      isActive = false;
+    };
+  }, [t]);
 
   useEffect(() => {
     let isActive = true;
@@ -249,6 +298,24 @@ export function TradeJournal({
       );
     } finally {
       setLoadingTrades(false);
+    }
+  };
+
+  const refreshPlans = async () => {
+    setLoadingPlans(true);
+    setPlansError(null);
+
+    try {
+      const data = await listTradePlans({ status: "planned" });
+      setTradePlans(data);
+    } catch (error) {
+      setPlansError(
+        error instanceof Error
+          ? error.message
+          : t("journal.error.loadPlans", "Unable to load trade plans")
+      );
+    } finally {
+      setLoadingPlans(false);
     }
   };
 
@@ -447,8 +514,50 @@ export function TradeJournal({
     setShowCloseTrade(false);
     setSelectedTradeId(record.trade_id);
     void refreshTrades(record.trade_id);
+    void refreshPlans();
     void refreshTradeDetail(record.trade_id);
     void refreshFeedback(record.ticker);
+  };
+
+  const handlePlanSaved = (plan: TradePlan) => {
+    setShowCreatePlan(false);
+    setEditingPlan(null);
+    setExecutingPlan((current) =>
+      current?.plan_id === plan.plan_id && plan.status === "planned" ? plan : current
+    );
+    void refreshPlans();
+  };
+
+  const handlePlanExecuted = (result: TradePlanMutationResponse) => {
+    setExecutingPlan(null);
+    setSelectedTradeId(result.record.trade_id);
+    void refreshPlans();
+    void refreshTrades(result.record.trade_id);
+    void refreshTradeDetail(result.record.trade_id);
+    void refreshFeedback(result.record.ticker);
+  };
+
+  const handleDeletePlan = async (plan: TradePlan) => {
+    setDeletingPlanId(plan.plan_id);
+    setPlansError(null);
+    try {
+      await deleteTradePlan(plan.plan_id);
+      setEditingPlan((current) =>
+        current?.plan_id === plan.plan_id ? null : current
+      );
+      setExecutingPlan((current) =>
+        current?.plan_id === plan.plan_id ? null : current
+      );
+      await refreshPlans();
+    } catch (error) {
+      setPlansError(
+        error instanceof Error
+          ? error.message
+          : t("journal.error.deletePlan", "Unable to delete trade plan")
+      );
+    } finally {
+      setDeletingPlanId(null);
+    }
   };
 
   const handleReviewSaved = (review: TradeReview) => {
@@ -503,13 +612,23 @@ export function TradeJournal({
 
   const topbarActions = useMemo(
     () => (
-      <Button
-        type="button"
-        className="workbench-topbar-new"
-        onClick={() => setShowCreateTrade(true)}
-      >
-        {t("journal.recordTrade", "Record Trade")}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          className="workbench-topbar-secondary"
+          onClick={() => setShowCreatePlan(true)}
+        >
+          {t("tradePlan.newPlan", "New Plan")}
+        </Button>
+        <Button
+          type="button"
+          className="workbench-topbar-new"
+          onClick={() => setShowCreateTrade(true)}
+        >
+          {t("journal.recordTrade", "Record Trade")}
+        </Button>
+      </div>
     ),
     [t]
   );
@@ -600,7 +719,11 @@ export function TradeJournal({
               </label>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryCard
+                label={t("journal.summary.plannedQueue", "Planned Queue")}
+                value={String(tradePlans.length)}
+              />
               <SummaryCard
                 label={t("journal.summary.totalRecords", "Total Records")}
                 value={String(trades.length)}
@@ -615,6 +738,18 @@ export function TradeJournal({
               />
             </div>
           </PageHeader>
+
+          <TradePlanQueue
+            plans={tradePlans}
+            loading={loadingPlans}
+            error={plansError}
+            deletingPlanId={deletingPlanId}
+            locale={locale}
+            onCreate={() => setShowCreatePlan(true)}
+            onEdit={(plan) => setEditingPlan(plan)}
+            onExecute={(plan) => setExecutingPlan(plan)}
+            onDelete={(plan) => void handleDeletePlan(plan)}
+          />
 
           <section
             ref={historyGridRef}
@@ -1271,9 +1406,34 @@ export function TradeJournal({
         </div>
       </main>
 
+      <TradePlanForm
+        isOpen={showCreatePlan}
+        mode="create"
+        reports={reports}
+        onClose={() => setShowCreatePlan(false)}
+        onSaved={handlePlanSaved}
+      />
+
+      <TradePlanForm
+        isOpen={Boolean(editingPlan)}
+        mode="edit"
+        initialPlan={editingPlan}
+        reports={reports}
+        onClose={() => setEditingPlan(null)}
+        onSaved={handlePlanSaved}
+      />
+
+      <TradePlanExecuteForm
+        isOpen={Boolean(executingPlan)}
+        plan={executingPlan}
+        onClose={() => setExecutingPlan(null)}
+        onSaved={handlePlanExecuted}
+      />
+
       <TradeRecordForm
         isOpen={showCreateTrade}
         mode="create"
+        candidatePlans={tradePlans}
         reports={reports}
         onClose={() => setShowCreateTrade(false)}
         onSaved={handleTradeSaved}
@@ -1333,6 +1493,152 @@ function SummaryCard({
   );
 }
 
+function TradePlanQueue({
+  plans,
+  loading,
+  error,
+  deletingPlanId,
+  locale,
+  onCreate,
+  onEdit,
+  onExecute,
+  onDelete,
+}: {
+  plans: TradePlan[];
+  loading: boolean;
+  error: string | null;
+  deletingPlanId: string | null;
+  locale: string;
+  onCreate: () => void;
+  onEdit: (plan: TradePlan) => void;
+  onExecute: (plan: TradePlan) => void;
+  onDelete: (plan: TradePlan) => void;
+}) {
+  const { t } = usePreferences();
+  const notSetLabel = t("common.notSet", "Not set");
+
+  return (
+    <section className="viewer-frame px-6 py-6 md:px-8">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--primary)]">
+            {t("tradePlan.queueEyebrow", "Plan Queue")}
+          </p>
+          <h2 className="mt-2 text-2xl font-semibold text-foreground">
+            {t("tradePlan.queueTitle", "Trade Plan Queue")}
+          </h2>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="secondary">
+            {t("tradePlan.planCount", ({ count }) => `${count} planned`, {
+              count: plans.length,
+            })}
+          </Badge>
+          <Button type="button" onClick={onCreate}>
+            {t("tradePlan.newPlan", "New Plan")}
+          </Button>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="mt-5 rounded-3xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-5 text-sm text-destructive">
+          {error}
+        </div>
+      ) : loading ? (
+        <div className="mt-5 rounded-3xl border border-dashed border-border bg-[var(--surface-strong)] px-5 py-8 text-sm text-muted-foreground">
+          {t("tradePlan.loadingQueue", "Loading planned trade queue...")}
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="mt-5 rounded-3xl border border-dashed border-border bg-[var(--surface-strong)] px-5 py-8 text-sm text-muted-foreground">
+          <p>{t("tradePlan.emptyQueue", "No active trade plans in the queue.")}</p>
+          <Button type="button" className="mt-4" onClick={onCreate}>
+            {t("tradePlan.createFirstPlan", "Create First Plan")}
+          </Button>
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          {plans.map((plan) => (
+            <Card key={plan.plan_id} className="card-surface p-5">
+              <CardContent className="p-0">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="font-mono text-[11px] text-muted-foreground">
+                      {formatDateTime(plan.expires_at, locale, notSetLabel)}
+                    </p>
+                    <h3 className="mt-2 truncate text-2xl font-semibold text-foreground">
+                      {plan.display_symbol ?? plan.ticker}
+                    </h3>
+                    <p className="mt-1 break-all font-mono text-[12px] text-muted-foreground">
+                      {plan.plan_id}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <StatusBadge label={plan.side} tone="accent" />
+                    <StatusBadge label={plan.status} tone="primary" />
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <MetaItem
+                    label={t("tradePlan.entryCondition", "Entry Condition")}
+                    value={plan.entry_condition}
+                  />
+                  <MetaItem
+                    label={t("tradePlan.positionPlan", "Position Plan")}
+                    value={plan.position_plan}
+                  />
+                  <MetaItem
+                    label={t("tradePlan.rewardTarget", "Reward Target")}
+                    value={plan.reward_target}
+                  />
+                  <MetaItem
+                    label={t("tradePlan.riskRule", "Risk Rule")}
+                    value={plan.risk_rule}
+                  />
+                </div>
+
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {plan.strategy_tags.slice(0, 4).map((tag) => (
+                      <Badge key={tag} variant="secondary">
+                        {tag.replaceAll("_", " ")}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => onEdit(plan)}
+                    >
+                      {t("common.edit", "Edit")}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={deletingPlanId === plan.plan_id}
+                      onClick={() => onDelete(plan)}
+                    >
+                      {deletingPlanId === plan.plan_id
+                        ? t("common.deleting", "Deleting...")
+                        : t("common.delete", "Delete")}
+                    </Button>
+                    <Button type="button" size="sm" onClick={() => onExecute(plan)}>
+                      {t("tradePlan.executePlan", "Execute")}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function MetaCard({
   label,
   value,
@@ -1377,7 +1683,9 @@ function MetaItem({
       <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
         {label}
       </p>
-      <p className="mt-2 text-sm font-semibold text-slate-800">{value}</p>
+      <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold text-slate-800">
+        {value}
+      </p>
     </div>
   );
 }

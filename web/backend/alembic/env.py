@@ -24,6 +24,7 @@ from web.backend import (  # noqa: E402,F401
     screener_runs,
     search_quota,
     trade_entries,
+    trade_plan_entries,
 )
 
 config = context.config
