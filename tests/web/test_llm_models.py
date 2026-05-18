@@ -71,7 +71,7 @@ class LLMModelConfigTests(unittest.TestCase):
         )
 
     def test_summary_hides_models_removed_from_shared_catalog(self):
-        with self._env({"SUB2API_API_KEY": "secret-value"}):
+        with self._env({"OPENAI_API_KEY": "", "SUB2API_API_KEY": "secret-value"}):
             auth.create_all_for_testing()
             llm_models.ensure_llm_model_defaults()
             with auth.db_session() as db:

@@ -28,6 +28,7 @@ SCREENER_CACHE_DIR = DATA_PATHS.screener_cache_dir
 OPPORTUNITY_RUNS_DIR = (DATA_PATHS.data_dir / "opportunity" / "runs").resolve()
 OPPORTUNITY_TASKS_DIR = (DATA_PATHS.data_dir / "opportunity" / "tasks").resolve()
 BACKTEST_RUNS_DIR = (DATA_PATHS.data_dir / "backtest" / "runs").resolve()
+MARKET_BRIEFS_DIR = (DATA_PATHS.data_dir / "market_briefs").resolve()
 STOCK_HISTORY_DIR = DATA_PATHS.history_dir
 FUNDAMENTALS_DIR = DATA_PATHS.fundamentals_dir
 MANIFEST_DIR = DATA_PATHS.manifest_dir

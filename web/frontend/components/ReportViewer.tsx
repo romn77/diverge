@@ -34,6 +34,8 @@ interface ReportViewerProps {
 }
 
 const DECISION_CARD_TAB_KEY = "decision_card";
+const MARKET_BRIEF_REPORT_ID_PREFIX = "MARKET_BRIEF_";
+const MARKET_BRIEF_REPORT_TICKER = "MARKET_BRIEF";
 
 const CATEGORY_MAP: Record<string, { dir: string; label: string }> = {
   analysts: { dir: "1_analysts", label: "Analysts" },
@@ -246,6 +248,15 @@ function hasDecisionCardArtifact(structure: ReportStructure | null): boolean {
     structure?.artifacts.some(
       (artifact) => artifact.type.toLowerCase() === "decision_card"
     )
+  );
+}
+
+function isMarketBriefReport(reportId: string, ticker: string | null | undefined): boolean {
+  const normalizedReportId = reportId.trim().toUpperCase();
+  const normalizedTicker = String(ticker ?? "").trim().toUpperCase();
+  return (
+    normalizedTicker === MARKET_BRIEF_REPORT_TICKER ||
+    normalizedReportId.startsWith(MARKET_BRIEF_REPORT_ID_PREFIX)
   );
 }
 
@@ -578,6 +589,10 @@ export function ReportViewer({
     (authState.user.role === "admin" || structure.owner_user_id === currentUserId);
   const currentVisibility = structure?.visibility ?? "private";
   const isWorkspaceVisible = currentVisibility === "workspace";
+  const isMarketBrief = isMarketBriefReport(reportId, structure?.ticker);
+  const overviewGridClass = isMarketBrief
+    ? "mt-4 grid gap-6"
+    : "mt-4 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start";
   const visibilityLabel = t(
     isWorkspaceVisible ? "home.visibility.workspace" : "home.visibility.private",
     isWorkspaceVisible ? "Workspace" : "Private"
@@ -714,7 +729,7 @@ export function ReportViewer({
                 {!isOverviewCollapsed && (
                 <div
                   id="report-overview-panel"
-                  className="mt-4 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start"
+                  className={overviewGridClass}
                 >
                   <div className="min-w-0 space-y-5">
                     <header>
@@ -866,11 +881,13 @@ export function ReportViewer({
                     </header>
                   </div>
 
-                  <ReportOverviewCompanion
-                    ticker={structure.ticker}
-                    asOfDate={reportMeta?.date ?? null}
-                    t={t}
-                  />
+                  {!isMarketBrief && (
+                    <ReportOverviewCompanion
+                      ticker={structure.ticker}
+                      asOfDate={reportMeta?.date ?? null}
+                      t={t}
+                    />
+                  )}
                 </div>
                 )}
               </section>

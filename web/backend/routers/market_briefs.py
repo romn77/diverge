@@ -1,47 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import StreamingResponse
+import json
+from typing import Any
 
-from web.backend import access, audit, auth
-from web.backend.runtime import market_brief_tasks
-from web.backend.schemas.market_briefs import MarketBriefCreatePayload
+from fastapi import APIRouter, Depends, HTTPException, Request
+
+from web.backend import auth
 from web.backend.services import market_briefs as market_brief_service
-from web.backend.services import task_route_support
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
-
-
-def _current_user(
-    request: Request | None,
-    *,
-    permission: str = auth.PERMISSION_ANALYSIS_READ,
-):
-    if not auth.auth_enabled() or request is None:
-        return None
-    with auth.db_session() as db:
-        return access.require_permission(db, request, permission)
-
-
-def _can_access_task(task: market_brief_tasks.MarketBriefTask, current_user) -> bool:
-    if not auth.auth_enabled():
-        return True
-    return access.can_access_owner(
-        current_user,
-        task.owner_user_id,
-        tenant_id=getattr(task, "tenant_id", None),
-        allow_unowned=True,
-    )
-
-
-def _get_authorized_task(task_id: str, request: Request | None):
-    current_user = _current_user(request)
-    task = market_brief_tasks.get_market_brief_task(task_id)
-    if not _can_access_task(task, current_user):
-        raise HTTPException(
-            status_code=404, detail=f"Market brief task '{task_id}' not found"
-        )
-    return task
+integration_router = APIRouter()
 
 
 @router.get("/api/market-briefs")
@@ -49,72 +17,59 @@ def list_market_briefs(request: Request = None) -> dict:
     return market_brief_service.list_market_briefs(request)
 
 
-@router.post("/api/market-briefs/tasks")
-def create_market_brief_task(
-    payload: MarketBriefCreatePayload,
-    request: Request = None,
-) -> dict:
-    current_user = _current_user(request, permission=auth.PERMISSION_ANALYSIS_CREATE)
-    task_route_support.enforce_task_submission_capacity(current_user)
-    owner_user_id = current_user.id if current_user is not None else None
-    tenant_id = getattr(current_user, "tenant_id", None)
-    request_payload = payload.model_dump()
-    request_payload["trigger"] = "manual"
-    result = market_brief_tasks.create_market_brief_task(
-        request_payload=request_payload,
-        owner_user_id=owner_user_id,
-        tenant_id=tenant_id,
+def _webhook_payload_from_body(
+    *,
+    body: bytes,
+    content_type: str,
+    headers: dict[str, str],
+) -> tuple[str, str | None, dict[str, Any]]:
+    if "application/json" in content_type:
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise HTTPException(status_code=400, detail="Invalid webhook JSON") from exc
+        if not isinstance(payload, dict):
+            raise HTTPException(status_code=400, detail="Webhook JSON must be an object")
+        markdown = payload.get("markdown") or payload.get("content")
+        if not isinstance(markdown, str):
+            raise HTTPException(
+                status_code=400,
+                detail="Webhook JSON must include markdown content",
+            )
+        filename = payload.get("filename")
+        metadata = {key: value for key, value in payload.items() if key != "markdown"}
+        return markdown, str(filename) if filename else None, metadata
+
+    try:
+        markdown = body.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="Webhook body must be UTF-8") from exc
+    filename = (
+        headers.get("x-multica-filename")
+        or headers.get("content-disposition", "").split("filename=")[-1].strip('"')
+        or None
     )
-    if current_user is not None and tenant_id is not None:
-        with auth.db_session() as db:
-            audit.record_audit_event_safely(
-                db,
-                tenant_id=tenant_id,
-                actor_user_id=current_user.id,
-                action="market_brief.task.created",
-                resource_type="market_brief_task",
-                resource_id=str(result.get("task_id")),
-                metadata={
-                    "markets": request_payload.get("markets"),
-                    "report_visibility": request_payload.get("report_visibility"),
-                },
-                request=request,
-            )
-    return result
+    metadata = {
+        "provider": "multica",
+        "provider_report_id": headers.get("x-multica-report-id"),
+        "markets": headers.get("x-multica-markets"),
+        "language": headers.get("x-multica-language"),
+    }
+    return markdown, filename, {key: value for key, value in metadata.items() if value}
 
 
-@router.get("/api/market-briefs/tasks")
-def list_market_brief_tasks(request: Request = None) -> list[dict]:
-    current_user = _current_user(request)
-    return [
-        task.to_dict()
-        for task in market_brief_tasks.list_market_brief_tasks()
-        if _can_access_task(task, current_user)
-    ]
-
-
-@router.get("/api/market-briefs/tasks/{task_id}")
-def get_market_brief_task(task_id: str, request: Request = None) -> dict:
-    return _get_authorized_task(task_id, request).to_dict()
-
-
-@router.post("/api/market-briefs/tasks/{task_id}/cancel")
-def cancel_market_brief_task(task_id: str, request: Request = None) -> dict:
-    task = _get_authorized_task(task_id, request)
-    market_brief_tasks.cancel_market_brief_task(task.id)
-    return {"canceled": True, "task_id": task.id}
-
-
-@router.get("/api/market-briefs/tasks/{task_id}/stream")
-async def stream_market_brief_task(task_id: str, request: Request) -> StreamingResponse:
-    _get_authorized_task(task_id, request)
-    return await task_route_support.stream_task_progress(
-        request=request,
-        get_task=lambda: _get_authorized_task(task_id, request),
-        get_progress_events=lambda cursor: (
-            market_brief_tasks.get_market_brief_progress_events(
-                task_id,
-                cursor,
-            )
-        ),
+@integration_router.post("/api/integrations/multica/market-brief")
+async def ingest_multica_market_brief(request: Request) -> dict:
+    body = await request.body()
+    headers = {key.lower(): value for key, value in request.headers.items()}
+    market_brief_service.verify_multica_webhook_signature(headers, body)
+    markdown, filename, metadata = _webhook_payload_from_body(
+        body=body,
+        content_type=headers.get("content-type", ""),
+        headers=headers,
+    )
+    return market_brief_service.ingest_external_market_brief(
+        markdown=markdown,
+        filename=filename,
+        metadata=metadata,
     )

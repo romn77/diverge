@@ -45,7 +45,6 @@ from web.backend.routers import (
 )
 from web.backend.runtime.analysis_tasks import restore_persisted_active_tasks
 from web.backend.runtime.data_sync_tasks import restore_persisted_data_sync_tasks
-from web.backend.runtime.market_brief_tasks import restore_persisted_market_brief_tasks
 from web.backend.runtime.opportunity_tasks import restore_persisted_opportunity_tasks
 from web.backend.runtime.backtest_tasks import restore_persisted_backtest_tasks
 from web.backend.runtime.screener_tasks import restore_persisted_screener_tasks
@@ -76,7 +75,6 @@ async def _app_lifespan(_: FastAPI):
         restore_persisted_active_tasks()
         restore_persisted_screener_tasks()
         restore_persisted_data_sync_tasks()
-        restore_persisted_market_brief_tasks()
         restore_persisted_opportunity_tasks()
         restore_persisted_backtest_tasks()
         job_records.recover_stale_running_job_records()
@@ -103,6 +101,7 @@ for router in (
     admin_router.router,
     reports_router.router,
     market_briefs_router.router,
+    market_briefs_router.integration_router,
     market_resolution_router.router,
     trades_router.router,
     assets_router.router,

@@ -1,63 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, Play, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { FileText, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { usePreferences } from "@/components/PreferencesProvider";
 import { useWorkbenchChrome } from "@/components/WorkbenchShell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  createMarketBriefTask,
-  getMarketBriefTask,
   listMarketBriefs,
-  listMarketBriefTasks,
   type MarketBriefIndexResponse,
-  type MarketBriefMarket,
-  type MarketBriefTask,
 } from "@/lib/api";
 import { buildReportHref } from "@/lib/workbenchRoutes";
 
 
-const MARKET_OPTIONS: Array<{ value: MarketBriefMarket; labelKey: string; fallback: string }> = [
-  { value: "cn", labelKey: "marketBrief.market.cn", fallback: "A-share" },
-  { value: "us", labelKey: "marketBrief.market.us", fallback: "US" },
-];
-
-
-function isActiveTask(task: MarketBriefTask): boolean {
-  return ["pending", "queued", "waiting_for_quota", "running"].includes(task.status);
-}
-
-
 export function MarketBriefDashboard() {
-  const { language, t } = usePreferences();
+  const { t } = usePreferences();
   const { setTopbarActions } = useWorkbenchChrome();
   const [briefIndex, setBriefIndex] = useState<MarketBriefIndexResponse | null>(null);
-  const [tasks, setTasks] = useState<MarketBriefTask[]>([]);
   const [loading, setLoading] = useState(true);
-  const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const activeTasks = useMemo(() => tasks.filter(isActiveTask), [tasks]);
 
   const refresh = async () => {
     setError(null);
-    const [nextBriefs, nextTasks] = await Promise.all([
-      listMarketBriefs(),
-      listMarketBriefTasks(),
-    ]);
+    const nextBriefs = await listMarketBriefs();
     setBriefIndex(nextBriefs);
-    setTasks(nextTasks);
     setLoading(false);
   };
 
@@ -84,52 +52,6 @@ export function MarketBriefDashboard() {
     return () => setTopbarActions(null);
   }, [loading, setTopbarActions, t]);
 
-  useEffect(() => {
-    if (!activeTasks.length) {
-      return;
-    }
-    const timer = window.setInterval(() => {
-      void Promise.all(activeTasks.map((task) => getMarketBriefTask(task.id)))
-        .then((nextTasks) => {
-          setTasks((current) => {
-            const byId = new Map(current.map((task) => [task.id, task]));
-            for (const task of nextTasks) {
-              byId.set(task.id, task);
-            }
-            return Array.from(byId.values()).sort((a, b) =>
-              String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
-            );
-          });
-          if (nextTasks.some((task) => task.status === "completed")) {
-            void refresh();
-          }
-        })
-        .catch(() => undefined);
-    }, 2500);
-    return () => window.clearInterval(timer);
-  }, [activeTasks]);
-
-  const handleRun = async (markets: MarketBriefMarket[]) => {
-    setRunning(true);
-    setError(null);
-    try {
-      const result = await createMarketBriefTask({
-        markets,
-        output_language: language === "zh" ? "zh-CN" : "en-US",
-        report_visibility: "workspace",
-      });
-      const task = await getMarketBriefTask(result.task_id);
-      setTasks((current) => [task, ...current.filter((item) => item.id !== task.id)]);
-      if (!isActiveTask(task)) {
-        await refresh();
-      }
-    } catch (runError) {
-      setError(runError instanceof Error ? runError.message : t("marketBrief.error.run", "Unable to run brief"));
-    } finally {
-      setRunning(false);
-    }
-  };
-
   return (
     <main className="workbench-page-shell flex min-h-dvh flex-1 flex-col">
       <div className="workbench-content-frame space-y-5">
@@ -138,48 +60,16 @@ export function MarketBriefDashboard() {
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                  {t("marketBrief.kicker", "Daily Brief")}
+                  {t("marketBrief.kicker", "External Briefs")}
                 </p>
                 <h2 className="mt-2 text-xl font-bold tracking-tight text-[var(--text)]">
                   {t("marketBrief.title", "Premarket brief")}
                 </h2>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button type="button" disabled={running}>
-                    <Play className="size-4" aria-hidden />
-                    <span>
-                      {running
-                        ? t("marketBrief.running", "Running")
-                        : t("marketBrief.run", "Run brief")}
-                    </span>
-                    <ChevronDown className="size-4" aria-hidden />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[13rem]">
-                  <DropdownMenuLabel>
-                    {t("marketBrief.chooseMarket", "Choose market")}
-                  </DropdownMenuLabel>
-                  {MARKET_OPTIONS.map((market) => (
-                    <DropdownMenuItem
-                      key={market.value}
-                      disabled={running}
-                      onSelect={() => void handleRun([market.value])}
-                    >
-                      {t(market.labelKey, market.fallback)}
-                    </DropdownMenuItem>
-                  ))}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    disabled={running}
-                    onSelect={() =>
-                      void handleRun(MARKET_OPTIONS.map((market) => market.value))
-                    }
-                  >
-                    {t("marketBrief.market.all", "A-share + US")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Badge variant="secondary" className="gap-1.5">
+                <FileText className="size-3.5" aria-hidden />
+                {t("marketBrief.source.multica", "multica markdown")}
+              </Badge>
             </div>
 
             {error ? (
@@ -239,7 +129,7 @@ export function MarketBriefDashboard() {
                   ))
                 ) : (
                   <p className="rounded-[14px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-muted-foreground">
-                    {t("marketBrief.empty", "No market briefs found in the 7-day window.")}
+                    {t("marketBrief.empty", "No market brief markdown files found in the 7-day window.")}
                   </p>
                 )}
               </div>

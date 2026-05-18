@@ -130,6 +130,19 @@ function moduleDraft(
   };
 }
 
+function moduleSettingCopy(module: string) {
+  void module;
+  return {
+    enabledLabel: "Auto-generate after journal saves",
+    providerHint: "Only providers with configured API keys are shown.",
+    modelLabel: "Review Model",
+    modelHint: "Used by all users for journal entry and exit reviews.",
+    emptyModelLabel: "No enabled review models",
+    saveLabel: "Save Global Module Default",
+    showOutputLanguage: true,
+  };
+}
+
 export default function AdminLLMModelsPage() {
   const [payload, setPayload] = useState<AdminLLMModelsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -569,6 +582,7 @@ function ModuleSettingCard({
   );
   const selectedProvider = draft.custom_provider;
   const selectedCustomModels = getEnabledDeepModels(models, draft.custom_provider);
+  const copy = moduleSettingCopy(moduleSetting.module);
 
   const updateDraft = (patch: Partial<ModuleDraft>) => {
     onDraftChange({
@@ -588,7 +602,7 @@ function ModuleSettingCard({
       <div>
         <h3 className="text-lg font-semibold">{moduleSetting.label}</h3>
         <p className="mt-1 text-sm text-slate-500">
-          Global default for all users.
+          {moduleSetting.description}
         </p>
       </div>
 
@@ -599,7 +613,7 @@ function ModuleSettingCard({
           className="h-4 w-4"
           onChange={(event) => updateDraft({ enabled: event.target.checked })}
         />
-        Auto-generate after journal saves
+        {copy.enabledLabel}
       </label>
 
       <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white/90 p-4 md:grid-cols-2">
@@ -609,7 +623,7 @@ function ModuleSettingCard({
           onChange={updateProvider}
           hint={
             enabledProviders.length > 0
-              ? "Only providers with configured API keys are shown."
+              ? copy.providerHint
               : "No configured LLM providers are available."
           }
         >
@@ -620,27 +634,29 @@ function ModuleSettingCard({
           ))}
         </ModuleSelectField>
 
-        <ModuleSelectField
-          label="Output Language"
-          value={draft.output_language}
-          onChange={(value) => updateDraft({ output_language: value })}
-        >
-          {MODULE_OUTPUT_LANGUAGE_OPTIONS.map((language) => (
-            <SelectItem key={language.value} value={language.value}>
-              {language.label}
-            </SelectItem>
-          ))}
-        </ModuleSelectField>
+        {copy.showOutputLanguage ? (
+          <ModuleSelectField
+            label="Output Language"
+            value={draft.output_language}
+            onChange={(value) => updateDraft({ output_language: value })}
+          >
+            {MODULE_OUTPUT_LANGUAGE_OPTIONS.map((language) => (
+              <SelectItem key={language.value} value={language.value}>
+                {language.label}
+              </SelectItem>
+            ))}
+          </ModuleSelectField>
+        ) : null}
 
         <ModuleSelectField
-          label="Review Model"
+          label={copy.modelLabel}
           value={draft.custom_model}
           onChange={(value) => updateDraft({ custom_model: value })}
-          hint="Used by all users for journal entry and exit reviews."
+          hint={copy.modelHint}
         >
           {selectedCustomModels.length === 0 ? (
             <SelectItem value="__none" disabled>
-              No enabled review models
+              {copy.emptyModelLabel}
             </SelectItem>
           ) : null}
           {selectedCustomModels.map((model) => (
@@ -692,7 +708,7 @@ function ModuleSettingCard({
         onClick={onSave}
       >
         <Save className="h-4 w-4" />
-        Save Global Module Default
+        {copy.saveLabel}
       </Button>
     </AdminPanel>
   );

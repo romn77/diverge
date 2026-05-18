@@ -7,6 +7,7 @@ from pathlib import Path
 
 from fastapi import HTTPException, Request
 from web.backend import access, app_config, audit, auth, report_metadata, storage
+from web.backend.services import market_briefs as market_brief_service
 
 logger = logging.getLogger(__name__)
 MARKET_BRIEF_REPORT_ID_PREFIX = "MARKET_BRIEF_"
@@ -370,10 +371,13 @@ def list_reports(
 
 
 def get_structure(report_id: str, request: Request | None = None) -> dict:
+    external_structure = market_brief_service.get_external_report_structure(report_id)
     if auth.auth_enabled():
         try:
             with auth.db_session() as db:
                 current_user = _require_report_user(db, request)
+                if external_structure is not None:
+                    return external_structure
                 owner_scope = access.owner_scope_for_user(current_user)
                 record = report_metadata.get_report_run(
                     db,
@@ -398,6 +402,9 @@ def get_structure(report_id: str, request: Request | None = None) -> dict:
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
 
+    if external_structure is not None:
+        return external_structure
+
     report_dir = resolve_report_dir(report_id)
 
     ticker, _date, _time = parse_complete_report_header(report_dir)
@@ -414,10 +421,13 @@ def get_structure(report_id: str, request: Request | None = None) -> dict:
 
 
 def get_content(report_id: str, path: str, request: Request | None = None) -> dict:
+    external_content = market_brief_service.get_external_report_content(report_id, path)
     if auth.auth_enabled():
         try:
             with auth.db_session() as db:
                 current_user = _require_report_user(db, request)
+                if external_content is not None:
+                    return external_content
                 owner_scope = access.owner_scope_for_user(current_user)
                 record = report_metadata.get_report_run(
                     db,
@@ -437,6 +447,8 @@ def get_content(report_id: str, path: str, request: Request | None = None) -> di
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
     else:
+        if external_content is not None:
+            return external_content
         report_dir = resolve_report_dir(report_id)
 
     report_dir_resolved = report_dir.resolve()

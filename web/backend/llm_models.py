@@ -51,7 +51,8 @@ LLM_MODEL_TABLES = (
 VALID_COST_TIERS = {"low", "medium", "high", "premium"}
 VALID_PROFILE_MODES = {"quick", "deep"}
 VALID_ROLES = {"admin", "operator", "viewer"}
-VALID_MODULE_SETTINGS = {"trade_journal_review"}
+TRADE_JOURNAL_REVIEW_MODULE = "trade_journal_review"
+VALID_MODULE_SETTINGS = {TRADE_JOURNAL_REVIEW_MODULE}
 VALID_OUTPUT_LANGUAGES = {"en", "cn"}
 VALID_OPENAI_REASONING_EFFORTS = {"low", "medium", "high"}
 VALID_GOOGLE_THINKING_LEVELS = {"high", "minimal"}
@@ -482,8 +483,8 @@ def _default_profile_rows() -> list[dict[str, Any]]:
 
 def _default_module_settings() -> dict[str, dict[str, Any]]:
     return {
-        "trade_journal_review": {
-            "module": "trade_journal_review",
+        TRADE_JOURNAL_REVIEW_MODULE: {
+            "module": TRADE_JOURNAL_REVIEW_MODULE,
             "label": "Trade Journal AI Review",
             "description": "Automatically generate entry and exit trade reviews after manual journal updates.",
             "enabled": False,

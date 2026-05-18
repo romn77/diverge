@@ -14,7 +14,11 @@ test("admin LLM models page makes module defaults a concrete global model picker
   const source = readFileSync(adminLLMModelsPagePath, "utf8");
 
   assert.match(source, /function ModuleSettingCard/);
-  assert.match(source, /Global default for all users/);
+  assert.doesNotMatch(source, /market_brief/);
+  assert.doesNotMatch(source, /Enable Market Brief agent generation/);
+  assert.doesNotMatch(source, /Brief Model/);
+  assert.doesNotMatch(source, /No enabled brief models/);
+  assert.doesNotMatch(source, /Save Market Brief Model/);
   assert.match(source, /LLM Provider/);
   assert.match(source, /Output Language/);
   assert.match(source, /Review Model/);

@@ -67,6 +67,7 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
   assert.match(source, /Price Trend/);
   assert.match(source, /embedded/);
   assert.match(source, /xl:grid-cols-\[minmax\(0,3fr\)_minmax\(0,7fr\)\]/);
+  assert.match(source, /overviewGridClass/);
   assert.doesNotMatch(source, /xl:grid-cols-2/);
   assert.doesNotMatch(source, /sm:grid-cols-3/);
 
@@ -90,6 +91,18 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
     tickerPanelIndex > panelIndex,
     "overview companion should own the ticker price panel rendering"
   );
+});
+
+test("ReportViewer skips ticker history panels for market brief reports", () => {
+  const source = readFileSync(reportViewerPath, "utf8");
+
+  assert.match(source, /MARKET_BRIEF_REPORT_ID_PREFIX = "MARKET_BRIEF_"/);
+  assert.match(source, /MARKET_BRIEF_REPORT_TICKER = "MARKET_BRIEF"/);
+  assert.match(source, /function isMarketBriefReport/);
+  assert.match(source, /normalizedTicker === MARKET_BRIEF_REPORT_TICKER/);
+  assert.match(source, /normalizedReportId\.startsWith\(MARKET_BRIEF_REPORT_ID_PREFIX\)/);
+  assert.match(source, /const isMarketBrief = isMarketBriefReport\(reportId, structure\?\.ticker\)/);
+  assert.match(source, /!\s*isMarketBrief && \(\s*<ReportOverviewCompanion/);
 });
 
 test("ReportViewer localizes report hierarchy file labels consistently", () => {
