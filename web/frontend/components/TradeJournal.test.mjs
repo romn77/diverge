@@ -80,9 +80,10 @@ test("TradeJournal exposes history filters and manual-only language rather than 
 test("TradeJournal adds health and review overview blocks so a selected trade is easier to assess", () => {
   const source = readFileSync(componentPath, "utf8");
 
-  assert.match(source, /Trade Health/);
-  assert.match(source, /Review Coverage/);
-  assert.match(source, /Feedback Loop/);
+  assert.match(source, /journal\.tradeHealth/);
+  assert.match(source, /journal\.reviewCoverage/);
+  assert.match(source, /journal\.feedbackLoop/);
+  assert.match(source, /journal\.reviewCoverageValue/);
   assert.match(source, /TickerPricePanel/);
   assert.match(source, /Price Trend/);
   assert.match(source, /DetailMetric/);
@@ -112,6 +113,21 @@ test("TradeJournal keeps trade history metadata inside each record card", () => 
   assert.match(source, /className="choice-pill md:hidden"/);
   assert.match(source, /className="choice-card h-auto w-full flex-col gap-1 rounded-2xl/);
   assert.match(source, /<div className="mt-4 grid w-full gap-3 sm:grid-cols-2">/);
+});
+
+test("TradeJournal keeps the plan queue aligned with journal card surfaces", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(
+    source,
+    /function TradePlanQueue[\s\S]*?<Card className="card-surface p-4 md:p-5">/
+  );
+  assert.match(
+    source,
+    /function TradePlanQueue[\s\S]*?<h2 className="mt-2 text-xl font-semibold text-foreground">/
+  );
+  assert.match(source, /t\("tradePlan\.queueTitle", "Trade Plan Queue"\)/);
+  assert.match(source, /t\("tradePlan\.createFirstPlan", "Create First Plan"\)/);
 });
 
 test("TradeJournal groups history by ticker and supports a collapsed ticker rail", () => {

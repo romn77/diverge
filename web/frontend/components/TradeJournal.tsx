@@ -476,8 +476,12 @@ export function TradeJournal({
       : null;
   const openTrades = trades.filter((trade) => trade.status.toLowerCase() === "open");
   const reviewCoverageLabel = tradeDetail
-    ? `${tradeDetail.reviews.length}/2 reviews`
-    : "0/2 reviews";
+    ? t("journal.reviewCoverageValue", ({ count }) => `${count}/2 reviews`, {
+        count: tradeDetail.reviews.length,
+      })
+    : t("journal.reviewCoverageValue", ({ count }) => `${count}/2 reviews`, {
+        count: 0,
+      });
   const sameTickerFeedbackReviews = feedback?.reviews ?? [];
   const selectionSummaryCards = useMemo(() => {
     if (!tradeDetail) {
@@ -486,15 +490,15 @@ export function TradeJournal({
 
     return [
       {
-        label: "Trade Health",
+        label: t("journal.tradeHealth", "Trade Health"),
         value: localizeTradeValue(tradeDetail.record.status, t),
       },
       {
-        label: "Review Coverage",
+        label: t("journal.reviewCoverage", "Review Coverage"),
         value: reviewCoverageLabel,
       },
       {
-        label: "Feedback Loop",
+        label: t("journal.feedbackLoop", "Feedback Loop"),
         value:
           sameTickerFeedbackReviews.length > 0
             ? t("journal.feedbackReady", "Ready")
@@ -1518,48 +1522,49 @@ function TradePlanQueue({
   const notSetLabel = t("common.notSet", "Not set");
 
   return (
-    <section className="viewer-frame px-6 py-6 md:px-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[var(--primary)]">
-            {t("tradePlan.queueEyebrow", "Plan Queue")}
-          </p>
-          <h2 className="mt-2 text-2xl font-semibold text-foreground">
-            {t("tradePlan.queueTitle", "Trade Plan Queue")}
-          </h2>
+    <Card className="card-surface p-4 md:p-5">
+      <CardContent className="p-0">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-muted-foreground">
+              {t("tradePlan.queueEyebrow", "Plan Queue")}
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-foreground">
+              {t("tradePlan.queueTitle", "Trade Plan Queue")}
+            </h2>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant="secondary">
+              {t("tradePlan.planCount", ({ count }) => `${count} planned`, {
+                count: plans.length,
+              })}
+            </Badge>
+            <Button type="button" variant="secondary" onClick={onCreate}>
+              {t("tradePlan.newPlan", "New Plan")}
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <Badge variant="secondary">
-            {t("tradePlan.planCount", ({ count }) => `${count} planned`, {
-              count: plans.length,
-            })}
-          </Badge>
-          <Button type="button" onClick={onCreate}>
-            {t("tradePlan.newPlan", "New Plan")}
-          </Button>
-        </div>
-      </div>
 
-      {error ? (
-        <div className="mt-5 rounded-3xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-5 text-sm text-destructive">
-          {error}
-        </div>
-      ) : loading ? (
-        <div className="mt-5 rounded-3xl border border-dashed border-border bg-[var(--surface-strong)] px-5 py-8 text-sm text-muted-foreground">
-          {t("tradePlan.loadingQueue", "Loading planned trade queue...")}
-        </div>
-      ) : plans.length === 0 ? (
-        <div className="mt-5 rounded-3xl border border-dashed border-border bg-[var(--surface-strong)] px-5 py-8 text-sm text-muted-foreground">
-          <p>{t("tradePlan.emptyQueue", "No active trade plans in the queue.")}</p>
-          <Button type="button" className="mt-4" onClick={onCreate}>
-            {t("tradePlan.createFirstPlan", "Create First Plan")}
-          </Button>
-        </div>
-      ) : (
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
-          {plans.map((plan) => (
-            <Card key={plan.plan_id} className="card-surface p-5">
-              <CardContent className="p-0">
+        {error ? (
+          <div className="mt-5 rounded-3xl border border-[var(--danger-border)] bg-[var(--danger-soft)] px-5 py-5 text-sm text-destructive">
+            {error}
+          </div>
+        ) : loading ? (
+          <div className="mt-5 rounded-3xl border border-dashed border-border bg-[var(--surface-strong)] px-5 py-8 text-sm text-muted-foreground">
+            {t("tradePlan.loadingQueue", "Loading planned trade queue...")}
+          </div>
+        ) : plans.length === 0 ? (
+          <div className="mt-5 rounded-3xl border border-dashed border-border bg-[var(--surface-strong)] px-5 py-8 text-sm text-muted-foreground">
+            <p>{t("tradePlan.emptyQueue", "No active trade plans in the queue.")}</p>
+            <Button type="button" variant="secondary" className="mt-4" onClick={onCreate}>
+              {t("tradePlan.createFirstPlan", "Create First Plan")}
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-4 xl:grid-cols-2">
+            {plans.map((plan) => (
+              <Card key={plan.plan_id} className="card-surface p-5">
+                <CardContent className="p-0">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="font-mono text-[11px] text-muted-foreground">
@@ -1630,12 +1635,13 @@ function TradePlanQueue({
                     </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-    </section>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
