@@ -11,6 +11,7 @@ from diverge.trade_feedback import (
     list_trade_records as list_trade_records_file,
     list_trade_reviews as list_trade_reviews_file,
 )
+from diverge.trade_plans import list_trade_plans as list_trade_plans_file
 from diverge.data_layout import resolve_reports_dir, resolve_screener_runs_dir
 from web.backend import (
     auth,
@@ -18,6 +19,7 @@ from web.backend import (
     screener_results,
     screener_runs,
     trade_entries,
+    trade_plan_entries,
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -40,6 +42,7 @@ class BackfillSummary:
     reports: int = 0
     report_files: int = 0
     trades: int = 0
+    trade_plans: int = 0
     screener_runs: int = 0
 
 
@@ -133,6 +136,19 @@ def _backfill_trades(db, owner_user_id: str) -> int:
     return trade_count
 
 
+def _backfill_trade_plans(db, owner_user_id: str) -> int:
+    plan_count = 0
+    for plan in list_trade_plans_file(reports_dir=REPORTS_DIR):
+        trade_plan_entries.upsert_trade_plan_entry(
+            db,
+            plan,
+            owner_user_id=owner_user_id,
+            reports_dir=REPORTS_DIR,
+        )
+        plan_count += 1
+    return plan_count
+
+
 def _backfill_screener_runs(db, owner_user_id: str) -> int:
     if not SCREENER_RUNS_DIR.is_dir():
         return 0
@@ -176,6 +192,7 @@ def backfill_all_metadata() -> BackfillSummary:
 
     auth.initialize_auth_runtime()
     trade_entries.initialize_trade_entries_runtime()
+    trade_plan_entries.initialize_trade_plan_entries_runtime()
     screener_runs.initialize_screener_runtime()
     report_metadata.initialize_report_metadata_runtime()
 
@@ -184,15 +201,17 @@ def backfill_all_metadata() -> BackfillSummary:
         owner_user = _resolve_historical_owner(db)
         summary.reports, summary.report_files = _backfill_reports(db, owner_user.id)
         summary.trades = _backfill_trades(db, owner_user.id)
+        summary.trade_plans = _backfill_trade_plans(db, owner_user.id)
         summary.screener_runs = _backfill_screener_runs(db, owner_user.id)
     screener_results.migrate_all_legacy_screener_results(force=True)
 
     logger.info(
-        "metadata backfill complete owner_user_id=%s reports=%d report_files=%d trades=%d screener_runs=%d",
+        "metadata backfill complete owner_user_id=%s reports=%d report_files=%d trades=%d trade_plans=%d screener_runs=%d",
         owner_user.id,
         summary.reports,
         summary.report_files,
         summary.trades,
+        summary.trade_plans,
         summary.screener_runs,
     )
     return summary

@@ -127,6 +127,13 @@ def create_trade_record(
         "exit_reason": _normalize_optional_text(payload.get("exit_reason")),
         "plan_execution": _normalize_plan_execution(payload.get("plan_execution")),
         "notes": _normalize_optional_text(payload.get("notes")),
+        "execution_note": _normalize_optional_text(payload.get("execution_note")),
+        "originating_plan_id": _normalize_optional_text(
+            payload.get("originating_plan_id")
+        ),
+        "originating_plan_snapshot": _normalize_plan_snapshot(
+            payload.get("originating_plan_snapshot")
+        ),
         "analysis_references": _normalize_analysis_references(
             payload.get("analysis_references") or []
         ),
@@ -220,6 +227,23 @@ def update_trade_record(
         updated["plan_execution"] = _normalize_plan_execution(updates["plan_execution"])
     if "notes" in updates:
         updated["notes"] = _normalize_optional_text(updates.get("notes"))
+    if "execution_note" in updates:
+        updated["execution_note"] = _normalize_optional_text(
+            updates.get("execution_note")
+        )
+    if "originating_plan_id" in updates:
+        existing_plan_id = _normalize_optional_text(updated.get("originating_plan_id"))
+        next_plan_id = _normalize_optional_text(updates.get("originating_plan_id"))
+        if existing_plan_id and existing_plan_id != next_plan_id:
+            raise ValueError("trade record is already linked to a trade plan")
+        updated["originating_plan_id"] = next_plan_id
+    if "originating_plan_snapshot" in updates:
+        existing_plan_id = _normalize_optional_text(updated.get("originating_plan_id"))
+        if existing_plan_id and updated.get("originating_plan_snapshot"):
+            raise ValueError("originating_plan_snapshot is immutable once set")
+        updated["originating_plan_snapshot"] = _normalize_plan_snapshot(
+            updates.get("originating_plan_snapshot")
+        )
     if "analysis_references" in updates:
         updated["analysis_references"] = _normalize_analysis_references(
             updates.get("analysis_references") or []
@@ -386,6 +410,11 @@ def list_trade_feedback_entries(
                     "planned_horizon": record.get("planned_horizon"),
                     "stop_loss": record.get("stop_loss"),
                     "take_profit": record.get("take_profit"),
+                    "execution_note": record.get("execution_note"),
+                    "originating_plan_id": record.get("originating_plan_id"),
+                    "originating_plan_snapshot": record.get(
+                        "originating_plan_snapshot"
+                    ),
                     "derived_metrics": calculate_derived_metrics(record),
                     "review_id": review["review_id"],
                     "review_type": review["review_type"],
@@ -583,6 +612,9 @@ def _build_review_prompt(
         "exit_reason": trade_record.get("exit_reason"),
         "plan_execution": trade_record.get("plan_execution"),
         "notes": trade_record.get("notes"),
+        "execution_note": trade_record.get("execution_note"),
+        "originating_plan_id": trade_record.get("originating_plan_id"),
+        "originating_plan_snapshot": trade_record.get("originating_plan_snapshot"),
         "derived_metrics": calculate_derived_metrics(trade_record),
     }
 
@@ -658,6 +690,7 @@ Core principles:
 - Reports and full-state logs are optional supplements, not prerequisites. {snapshot_note}
 - Use trade record fields in this priority order: entry_reason; invalidation_condition; strategy_tags and planned_horizon; stop_loss, take_profit, and size; exit_reason and plan_execution; market_resolution, prices, and timestamps; notes; analysis snapshots.
 - Treat notes and snapshots as supplemental evidence. Do not let them override structured entry, invalidation, exit, or plan execution fields.
+- Always include a plan execution assessment inside the review values. If `originating_plan_snapshot` is present, compare actual entry, size, risk, reward, horizon, and exit facts against that snapshot. If it is absent, explicitly state that the trade had no saved plan baseline and treat that as an execution-discipline fact rather than inventing a plan.
 
 ==========================================
 Coaching voice and evidence translation
@@ -2155,6 +2188,20 @@ def _normalize_optional_number(value: Any, field_name: str) -> float | None:
     return normalize_field_optional_number(value, field_name)
 
 
+def _normalize_plan_snapshot(value: Any) -> dict[str, Any] | None:
+    if value is None or value == "":
+        return None
+    if not isinstance(value, dict):
+        raise ValueError("originating_plan_snapshot must be an object")
+    snapshot = dict(value)
+    plan_id = _normalize_optional_text(snapshot.get("plan_id"))
+    if not plan_id:
+        raise ValueError("originating_plan_snapshot.plan_id is required")
+    snapshot["plan_id"] = plan_id
+    snapshot.setdefault("type", "trade_plan_snapshot")
+    return snapshot
+
+
 def _normalize_optional_timestamp(value: Any, field_name: str) -> str | None:
     if value is None or value == "":
         return None
@@ -2334,6 +2381,19 @@ def _validate_trade_record(record: dict[str, Any]) -> None:
         plan_execution = _normalize_plan_execution(record.get("plan_execution"))
         if plan_execution in {"unknown", "not_applicable"}:
             raise ValueError("plan_execution is required when exit fields are set")
+    originating_plan_id = _normalize_optional_text(record.get("originating_plan_id"))
+    plan_snapshot = record.get("originating_plan_snapshot")
+    if originating_plan_id and not isinstance(plan_snapshot, dict):
+        raise ValueError(
+            "originating_plan_snapshot is required when originating_plan_id is set"
+        )
+    if (
+        isinstance(plan_snapshot, dict)
+        and plan_snapshot.get("plan_id") != originating_plan_id
+    ):
+        raise ValueError(
+            "originating_plan_snapshot.plan_id must match originating_plan_id"
+        )
 
 
 def _require_text(value: Any, field_name: str) -> str:

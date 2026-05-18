@@ -589,6 +589,53 @@ export interface TradeDerivedMetrics {
   holding_period_hours: number | null;
 }
 
+export type TradePlanStatus = "planned" | "executed" | "expired";
+export type TradePlanSource = "manual" | "analysis_prefill";
+
+export interface TradePlan {
+  type: "trade_plan";
+  schema_version: number;
+  plan_id: string;
+  raw_symbol: string;
+  ticker: string;
+  canonical_symbol: string;
+  display_symbol: string;
+  market?: MarketResolutionMarket | null;
+  exchange: string | null;
+  asset_type: MarketResolutionAssetType;
+  market_resolution: MarketResolution;
+  exchange_or_market: string;
+  side: string;
+  status: TradePlanStatus;
+  status_reason: string;
+  source: TradePlanSource;
+  strategy_tags: string[];
+  entry_condition: string;
+  thesis: string;
+  invalidation_condition: string;
+  risk_rule: string;
+  reward_target: string;
+  position_plan: string;
+  planned_horizon: string;
+  stop_loss: number | null;
+  take_profit: number | null;
+  expires_at: string;
+  notes: string;
+  analysis_references: AnalysisReference[];
+  linked_trade_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TradePlanSnapshot
+  extends Omit<
+    TradePlan,
+    "type" | "status" | "status_reason" | "notes" | "linked_trade_id"
+  > {
+  type: "trade_plan_snapshot";
+  snapshotted_at: string;
+}
+
 export interface TradeRecord {
   type: "trade_record";
   schema_version: number;
@@ -618,6 +665,9 @@ export interface TradeRecord {
   take_profit: number | null;
   exit_reason: string;
   plan_execution: string;
+  execution_note: string;
+  originating_plan_id: string | null;
+  originating_plan_snapshot: TradePlanSnapshot | null;
   notes: string;
   analysis_references: AnalysisReference[];
   derived_metrics?: TradeDerivedMetrics;
@@ -737,6 +787,9 @@ export interface TradeFeedbackEntry {
   invalidation_condition: string | null;
   exit_reason: string | null;
   plan_execution: string | null;
+  execution_note: string | null;
+  originating_plan_id: string | null;
+  originating_plan_snapshot: TradePlanSnapshot | null;
   initial_thesis: string;
   planned_horizon: string;
   stop_loss: number | null;
@@ -762,6 +815,74 @@ export interface TradeFeedbackPayload {
   ticker: string;
   reviews: TradeFeedbackEntry[];
   prompt: string;
+}
+
+export interface TradePlanCreateRequest {
+  raw_symbol: string;
+  side?: string;
+  source?: TradePlanSource;
+  strategy_tags: string[];
+  entry_condition: string;
+  thesis: string;
+  invalidation_condition: string;
+  risk_rule: string;
+  reward_target: string;
+  position_plan: string;
+  planned_horizon?: string;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  expires_at: string;
+  notes?: string;
+  market_resolution?: MarketResolution | null;
+  analysis_references?: AnalysisReference[];
+}
+
+export interface TradePlanUpdateRequest {
+  raw_symbol?: string;
+  side?: string;
+  source?: TradePlanSource;
+  strategy_tags?: string[];
+  entry_condition?: string;
+  thesis?: string;
+  invalidation_condition?: string;
+  risk_rule?: string;
+  reward_target?: string;
+  position_plan?: string;
+  planned_horizon?: string;
+  stop_loss?: number | null;
+  take_profit?: number | null;
+  expires_at?: string;
+  notes?: string;
+  market_resolution?: MarketResolution | null;
+  analysis_references?: AnalysisReference[];
+}
+
+export interface TradePlanExecuteRequest {
+  entry_timestamp: string;
+  entry_price: number;
+  size: number;
+  notes?: string;
+  execution_note?: string;
+}
+
+export interface TradePlanLinkRequest {
+  plan_id: string;
+  execution_note?: string;
+}
+
+export interface TradePlanMutationResponse {
+  plan: TradePlan;
+  record: TradeRecord;
+}
+
+export interface DeleteTradePlanResponse {
+  deleted: boolean;
+  plan_id: string;
+}
+
+export interface TradePlanQuery {
+  ticker?: string;
+  status?: TradePlanStatus | null;
 }
 
 export interface TaskCreateRequest {
@@ -1527,6 +1648,93 @@ function normalizeMarketResolution(
   };
 }
 
+function normalizeTradePlanStatus(value: unknown): TradePlanStatus {
+  return value === "executed" || value === "expired" ? value : "planned";
+}
+
+function normalizeTradePlanSource(value: unknown): TradePlanSource {
+  return value === "analysis_prefill" ? "analysis_prefill" : "manual";
+}
+
+function normalizeTradePlanBase(value: unknown): TradePlan {
+  const plan = isRecord(value) ? value : {};
+  const rawSymbol = stringValue(plan.raw_symbol, stringValue(plan.ticker, "UNKNOWN"));
+  const ticker = stringValue(
+    plan.ticker,
+    stringValue(plan.canonical_symbol, rawSymbol)
+  ).toUpperCase();
+  const canonicalSymbol = stringValue(plan.canonical_symbol, ticker).toUpperCase();
+  const displaySymbol = stringValue(plan.display_symbol, canonicalSymbol);
+  const market = normalizeMarketValue(plan.market);
+  const exchange = nullableStringValue(plan.exchange);
+  const assetType = normalizeAssetTypeValue(plan.asset_type);
+  const exchangeOrMarket = stringValue(
+    plan.exchange_or_market,
+    exchange ?? market
+  );
+
+  return {
+    type: "trade_plan",
+    schema_version:
+      typeof plan.schema_version === "number" && Number.isFinite(plan.schema_version)
+        ? plan.schema_version
+        : 1,
+    plan_id: stringValue(plan.plan_id),
+    raw_symbol: rawSymbol,
+    ticker,
+    canonical_symbol: canonicalSymbol,
+    display_symbol: displaySymbol,
+    market,
+    exchange,
+    asset_type: assetType,
+    market_resolution: normalizeMarketResolution(plan.market_resolution, {
+      raw_symbol: rawSymbol,
+      canonical_symbol: canonicalSymbol,
+      display_symbol: displaySymbol,
+      market,
+      exchange,
+      asset_type: assetType,
+    }),
+    exchange_or_market: exchangeOrMarket,
+    side: stringValue(plan.side, "unknown"),
+    status: normalizeTradePlanStatus(plan.status),
+    status_reason: stringValue(plan.status_reason),
+    source: normalizeTradePlanSource(plan.source),
+    strategy_tags: normalizeStringArray(plan.strategy_tags),
+    entry_condition: stringValue(plan.entry_condition),
+    thesis: stringValue(plan.thesis),
+    invalidation_condition: stringValue(plan.invalidation_condition),
+    risk_rule: stringValue(plan.risk_rule),
+    reward_target: stringValue(plan.reward_target),
+    position_plan: stringValue(plan.position_plan),
+    planned_horizon: stringValue(plan.planned_horizon),
+    stop_loss: nullableNumberValue(plan.stop_loss),
+    take_profit: nullableNumberValue(plan.take_profit),
+    expires_at: stringValue(plan.expires_at),
+    notes: stringValue(plan.notes),
+    analysis_references: normalizeAnalysisReferences(plan.analysis_references),
+    linked_trade_id: stringValue(plan.linked_trade_id),
+    created_at: stringValue(plan.created_at),
+    updated_at: stringValue(plan.updated_at),
+  };
+}
+
+function normalizeTradePlan(value: unknown): TradePlan {
+  return normalizeTradePlanBase(value);
+}
+
+function normalizeTradePlanSnapshot(value: unknown): TradePlanSnapshot | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const plan = normalizeTradePlanBase(value);
+  return {
+    ...plan,
+    type: "trade_plan_snapshot",
+    snapshotted_at: stringValue(value.snapshotted_at),
+  };
+}
+
 function normalizeTradeRecord(value: unknown): TradeRecord {
   const record = isRecord(value) ? value : {};
   const rawSymbol = stringValue(record.raw_symbol, stringValue(record.ticker, "UNKNOWN"));
@@ -1583,6 +1791,11 @@ function normalizeTradeRecord(value: unknown): TradeRecord {
     take_profit: nullableNumberValue(record.take_profit),
     exit_reason: stringValue(record.exit_reason),
     plan_execution: stringValue(record.plan_execution),
+    execution_note: stringValue(record.execution_note),
+    originating_plan_id: nullableStringValue(record.originating_plan_id),
+    originating_plan_snapshot: normalizeTradePlanSnapshot(
+      record.originating_plan_snapshot
+    ),
     notes: stringValue(record.notes),
     analysis_references: normalizeAnalysisReferences(record.analysis_references),
     derived_metrics: isRecord(record.derived_metrics)
@@ -2008,6 +2221,25 @@ export async function listTrades(ticker?: string): Promise<TradeRecord[]> {
   return Array.isArray(data) ? data.map(normalizeTradeRecord) : [];
 }
 
+export async function listTradePlans(
+  query: TradePlanQuery = {}
+): Promise<TradePlan[]> {
+  const url = new URL(buildApiUrl("/api/trade-plans"));
+  if (query.ticker) {
+    url.searchParams.set("ticker", query.ticker);
+  }
+  if (query.status !== undefined) {
+    url.searchParams.set("status", query.status ?? "");
+  }
+
+  const response = await fetch(url.toString(), {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const data = await parseJsonResponse<unknown>(response);
+  return Array.isArray(data) ? data.map(normalizeTradePlan) : [];
+}
+
 export async function resolveMarketSymbol(
   symbol: string,
   overrides?: {
@@ -2043,6 +2275,73 @@ export async function createTrade(
     createJsonRequestInit("POST", payload)
   );
   return normalizeTradeRecord(data);
+}
+
+export async function createTradePlan(
+  payload: TradePlanCreateRequest
+): Promise<TradePlan> {
+  const data = await requestJson<unknown>(
+    "/api/trade-plans",
+    createJsonRequestInit("POST", payload)
+  );
+  return normalizeTradePlan(data);
+}
+
+export async function getTradePlan(planId: string): Promise<TradePlan> {
+  const data = await requestJson<unknown>(`/api/trade-plans/${planId}`, {
+    cache: "no-store",
+  });
+  return normalizeTradePlan(data);
+}
+
+export async function updateTradePlan(
+  planId: string,
+  payload: TradePlanUpdateRequest
+): Promise<TradePlan> {
+  const data = await requestJson<unknown>(
+    `/api/trade-plans/${planId}`,
+    createJsonRequestInit("PUT", payload)
+  );
+  return normalizeTradePlan(data);
+}
+
+export async function deleteTradePlan(
+  planId: string
+): Promise<DeleteTradePlanResponse> {
+  return requestJson<DeleteTradePlanResponse>(
+    `/api/trade-plans/${planId}`,
+    createJsonRequestInit("DELETE")
+  );
+}
+
+export async function executeTradePlan(
+  planId: string,
+  payload: TradePlanExecuteRequest
+): Promise<TradePlanMutationResponse> {
+  const data = await requestJson<unknown>(
+    `/api/trade-plans/${planId}/execute`,
+    createJsonRequestInit("POST", payload)
+  );
+  const response = isRecord(data) ? data : {};
+  return {
+    plan: normalizeTradePlan(response.plan),
+    record: normalizeTradeRecord(response.record),
+  };
+}
+
+export async function linkTradeToPlan(
+  tradeId: string,
+  payload: TradePlanLinkRequest
+): Promise<TradePlanMutationResponse> {
+  const data = await requestJson<unknown>(
+    `/api/trades/${tradeId}/link-plan`,
+    createJsonRequestInit("POST", payload)
+  );
+  const response = isRecord(data) ? data : {};
+  return {
+    plan: normalizeTradePlan(response.plan),
+    record: normalizeTradeRecord(response.record),
+  };
 }
 
 export async function getTrade(tradeId: string): Promise<TradeDetail> {

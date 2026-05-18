@@ -4,6 +4,10 @@ from fastapi import APIRouter, Depends, Request
 
 from web.backend import access, auth
 from web.backend.schemas.trades import (
+    TradePlanCreatePayload,
+    TradePlanExecutePayload,
+    TradePlanLinkPayload,
+    TradePlanUpdatePayload,
     TradeRecordCreatePayload,
     TradeRecordUpdatePayload,
     TradeReviewGeneratePayload,
@@ -33,6 +37,57 @@ def list_trade_review_activity(request: Request = None) -> list[dict]:
     return trade_service.list_trade_review_activity(request)
 
 
+@router.get("/api/trade-plans")
+def list_trade_plans(
+    ticker: str | None = None,
+    status: str | None = "planned",
+    request: Request = None,
+) -> list[dict]:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_READ)
+    return trade_service.list_trade_plans(ticker=ticker, status=status, request=request)
+
+
+@router.post("/api/trade-plans")
+def create_trade_plan(
+    payload: TradePlanCreatePayload,
+    request: Request = None,
+) -> dict:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
+    return trade_service.create_trade_plan(payload, request)
+
+
+@router.get("/api/trade-plans/{plan_id}")
+def get_trade_plan(plan_id: str, request: Request = None) -> dict:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_READ)
+    return trade_service.get_trade_plan(plan_id, request)
+
+
+@router.put("/api/trade-plans/{plan_id}")
+def update_trade_plan(
+    plan_id: str,
+    payload: TradePlanUpdatePayload,
+    request: Request = None,
+) -> dict:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
+    return trade_service.update_trade_plan(plan_id, payload, request)
+
+
+@router.delete("/api/trade-plans/{plan_id}")
+def delete_trade_plan(plan_id: str, request: Request = None) -> dict:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
+    return trade_service.delete_trade_plan(plan_id, request)
+
+
+@router.post("/api/trade-plans/{plan_id}/execute")
+def execute_trade_plan(
+    plan_id: str,
+    payload: TradePlanExecutePayload,
+    request: Request = None,
+) -> dict:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
+    return trade_service.execute_trade_plan(plan_id, payload, request)
+
+
 @router.post("/api/trades")
 def create_trade(payload: TradeRecordCreatePayload, request: Request = None) -> dict:
     _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
@@ -53,6 +108,16 @@ def update_trade(
 ) -> dict:
     _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
     return trade_service.update_trade(trade_id, payload, request)
+
+
+@router.post("/api/trades/{trade_id}/link-plan")
+def link_trade_to_plan(
+    trade_id: str,
+    payload: TradePlanLinkPayload,
+    request: Request = None,
+) -> dict:
+    _require_journal_permission(request, auth.PERMISSION_JOURNAL_WRITE)
+    return trade_service.link_trade_to_plan(trade_id, payload, request)
 
 
 @router.get("/api/trades/{trade_id}/reviews")

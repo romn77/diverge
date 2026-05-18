@@ -31,6 +31,7 @@ class TradeRecordCreatePayload(BaseModel):
     plan_execution: str = "unknown"
     initial_thesis: str = ""
     notes: str = ""
+    execution_note: str = ""
     market_resolution: Optional[MarketResolutionPayload] = None
     analysis_references: list[AnalysisReferencePayload] = Field(default_factory=list)
 
@@ -53,8 +54,62 @@ class TradeRecordUpdatePayload(BaseModel):
     plan_execution: Optional[str] = None
     initial_thesis: Optional[str] = None
     notes: Optional[str] = None
+    execution_note: Optional[str] = None
     market_resolution: Optional[MarketResolutionPayload] = None
     analysis_references: Optional[list[AnalysisReferencePayload]] = None
+
+
+class TradePlanCreatePayload(BaseModel):
+    raw_symbol: str
+    side: str = "long"
+    source: str = "manual"
+    strategy_tags: list[str] = Field(min_length=1)
+    entry_condition: str
+    thesis: str
+    invalidation_condition: str
+    risk_rule: str
+    reward_target: str
+    position_plan: str
+    planned_horizon: str = "unknown"
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    expires_at: str
+    notes: str = ""
+    market_resolution: Optional[MarketResolutionPayload] = None
+    analysis_references: list[AnalysisReferencePayload] = Field(default_factory=list)
+
+
+class TradePlanUpdatePayload(BaseModel):
+    raw_symbol: Optional[str] = None
+    side: Optional[str] = None
+    source: Optional[str] = None
+    strategy_tags: Optional[list[str]] = None
+    entry_condition: Optional[str] = None
+    thesis: Optional[str] = None
+    invalidation_condition: Optional[str] = None
+    risk_rule: Optional[str] = None
+    reward_target: Optional[str] = None
+    position_plan: Optional[str] = None
+    planned_horizon: Optional[str] = None
+    stop_loss: Optional[float] = None
+    take_profit: Optional[float] = None
+    expires_at: Optional[str] = None
+    notes: Optional[str] = None
+    market_resolution: Optional[MarketResolutionPayload] = None
+    analysis_references: Optional[list[AnalysisReferencePayload]] = None
+
+
+class TradePlanExecutePayload(BaseModel):
+    entry_timestamp: str
+    entry_price: float
+    size: float
+    notes: str = ""
+    execution_note: str = ""
+
+
+class TradePlanLinkPayload(BaseModel):
+    plan_id: str
+    execution_note: str = ""
 
 
 class TradeReviewGeneratePayload(BaseModel):

@@ -52,26 +52,26 @@ class SocialMediaAnalyst(DivergeAgentNode):
             + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
             + f"\n\n{web_search_instruction}"
             + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
-            + """ Use the following structure for the `highlights` field in your structured response. Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in Chinese; free-form string values should follow the report language.
+            + """ Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis. Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in Chinese; free-form string values should follow the report language.
 
 ```json-highlights
 {
   "category": "sentiment",
-  "signal": "BUY or OVERWEIGHT or HOLD or UNDERWEIGHT or SELL",
-  "signal_confidence": "high or medium or low",
+  "signal": "HOLD",
+  "signal_confidence": "medium",
   "summary": "1-2 sentence executive summary of sentiment analysis",
-  "stance": "bullish or neutral or bearish or mixed",
-  "overall_sentiment": "positive or negative or neutral or mixed",
+  "stance": "neutral",
+  "overall_sentiment": "neutral",
   "sentiment_score": "score like 65/100 if determinable",
   "key_topics": ["topic1", "topic2", "topic3"],
-  "social_buzz": "high or moderate or low",
+  "social_buzz": "moderate",
   "evidence_blocks": [
     {
       "claim": "sentiment or public narrative claim",
       "evidence": "specific source-backed fact",
       "source": "get_news or web_search_evidence result",
       "data_date": "YYYY-MM-DD or unknown",
-      "confidence": "high or medium or low",
+      "confidence": "medium",
       "limitation": "missing/stale/ambiguous input, or null"
     }
   ],
@@ -82,11 +82,9 @@ class SocialMediaAnalyst(DivergeAgentNode):
 
         prompt = AdkPrompt(
             system_message=(
-                "You are a helpful AI assistant, collaborating with other assistants."
-                " Use the provided tools to progress towards answering the question."
-                " If you are unable to fully answer, that's OK; another assistant with different tools"
-                " will help where you left off. Execute what you can to make progress."
-                f" You have access to the following tools: {', '.join([tool.name for tool in tools])}.\n{system_message}"
+                f"Available tools: {', '.join([tool.name for tool in tools])}. "
+                "Use them only for the sentiment/company-news evidence task described below.\n"
+                f"{system_message}"
                 f"\n{style_instruction}"
                 f"\n{language_instruction}"
                 f"\n{trade_feedback_message}"

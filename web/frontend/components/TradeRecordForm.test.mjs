@@ -17,6 +17,7 @@ test("TradeRecordForm keeps the manual trade payload aligned with backend schema
   assert.doesNotMatch(source, /role="dialog"/);
   assert.match(source, /createTrade/);
   assert.match(source, /updateTrade/);
+  assert.match(source, /linkTradeToPlan/);
   assert.match(source, /resolveMarketSymbol/);
   assert.match(source, /raw_symbol:\s*string/);
   assert.match(source, /strategy_tags:\s*string\[]/);
@@ -25,12 +26,27 @@ test("TradeRecordForm keeps the manual trade payload aligned with backend schema
   assert.match(source, /entry_timestamp:\s*string/);
   assert.match(source, /planned_horizon:\s*string/);
   assert.match(source, /analysis_references:\s*AnalysisReference\[]/);
+  assert.match(source, /candidatePlans\?:\s*TradePlan\[]/);
   assert.match(source, /Capture the setup, trigger, invalidation, and risk plan/);
   assert.match(source, /Market Resolution/);
   assert.match(source, /Strategy Tags/);
   assert.match(source, /choice-pill choice-pill-sm focus-ring/);
   assert.match(source, /aria-pressed=\{selected\}/);
   assert.match(source, /Add Blank Reference/);
+});
+
+test("TradeRecordForm suggests matching plans but only links after explicit selection", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /const matchingPlans = useMemo/);
+  assert.match(source, /plan\.status !== "planned"/);
+  assert.match(source, /plan\.side\.trim\(\)\.toLowerCase\(\) !== normalizedSide/);
+  assert.match(source, /selected_plan_id:\s*""/);
+  assert.match(source, /Do not link a plan/);
+  assert.match(source, /value=\{selectedPlanId \|\| "none"\}/);
+  assert.match(source, /if \(mode === "create" && formState\.selected_plan_id\)/);
+  assert.match(source, /linkTradeToPlan\(record\.trade_id/);
+  assert.doesNotMatch(source, /originating_plan_id:\s*formState/);
 });
 
 test("TradeRecordForm derives report and full-state-log paths from the MAY-8 contract", () => {

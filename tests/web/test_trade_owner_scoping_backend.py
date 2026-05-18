@@ -162,6 +162,25 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
             ],
         }
 
+    def _plan_payload(self, notes: str) -> dict:
+        return {
+            "raw_symbol": "MSFT",
+            "side": "long",
+            "source": "manual",
+            "strategy_tags": ["pullback"],
+            "entry_condition": "Buy only after support holds.",
+            "thesis": "Cloud momentum remains durable.",
+            "invalidation_condition": "Cloud demand weakens or support fails.",
+            "risk_rule": "Stop on a close below support.",
+            "reward_target": "Trim near prior high and exit remainder at 2R.",
+            "position_plan": "Use 3% portfolio weight with 0.5% account risk.",
+            "planned_horizon": "swing_1_4w",
+            "stop_loss": 408.0,
+            "expires_at": "2026-06-03T16:00:00+00:00",
+            "notes": notes,
+            "analysis_references": [],
+        }
+
     def _review_payload(self) -> dict:
         return {
             "thesis_assessment": "The thesis stayed tied to durable cloud demand.",
@@ -356,6 +375,108 @@ class TradeOwnerScopingBackendTests(AuthClientMixin, unittest.TestCase):
 
             self.assertEqual(captured["reports_dir"], app_config.REPORTS_DIR)
             self.assertEqual(captured["visible_trade_ids"], {owner_one_trade_id})
+
+        asyncio.run(scenario())
+
+    def test_trade_plan_routes_are_owner_scoped_when_auth_enabled(self):
+        async def scenario():
+            async with self._client() as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                await self._create_user(
+                    admin_client,
+                    email="owner-one@example.com",
+                    password="OwnerOnePass123",
+                )
+                await self._create_user(
+                    admin_client,
+                    email="owner-two@example.com",
+                    password="OwnerTwoPass123",
+                )
+
+            async with self._client() as owner_one_client:
+                await self._login(
+                    owner_one_client, "owner-one@example.com", "OwnerOnePass123"
+                )
+                create_response = await owner_one_client.post(
+                    "/api/trade-plans",
+                    json=self._plan_payload("Owner one plan."),
+                )
+                self.assertEqual(create_response.status_code, 200, create_response.text)
+                plan_id = create_response.json()["plan_id"]
+
+                plans_response = await owner_one_client.get("/api/trade-plans")
+                self.assertEqual(plans_response.status_code, 200)
+                self.assertEqual(
+                    [item["plan_id"] for item in plans_response.json()], [plan_id]
+                )
+
+            async with self._client() as owner_two_client:
+                await self._login(
+                    owner_two_client, "owner-two@example.com", "OwnerTwoPass123"
+                )
+                plans_response = await owner_two_client.get("/api/trade-plans")
+                self.assertEqual(plans_response.status_code, 200)
+                self.assertEqual(plans_response.json(), [])
+
+                detail_response = await owner_two_client.get(
+                    f"/api/trade-plans/{plan_id}"
+                )
+                self.assertEqual(detail_response.status_code, 404)
+
+        asyncio.run(scenario())
+
+    def test_trade_plan_expired_filter_materializes_stale_owner_metadata(self):
+        async def scenario():
+            async with self._client() as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                await self._create_user(
+                    admin_client,
+                    email="owner-one@example.com",
+                    password="OwnerOnePass123",
+                )
+
+            async with self._client() as owner_client:
+                await self._login(
+                    owner_client, "owner-one@example.com", "OwnerOnePass123"
+                )
+                create_response = await owner_client.post(
+                    "/api/trade-plans",
+                    json=self._plan_payload("Owner one plan."),
+                )
+                self.assertEqual(create_response.status_code, 200, create_response.text)
+                plan_id = create_response.json()["plan_id"]
+
+                update_response = await owner_client.put(
+                    f"/api/trade-plans/{plan_id}",
+                    json={"expires_at": "2026-01-01T16:00:00+00:00"},
+                )
+                self.assertEqual(update_response.status_code, 200, update_response.text)
+                self.assertEqual(update_response.json()["status"], "planned")
+
+                planned_response = await owner_client.get(
+                    "/api/trade-plans?status=planned"
+                )
+                self.assertEqual(planned_response.status_code, 200)
+                self.assertEqual(planned_response.json(), [])
+
+                expired_response = await owner_client.get(
+                    "/api/trade-plans?status=expired"
+                )
+                self.assertEqual(expired_response.status_code, 200)
+                self.assertEqual(
+                    [item["plan_id"] for item in expired_response.json()], [plan_id]
+                )
+                self.assertEqual(expired_response.json()[0]["status"], "expired")
 
         asyncio.run(scenario())
 

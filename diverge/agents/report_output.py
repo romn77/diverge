@@ -124,7 +124,6 @@ class TraderEntryExitOutput(StrictModel):
 
 class TraderHighlightsOutput(BaseHighlightsOutput):
     category: Literal["trader"]
-    decision: TradeSignal
     entry_exit: TraderEntryExitOutput
     position_sizing: str | None = None
     risk_budget: str | None = None

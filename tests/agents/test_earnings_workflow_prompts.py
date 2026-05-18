@@ -13,21 +13,31 @@ class _FakeLLM:
     def __init__(self):
         self.prompts = []
 
+    def _response(self):
+        return AIMessage(
+            content=(
+                "analysis body\n\n"
+                "```json-highlights\n"
+                '{\n  "category": "news",\n  "signal": "HOLD",\n'
+                '  "signal_confidence": "medium",\n  "summary": "Summary",\n'
+                '  "market_impact": "mixed",\n  "key_events": [],\n'
+                '  "macro_outlook": "Stable"\n}\n'
+                "```"
+            ),
+            tool_calls=[],
+        )
+
+    def invoke(self, prompt, *, tools=None, output_schema=None):
+        del tools, output_schema
+        self.prompts.append(prompt.to_string())
+        return self._response()
+
     def bind_tools(self, tools):
+        del tools
+
         def _invoke(prompt):
             self.prompts.append(prompt.to_string())
-            return AIMessage(
-                content=(
-                    "analysis body\n\n"
-                    "```json-highlights\n"
-                    '{\n  "category": "news",\n  "signal": "HOLD",\n'
-                    '  "signal_confidence": "medium",\n  "summary": "Summary",\n'
-                    '  "market_impact": "mixed",\n  "key_events": [],\n'
-                    '  "macro_outlook": "Stable"\n}\n'
-                    "```"
-                ),
-                tool_calls=[],
-            )
+            return self._response()
 
         return RunnableLambda(_invoke)
 

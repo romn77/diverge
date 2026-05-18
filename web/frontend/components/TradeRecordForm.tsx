@@ -22,12 +22,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import {
   createTrade,
+  linkTradeToPlan,
   resolveMarketSymbol,
   updateTrade,
   type AnalysisReference,
   type MarketResolution,
   type MarketResolutionMarket,
   type Report,
+  type TradePlan,
   type TradeRecord,
   type TradeRecordCreateRequest,
 } from "@/lib/api";
@@ -36,6 +38,7 @@ interface TradeRecordFormProps {
   isOpen: boolean;
   mode: "create" | "edit";
   initialRecord?: TradeRecord | null;
+  candidatePlans?: TradePlan[];
   reports: Report[];
   onClose: () => void;
   onSaved: (record: TradeRecord) => void;
@@ -57,6 +60,8 @@ interface TradeRecordFormState {
   market_override: "auto" | MarketResolutionMarket;
   exchange_override: string;
   initial_thesis: string;
+  selected_plan_id: string;
+  execution_note: string;
   analysis_references: AnalysisReference[];
 }
 
@@ -95,6 +100,7 @@ export function TradeRecordForm({
   isOpen,
   mode,
   initialRecord = null,
+  candidatePlans = [],
   reports,
   onClose,
   onSaved,
@@ -188,6 +194,54 @@ export function TradeRecordForm({
     return matchingReports.slice(0, 6);
   }, [formState.raw_symbol, marketResolution?.canonical_symbol, reports]);
 
+  const matchingPlans = useMemo(() => {
+    if (mode !== "create") {
+      return [];
+    }
+    const normalizedSymbol = (
+      marketResolution?.canonical_symbol ||
+      marketResolution?.display_symbol ||
+      formState.raw_symbol
+    )
+      .trim()
+      .toUpperCase();
+    if (!normalizedSymbol) {
+      return [];
+    }
+    const normalizedSide = formState.side.trim().toLowerCase();
+    return candidatePlans.filter((plan) => {
+      if (plan.status !== "planned") {
+        return false;
+      }
+      if (plan.side.trim().toLowerCase() !== normalizedSide) {
+        return false;
+      }
+      const symbols = [
+        plan.ticker,
+        plan.canonical_symbol,
+        plan.display_symbol,
+        plan.raw_symbol,
+      ].map((value) => value.trim().toUpperCase());
+      return symbols.includes(normalizedSymbol);
+    });
+  }, [
+    candidatePlans,
+    formState.raw_symbol,
+    formState.side,
+    marketResolution?.canonical_symbol,
+    marketResolution?.display_symbol,
+    mode,
+  ]);
+
+  useEffect(() => {
+    if (
+      formState.selected_plan_id &&
+      !matchingPlans.some((plan) => plan.plan_id === formState.selected_plan_id)
+    ) {
+      setFormState((current) => ({ ...current, selected_plan_id: "" }));
+    }
+  }, [formState.selected_plan_id, matchingPlans]);
+
   if (!isOpen) {
     return null;
   }
@@ -203,10 +257,17 @@ export function TradeRecordForm({
 
     try {
       const payload = buildPayload(formState, marketResolution, initialRecord, t);
-      const record =
+      let record =
         mode === "create" || !initialRecord
           ? await createTrade(payload)
           : await updateTrade(initialRecord.trade_id, payload);
+      if (mode === "create" && formState.selected_plan_id) {
+        const result = await linkTradeToPlan(record.trade_id, {
+          plan_id: formState.selected_plan_id,
+          execution_note: formState.execution_note.trim(),
+        });
+        record = result.record;
+      }
       onSaved(record);
     } catch (submitError) {
       setError(
@@ -305,6 +366,15 @@ export function TradeRecordForm({
               setFormState((current) => ({ ...current, exchange_override: value }))
             }
           />
+
+          {mode === "create" ? (
+            <MatchingPlanSelector
+              plans={matchingPlans}
+              selectedPlanId={formState.selected_plan_id}
+              executionNote={formState.execution_note}
+              setFormState={setFormState}
+            />
+          ) : null}
 
           <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
@@ -610,6 +680,96 @@ function MarketResolutionPanel({
   );
 }
 
+function MatchingPlanSelector({
+  plans,
+  selectedPlanId,
+  executionNote,
+  setFormState,
+}: {
+  plans: TradePlan[];
+  selectedPlanId: string;
+  executionNote: string;
+  setFormState: Dispatch<SetStateAction<TradeRecordFormState>>;
+}) {
+  const { t } = usePreferences();
+  return (
+    <section className="rounded-[28px] border border-[var(--border)] bg-white/90 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">
+            {t("tradePlan.matchingPlans", "Matching Trade Plans")}
+          </p>
+          <h3 className="mt-2 text-xl font-semibold text-slate-900">
+            {plans.length > 0
+              ? t("tradePlan.chooseOptionalPlan", "Choose a plan to link")
+              : t("tradePlan.noMatchingPlan", "No matching active plan")}
+          </h3>
+        </div>
+        <Badge variant="secondary" className="text-slate-500">
+          {t("tradePlan.planCount", ({ count }) => `${count} planned`, {
+            count: plans.length,
+          })}
+        </Badge>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            {t("tradePlan.linkedPlan", "Linked Plan")}
+          </span>
+          <Select
+            value={selectedPlanId || "none"}
+            onValueChange={(value) =>
+              setFormState((current) => ({
+                ...current,
+                selected_plan_id: value === "none" ? "" : value,
+              }))
+            }
+          >
+            <SelectTrigger className="mt-2 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">
+                {t("tradePlan.noPlanLink", "Do not link a plan")}
+              </SelectItem>
+              {plans.map((plan) => (
+                <SelectItem key={plan.plan_id} value={plan.plan_id}>
+                  {plan.display_symbol ?? plan.ticker} · {plan.side} ·{" "}
+                  {plan.entry_condition.slice(0, 48)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+
+        {selectedPlanId ? (
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {t("tradePlan.executionNote", "Execution Note")}
+            </span>
+            <Textarea
+              value={executionNote}
+              onChange={(event) =>
+                setFormState((current) => ({
+                  ...current,
+                  execution_note: event.target.value,
+                }))
+              }
+              rows={4}
+              placeholder={t(
+                "tradePlan.executionNotePlaceholder",
+                "Optional: why execute now, and did the actual entry differ from the plan?"
+              )}
+              className="mt-2 border-[var(--border)] bg-[var(--surface-strong)] text-slate-800"
+            />
+          </label>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function SnapshotReferences({
   references,
   suggestedReports,
@@ -775,6 +935,8 @@ function buildInitialState(record: TradeRecord | null): TradeRecordFormState {
         : "auto",
     exchange_override: record?.market_resolution?.source === "manual" ? record.exchange ?? "" : "",
     initial_thesis: record?.initial_thesis ?? "",
+    selected_plan_id: "",
+    execution_note: record?.execution_note ?? "",
     analysis_references:
       record?.analysis_references.map((reference) => ({ ...reference })) ?? [],
   };
