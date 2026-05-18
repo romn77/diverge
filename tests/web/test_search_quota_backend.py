@@ -22,6 +22,9 @@ class SearchQuotaBackendTests(unittest.TestCase):
             "AUTH_ENABLED": "true",
             "AUTH_MODE": "required",
             "DATABASE_URL": self.database_url,
+            "BRAVE_SEARCH_API_KEY": "",
+            "TAVILY_API_KEY": "",
+            "BOCHA_API_KEY": "",
         }
         if extra:
             env.update(extra)

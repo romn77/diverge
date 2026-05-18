@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -31,34 +32,43 @@ def test_backend_lifespan_initializes_opportunity_tables_and_tasks_by_default(
         async with main._app_lifespan(None):
             return None
 
-    with (
-        patch("web.backend.main.auth.initialize_auth_runtime"),
-        patch("web.backend.main.analysis_limits.initialize_analysis_limits_runtime"),
-        patch("web.backend.main.data_sources.initialize_data_source_runtime"),
-        patch("web.backend.main.llm_models.initialize_llm_model_runtime"),
-        patch("web.backend.main.search_quota.initialize_search_quota_runtime"),
-        patch("web.backend.main.report_metadata.initialize_report_metadata_runtime"),
-        patch("web.backend.main.screener_runs.initialize_screener_runtime"),
-        patch("web.backend.main.screener_results.initialize_screener_result_runtime"),
-        patch("web.backend.main.trade_entries.initialize_trade_entries_runtime"),
-        patch("web.backend.main.asset_entries.initialize_asset_runtime"),
-        patch("web.backend.main.audit.ensure_audit_tables"),
-        patch("web.backend.main.job_records.initialize_job_record_runtime"),
-        patch("web.backend.main.job_records.recover_stale_running_job_records"),
-        patch(
-            "web.backend.main.task_store.redis_task_backend_enabled", return_value=False
-        ),
-        patch("web.backend.main.restore_persisted_active_tasks"),
-        patch("web.backend.main.restore_persisted_screener_tasks"),
-        patch("web.backend.main.restore_persisted_data_sync_tasks"),
-        patch(
-            "web.backend.main.opportunity_models.initialize_opportunity_runtime"
-        ) as initialize_tables,
-        patch(
-            "web.backend.main.restore_persisted_opportunity_tasks"
-        ) as restore_opportunity,
-        patch("web.backend.main.restore_persisted_backtest_tasks") as restore_backtest,
-    ):
+    patch_targets = [
+        "web.backend.main.auth.initialize_auth_runtime",
+        "web.backend.main.analysis_limits.initialize_analysis_limits_runtime",
+        "web.backend.main.data_sources.initialize_data_source_runtime",
+        "web.backend.main.llm_models.initialize_llm_model_runtime",
+        "web.backend.main.search_quota.initialize_search_quota_runtime",
+        "web.backend.main.report_metadata.initialize_report_metadata_runtime",
+        "web.backend.main.screener_runs.initialize_screener_runtime",
+        "web.backend.main.screener_results.initialize_screener_result_runtime",
+        "web.backend.main.trade_entries.initialize_trade_entries_runtime",
+        "web.backend.main.trade_plan_entries.initialize_trade_plan_entries_runtime",
+        "web.backend.main.asset_entries.initialize_asset_runtime",
+        "web.backend.main.audit.ensure_audit_tables",
+        "web.backend.main.job_records.initialize_job_record_runtime",
+        "web.backend.main.job_records.recover_stale_running_job_records",
+        "web.backend.main.restore_persisted_active_tasks",
+        "web.backend.main.restore_persisted_screener_tasks",
+        "web.backend.main.restore_persisted_data_sync_tasks",
+    ]
+    with contextlib.ExitStack() as stack:
+        for target in patch_targets:
+            stack.enter_context(patch(target))
+        stack.enter_context(
+            patch(
+                "web.backend.main.task_store.redis_task_backend_enabled",
+                return_value=False,
+            )
+        )
+        initialize_tables = stack.enter_context(
+            patch("web.backend.main.opportunity_models.initialize_opportunity_runtime")
+        )
+        restore_opportunity = stack.enter_context(
+            patch("web.backend.main.restore_persisted_opportunity_tasks")
+        )
+        restore_backtest = stack.enter_context(
+            patch("web.backend.main.restore_persisted_backtest_tasks")
+        )
         asyncio.run(run_lifespan_once())
 
     initialize_tables.assert_called_once()

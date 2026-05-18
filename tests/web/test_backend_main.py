@@ -64,6 +64,7 @@ class BackendMainTests(unittest.TestCase):
         self.original_screener_cache_dir = backend_config.SCREENER_CACHE_DIR
         self.original_stock_history_dir = backend_config.STOCK_HISTORY_DIR
         self.original_tmp_reports_dir = backend_config.TMP_REPORTS_DIR
+        self.original_market_briefs_dir = backend_config.MARKET_BRIEFS_DIR
         self.vendor_usage_env_patch = patch.dict(
             os.environ,
             {"DATA_DIR": str(self.data_dir)},
@@ -78,6 +79,7 @@ class BackendMainTests(unittest.TestCase):
         backend_config.SCREENER_CACHE_DIR = self.data_dir / "cache" / "screener"
         backend_config.STOCK_HISTORY_DIR = self.data_dir / "history"
         backend_config.TMP_REPORTS_DIR = backend_config.REPORTS_DIR / ".tmp"
+        backend_config.MARKET_BRIEFS_DIR = self.data_dir / "market_briefs"
         self.empty_project_root = Path(self.empty_project_dir.name)
         self.empty_project_env = self.empty_project_root / ".env"
         analysis_tasks.tasks.clear()
@@ -91,6 +93,7 @@ class BackendMainTests(unittest.TestCase):
         backend_config.SCREENER_CACHE_DIR = self.original_screener_cache_dir
         backend_config.STOCK_HISTORY_DIR = self.original_stock_history_dir
         backend_config.TMP_REPORTS_DIR = self.original_tmp_reports_dir
+        backend_config.MARKET_BRIEFS_DIR = self.original_market_briefs_dir
         analysis_tasks.tasks.clear()
         screener_tasks.screener_tasks.clear()
         screener_results.reset_screener_result_observability()
@@ -222,55 +225,20 @@ class BackendMainTests(unittest.TestCase):
 
         self.assertEqual(context.exception.status_code, 404)
 
-    def test_market_briefs_list_only_retains_recent_premarket_artifacts(self):
-        recent_dir = backend_config.REPORTS_DIR / "MARKET_BRIEF_20260515_083000"
-        recent_dir.mkdir(parents=True)
-        (recent_dir / "complete_report.md").write_text(
-            "# Trading Analysis Report: MARKET_BRIEF\n\nGenerated: 2026-05-15 08:30:00\n\n",
+    def test_market_briefs_list_reads_recent_external_markdown_files(self):
+        backend_config.MARKET_BRIEFS_DIR.mkdir(parents=True)
+        (backend_config.MARKET_BRIEFS_DIR / "2026-05-15-us-premarket-market-brief.md").write_text(
+            "# 美股盘前市场简报｜2026-05-15\n\n"
+            "信息截至：2026-05-15 08:30 ET。\n\n"
+            "## 一、100字以内核心结论\n\n"
+            "Policy and liquidity remain the morning focus.\n\n"
+            "## 七、今日风险提示\n\n"
+            "| 风险 | 可能影响 |\n|---|---|\n| FX pressure | Growth pressure |\n\n"
+            "来源：[Source](https://example.test/source)。\n",
             encoding="utf-8",
         )
-        artifacts_dir = recent_dir / "artifacts"
-        artifacts_dir.mkdir()
-        (artifacts_dir / "premarket_brief.json").write_text(
-            json.dumps(
-                {
-                    "type": "premarket_brief",
-                    "brief_id": "premarket_brief_20260515_083000",
-                    "markets": ["cn", "us"],
-                    "trading_day": "2026-05-15",
-                    "information_cutoff_at": "2026-05-15T08:30:00+08:00",
-                    "data_quality_level": "high",
-                    "summary": "Policy and liquidity remain the morning focus.",
-                    "main_themes": [{"title": "High dividend"}, "AI hardware"],
-                    "risks": [{"risk": "FX pressure"}],
-                    "opening_validation_signals": [
-                        {"signal": "Northbound proxy strength"}
-                    ],
-                    "sources": [{"url": "https://example.test/source"}],
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        stale_dir = backend_config.REPORTS_DIR / "MARKET_BRIEF_20260507_083000"
-        stale_dir.mkdir(parents=True)
-        (stale_dir / "complete_report.md").write_text(
-            "# Trading Analysis Report: MARKET_BRIEF\n\nGenerated: 2026-05-07 08:30:00\n\n",
-            encoding="utf-8",
-        )
-        stale_artifacts_dir = stale_dir / "artifacts"
-        stale_artifacts_dir.mkdir()
-        (stale_artifacts_dir / "premarket_brief.json").write_text(
-            json.dumps(
-                {"brief_id": "premarket_brief_20260507", "trading_day": "2026-05-07"}
-            ),
-            encoding="utf-8",
-        )
-
-        ordinary_dir = backend_config.REPORTS_DIR / "SPY_20260515_090000"
-        ordinary_dir.mkdir(parents=True)
-        (ordinary_dir / "complete_report.md").write_text(
-            "# Trading Analysis Report: SPY\n\nGenerated: 2026-05-15 09:00:00\n\n",
+        (backend_config.MARKET_BRIEFS_DIR / "2026-05-07-us-premarket-market-brief.md").write_text(
+            "# Old brief\n\n信息截至：2026-05-07 08:30 ET。\n",
             encoding="utf-8",
         )
 
@@ -279,10 +247,13 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(payload["retention_days"], 7)
         self.assertEqual(payload["cutoff_date"], "2026-05-09")
         self.assertEqual(len(payload["briefs"]), 1)
-        self.assertEqual(payload["latest"]["report_id"], "MARKET_BRIEF_20260515_083000")
-        self.assertEqual(payload["latest"]["markets"], ["cn", "us"])
+        self.assertEqual(
+            payload["latest"]["report_id"],
+            "MARKET_BRIEF_2026_05_15_US_PREMARKET_MARKET_BRIEF",
+        )
+        self.assertEqual(payload["latest"]["markets"], ["us"])
         self.assertEqual(payload["latest"]["source_count"], 1)
-        self.assertIn("High dividend", payload["latest"]["main_themes"])
+        self.assertIn("Policy and liquidity", payload["latest"]["summary"])
 
     def test_post_tasks_creates_a_pending_task_and_status_endpoint(self):
         payload = {

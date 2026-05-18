@@ -1,82 +1,107 @@
 # Market Brief
 
-Market Brief is a report artifact type separate from single-stock `DecisionCard`.
-It generates `artifacts/premarket_brief.json` and `complete_report.md` under a
-normal report directory, so existing report listing and artifact APIs can read it.
+Market Brief is now an external markdown ingestion surface. Diverge no longer
+generates the brief with its own market-data, web-search, scheduler, or LLM agent
+pipeline. multica owns report generation; Diverge owns ingestion, indexing,
+permissions, and Workbench rendering.
 
-## Manual Trigger
+## Source Directory
 
-Use the API or the `/market-briefs` workbench page:
+By default, Diverge reads markdown files from:
+
+```bash
+data/market_briefs
+```
+
+Override the location with:
+
+```bash
+MARKET_BRIEFS_DIR=/srv/diverge/market_briefs
+```
+
+Use one markdown file per brief:
+
+```text
+YYYY-MM-DD-us-premarket-market-brief.md
+YYYY-MM-DD-cn-premarket-market-brief.md
+YYYY-MM-DD-global-premarket-market-brief.md
+```
+
+The scanner also tolerates legacy `.md.md` filenames, but new files should use a
+single `.md` suffix.
+
+## SSH/SFTP Delivery
+
+When multica writes directly to the server, use an atomic upload pattern:
+
+```bash
+scp report.md diverge-briefs@server:/srv/diverge/market_briefs/inbox/report.md.tmp
+ssh diverge-briefs@server \
+  'mv /srv/diverge/market_briefs/inbox/report.md.tmp /srv/diverge/market_briefs/2026-05-18-us-premarket-market-brief.md'
+```
+
+The SSH user should be restricted to the brief directory and should not have
+write access to application code or secrets.
+
+## Webhook Delivery
+
+multica can also POST markdown to Diverge:
 
 ```http
-POST /api/market-briefs/tasks
+POST /api/integrations/multica/market-brief
+X-Multica-Timestamp: 1779093000
+X-Multica-Signature: sha256=<hmac>
+Content-Type: application/json
 ```
+
+The signature is:
+
+```text
+hex(hmac_sha256(MULTICA_WEBHOOK_SECRET, timestamp + "." + raw_body))
+```
+
+Example JSON payload:
 
 ```json
 {
-  "markets": ["cn", "us"],
-  "output_language": "zh-CN",
-  "report_visibility": "workspace"
+  "filename": "2026-05-18-us-premarket-market-brief.md",
+  "provider_report_id": "multica-20260518-us-am",
+  "markets": ["us"],
+  "language": "zh-CN",
+  "markdown": "# 美股盘前市场简报｜2026-05-18\n\n..."
 }
 ```
 
-Supported markets:
-
-- `cn`: A-share
-- `us`: US
-
-Hong Kong (`hk`) is temporarily disabled until the project has a reliable HKEX
-holiday calendar and market data feed.
-
-## Automatic Trigger
-
-The automation provider is ARQ cron. It creates regular `market_brief` tasks in
-the existing Redis task queue; the standard backend worker executes them.
-
-Required production settings:
+Required environment:
 
 ```bash
-TASK_BACKEND=redis
-REDIS_URL=redis://redis:6379/0
-MARKET_BRIEF_ENABLED=true
-MARKET_BRIEF_SCHEDULER_PROVIDER=arq
-MARKET_BRIEF_TIMES=08:30,09:00,09:20
-MARKET_BRIEF_MARKETS=cn,us
-MARKET_BRIEF_CN_TIMEZONE=Asia/Shanghai
-MARKET_BRIEF_US_TIMEZONE=America/New_York
-MARKET_BRIEF_REPORT_VISIBILITY=workspace
-MARKET_BRIEF_SCHEDULER_QUEUE_NAME=arq:market-brief:scheduler
+MULTICA_WEBHOOK_SECRET=change-me
+MULTICA_WEBHOOK_MAX_SKEW_SECONDS=300
 ```
 
-`MARKET_BRIEF_TIMES` is interpreted in each enabled market's timezone. Override
-one market independently with `MARKET_BRIEF_CN_TIMES` or `MARKET_BRIEF_US_TIMES`.
-For example, US brief slots use New York time by default.
+Raw `text/markdown` requests are also accepted. For raw uploads, pass the target
+filename in `X-Multica-Filename`.
 
-Run the scheduler with:
+## Workbench Behavior
 
-```bash
-arq web.backend.runtime.market_brief_arq.MarketBriefSchedulerSettings
+`GET /api/market-briefs` scans `MARKET_BRIEFS_DIR`, extracts lightweight index
+metadata from frontmatter, filename, headings, and markdown links, and returns
+the latest seven-day window.
+
+Clicking a brief opens the normal report viewer via a synthetic
+`MARKET_BRIEF_...` report id. The report viewer reads the original markdown as
+`complete_report.md`; Diverge does not rewrite the multica report with an
+internal renderer.
+
+Optional frontmatter improves indexing:
+
+```yaml
+---
+provider: multica
+provider_report_id: multica-20260518-us-am
+markets: [us]
+trading_day: 2026-05-18
+generated_at: 2026-05-18T08:34:00-04:00
+language: zh-CN
+---
 ```
-
-Run the normal task worker with:
-
-```bash
-TASK_BACKEND=redis python -m web.backend.worker
-```
-
-When auth/database mode is enabled, scheduled reports need an owner for report
-metadata. Set `MARKET_BRIEF_OWNER_USER_ID`, or configure the bootstrap admin
-environment so the scheduler can use the active admin owner.
-
-## Data Sources
-
-Market Brief uses:
-
-- exchange calendar and open-window context from local calendar code;
-- index snapshots via `yfinance` when available;
-- Web Search sources via `MARKET_BRIEF_WEB_SEARCH_PROVIDER=auto`, preferring
-  OpenAI Responses `web_search` when `OPENAI_API_KEY` is configured, then the
-  existing Diverge search providers if configured.
-
-If a source is unavailable, the task still writes a report and records the
-missing source in `quality_warnings`.

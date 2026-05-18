@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
@@ -20,7 +21,6 @@ from web.backend import (
 from web.backend.runtime import (
     analysis_tasks,
     data_sync_tasks,
-    market_brief_tasks,
     screener_tasks,
     task_store,
 )
@@ -131,15 +131,6 @@ def _data_sync_label(payload: dict) -> str:
     return str(payload.get("id") or "Data sync task")
 
 
-def _market_brief_label(payload: dict) -> str:
-    request_payload = payload.get("request_payload")
-    if isinstance(request_payload, dict):
-        markets = request_payload.get("markets")
-        if isinstance(markets, list) and markets:
-            return f"market brief: {', '.join(str(market) for market in markets)}"
-    return str(payload.get("id") or "Market brief task")
-
-
 def _active_task_payloads(kind: str, *, tenant_id: str | None = None) -> list[dict]:
     if job_records.database_backed_job_records_enabled():
         return [
@@ -153,8 +144,6 @@ def _active_task_payloads(kind: str, *, tenant_id: str | None = None) -> list[di
         return [task.to_dict() for task in analysis_tasks.list_tasks()]
     if kind == "screener":
         return [task.to_dict() for task in screener_tasks.list_screener_tasks()]
-    if kind == "market_brief":
-        return [task.to_dict() for task in market_brief_tasks.list_market_brief_tasks()]
     return [task.to_dict() for task in data_sync_tasks.list_data_sync_tasks()]
 
 
@@ -175,8 +164,6 @@ def _runtime_task_present(kind: str, task_id: str) -> bool:
             analysis_tasks.get_task(task_id)
         elif kind == "screener":
             screener_tasks.get_screener_task(task_id)
-        elif kind == "market_brief":
-            market_brief_tasks.get_market_brief_task(task_id)
         else:
             data_sync_tasks.get_data_sync_task(task_id)
         return True
@@ -203,9 +190,6 @@ def _serialize_queue_item(
     elif kind == "screener":
         label = _screener_label(payload)
         detail_path = f"/screener-tasks/{task_id}"
-    elif kind == "market_brief":
-        label = _market_brief_label(payload)
-        detail_path = "/market-briefs"
     else:
         label = _data_sync_label(payload)
         detail_path = "/admin/data-sources"

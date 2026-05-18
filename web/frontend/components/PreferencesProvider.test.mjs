@@ -78,4 +78,9 @@ test("uiPreferences defines persisted preference cookie keys with zh translation
   assert.match(source, /"screenerDashboard\.staleResultTitle": "筛选条件已变更"/);
   assert.match(source, /"screenerDashboard\.placeholderReadyTitle": "等待运行"/);
   assert.match(source, /"trade\.status\.closed": "已平仓"/);
+  assert.match(source, /"journal\.summary\.plannedQueue": "计划队列"/);
+  assert.match(source, /"journal\.reviewCoverageValue": \(\{ count \}\) => `\$\{count \?\? 0\}\/2 条复盘`/);
+  assert.match(source, /"tradePlan\.queueTitle": "交易计划队列"/);
+  assert.match(source, /"tradePlan\.createFirstPlan": "创建第一条计划"/);
+  assert.match(source, /"tradePlan\.error\.positionPlanQuantified"/);
 });
