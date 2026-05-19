@@ -5,7 +5,7 @@ import re
 import pandas as pd
 
 
-US_UNIVERSE_CAP_DEFAULT = 2200
+US_UNIVERSE_CAP_DEFAULT = 4500
 US_PRIMARY_EXCHANGES = {"NYSE", "NASDAQ"}
 US_ALLOWED_DOT_SUFFIXES = {"A", "B", "C", "V"}
 US_NON_PRIMARY_SYMBOL_SUFFIXES = {"R", "RT", "RU", "U", "UN", "W", "WS", "WT"}

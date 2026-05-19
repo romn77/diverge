@@ -119,6 +119,7 @@ def test_screen_run_config_accepts_massive_us_data_source():
     )
 
     assert config.us_data_source == "massive"
+    assert config.us_universe_cap == 4500
 
 
 def test_screen_run_config_accepts_filter_presets_and_ranking_profile():

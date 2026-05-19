@@ -110,6 +110,26 @@ def test_build_us_manifest_sorts_by_market_cap_before_dedup_and_limit():
     ]
 
 
+def test_build_us_manifest_default_limit_is_4500():
+    source_df = pd.DataFrame(
+        [
+            {
+                "name": f"Company {index} Corp.",
+                "category": "Software",
+                "symbol": f"T{index:04d}",
+                "market": "NASDAQ",
+                "mktcap": str(10_000 - index),
+            }
+            for index in range(4501)
+        ]
+    )
+
+    manifest_df = build_us_manifest(source_df=source_df)
+
+    assert len(manifest_df) == 4500
+    assert manifest_df["symbol"].tolist()[:2] == ["T0000", "T0001"]
+
+
 def test_build_us_manifest_requires_market_cap_field():
     source_df = pd.DataFrame(
         [

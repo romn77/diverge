@@ -14,6 +14,7 @@ from diverge.screener.presets import (
     normalize_filter_preset_selections,
     resolve_ranking_profile,
 )
+from diverge.screener.universe_rules import US_UNIVERSE_CAP_DEFAULT
 
 
 VALID_MARKETS = {"cn", "us"}
@@ -86,7 +87,7 @@ class ScreenRunConfig:
     us_min_price: float = 5.0
     min_trading_days_20d: int = 18
     cn_universe_cap: int | None = None
-    us_universe_cap: int | None = 3000
+    us_universe_cap: int | None = US_UNIVERSE_CAP_DEFAULT
     output_dir: str = field(default_factory=_default_screener_runs_dir)
     cache_dir: str = field(default_factory=_default_screener_cache_dir)
     history_dir: str = field(default_factory=_default_history_dir)
