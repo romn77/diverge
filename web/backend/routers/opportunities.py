@@ -15,6 +15,7 @@ from web.backend.schemas.opportunities import (
 )
 from web.backend.services import opportunities as opportunity_service
 from web.backend.services import task_route_support
+from web.backend.services.preferences import preferred_output_language_from_request
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
 
@@ -214,9 +215,12 @@ def analyze_candidate(
             llm_provider="openai",
             quick_think_llm="gpt-4o-mini",
             deep_think_llm="gpt-4o",
-            output_language=payload.output_language or "cn",
+            output_language=(
+                payload.output_language
+                or preferred_output_language_from_request(request)
+                or "cn"
+            ),
             openai_reasoning_effort="medium",
-            market_data_source="massive",
             opportunity_context=context,
         )
     except ValueError as exc:

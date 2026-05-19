@@ -50,6 +50,7 @@ import {
   type ThemeRadarResponse,
   type WatchlistItem,
 } from "@/lib/api";
+import { toOutputLanguage } from "@/lib/uiPreferences";
 import {
   buildOpportunitiesHref,
   buildOpportunityTaskHref,
@@ -259,7 +260,7 @@ export function OpportunityRadarPage() {
     try {
       const result = await analyzeOpportunityCandidate(candidate.symbol, {
         run_id: selectedRunId,
-        output_language: language === "zh" ? "cn" : "en",
+        output_language: toOutputLanguage(language),
         opportunity_context: buildOpportunityContext(candidate, selectedRunId),
       });
       if (result.task_id) {

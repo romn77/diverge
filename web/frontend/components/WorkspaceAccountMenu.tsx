@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getConfigOptions, type AuthUser, type ConfigOptions } from "@/lib/api";
+import { toOutputLanguage } from "@/lib/uiPreferences";
 
 interface WorkspaceAccountMenuProps {
   authEnabled: boolean;
@@ -61,6 +62,8 @@ export function WorkspaceAccountMenu({
   const outputLanguageOptions = settingsConfig?.output_languages ?? [];
   const selectedOutputLanguageValue =
     outputLanguageOptions.find((option) => option.value === selectedOutputLanguage)
+      ?.value ??
+    outputLanguageOptions.find((option) => option.value === toOutputLanguage(language))
       ?.value ??
     outputLanguageOptions[0]?.value ??
     "";

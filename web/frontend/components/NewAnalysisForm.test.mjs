@@ -120,10 +120,14 @@ test("NewAnalysisForm preserves an open draft when the sidebar language default 
   assert.match(source, /formState === null/);
   assert.match(source, /defaultOutputLanguageRef/);
   assert.match(source, /defaultOutputLanguageRef\.current = defaultOutputLanguage/);
-  assert.match(source, /setFormState\(buildInitialFormState\(configOptions,\s*defaultOutputLanguageRef\.current\)\)/);
+  assert.match(source, /toOutputLanguage/);
+  assert.match(
+    source,
+    /buildInitialFormState\(\s*configOptions,\s*defaultOutputLanguageRef\.current,\s*language\s*\)/
+  );
   assert.match(source, /setFormState\(null\)/);
-  assert.match(source, /option\.value === defaultOutputLanguage/);
-  assert.match(source, /\}, \[configOptions, formState, isOpen\]\);/);
+  assert.match(source, /option\.value === \(defaultOutputLanguage \?\? toOutputLanguage\(preferenceLanguage\)\)/);
+  assert.match(source, /\}, \[configOptions, formState, isOpen, language\]\);/);
   assert.doesNotMatch(
     source,
     /\}, \[configOptions, defaultOutputLanguage, formState, isOpen\]\);/

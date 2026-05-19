@@ -50,6 +50,16 @@ test("TradeReviewForm can request an AI-generated review before manual editing",
   assert.doesNotMatch(source, /model:/);
 });
 
+test("TradeReviewForm defaults generated review language from UI preferences", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /toOutputLanguage/);
+  assert.match(source, /const \{ language, t \} = usePreferences\(\)/);
+  assert.match(source, /buildInitialState\(existingReview, tradeRecord, language\)/);
+  assert.match(source, /output_language:\s*toOutputLanguage\(preferenceLanguage\)/);
+  assert.match(source, /\[existingReview, isOpen, language, tradeRecord\]/);
+});
+
 test("TradeReviewForm treats linked snapshots as optional AI context", () => {
   const source = readFileSync(componentPath, "utf8");
 

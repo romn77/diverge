@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from diverge import trade_feedback
 from web.backend import app_config, auth
@@ -48,11 +49,25 @@ class _FakeClient:
         return _FakeLLM()
 
 
+def _request_with_language(language: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "headers": [(b"x-diverge-ui-language", language.encode("utf-8"))],
+        }
+    )
+
+
 class TradeFeedbackBackendTests(unittest.TestCase):
     def setUp(self):
         self.auth_env_patch = patch.dict(
             os.environ,
-            {"AUTH_ENABLED": "false", "AUTH_MODE": "disabled"},
+            {
+                "AUTH_ENABLED": "false",
+                "AUTH_MODE": "disabled",
+                "TASK_BACKEND": "local",
+            },
             clear=False,
         )
         self.auth_env_patch.start()
@@ -384,6 +399,44 @@ class TradeFeedbackBackendTests(unittest.TestCase):
         self.assertEqual(review["analysis_date"], "2026-04-02")
         self.assertEqual(len(review["analysis_references"]), 1)
 
+    def test_generate_configured_trade_review_uses_request_language_preference(self):
+        record = create_trade(
+            TradeRecordCreatePayload(**self._trade_payload(analysis_references=[]))
+        )
+        generated_review = {
+            "trade_id": record["trade_id"],
+            "review_type": "entry_review",
+            "analysis_date": "2026-04-02",
+        }
+
+        with (
+            patch(
+                "web.backend.llm_models.resolve_module_model_selection",
+                return_value={
+                    "module": "trade_journal_review",
+                    "model_profile": "balanced",
+                    "llm_provider": "ollama",
+                    "model": "local-test",
+                    "output_language": "en",
+                    "openai_reasoning_effort": None,
+                    "google_thinking_level": None,
+                },
+            ),
+            patch(
+                "web.backend.services.trade_review_generation.generate_trade_review_file",
+                return_value=generated_review,
+            ) as generate_review,
+        ):
+            review = generate_configured_trade_review(
+                record["trade_id"],
+                "entry_review",
+                TradeReviewGeneratePayload(analysis_date="2026-04-02"),
+                request=_request_with_language("zh"),
+            )
+
+        self.assertEqual(review, generated_review)
+        self.assertEqual(generate_review.call_args.kwargs["output_language"], "cn")
+
     def test_create_trade_can_auto_generate_entry_review_from_admin_module_setting(
         self,
     ):
@@ -446,6 +499,37 @@ class TradeFeedbackBackendTests(unittest.TestCase):
             activity_tasks[0]["latest_progress"]["message"],
             "Trade journal AI review generation completed (1/1 reviews).",
         )
+
+    def test_auto_trade_review_uses_request_language_preference(self):
+        generated_review = {
+            "trade_id": "pending",
+            "review_type": "entry_review",
+            "analysis_date": "2026-04-01",
+        }
+        with (
+            patch(
+                "web.backend.llm_models.resolve_module_model_selection",
+                return_value={
+                    "module": "trade_journal_review",
+                    "model_profile": "balanced",
+                    "llm_provider": "ollama",
+                    "model": "local-test",
+                    "output_language": "en",
+                    "openai_reasoning_effort": None,
+                    "google_thinking_level": None,
+                },
+            ),
+            patch(
+                "web.backend.services.trade_review_generation.generate_trade_review_file",
+                return_value=generated_review,
+            ) as generate_review,
+        ):
+            create_trade(
+                TradeRecordCreatePayload(**self._trade_payload(analysis_references=[])),
+                request=_request_with_language("zh"),
+            )
+
+        self.assertEqual(generate_review.call_args.kwargs["output_language"], "cn")
 
     def test_trade_plan_execute_creates_plan_linked_record(self):
         plan = create_trade_plan(TradePlanCreatePayload(**self._plan_payload()))

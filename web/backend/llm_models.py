@@ -1107,13 +1107,23 @@ def update_profile_routes(
                 raise ValueError(
                     "Each route requires provider, quick_model, and deep_model"
                 )
-            if _model_payload(db, provider, quick_model) is None:
+            quick_payload = _model_payload(db, provider, quick_model)
+            if quick_payload is None:
                 raise ValueError(
                     f"Unknown quick model '{quick_model}' for provider '{provider}'"
                 )
-            if _model_payload(db, provider, deep_model) is None:
+            if not quick_payload["supports_quick"]:
+                raise ValueError(
+                    f"Model '{quick_model}' for provider '{provider}' cannot be used as a quick model"
+                )
+            deep_payload = _model_payload(db, provider, deep_model)
+            if deep_payload is None:
                 raise ValueError(
                     f"Unknown deep model '{deep_model}' for provider '{provider}'"
+                )
+            if not deep_payload["supports_deep"]:
+                raise ValueError(
+                    f"Model '{deep_model}' for provider '{provider}' cannot be used as a deep model"
                 )
             db.add(
                 LLMModelProfileRoute(

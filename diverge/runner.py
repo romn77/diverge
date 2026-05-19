@@ -163,7 +163,7 @@ class AnalysisRequest:
     openai_reasoning_effort: Optional[str] = None
     portfolio_context: Optional[str] = None
     opportunity_context: Optional[dict] = None
-    market_data_source: str = "massive"
+    market_data_source: Optional[str] = None
     ticker_exchange: Optional[str] = None
 
     def __post_init__(self) -> None:
@@ -228,9 +228,10 @@ class AnalysisRequest:
             normalized_portfolio_context = self.portfolio_context.strip()
             self.portfolio_context = normalized_portfolio_context or None
 
-        self.market_data_source = self.market_data_source.strip().lower()
-        if self.market_data_source not in MARKET_DATA_SOURCES:
-            raise ValueError("Unsupported market_data_source")
+        if self.market_data_source is not None:
+            self.market_data_source = self.market_data_source.strip().lower()
+            if self.market_data_source not in MARKET_DATA_SOURCES:
+                raise ValueError("Unsupported market_data_source")
 
 
 @dataclass
@@ -600,14 +601,12 @@ def build_analysis_config(request: AnalysisRequest) -> dict:
     config["output_language"] = request.output_language
     config["google_thinking_level"] = request.google_thinking_level
     config["openai_reasoning_effort"] = request.openai_reasoning_effort
-    us_overrides = config.setdefault("market_overrides", {}).setdefault("us", {})
-    if request.market_data_source == "massive":
-        us_overrides["core_stock_apis"] = "massive"
-    else:
-        us_overrides["core_stock_apis"] = "yfinance"
-    us_overrides["technical_indicators"] = "local"
-    us_overrides["fundamental_data"] = "fmp,alpha_vantage,yfinance"
-    us_overrides["news_data"] = "fmp,alpha_vantage,yfinance"
+    if request.market_data_source is not None:
+        us_overrides = config.setdefault("market_overrides", {}).setdefault("us", {})
+        if request.market_data_source == "massive":
+            us_overrides["core_stock_apis"] = "massive"
+        else:
+            us_overrides["core_stock_apis"] = "yfinance"
     return config
 
 

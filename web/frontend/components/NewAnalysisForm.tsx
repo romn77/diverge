@@ -37,7 +37,7 @@ import {
   type ReportVisibility,
   type TaskCreateRequest,
 } from "@/lib/api";
-import { optionKey } from "@/lib/uiPreferences";
+import { optionKey, toOutputLanguage, type Language } from "@/lib/uiPreferences";
 
 interface NewAnalysisFormProps {
   isOpen: boolean;
@@ -54,7 +54,7 @@ export function NewAnalysisForm({
   onTaskCreated,
   defaultOutputLanguage,
 }: NewAnalysisFormProps) {
-  const { t } = usePreferences();
+  const { language, t } = usePreferences();
   const [configOptions, setConfigOptions] = useState<ConfigOptions | null>(null);
   const [formState, setFormState] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -130,10 +130,16 @@ export function NewAnalysisForm({
     }
 
     if (configOptions && formState === null) {
-      setFormState(buildInitialFormState(configOptions, defaultOutputLanguageRef.current));
+      setFormState(
+        buildInitialFormState(
+          configOptions,
+          defaultOutputLanguageRef.current,
+          language
+        )
+      );
       setError(null);
     }
-  }, [configOptions, formState, isOpen]);
+  }, [configOptions, formState, isOpen, language]);
 
   const providerOptions = configOptions?.providers ?? [];
   const profileOptions = configOptions?.model_profiles ?? [];
@@ -700,7 +706,8 @@ function AnalysisSelectField({
 
 function buildInitialFormState(
   configOptions: ConfigOptions,
-  defaultOutputLanguage: string | null
+  defaultOutputLanguage: string | null,
+  preferenceLanguage: Language
 ): FormState {
   const profile =
     configOptions.model_profiles.find(
@@ -714,7 +721,8 @@ function buildInitialFormState(
   const firstDepth = configOptions.research_depth[0]?.value ?? 1;
   const firstLanguage =
     configOptions.output_languages.find(
-      (option) => option.value === defaultOutputLanguage
+      (option) =>
+        option.value === (defaultOutputLanguage ?? toOutputLanguage(preferenceLanguage))
     )?.value ??
     configOptions.output_languages[0]?.value ??
     "en";

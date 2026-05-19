@@ -11,6 +11,17 @@ test("api client remains configurable for Vercel or separate backend deployments
   assert.doesNotMatch(source, /\/api\/healthz["'`]/);
 });
 
+test("api client forwards UI language preferences to backend report generators", () => {
+  assert.match(source, /X-Diverge-UI-Language/);
+  assert.match(source, /X-Diverge-Output-Language/);
+  assert.match(source, /function readCurrentUiLanguage\(\): Language \| null/);
+  assert.match(source, /document\.documentElement\.dataset\.uiLanguage/);
+  assert.match(source, /window\.localStorage\.getItem\(LANGUAGE_STORAGE_KEY\)/);
+  assert.match(source, /headers\.set\(UI_LANGUAGE_HEADER, language\)/);
+  assert.match(source, /headers\.set\("X-Diverge-Output-Language", toOutputLanguage\(language\)\)/);
+  assert.match(source, /const nextInit = withPreferenceHeaders\(init\)/);
+});
+
 test("auth API types expose username login while preserving email identity", () => {
   assert.match(source, /interface AuthUser[\s\S]*username:\s*string/);
   assert.match(source, /interface LoginRequest[\s\S]*account:\s*string/);

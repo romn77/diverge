@@ -3,6 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from diverge.dataflows.routes import source_chain_for_market
 from diverge.llm_clients.model_profiles import (
     resolve_model_profile as resolve_static_model_profile,
 )
@@ -16,6 +17,7 @@ from web.backend.runtime import (
 from web.backend.schemas.tasks import TaskCreatePayload
 from web.backend.services import assets as asset_service
 from web.backend.services import task_route_support
+from web.backend.services.preferences import preferred_output_language_from_request
 from web.backend.services.config import (
     get_provider_availability,
     hydrate_provider_credentials,
@@ -54,8 +56,28 @@ def _get_authorized_task(task_id: str, request: Request | None):
     return task
 
 
-def _analysis_request_payload(payload: TaskCreatePayload, current_user=None) -> dict:
+def _analysis_core_data_source(market: str, request_payload: dict) -> str:
+    legacy_source = request_payload.get("market_data_source")
+    if market == "us" and legacy_source:
+        return str(legacy_source).strip().lower()
+
+    route = source_chain_for_market(module="analysis", market=market)
+    if route:
+        return route[0]
+    return "tushare" if market == "cn" else "massive"
+
+
+def _analysis_request_payload(
+    payload: TaskCreatePayload,
+    current_user=None,
+    request: Request | None = None,
+) -> dict:
     request_payload = payload.model_dump(exclude={"report_visibility"})
+    request_payload["output_language"] = (
+        payload.output_language
+        or preferred_output_language_from_request(request)
+        or "en"
+    )
     normalized_ticker = normalize_analysis_ticker_symbol(
         request_payload["ticker"],
         ticker_exchange=request_payload.get("ticker_exchange"),
@@ -63,11 +85,7 @@ def _analysis_request_payload(payload: TaskCreatePayload, current_user=None) -> 
     market = detect_market(normalized_ticker)
     if market not in {"cn", "us"}:
         market = "us"
-    source = (
-        "tushare"
-        if market == "cn"
-        else (request_payload.get("market_data_source") or "massive")
-    )
+    source = _analysis_core_data_source(market, request_payload)
     request_payload["analysis_date"] = data_sync_tasks.resolve_latest_ready_trading_day(
         market, source
     ).isoformat()
@@ -128,7 +146,9 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
     current_user = _current_user(request, permission=auth.PERMISSION_ANALYSIS_CREATE)
     try:
         analysis_request = AnalysisRequest(
-            **_analysis_request_payload(payload, current_user=current_user)
+            **_analysis_request_payload(
+                payload, current_user=current_user, request=request
+            )
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -47,11 +47,13 @@ OPENAI_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
 
 SUB2API_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("GPT-5.4 Mini - Fast, strong coding and tool use", "gpt-5.4-mini"),
+    ("GPT-5.4 - Frontier model, 1M context", "gpt-5.4"),
     ("GPT-5.2 - Strong reasoning", "gpt-5.2"),
 )
 SUB2API_DEEP_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (
     ("GPT-5.4 - Frontier model, 1M context", "gpt-5.4"),
     ("GPT-5.5 - Latest frontier for complex reasoning and coding", "gpt-5.5"),
+    ("GPT-5.2 - Strong reasoning", "gpt-5.2"),
 )
 
 MIMO_QUICK_MODEL_OPTIONS: Final[tuple[ModelOption, ...]] = (

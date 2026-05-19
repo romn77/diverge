@@ -115,7 +115,7 @@ class TradePlanLinkPayload(BaseModel):
 class TradeReviewGeneratePayload(BaseModel):
     analysis_date: Optional[str] = None
     analysis_references: Optional[list[AnalysisReferencePayload]] = None
-    output_language: Literal["en", "cn"] = "cn"
+    output_language: Optional[Literal["en", "cn"]] = None
 
 
 class TradeReviewSavePayload(BaseModel):

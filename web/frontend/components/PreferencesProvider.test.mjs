@@ -44,6 +44,8 @@ test("uiPreferences defines persisted preference cookie keys with zh translation
   assert.match(source, /VISUAL_STYLE_COOKIE_NAME = VISUAL_STYLE_STORAGE_KEY/);
   assert.match(source, /THEME_VALUES = \["light", "dark", "proof", "everforest"\] as const/);
   assert.match(source, /export type VisualStyle = "normal" \| "stylful"/);
+  assert.match(source, /export function toOutputLanguage\(language: Language\): "en" \| "cn"/);
+  assert.match(source, /return language === "zh" \? "cn" : "en"/);
   assert.match(source, /"common\.interfacePreferences": "界面偏好"/);
   assert.match(source, /"common\.dark": "深色"/);
   assert.match(source, /"common\.proof": "Proof"/);

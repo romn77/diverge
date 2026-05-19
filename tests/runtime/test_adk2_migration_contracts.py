@@ -467,6 +467,52 @@ def test_adk_adapter_extracts_sub2api_textual_tool_calls():
     assert tool_calls[1]["args"]["look_back_days"] == 7
 
 
+def test_adk_adapter_extracts_json_textual_tool_calls():
+    from diverge.runtime.model_factory import _response_text_and_tools
+    from diverge.runtime.tools import get_fundamentals, get_news, get_stock_data
+
+    class Part:
+        function_call = None
+
+        def __init__(self, text):
+            self.text = text
+
+    class Content:
+        parts = [
+            Part(
+                '{"tool_name":"get_stock_data","parameters":'
+                '{"ticker":"TLN","end_date":"2026-05-18","lookback_trading_days":120}}'
+                '{"tool_name":"get_stock_data","parameters":'
+                '{"ticker":"TLN","end_date":"2026-05-18","lookback_trading_days":120}}'
+            ),
+            Part(
+                '{"tool_calls":[{"name":"get_news","arguments":'
+                '{"ticker":"TLN","start_date":"2026-05-11","end_date":"2026-05-18"}}]}'
+            ),
+            Part(
+                '{"tool":"get_fundamentals","parameters":'
+                '{"ticker":"TLN","as_of_date":"2026-05-18"}}'
+            ),
+        ]
+
+    class Response:
+        content = Content()
+
+    _text, tool_calls = _response_text_and_tools(
+        Response(), [get_stock_data, get_news, get_fundamentals]
+    )
+
+    assert [call["name"] for call in tool_calls] == [
+        "get_stock_data",
+        "get_news",
+        "get_fundamentals",
+    ]
+    assert tool_calls[0]["args"]["ticker"] == "TLN"
+    assert tool_calls[0]["args"]["lookback_trading_days"] == 120
+    assert tool_calls[1]["args"]["start_date"] == "2026-05-11"
+    assert tool_calls[2]["args"]["as_of_date"] == "2026-05-18"
+
+
 def test_adk_prompt_conversion_preserves_tool_call_ids_for_litellm():
     from langchain_core.messages import AIMessage, ToolMessage
 
