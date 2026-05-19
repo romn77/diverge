@@ -44,6 +44,7 @@ from diverge.market_data.history_cache import (
 
 CN_REQUEST_DELAY_SECONDS = 0.35
 US_REQUEST_DELAY_SECONDS = 2.0
+MASSIVE_US_REQUEST_DELAY_SECONDS = 0.1
 RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
 LOOKBACK_DAYS = 400
 CN_FALLBACK_ERRORS = (
@@ -114,7 +115,7 @@ class HistoryFetchExecutor:
             while True:
                 try:
                     if self.us_network_fetch_count > 0:
-                        time.sleep(US_REQUEST_DELAY_SECONDS)
+                        time.sleep(_us_request_delay_seconds(source))
                     self.us_network_fetch_count += 1
                     self.last_source = source
                     frame = self.price_fetcher(
@@ -194,6 +195,12 @@ def _build_source_chain(
 def _unwrap_vendor_error(exc: Exception) -> Exception:
     cause = getattr(exc, "__cause__", None)
     return cause if isinstance(cause, Exception) else exc
+
+
+def _us_request_delay_seconds(source: str) -> float:
+    if str(source).strip().lower() == "massive":
+        return MASSIVE_US_REQUEST_DELAY_SECONDS
+    return US_REQUEST_DELAY_SECONDS
 
 
 def _normalize_us_symbol_for_yfinance(symbol: str) -> str:
