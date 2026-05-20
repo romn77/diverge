@@ -60,12 +60,15 @@ interface WorkbenchContextValue {
   newAnalysisDisabled: boolean;
   newScreenerDisabled: boolean;
   canAccessOpportunityRadar: boolean;
+  canAccessAssetsWorkspace: boolean;
   logout: ReturnType<typeof useAuth>["logout"];
 }
 
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null);
 
 const POLL_INTERVAL_MS = 3000;
+const ASSETS_WORKSPACE_ENABLED =
+  process.env.NEXT_PUBLIC_ASSETS_WORKSPACE_ENABLED === "true";
 const ACTIVE_TASK_STATUSES = new Set<TaskStatus>([
   "pending",
   "queued",
@@ -121,7 +124,10 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   const canCreateAnalysis = hasPermission(authState, "analysis:create");
   const canCreateScreener = hasPermission(authState, "screener:create");
   const canReadOpportunity = hasPermission(authState, "opportunity:read");
+  const canReadAssets = hasPermission(authState, "assets:read");
   const canAccessOpportunityRadar = canAccessWorkbench && canReadOpportunity;
+  const canAccessAssetsWorkspace =
+    ASSETS_WORKSPACE_ENABLED && canAccessWorkbench && canReadAssets;
 
   const handleProtectedError = useCallback(
     (error: unknown): boolean => {
@@ -409,6 +415,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       authStatus,
       canAccessWorkbench,
       canAccessOpportunityRadar,
+      canAccessAssetsWorkspace,
       canManageUsers,
       loadingReports,
       logout,
@@ -442,6 +449,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       authState,
       authStatus,
       canAccessOpportunityRadar,
+      canAccessAssetsWorkspace,
       canAccessWorkbench,
       canCreateAnalysis,
       canCreateScreener,

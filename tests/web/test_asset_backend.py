@@ -66,6 +66,7 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
             "AUTH_BOOTSTRAP_ADMIN_EMAIL": "admin@example.com",
             "AUTH_BOOTSTRAP_ADMIN_PASSWORD": "AdminPass123",
             "AUTH_BOOTSTRAP_ADMIN_DISPLAY_NAME": "Admin User",
+            "TASK_BACKEND": "local",
         }
         with patch.dict("os.environ", env, clear=False):
             auth.reset_runtime_state()
@@ -295,6 +296,11 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertEqual(asset_response.status_code, 200, asset_response.text)
 
                 with (
+                    patch.dict(
+                        "os.environ",
+                        {"ANALYSIS_PORTFOLIO_CONTEXT_ENABLED": "true"},
+                        clear=False,
+                    ),
                     patch("web.backend.routers.tasks.hydrate_provider_credentials"),
                     patch(
                         "web.backend.routers.tasks.get_provider_availability",
@@ -325,6 +331,59 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertNotIn(
                     "Portfolio Ledger Context", task.request.portfolio_context
                 )
+
+        asyncio.run(scenario())
+
+    def test_task_creation_skips_portfolio_context_by_default(self):
+        async def scenario():
+            async with self._client() as admin_client:
+                await self._login(
+                    admin_client,
+                    "admin@example.com",
+                    "AdminPass123",
+                    new_password="AdminPass456",
+                )
+                await self._create_user(
+                    admin_client,
+                    email="owner-default@example.com",
+                    password="OwnerDefaultPass123",
+                )
+
+            async with self._client() as owner_client:
+                await self._login(
+                    owner_client, "owner-default@example.com", "OwnerDefaultPass123"
+                )
+                asset_response = await owner_client.post(
+                    "/api/assets",
+                    json=self._manual_asset_payload(
+                        asset_name="Microsoft Corp",
+                        ticker="MSFT",
+                        quantity=10.0,
+                        cost_basis=400.0,
+                        manual_price=420.0,
+                    ),
+                )
+                self.assertEqual(asset_response.status_code, 200, asset_response.text)
+
+                with (
+                    patch("web.backend.routers.tasks.hydrate_provider_credentials"),
+                    patch(
+                        "web.backend.routers.tasks.get_provider_availability",
+                        return_value={"enabled": True, "disabled_reason": None},
+                    ),
+                    patch(
+                        "web.backend.routers.tasks.llm_models.ensure_model_selection_available"
+                    ),
+                    patch("web.backend.runtime.analysis_tasks.start_task_thread"),
+                ):
+                    task_response = await owner_client.post(
+                        "/api/tasks",
+                        json=self._task_payload("MSFT"),
+                    )
+
+                self.assertEqual(task_response.status_code, 200, task_response.text)
+                task = analysis_tasks.get_task(task_response.json()["task_id"])
+                self.assertIsNone(task.request.portfolio_context)
 
         asyncio.run(scenario())
 
@@ -360,6 +419,11 @@ class AssetBackendTests(AuthClientMixin, unittest.TestCase):
                 self.assertEqual(asset_response.status_code, 200, asset_response.text)
 
                 with (
+                    patch.dict(
+                        "os.environ",
+                        {"ANALYSIS_PORTFOLIO_CONTEXT_ENABLED": "true"},
+                        clear=False,
+                    ),
                     patch("web.backend.routers.tasks.hydrate_provider_credentials"),
                     patch(
                         "web.backend.routers.tasks.get_provider_availability",
