@@ -1413,6 +1413,10 @@ export function toLocale(language: Language): string {
   return LANGUAGE_LOCALES[language];
 }
 
+export function toOutputLanguage(language: Language): "en" | "cn" {
+  return language === "zh" ? "cn" : "en";
+}
+
 export function toHtmlLang(language: Language): string {
   return language === "zh" ? "zh-CN" : "en";
 }

@@ -15,9 +15,9 @@ class TaskCreatePayload(BaseModel):
     llm_provider: Optional[str] = None
     quick_think_llm: Optional[str] = None
     deep_think_llm: Optional[str] = None
-    output_language: str
+    output_language: Optional[str] = None
     google_thinking_level: Optional[str] = None
     openai_reasoning_effort: Optional[str] = None
-    market_data_source: str = "massive"
+    market_data_source: Optional[str] = None
     opportunity_context: dict | None = None
     report_visibility: Literal["private", "workspace"] = "private"

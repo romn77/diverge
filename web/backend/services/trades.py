@@ -44,6 +44,7 @@ from web.backend.schemas.trades import (
     TradeReviewSavePayload,
 )
 from web.backend.runtime import journal_review_tasks
+from web.backend.services.preferences import preferred_output_language_from_request
 from web.backend.services import trade_review_generation
 
 logger = logging.getLogger(__name__)
@@ -137,11 +138,13 @@ def generate_automatic_trade_reviews(
     *,
     owner_user_id: str | None = None,
     tenant_id: str | None = None,
+    output_language: str | None = None,
 ) -> list[dict]:
     return trade_review_generation.generate_automatic_trade_reviews(
         record,
         owner_user_id=owner_user_id,
         tenant_id=tenant_id,
+        output_language=output_language,
     )
 
 
@@ -408,6 +411,7 @@ def create_trade(
                     record,
                     owner_user_id=user.id,
                     tenant_id=user.tenant_id,
+                    output_language=preferred_output_language_from_request(request),
                 )
                 sync_trade_entry_metadata(db, record, user.id, user.tenant_id)
                 audit.record_audit_event_safely(
@@ -442,7 +446,10 @@ def create_trade(
         record = create_trade_record_file(
             payload.model_dump(), reports_dir=app_config.REPORTS_DIR
         )
-        generate_automatic_trade_reviews(record)
+        generate_automatic_trade_reviews(
+            record,
+            output_language=preferred_output_language_from_request(request),
+        )
         return record
     except HTTPException:
         raise
@@ -510,6 +517,7 @@ def update_trade(
                     record,
                     owner_user_id=user.id,
                     tenant_id=user.tenant_id,
+                    output_language=preferred_output_language_from_request(request),
                 )
                 sync_trade_entry_metadata(db, record, user.id, user.tenant_id)
                 audit.record_audit_event_safely(
@@ -546,7 +554,10 @@ def update_trade(
             payload.model_dump(exclude_unset=True),
             reports_dir=app_config.REPORTS_DIR,
         )
-        generate_automatic_trade_reviews(record)
+        generate_automatic_trade_reviews(
+            record,
+            output_language=preferred_output_language_from_request(request),
+        )
         return record
     except HTTPException:
         raise
@@ -588,6 +599,7 @@ def execute_trade_plan(
                     record,
                     owner_user_id=user.id,
                     tenant_id=user.tenant_id,
+                    output_language=preferred_output_language_from_request(request),
                 )
                 plan = mark_trade_plan_executed_file(
                     plan_id,
@@ -640,7 +652,10 @@ def execute_trade_plan(
             build_execution_trade_payload(plan, payload.model_dump()),
             reports_dir=app_config.REPORTS_DIR,
         )
-        generate_automatic_trade_reviews(record)
+        generate_automatic_trade_reviews(
+            record,
+            output_language=preferred_output_language_from_request(request),
+        )
         plan = mark_trade_plan_executed_file(
             plan_id, record["trade_id"], reports_dir=app_config.REPORTS_DIR
         )
@@ -796,6 +811,10 @@ def generate_configured_trade_review(
             if payload.analysis_references is not None
             else None
         )
+        output_language = (
+            payload.output_language
+            or preferred_output_language_from_request(request)
+        )
 
         if auth.auth_enabled():
             with auth.db_session() as db:
@@ -814,7 +833,7 @@ def generate_configured_trade_review(
                     model_setting,
                     analysis_date=payload.analysis_date,
                     analysis_references=analysis_references,
-                    output_language=payload.output_language,
+                    output_language=output_language,
                 )
                 record = get_trade_record_file(
                     trade_id, reports_dir=app_config.REPORTS_DIR
@@ -842,7 +861,7 @@ def generate_configured_trade_review(
             model_setting,
             analysis_date=payload.analysis_date,
             analysis_references=analysis_references,
-            output_language=payload.output_language,
+            output_language=output_language,
         )
     except HTTPException:
         raise

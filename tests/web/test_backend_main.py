@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import pandas as pd
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from diverge.dataflows import vendor_usage
 from diverge.runner import AnalysisRequest
@@ -39,6 +40,16 @@ from web.backend.services import market_briefs as market_brief_service
 from web.backend.services import reports as report_service
 from web.backend.services import screeners as screener_service
 from web.backend.services import ticker_history as ticker_history_service
+
+
+def _request_with_language(language: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "headers": [(b"x-diverge-ui-language", language.encode("utf-8"))],
+        }
+    )
 
 
 class BackendMainTests(unittest.TestCase):
@@ -303,6 +314,41 @@ class BackendMainTests(unittest.TestCase):
         self.assertEqual(snapshot["status"], "pending")
         self.assertEqual(snapshot["ticker"], "SPY")
 
+    def test_post_tasks_uses_request_language_preference_when_payload_omits_language(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2026-03-13",
+            "analysts": ["market", "news"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+            "market_data_source": "massive",
+        }
+
+        self.empty_project_env.write_text(
+            "OPENAI_API_KEY=test-openai-key\n",
+            encoding="utf-8",
+        )
+
+        with (
+            patch(
+                "web.backend.runtime.analysis_tasks.start_task_thread"
+            ),
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
+        ):
+            body = tasks_router.create_task(
+                TaskCreatePayload(**payload),
+                request=_request_with_language("zh"),
+            )
+
+        task_status = tasks_router.get_task_status(body["task_id"])
+        self.assertEqual(task_status["request_payload"]["output_language"], "cn")
+
     def test_post_tasks_ignores_manual_analysis_date_and_uses_latest_ready(self):
         payload = {
             "ticker": "SPY",
@@ -336,6 +382,44 @@ class BackendMainTests(unittest.TestCase):
 
         task_status = tasks_router.get_task_status(body["task_id"])
         self.assertEqual(task_status["request_payload"]["analysis_date"], "2026-05-11")
+
+    def test_post_tasks_uses_analysis_data_source_route_when_source_omitted(self):
+        payload = {
+            "ticker": "SPY",
+            "analysis_date": "2024-03-17",
+            "analysts": ["market"],
+            "research_depth": 1,
+            "llm_provider": "openai",
+            "quick_think_llm": "gpt-5-mini",
+            "deep_think_llm": "gpt-5.2",
+            "output_language": "en",
+            "openai_reasoning_effort": "medium",
+            "google_thinking_level": None,
+        }
+        self.empty_project_env.write_text(
+            "OPENAI_API_KEY=test-openai-key\n",
+            encoding="utf-8",
+        )
+
+        with (
+            patch("web.backend.runtime.analysis_tasks.start_task_thread"),
+            patch(
+                "web.backend.routers.tasks.source_chain_for_market",
+                return_value=["yfinance"],
+            ),
+            patch(
+                "web.backend.runtime.data_sync_tasks.resolve_latest_ready_trading_day",
+                return_value=date(2026, 5, 11),
+            ) as resolve_latest_ready,
+            patch.dict(os.environ, {}, clear=True),
+            patch.object(backend_config, "PROJECT_ROOT", self.empty_project_root),
+            patch.object(backend_config, "PROJECT_ENV_FILE", self.empty_project_env),
+        ):
+            body = tasks_router.create_task(TaskCreatePayload(**payload))
+
+        resolve_latest_ready.assert_called_once_with("us", "yfinance")
+        task_status = tasks_router.get_task_status(body["task_id"])
+        self.assertIsNone(task_status["request_payload"]["market_data_source"])
 
     def test_post_tasks_normalizes_plain_cn_ticker_before_queueing(self):
         payload = {
@@ -1863,11 +1947,11 @@ class BackendMainTests(unittest.TestCase):
         )
         self.assertEqual(
             [option["value"] for option in payload["models"]["sub2api"]["quick"]],
-            ["gpt-5.4-mini", "gpt-5.2"],
+            ["gpt-5.4-mini", "gpt-5.4", "gpt-5.2"],
         )
         self.assertEqual(
             [option["value"] for option in payload["models"]["sub2api"]["deep"]],
-            ["gpt-5.4", "gpt-5.5"],
+            ["gpt-5.4", "gpt-5.5", "gpt-5.2"],
         )
         self.assertIn(
             "deepseek-ai/DeepSeek-V4-Flash",

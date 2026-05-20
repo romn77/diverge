@@ -260,6 +260,50 @@ class LLMModelConfigTests(unittest.TestCase):
 
                 self.assertEqual(len(saved), len(routes))
 
+    def test_profile_routes_reject_model_role_mismatch(self):
+        with self._env({"SUB2API_API_KEY": "secret-value"}):
+            auth.create_all_for_testing()
+
+            with self.assertRaisesRegex(ValueError, "cannot be used as a deep model"):
+                llm_models.update_profile_routes(
+                    "balanced",
+                    [
+                        {
+                            "provider": "sub2api",
+                            "quick_model": "gpt-5.4",
+                            "deep_model": "gpt-5.4-mini",
+                        }
+                    ],
+                )
+            with self.assertRaisesRegex(ValueError, "cannot be used as a quick model"):
+                llm_models.update_profile_routes(
+                    "high_quality",
+                    [
+                        {
+                            "provider": "sub2api",
+                            "quick_model": "gpt-5.5",
+                            "deep_model": "gpt-5.5",
+                        }
+                    ],
+                )
+            llm_models.update_profile_routes(
+                "high_quality",
+                [
+                    {
+                        "provider": "sub2api",
+                        "quick_model": "gpt-5.4",
+                        "deep_model": "gpt-5.5",
+                    }
+                ],
+            )
+            high_quality = llm_models.resolve_model_profile_from_db("high_quality")
+            resolved = llm_models.resolve_model_profile_from_db("balanced")
+
+        self.assertEqual(high_quality.quick_think_llm, "gpt-5.4")
+        self.assertEqual(high_quality.deep_think_llm, "gpt-5.5")
+        self.assertEqual(resolved.llm_provider, "sub2api")
+        self.assertEqual(resolved.deep_think_llm, "gpt-5.4")
+
 
 if __name__ == "__main__":
     unittest.main()

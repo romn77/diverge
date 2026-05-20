@@ -1,9 +1,17 @@
+import {
+  isLanguage,
+  LANGUAGE_STORAGE_KEY,
+  toOutputLanguage,
+  type Language,
+} from "@/lib/uiPreferences";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
   "http://localhost:8000";
 
 export const AUTH_REQUIRED_EVENT = "diverge:auth-required";
+const UI_LANGUAGE_HEADER = "X-Diverge-UI-Language";
 
 export type AuthMode = "disabled" | "optional" | "required";
 export type UserRole = "admin" | "operator" | "viewer";
@@ -1422,6 +1430,35 @@ function createJsonRequestInit(method: string, payload?: unknown): RequestInit {
   };
 }
 
+function readCurrentUiLanguage(): Language | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  const datasetLanguage = document.documentElement.dataset.uiLanguage;
+  if (isLanguage(datasetLanguage)) {
+    return datasetLanguage;
+  }
+  try {
+    const storedLanguage = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return isLanguage(storedLanguage) ? storedLanguage : null;
+  } catch {
+    return null;
+  }
+}
+
+function withPreferenceHeaders(init: RequestInit): RequestInit {
+  const headers = new Headers(init.headers);
+  const language = readCurrentUiLanguage();
+  if (language) {
+    headers.set(UI_LANGUAGE_HEADER, language);
+    headers.set("X-Diverge-Output-Language", toOutputLanguage(language));
+  }
+  return {
+    ...init,
+    headers,
+  };
+}
+
 function emitAuthRequired(detail: string): void {
   if (typeof window === "undefined") {
     return;
@@ -1504,9 +1541,10 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 }
 
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const nextInit = withPreferenceHeaders(init);
   const response = await fetch(buildApiUrl(path), {
     credentials: "include",
-    ...init,
+    ...nextInit,
   });
   return parseJsonResponse<T>(response);
 }

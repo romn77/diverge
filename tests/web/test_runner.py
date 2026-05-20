@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
+from diverge.default_config import DEFAULT_CONFIG
 from diverge.runner import (
     ADK_NATIVE_ANALYSIS_RUNTIME,
     ANALYSIS_RUNTIME_ENV,
@@ -392,6 +393,32 @@ class AnalysisTrackerTests(unittest.TestCase):
         self.assertEqual(
             config["market_overrides"]["us"]["fundamental_data"],
             "fmp,alpha_vantage,yfinance",
+        )
+
+    def test_build_analysis_config_preserves_default_us_route_when_source_omitted(
+        self,
+    ):
+        request = AnalysisRequest(
+            ticker="MSFT",
+            analysis_date="2026-04-03",
+            analysts=["market"],
+            research_depth=1,
+            llm_provider="openai",
+            quick_think_llm="gpt-5-mini",
+            deep_think_llm="gpt-5.2",
+            output_language="en",
+            openai_reasoning_effort="medium",
+        )
+
+        with patch.dict(
+            DEFAULT_CONFIG["market_overrides"]["us"],
+            {"core_stock_apis": "yfinance"},
+        ):
+            config = build_analysis_config(request)
+
+        self.assertEqual(
+            config["market_overrides"]["us"]["core_stock_apis"],
+            "yfinance",
         )
 
     def test_build_analysis_config_preserves_resolved_backend_url(self):

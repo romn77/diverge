@@ -124,6 +124,7 @@ def generate_automatic_trade_reviews(
     *,
     owner_user_id: str | None = None,
     tenant_id: str | None = None,
+    output_language: str | None = None,
 ) -> list[dict]:
     existing_reviews = list_trade_reviews_file(
         record["trade_id"],
@@ -191,6 +192,7 @@ def generate_automatic_trade_reviews(
                 record["trade_id"],
                 review_type,
                 model_setting,
+                output_language=output_language,
             )
             generated.append(review)
         except Exception as exc:

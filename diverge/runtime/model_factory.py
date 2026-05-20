@@ -558,6 +558,49 @@ def _first_json_object(text: str) -> tuple[dict[str, Any], int] | None:
     return None
 
 
+def _iter_json_objects(text: str, *, limit: int = 20000) -> Iterable[dict[str, Any]]:
+    search_text = text[:limit]
+    index = 0
+    while index < len(search_text):
+        start = search_text.find("{", index)
+        if start < 0:
+            return
+
+        depth = 0
+        in_string = False
+        escaped = False
+        for offset, current in enumerate(search_text[start:], start=start):
+            if escaped:
+                escaped = False
+                continue
+            if current == "\\":
+                escaped = True
+                continue
+            if current == '"':
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        parsed = json.loads(search_text[start : offset + 1])
+                    except json.JSONDecodeError:
+                        break
+                    if isinstance(parsed, dict):
+                        yield parsed
+                    index = offset + 1
+                    break
+        else:
+            return
+
+        if index <= start:
+            index = start + 1
+
+
 def _parse_textual_tool_args(segment: str) -> dict[str, Any]:
     json_object = _first_json_object(segment)
     json_args: dict[str, Any] = {}
@@ -569,6 +612,90 @@ def _parse_textual_tool_args(segment: str) -> dict[str, Any]:
     args = _parse_key_value_tool_args(key_value_segment)
     args.update(json_args)
     return args
+
+
+def _json_tool_args(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return {}
+
+
+def _json_tool_call_from_payload(
+    payload: dict[str, Any],
+    tool_names: set[str],
+    index: int,
+) -> dict[str, Any] | None:
+    function = payload.get("function")
+    if isinstance(function, dict):
+        name = str(function.get("name") or "").strip()
+        raw_args = function.get("arguments") or function.get("parameters") or {}
+    else:
+        name = str(
+            payload.get("tool_name") or payload.get("tool") or payload.get("name") or ""
+        ).strip()
+        raw_args = (
+            payload.get("parameters")
+            if "parameters" in payload
+            else payload.get("arguments")
+            if "arguments" in payload
+            else payload.get("args", {})
+        )
+
+    if name not in tool_names:
+        return None
+
+    return {
+        "name": name,
+        "args": _json_tool_args(raw_args),
+        "id": str(payload.get("id") or _fallback_tool_call_id(name, index)),
+    }
+
+
+def _dedupe_tool_calls(calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[tuple[str, str]] = set()
+    for call in calls:
+        args_key = json.dumps(call.get("args") or {}, sort_keys=True, default=str)
+        key = (str(call.get("name") or ""), args_key)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(call)
+    return deduped
+
+
+def _extract_json_textual_tool_calls(
+    text: str,
+    tool_names: set[str],
+) -> list[dict[str, Any]]:
+    if not text or not tool_names:
+        return []
+
+    calls: list[dict[str, Any]] = []
+    for payload in _iter_json_objects(text):
+        batch = payload.get("tool_calls")
+        if isinstance(batch, list):
+            for item in batch:
+                if not isinstance(item, dict):
+                    continue
+                call = _json_tool_call_from_payload(
+                    item, tool_names, len(calls) + 1
+                )
+                if call is not None:
+                    calls.append(call)
+            continue
+
+        call = _json_tool_call_from_payload(payload, tool_names, len(calls) + 1)
+        if call is not None:
+            calls.append(call)
+
+    return _dedupe_tool_calls(calls)
 
 
 def _extract_textual_tool_calls(
@@ -626,7 +753,10 @@ def _response_text_and_tools(
         )
     text = "".join(text_parts).strip()
     if not tool_calls:
-        tool_calls = _extract_textual_tool_calls(text, _bound_tool_names(tools))
+        tool_names = _bound_tool_names(tools)
+        tool_calls = _extract_json_textual_tool_calls(
+            text, tool_names
+        ) or _extract_textual_tool_calls(text, tool_names)
     return text, tool_calls
 
 

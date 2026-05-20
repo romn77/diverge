@@ -26,6 +26,7 @@ import {
   type TradeReviewGenerateRequest,
   type TradeReviewType,
 } from "@/lib/api";
+import { toOutputLanguage, type Language } from "@/lib/uiPreferences";
 
 interface TradeReviewFormProps {
   isOpen: boolean;
@@ -59,9 +60,9 @@ export function TradeReviewForm({
   onGenerateReview,
   onSaved,
 }: TradeReviewFormProps) {
-  const { t } = usePreferences();
+  const { language, t } = usePreferences();
   const [formState, setFormState] = useState<TradeReviewFormState>(() =>
-    buildInitialState(existingReview, tradeRecord)
+    buildInitialState(existingReview, tradeRecord, language)
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,10 +72,10 @@ export function TradeReviewForm({
       return;
     }
 
-    setFormState(buildInitialState(existingReview, tradeRecord));
+    setFormState(buildInitialState(existingReview, tradeRecord, language));
     setSaving(false);
     setError(null);
-  }, [existingReview, isOpen, tradeRecord]);
+  }, [existingReview, isOpen, language, tradeRecord]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -451,7 +452,8 @@ export function TradeReviewForm({
 
 function buildInitialState(
   review: TradeReview | null,
-  tradeRecord: TradeRecord
+  tradeRecord: TradeRecord,
+  preferenceLanguage: Language
 ): TradeReviewFormState {
   const defaultAnalysisDate =
     review?.analysis_date ||
@@ -461,7 +463,7 @@ function buildInitialState(
 
   return {
     analysis_date: defaultAnalysisDate,
-    output_language: "cn",
+    output_language: toOutputLanguage(preferenceLanguage),
     thesis_assessment: review?.thesis_assessment ?? "",
     timing_assessment: review?.timing_assessment ?? "",
     sizing_assessment: review?.sizing_assessment ?? "",

@@ -31,7 +31,8 @@ test("OpportunityRadarPage routes new radar runs through task progress before re
   assert.match(source, /opportunity\.enum\.event/);
   assert.match(source, /opportunity\.reason\.weightedFactors/);
   assert.match(source, /const \{ language, t \} = usePreferences\(\)/);
-  assert.match(source, /output_language:\s*language === "zh" \? "cn" : "en"/);
+  assert.match(source, /toOutputLanguage/);
+  assert.match(source, /output_language:\s*toOutputLanguage\(language\)/);
 });
 
 test("OpportunityRadarPage uses the shared responsive workbench width frame", () => {

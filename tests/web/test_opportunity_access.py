@@ -8,12 +8,23 @@ from unittest.mock import patch
 
 import pytest
 from fastapi import HTTPException
+from starlette.requests import Request
 
 from web.backend import app_config, auth
 from web.backend.routers import opportunities as opportunities_router
 from web.backend.runtime import analysis_tasks, opportunity_tasks, task_store
 from web.backend.schemas.opportunities import CandidateAnalyzePayload
 from web.backend.services import backtests, opportunities
+
+
+def _request_with_language(language: str) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "method": "POST",
+            "headers": [(b"x-diverge-ui-language", language.encode("utf-8"))],
+        }
+    )
 
 
 def test_opportunity_service_lists_runs_by_default(monkeypatch, tmp_path):
@@ -135,6 +146,36 @@ def test_opportunity_candidate_analysis_uses_supported_analyst_keys(
         assert task.request.analysts == ["market", "social", "news", "fundamentals"]
         assert "sentiment" not in task.request.analysts
         start_task.assert_called_once_with(result["task_id"])
+    finally:
+        analysis_tasks.tasks.clear()
+
+
+def test_opportunity_candidate_analysis_uses_request_language_preference(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setattr(app_config, "REPORTS_DIR", tmp_path / "reports")
+    monkeypatch.setattr(auth, "auth_enabled", lambda: False)
+    monkeypatch.setattr(task_store, "redis_task_backend_enabled", lambda: False)
+    analysis_tasks.tasks.clear()
+
+    try:
+        with patch("web.backend.runtime.analysis_tasks.start_task_thread"):
+            result = opportunities_router.analyze_candidate(
+                "300002.SZ",
+                CandidateAnalyzePayload(
+                    run_id="run-a",
+                    analysis_date="2026-05-14",
+                    opportunity_context={
+                        "source": "opportunity_radar",
+                        "symbol": "300002.SZ",
+                        "theme": "AI Compute",
+                    },
+                ),
+                request=_request_with_language("en"),
+            )
+
+        task = analysis_tasks.get_task(result["task_id"])
+        assert task.request.output_language == "en"
     finally:
         analysis_tasks.tasks.clear()
 
