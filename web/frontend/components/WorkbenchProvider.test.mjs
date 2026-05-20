@@ -25,3 +25,11 @@ test("WorkbenchProvider only polls task queues while active tasks exist", () => 
   assert.match(source, /if \(!hasActiveOpportunityTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshOpportunityTasks\(\);/s);
   assert.match(source, /if \(!hasActiveJournalReviewTasks\) \{\s*return;\s*\}\s*const intervalId = window\.setInterval\(\(\) => \{\s*void refreshJournalReviewTasks\(\);/s);
 });
+
+test("WorkbenchProvider gates the standalone assets workspace behind a product flag", () => {
+  const source = readFileSync(componentPath, "utf8");
+
+  assert.match(source, /ASSETS_WORKSPACE_ENABLED/);
+  assert.match(source, /const canReadAssets = hasPermission\(authState, "assets:read"\)/);
+  assert.match(source, /canAccessAssetsWorkspace =\s*ASSETS_WORKSPACE_ENABLED && canAccessWorkbench && canReadAssets/s);
+});

@@ -40,6 +40,7 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /t\("sidebar\.meta\.journal", "Trade review"\)/);
   assert.match(source, /t\("sidebar\.noActiveWork", "No active background work"\)/);
   assert.match(source, /activeOpportunityTasks/);
+  assert.match(source, /canAccessAssetsWorkspace/);
   assert.match(source, /pathname\.startsWith\("\/opportunity-tasks\/"\)/);
   assert.doesNotMatch(source, /CreateMenu/);
   assert.match(source, /const isMobileDrawerOpen = isMobileViewport && isOpen/);
@@ -56,6 +57,14 @@ test("Sidebar implements grouped workbench navigation for research, portfolio, a
   assert.match(source, /pathname === buildMarketBriefHref\(\) \|\| pathname\.startsWith\("\/market-briefs\/"\)/);
   assert.match(source, /pathname === buildAssetsHref\(\) \|\| pathname\.startsWith\("\/assets\/"\)/);
   assert.match(source, /pathname === buildActivityHref\(\)/);
+});
+
+test("Sidebar treats the asset workspace as an optional portfolio utility", () => {
+  const source = readFileSync(sidebarPath, "utf8");
+
+  assert.match(source, /canAccessAssetsWorkspace \? \(/);
+  assert.match(source, /href=\{buildAssetsHref\(\)\}/);
+  assert.match(source, /t\("sidebar\.meta\.assets", "Ledger and exposure"\)/);
 });
 
 test("Sidebar no longer renders browse-heavy report and screener modules inline", () => {

@@ -38,6 +38,7 @@ export function Sidebar({
     activeOpportunityTasks,
     activeScreenerTasks,
     activeTasks,
+    canAccessAssetsWorkspace,
     canAccessOpportunityRadar,
   } = useWorkbench();
   const [isMobileViewport, setIsMobileViewport] = useState(false);
@@ -268,15 +269,17 @@ export function Sidebar({
             </div>
 
             <div className="flex flex-col items-center gap-1.5">
-              <RailLinkButton
-                href={buildAssetsHref()}
-                label={assetsLabel}
-                title={assetsLabel}
-                active={isAssetsActive}
-                onClick={handleNavSelection}
-              >
-                <AssetsIcon />
-              </RailLinkButton>
+              {canAccessAssetsWorkspace ? (
+                <RailLinkButton
+                  href={buildAssetsHref()}
+                  label={assetsLabel}
+                  title={assetsLabel}
+                  active={isAssetsActive}
+                  onClick={handleNavSelection}
+                >
+                  <AssetsIcon />
+                </RailLinkButton>
+              ) : null}
               <RailLinkButton
                 href={buildJournalHref()}
                 label={journalLabel}
@@ -352,15 +355,17 @@ export function Sidebar({
             </SidebarSection>
 
             <SidebarSection title={t("sidebar.section.portfolio", "Portfolio")}>
-              <SidebarNavLink
-                href={buildAssetsHref()}
-                label={assetsLabel}
-                meta={t("sidebar.meta.assets", "Ledger and exposure")}
-                active={isAssetsActive}
-                onClick={handleNavSelection}
-              >
-                <AssetsIcon />
-              </SidebarNavLink>
+              {canAccessAssetsWorkspace ? (
+                <SidebarNavLink
+                  href={buildAssetsHref()}
+                  label={assetsLabel}
+                  meta={t("sidebar.meta.assets", "Ledger and exposure")}
+                  active={isAssetsActive}
+                  onClick={handleNavSelection}
+                >
+                  <AssetsIcon />
+                </SidebarNavLink>
+              ) : null}
               <SidebarNavLink
                 href={buildJournalHref()}
                 label={journalLabel}

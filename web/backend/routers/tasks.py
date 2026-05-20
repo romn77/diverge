@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
@@ -24,6 +26,17 @@ from web.backend.services.config import (
 )
 
 router = APIRouter(dependencies=[Depends(auth.enforce_authenticated_api_access)])
+
+
+def _env_flag_enabled(name: str, *, default: bool = False) -> bool:
+    raw_value = os.environ.get(name)
+    if raw_value is None:
+        return default
+    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _analysis_portfolio_context_enabled() -> bool:
+    return _env_flag_enabled("ANALYSIS_PORTFOLIO_CONTEXT_ENABLED")
 
 
 def _current_user(
@@ -194,7 +207,7 @@ def create_task(payload: TaskCreatePayload, request: Request = None) -> dict:
         except Exception as exc:
             raise access.translate_auth_error(exc) from exc
 
-    if owner_user_id:
+    if owner_user_id and _analysis_portfolio_context_enabled():
         analysis_request.portfolio_context = (
             asset_service.build_portfolio_context_for_owner(
                 owner_user_id,
