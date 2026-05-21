@@ -1,4 +1,3 @@
-from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.report_output import (
     ResearchDecisionStructuredOutput,
     merge_structured_agent_output,
@@ -20,45 +19,45 @@ from diverge.runtime.messages import AdkPrompt
 from diverge.runtime.structured_output import parse_structured_output
 
 
-class ResearchManager(DivergeAgentNode):
-    name = "research_manager"
+AGENT_NAME = "research_manager"
 
-    def build_call(self, state) -> AgentCallSpec:
-        instrument_context = build_instrument_context(state["company_of_interest"])
-        history = state["investment_debate_state"].get("history", "")
-        market_research_report = state["market_report"]
-        sentiment_report = state["sentiment_report"]
-        news_report = state["news_report"]
-        fundamentals_report = state["fundamentals_report"]
 
-        investment_debate_state = state["investment_debate_state"]
-        output_language = state.get("output_language", "en")
-        language_instruction = get_language_instruction(output_language)
-        style_instruction = get_research_note_style_instruction(output_language)
-        trade_feedback_message = get_trade_feedback_message(state)
-        evidence_rules_instruction = get_evidence_rules_instruction()
-        memory_skepticism_instruction = get_memory_skepticism_instruction()
-        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+def build_research_manager_prompt(state, memory):
+    instrument_context = build_instrument_context(state["company_of_interest"])
+    history = state["investment_debate_state"].get("history", "")
+    market_research_report = state["market_report"]
+    sentiment_report = state["sentiment_report"]
+    news_report = state["news_report"]
+    fundamentals_report = state["fundamentals_report"]
 
-        curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
-        past_memories = self.memory.get_memories(curr_situation, n_matches=2)
+    investment_debate_state = state["investment_debate_state"]
+    output_language = state.get("output_language", "en")
+    language_instruction = get_language_instruction(output_language)
+    style_instruction = get_research_note_style_instruction(output_language)
+    trade_feedback_message = get_trade_feedback_message(state)
+    evidence_rules_instruction = get_evidence_rules_instruction()
+    memory_skepticism_instruction = get_memory_skepticism_instruction()
+    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
 
-        past_memory_str = ""
-        for i, rec in enumerate(past_memories, 1):
-            past_memory_str += rec["recommendation"] + "\n\n"
+    curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
+    past_memories = memory.get_memories(curr_situation, n_matches=2)
 
-        past_memory_block = format_untrusted_context_block(
-            "past_decision_memory",
-            past_memory_str,
-            limit=4000,
-        )
-        history_block = format_untrusted_context_block(
-            "investment_debate_history",
-            history,
-            limit=6000,
-        )
+    past_memory_str = ""
+    for _i, rec in enumerate(past_memories, 1):
+        past_memory_str += rec["recommendation"] + "\n\n"
 
-        prompt = f"""As the research debate facilitator, your role is to critically evaluate this round of debate and produce a provisional research stance for the trader and Portfolio Manager: align with the bear analyst, align with the bull analyst, or recommend a neutral/hold research posture only if it is strongly justified based on the evidence.
+    past_memory_block = format_untrusted_context_block(
+        "past_decision_memory",
+        past_memory_str,
+        limit=4000,
+    )
+    history_block = format_untrusted_context_block(
+        "investment_debate_history",
+        history,
+        limit=6000,
+    )
+
+    prompt = f"""As the research debate facilitator, your role is to critically evaluate this round of debate and produce a provisional research stance for the trader and Portfolio Manager: align with the bear analyst, align with the bull analyst, or recommend a neutral/hold research posture only if it is strongly justified based on the evidence.
 
 {decision_boundary_instruction}
 {evidence_rules_instruction}
@@ -116,57 +115,68 @@ Keep the JSON keys and enum literals in English exactly as shown, even when the 
 {style_instruction}
 {language_instruction}
 {structured_agent_output_instruction()}"""
-        return AgentCallSpec(
-            prompt=AdkPrompt(system_message=prompt),
-            output_schema=ResearchDecisionStructuredOutput,
-            output_key="research_decision_structured",
-            metadata={
-                "history": investment_debate_state.get("history", ""),
-                "bear_history": investment_debate_state.get("bear_history", ""),
-                "bull_history": investment_debate_state.get("bull_history", ""),
-                "current_bull_response": investment_debate_state.get(
-                    "current_bull_response", ""
-                ),
-                "current_bear_response": investment_debate_state.get(
-                    "current_bear_response", ""
-                ),
-                "count": investment_debate_state["count"],
-            },
+    return (
+        AdkPrompt(system_message=prompt),
+        (),
+        {
+            "history": investment_debate_state.get("history", ""),
+            "bear_history": investment_debate_state.get("bear_history", ""),
+            "bull_history": investment_debate_state.get("bull_history", ""),
+            "current_bull_response": investment_debate_state.get(
+                "current_bull_response", ""
+            ),
+            "current_bear_response": investment_debate_state.get(
+                "current_bear_response", ""
+            ),
+            "count": investment_debate_state["count"],
+        },
+    )
+
+
+def build_research_manager_result(
+    state,
+    *,
+    response_content,
+    history,
+    bear_history,
+    bull_history,
+    current_bull_response,
+    current_bear_response,
+    count,
+    **_unused,
+) -> dict:
+    try:
+        structured = parse_structured_output(
+            response_content,
+            ResearchDecisionStructuredOutput,
+        )
+    except Exception:
+        rendered = response_content
+    else:
+        rendered = render_markdown_with_highlights(
+            structured.report_markdown,
+            structured.highlights,
         )
 
-    def apply_response(self, state, spec, response) -> dict:
-        try:
-            structured = parse_structured_output(
-                response.content,
-                ResearchDecisionStructuredOutput,
-            )
-        except Exception:
-            rendered = response.content
-        else:
-            rendered = render_markdown_with_highlights(
-                structured.report_markdown,
-                structured.highlights,
-            )
+    new_investment_debate_state = {
+        "judge_decision": rendered,
+        "history": history,
+        "bear_history": bear_history,
+        "bull_history": bull_history,
+        "current_response": rendered,
+        "current_bull_response": current_bull_response,
+        "current_bear_response": current_bear_response,
+        "count": count,
+    }
 
-        new_investment_debate_state = {
-            "judge_decision": rendered,
-            "history": spec.metadata["history"],
-            "bear_history": spec.metadata["bear_history"],
-            "bull_history": spec.metadata["bull_history"],
-            "current_response": rendered,
-            "current_bull_response": spec.metadata["current_bull_response"],
-            "current_bear_response": spec.metadata["current_bear_response"],
-            "count": spec.metadata["count"],
-        }
-
-        result = {
-            "investment_debate_state": new_investment_debate_state,
-            "investment_plan": rendered,
-        }
-        if "structured" in locals():
-            result["structured_agent_outputs"] = merge_structured_agent_output(
-                state,
-                agent_name=self.name,
-                payload=structured.model_dump(mode="json"),
-            )
-        return result
+    result = {
+        "investment_debate_state": new_investment_debate_state,
+        "investment_plan": rendered,
+    }
+    if "structured" in locals():
+        result["structured_agent_outputs"] = merge_structured_agent_output(
+            state,
+            agent_name=AGENT_NAME,
+            payload=structured.model_dump(mode="json"),
+        )
+    return result

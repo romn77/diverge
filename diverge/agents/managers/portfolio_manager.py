@@ -1,9 +1,7 @@
 import json
-import logging
 
 from pydantic import BaseModel, Field
 
-from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
     format_untrusted_context_block,
@@ -25,11 +23,6 @@ from diverge.decision_card.schema import (
     TradeReadiness,
     WhyNot,
 )
-from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
-
-logger = logging.getLogger(__name__)
-
 
 def _error_status_code(error: BaseException) -> int | None:
     status_code = getattr(error, "status_code", None)
@@ -227,6 +220,31 @@ This fallback is intentionally conservative. It preserves the completed report a
 ```"""
 
 
+def structured_fallback_from_transient_error(
+    *,
+    instrument_context: str,
+    error: BaseException,
+) -> "PortfolioManagerStructuredOutput":
+    decision_card = _build_fallback_portfolio_decision_card(error)
+    report = f"""## Portfolio Manager Fallback Decision
+
+{instrument_context}
+
+**Rating**: HOLD
+
+**Executive Summary**: {decision_card["one_line_summary"]}
+
+**Investment Thesis**: {decision_card["thesis"]}
+
+This fallback is intentionally conservative. It preserves the completed report artifacts while making clear that the final portfolio ruling was not authored by the Portfolio Manager model."""
+    return PortfolioManagerStructuredOutput.model_validate(
+        {
+            "decision_report": report,
+            "decision_card": decision_card,
+        }
+    )
+
+
 def _empty_portfolio_context(output_language: str | None) -> str:
     if (output_language or "en").lower() == "cn":
         return "当前持仓参考：\n- 未提供该用户的已跟踪持仓。"
@@ -270,6 +288,110 @@ class PortfolioManagerStructuredOutput(BaseModel):
         )
     )
     decision_card: PortfolioDecisionCardOutput
+
+
+def _fallback_decision_card_for_structured_error(error: BaseException) -> dict:
+    error_note = str(error).strip()[:500] or error.__class__.__name__
+    return {
+        "card_version": "1.2",
+        "rating": "HOLD",
+        "action": "NO_ACTION",
+        "confidence": "low",
+        "conviction_score": 0,
+        "time_horizon": "Manual review required",
+        "one_line_summary": "Portfolio Manager returned a response that could not be validated against the structured DecisionCard schema.",
+        "thesis": "The model produced a final Portfolio Manager response, but its structured payload did not match the required schema, so this conservative card preserves the report while blocking automated action.",
+        "price_plan": {
+            "current_price": None,
+            "entry_zone": None,
+            "add_condition": None,
+            "stop_loss": None,
+            "take_profit": None,
+            "invalidation": [
+                "Regenerate a schema-valid Portfolio Manager decision."
+            ],
+            "risk_reward_note": "No reliable price plan was available from the invalid structured response.",
+        },
+        "suggested_position": None,
+        "key_reasons": [
+            {
+                "pillar": "portfolio",
+                "point": "Structured validation failed",
+                "evidence": "The Portfolio Manager response could not be parsed into PortfolioManagerStructuredOutput.",
+                "strength": "weak",
+            }
+        ],
+        "key_risks": [
+            "Automated action is blocked until a schema-valid final decision is generated."
+        ],
+        "catalysts": [],
+        "watch_items": [
+            "Regenerate the Portfolio Manager decision with strict schema validation."
+        ],
+        "data_quality_notes": [
+            "Fallback decision generated after structured output validation failure.",
+            f"Validation error: {error_note}",
+        ],
+        "trade_readiness": "DATA_INSUFFICIENT",
+        "trade_readiness_reason": "The final Portfolio Manager structured payload was invalid.",
+        "blocking_items": ["Regenerate a schema-valid Portfolio Manager decision."],
+        "data_quality_level": "insufficient",
+        "data_quality_summary": "Final decision card is conservative because schema validation failed.",
+        "why_not": {
+            "why_not_more_bullish": "The final structured evidence payload was invalid.",
+            "why_not_more_bearish": "The unstructured report may still contain useful context and requires manual review.",
+            "why_not_act_now": "The structured DecisionCard is not reliable enough for automated action.",
+        },
+        "action_playbook": {
+            "do_now": ["Review the raw Portfolio Manager response manually."],
+            "trigger_to_act": [
+                "A regenerated Portfolio Manager response validates against the schema."
+            ],
+            "invalidation": [
+                "The original invalid response is replaced by a valid structured decision."
+            ],
+            "execution_notes": [
+                "No trade should rely only on this schema-validation fallback card."
+            ],
+        },
+        "position_guidance": {
+            "suggested_exposure": "No new risk exposure should be based on this fallback card.",
+            "max_exposure": None,
+            "sizing_rationale": "Structured sizing guidance was unavailable.",
+            "risk_budget_note": "Generic risk guidance; not based on current holdings.",
+        },
+    }
+
+
+def structured_fallback_from_invalid_response(
+    raw_response: str,
+    error: BaseException,
+) -> PortfolioManagerStructuredOutput:
+    report = raw_response.strip()
+    if not report:
+        report = (
+            "## Portfolio Manager Decision\n\n"
+            "The model response was empty or invalid, so Diverge generated a "
+            "conservative schema-validation fallback."
+        )
+    return PortfolioManagerStructuredOutput.model_validate(
+        {
+            "decision_report": report,
+            "decision_card": _fallback_decision_card_for_structured_error(error),
+        }
+    )
+
+
+def portfolio_structured_output_warning(error: BaseException) -> dict[str, str]:
+    return _format_structured_output_warning(error)
+
+
+def portfolio_transient_llm_warning(error: BaseException) -> dict[str, str]:
+    return _format_transient_llm_warning(error)
+
+
+def is_transient_portfolio_llm_error(error: BaseException) -> bool:
+    return _is_transient_llm_error(error)
 
 
 def _highlights_from_decision_card(card: PortfolioDecisionCardOutput) -> dict:
@@ -356,65 +478,65 @@ def _format_opportunity_context(context: object, output_language: str) -> str:
     )
 
 
-class PortfolioManager(DivergeAgentNode):
-    name = "portfolio_manager"
+def build_portfolio_manager_prompt(
+    state: dict,
+    memory,
+) -> tuple[str, dict[str, object]]:
+    instrument_context = build_instrument_context(state["company_of_interest"])
 
-    def build_call(self, state) -> AgentCallSpec:
-        instrument_context = build_instrument_context(state["company_of_interest"])
+    history = state["risk_debate_state"]["history"]
+    risk_debate_state = state["risk_debate_state"]
+    market_research_report = state["market_report"]
+    news_report = state["news_report"]
+    fundamentals_report = state["fundamentals_report"]
+    sentiment_report = state["sentiment_report"]
+    trader_plan = state["investment_plan"]
+    output_language = state.get("output_language", "en")
+    language_instruction = get_language_instruction(output_language)
+    style_instruction = get_research_note_style_instruction(output_language)
+    trade_feedback_message = get_trade_feedback_message(state)
+    evidence_rules_instruction = get_evidence_rules_instruction()
+    memory_skepticism_instruction = get_memory_skepticism_instruction()
+    portfolio_context = (state.get("portfolio_context") or "").strip()
+    portfolio_context_block = (
+        portfolio_context
+        if portfolio_context
+        else _empty_portfolio_context(output_language)
+    )
+    opportunity_context_block = _format_opportunity_context(
+        state.get("opportunity_context"), output_language
+    )
 
-        history = state["risk_debate_state"]["history"]
-        risk_debate_state = state["risk_debate_state"]
-        market_research_report = state["market_report"]
-        news_report = state["news_report"]
-        fundamentals_report = state["fundamentals_report"]
-        sentiment_report = state["sentiment_report"]
-        trader_plan = state["investment_plan"]
-        output_language = state.get("output_language", "en")
-        language_instruction = get_language_instruction(output_language)
-        style_instruction = get_research_note_style_instruction(output_language)
-        trade_feedback_message = get_trade_feedback_message(state)
-        evidence_rules_instruction = get_evidence_rules_instruction()
-        memory_skepticism_instruction = get_memory_skepticism_instruction()
-        portfolio_context = (state.get("portfolio_context") or "").strip()
-        portfolio_context_block = (
-            portfolio_context
-            if portfolio_context
-            else _empty_portfolio_context(output_language)
-        )
-        opportunity_context_block = _format_opportunity_context(
-            state.get("opportunity_context"), output_language
-        )
+    curr_situation = (
+        f"{market_research_report}\n\n{sentiment_report}\n\n"
+        f"{news_report}\n\n{fundamentals_report}"
+    )
+    past_memories = memory.get_memories(curr_situation, n_matches=2)
 
-        curr_situation = (
-            f"{market_research_report}\n\n{sentiment_report}\n\n"
-            f"{news_report}\n\n{fundamentals_report}"
-        )
-        past_memories = self.memory.get_memories(curr_situation, n_matches=2)
+    past_memory_str = ""
+    if past_memories:
+        for rec in past_memories:
+            past_memory_str += rec["recommendation"] + "\n\n"
+    else:
+        past_memory_str = "No past memories found."
 
-        past_memory_str = ""
-        if past_memories:
-            for rec in past_memories:
-                past_memory_str += rec["recommendation"] + "\n\n"
-        else:
-            past_memory_str = "No past memories found."
+    trader_plan_block = format_untrusted_context_block(
+        "trader_plan",
+        trader_plan,
+        limit=6000,
+    )
+    past_memory_block = format_untrusted_context_block(
+        "past_decision_memory",
+        past_memory_str,
+        limit=6000,
+    )
+    risk_history_block = format_untrusted_context_block(
+        "risk_analysts_debate_history",
+        history,
+        limit=6000,
+    )
 
-        trader_plan_block = format_untrusted_context_block(
-            "trader_plan",
-            trader_plan,
-            limit=6000,
-        )
-        past_memory_block = format_untrusted_context_block(
-            "past_decision_memory",
-            past_memory_str,
-            limit=6000,
-        )
-        risk_history_block = format_untrusted_context_block(
-            "risk_analysts_debate_history",
-            history,
-            limit=6000,
-        )
-
-        prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
+    prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
 Final decision authority: you are the only agent allowed to issue the user-facing portfolio rating and action. Treat upstream `signal` values as legacy directional inputs, not final verdicts. Base the final DecisionCard on evidence quality, portfolio context, risk budget, and data limitations.
 
@@ -478,97 +600,67 @@ Do not generate Portfolio Fit, Decision Journal, Opportunity Queue, or Convictio
 {style_instruction}
 {language_instruction}"""
 
-        runtime_warnings = list(state.get("runtime_warnings") or [])
-        return AgentCallSpec(
-            prompt=AdkPrompt(system_message=prompt),
-            output_schema=PortfolioManagerStructuredOutput,
-            output_key="portfolio_decision_structured",
-            metadata={
-                "instrument_context": instrument_context,
-                "risk_debate_state": risk_debate_state,
-                "runtime_warnings": runtime_warnings,
-            },
-        )
+    return prompt, {
+        "instrument_context": instrument_context,
+        "risk_debate_state": risk_debate_state,
+        "runtime_warnings": list(state.get("runtime_warnings") or []),
+    }
 
-    def apply_response(self, state, spec, response) -> dict:
-        runtime_warnings = list(spec.metadata["runtime_warnings"])
-        try:
-            structured = parse_structured_output(
-                response.content,
-                PortfolioManagerStructuredOutput,
-            )
-        except Exception as exc:
-            runtime_warnings.append(_format_structured_output_warning(exc))
-            return self._build_result(
-                spec=spec,
-                response_content=response.content,
-                runtime_warnings=runtime_warnings,
-            )
 
-        decision_card = structured.decision_card.model_dump(mode="json")
-        structured_payload = structured.model_dump(mode="json")
-        return self._build_result(
-            spec=spec,
-            response_content=_render_structured_portfolio_decision(structured),
-            runtime_warnings=runtime_warnings,
-            portfolio_decision_card=decision_card,
-            portfolio_decision_structured=structured_payload,
-        )
+def build_portfolio_manager_result(
+    *,
+    state: dict,
+    response_content: str,
+    runtime_warnings: list[dict],
+    portfolio_decision_card: dict | None = None,
+    portfolio_decision_structured: dict | None = None,
+) -> dict:
+    risk_debate_state = state["risk_debate_state"]
+    new_risk_debate_state = {
+        "judge_decision": response_content,
+        "history": risk_debate_state["history"],
+        "aggressive_history": risk_debate_state["aggressive_history"],
+        "conservative_history": risk_debate_state["conservative_history"],
+        "neutral_history": risk_debate_state["neutral_history"],
+        "latest_speaker": "Judge",
+        "current_aggressive_response": risk_debate_state[
+            "current_aggressive_response"
+        ],
+        "current_conservative_response": risk_debate_state[
+            "current_conservative_response"
+        ],
+        "current_neutral_response": risk_debate_state["current_neutral_response"],
+        "count": risk_debate_state["count"],
+    }
 
-    def handle_call_error(self, state, spec, error: Exception) -> dict | None:
-        if not _is_transient_llm_error(error):
-            return None
+    result = {
+        "risk_debate_state": new_risk_debate_state,
+        "final_trade_decision": response_content,
+        "runtime_warnings": runtime_warnings,
+    }
+    if portfolio_decision_card is not None:
+        result["portfolio_decision_card"] = portfolio_decision_card
+    if portfolio_decision_structured is not None:
+        result["portfolio_decision_structured"] = portfolio_decision_structured
+    return result
 
-        logger.exception(
-            "Portfolio Manager LLM failed with a transient error; using fallback final decision."
-        )
-        runtime_warnings = list(spec.metadata["runtime_warnings"])
-        runtime_warnings.append(_format_transient_llm_warning(error))
-        portfolio_decision_card = _build_fallback_portfolio_decision_card(error)
-        return self._build_result(
-            spec=spec,
-            response_content=_build_fallback_portfolio_decision(
-                instrument_context=spec.metadata["instrument_context"],
-                error=error,
-            ),
-            runtime_warnings=runtime_warnings,
-            portfolio_decision_card=portfolio_decision_card,
-        )
 
-    def _build_result(
-        self,
-        *,
-        spec: AgentCallSpec,
-        response_content: str,
-        runtime_warnings: list[dict],
-        portfolio_decision_card: dict | None = None,
-        portfolio_decision_structured: dict | None = None,
-    ) -> dict:
-        risk_debate_state = spec.metadata["risk_debate_state"]
-        new_risk_debate_state = {
-            "judge_decision": response_content,
-            "history": risk_debate_state["history"],
-            "aggressive_history": risk_debate_state["aggressive_history"],
-            "conservative_history": risk_debate_state["conservative_history"],
-            "neutral_history": risk_debate_state["neutral_history"],
-            "latest_speaker": "Judge",
-            "current_aggressive_response": risk_debate_state[
-                "current_aggressive_response"
-            ],
-            "current_conservative_response": risk_debate_state[
-                "current_conservative_response"
-            ],
-            "current_neutral_response": risk_debate_state["current_neutral_response"],
-            "count": risk_debate_state["count"],
-        }
-
-        result = {
-            "risk_debate_state": new_risk_debate_state,
-            "final_trade_decision": response_content,
-            "runtime_warnings": runtime_warnings,
-        }
-        if portfolio_decision_card is not None:
-            result["portfolio_decision_card"] = portfolio_decision_card
-        if portfolio_decision_structured is not None:
-            result["portfolio_decision_structured"] = portfolio_decision_structured
-        return result
+def build_portfolio_manager_result_from_structured(
+    *,
+    state: dict,
+    structured_payload: dict | PortfolioManagerStructuredOutput,
+) -> dict:
+    structured = (
+        structured_payload
+        if isinstance(structured_payload, PortfolioManagerStructuredOutput)
+        else PortfolioManagerStructuredOutput.model_validate(structured_payload)
+    )
+    decision_card = structured.decision_card.model_dump(mode="json")
+    structured_output = structured.model_dump(mode="json")
+    return build_portfolio_manager_result(
+        state=state,
+        response_content=_render_structured_portfolio_decision(structured),
+        runtime_warnings=list(state.get("runtime_warnings") or []),
+        portfolio_decision_card=decision_card,
+        portfolio_decision_structured=structured_output,
+    )

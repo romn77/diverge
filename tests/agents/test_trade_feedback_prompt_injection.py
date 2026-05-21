@@ -1,28 +1,11 @@
 import unittest
 
-from langchain_core.messages import AIMessage, HumanMessage, RemoveMessage
-from langchain_core.runnables import RunnableLambda
+from langchain_core.messages import HumanMessage, RemoveMessage
 
-from diverge.agents.analysts.market_analyst import MarketAnalyst
-from diverge.agents.trader.trader import Trader
+from diverge.agents.analysts.market_analyst import build_market_analyst_prompt
+from diverge.agents.trader.trader import build_trader_prompt
 from diverge.agents.utils.agent_utils import create_msg_delete
 from diverge.runtime.state import Propagator
-
-
-class _FakeLLM:
-    def __init__(self):
-        self.prompts = []
-
-    def invoke(self, prompt):
-        self.prompts.append(prompt)
-        return type("Response", (), {"content": "stub response"})()
-
-    def bind_tools(self, _tools):
-        def _invoke(prompt):
-            self.prompts.append(prompt.to_string())
-            return AIMessage(content="market report", tool_calls=[])
-
-        return RunnableLambda(_invoke)
 
 
 class _FakeMemory:
@@ -58,31 +41,29 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
         )
 
     def test_market_analyst_prompt_contains_historical_trade_feedback(self):
-        llm = _FakeLLM()
         state = Propagator().create_initial_state(
             "MSFT",
             "2026-04-01",
             historical_trade_feedback="Historical trade feedback for ticker MSFT:\n1. Prior lesson",
         )
 
-        node = MarketAnalyst(llm)
-        node(state)
+        prompt, _tools, _metadata = build_market_analyst_prompt(state)
 
-        self.assertIn("Historical trade feedback for ticker MSFT", llm.prompts[0])
+        self.assertIn(
+            "Historical trade feedback for ticker MSFT",
+            prompt.to_string(),
+        )
 
     def test_market_analyst_prompt_limits_price_history_to_120_trading_days(self):
-        llm = _FakeLLM()
         state = Propagator().create_initial_state("MSFT", "2026-04-01")
 
-        node = MarketAnalyst(llm)
-        node(state)
+        prompt, _tools, _metadata = build_market_analyst_prompt(state)
+        prompt_text = prompt.to_string()
 
-        self.assertIn("past 120 trading days", llm.prompts[0])
-        self.assertIn("get_stock_data", llm.prompts[0])
+        self.assertIn("past 120 trading days", prompt_text)
+        self.assertIn("get_stock_data", prompt_text)
 
     def test_trader_prompt_contains_historical_trade_feedback(self):
-        llm = _FakeLLM()
-        node = Trader(llm, _FakeMemory())
         state = {
             "company_of_interest": "MSFT",
             "investment_plan": "Buy the pullback.",
@@ -94,9 +75,9 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
             "historical_trade_feedback": "Historical trade feedback for ticker MSFT:\n1. Prior lesson",
         }
 
-        node(state)
+        prompt, _tools, _metadata = build_trader_prompt(state, _FakeMemory())
 
-        system_message = llm.prompts[0][0]["content"]
+        system_message = prompt.system_message
         self.assertIn("Historical trade feedback for ticker MSFT", system_message)
 
 

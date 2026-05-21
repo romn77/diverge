@@ -4,7 +4,6 @@ from importlib import import_module
 
 
 _EXPORTS = {
-    "DivergeAgentNode": ("diverge.agents.base", "DivergeAgentNode"),
     "FinancialSituationMemory": (
         "diverge.agents.utils.memory",
         "FinancialSituationMemory",
@@ -13,34 +12,112 @@ _EXPORTS = {
     "InvestDebateState": ("diverge.agents.utils.agent_states", "InvestDebateState"),
     "RiskDebateState": ("diverge.agents.utils.agent_states", "RiskDebateState"),
     "create_msg_delete": ("diverge.agents.utils.agent_utils", "create_msg_delete"),
-    "FundamentalsAnalyst": (
+    "build_fundamentals_analyst_prompt": (
         "diverge.agents.analysts.fundamentals_analyst",
-        "FundamentalsAnalyst",
+        "build_fundamentals_analyst_prompt",
     ),
-    "MarketAnalyst": ("diverge.agents.analysts.market_analyst", "MarketAnalyst"),
-    "NewsAnalyst": ("diverge.agents.analysts.news_analyst", "NewsAnalyst"),
-    "SocialMediaAnalyst": (
+    "build_fundamentals_analyst_result": (
+        "diverge.agents.analysts.fundamentals_analyst",
+        "build_fundamentals_analyst_result",
+    ),
+    "build_market_analyst_prompt": (
+        "diverge.agents.analysts.market_analyst",
+        "build_market_analyst_prompt",
+    ),
+    "build_market_analyst_result": (
+        "diverge.agents.analysts.market_analyst",
+        "build_market_analyst_result",
+    ),
+    "build_news_analyst_prompt": (
+        "diverge.agents.analysts.news_analyst",
+        "build_news_analyst_prompt",
+    ),
+    "build_news_analyst_result": (
+        "diverge.agents.analysts.news_analyst",
+        "build_news_analyst_result",
+    ),
+    "build_social_media_analyst_prompt": (
         "diverge.agents.analysts.social_media_analyst",
-        "SocialMediaAnalyst",
+        "build_social_media_analyst_prompt",
     ),
-    "BearResearcher": ("diverge.agents.researchers.bear_researcher", "BearResearcher"),
-    "BullResearcher": ("diverge.agents.researchers.bull_researcher", "BullResearcher"),
-    "AggressiveDebator": (
+    "build_social_media_analyst_result": (
+        "diverge.agents.analysts.social_media_analyst",
+        "build_social_media_analyst_result",
+    ),
+    "build_bear_researcher_prompt": (
+        "diverge.agents.researchers.bear_researcher",
+        "build_bear_researcher_prompt",
+    ),
+    "build_bear_researcher_result": (
+        "diverge.agents.researchers.bear_researcher",
+        "build_bear_researcher_result",
+    ),
+    "build_bull_researcher_prompt": (
+        "diverge.agents.researchers.bull_researcher",
+        "build_bull_researcher_prompt",
+    ),
+    "build_bull_researcher_result": (
+        "diverge.agents.researchers.bull_researcher",
+        "build_bull_researcher_result",
+    ),
+    "build_aggressive_risk_prompt": (
         "diverge.agents.risk_mgmt.aggressive_debator",
-        "AggressiveDebator",
+        "build_aggressive_risk_prompt",
     ),
-    "ConservativeDebator": (
+    "build_aggressive_risk_result": (
+        "diverge.agents.risk_mgmt.aggressive_debator",
+        "build_aggressive_risk_result",
+    ),
+    "build_conservative_risk_prompt": (
         "diverge.agents.risk_mgmt.conservative_debator",
-        "ConservativeDebator",
+        "build_conservative_risk_prompt",
     ),
-    "NeutralDebator": ("diverge.agents.risk_mgmt.neutral_debator", "NeutralDebator"),
-    "ResearchManager": ("diverge.agents.managers.research_manager", "ResearchManager"),
-    "SummaryAgent": ("diverge.agents.managers.summary_agent", "SummaryAgent"),
-    "PortfolioManager": (
+    "build_conservative_risk_result": (
+        "diverge.agents.risk_mgmt.conservative_debator",
+        "build_conservative_risk_result",
+    ),
+    "build_neutral_risk_prompt": (
+        "diverge.agents.risk_mgmt.neutral_debator",
+        "build_neutral_risk_prompt",
+    ),
+    "build_neutral_risk_result": (
+        "diverge.agents.risk_mgmt.neutral_debator",
+        "build_neutral_risk_result",
+    ),
+    "build_research_manager_prompt": (
+        "diverge.agents.managers.research_manager",
+        "build_research_manager_prompt",
+    ),
+    "build_research_manager_result": (
+        "diverge.agents.managers.research_manager",
+        "build_research_manager_result",
+    ),
+    "build_summary_agent_prompt": (
+        "diverge.agents.managers.summary_agent",
+        "build_summary_agent_prompt",
+    ),
+    "build_summary_agent_result": (
+        "diverge.agents.managers.summary_agent",
+        "build_summary_agent_result",
+    ),
+    "PortfolioManagerStructuredOutput": (
         "diverge.agents.managers.portfolio_manager",
-        "PortfolioManager",
+        "PortfolioManagerStructuredOutput",
     ),
-    "Trader": ("diverge.agents.trader.trader", "Trader"),
+    "build_portfolio_manager_prompt": (
+        "diverge.agents.managers.portfolio_manager",
+        "build_portfolio_manager_prompt",
+    ),
+    "build_portfolio_manager_result": (
+        "diverge.agents.managers.portfolio_manager",
+        "build_portfolio_manager_result",
+    ),
+    "build_portfolio_manager_result_from_structured": (
+        "diverge.agents.managers.portfolio_manager",
+        "build_portfolio_manager_result_from_structured",
+    ),
+    "build_trader_prompt": ("diverge.agents.trader.trader", "build_trader_prompt"),
+    "build_trader_result": ("diverge.agents.trader.trader", "build_trader_result"),
 }
 
 __all__ = list(_EXPORTS)

@@ -1,31 +1,13 @@
 from datetime import date
 from unittest.mock import patch
 
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.runnables import RunnableLambda
+from langchain_core.messages import HumanMessage
 
 from diverge.agents.analysts.fundamentals_analyst import (
-    FundamentalsAnalyst,
+    build_fundamentals_analyst_prompt,
+    build_fundamentals_analyst_result,
 )
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
-
-
-class _FakeLLM:
-    def __init__(self, response: AIMessage):
-        self.prompts = []
-        self.response = response
-
-    def invoke(self, prompt, *, tools=None, output_schema=None):
-        del tools, output_schema
-        self.prompts.append(prompt)
-        return self.response
-
-    def bind_tools(self, tools):
-        def _invoke(prompt):
-            self.prompts.append(prompt.to_string())
-            return self.response
-
-        return RunnableLambda(_invoke)
 
 
 def _valuation_input() -> ValuationInput:
@@ -69,22 +51,21 @@ def test_fundamentals_report_includes_valuation_sections_before_highlights(
     mock_get_valuation_ready_fundamentals,
 ):
     mock_get_valuation_ready_fundamentals.return_value = _valuation_input()
-    llm = _FakeLLM(
-        AIMessage(
-            content=(
-                "Fundamentals analysis body.\n\n"
-                "```json-highlights\n"
-                '{\n  "category": "fundamentals",\n  "signal": "BUY",\n'
-                '  "signal_confidence": "medium",\n  "summary": "Stable cash generation.",\n'
-                '  "metrics": [],\n  "financial_health": "Strong"\n}\n'
-                "```"
-            ),
-            tool_calls=[],
-        )
+    state = _state()
+    _prompt, _tools, metadata = build_fundamentals_analyst_prompt(state)
+    result = build_fundamentals_analyst_result(
+        state,
+        response_content=(
+            "Fundamentals analysis body.\n\n"
+            "```json-highlights\n"
+            '{\n  "category": "fundamentals",\n  "signal": "BUY",\n'
+            '  "signal_confidence": "medium",\n  "summary": "Stable cash generation.",\n'
+            '  "metrics": [],\n  "financial_health": "Strong"\n}\n'
+            "```"
+        ),
+        tool_calls=[],
+        **metadata,
     )
-
-    node = FundamentalsAnalyst(llm)
-    result = node(_state())
     report = result["fundamentals_report"]
 
     assert "## DCF Summary" in report
@@ -101,22 +82,21 @@ def test_fundamentals_report_surfaces_valuation_preparation_failures(
     mock_get_valuation_ready_fundamentals,
 ):
     mock_get_valuation_ready_fundamentals.side_effect = RuntimeError("bad payload")
-    llm = _FakeLLM(
-        AIMessage(
-            content=(
-                "Fundamentals analysis body.\n\n"
-                "```json-highlights\n"
-                '{\n  "category": "fundamentals",\n  "signal": "HOLD",\n'
-                '  "signal_confidence": "low",\n  "summary": "Needs more work.",\n'
-                '  "metrics": [],\n  "financial_health": "Mixed"\n}\n'
-                "```"
-            ),
-            tool_calls=[],
-        )
+    state = _state()
+    _prompt, _tools, metadata = build_fundamentals_analyst_prompt(state)
+    result = build_fundamentals_analyst_result(
+        state,
+        response_content=(
+            "Fundamentals analysis body.\n\n"
+            "```json-highlights\n"
+            '{\n  "category": "fundamentals",\n  "signal": "HOLD",\n'
+            '  "signal_confidence": "low",\n  "summary": "Needs more work.",\n'
+            '  "metrics": [],\n  "financial_health": "Mixed"\n}\n'
+            "```"
+        ),
+        tool_calls=[],
+        **metadata,
     )
-
-    node = FundamentalsAnalyst(llm)
-    result = node(_state())
     report = result["fundamentals_report"]
 
     assert "Valuation sections unavailable" in report

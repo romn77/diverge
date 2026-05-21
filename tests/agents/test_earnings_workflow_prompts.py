@@ -1,45 +1,11 @@
 from unittest.mock import patch
 
-from langchain_core.messages import AIMessage, HumanMessage
-from langchain_core.runnables import RunnableLambda
+from langchain_core.messages import HumanMessage
 
 from diverge.agents.analysts.fundamentals_analyst import (
-    FundamentalsAnalyst,
+    build_fundamentals_analyst_prompt,
 )
-from diverge.agents.analysts.news_analyst import NewsAnalyst
-
-
-class _FakeLLM:
-    def __init__(self):
-        self.prompts = []
-
-    def _response(self):
-        return AIMessage(
-            content=(
-                "analysis body\n\n"
-                "```json-highlights\n"
-                '{\n  "category": "news",\n  "signal": "HOLD",\n'
-                '  "signal_confidence": "medium",\n  "summary": "Summary",\n'
-                '  "market_impact": "mixed",\n  "key_events": [],\n'
-                '  "macro_outlook": "Stable"\n}\n'
-                "```"
-            ),
-            tool_calls=[],
-        )
-
-    def invoke(self, prompt, *, tools=None, output_schema=None):
-        del tools, output_schema
-        self.prompts.append(prompt.to_string())
-        return self._response()
-
-    def bind_tools(self, tools):
-        del tools
-
-        def _invoke(prompt):
-            self.prompts.append(prompt.to_string())
-            return self._response()
-
-        return RunnableLambda(_invoke)
+from diverge.agents.analysts.news_analyst import build_news_analyst_prompt
 
 
 def _base_state():
@@ -52,8 +18,6 @@ def _base_state():
 
 
 def test_news_analyst_uses_preview_mode_prompt_when_future_earnings_event_exists():
-    llm = _FakeLLM()
-    node = NewsAnalyst(llm)
     state = _base_state()
     state["earnings_event"] = {
         "earnings_date": "2026-03-25",
@@ -62,9 +26,8 @@ def test_news_analyst_uses_preview_mode_prompt_when_future_earnings_event_exists
         "consensus_eps": "1.60",
     }
 
-    node(state)
-
-    prompt = llm.prompts[-1]
+    prompt, _tools, _metadata = build_news_analyst_prompt(state)
+    prompt = prompt.to_string()
     assert "Earnings mode: preview" in prompt
     assert "Frame the analysis as a pre-earnings setup" in prompt
     assert "Consensus revenue: 95B" in prompt
@@ -75,8 +38,6 @@ def test_fundamentals_analyst_uses_post_earnings_mode_prompt_when_event_has_pass
     mock_get_valuation_ready_fundamentals,
 ):
     mock_get_valuation_ready_fundamentals.side_effect = RuntimeError("skip valuation")
-    llm = _FakeLLM()
-    node = FundamentalsAnalyst(llm)
     state = _base_state()
     state["earnings_event"] = {
         "earnings_date": "2026-03-15",
@@ -86,20 +47,15 @@ def test_fundamentals_analyst_uses_post_earnings_mode_prompt_when_event_has_pass
         "guidance_change": "Raised services outlook",
     }
 
-    node(state)
-
-    prompt = llm.prompts[-1]
+    prompt, _tools, _metadata = build_fundamentals_analyst_prompt(state)
+    prompt = prompt.to_string()
     assert "Earnings mode: review" in prompt
     assert "Compare reported results, guidance, and quality of earnings" in prompt
     assert "Reported EPS: 1.72" in prompt
 
 
 def test_news_analyst_falls_back_cleanly_when_no_earnings_event_data_exists():
-    llm = _FakeLLM()
-    node = NewsAnalyst(llm)
-
-    node(_base_state())
-
-    prompt = llm.prompts[-1]
+    prompt, _tools, _metadata = build_news_analyst_prompt(_base_state())
+    prompt = prompt.to_string()
     assert "Earnings mode: general" in prompt
     assert "No earnings-specific event data is available." in prompt

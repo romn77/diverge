@@ -4,10 +4,7 @@ import types
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import patch
-
-import pytest
 
 
 def test_pyproject_pins_adk_2_beta_and_removes_langgraph():
@@ -80,10 +77,14 @@ def test_runtime_agents_use_adk_prompt_envelope_not_langchain_templates():
         assert "ChatPromptTemplate" not in source, path
         assert "MessagesPlaceholder" not in source, path
         assert "langchain_core.prompts" not in source, path
-        assert "AdkPrompt" in source, path
+        if path.name != "portfolio_manager.py":
+            assert "AdkPrompt" in source, path
         assert "def run(" not in source, path
-        assert "def build_call(" in source, path
-        assert "def apply_response(" in source, path
+        assert "def build_" in source, path
+        assert "DivergeAgentNode" not in source, path
+        assert "AgentCallSpec" not in source, path
+        assert "def build_call(" not in source, path
+        assert "def apply_response(" not in source, path
         assert ".invoke(" not in source, path
         assert "bind_tools(" not in source, path
 
@@ -199,146 +200,6 @@ def test_adk_model_factory_uses_env_timeout_fallback():
     assert getattr(model, "_diverge_timeout_seconds") == 12.5
 
 
-def test_adk_chat_model_times_out_stalled_async_generator():
-    from diverge.runtime.model_factory import AdkChatModel
-
-    class SlowModel:
-        model = "slow/test"
-
-        async def generate_content_async(self, _request, *, stream):
-            await asyncio.sleep(0.05)
-            if False:
-                yield None
-
-    chat_model = AdkChatModel(SlowModel(), timeout=0.01)
-
-    with pytest.raises(TimeoutError, match="timed out"):
-        asyncio.run(
-            chat_model._collect_final_response(SimpleNamespace(model="slow/test"))
-        )
-
-
-def test_adk_chat_model_retries_transient_gateway_timeout():
-    from diverge.runtime.model_factory import AdkChatModel
-
-    class FlakyGatewayModel:
-        model = "openai/flaky"
-
-        def __init__(self):
-            self.calls = 0
-
-        async def generate_content_async(self, _request, *, stream):
-            self.calls += 1
-            if self.calls == 1:
-                raise RuntimeError(
-                    "litellm.Timeout: Timeout Error: OpenAIException - "
-                    "<html><title>504 Gateway Time-out</title></html>"
-                )
-            yield "ok"
-
-    model = FlakyGatewayModel()
-    with patch.dict(
-        os.environ,
-        {
-            "LLM_TRANSIENT_MAX_RETRIES": "2",
-            "LLM_TRANSIENT_RETRY_BASE_DELAY": "0",
-            "LLM_TRANSIENT_RETRY_MAX_DELAY": "0",
-        },
-    ):
-        chat_model = AdkChatModel(model, timeout=1)
-
-    result = asyncio.run(
-        chat_model._collect_final_response(SimpleNamespace(model="openai/flaky"))
-    )
-
-    assert result == "ok"
-    assert model.calls == 2
-
-
-def test_adk_prompt_system_message_uses_gemini_system_instruction():
-    from diverge.runtime.messages import AdkPrompt
-    from diverge.runtime.model_factory import AdkChatModel
-
-    class Part:
-        text = "ok"
-        function_call = None
-
-    class Content:
-        parts = [Part()]
-
-    class Response:
-        content = Content()
-
-    class CaptureModel:
-        model = "gemini-test"
-
-        def __init__(self):
-            self.request = None
-
-        async def generate_content_async(self, request, *, stream):
-            self.request = request
-            yield Response()
-
-    model = CaptureModel()
-    chat_model = AdkChatModel(model, timeout=1)
-
-    chat_model.invoke(
-        AdkPrompt(
-            system_message="Use the tools carefully.",
-            messages=(("user", "Analyze NIO."),),
-        )
-    )
-
-    assert model.request.config.system_instruction == "Use the tools carefully."
-    assert [content.role for content in model.request.contents] == ["user"]
-    assert model.request.contents[0].parts[0].text == "Analyze NIO."
-
-
-def test_adk_chat_model_sets_response_schema_from_agent_call_spec():
-    from pydantic import BaseModel
-
-    from diverge.runtime.messages import AdkPrompt
-    from diverge.runtime.model_factory import AdkChatModel
-
-    class StructuredAnswer(BaseModel):
-        answer: str
-
-    class Part:
-        text = '{"answer":"ok"}'
-        function_call = None
-
-    class Content:
-        parts = [Part()]
-
-    class Response:
-        content = Content()
-
-    class CaptureModel:
-        model = "gemini-test"
-
-        def __init__(self):
-            self.request = None
-
-        async def generate_content_async(self, request, *, stream):
-            self.request = request
-            yield Response()
-
-    model = CaptureModel()
-    chat_model = AdkChatModel(model, timeout=1)
-
-    response = chat_model.invoke(
-        AdkPrompt(
-            system_message="Answer with structured JSON.",
-            messages=(("user", "Say ok."),),
-        ),
-        output_schema=StructuredAnswer,
-    )
-
-    assert response.content == '{"answer":"ok"}'
-    assert model.request.config.response_schema is StructuredAnswer
-    assert model.request.config.response_mime_type == "application/json"
-
-
 def test_sub2api_litellm_api_base_uses_openai_compatible_v1_endpoint():
     from diverge.runtime.model_factory import _litellm_kwargs
 
@@ -434,123 +295,6 @@ def test_litellm_blocking_runner_reuses_one_loop_across_threads():
         _shutdown_litellm_loop_for_tests()
 
 
-def test_adk_adapter_extracts_sub2api_textual_tool_calls():
-    from diverge.runtime.model_factory import _response_text_and_tools
-    from diverge.runtime.tools import get_global_news, get_news
-
-    class Part:
-        def __init__(self, text):
-            self.text = text
-            self.function_call = None
-
-    class Content:
-        parts = [
-            Part(
-                'to=get_news query="SPY ETF news sentiment" '
-                'start_date="2026-05-01" end_date="2026-05-08"'
-            ),
-            Part(
-                " to=get_global_news "
-                '{"curr_date":"2026-05-08","look_back_days":7,"limit":10}'
-            ),
-        ]
-
-    class Response:
-        content = Content()
-
-    text, tool_calls = _response_text_and_tools(Response(), [get_news, get_global_news])
-
-    assert "to=get_news" in text
-    assert [call["name"] for call in tool_calls] == ["get_news", "get_global_news"]
-    assert tool_calls[0]["args"]["query"] == "SPY ETF news sentiment"
-    assert tool_calls[0]["args"]["start_date"] == "2026-05-01"
-    assert tool_calls[1]["args"]["look_back_days"] == 7
-
-
-def test_adk_adapter_extracts_json_textual_tool_calls():
-    from diverge.runtime.model_factory import _response_text_and_tools
-    from diverge.runtime.tools import get_fundamentals, get_news, get_stock_data
-
-    class Part:
-        function_call = None
-
-        def __init__(self, text):
-            self.text = text
-
-    class Content:
-        parts = [
-            Part(
-                '{"tool_name":"get_stock_data","parameters":'
-                '{"ticker":"TLN","end_date":"2026-05-18","lookback_trading_days":120}}'
-                '{"tool_name":"get_stock_data","parameters":'
-                '{"ticker":"TLN","end_date":"2026-05-18","lookback_trading_days":120}}'
-            ),
-            Part(
-                '{"tool_calls":[{"name":"get_news","arguments":'
-                '{"ticker":"TLN","start_date":"2026-05-11","end_date":"2026-05-18"}}]}'
-            ),
-            Part(
-                '{"tool":"get_fundamentals","parameters":'
-                '{"ticker":"TLN","as_of_date":"2026-05-18"}}'
-            ),
-        ]
-
-    class Response:
-        content = Content()
-
-    _text, tool_calls = _response_text_and_tools(
-        Response(), [get_stock_data, get_news, get_fundamentals]
-    )
-
-    assert [call["name"] for call in tool_calls] == [
-        "get_stock_data",
-        "get_news",
-        "get_fundamentals",
-    ]
-    assert tool_calls[0]["args"]["ticker"] == "TLN"
-    assert tool_calls[0]["args"]["lookback_trading_days"] == 120
-    assert tool_calls[1]["args"]["start_date"] == "2026-05-11"
-    assert tool_calls[2]["args"]["as_of_date"] == "2026-05-18"
-
-
-def test_adk_prompt_conversion_preserves_tool_call_ids_for_litellm():
-    from langchain_core.messages import AIMessage, ToolMessage
-
-    from diverge.runtime.messages import AdkPrompt
-    from diverge.runtime.model_factory import _contents_from_prompt
-
-    contents = _contents_from_prompt(
-        [
-            AIMessage(
-                content="",
-                tool_calls=[
-                    {
-                        "name": "get_stock_data",
-                        "args": {"symbol": "SPY"},
-                        "id": "call_market_1",
-                    }
-                ],
-            ),
-            ToolMessage(
-                content="Date,Close\n2026-05-08,600",
-                name="get_stock_data",
-                tool_call_id="call_market_1",
-            ),
-        ]
-    )
-
-    assert contents[0].parts[0].function_call.id == "call_market_1"
-    assert contents[1].parts[0].function_response.id == "call_market_1"
-
-    prompt_contents = _contents_from_prompt(
-        AdkPrompt(
-            system_message="System guidance",
-            messages=(("user", "Hi"),),
-        )
-    )
-    assert [content.role for content in prompt_contents] == ["user"]
-
-
 def test_adk_native_runner_builds_decision_nodes_from_round_limits():
     from diverge.runtime.adk_native.runner import (
         _NativeRuntimeResources,
@@ -558,14 +302,14 @@ def test_adk_native_runner_builds_decision_nodes_from_round_limits():
     )
 
     resources = _NativeRuntimeResources(
-        quick_thinking_llm=object(),
-        deep_thinking_llm=object(),
         tool_nodes={},
         bull_memory=object(),
         bear_memory=object(),
         trader_memory=object(),
         invest_judge_memory=object(),
         portfolio_manager_memory=object(),
+        quick_model="fake-quick-model",
+        deep_model="fake-portfolio-model",
     )
     nodes = _build_native_decision_nodes(
         resources,
@@ -573,12 +317,55 @@ def test_adk_native_runner_builds_decision_nodes_from_round_limits():
     )
     names = [node.name for node in nodes]
 
-    assert names[:4] == [
+    runner_source = Path("diverge/runtime/adk_native/runner.py").read_text(
+        encoding="utf-8"
+    )
+    agents_source = Path("diverge/runtime/adk_native/agents.py").read_text(
+        encoding="utf-8"
+    )
+    init_source = Path("diverge/runtime/adk_native/__init__.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "NativeStateAgent" not in runner_source
+    assert "NativeAnalystAgent" not in runner_source
+    assert "AdkChatModel" not in runner_source
+    assert "NativeAnalystAgent" not in agents_source
+    assert "NativeAnalystAgent" not in init_source
+    assert names[:6] == [
+        "bull_researcher_1_start",
         "bull_researcher_1",
+        "bull_researcher_1_finalize",
+        "bear_researcher_1_start",
         "bear_researcher_1",
-        "bull_researcher_2",
-        "bear_researcher_2",
+        "bear_researcher_1_finalize",
     ]
-    assert len([name for name in names if name.startswith("aggressive_analyst")]) == 5
-    assert len([name for name in names if name.startswith("conservative_analyst")]) == 5
-    assert len([name for name in names if name.startswith("neutral_analyst")]) == 5
+    assert names[6:12] == [
+        "bull_researcher_2_start",
+        "bull_researcher_2",
+        "bull_researcher_2_finalize",
+        "bear_researcher_2_start",
+        "bear_researcher_2",
+        "bear_researcher_2_finalize",
+    ]
+    assert names[12:18] == [
+        "research_manager_start",
+        "research_manager",
+        "research_manager_finalize",
+        "trader_start",
+        "trader",
+        "trader_finalize",
+    ]
+    risk_llm_names = [
+        name
+        for name in names
+        if not name.endswith("_start") and not name.endswith("_finalize")
+    ]
+    assert len([name for name in risk_llm_names if name.startswith("aggressive_analyst")]) == 5
+    assert len([name for name in risk_llm_names if name.startswith("conservative_analyst")]) == 5
+    assert len([name for name in risk_llm_names if name.startswith("neutral_analyst")]) == 5
+    assert names[-3:] == [
+        "portfolio_manager_start",
+        "portfolio_manager",
+        "portfolio_manager_finalize",
+    ]

@@ -1,13 +1,32 @@
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
+from typing import ClassVar
 
 from google.adk.apps import App
 from google.adk.cli.utils.agent_loader import AgentLoader
+from google.adk.models.base_llm import BaseLlm
+from google.adk.models.llm_response import LlmResponse
 from google.adk.workflow import FunctionNode, Workflow
 from google.adk.workflow import START
+from google.genai import types
 from langchain_core.messages import AIMessage
 
+from diverge.agents.managers.portfolio_manager import PortfolioManagerStructuredOutput
+from diverge.agents.report_output import (
+    AggressiveRiskStructuredOutput,
+    BearCaseStructuredOutput,
+    BullCaseStructuredOutput,
+    ConservativeRiskStructuredOutput,
+    FundamentalsReportStructuredOutput,
+    MarketReportStructuredOutput,
+    NeutralRiskStructuredOutput,
+    NewsReportStructuredOutput,
+    ResearchDecisionStructuredOutput,
+    SentimentReportStructuredOutput,
+    TraderStructuredOutput,
+)
 from diverge.runtime.adk_native import runner as adk_native_runner
 from diverge.runtime.adk_native.progress_adapter import state_delta_from_event
 from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
@@ -69,6 +88,33 @@ def test_tool_preface_detector_accepts_completed_highlight_report():
     )
 
     assert not looks_like_incomplete_tool_preface(AIMessage(content=content))
+
+
+def test_native_portfolio_callback_replaces_invalid_schema_response():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text='{"decision_report":"raw report","decision_card":{"rating":"HOLD"}}'
+                )
+            ],
+        )
+    )
+
+    replacement = adk_native_runner._portfolio_after_model_callback(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["decision_report"].startswith('{"decision_report"')
+    assert payload["decision_card"]["trade_readiness"] == "DATA_INSUFFICIENT"
+    assert callback_context.state["runtime_warnings"][0]["kind"] == (
+        "structured_output_validation_failed"
+    )
 
 
 def test_analysis_workflow_uses_native_nodes_without_bridge():
@@ -165,64 +211,209 @@ def test_adk_web_initializer_creates_diverge_state_from_user_content():
 
 
 def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
-    class FakeLlm:
-        def __init__(self):
-            self.invocations = 0
-
-        def invoke(self, _prompt):
-            self.invocations += 1
-            return AIMessage(content=f"llm response {self.invocations}")
-
     class FakeMemory:
         def get_memories(self, _current_situation, n_matches=2):
             return []
 
-    class FakeAnalyst:
-        def __init__(self, _llm, *, name, report_key, content):
-            self.name = name
-            self.report_key = report_key
-            self.content = content
-
-        def __call__(self, _state):
+    def structured_payload_for_schema(schema):
+        report = f"## {schema.__name__}\n\nNative structured response."
+        common = {
+            "signal": "HOLD",
+            "signal_confidence": "medium",
+            "summary": "Structured native runtime response.",
+            "evidence_blocks": [],
+            "unknowns": [],
+        }
+        if schema is MarketReportStructuredOutput:
             return {
-                "messages": [AIMessage(content=self.content, tool_calls=[])],
-                self.report_key: self.content,
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "market",
+                    "stance": "neutral",
+                    "trend_direction": "neutral",
+                    "key_levels": {"support": [], "resistance": []},
+                    "indicators": [],
+                    "volatility": "moderate",
+                },
             }
+        if schema is SentimentReportStructuredOutput:
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "sentiment",
+                    "stance": "neutral",
+                    "overall_sentiment": "neutral",
+                    "sentiment_score": None,
+                    "key_topics": [],
+                    "social_buzz": None,
+                },
+            }
+        if schema is NewsReportStructuredOutput:
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "news",
+                    "stance": "neutral",
+                    "market_impact": "neutral",
+                    "key_events": [],
+                    "macro_outlook": None,
+                },
+            }
+        if schema is FundamentalsReportStructuredOutput:
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "fundamentals",
+                    "stance": "neutral",
+                    "metrics": [],
+                    "financial_health": None,
+                },
+            }
+        if schema is BullCaseStructuredOutput:
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "bull_case",
+                    "stance": "bullish",
+                    "contrary_evidence": [],
+                    "key_arguments": [],
+                    "counterpoints": [],
+                },
+            }
+        if schema is BearCaseStructuredOutput:
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "bear_case",
+                    "stance": "bearish",
+                    "contrary_evidence": [],
+                    "key_arguments": [],
+                    "counterpoints": [],
+                },
+            }
+        if schema is ResearchDecisionStructuredOutput:
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "research_decision",
+                    "stance": "neutral",
+                    "decision": "HOLD",
+                    "aligned_with": "bull",
+                    "rationale": "The native fake model is neutral.",
+                    "action_items": ["Wait for stronger evidence."],
+                },
+            }
+        if schema is TraderStructuredOutput:
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": "trader",
+                    "stance": "neutral",
+                    "entry_exit": {
+                        "action": "Watch",
+                        "entry_condition": "Wait for confirmation.",
+                        "exit_target": None,
+                        "stop_loss": None,
+                        "invalidation": "Evidence weakens.",
+                        "re_entry": None,
+                    },
+                    "position_sizing": "Small or none.",
+                    "risk_budget": "Low.",
+                    "risk_factors": ["Execution risk"],
+                },
+            }
+        if schema in {
+            AggressiveRiskStructuredOutput,
+            ConservativeRiskStructuredOutput,
+            NeutralRiskStructuredOutput,
+        }:
+            category = {
+                AggressiveRiskStructuredOutput: "risk_aggressive",
+                ConservativeRiskStructuredOutput: "risk_conservative",
+                NeutralRiskStructuredOutput: "risk_neutral",
+            }[schema]
+            stance_label = {
+                AggressiveRiskStructuredOutput: "Aggressive",
+                ConservativeRiskStructuredOutput: "Conservative",
+                NeutralRiskStructuredOutput: "Neutral",
+            }[schema]
+            risk_assessment = {
+                AggressiveRiskStructuredOutput: "high",
+                ConservativeRiskStructuredOutput: "low",
+                NeutralRiskStructuredOutput: "moderate",
+            }[schema]
+            return {
+                "report_markdown": report,
+                "highlights": {
+                    **common,
+                    "category": category,
+                    "stance": "neutral",
+                    "stance_label": stance_label,
+                    "core_argument": "Keep risk controlled in the fake runtime.",
+                    "risk_assessment": risk_assessment,
+                    "key_recommendations": ["Keep risk contained."],
+                    "risk_budget": None,
+                },
+            }
+        if schema is PortfolioManagerStructuredOutput:
+            return {
+                "decision_report": "## Portfolio Manager Decision\n\nRating: HOLD.",
+                "decision_card": {
+                    "rating": "HOLD",
+                    "action": "WATCH",
+                    "confidence": "medium",
+                    "conviction_score": 55,
+                    "time_horizon": "5-20 trading days",
+                    "one_line_summary": "Watch for cleaner confirmation.",
+                    "thesis": "The debate supports caution until stronger evidence arrives.",
+                    "key_reasons": [
+                        {
+                            "pillar": "portfolio",
+                            "point": "Balanced risk",
+                            "evidence": "Risk debate did not support immediate action.",
+                            "strength": "medium",
+                        }
+                    ],
+                    "key_risks": ["Execution risk"],
+                    "trade_readiness": "WAITING_FOR_TRIGGER",
+                    "data_quality_level": "partial",
+                },
+            }
+        raise AssertionError(f"Unexpected response schema: {schema!r}")
 
-    fake_analyst_classes = {
-        "market": lambda llm: FakeAnalyst(
-            llm,
-            name="market_analyst",
-            report_key="market_report",
-            content="ADK native market report",
-        ),
-        "social": lambda llm: FakeAnalyst(
-            llm,
-            name="social_media_analyst",
-            report_key="sentiment_report",
-            content="ADK native sentiment report",
-        ),
-        "news": lambda llm: FakeAnalyst(
-            llm,
-            name="news_analyst",
-            report_key="news_report",
-            content="ADK native news report",
-        ),
-        "fundamentals": lambda llm: FakeAnalyst(
-            llm,
-            name="fundamentals_analyst",
-            report_key="fundamentals_report",
-            content="ADK native fundamentals report",
-        ),
-    }
+    class FakeNativeStructuredModel(BaseLlm):
+        seen_response_schemas: ClassVar[set] = set()
+
+        async def generate_content_async(self, llm_request, stream=False):
+            schema = llm_request.config.response_schema
+            type(self).seen_response_schemas.add(schema)
+            payload = structured_payload_for_schema(schema)
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part.from_text(
+                            text=json.dumps(payload, ensure_ascii=False)
+                        )
+                    ],
+                )
+            )
 
     captured_resource_configs = []
+    quick_model = FakeNativeStructuredModel(model="fake-quick-model")
+    deep_model = FakeNativeStructuredModel(model="fake-deep-model")
 
     def fake_create_runtime_resources(config):
         captured_resource_configs.append(dict(config))
         return adk_native_runner._NativeRuntimeResources(
-            quick_thinking_llm=FakeLlm(),
-            deep_thinking_llm=FakeLlm(),
             tool_nodes={
                 "market": AdkToolCollection(()),
                 "social": AdkToolCollection(()),
@@ -234,13 +425,11 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
             trader_memory=FakeMemory(),
             invest_judge_memory=FakeMemory(),
             portfolio_manager_memory=FakeMemory(),
+            quick_model=quick_model,
+            deep_model=deep_model,
+            generation_config=None,
         )
 
-    monkeypatch.setattr(
-        adk_native_runner,
-        "_NATIVE_ANALYST_CLASSES",
-        fake_analyst_classes,
-    )
     monkeypatch.setattr(
         adk_native_runner,
         "_create_runtime_resources",
@@ -257,17 +446,33 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
     )
 
     assert captured_resource_configs == [{"max_recur_limit": 10}]
-    assert any(chunk["market_report"] == "ADK native market report" for chunk in chunks)
+    assert any("MarketReportStructuredOutput" in chunk["market_report"] for chunk in chunks)
     assert any(
-        chunk["sentiment_report"] == "ADK native sentiment report" for chunk in chunks
+        "SentimentReportStructuredOutput" in chunk["sentiment_report"]
+        for chunk in chunks
     )
     assert any(
-        chunk["news_report"].startswith("ADK native news report") for chunk in chunks
+        "NewsReportStructuredOutput" in chunk["news_report"] for chunk in chunks
     )
     assert any(
-        chunk["fundamentals_report"].startswith("ADK native fundamentals report")
+        "FundamentalsReportStructuredOutput" in chunk["fundamentals_report"]
         for chunk in chunks
     )
     assert chunks[-1]["investment_plan"]
     assert chunks[-1]["trader_investment_plan"]
     assert chunks[-1]["final_trade_decision"]
+    assert chunks[-1]["portfolio_decision_card"]["rating"] == "HOLD"
+    assert {
+        MarketReportStructuredOutput,
+        SentimentReportStructuredOutput,
+        NewsReportStructuredOutput,
+        FundamentalsReportStructuredOutput,
+        BullCaseStructuredOutput,
+        BearCaseStructuredOutput,
+        ResearchDecisionStructuredOutput,
+        TraderStructuredOutput,
+        AggressiveRiskStructuredOutput,
+        ConservativeRiskStructuredOutput,
+        NeutralRiskStructuredOutput,
+        PortfolioManagerStructuredOutput,
+    }.issubset(FakeNativeStructuredModel.seen_response_schemas)
