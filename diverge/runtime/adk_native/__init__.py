@@ -27,10 +27,6 @@ _EXPORTS = {
         "diverge.runtime.adk_native.runner",
         "build_native_analysis_workflow",
     ),
-    "NativeAnalystAgent": (
-        "diverge.runtime.adk_native.agents",
-        "NativeAnalystAgent",
-    ),
     "merge_state_delta": (
         "diverge.runtime.adk_native.state_adapter",
         "merge_state_delta",

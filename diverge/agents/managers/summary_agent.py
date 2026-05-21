@@ -3,7 +3,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.utils.agent_utils import (
     format_prompt_section,
     get_language_instruction,
@@ -164,51 +163,48 @@ class ReportSummaryOutput(BaseModel):
     )
 
 
-class SummaryAgent(DivergeAgentNode):
-    name = "summary_agent"
+def build_summary_agent_prompt(state):
+    output_language = state.get("output_language", "en")
+    language_instruction = get_language_instruction(output_language)
+    debate = state.get("investment_debate_state") or {}
+    risk = state.get("risk_debate_state") or {}
 
-    def build_call(self, state) -> AgentCallSpec:
-        output_language = state.get("output_language", "en")
-        language_instruction = get_language_instruction(output_language)
-        debate = state.get("investment_debate_state") or {}
-        risk = state.get("risk_debate_state") or {}
+    full_report_context = "\n\n".join(
+        [
+            format_prompt_section("Market Analyst", state.get("market_report")),
+            format_prompt_section("Social Analyst", state.get("sentiment_report")),
+            format_prompt_section("News Analyst", state.get("news_report")),
+            format_prompt_section(
+                "Fundamentals Analyst",
+                state.get("fundamentals_report"),
+            ),
+            format_prompt_section("Bull Researcher", debate.get("bull_history")),
+            format_prompt_section("Bear Researcher", debate.get("bear_history")),
+            format_prompt_section(
+                "Research Manager",
+                debate.get("judge_decision"),
+            ),
+            format_prompt_section("Trader", state.get("trader_investment_plan")),
+            format_prompt_section(
+                "Aggressive Risk Analyst",
+                risk.get("aggressive_history"),
+            ),
+            format_prompt_section(
+                "Conservative Risk Analyst",
+                risk.get("conservative_history"),
+            ),
+            format_prompt_section(
+                "Neutral Risk Analyst",
+                risk.get("neutral_history"),
+            ),
+            format_prompt_section(
+                "Portfolio Manager",
+                risk.get("judge_decision"),
+            ),
+        ]
+    )
 
-        full_report_context = "\n\n".join(
-            [
-                format_prompt_section("Market Analyst", state.get("market_report")),
-                format_prompt_section("Social Analyst", state.get("sentiment_report")),
-                format_prompt_section("News Analyst", state.get("news_report")),
-                format_prompt_section(
-                    "Fundamentals Analyst",
-                    state.get("fundamentals_report"),
-                ),
-                format_prompt_section("Bull Researcher", debate.get("bull_history")),
-                format_prompt_section("Bear Researcher", debate.get("bear_history")),
-                format_prompt_section(
-                    "Research Manager",
-                    debate.get("judge_decision"),
-                ),
-                format_prompt_section("Trader", state.get("trader_investment_plan")),
-                format_prompt_section(
-                    "Aggressive Risk Analyst",
-                    risk.get("aggressive_history"),
-                ),
-                format_prompt_section(
-                    "Conservative Risk Analyst",
-                    risk.get("conservative_history"),
-                ),
-                format_prompt_section(
-                    "Neutral Risk Analyst",
-                    risk.get("neutral_history"),
-                ),
-                format_prompt_section(
-                    "Portfolio Manager",
-                    risk.get("judge_decision"),
-                ),
-            ]
-        )
-
-        prompt = f"""You are the Summary Agent for a multi-agent trading research report.
+    prompt = f"""You are the Summary Agent for a multi-agent trading research report.
 
 Create a concise executive summary of the complete report for {state["company_of_interest"]} on {state["trade_date"]}.
 
@@ -227,22 +223,25 @@ Complete report context:
 
 {language_instruction}"""
 
-        return AgentCallSpec(
-            prompt=AdkPrompt(system_message=prompt),
-            output_schema=ReportSummaryOutput,
-            output_key="report_summary_structured",
-        )
+    return AdkPrompt(system_message=prompt), (), {}
 
-    def apply_response(self, state, spec, response) -> dict:
-        try:
-            structured = parse_structured_output(response.content, ReportSummaryOutput)
-        except Exception:
-            return {"report_summary": sanitize_report_summary_output(response.content)}
 
-        summary_text = sanitize_report_summary_output(structured.summary_text)
-        payload = structured.model_dump(mode="json")
-        payload["summary_text"] = summary_text
-        return {
-            "report_summary": summary_text,
-            "report_summary_structured": payload,
-        }
+def build_summary_agent_result(
+    state,
+    *,
+    response_content,
+    **_unused,
+) -> dict:
+    del state
+    try:
+        structured = parse_structured_output(response_content, ReportSummaryOutput)
+    except Exception:
+        return {"report_summary": sanitize_report_summary_output(response_content)}
+
+    summary_text = sanitize_report_summary_output(structured.summary_text)
+    payload = structured.model_dump(mode="json")
+    payload["summary_text"] = summary_text
+    return {
+        "report_summary": summary_text,
+        "report_summary_structured": payload,
+    }

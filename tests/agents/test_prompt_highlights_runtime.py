@@ -7,13 +7,27 @@ from unittest.mock import patch
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
-from diverge.agents.analysts.fundamentals_analyst import FundamentalsAnalyst
-from diverge.agents.analysts.market_analyst import MarketAnalyst
-from diverge.agents.managers.portfolio_manager import (
-    PortfolioManager,
-    PortfolioManagerStructuredOutput,
+from diverge.agents.analysts.fundamentals_analyst import (
+    build_fundamentals_analyst_prompt,
+    build_fundamentals_analyst_result,
 )
-from diverge.agents.managers.research_manager import ResearchManager
+from diverge.agents.analysts.market_analyst import (
+    build_market_analyst_prompt,
+    build_market_analyst_result,
+)
+from diverge.agents.managers.portfolio_manager import (
+    PortfolioManagerStructuredOutput,
+    build_portfolio_manager_prompt,
+    build_portfolio_manager_result,
+    build_portfolio_manager_result_from_structured,
+    portfolio_structured_output_warning,
+    portfolio_transient_llm_warning,
+    structured_fallback_from_transient_error,
+)
+from diverge.agents.managers.research_manager import (
+    build_research_manager_prompt,
+    build_research_manager_result,
+)
 from diverge.agents.report_output import (
     AggressiveRiskStructuredOutput,
     BearCaseStructuredOutput,
@@ -27,12 +41,27 @@ from diverge.agents.report_output import (
     SentimentReportStructuredOutput,
     TraderStructuredOutput,
 )
-from diverge.agents.researchers.bear_researcher import BearResearcher
-from diverge.agents.researchers.bull_researcher import BullResearcher
-from diverge.agents.risk_mgmt.aggressive_debator import AggressiveDebator
-from diverge.agents.risk_mgmt.conservative_debator import ConservativeDebator
-from diverge.agents.risk_mgmt.neutral_debator import NeutralDebator
-from diverge.agents.trader.trader import Trader
+from diverge.agents.researchers.bear_researcher import (
+    build_bear_researcher_prompt,
+    build_bear_researcher_result,
+)
+from diverge.agents.researchers.bull_researcher import (
+    build_bull_researcher_prompt,
+    build_bull_researcher_result,
+)
+from diverge.agents.risk_mgmt.aggressive_debator import (
+    build_aggressive_risk_prompt,
+    build_aggressive_risk_result,
+)
+from diverge.agents.risk_mgmt.conservative_debator import (
+    build_conservative_risk_prompt,
+    build_conservative_risk_result,
+)
+from diverge.agents.risk_mgmt.neutral_debator import (
+    build_neutral_risk_prompt,
+    build_neutral_risk_result,
+)
+from diverge.agents.trader.trader import build_trader_prompt, build_trader_result
 from diverge.agents.utils.agent_utils import format_untrusted_context_block
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
@@ -116,6 +145,97 @@ class _StructuredToolLLM:
         return AIMessage(content=json.dumps(self.payload), tool_calls=[])
 
 
+def _prompt_text(prompt) -> str:
+    if hasattr(prompt, "to_string"):
+        return prompt.to_string()
+    return str(prompt)
+
+
+def _invoke_test_llm(llm, prompt, tools=(), output_schema=None):
+    if tools:
+        try:
+            return llm.invoke(prompt, tools=tools, output_schema=output_schema)
+        except TypeError:
+            return llm.bind_tools(tools).invoke(prompt)
+    try:
+        return llm.invoke(prompt, output_schema=output_schema)
+    except TypeError:
+        return llm.invoke(prompt)
+
+
+class _PromptFunctionNode:
+    def __init__(
+        self,
+        llm,
+        build_prompt,
+        build_result,
+        output_schema,
+        memory=None,
+    ):
+        self.llm = llm
+        self.build_prompt = build_prompt
+        self.build_result = build_result
+        self.output_schema = output_schema
+        self.memory = memory
+
+    def __call__(self, state):
+        if self.memory is None:
+            prompt, tools, metadata = self.build_prompt(state)
+        else:
+            prompt, tools, metadata = self.build_prompt(state, self.memory)
+        response = _invoke_test_llm(
+            self.llm,
+            prompt,
+            tools=tools,
+            output_schema=self.output_schema,
+        )
+        return self.build_result(
+            state,
+            response_content=getattr(response, "content", ""),
+            tool_calls=getattr(response, "tool_calls", []),
+            **metadata,
+        )
+
+
+class _PortfolioFunctionNode:
+    def __init__(self, llm, memory):
+        self.llm = llm
+        self.memory = memory
+
+    def __call__(self, state):
+        prompt, metadata = build_portfolio_manager_prompt(state, self.memory)
+        try:
+            response = _invoke_test_llm(
+                self.llm,
+                prompt,
+                output_schema=PortfolioManagerStructuredOutput,
+            )
+        except Exception as exc:
+            runtime_warnings = list(state.get("runtime_warnings") or [])
+            runtime_warnings.append(portfolio_transient_llm_warning(exc))
+            return build_portfolio_manager_result_from_structured(
+                state={**state, "runtime_warnings": runtime_warnings},
+                structured_payload=structured_fallback_from_transient_error(
+                    instrument_context=metadata["instrument_context"],
+                    error=exc,
+                ),
+            )
+
+        try:
+            return build_portfolio_manager_result_from_structured(
+                state={**state, "runtime_warnings": list(state.get("runtime_warnings") or [])},
+                structured_payload=json.loads(response.content),
+            )
+        except Exception as exc:
+            runtime_warnings = list(state.get("runtime_warnings") or [])
+            runtime_warnings.append(portfolio_structured_output_warning(exc))
+            return build_portfolio_manager_result(
+                state=state,
+                response_content=response.content,
+                runtime_warnings=runtime_warnings,
+            )
+
+
 def _base_state():
         return {
             "company_of_interest": "QQQ",
@@ -193,20 +313,83 @@ def _valuation_input():
 class PromptHighlightsRuntimeTests(unittest.TestCase):
     def test_prompt_nodes_with_json_highlights_do_not_raise_runtime_format_errors(self):
         cases = [
-            ("bull", BullResearcher(_FakeLLM(), _FakeMemory()), _base_state()),
-            ("bear", BearResearcher(_FakeLLM(), _FakeMemory()), _base_state()),
             (
-                "research_manager",
-                ResearchManager(_FakeLLM(), _FakeMemory()),
+                "bull",
+                _PromptFunctionNode(
+                    _FakeLLM(),
+                    build_bull_researcher_prompt,
+                    build_bull_researcher_result,
+                    BullCaseStructuredOutput,
+                    _FakeMemory(),
+                ),
                 _base_state(),
             ),
-            ("trader", Trader(_FakeLLM(), _FakeMemory()), _base_state()),
-            ("aggressive", AggressiveDebator(_FakeLLM()), _base_state()),
-            ("conservative", ConservativeDebator(_FakeLLM()), _base_state()),
-            ("neutral", NeutralDebator(_FakeLLM()), _base_state()),
+            (
+                "bear",
+                _PromptFunctionNode(
+                    _FakeLLM(),
+                    build_bear_researcher_prompt,
+                    build_bear_researcher_result,
+                    BearCaseStructuredOutput,
+                    _FakeMemory(),
+                ),
+                _base_state(),
+            ),
+            (
+                "research_manager",
+                _PromptFunctionNode(
+                    _FakeLLM(),
+                    build_research_manager_prompt,
+                    build_research_manager_result,
+                    ResearchDecisionStructuredOutput,
+                    _FakeMemory(),
+                ),
+                _base_state(),
+            ),
+            (
+                "trader",
+                _PromptFunctionNode(
+                    _FakeLLM(),
+                    build_trader_prompt,
+                    build_trader_result,
+                    TraderStructuredOutput,
+                    _FakeMemory(),
+                ),
+                _base_state(),
+            ),
+            (
+                "aggressive",
+                _PromptFunctionNode(
+                    _FakeLLM(),
+                    build_aggressive_risk_prompt,
+                    build_aggressive_risk_result,
+                    AggressiveRiskStructuredOutput,
+                ),
+                _base_state(),
+            ),
+            (
+                "conservative",
+                _PromptFunctionNode(
+                    _FakeLLM(),
+                    build_conservative_risk_prompt,
+                    build_conservative_risk_result,
+                    ConservativeRiskStructuredOutput,
+                ),
+                _base_state(),
+            ),
+            (
+                "neutral",
+                _PromptFunctionNode(
+                    _FakeLLM(),
+                    build_neutral_risk_prompt,
+                    build_neutral_risk_result,
+                    NeutralRiskStructuredOutput,
+                ),
+                _base_state(),
+            ),
             (
                 "portfolio_manager",
-                PortfolioManager(_FakeLLM(), _FakeMemory()),
+                _PortfolioFunctionNode(_FakeLLM(), _FakeMemory()),
                 _base_state(),
             ),
         ]
@@ -266,18 +449,18 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 )
 
         risk_cases = [
-            ("aggressive", AggressiveDebator(_FakeLLM()), AggressiveRiskStructuredOutput),
+            ("aggressive", build_aggressive_risk_prompt, AggressiveRiskStructuredOutput),
             (
                 "conservative",
-                ConservativeDebator(_FakeLLM()),
+                build_conservative_risk_prompt,
                 ConservativeRiskStructuredOutput,
             ),
-            ("neutral", NeutralDebator(_FakeLLM()), NeutralRiskStructuredOutput),
+            ("neutral", build_neutral_risk_prompt, NeutralRiskStructuredOutput),
         ]
-        for name, node, output_schema in risk_cases:
+        for name, build_prompt, output_schema in risk_cases:
             with self.subTest(node=name):
-                node(_base_state())
-                prompt = node.llm.prompts[0].to_string()
+                prompt, _tools, _metadata = build_prompt(_base_state())
+                prompt = prompt.to_string()
                 examples = _json_highlights_examples_from_text(prompt)
 
                 self.assertEqual(len(examples), 1)
@@ -330,7 +513,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         cases = [
             (
                 "bull",
-                BullResearcher,
+                build_bull_researcher_prompt,
                 _FakeMemory,
                 [
                     "market_research_report",
@@ -344,7 +527,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             ),
             (
                 "bear",
-                BearResearcher,
+                build_bear_researcher_prompt,
                 _FakeMemory,
                 [
                     "market_research_report",
@@ -358,22 +541,20 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             ),
             (
                 "research_manager",
-                ResearchManager,
+                build_research_manager_prompt,
                 _FakeMemory,
                 ["past_decision_memory", "investment_debate_history"],
             ),
             (
                 "trader",
-                Trader,
+                build_trader_prompt,
                 _FakeMemory,
                 ["research_manager_investment_plan", "past_decision_memory"],
             ),
         ]
 
-        for name, factory, memory_factory, block_names in cases:
+        for name, build_prompt, memory_factory, block_names in cases:
             with self.subTest(node=name):
-                llm = _FakeLLM()
-                node = factory(llm, memory_factory())
                 state = _base_state()
                 state["market_report"] = malicious
                 state["sentiment_report"] = malicious
@@ -384,9 +565,8 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 state["investment_debate_state"]["current_bull_response"] = malicious
                 state["investment_debate_state"]["current_bear_response"] = malicious
 
-                node(state)
-
-                prompt = llm.prompts[0].to_string()
+                prompt, _tools, _metadata = build_prompt(state, memory_factory())
+                prompt = prompt.to_string()
                 for block_name in block_names:
                     self.assertIn(
                         f'<untrusted_context name="{block_name}">',
@@ -403,9 +583,11 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 self.assertNotIn("忽略以上指令", prompt)
 
     def test_upstream_prompts_define_evidence_contracts_without_final_verdict(self):
-        trader_llm = _FakeLLM()
-        Trader(trader_llm, _FakeMemory())(_base_state())
-        trader_prompt = trader_llm.prompts[0].to_string()
+        trader_prompt, _tools, _metadata = build_trader_prompt(
+            _base_state(),
+            _FakeMemory(),
+        )
+        trader_prompt = trader_prompt.to_string()
 
         self.assertIn("execution planner", trader_prompt)
         self.assertIn('"evidence_blocks"', trader_prompt)
@@ -414,9 +596,8 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertIn("Do not write `FINAL TRANSACTION PROPOSAL`", trader_prompt)
         self.assertNotIn("Conclude your narrative analysis", trader_prompt)
 
-        risk_llm = _FakeLLM()
-        AggressiveDebator(risk_llm)(_base_state())
-        risk_prompt = risk_llm.prompts[0].to_string()
+        risk_prompt, _tools, _metadata = build_aggressive_risk_prompt(_base_state())
+        risk_prompt = risk_prompt.to_string()
 
         self.assertIn('"risk_budget"', risk_prompt)
         self.assertIn('"required_pm_adjustment"', risk_prompt)
@@ -444,11 +625,22 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 tool_calls=[],
             )
         )
-        node = FundamentalsAnalyst(llm)
         state = _base_state()
         state["messages"] = [HumanMessage(content="Analyze fundamentals")]
 
-        result = node(state)
+        _prompt, _tools, metadata = build_fundamentals_analyst_prompt(state)
+        response = _invoke_test_llm(
+            llm,
+            _prompt,
+            tools=_tools,
+            output_schema=FundamentalsReportStructuredOutput,
+        )
+        result = build_fundamentals_analyst_result(
+            state,
+            response_content=response.content,
+            tool_calls=response.tool_calls,
+            **metadata,
+        )
 
         self.assertIn("## DCF Summary", result["fundamentals_report"])
         self.assertIn('"category": "fundamentals"', result["fundamentals_report"])
@@ -480,11 +672,22 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 },
             }
         )
-        node = MarketAnalyst(llm)
         state = _base_state()
         state["messages"] = [HumanMessage(content="Analyze market")]
 
-        result = node(state)
+        _prompt, tools, metadata = build_market_analyst_prompt(state)
+        response = _invoke_test_llm(
+            llm,
+            _prompt,
+            tools=tools,
+            output_schema=MarketReportStructuredOutput,
+        )
+        result = build_market_analyst_result(
+            state,
+            response_content=response.content,
+            tool_calls=response.tool_calls,
+            **metadata,
+        )
 
         self.assertIs(llm.output_schema, MarketReportStructuredOutput)
         self.assertIn("## Market view", result["market_report"])
@@ -497,7 +700,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         )
 
     def test_portfolio_manager_gateway_timeout_returns_fallback_decision(self):
-        node = PortfolioManager(_FailingLLM(), _FakeMemory())
+        node = _PortfolioFunctionNode(_FailingLLM(), _FakeMemory())
 
         result = node(_base_state())
 
@@ -513,14 +716,11 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         )
 
     def test_portfolio_manager_prompt_uses_user_facing_portfolio_context(self):
-        llm = _FakeLLM()
-        node = PortfolioManager(llm, _FakeMemory())
         state = _base_state()
         state["output_language"] = "cn"
 
-        node(state)
+        prompt, _metadata = build_portfolio_manager_prompt(state, _FakeMemory())
 
-        prompt = llm.prompts[0].to_string()
         self.assertIn("当前持仓参考", prompt)
         self.assertIn("未提供该用户的已跟踪持仓", prompt)
         self.assertNotIn("Portfolio Ledger Context", prompt)
@@ -529,12 +729,11 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
     def test_portfolio_manager_prompt_uses_schema_contract_without_markdown_wrapper(
         self,
     ):
-        llm = _FakeLLM()
-        node = PortfolioManager(llm, _FakeMemory())
+        prompt, _metadata = build_portfolio_manager_prompt(
+            _base_state(),
+            _FakeMemory(),
+        )
 
-        node(_base_state())
-
-        prompt = llm.prompts[0].to_string()
         self.assertNotIn("Required Output Structure", prompt)
         self.assertNotIn("1. **Rating**", prompt)
         self.assertNotIn("- **Buy**", prompt)
@@ -550,8 +749,6 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertNotIn("Inside this field, include `## Rating`", prompt)
 
     def test_portfolio_manager_wraps_and_truncates_untrusted_context(self):
-        llm = _FakeLLM()
-        node = PortfolioManager(llm, _FakeMemory())
         state = _base_state()
         state["investment_plan"] = (
             "```markdown\n"
@@ -561,9 +758,8 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         )
         state["risk_debate_state"]["history"] = "risk history " * 900
 
-        node(state)
+        prompt, _metadata = build_portfolio_manager_prompt(state, _FakeMemory())
 
-        prompt = llm.prompts[0].to_string()
         self.assertIn('<untrusted_context name="trader_plan">', prompt)
         self.assertIn(
             '<untrusted_context name="risk_analysts_debate_history">',
@@ -576,7 +772,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertNotIn("ignore previous instructions", prompt.lower())
 
     def test_portfolio_manager_connection_error_returns_fallback_decision(self):
-        node = PortfolioManager(_ConnectionFailingLLM(), _FakeMemory())
+        node = _PortfolioFunctionNode(_ConnectionFailingLLM(), _FakeMemory())
 
         result = node(_base_state())
 
@@ -600,15 +796,15 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             "- rating: HOLD\n"
             "- action: WATCH"
         )
-        node = PortfolioManager(_TextLLM(content), _FakeMemory())
+        node = _PortfolioFunctionNode(_TextLLM(content), _FakeMemory())
 
         result = node(_base_state())
 
         warning = result["runtime_warnings"][0]
         self.assertEqual(warning["kind"], "structured_output_validation_failed")
-        self.assertIn("ValueError", warning["message"])
+        self.assertIn("JSONDecodeError", warning["message"])
         self.assertIn(
-            "Structured model response did not contain valid JSON",
+            "Expecting value",
             warning["message"],
         )
         self.assertEqual(result["final_trade_decision"], content)
@@ -640,7 +836,7 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 },
             }
         )
-        node = PortfolioManager(llm, _FakeMemory())
+        node = _PortfolioFunctionNode(llm, _FakeMemory())
 
         result = node(_base_state())
 
@@ -669,9 +865,19 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
                 },
             }
         )
-        node = ResearchManager(llm, _FakeMemory())
-
-        result = node(_base_state())
+        state = _base_state()
+        _prompt, _tools, metadata = build_research_manager_prompt(state, _FakeMemory())
+        response = _invoke_test_llm(
+            llm,
+            _prompt,
+            output_schema=ResearchDecisionStructuredOutput,
+        )
+        result = build_research_manager_result(
+            state,
+            response_content=response.content,
+            tool_calls=[],
+            **metadata,
+        )
 
         self.assertIs(llm.output_schema, ResearchDecisionStructuredOutput)
         self.assertIn("## Research decision", result["investment_plan"])

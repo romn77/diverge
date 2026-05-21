@@ -4,7 +4,6 @@ from importlib import import_module
 
 
 _EXPORTS = {
-    "AdkChatModel": ("diverge.runtime.model_factory", "AdkChatModel"),
     "AdkPrompt": ("diverge.runtime.messages", "AdkPrompt"),
     "AdkToolCollection": ("diverge.runtime.tools", "AdkToolCollection"),
     "Propagator": ("diverge.runtime.state", "Propagator"),

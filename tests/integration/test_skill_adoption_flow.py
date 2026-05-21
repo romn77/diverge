@@ -7,8 +7,10 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from diverge.agents.analysts.fundamentals_analyst import (
-    FundamentalsAnalyst,
+    build_fundamentals_analyst_prompt,
+    build_fundamentals_analyst_result,
 )
+from diverge.agents.report_output import FundamentalsReportStructuredOutput
 from diverge.runner import save_report_to_disk
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
@@ -69,7 +71,6 @@ def test_skill_adoption_flow_generates_valuation_report_and_artifacts(
     mock_get_valuation_ready_fundamentals.return_value = _valuation_input()
 
     llm = _FakeLLM()
-    node = FundamentalsAnalyst(llm)
     state = {
         "trade_date": "2026-03-20",
         "company_of_interest": "MSFT",
@@ -84,7 +85,15 @@ def test_skill_adoption_flow_generates_valuation_report_and_artifacts(
         },
     }
 
-    result = node(state)
+    prompt, tools, metadata = build_fundamentals_analyst_prompt(state)
+    response = llm.bind_tools(tools).invoke(prompt)
+    result = build_fundamentals_analyst_result(
+        state,
+        response_content=response.content,
+        tool_calls=response.tool_calls,
+        output_schema=FundamentalsReportStructuredOutput,
+        **metadata,
+    )
     fundamentals_report = result["fundamentals_report"]
 
     assert "## Post-Earnings Review Focus" in fundamentals_report

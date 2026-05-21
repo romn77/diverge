@@ -1,6 +1,3 @@
-from contextlib import contextmanager
-
-from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.report_output import (
     NewsReportStructuredOutput,
     merge_structured_agent_output,
@@ -22,46 +19,42 @@ from diverge.research.earnings import (
     build_earnings_workflow_context,
     inject_earnings_section,
 )
-from diverge.research.search.session import current_search_context
 from diverge.runtime.messages import AdkPrompt
 from diverge.runtime.structured_output import parse_structured_output
 
 
-class NewsAnalyst(DivergeAgentNode):
-    name = "news_analyst"
+def build_news_analyst_prompt(state):
+    current_date = state["trade_date"]
+    ticker = state["company_of_interest"]
+    instrument_context = build_instrument_context(ticker)
+    output_language = state.get("output_language", "en")
+    language_instruction = get_language_instruction(output_language)
+    style_instruction = get_research_note_style_instruction(output_language)
+    trade_feedback_message = get_trade_feedback_message(state)
+    evidence_rules_instruction = get_evidence_rules_instruction()
+    role_instruction = get_analyst_evidence_role_instruction("news/macro")
+    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+    earnings_context = build_earnings_workflow_context(
+        trade_date=current_date,
+        ticker=ticker,
+        earnings_event=state.get("earnings_event"),
+    )
 
-    def build_call(self, state):
-        current_date = state["trade_date"]
-        ticker = state["company_of_interest"]
-        instrument_context = build_instrument_context(ticker)
-        output_language = state.get("output_language", "en")
-        language_instruction = get_language_instruction(output_language)
-        style_instruction = get_research_note_style_instruction(output_language)
-        trade_feedback_message = get_trade_feedback_message(state)
-        evidence_rules_instruction = get_evidence_rules_instruction()
-        role_instruction = get_analyst_evidence_role_instruction("news/macro")
-        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
-        earnings_context = build_earnings_workflow_context(
-            trade_date=current_date,
-            ticker=ticker,
-            earnings_event=state.get("earnings_event"),
-        )
+    tools = (
+        get_news,
+        get_global_news,
+        web_search_evidence,
+    )
 
-        tools = [
-            get_news,
-            get_global_news,
-            web_search_evidence,
-        ]
+    web_search_instruction = """Web Search is an optional evidence supplement. You may use web_search_evidence at most 2 times in this analyst step. Prefer existing financial news tools first. Use Web Search only for fresh-news verification, missing coverage, Chinese/local sources, or source-backed risks/catalysts. If Web Search returns no results or warnings, continue with available tools and clearly note the limitation. Do not make web-search-backed claims unless supported by the returned evidence."""
 
-        web_search_instruction = """Web Search is an optional evidence supplement. You may use web_search_evidence at most 2 times in this analyst step. Prefer existing financial news tools first. Use Web Search only for fresh-news verification, missing coverage, Chinese/local sources, or source-backed risks/catalysts. If Web Search returns no results or warnings, continue with available tools and clearly note the limitation. Do not make web-search-backed claims unless supported by the returned evidence."""
-
-        system_message = (
-            "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(ticker, start_date, end_date) for company-specific news, get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news, and web_search_evidence(query, purpose, max_results) when you need a targeted search-style query or source-backed supplement. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
-            + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
-            + f"\n\n{web_search_instruction}"
-            + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
-            + f"\n\n{earnings_context.prompt_instruction}"
-            + """ Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:
+    system_message = (
+        "You are a news researcher tasked with analyzing recent news and trends over the past week. Please write a comprehensive report of the current state of the world that is relevant for trading and macroeconomics. Use the available tools: get_news(ticker, start_date, end_date) for company-specific news, get_global_news(curr_date, look_back_days, limit) for broader macroeconomic news, and web_search_evidence(query, purpose, max_results) when you need a targeted search-style query or source-backed supplement. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
+        + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
+        + f"\n\n{web_search_instruction}"
+        + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
+        + f"\n\n{earnings_context.prompt_instruction}"
+        + """ Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:
 
 ```json-highlights
 {
@@ -93,88 +86,67 @@ class NewsAnalyst(DivergeAgentNode):
 ```
 
 Keep the JSON keys and enum literals in English constants exactly as shown (`category` must be `news`; `signal` must be one of `BUY`, `OVERWEIGHT`, `HOLD`, `UNDERWEIGHT`, `SELL`; `signal_confidence` must be one of `high`, `medium`, `low`; `stance` must be one of `bullish`, `neutral`, `bearish`, `mixed`; `market_impact` must be one of `positive`, `negative`, `neutral`, `mixed`). Free-form string values should follow the report language. `signal_confidence` and `macro_outlook` are optional when uncertain."""
-        )
+    )
 
-        prompt = AdkPrompt(
-            system_message=(
-                f"Available tools: {', '.join([tool.name for tool in tools])}. "
-                "Use them only for the news/macro evidence task described below.\n"
-                f"{system_message}"
-                f"\n{style_instruction}"
-                f"\n{language_instruction}"
-                f"\n{trade_feedback_message}"
-                f"\n{structured_agent_output_instruction()}"
-                f"\nFor your reference, the current date is {current_date}. {instrument_context}"
-            ),
-            messages=tuple(state["messages"]),
-        )
-        return AgentCallSpec(
-            prompt=prompt,
-            tools=tuple(tools),
-            output_schema=NewsReportStructuredOutput,
-            output_key="news_report_structured",
-            metadata={
-                "agent": "News Analyst",
-                "ticker": ticker,
-                "analysis_date": current_date,
-                "language": output_language,
-                "earnings_report_section": earnings_context.report_section,
-            },
-        )
+    prompt = AdkPrompt(
+        system_message=(
+            f"Available tools: {', '.join([tool.name for tool in tools])}. "
+            "Use them only for the news/macro evidence task described below.\n"
+            f"{system_message}"
+            f"\n{style_instruction}"
+            f"\n{language_instruction}"
+            f"\n{trade_feedback_message}"
+            f"\n{structured_agent_output_instruction()}"
+            f"\nFor your reference, the current date is {current_date}. {instrument_context}"
+        ),
+        messages=tuple(state["messages"]),
+    )
+    metadata = {
+        "agent": "News Analyst",
+        "ticker": ticker,
+        "analysis_date": current_date,
+        "language": output_language,
+        "earnings_report_section": earnings_context.report_section,
+    }
+    return prompt, tools, metadata
 
-    @contextmanager
-    def call_context(self, state, spec):
-        context_token = None
-        parent_context = current_search_context.get()
-        if parent_context is not None:
-            context_token = current_search_context.set(
-                parent_context.model_copy(
-                    update={
-                        key: value
-                        for key, value in spec.metadata.items()
-                        if key != "earnings_report_section"
-                    }
-                )
-            )
+
+def build_news_analyst_result(
+    state,
+    *,
+    response_content,
+    tool_calls=None,
+    earnings_report_section="",
+    **_unused,
+):
+    report = ""
+
+    if len(tool_calls or []) == 0:
         try:
-            yield
-        finally:
-            if context_token is not None:
-                current_search_context.reset(context_token)
+            structured = parse_structured_output(
+                response_content,
+                NewsReportStructuredOutput,
+            )
+        except Exception:
+            report = inject_earnings_section(
+                response_content,
+                earnings_report_section,
+            )
+        else:
+            report = render_markdown_with_highlights(
+                inject_earnings_section(
+                    structured.report_markdown,
+                    earnings_report_section,
+                ),
+                structured.highlights,
+            )
+            return {
+                "news_report": report,
+                "structured_agent_outputs": merge_structured_agent_output(
+                    state,
+                    agent_name="news_analyst",
+                    payload=structured.model_dump(mode="json"),
+                ),
+            }
 
-    def apply_response(self, state, spec, response):
-        report = ""
-
-        if len(response.tool_calls) == 0:
-            try:
-                structured = parse_structured_output(
-                    response.content,
-                    NewsReportStructuredOutput,
-                )
-            except Exception:
-                report = inject_earnings_section(
-                    response.content,
-                    spec.metadata["earnings_report_section"],
-                )
-            else:
-                report = render_markdown_with_highlights(
-                    inject_earnings_section(
-                        structured.report_markdown,
-                        spec.metadata["earnings_report_section"],
-                    ),
-                    structured.highlights,
-                )
-                return {
-                    "messages": [response],
-                    "news_report": report,
-                    "structured_agent_outputs": merge_structured_agent_output(
-                        state,
-                        agent_name=self.name,
-                        payload=structured.model_dump(mode="json"),
-                    ),
-                }
-
-        return {
-            "messages": [response],
-            "news_report": report,
-        }
+    return {"news_report": report}

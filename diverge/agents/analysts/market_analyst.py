@@ -1,4 +1,3 @@
-from diverge.agents.base import AgentCallSpec, DivergeAgentNode
 from diverge.agents.report_output import (
     MarketReportStructuredOutput,
     merge_structured_agent_output,
@@ -20,28 +19,25 @@ from diverge.runtime.messages import AdkPrompt
 from diverge.runtime.structured_output import parse_structured_output
 
 
-class MarketAnalyst(DivergeAgentNode):
-    name = "market_analyst"
+def build_market_analyst_prompt(state):
+    current_date = state["trade_date"]
+    ticker = state["company_of_interest"]
+    instrument_context = build_instrument_context(ticker)
+    output_language = state.get("output_language", "en")
+    language_instruction = get_language_instruction(output_language)
+    style_instruction = get_research_note_style_instruction(output_language)
+    trade_feedback_message = get_trade_feedback_message(state)
+    evidence_rules_instruction = get_evidence_rules_instruction()
+    role_instruction = get_analyst_evidence_role_instruction("market/technical")
+    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
 
-    def build_call(self, state):
-        current_date = state["trade_date"]
-        ticker = state["company_of_interest"]
-        instrument_context = build_instrument_context(ticker)
-        output_language = state.get("output_language", "en")
-        language_instruction = get_language_instruction(output_language)
-        style_instruction = get_research_note_style_instruction(output_language)
-        trade_feedback_message = get_trade_feedback_message(state)
-        evidence_rules_instruction = get_evidence_rules_instruction()
-        role_instruction = get_analyst_evidence_role_instruction("market/technical")
-        decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+    tools = (
+        get_stock_data,
+        get_indicators,
+    )
 
-        tools = [
-            get_stock_data,
-            get_indicators,
-        ]
-
-        system_message = (
-            """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
+    system_message = (
+        """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
 
 Moving Averages:
 - close_50_sma: 50 SMA: A medium-term trend indicator. Usage: Identify trend direction and serve as dynamic support/resistance. Tips: It lags price; combine with faster indicators for timely signals.
@@ -100,55 +96,53 @@ Volume-Based Indicators:
 ```
 
 Keep the JSON keys and enum literals in English constants exactly as shown; free-form string values should follow the report language."""
-        )
+    )
 
-        prompt = AdkPrompt(
-            system_message=(
-                f"Available tools: {', '.join([tool.name for tool in tools])}. "
-                "Use them only for the market/technical evidence task described below.\n"
-                f"{system_message}"
-                f"\n{style_instruction}"
-                f"\n{language_instruction}"
-                f"\n{trade_feedback_message}"
-                f"\n{structured_agent_output_instruction()}"
-                f"\nFor your reference, the current date is {current_date}. {instrument_context}"
-            ),
-            messages=tuple(state["messages"]),
-        )
-        return AgentCallSpec(
-            prompt=prompt,
-            tools=tuple(tools),
-            output_schema=MarketReportStructuredOutput,
-            output_key="market_report_structured",
-        )
+    prompt = AdkPrompt(
+        system_message=(
+            f"Available tools: {', '.join([tool.name for tool in tools])}. "
+            "Use them only for the market/technical evidence task described below.\n"
+            f"{system_message}"
+            f"\n{style_instruction}"
+            f"\n{language_instruction}"
+            f"\n{trade_feedback_message}"
+            f"\n{structured_agent_output_instruction()}"
+            f"\nFor your reference, the current date is {current_date}. {instrument_context}"
+        ),
+        messages=tuple(state["messages"]),
+    )
+    return prompt, tools, {}
 
-    def apply_response(self, state, spec, response):
-        report = ""
 
-        if len(response.tool_calls) == 0:
-            try:
-                structured = parse_structured_output(
-                    response.content,
-                    MarketReportStructuredOutput,
-                )
-            except Exception:
-                report = response.content
-            else:
-                report = render_markdown_with_highlights(
-                    structured.report_markdown,
-                    structured.highlights,
-                )
-                return {
-                    "messages": [response],
-                    "market_report": report,
-                    "structured_agent_outputs": merge_structured_agent_output(
-                        state,
-                        agent_name=self.name,
-                        payload=structured.model_dump(mode="json"),
-                    ),
-                }
+def build_market_analyst_result(
+    state,
+    *,
+    response_content,
+    tool_calls=None,
+    **_unused,
+):
+    report = ""
 
-        return {
-            "messages": [response],
-            "market_report": report,
-        }
+    if len(tool_calls or []) == 0:
+        try:
+            structured = parse_structured_output(
+                response_content,
+                MarketReportStructuredOutput,
+            )
+        except Exception:
+            report = response_content
+        else:
+            report = render_markdown_with_highlights(
+                structured.report_markdown,
+                structured.highlights,
+            )
+            return {
+                "market_report": report,
+                "structured_agent_outputs": merge_structured_agent_output(
+                    state,
+                    agent_name="market_analyst",
+                    payload=structured.model_dump(mode="json"),
+                ),
+            }
+
+    return {"market_report": report}
