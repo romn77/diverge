@@ -746,7 +746,25 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             "Follow the section structure specified in the `decision_report` field description.",
             prompt,
         )
+        self.assertIn('"time_horizon": "Not specified"', prompt)
+        self.assertIn('"key_reasons": [', prompt)
+        self.assertIn('"pillar": "portfolio"', prompt)
+        self.assertIn(
+            "`key_reasons` must be an array of evidence objects", prompt
+        )
+        self.assertIn("Do not create a separate `risk_summary` field", prompt)
+        self.assertIn("Never emit it as a string", prompt)
         self.assertNotIn("Inside this field, include `## Rating`", prompt)
+
+    def test_portfolio_manager_output_schema_describes_nested_decision_card(self):
+        schema = PortfolioManagerStructuredOutput.model_json_schema()
+        decision_card_schema = schema["$defs"]["PortfolioDecisionCardOutput"]
+        key_reasons_schema = decision_card_schema["properties"]["key_reasons"]
+
+        self.assertFalse(decision_card_schema["additionalProperties"])
+        self.assertIn("Array of evidence objects", key_reasons_schema["description"])
+        self.assertIn("risk_summary", decision_card_schema["properties"]["key_risks"]["description"])
+        self.assertFalse(schema["additionalProperties"])
 
     def test_portfolio_manager_wraps_and_truncates_untrusted_context(self):
         state = _base_state()

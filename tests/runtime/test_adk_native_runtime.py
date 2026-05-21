@@ -117,6 +117,48 @@ def test_native_portfolio_callback_replaces_invalid_schema_response():
     )
 
 
+def test_native_portfolio_callback_recovers_partial_json_card():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    raw_payload = {
+        "decision_report": "raw report",
+        "decision_card": {
+            "rating": "HOLD",
+            "action": "WATCH",
+            "confidence": "low",
+            "conviction_score": 42,
+            "thesis": "TLN 显示出单季度盈利与经营现金流修复，但证据仍停留在单点改善。",
+            "key_reasons": ["2026 年一季度经营现金流为正。"],
+            "risk_summary": "高杠杆可能放大股权波动。",
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(text=json.dumps(raw_payload, ensure_ascii=False))
+            ],
+        )
+    )
+
+    replacement = adk_native_runner._portfolio_after_model_callback(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["decision_report"] == "raw report"
+    assert payload["decision_card"]["rating"] == "HOLD"
+    assert payload["decision_card"]["one_line_summary"].startswith("TLN 显示出")
+    assert payload["decision_card"]["key_reasons"][0]["evidence"].startswith(
+        "2026 年一季度"
+    )
+    assert payload["decision_card"]["key_risks"] == ["高杠杆可能放大股权波动。"]
+    assert callback_context.state["runtime_warnings"][0]["kind"] == (
+        "structured_output_validation_failed"
+    )
+
+
 def test_analysis_workflow_uses_native_nodes_without_bridge():
     def node(_ctx):
         return None

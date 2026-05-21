@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from typing import Any
 
@@ -79,6 +80,9 @@ def _unstructured_rating_summary(
 
 
 def _coerce_string_list(value: Any, *, max_items: int = 5) -> list[str]:
+    if isinstance(value, str):
+        cleaned = value.strip()
+        return [cleaned] if cleaned else []
     if not isinstance(value, list):
         return []
     result = []
@@ -95,6 +99,21 @@ def _clean_optional_string(value: Any) -> str | None:
         return None
     cleaned = value.strip()
     return cleaned or None
+
+
+def _compact_summary(value: Any, *, max_chars: int = 180) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = " ".join(value.split())
+    if not cleaned:
+        return None
+    for marker in ("。", ".", "！", "!", "？", "?"):
+        marker_index = cleaned.find(marker)
+        if 0 < marker_index < max_chars:
+            return cleaned[: marker_index + 1]
+    if len(cleaned) > max_chars:
+        return f"{cleaned[:max_chars].rstrip()}..."
+    return cleaned
 
 
 def _infer_market(symbol: str) -> str:
@@ -182,6 +201,15 @@ def _build_action_playbook(value: Any) -> dict[str, list[str]] | None:
 
 
 def _build_position_guidance(value: Any) -> dict[str, str | None] | None:
+    if isinstance(value, str):
+        cleaned = value.strip()
+        if cleaned:
+            return {
+                "suggested_exposure": cleaned,
+                "max_exposure": None,
+                "sizing_rationale": None,
+                "risk_budget_note": None,
+            }
     if not isinstance(value, dict):
         return None
     item = {
@@ -198,10 +226,29 @@ def _build_evidence_items(value: Any) -> list[dict[str, str]]:
         return []
     items: list[dict[str, str]] = []
     for raw in value:
+        if isinstance(raw, str):
+            evidence = raw.strip()
+            if not evidence:
+                continue
+            item = {
+                "pillar": "portfolio",
+                "point": _compact_summary(evidence, max_chars=72)
+                or "Portfolio evidence",
+                "evidence": evidence,
+                "strength": "medium",
+                "source": None,
+                "data_date": None,
+                "confidence": None,
+                "limitation": None,
+            }
+            items.append(item)
+            if len(items) >= 5:
+                break
+            continue
         if not isinstance(raw, dict):
             continue
-        point = raw.get("point")
-        evidence = raw.get("evidence")
+        point = raw.get("point") or raw.get("claim")
+        evidence = raw.get("evidence") or raw.get("claim")
         if not isinstance(point, str) or not point.strip():
             continue
         pillar = raw.get("pillar")
@@ -307,6 +354,26 @@ def _payload_from_decision_card_block(
     price_plan = (
         block.get("price_plan") if isinstance(block.get("price_plan"), dict) else {}
     )
+    thesis = _first_non_empty(
+        block.get("thesis"),
+        block.get("decision_basis"),
+        block.get("decision_report"),
+        fallback=payload["thesis"],
+    )
+    summary_fallback = (
+        _compact_summary(thesis)
+        if thesis != payload["thesis"]
+        else payload["one_line_summary"]
+    )
+    key_risks = _coerce_string_list(block.get("key_risks"))
+    risk_summary = _clean_optional_string(block.get("risk_summary"))
+    if not key_risks and risk_summary:
+        key_risks = [risk_summary]
+    suggested_position = (
+        block.get("suggested_position")
+        if isinstance(block.get("suggested_position"), str)
+        else _clean_optional_string(block.get("position_guidance"))
+    )
     payload.update(
         {
             "card_version": block.get("card_version") or "1.2",
@@ -332,9 +399,9 @@ def _payload_from_decision_card_block(
             "one_line_summary": _first_non_empty(
                 block.get("one_line_summary"),
                 block.get("summary"),
-                fallback=payload["one_line_summary"],
+                fallback=summary_fallback,
             ),
-            "thesis": _first_non_empty(block.get("thesis"), fallback=payload["thesis"]),
+            "thesis": thesis,
             "price_plan": {
                 "current_price": _normalize_float(price_plan.get("current_price")),
                 "entry_zone": _normalize_entry_zone(price_plan.get("entry_zone")),
@@ -348,11 +415,11 @@ def _payload_from_decision_card_block(
                 if isinstance(price_plan.get("risk_reward_note"), str)
                 else None,
             },
-            "suggested_position": block.get("suggested_position")
-            if isinstance(block.get("suggested_position"), str)
-            else None,
-            "key_reasons": _build_evidence_items(block.get("key_reasons")),
-            "key_risks": _coerce_string_list(block.get("key_risks")),
+            "suggested_position": suggested_position,
+            "key_reasons": _build_evidence_items(
+                block.get("key_reasons") or block.get("evidence_blocks")
+            ),
+            "key_risks": key_risks,
             "catalysts": _coerce_string_list(block.get("catalysts")),
             "watch_items": _coerce_string_list(block.get("watch_items")),
             "data_quality_notes": _coerce_string_list(
@@ -377,6 +444,25 @@ def _payload_from_decision_card_block(
         }
     )
     return payload
+
+
+def _extract_raw_json_decision_card(markdown: str) -> dict[str, Any] | None:
+    try:
+        payload = json.loads(markdown or "")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    block = payload.get("decision_card")
+    if isinstance(block, dict):
+        decision_block = dict(block)
+        decision_report = _clean_optional_string(payload.get("decision_report"))
+        if decision_report:
+            decision_block.setdefault("decision_report", decision_report)
+        return decision_block
+    if payload.get("rating") is not None:
+        return payload
+    return None
 
 
 def _payload_from_highlights_block(
@@ -575,6 +661,23 @@ def build_decision_card(
                 DecisionCard(**payload), output_language=output_language
             ),
             final_state,
+        )
+
+    raw_json_decision_card = _extract_raw_json_decision_card(final_decision)
+    if raw_json_decision_card:
+        payload = _payload_from_decision_card_block(
+            raw_json_decision_card,
+            symbol=symbol,
+            report_id=report_id,
+            analysis_date=analysis_date,
+            raw_signal=raw_signal,
+        )
+        card = DecisionCard(**payload)
+        card.data_quality_notes.append(
+            "DecisionCard was recovered from a raw JSON Portfolio Manager response."
+        )
+        return _attach_opportunity_evidence(
+            apply_quality_gates(card, output_language=output_language), final_state
         )
 
     highlights_block = extract_highlights_block(final_decision)

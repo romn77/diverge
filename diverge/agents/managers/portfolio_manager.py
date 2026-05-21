@@ -1,6 +1,7 @@
 import json
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from diverge.agents.utils.agent_utils import (
     build_instrument_context,
@@ -23,6 +24,13 @@ from diverge.decision_card.schema import (
     TradeReadiness,
     WhyNot,
 )
+from diverge.decision_card.parser import (
+    infer_action_from_rating,
+    normalize_action,
+    normalize_confidence,
+    normalize_rating,
+)
+
 
 def _error_status_code(error: BaseException) -> int | None:
     status_code = getattr(error, "status_code", None)
@@ -251,33 +259,336 @@ def _empty_portfolio_context(output_language: str | None) -> str:
     return "Current portfolio reference:\n- No tracked holdings were provided for this user."
 
 
+def _clean_string(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _compact_summary(value: Any, *, max_chars: int = 180) -> str | None:
+    cleaned = _clean_string(value)
+    if not cleaned:
+        return None
+    compacted = " ".join(cleaned.split())
+    for marker in ("。", ".", "！", "!", "？", "?"):
+        marker_index = compacted.find(marker)
+        if 0 < marker_index < max_chars:
+            return compacted[: marker_index + 1]
+    if len(compacted) > max_chars:
+        return f"{compacted[:max_chars].rstrip()}..."
+    return compacted
+
+
+def _coerce_string_list(value: Any, *, max_items: int = 5) -> list[str]:
+    if isinstance(value, str):
+        cleaned = value.strip()
+        return [cleaned] if cleaned else []
+    if not isinstance(value, list):
+        return []
+    result = []
+    for item in value:
+        cleaned = _clean_string(item)
+        if cleaned:
+            result.append(cleaned)
+        if len(result) >= max_items:
+            break
+    return result
+
+
+def _coerce_evidence_items(value: Any) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    items: list[dict[str, Any]] = []
+    for raw in value:
+        if isinstance(raw, str):
+            evidence = raw.strip()
+            if evidence:
+                items.append(
+                    {
+                        "pillar": "portfolio",
+                        "point": _compact_summary(evidence, max_chars=72)
+                        or "Portfolio evidence",
+                        "evidence": evidence,
+                        "strength": "medium",
+                    }
+                )
+        elif isinstance(raw, dict):
+            point = _clean_string(raw.get("point") or raw.get("claim"))
+            evidence = _clean_string(raw.get("evidence") or raw.get("claim"))
+            if point:
+                items.append(
+                    {
+                        "pillar": raw.get("pillar")
+                        if isinstance(raw.get("pillar"), str)
+                        else "portfolio",
+                        "point": point,
+                        "evidence": evidence or point,
+                        "strength": raw.get("strength")
+                        if isinstance(raw.get("strength"), str)
+                        else "medium",
+                        "source": raw.get("source")
+                        if isinstance(raw.get("source"), str)
+                        else None,
+                        "data_date": raw.get("data_date")
+                        if isinstance(raw.get("data_date"), str)
+                        else None,
+                        "confidence": normalize_confidence(raw.get("confidence"))
+                        if isinstance(raw.get("confidence"), str)
+                        else None,
+                        "limitation": raw.get("limitation")
+                        if isinstance(raw.get("limitation"), str)
+                        else None,
+                    }
+                )
+        if len(items) >= 5:
+            break
+    return items
+
+
+def _normalize_partial_decision_card_payload(card: dict[str, Any]) -> dict[str, Any]:
+    rating = normalize_rating(str(card.get("rating")) if card.get("rating") else None)
+    thesis = (
+        _clean_string(card.get("thesis"))
+        or _clean_string(card.get("decision_basis"))
+        or _clean_string(card.get("decision_report"))
+        or "Portfolio Manager provided a partial structured decision card."
+    )
+    summary = (
+        _clean_string(card.get("one_line_summary"))
+        or _clean_string(card.get("summary"))
+        or _compact_summary(thesis)
+        or "Portfolio Manager provided a partial structured decision card."
+    )
+    key_reasons = _coerce_evidence_items(
+        card.get("key_reasons") or card.get("evidence_blocks")
+    )
+    key_risks = _coerce_string_list(card.get("key_risks"))
+    risk_summary = _clean_string(card.get("risk_summary"))
+    if not key_risks and risk_summary:
+        key_risks = [risk_summary]
+    position_guidance = card.get("position_guidance")
+    if isinstance(position_guidance, str):
+        position_guidance = {
+            "suggested_exposure": position_guidance,
+            "max_exposure": None,
+            "sizing_rationale": None,
+            "risk_budget_note": None,
+        }
+    data_quality_notes = _coerce_string_list(
+        card.get("data_quality_notes"), max_items=20
+    )
+    data_quality_notes.append(
+        "Recovered from a schema-invalid Portfolio Manager response."
+    )
+
+    return {
+        "card_version": card.get("card_version") or "1.2",
+        "rating": rating,
+        "action": normalize_action(
+            str(card.get("action")) if card.get("action") else None, rating
+        )
+        or infer_action_from_rating(rating),
+        "confidence": normalize_confidence(
+            str(card.get("confidence")) if card.get("confidence") else None
+        ),
+        "conviction_score": card.get("conviction_score")
+        if isinstance(card.get("conviction_score"), int)
+        else 50,
+        "time_horizon": _clean_string(card.get("time_horizon")) or "Not specified",
+        "one_line_summary": summary,
+        "thesis": thesis,
+        "price_plan": card.get("price_plan")
+        if isinstance(card.get("price_plan"), dict)
+        else {},
+        "suggested_position": _clean_string(card.get("suggested_position")),
+        "key_reasons": key_reasons,
+        "key_risks": key_risks,
+        "catalysts": _coerce_string_list(card.get("catalysts")),
+        "watch_items": _coerce_string_list(card.get("watch_items")),
+        "data_quality_notes": data_quality_notes,
+        "trade_readiness": card.get("trade_readiness"),
+        "trade_readiness_reason": _clean_string(card.get("trade_readiness_reason")),
+        "blocking_items": _coerce_string_list(card.get("blocking_items")),
+        "data_quality_level": card.get("data_quality_level"),
+        "data_quality_summary": _clean_string(card.get("data_quality_summary")),
+        "why_not": card.get("why_not") if isinstance(card.get("why_not"), dict) else None,
+        "action_playbook": card.get("action_playbook")
+        if isinstance(card.get("action_playbook"), dict)
+        else None,
+        "position_guidance": position_guidance
+        if isinstance(position_guidance, dict)
+        else None,
+    }
+
+
+def _salvage_structured_output(
+    raw_response: str,
+) -> "PortfolioManagerStructuredOutput | None":
+    try:
+        payload = json.loads(raw_response or "")
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    decision_card = payload.get("decision_card")
+    if not isinstance(decision_card, dict):
+        return None
+    has_substance = any(
+        decision_card.get(key)
+        for key in (
+            "one_line_summary",
+            "summary",
+            "thesis",
+            "key_reasons",
+            "evidence_blocks",
+        )
+    )
+    if not has_substance:
+        return None
+    decision_report = _clean_string(payload.get("decision_report")) or (
+        "## Portfolio Manager Decision\n\n"
+        + (
+            _clean_string(decision_card.get("thesis"))
+            or "Portfolio Manager provided a partial structured decision card."
+        )
+    )
+    return PortfolioManagerStructuredOutput.model_validate(
+        {
+            "decision_report": decision_report,
+            "decision_card": _normalize_partial_decision_card_payload(decision_card),
+        }
+    )
+
+
 class PortfolioDecisionCardOutput(BaseModel):
-    card_version: str = "1.2"
-    rating: PortfolioRating
-    action: PortfolioAction
-    confidence: ConfidenceLevel
-    conviction_score: int = Field(ge=0, le=100)
-    time_horizon: str
-    one_line_summary: str
-    thesis: str
-    price_plan: PricePlan = Field(default_factory=PricePlan)
-    suggested_position: str | None = None
-    key_reasons: list[EvidenceItem] = Field(default_factory=list, max_length=5)
-    key_risks: list[str] = Field(default_factory=list, max_length=5)
-    catalysts: list[str] = Field(default_factory=list, max_length=5)
-    watch_items: list[str] = Field(default_factory=list, max_length=5)
-    data_quality_notes: list[str] = Field(default_factory=list, max_length=20)
-    trade_readiness: TradeReadiness | None = None
-    trade_readiness_reason: str | None = None
-    blocking_items: list[str] = Field(default_factory=list, max_length=5)
-    data_quality_level: DataQualityLevel | None = None
-    data_quality_summary: str | None = None
-    why_not: WhyNot | None = None
-    action_playbook: ActionPlaybook | None = None
-    position_guidance: PositionGuidance | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    card_version: str = Field(
+        default="1.2",
+        description="DecisionCard schema version. Use '1.2' unless instructed otherwise.",
+    )
+    rating: PortfolioRating = Field(
+        description=(
+            "Final portfolio rating. Use exactly one enum: BUY, OVERWEIGHT, HOLD, "
+            "UNDERWEIGHT, or SELL."
+        )
+    )
+    action: PortfolioAction = Field(
+        description=(
+            "Execution action, distinct from rating. Use OPEN, ADD, MAINTAIN, TRIM, "
+            "EXIT, WATCH, NO_ACTION, or AVOID."
+        )
+    )
+    confidence: ConfidenceLevel = Field(
+        description="Overall confidence in the final ruling: high, medium, or low."
+    )
+    conviction_score: int = Field(
+        ge=0,
+        le=100,
+        description=(
+            "0-100 conviction score reflecting opportunity, risk, evidence strength, "
+            "and data quality."
+        ),
+    )
+    time_horizon: str = Field(
+        description=(
+            "Required short horizon such as 'Not specified', '1-4 weeks', or "
+            "'next earnings cycle'. Do not omit."
+        )
+    )
+    one_line_summary: str = Field(
+        description="Required one-sentence user-facing summary of the final decision."
+    )
+    thesis: str = Field(
+        description="Required concise thesis explaining the final decision and main caveats."
+    )
+    price_plan: PricePlan = Field(
+        default_factory=PricePlan,
+        description=(
+            "Execution price plan. Use null for price levels when reliable current "
+            "price or technical levels are unavailable."
+        ),
+    )
+    suggested_position: str | None = Field(
+        default=None,
+        description=(
+            "Optional generic suggested position text. Do not assume real user holdings."
+        ),
+    )
+    key_reasons: list[EvidenceItem] = Field(
+        default_factory=list,
+        max_length=5,
+        description=(
+            "Array of evidence objects, not strings. Each item must include pillar, "
+            "point, evidence, and strength."
+        ),
+    )
+    key_risks: list[str] = Field(
+        default_factory=list,
+        max_length=5,
+        description=(
+            "Risk summary bullets. Use this field instead of creating risk_summary."
+        ),
+    )
+    catalysts: list[str] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Optional catalyst bullets explicitly supported by the reports.",
+    )
+    watch_items: list[str] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Optional monitoring items or triggers to revisit the decision.",
+    )
+    data_quality_notes: list[str] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Data limitations, missing inputs, and confidence caveats.",
+    )
+    trade_readiness: TradeReadiness | None = Field(
+        default=None,
+        description=(
+            "Execution readiness: READY, WAITING_FOR_TRIGGER, BLOCKED_BY_RISK, "
+            "DATA_INSUFFICIENT, NO_ACTION_REQUIRED, or null."
+        ),
+    )
+    trade_readiness_reason: str | None = Field(
+        default=None,
+        description="Optional brief reason for trade_readiness.",
+    )
+    blocking_items: list[str] = Field(
+        default_factory=list,
+        max_length=5,
+        description="Specific missing inputs or risk blockers before action.",
+    )
+    data_quality_level: DataQualityLevel | None = Field(
+        default=None,
+        description="complete, partial, weak, insufficient, or null.",
+    )
+    data_quality_summary: str | None = Field(
+        default=None,
+        description="Optional user-facing summary of data quality.",
+    )
+    why_not: WhyNot | None = Field(
+        default=None,
+        description="Optional structured alternatives explaining why not more bullish, bearish, or immediate.",
+    )
+    action_playbook: ActionPlaybook | None = Field(
+        default=None,
+        description="Optional structured execution playbook.",
+    )
+    position_guidance: PositionGuidance | None = Field(
+        default=None,
+        description=(
+            "Optional object with generic exposure guidance. Do not provide this as a string."
+        ),
+    )
 
 
 class PortfolioManagerStructuredOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     decision_report: str = Field(
         description=(
             "User-facing Portfolio Manager markdown narrative without JSON code "
@@ -287,7 +598,12 @@ class PortfolioManagerStructuredOutput(BaseModel):
             "include a heading named `decision_card`."
         )
     )
-    decision_card: PortfolioDecisionCardOutput
+    decision_card: PortfolioDecisionCardOutput = Field(
+        description=(
+            "Structured final decision card matching PortfolioDecisionCardOutput exactly. "
+            "Do not add unsupported fields such as ticker or risk_summary."
+        )
+    )
 
 
 def _fallback_decision_card_for_structured_error(error: BaseException) -> dict:
@@ -367,6 +683,10 @@ def structured_fallback_from_invalid_response(
     raw_response: str,
     error: BaseException,
 ) -> PortfolioManagerStructuredOutput:
+    salvaged = _salvage_structured_output(raw_response)
+    if salvaged is not None:
+        return salvaged
+
     report = raw_response.strip()
     if not report:
         report = (
@@ -535,6 +855,40 @@ def build_portfolio_manager_prompt(
         history,
         limit=6000,
     )
+    decision_card_schema_example = _json_block(
+        {
+            "decision_report": "## Rating\n\n...\n\n## Executive Summary\n\n...\n\n## Investment Thesis\n\n...",
+            "decision_card": {
+                "rating": "HOLD",
+                "action": "WATCH",
+                "confidence": "low",
+                "conviction_score": 42,
+                "time_horizon": "Not specified",
+                "one_line_summary": "One concise user-facing sentence.",
+                "thesis": "Concise thesis with the main evidence and caveats.",
+                "key_reasons": [
+                    {
+                        "pillar": "portfolio",
+                        "point": "Short decision point",
+                        "evidence": "Concrete evidence from analyst reports or risk debate.",
+                        "strength": "medium",
+                        "source": "risk_debate",
+                        "data_date": None,
+                        "confidence": "medium",
+                        "limitation": "Known data limitation, or null.",
+                    }
+                ],
+                "key_risks": ["Risk summary bullet."],
+                "data_quality_notes": ["Missing or weak input note."],
+                "position_guidance": {
+                    "suggested_exposure": "Generic risk-based exposure guidance.",
+                    "max_exposure": None,
+                    "sizing_rationale": None,
+                    "risk_budget_note": "Generic risk guidance; do not assume real holdings.",
+                },
+            },
+        }
+    )
 
     prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
 
@@ -585,17 +939,27 @@ Return only the structured response requested by the runtime schema:
 - `decision_report`: user-facing markdown narrative without JSON code fences. Follow the section structure specified in the `decision_report` field description.
 - `decision_card`: the structured final decision object.
 
-Top-level response must be exactly the schema object. Do not create markdown headings named `decision_report` or `decision_card`, and do not label the two schema fields as markdown sections.
+	Top-level response must be exactly the schema object. Do not create markdown headings named `decision_report` or `decision_card`, and do not label the two schema fields as markdown sections.
 
-For `decision_card`, use English enum literals exactly:
+	For `decision_card`, use English enum literals exactly:
 - rating: BUY, OVERWEIGHT, HOLD, UNDERWEIGHT, SELL
 - action: OPEN, ADD, MAINTAIN, TRIM, EXIT, WATCH, NO_ACTION, AVOID
 - confidence: high, medium, low
-- trade_readiness: READY, WAITING_FOR_TRIGGER, BLOCKED_BY_RISK, DATA_INSUFFICIENT, NO_ACTION_REQUIRED
-- data_quality_level: complete, partial, weak, insufficient
+	- trade_readiness: READY, WAITING_FOR_TRIGGER, BLOCKED_BY_RISK, DATA_INSUFFICIENT, NO_ACTION_REQUIRED
+	- data_quality_level: complete, partial, weak, insufficient
 
-Do not invent exact price levels if the reports do not provide reliable current price or technical levels. If price levels are unavailable, use null and explain the limitation in data_quality_notes. Rating and action are different concepts. Conviction_score reflects opportunity, risk, evidence strength, and data quality. Key_reasons must cite concrete evidence from analyst reports.
-Do not generate Portfolio Fit, Decision Journal, Opportunity Queue, or Conviction Breakdown fields. Do not write phrases such as "your current position", "your portfolio", "你当前仓位", or "你的组合" inside `position_guidance`; keep it generic and risk-based.
+	Minimum valid schema shape to follow. Do not return this as a fenced code block; return the raw schema object requested by the runtime:
+	{decision_card_schema_example}
+
+	Schema-shape rules:
+	- `time_horizon`, `one_line_summary`, and `thesis` are required. If the horizon is unavailable, set `time_horizon` to "Not specified".
+	- `key_reasons` must be an array of evidence objects. Never emit `key_reasons` as an array of strings.
+	- Use `key_risks` for risk bullets. Do not create a separate `risk_summary` field.
+	- `position_guidance` must be an object with `suggested_exposure`, `max_exposure`, `sizing_rationale`, and `risk_budget_note`, or null. Never emit it as a string.
+	- Do not add unsupported fields such as `ticker`, `symbol`, `market`, or `risk_summary` inside `decision_card`.
+
+	Do not invent exact price levels if the reports do not provide reliable current price or technical levels. If price levels are unavailable, use null and explain the limitation in data_quality_notes. Rating and action are different concepts. Conviction_score reflects opportunity, risk, evidence strength, and data quality. Key_reasons must cite concrete evidence from analyst reports.
+	Do not generate Portfolio Fit, Decision Journal, Opportunity Queue, or Conviction Breakdown fields. Do not write phrases such as "your current position", "your portfolio", "你当前仓位", or "你的组合" inside `position_guidance`; keep it generic and risk-based.
 
 {style_instruction}
 {language_instruction}"""

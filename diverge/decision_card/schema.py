@@ -51,14 +51,41 @@ EvidencePillar = Literal[
 
 
 class EvidenceItem(BaseModel):
-    pillar: EvidencePillar
-    point: str
-    evidence: str
-    strength: Literal["strong", "medium", "weak"] = "medium"
-    source: str | None = None
-    data_date: str | None = None
-    confidence: ConfidenceLevel | None = None
-    limitation: str | None = None
+    pillar: EvidencePillar = Field(
+        description=(
+            "Evidence category. Use one enum only: opportunity, technical, "
+            "fundamentals, valuation, news, sentiment, risk, portfolio, or macro."
+        )
+    )
+    point: str = Field(
+        description="Short decision point supported by the evidence, not a full paragraph."
+    )
+    evidence: str = Field(
+        description=(
+            "Concrete evidence from analyst reports or risk debate. Do not leave empty "
+            "and do not invent facts."
+        )
+    )
+    strength: Literal["strong", "medium", "weak"] = Field(
+        default="medium",
+        description="Evidence strength: strong, medium, or weak.",
+    )
+    source: str | None = Field(
+        default=None,
+        description="Optional source section or agent name, such as fundamentals_analyst.",
+    )
+    data_date: str | None = Field(
+        default=None,
+        description="Optional evidence date if explicitly available; otherwise null.",
+    )
+    confidence: ConfidenceLevel | None = Field(
+        default=None,
+        description="Optional evidence confidence: high, medium, low, or null.",
+    )
+    limitation: str | None = Field(
+        default=None,
+        description="Optional limitation or caveat for this evidence item.",
+    )
 
 
 class PricePlan(BaseModel):
@@ -85,10 +112,25 @@ class ActionPlaybook(BaseModel):
 
 
 class PositionGuidance(BaseModel):
-    suggested_exposure: str | None = None
-    max_exposure: str | None = None
-    sizing_rationale: str | None = None
-    risk_budget_note: str | None = None
+    suggested_exposure: str | None = Field(
+        default=None,
+        description=(
+            "Generic, risk-based exposure guidance. Do not assume or reveal the user's "
+            "actual current holdings."
+        ),
+    )
+    max_exposure: str | None = Field(
+        default=None,
+        description="Optional generic maximum exposure guardrail, or null.",
+    )
+    sizing_rationale: str | None = Field(
+        default=None,
+        description="Optional rationale for staged sizing, or null.",
+    )
+    risk_budget_note: str | None = Field(
+        default=None,
+        description="Generic risk-budget note; must not mention the user's real position.",
+    )
 
 
 class OpportunityEvidence(BaseModel):

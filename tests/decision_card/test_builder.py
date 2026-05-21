@@ -128,6 +128,52 @@ def test_build_decision_card_prefers_adk_schema_state_over_legacy_markdown():
     assert "ADK output_schema state" in " ".join(card.data_quality_notes)
 
 
+def test_build_decision_card_recovers_raw_json_portfolio_card():
+    final_state = {
+        "final_trade_decision": """
+{
+  "decision_report": "**结论摘要**\\n\\nTLN 的最终评级为 **HOLD**，应维持观察。",
+  "decision_card": {
+    "ticker": "TLN",
+    "rating": "HOLD",
+    "action": "WATCH",
+    "confidence": "low",
+    "trade_readiness": "DATA_INSUFFICIENT",
+    "data_quality_level": "weak",
+    "conviction_score": 42,
+    "thesis": "TLN 显示出单季度盈利与经营现金流修复，但证据仍停留在单点改善。",
+    "key_reasons": [
+      "2026 年一季度净利润转正、经营现金流为正且高于资本开支。",
+      "2025 年全年利润显著走弱并录得净亏损，修复尚未得到跨季度验证。"
+    ],
+    "risk_summary": "主要风险包括盈利修复仅为单季度现象，以及高杠杆放大股权波动。",
+    "position_guidance": "适合维持审慎、中性、低风险预算的处理框架。",
+    "data_quality_notes": "缺少近一周公司新闻、宏观新闻和债务到期结构。"
+  }
+}
+""",
+    }
+
+    card = build_decision_card(
+        final_state=final_state,
+        symbol="TLN",
+        report_id="TLN_20260520_090030",
+        analysis_date="2026-05-20",
+        output_language="cn",
+    )
+
+    assert card.rating == "HOLD"
+    assert card.action == "WATCH"
+    assert card.conviction_score == 42
+    assert card.one_line_summary.startswith("TLN 显示出单季度盈利")
+    assert "Final report text indicates" not in card.one_line_summary
+    assert card.thesis.startswith("TLN 显示出单季度盈利")
+    assert card.key_reasons[0].evidence.startswith("2026 年一季度净利润转正")
+    assert card.key_risks[0].startswith("主要风险包括")
+    assert card.position_guidance is not None
+    assert "raw JSON Portfolio Manager response" in " ".join(card.data_quality_notes)
+
+
 def test_build_decision_card_uses_language_aware_fallbacks():
     card = build_decision_card(
         final_state={
