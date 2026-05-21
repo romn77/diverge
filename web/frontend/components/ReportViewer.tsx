@@ -590,9 +590,10 @@ export function ReportViewer({
   const currentVisibility = structure?.visibility ?? "private";
   const isWorkspaceVisible = currentVisibility === "workspace";
   const isMarketBrief = isMarketBriefReport(reportId, structure?.ticker);
-  const overviewGridClass = isMarketBrief
-    ? "mt-4 grid gap-6"
-    : "mt-4 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start";
+  const shouldShowReportOverview = !isMarketBrief;
+  const shouldShowReportNavigation = !isMarketBrief;
+  const overviewGridClass =
+    "mt-4 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,7fr)] xl:items-start";
   const visibilityLabel = t(
     isWorkspaceVisible ? "home.visibility.workspace" : "home.visibility.private",
     isWorkspaceVisible ? "Workspace" : "Private"
@@ -689,333 +690,366 @@ export function ReportViewer({
           className="viewer-frame min-w-0 w-full"
           aria-live="polite"
         >
-        <div className="min-w-0 max-w-full">
-          <div className="min-w-0 max-w-full px-4 pt-6 md:px-8 md:pt-8">
-            <div className="min-w-0 w-full max-w-full">
-              <section className="report-panel rounded-[30px] border px-4 py-4 md:px-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="viewer-meta-label">
-                      {t("report.overviewPanel", "Report overview")}
-                    </p>
-                    {isOverviewCollapsed && (
-                      <p className="mt-2 truncate text-sm text-slate-600 md:text-base">
-                        <span className="font-heading font-semibold text-slate-900">
-                          {structure.ticker}
-                        </span>
-                        <span className="mx-2 text-[var(--border-strong)]">/</span>
-                        {collapsedOverviewSummary}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    onClick={() => setIsOverviewCollapsed((current) => !current)}
-                    aria-expanded={!isOverviewCollapsed}
-                    aria-controls="report-overview-panel"
-                    aria-label={overviewToggleLabel}
-                    title={overviewToggleLabel}
-                    className="size-10 rounded-full"
-                  >
-                    {isOverviewCollapsed ? (
-                      <ChevronDown className="size-4" aria-hidden />
-                    ) : (
-                      <ChevronUp className="size-4" aria-hidden />
-                    )}
-                  </Button>
-                </div>
-                {!isOverviewCollapsed && (
-                <div
-                  id="report-overview-panel"
-                  className={overviewGridClass}
-                >
-                  <div className="min-w-0 space-y-5">
-                    <header>
-                      <div className="space-y-5">
-                        <div className="flex min-w-0 items-start gap-4">
-                          {onOpenSidebar && (
-                            <Button
-                              type="button"
-                              onClick={onOpenSidebar}
-                              aria-controls="report-navigation"
-                              aria-expanded={sidebarOpen}
-                              aria-haspopup="dialog"
-                              variant="secondary"
-                              size="icon"
-                              className="min-h-11 min-w-11 rounded-full text-slate-500 md:hidden"
-                              aria-label={t(
-                                "report.openNavigation",
-                                "Open report navigation"
-                              )}
-                            >
-                              <svg viewBox="0 0 24 24" className="size-4" fill="none" aria-hidden>
-                                <path
-                                  d="M4 7h16M4 12h16M4 17h16"
-                                  stroke="currentColor"
-                                  strokeWidth="1.8"
-                                  strokeLinecap="round"
-                                />
-                              </svg>
-                            </Button>
-                          )}
-
-                          <div className="min-w-0">
-                            <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
-                              {structure.ticker}
-                            </h2>
-                            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
-                              <span>{generatedLabel}</span>
-                              <span className="hidden text-[var(--border-strong)] sm:inline">
-                                /
-                              </span>
-                              <span className="font-mono text-[12px] text-slate-500">
-                                {reportId}
-                              </span>
-                            </div>
-                            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
-                              <span className="inline-flex items-center gap-2">
-                                <span
-                                  className="size-2 rounded-full bg-[var(--primary)]"
-                                  aria-hidden
-                                />
-                                {selectedFileLabel ??
-                                  (selectedTab === DECISION_CARD_TAB_KEY
-                                    ? t("report.decisionCard", "Decision Card")
-                                    : selectedCategoryMeta
-                                      ? t(
-                                          "report.categoryView",
-                                          ({ label }) => `${label} view`,
-                                          {
-                                            label:
-                                              selectedCategoryLabel ??
-                                              selectedCategoryMeta.label,
-                                          }
-                                        )
-                                      : t("report.completeReport", "Complete Report"))}
-                              </span>
-                              {selectedTab !== DECISION_CARD_TAB_KEY &&
-                                selectedTab !== "complete" &&
-                                categoryFiles.length > 0 && (
-                                  <span>
-                                    {t(
-                                      "report.fileCount",
-                                      ({ count }) => `${count} files in this track`,
-                                      { count: categoryFiles.length }
-                                    )}
-                                  </span>
-                                )}
-                              {structure.visibility ? (
-                                <span className="inline-flex items-center gap-2">
-                                  {t(
-                                    structure.visibility === "workspace"
-                                      ? "home.visibility.workspace"
-                                      : "home.visibility.private",
-                                    structure.visibility === "workspace"
-                                      ? "Workspace"
-                                      : "Private"
-                                  )}
-                                  {structure.visibility_admin_override
-                                    ? ` · ${t(
-                                        "home.visibility.adminOverride",
-                                        "Admin adjusted"
-                                      )}`
-                                    : ""}
-                                </span>
-                              ) : null}
-                            </div>
-                            {canUpdateVisibility ? (
-                              <div className="mt-4">
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={isWorkspaceVisible}
-                                  aria-label={t(
-                                    "home.visibility.change",
-                                    "Change report visibility"
-                                  )}
-                                  disabled={isUpdatingVisibility}
-                                  onClick={() => void handleVisibilityChange(nextVisibility)}
-                                  className="report-visibility-switch"
-                                  data-state={isWorkspaceVisible ? "workspace" : "private"}
-                                >
-                                  <span className="report-visibility-track" aria-hidden>
-                                    <span className="report-visibility-thumb">
-                                      {isWorkspaceVisible ? (
-                                        <UsersRound className="size-3.5" />
-                                      ) : (
-                                        <LockKeyhole className="size-3.5" />
-                                      )}
-                                    </span>
-                                  </span>
-                                  <span className="report-visibility-copy">
-                                    <span className="report-visibility-value">
-                                      {visibilityLabel}
-                                    </span>
-                                  </span>
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
-
-                        <div className="grid gap-3">
-                          <SummaryMetric
-                            label={t("report.readingOverview", "Reading Overview")}
-                            value={
-                              selectedCategoryLabel ??
-                              t("report.completeReport", "Complete Report")
-                            }
-                          />
-                          <SummaryMetric
-                            label={t("report.availableTracks", "Available tracks")}
-                            value={String(availableTrackCount)}
-                          />
-                          <SummaryMetric
-                            label={t("report.sourceFiles", "Source files")}
-                            value={String(sourceFileCount)}
-                          />
-                        </div>
-                      </div>
-                    </header>
-                  </div>
-
-                  {!isMarketBrief && (
-                    <ReportOverviewCompanion
-                      ticker={structure.ticker}
-                      asOfDate={reportMeta?.date ?? null}
-                      t={t}
-                    />
-                  )}
-                </div>
-                )}
-              </section>
-            </div>
-          </div>
-
-          <div className="sticky top-0 z-[var(--z-overlay)] min-w-0 max-w-full bg-transparent">
-            <div className="report-tab-rail border-b border-[var(--border)] px-4 py-3 md:px-8 md:py-4">
-              <div className="min-w-0 w-full max-w-full">
-                <Tabs value={selectedTab} onValueChange={handleTabChange}>
-                  <TabsList className="scrollbar-none flex min-w-0 w-full max-w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none">
-                    {hasDecisionCardTab && (
-                      <TabsTrigger value={DECISION_CARD_TAB_KEY}>
-                        {t("report.decisionCard", "Decision Card")}
-                      </TabsTrigger>
-                    )}
-                    <TabsTrigger value="complete">
-                      {t("report.completeReport", "Complete Report")}
-                    </TabsTrigger>
-                    {availableCategories.map(([key, meta]) => (
-                      <TabsTrigger key={key} value={key}>
-                        {t(`report.category.${key}`, meta.label)}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </Tabs>
-              </div>
-            </div>
-
-            {selectedTab !== DECISION_CARD_TAB_KEY &&
-              selectedTab !== "complete" &&
-              categoryFiles.length > 0 && (
-              <div className="report-subtab-rail border-b border-[var(--border)] px-4 py-3 md:px-8">
+          <div className="min-w-0 max-w-full">
+            {shouldShowReportOverview && (
+              <div className="min-w-0 max-w-full px-4 pt-6 md:px-8 md:pt-8">
                 <div className="min-w-0 w-full max-w-full">
-                  <div className="scrollbar-none flex min-w-0 max-w-full overflow-x-auto gap-2 rounded-[20px] border border-[var(--border)] bg-white/42 p-2">
-                    {categoryFiles.map((file) => (
+                  <section className="report-panel rounded-[30px] border px-4 py-4 md:px-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="viewer-meta-label">
+                          {t("report.overviewPanel", "Report overview")}
+                        </p>
+                        {isOverviewCollapsed && (
+                          <p className="mt-2 truncate text-sm text-slate-600 md:text-base">
+                            <span className="font-heading font-semibold text-slate-900">
+                              {structure.ticker}
+                            </span>
+                            <span className="mx-2 text-[var(--border-strong)]">
+                              /
+                            </span>
+                            {collapsedOverviewSummary}
+                          </p>
+                        )}
+                      </div>
                       <Button
-                        key={file}
-                        onClick={() => {
-                          setSelectedFile(file);
-                        }}
+                        type="button"
                         variant="secondary"
-                        size="sm"
-                        data-active={selectedFile === file}
-                        aria-pressed={selectedFile === file}
-                        className="choice-pill whitespace-nowrap"
-                        aria-controls="report-content-panel"
+                        size="icon"
+                        onClick={() => setIsOverviewCollapsed((current) => !current)}
+                        aria-expanded={!isOverviewCollapsed}
+                        aria-controls="report-overview-panel"
+                        aria-label={overviewToggleLabel}
+                        title={overviewToggleLabel}
+                        className="size-10 rounded-full"
                       >
-                        {localizeFileLabel(file, t)}
+                        {isOverviewCollapsed ? (
+                          <ChevronDown className="size-4" aria-hidden />
+                        ) : (
+                          <ChevronUp className="size-4" aria-hidden />
+                        )}
                       </Button>
-                    ))}
-                  </div>
+                    </div>
+                    {!isOverviewCollapsed && (
+                      <div id="report-overview-panel" className={overviewGridClass}>
+                        <div className="min-w-0 space-y-5">
+                          <header>
+                            <div className="space-y-5">
+                              <div className="flex min-w-0 items-start gap-4">
+                                {onOpenSidebar && (
+                                  <Button
+                                    type="button"
+                                    onClick={onOpenSidebar}
+                                    aria-controls="report-navigation"
+                                    aria-expanded={sidebarOpen}
+                                    aria-haspopup="dialog"
+                                    variant="secondary"
+                                    size="icon"
+                                    className="min-h-11 min-w-11 rounded-full text-slate-500 md:hidden"
+                                    aria-label={t(
+                                      "report.openNavigation",
+                                      "Open report navigation"
+                                    )}
+                                  >
+                                    <svg
+                                      viewBox="0 0 24 24"
+                                      className="size-4"
+                                      fill="none"
+                                      aria-hidden
+                                    >
+                                      <path
+                                        d="M4 7h16M4 12h16M4 17h16"
+                                        stroke="currentColor"
+                                        strokeWidth="1.8"
+                                        strokeLinecap="round"
+                                      />
+                                    </svg>
+                                  </Button>
+                                )}
+
+                                <div className="min-w-0">
+                                  <h2 className="mt-2 font-heading truncate text-[2.1rem] font-bold tracking-tight text-slate-900 md:text-[2.7rem]">
+                                    {structure.ticker}
+                                  </h2>
+                                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 md:text-base">
+                                    <span>{generatedLabel}</span>
+                                    <span className="hidden text-[var(--border-strong)] sm:inline">
+                                      /
+                                    </span>
+                                    <span className="font-mono text-[12px] text-slate-500">
+                                      {reportId}
+                                    </span>
+                                  </div>
+                                  <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-[var(--muted)]">
+                                    <span className="inline-flex items-center gap-2">
+                                      <span
+                                        className="size-2 rounded-full bg-[var(--primary)]"
+                                        aria-hidden
+                                      />
+                                      {selectedFileLabel ??
+                                        (selectedTab === DECISION_CARD_TAB_KEY
+                                          ? t("report.decisionCard", "Decision Card")
+                                          : selectedCategoryMeta
+                                            ? t(
+                                                "report.categoryView",
+                                                ({ label }) => `${label} view`,
+                                                {
+                                                  label:
+                                                    selectedCategoryLabel ??
+                                                    selectedCategoryMeta.label,
+                                                }
+                                              )
+                                            : t(
+                                                "report.completeReport",
+                                                "Complete Report"
+                                              ))}
+                                    </span>
+                                    {selectedTab !== DECISION_CARD_TAB_KEY &&
+                                      selectedTab !== "complete" &&
+                                      categoryFiles.length > 0 && (
+                                        <span>
+                                          {t(
+                                            "report.fileCount",
+                                            ({ count }) =>
+                                              `${count} files in this track`,
+                                            { count: categoryFiles.length }
+                                          )}
+                                        </span>
+                                      )}
+                                    {structure.visibility ? (
+                                      <span className="inline-flex items-center gap-2">
+                                        {t(
+                                          structure.visibility === "workspace"
+                                            ? "home.visibility.workspace"
+                                            : "home.visibility.private",
+                                          structure.visibility === "workspace"
+                                            ? "Workspace"
+                                            : "Private"
+                                        )}
+                                        {structure.visibility_admin_override
+                                          ? ` · ${t(
+                                              "home.visibility.adminOverride",
+                                              "Admin adjusted"
+                                            )}`
+                                          : ""}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {canUpdateVisibility ? (
+                                    <div className="mt-4">
+                                      <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={isWorkspaceVisible}
+                                        aria-label={t(
+                                          "home.visibility.change",
+                                          "Change report visibility"
+                                        )}
+                                        disabled={isUpdatingVisibility}
+                                        onClick={() =>
+                                          void handleVisibilityChange(nextVisibility)
+                                        }
+                                        className="report-visibility-switch"
+                                        data-state={
+                                          isWorkspaceVisible ? "workspace" : "private"
+                                        }
+                                      >
+                                        <span
+                                          className="report-visibility-track"
+                                          aria-hidden
+                                        >
+                                          <span className="report-visibility-thumb">
+                                            {isWorkspaceVisible ? (
+                                              <UsersRound className="size-3.5" />
+                                            ) : (
+                                              <LockKeyhole className="size-3.5" />
+                                            )}
+                                          </span>
+                                        </span>
+                                        <span className="report-visibility-copy">
+                                          <span className="report-visibility-value">
+                                            {visibilityLabel}
+                                          </span>
+                                        </span>
+                                      </button>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              <div className="grid gap-3">
+                                <SummaryMetric
+                                  label={t(
+                                    "report.readingOverview",
+                                    "Reading Overview"
+                                  )}
+                                  value={
+                                    selectedCategoryLabel ??
+                                    t("report.completeReport", "Complete Report")
+                                  }
+                                />
+                                <SummaryMetric
+                                  label={t(
+                                    "report.availableTracks",
+                                    "Available tracks"
+                                  )}
+                                  value={String(availableTrackCount)}
+                                />
+                                <SummaryMetric
+                                  label={t("report.sourceFiles", "Source files")}
+                                  value={String(sourceFileCount)}
+                                />
+                              </div>
+                            </div>
+                          </header>
+                        </div>
+
+                        <ReportOverviewCompanion
+                          ticker={structure.ticker}
+                          asOfDate={reportMeta?.date ?? null}
+                          t={t}
+                        />
+                      </div>
+                    )}
+                  </section>
                 </div>
               </div>
             )}
-          </div>
 
-          <div className="min-w-0 max-w-full px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
-            <div className="report-reading-frame min-w-0 w-full max-w-full">
-              {selectedTab !== "complete" && selectedCategoryMeta && (
-                <div className="mb-8 flex w-full flex-col gap-3 border-b border-[var(--border)] pb-5 md:flex-row md:items-end md:justify-between">
-                  <div className="space-y-1">
-                    <p className="viewer-meta-label">
-                      {t("report.currentFile", "Current file")}
-                    </p>
-                    <h3 className="font-heading text-2xl font-semibold tracking-tight text-[var(--text)] md:text-3xl">
-                      {selectedFileLabel ?? selectedCategoryLabel ?? selectedCategoryMeta.label}
-                    </h3>
+            {shouldShowReportNavigation && (
+              <div className="sticky top-0 z-[var(--z-overlay)] min-w-0 max-w-full bg-transparent">
+                <div className="report-tab-rail border-b border-[var(--border)] px-4 py-3 md:px-8 md:py-4">
+                  <div className="min-w-0 w-full max-w-full">
+                    <Tabs value={selectedTab} onValueChange={handleTabChange}>
+                      <TabsList className="scrollbar-none flex min-w-0 w-full max-w-full justify-start gap-2 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none">
+                        {hasDecisionCardTab && (
+                          <TabsTrigger value={DECISION_CARD_TAB_KEY}>
+                            {t("report.decisionCard", "Decision Card")}
+                          </TabsTrigger>
+                        )}
+                        <TabsTrigger value="complete">
+                          {t("report.completeReport", "Complete Report")}
+                        </TabsTrigger>
+                        {availableCategories.map(([key, meta]) => (
+                          <TabsTrigger key={key} value={key}>
+                            {t(`report.category.${key}`, meta.label)}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
                   </div>
                 </div>
-              )}
 
-              {error ? (
-                <div className="rounded-[18px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
-                  {error}
-                </div>
-              ) : selectedTab === DECISION_CARD_TAB_KEY ? (
-                <>
-                  {isDecisionCardLoading && <DecisionCardSkeleton />}
-                  {decisionCard ? (
-                    <>
-                      <DecisionCardView card={decisionCard} delta={decisionDelta} />
-                      <details className="decision-raw-details">
-                        <summary>
-                          <span>
-                            {t(
-                              "decisionCard.rawDetails",
-                              "Structured decision data"
-                            )}
-                          </span>
-                          <span className="decision-raw-meta">
-                            {t(
-                              "decisionCard.rawDetailsHint",
-                              "JSON for audit"
-                            )}
-                          </span>
-                        </summary>
-                        <pre>
-                          <code>{formatDecisionCardJson(decisionCard, decisionDelta)}</code>
-                        </pre>
-                      </details>
-                    </>
-                  ) : !isDecisionCardLoading ? (
-                    <div className="py-8 text-center text-sm text-[var(--muted)]">
-                      {t("report.noDecisionCard", "Decision card unavailable")}
+                {selectedTab !== DECISION_CARD_TAB_KEY &&
+                  selectedTab !== "complete" &&
+                  categoryFiles.length > 0 && (
+                    <div className="report-subtab-rail border-b border-[var(--border)] px-4 py-3 md:px-8">
+                      <div className="min-w-0 w-full max-w-full">
+                        <div className="scrollbar-none flex min-w-0 max-w-full overflow-x-auto gap-2 rounded-[20px] border border-[var(--border)] bg-white/42 p-2">
+                          {categoryFiles.map((file) => (
+                            <Button
+                              key={file}
+                              onClick={() => {
+                                setSelectedFile(file);
+                              }}
+                              variant="secondary"
+                              size="sm"
+                              data-active={selectedFile === file}
+                              aria-pressed={selectedFile === file}
+                              className="choice-pill whitespace-nowrap"
+                              aria-controls="report-content-panel"
+                            >
+                              {localizeFileLabel(file, t)}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  ) : null}
-                </>
-              ) : selectedTab === "complete" ? (
-                <MarkdownContent
-                  content={content}
-                  isLoading={isLoading}
-                  highlightMode="single"
-                />
-              ) : categoryFiles.length === 0 ? (
-                <div className="py-8 text-center text-sm text-slate-500">
-                  {t("report.noCategoryData", "No data available for this category")}
-                </div>
-              ) : (
-                <MarkdownContent
-                  content={content}
-                  isLoading={isLoading}
-                  highlightMode="single"
-                />
-              )}
+                  )}
+              </div>
+            )}
+
+            <div className="min-w-0 max-w-full px-4 pb-6 pt-6 md:px-8 md:pb-8 md:pt-8">
+              <div className="report-reading-frame min-w-0 w-full max-w-full">
+                {selectedTab !== "complete" && selectedCategoryMeta && (
+                  <div className="mb-8 flex w-full flex-col gap-3 border-b border-[var(--border)] pb-5 md:flex-row md:items-end md:justify-between">
+                    <div className="space-y-1">
+                      <p className="viewer-meta-label">
+                        {t("report.currentFile", "Current file")}
+                      </p>
+                      <h3 className="font-heading text-2xl font-semibold tracking-tight text-[var(--text)] md:text-3xl">
+                        {selectedFileLabel ??
+                          selectedCategoryLabel ??
+                          selectedCategoryMeta.label}
+                      </h3>
+                    </div>
+                  </div>
+                )}
+
+                {error ? (
+                  <div className="rounded-[18px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
+                    {error}
+                  </div>
+                ) : selectedTab === DECISION_CARD_TAB_KEY ? (
+                  <>
+                    {isDecisionCardLoading && <DecisionCardSkeleton />}
+                    {decisionCard ? (
+                      <>
+                        <DecisionCardView
+                          card={decisionCard}
+                          delta={decisionDelta}
+                        />
+                        <details className="decision-raw-details">
+                          <summary>
+                            <span>
+                              {t(
+                                "decisionCard.rawDetails",
+                                "Structured decision data"
+                              )}
+                            </span>
+                            <span className="decision-raw-meta">
+                              {t(
+                                "decisionCard.rawDetailsHint",
+                                "JSON for audit"
+                              )}
+                            </span>
+                          </summary>
+                          <pre>
+                            <code>
+                              {formatDecisionCardJson(decisionCard, decisionDelta)}
+                            </code>
+                          </pre>
+                        </details>
+                      </>
+                    ) : !isDecisionCardLoading ? (
+                      <div className="py-8 text-center text-sm text-[var(--muted)]">
+                        {t("report.noDecisionCard", "Decision card unavailable")}
+                      </div>
+                    ) : null}
+                  </>
+                ) : selectedTab === "complete" ? (
+                  <MarkdownContent
+                    content={content}
+                    isLoading={isLoading}
+                    highlightMode="single"
+                  />
+                ) : categoryFiles.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-slate-500">
+                    {t(
+                      "report.noCategoryData",
+                      "No data available for this category"
+                    )}
+                  </div>
+                ) : (
+                  <MarkdownContent
+                    content={content}
+                    isLoading={isLoading}
+                    highlightMode="single"
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
         </section>
       </div>
     </main>

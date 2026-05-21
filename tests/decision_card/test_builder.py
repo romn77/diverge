@@ -213,6 +213,20 @@ def test_build_decision_card_uses_text_rating_when_structured_blocks_are_absent(
     assert card.confidence == "low"
 
 
+def test_build_decision_card_localizes_text_rating_fallback_summary():
+    card = build_decision_card(
+        final_state={"final_trade_decision": "Rating: Hold. Maintain the position."},
+        symbol="TLN",
+        output_language="cn",
+    )
+
+    assert card.rating == "HOLD"
+    assert card.action == "MAINTAIN"
+    assert card.one_line_summary == "最终报告文本给出了 HOLD 评级，但未提供结构化决策卡。"
+    assert "Final report text indicates" not in card.one_line_summary
+    assert card.data_quality_summary == "结构化证据不足，当前卡片只能作为低置信度参考。"
+
+
 def test_build_decision_card_returns_low_confidence_fallback_without_signal():
     card = build_decision_card(
         final_state={"final_trade_decision": "No clear call."}, symbol="QQQ"

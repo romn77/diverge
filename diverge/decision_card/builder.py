@@ -46,6 +46,38 @@ def _first_non_empty(*values: Any, fallback: str) -> str:
     return fallback
 
 
+def _is_cn(output_language: str | None) -> bool:
+    return (output_language or "en").strip().lower() == "cn"
+
+
+def _fallback_summary(*, output_language: str | None) -> str:
+    if _is_cn(output_language):
+        return "结构化决策卡生成失败，当前为低置信度兜底卡片。"
+    return (
+        "Structured decision card generation fell back to a low-confidence placeholder."
+    )
+
+
+def _fallback_thesis(*, output_language: str | None) -> str:
+    if _is_cn(output_language):
+        return "完整报告已保存，但 Diverge 无法提取完整结构化决策卡。"
+    return (
+        "The full markdown report was saved, but Diverge could not derive a complete "
+        "structured decision card."
+    )
+
+
+def _unstructured_rating_summary(
+    *, rating: PortfolioRating, output_language: str | None
+) -> str:
+    if _is_cn(output_language):
+        return f"最终报告文本给出了 {rating} 评级，但未提供结构化决策卡。"
+    return (
+        f"Final report text indicates a {rating} rating, "
+        "but no structured decision card was provided."
+    )
+
+
 def _coerce_string_list(value: Any, *, max_items: int = 5) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -428,12 +460,8 @@ def build_fallback_decision_card(
     )
     payload["action"] = "NO_ACTION"
     payload["confidence"] = "low"
-    payload["one_line_summary"] = (
-        "Structured decision card generation fell back to a low-confidence placeholder."
-    )
-    payload["thesis"] = (
-        "The full markdown report was saved, but Diverge could not derive a complete structured decision card."
-    )
+    payload["one_line_summary"] = _fallback_summary(output_language=output_language)
+    payload["thesis"] = _fallback_thesis(output_language=output_language)
     payload["data_quality_notes"] = [
         "Fallback card generated because structured decision data was unavailable."
     ]
@@ -576,7 +604,9 @@ def build_decision_card(
             output_language=output_language,
         )
         fallback.action = infer_action_from_rating(rating)
-        fallback.one_line_summary = f"Final report text indicates a {rating} rating, but no structured decision card was provided."
+        fallback.one_line_summary = _unstructured_rating_summary(
+            rating=rating, output_language=output_language
+        )
         fallback.thesis = _first_non_empty(
             final_decision[:600], fallback=fallback.thesis
         )

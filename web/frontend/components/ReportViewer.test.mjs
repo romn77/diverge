@@ -93,7 +93,7 @@ test("ReportViewer pairs the ticker price panel with the header summary before t
   );
 });
 
-test("ReportViewer skips ticker history panels for market brief reports", () => {
+test("ReportViewer renders market brief reports directly without overview chrome", () => {
   const source = readFileSync(reportViewerPath, "utf8");
 
   assert.match(source, /MARKET_BRIEF_REPORT_ID_PREFIX = "MARKET_BRIEF_"/);
@@ -102,7 +102,11 @@ test("ReportViewer skips ticker history panels for market brief reports", () => 
   assert.match(source, /normalizedTicker === MARKET_BRIEF_REPORT_TICKER/);
   assert.match(source, /normalizedReportId\.startsWith\(MARKET_BRIEF_REPORT_ID_PREFIX\)/);
   assert.match(source, /const isMarketBrief = isMarketBriefReport\(reportId, structure\?\.ticker\)/);
-  assert.match(source, /!\s*isMarketBrief && \(\s*<ReportOverviewCompanion/);
+  assert.match(source, /const shouldShowReportOverview = !isMarketBrief/);
+  assert.match(source, /const shouldShowReportNavigation = !isMarketBrief/);
+  assert.match(source, /\{shouldShowReportOverview && \(/);
+  assert.match(source, /\{shouldShowReportNavigation && \(/);
+  assert.match(source, /<ReportOverviewCompanion/);
 });
 
 test("ReportViewer localizes report hierarchy file labels consistently", () => {
@@ -141,7 +145,7 @@ test("ReportViewer exposes authorized report visibility changes", () => {
   assert.match(source, /role="switch"/);
   assert.match(source, /aria-checked=\{isWorkspaceVisible\}/);
   assert.match(source, /report-visibility-switch/);
-  assert.match(source, /onClick=\{\(\) => void handleVisibilityChange\(nextVisibility\)\}/);
+  assert.match(source, /onClick=\{\(\) =>\s*void handleVisibilityChange\(nextVisibility\)\s*\}/);
   assert.doesNotMatch(source, /<select/);
   assert.doesNotMatch(source, /<option value="workspace"/);
 });
@@ -159,7 +163,7 @@ test("ReportViewer loads and renders decision_card artifacts in a dedicated tab 
   assert.match(source, /const hasDecisionCardTab = Boolean\(decisionCardPath\)/);
   assert.match(source, /\{hasDecisionCardTab && \(\s*<TabsTrigger value=\{DECISION_CARD_TAB_KEY\}>/);
   assert.match(source, /selectedTab === DECISION_CARD_TAB_KEY/);
-  assert.match(source, /<DecisionCardView card=\{decisionCard\} delta=\{decisionDelta\}/);
+  assert.match(source, /<DecisionCardView\s+card=\{decisionCard\}\s+delta=\{decisionDelta\}/);
   assert.match(source, /<DecisionCardSkeleton/);
   assert.match(source, /decision-raw-details/);
   assert.match(source, /formatDecisionCardJson\(decisionCard, decisionDelta\)/);
