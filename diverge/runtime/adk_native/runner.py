@@ -34,32 +34,16 @@ from diverge.agents.report_output import (
     ResearchDecisionStructuredOutput,
     TraderStructuredOutput,
 )
-from diverge.agents.managers.research_manager import (
-    build_research_manager_prompt,
-    build_research_manager_result,
-)
-from diverge.agents.researchers.bear_researcher import (
-    build_bear_researcher_prompt,
-    build_bear_researcher_result,
-)
-from diverge.agents.researchers.bull_researcher import (
-    build_bull_researcher_prompt,
-    build_bull_researcher_result,
-)
-from diverge.agents.risk_mgmt.aggressive_debator import (
-    build_aggressive_risk_prompt,
-    build_aggressive_risk_result,
-)
+from diverge.agents.managers.research_manager import build_research_manager_prompt
+from diverge.agents.researchers.bear_researcher import build_bear_researcher_prompt
+from diverge.agents.researchers.bull_researcher import build_bull_researcher_prompt
+from diverge.agents.risk_mgmt.aggressive_debator import build_aggressive_risk_prompt
 from diverge.agents.risk_mgmt.conservative_debator import (
     build_conservative_risk_prompt,
-    build_conservative_risk_result,
 )
 from diverge.agents.risk_mgmt.debate_phase import get_total_risk_turn_limit
-from diverge.agents.risk_mgmt.neutral_debator import (
-    build_neutral_risk_prompt,
-    build_neutral_risk_result,
-)
-from diverge.agents.trader.trader import build_trader_prompt, build_trader_result
+from diverge.agents.risk_mgmt.neutral_debator import build_neutral_risk_prompt
+from diverge.agents.trader.trader import build_trader_prompt
 from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.agents.utils.memory import FinancialSituationMemory
 from diverge.dataflows.config import set_config
@@ -73,6 +57,16 @@ from diverge.runtime.adk_native.agents import append_runtime_progress_event
 from diverge.runtime.adk_native.specs import (
     NATIVE_ANALYST_SPECS,
     ordered_native_analysts,
+)
+from diverge.runtime.adk_native.state_commit import (
+    commit_aggressive_risk_output,
+    commit_analyst_output,
+    commit_bear_researcher_output,
+    commit_bull_researcher_output,
+    commit_conservative_risk_output,
+    commit_neutral_risk_output,
+    commit_research_manager_output,
+    commit_trader_output,
 )
 from diverge.runtime.adk_native.progress_adapter import state_delta_from_event
 from diverge.runtime.adk_native.state_adapter import merge_state_delta, snapshot_state
@@ -291,8 +285,13 @@ def _build_native_analyst_nodes(
         ),
         FunctionNode(
             func=_finalize_native_state_llm_turn(
-                build_prompt=spec.build_prompt,
-                build_result=spec.build_result,
+                commit_result=lambda state, structured_payload, spec=spec: (
+                    commit_analyst_output(
+                        state,
+                        spec=spec,
+                        structured_payload=structured_payload,
+                    )
+                ),
                 output_key=spec.output_key,
                 display_name=spec.display_name,
             ),
@@ -327,7 +326,7 @@ def _build_native_decision_nodes(
                     build_bull_researcher_prompt,
                     resources.bull_memory,
                 ),
-                build_result=build_bull_researcher_result,
+                commit_result=commit_bull_researcher_output,
                 model=quick_model,
                 output_schema=BullCaseStructuredOutput,
                 output_key="bull_case_structured",
@@ -342,7 +341,7 @@ def _build_native_decision_nodes(
                     build_bear_researcher_prompt,
                     resources.bear_memory,
                 ),
-                build_result=build_bear_researcher_result,
+                commit_result=commit_bear_researcher_output,
                 model=quick_model,
                 output_schema=BearCaseStructuredOutput,
                 output_key="bear_case_structured",
@@ -359,7 +358,7 @@ def _build_native_decision_nodes(
                     build_research_manager_prompt,
                     resources.invest_judge_memory,
                 ),
-                build_result=build_research_manager_result,
+                commit_result=commit_research_manager_output,
                 model=deep_model,
                 output_schema=ResearchDecisionStructuredOutput,
                 output_key="research_decision_structured",
@@ -372,7 +371,7 @@ def _build_native_decision_nodes(
                     build_trader_prompt,
                     resources.trader_memory,
                 ),
-                build_result=build_trader_result,
+                commit_result=commit_trader_output,
                 model=quick_model,
                 output_schema=TraderStructuredOutput,
                 output_key="trader_structured",
@@ -388,7 +387,7 @@ def _build_native_decision_nodes(
             AggressiveRiskStructuredOutput,
             "risk_aggressive_structured",
             build_aggressive_risk_prompt,
-            build_aggressive_risk_result,
+            commit_aggressive_risk_output,
         ),
         (
             "conservative_analyst",
@@ -396,7 +395,7 @@ def _build_native_decision_nodes(
             ConservativeRiskStructuredOutput,
             "risk_conservative_structured",
             build_conservative_risk_prompt,
-            build_conservative_risk_result,
+            commit_conservative_risk_output,
         ),
         (
             "neutral_analyst",
@@ -404,7 +403,7 @@ def _build_native_decision_nodes(
             NeutralRiskStructuredOutput,
             "risk_neutral_structured",
             build_neutral_risk_prompt,
-            build_neutral_risk_result,
+            commit_neutral_risk_output,
         ),
     ]
     total_risk_turns = get_total_risk_turn_limit(max_risk_discuss_rounds)
@@ -415,14 +414,14 @@ def _build_native_decision_nodes(
             output_schema,
             output_key,
             build_prompt,
-            build_result,
+            commit_result,
         ) = risk_specs[turn_index % len(risk_specs)]
         nodes.extend(
             _build_native_state_llm_nodes(
                 name=f"{agent_name}_{turn_index + 1}",
                 display_name=display_name,
                 build_prompt=build_prompt,
-                build_result=build_result,
+                commit_result=commit_result,
                 model=quick_model,
                 output_schema=output_schema,
                 output_key=output_key,
@@ -520,7 +519,7 @@ def _build_native_state_llm_nodes(
     name: str,
     display_name: str,
     build_prompt: Any,
-    build_result: Any,
+    commit_result: Any,
     model: Any,
     output_schema: Any,
     output_key: str,
@@ -550,8 +549,7 @@ def _build_native_state_llm_nodes(
         ),
         FunctionNode(
             func=_finalize_native_state_llm_turn(
-                build_prompt=build_prompt,
-                build_result=build_result,
+                commit_result=commit_result,
                 output_key=output_key,
                 display_name=display_name,
             ),
@@ -670,8 +668,7 @@ def _finalize_native_evidence_turn(
 
 def _finalize_native_state_llm_turn(
     *,
-    build_prompt: Any | None = None,
-    build_result: Any | None = None,
+    commit_result: Any,
     output_key: str,
     display_name: str,
 ):
@@ -680,15 +677,9 @@ def _finalize_native_state_llm_turn(
         if not structured_payload:
             raise RuntimeError(f"{display_name} did not produce structured state")
 
-        state = snapshot_state(ctx.state)
-        if build_prompt is None or build_result is None:
-            raise RuntimeError(f"{display_name} has no finalize handler")
-        _prompt, _tools, metadata = build_prompt(state)
-        result = build_result(
-            state,
-            response_content=structured_payload,
-            tool_calls=[],
-            **metadata,
+        result = commit_result(
+            snapshot_state(ctx.state),
+            structured_payload,
         )
         _merge_result_into_context_state(ctx.state, result or {})
         append_runtime_progress_event(

@@ -6,19 +6,11 @@ from typing import Any
 
 from diverge.agents.analysts.fundamentals_analyst import (
     build_fundamentals_analyst_prompt,
-    build_fundamentals_analyst_result,
 )
-from diverge.agents.analysts.market_analyst import (
-    build_market_analyst_prompt,
-    build_market_analyst_result,
-)
-from diverge.agents.analysts.news_analyst import (
-    build_news_analyst_prompt,
-    build_news_analyst_result,
-)
+from diverge.agents.analysts.market_analyst import build_market_analyst_prompt
+from diverge.agents.analysts.news_analyst import build_news_analyst_prompt
 from diverge.agents.analysts.social_media_analyst import (
     build_social_media_analyst_prompt,
-    build_social_media_analyst_result,
 )
 from diverge.agents.report_output import (
     FundamentalsReportStructuredOutput,
@@ -37,8 +29,9 @@ class NativeAnalystSpec:
     output_schema: Any
     output_key: str
     build_prompt: Callable[..., Any]
-    build_result: Callable[..., Any]
     evidence_output_key: str
+    report_key: str
+    structured_agent_name: str
 
 
 NATIVE_ANALYST_SPECS: Mapping[str, NativeAnalystSpec] = {
@@ -49,8 +42,9 @@ NATIVE_ANALYST_SPECS: Mapping[str, NativeAnalystSpec] = {
         output_schema=MarketReportStructuredOutput,
         output_key="market_report_structured",
         build_prompt=build_market_analyst_prompt,
-        build_result=build_market_analyst_result,
         evidence_output_key="market_evidence_notes",
+        report_key="market_report",
+        structured_agent_name="market_analyst",
     ),
     "social": NativeAnalystSpec(
         analyst_key="social",
@@ -59,8 +53,9 @@ NATIVE_ANALYST_SPECS: Mapping[str, NativeAnalystSpec] = {
         output_schema=SentimentReportStructuredOutput,
         output_key="sentiment_report_structured",
         build_prompt=build_social_media_analyst_prompt,
-        build_result=build_social_media_analyst_result,
         evidence_output_key="sentiment_evidence_notes",
+        report_key="sentiment_report",
+        structured_agent_name="social_media_analyst",
     ),
     "news": NativeAnalystSpec(
         analyst_key="news",
@@ -69,8 +64,9 @@ NATIVE_ANALYST_SPECS: Mapping[str, NativeAnalystSpec] = {
         output_schema=NewsReportStructuredOutput,
         output_key="news_report_structured",
         build_prompt=build_news_analyst_prompt,
-        build_result=build_news_analyst_result,
         evidence_output_key="news_evidence_notes",
+        report_key="news_report",
+        structured_agent_name="news_analyst",
     ),
     "fundamentals": NativeAnalystSpec(
         analyst_key="fundamentals",
@@ -79,8 +75,9 @@ NATIVE_ANALYST_SPECS: Mapping[str, NativeAnalystSpec] = {
         output_schema=FundamentalsReportStructuredOutput,
         output_key="fundamentals_report_structured",
         build_prompt=build_fundamentals_analyst_prompt,
-        build_result=build_fundamentals_analyst_result,
         evidence_output_key="fundamentals_evidence_notes",
+        report_key="fundamentals_report",
+        structured_agent_name="fundamentals_analyst",
     ),
 }
 
