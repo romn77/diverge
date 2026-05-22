@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 import time
 from typing import Any, Callable
@@ -13,16 +12,13 @@ from diverge.common.symbols import normalize_symbol_for_vendor, resolve_symbol_m
 from diverge.data_layout import resolve_history_dir
 from diverge.dataflows import vendor_usage
 from diverge.dataflows.vendor_errors import (
-    VendorAuthError,
     VendorDataEmptyError,
-    VendorNotSupportedError,
     VendorRetryableError,
 )
 from diverge.dataflows.vendors.akshare.stock import (
     _fetch_akshare_stock_df,
     _fetch_akshare_us_stock_df,
 )
-from diverge.dataflows.vendors.alpha_vantage.common import AlphaVantageRateLimitError
 from diverge.dataflows.vendors.alpha_vantage.stock import _fetch_alpha_vantage_stock_df
 from diverge.dataflows.vendors.massive.stock import _fetch_massive_stock_df
 from diverge.dataflows.vendors.tushare.stock import (
@@ -41,44 +37,39 @@ from diverge.market_data.history_cache import (
     save_history_cache,
     slice_history_window,
 )
+from diverge.market_data.price_history_router import (
+    DEFAULT_CN_REQUEST_DELAY_SECONDS,
+    DEFAULT_MASSIVE_US_REQUEST_DELAY_SECONDS,
+    DEFAULT_RETRY_BACKOFF_SECONDS,
+    DEFAULT_US_REQUEST_DELAY_SECONDS,
+    FetchedHistoryFrame,
+    PriceHistoryRouter,
+    build_source_chain as _build_source_chain,
+)
 
-CN_REQUEST_DELAY_SECONDS = 0.35
-US_REQUEST_DELAY_SECONDS = 2.0
-MASSIVE_US_REQUEST_DELAY_SECONDS = 0.1
-RETRY_BACKOFF_SECONDS = (0.5, 1.0, 2.0)
+CN_REQUEST_DELAY_SECONDS = DEFAULT_CN_REQUEST_DELAY_SECONDS
+US_REQUEST_DELAY_SECONDS = DEFAULT_US_REQUEST_DELAY_SECONDS
+MASSIVE_US_REQUEST_DELAY_SECONDS = DEFAULT_MASSIVE_US_REQUEST_DELAY_SECONDS
+RETRY_BACKOFF_SECONDS = DEFAULT_RETRY_BACKOFF_SECONDS
 LOOKBACK_DAYS = 400
-CN_FALLBACK_ERRORS = (
-    VendorRetryableError,
-    VendorAuthError,
-    VendorNotSupportedError,
-)
 
-try:
-    from yfinance.exceptions import YFRateLimitError
-except ModuleNotFoundError:  # pragma: no cover
-
-    class YFRateLimitError(Exception):
-        pass
+__all__ = [
+    "FetchedHistoryFrame",
+    "HistoryFetchExecutor",
+    "fetch_price_history",
+    "fetch_ticker_history",
+    "load_local_price_window",
+    "resolve_history_market",
+]
 
 
-US_FALLBACK_ERRORS = (
-    VendorRetryableError,
-    VendorAuthError,
-    VendorDataEmptyError,
-    VendorNotSupportedError,
-    AlphaVantageRateLimitError,
-    vendor_usage.QuotaWaitRequired,
-    YFRateLimitError,
-)
+def _sleep(seconds: float) -> None:
+    time.sleep(seconds)
 
 
-@dataclass(slots=True)
-class FetchedHistoryFrame:
-    frame: pd.DataFrame
-    source: str | None
+class HistoryFetchExecutor(PriceHistoryRouter):
+    """Backward-compatible adapter for the deeper PriceHistoryRouter module."""
 
-
-class HistoryFetchExecutor:
     def __init__(
         self,
         *,
@@ -88,119 +79,18 @@ class HistoryFetchExecutor:
         us_data_source_fallbacks: list[str] | None = None,
         price_fetcher: Callable[..., pd.DataFrame] | None = None,
     ) -> None:
-        self.as_of_date = as_of_date
-        self.cn_source_chain = list(cn_source_chain)
-        self.us_data_source = us_data_source
-        self.us_source_chain = _build_source_chain(
-            us_data_source,
-            us_data_source_fallbacks,
+        super().__init__(
+            as_of_date=as_of_date,
+            cn_source_chain=cn_source_chain,
+            us_data_source=us_data_source,
+            us_data_source_fallbacks=us_data_source_fallbacks,
+            price_fetcher=price_fetcher or fetch_price_history,
+            retry_backoff_seconds=RETRY_BACKOFF_SECONDS,
+            cn_request_delay_seconds=CN_REQUEST_DELAY_SECONDS,
+            us_request_delay_seconds=US_REQUEST_DELAY_SECONDS,
+            massive_us_request_delay_seconds=MASSIVE_US_REQUEST_DELAY_SECONDS,
+            sleep=_sleep,
         )
-        self.cn_network_fetch_count = 0
-        self.us_network_fetch_count = 0
-        self.last_source: str | None = None
-        self.price_fetcher = price_fetcher or fetch_price_history
-
-    def fetch(self, symbol: str, market: str, fetch_start: str) -> FetchedHistoryFrame:
-        self.last_source = None
-        if market != "cn":
-            return self._fetch_us(symbol, market, fetch_start)
-        return self._fetch_cn(symbol, market, fetch_start)
-
-    def _fetch_us(
-        self, symbol: str, market: str, fetch_start: str
-    ) -> FetchedHistoryFrame:
-        last_error: Exception | None = None
-        for source in self.us_source_chain:
-            attempt = 0
-            while True:
-                try:
-                    if self.us_network_fetch_count > 0:
-                        time.sleep(_us_request_delay_seconds(source))
-                    self.us_network_fetch_count += 1
-                    self.last_source = source
-                    frame = self.price_fetcher(
-                        symbol,
-                        market,
-                        fetch_start,
-                        self.as_of_date,
-                        us_data_source=source,
-                    )
-                    return FetchedHistoryFrame(frame=frame, source=self.last_source)
-                except US_FALLBACK_ERRORS as exc:
-                    if (
-                        isinstance(exc, VendorDataEmptyError)
-                        and len(self.us_source_chain) == 1
-                    ):
-                        raise
-                    last_error = exc
-                    if attempt >= len(RETRY_BACKOFF_SECONDS):
-                        break
-                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                    attempt += 1
-
-        if last_error is not None:
-            if isinstance(last_error, VendorRetryableError):
-                raise _unwrap_vendor_error(last_error)
-            raise last_error
-
-        raise VendorRetryableError("US history fetch failed without a fallback result")
-
-    def _fetch_cn(
-        self, symbol: str, market: str, fetch_start: str
-    ) -> FetchedHistoryFrame:
-        last_error: Exception | None = None
-        for source in self.cn_source_chain:
-            attempt = 0
-            while True:
-                try:
-                    if self.cn_network_fetch_count > 0:
-                        time.sleep(CN_REQUEST_DELAY_SECONDS)
-                    self.cn_network_fetch_count += 1
-                    self.last_source = source
-                    frame = self.price_fetcher(
-                        symbol,
-                        market,
-                        fetch_start,
-                        self.as_of_date,
-                        cn_data_source=source,
-                    )
-                    return FetchedHistoryFrame(frame=frame, source=self.last_source)
-                except VendorDataEmptyError:
-                    raise
-                except CN_FALLBACK_ERRORS as exc:
-                    last_error = exc
-                    if attempt >= len(RETRY_BACKOFF_SECONDS):
-                        break
-                    time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-                    attempt += 1
-
-        if last_error is not None:
-            raise _unwrap_vendor_error(last_error)
-
-        raise VendorRetryableError("CN history fetch failed without a fallback result")
-
-
-def _build_source_chain(
-    primary_source: str,
-    fallback_sources: list[str] | None = None,
-) -> list[str]:
-    chain: list[str] = []
-    for source in [primary_source, *(fallback_sources or [])]:
-        normalized = str(source).strip().lower()
-        if normalized and normalized not in chain:
-            chain.append(normalized)
-    return chain
-
-
-def _unwrap_vendor_error(exc: Exception) -> Exception:
-    cause = getattr(exc, "__cause__", None)
-    return cause if isinstance(cause, Exception) else exc
-
-
-def _us_request_delay_seconds(source: str) -> float:
-    if str(source).strip().lower() == "massive":
-        return MASSIVE_US_REQUEST_DELAY_SECONDS
-    return US_REQUEST_DELAY_SECONDS
 
 
 def _normalize_us_symbol_for_yfinance(symbol: str) -> str:
