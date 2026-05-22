@@ -296,6 +296,49 @@ def _coerce_string_list(value: Any, *, max_items: int = 5) -> list[str]:
     return result
 
 
+def _normalize_evidence_pillar(value: Any) -> str:
+    candidate = (
+        str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    )
+    aliases = {
+        "price": "technical",
+        "trend": "technical",
+        "momentum": "technical",
+        "technical_analysis": "technical",
+        "fundamental": "fundamentals",
+        "business": "fundamentals",
+        "quality": "fundamentals",
+        "risk_management": "risk",
+        "data": "portfolio",
+        "data_quality": "portfolio",
+        "execution": "portfolio",
+        "decision": "portfolio",
+    }
+    candidate = aliases.get(candidate, candidate)
+    if candidate in {
+        "opportunity",
+        "technical",
+        "fundamentals",
+        "valuation",
+        "news",
+        "sentiment",
+        "risk",
+        "portfolio",
+        "macro",
+    }:
+        return candidate
+    return "portfolio"
+
+
+def _normalize_evidence_strength(value: Any) -> str:
+    candidate = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if candidate in {"strong", "high"}:
+        return "strong"
+    if candidate in {"weak", "low"}:
+        return "weak"
+    return "medium"
+
+
 def _coerce_evidence_items(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -319,14 +362,12 @@ def _coerce_evidence_items(value: Any) -> list[dict[str, Any]]:
             if point:
                 items.append(
                     {
-                        "pillar": raw.get("pillar")
-                        if isinstance(raw.get("pillar"), str)
-                        else "portfolio",
+                        "pillar": _normalize_evidence_pillar(raw.get("pillar")),
                         "point": point,
                         "evidence": evidence or point,
-                        "strength": raw.get("strength")
-                        if isinstance(raw.get("strength"), str)
-                        else "medium",
+                        "strength": _normalize_evidence_strength(
+                            raw.get("strength")
+                        ),
                         "source": raw.get("source")
                         if isinstance(raw.get("source"), str)
                         else None,

@@ -159,6 +159,65 @@ def test_native_portfolio_callback_recovers_partial_json_card():
     )
 
 
+def test_native_portfolio_callback_normalizes_partial_card_evidence_enums():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    raw_payload = {
+        "decision_report": "raw report",
+        "decision_card": {
+            "rating": "HOLD",
+            "action": "WATCH",
+            "confidence": "low",
+            "conviction_score": 50,
+            "time_horizon": "Not specified",
+            "one_line_summary": "维持核心持有，暂停新增敞口。",
+            "thesis": "趋势仍在，但动能降温和信息缺口压低新增仓位赔率。",
+            "key_reasons": [
+                {
+                    "pillar": "risk",
+                    "point": "高位回撤风险",
+                    "evidence": "短线动能降温。",
+                    "strength": "high",
+                },
+                {
+                    "pillar": "momentum",
+                    "point": "动能边际走弱",
+                    "evidence": "MACD 柱状图转负。",
+                    "strength": "high",
+                },
+                {
+                    "pillar": "data_quality",
+                    "point": "关键数据缺失",
+                    "evidence": "缺少资金流和持仓集中度。",
+                    "strength": "low",
+                },
+            ],
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(text=json.dumps(raw_payload, ensure_ascii=False))
+            ],
+        )
+    )
+
+    replacement = adk_native_runner._portfolio_after_model_callback(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    reasons = payload["decision_card"]["key_reasons"]
+    assert reasons[0]["pillar"] == "risk"
+    assert reasons[0]["strength"] == "strong"
+    assert reasons[1]["pillar"] == "technical"
+    assert reasons[1]["strength"] == "strong"
+    assert reasons[2]["pillar"] == "portfolio"
+    assert reasons[2]["strength"] == "weak"
+
+
 def test_analysis_workflow_uses_native_nodes_without_bridge():
     def node(_ctx):
         return None
