@@ -15,22 +15,6 @@ from google.adk.sessions import InMemorySessionService
 from google.adk.workflow import BaseNode, FunctionNode, Workflow
 from google.genai import types
 
-from diverge.agents.analysts.fundamentals_analyst import (
-    build_fundamentals_analyst_prompt,
-    build_fundamentals_analyst_result,
-)
-from diverge.agents.analysts.market_analyst import (
-    build_market_analyst_prompt,
-    build_market_analyst_result,
-)
-from diverge.agents.analysts.news_analyst import (
-    build_news_analyst_prompt,
-    build_news_analyst_result,
-)
-from diverge.agents.analysts.social_media_analyst import (
-    build_social_media_analyst_prompt,
-    build_social_media_analyst_result,
-)
 from diverge.agents.managers.portfolio_manager import (
     PortfolioManagerStructuredOutput,
     build_portfolio_manager_prompt,
@@ -46,12 +30,8 @@ from diverge.agents.report_output import (
     BearCaseStructuredOutput,
     BullCaseStructuredOutput,
     ConservativeRiskStructuredOutput,
-    FundamentalsReportStructuredOutput,
-    MarketReportStructuredOutput,
     NeutralRiskStructuredOutput,
-    NewsReportStructuredOutput,
     ResearchDecisionStructuredOutput,
-    SentimentReportStructuredOutput,
     TraderStructuredOutput,
 )
 from diverge.agents.managers.research_manager import (
@@ -81,7 +61,6 @@ from diverge.agents.risk_mgmt.neutral_debator import (
 )
 from diverge.agents.trader.trader import build_trader_prompt, build_trader_result
 from diverge.agents.utils.agent_utils import build_instrument_context
-from diverge.analysis.options import ANALYST_ORDER
 from diverge.agents.utils.memory import FinancialSituationMemory
 from diverge.dataflows.config import set_config
 from diverge.default_config import DEFAULT_CONFIG
@@ -91,51 +70,26 @@ from diverge.runtime.model_factory import (
     create_adk_model,
 )
 from diverge.runtime.adk_native.agents import append_runtime_progress_event
+from diverge.runtime.adk_native.specs import (
+    NATIVE_ANALYST_SPECS,
+    ordered_native_analysts,
+)
 from diverge.runtime.adk_native.progress_adapter import state_delta_from_event
 from diverge.runtime.adk_native.state_adapter import merge_state_delta, snapshot_state
 from diverge.runtime.adk_native.workflow import build_analysis_workflow
 from diverge.runtime.analysis_schema import HISTORICAL_TRADE_FEEDBACK_KEY
 from diverge.runtime.tool_loop import contextual_tool_args, normalize_tool_args
 from diverge.runtime.tools import create_adk_tool_collections
+from diverge.runtime.structured_output import (
+    fallback_structured_output,
+    repair_structured_output,
+    structured_output_warning,
+)
 
 
 ADK_NATIVE_RUNTIME_NAME = "adk_native"
 _APP_NAME = "diverge_adk_native_analysis"
 _USER_ID = "analysis"
-_NATIVE_ANALYST_SPECS = {
-    "market": {
-        "display_name": "Market Analyst",
-        "output_schema": MarketReportStructuredOutput,
-        "output_key": "market_report_structured",
-        "build_prompt": build_market_analyst_prompt,
-        "evidence_output_key": "market_evidence_notes",
-        "build_result": build_market_analyst_result,
-    },
-    "social": {
-        "display_name": "Social Analyst",
-        "output_schema": SentimentReportStructuredOutput,
-        "output_key": "sentiment_report_structured",
-        "build_prompt": build_social_media_analyst_prompt,
-        "evidence_output_key": "sentiment_evidence_notes",
-        "build_result": build_social_media_analyst_result,
-    },
-    "news": {
-        "display_name": "News Analyst",
-        "output_schema": NewsReportStructuredOutput,
-        "output_key": "news_report_structured",
-        "build_prompt": build_news_analyst_prompt,
-        "build_result": build_news_analyst_result,
-        "evidence_output_key": "news_evidence_notes",
-    },
-    "fundamentals": {
-        "display_name": "Fundamentals Analyst",
-        "output_schema": FundamentalsReportStructuredOutput,
-        "output_key": "fundamentals_report_structured",
-        "build_prompt": build_fundamentals_analyst_prompt,
-        "evidence_output_key": "fundamentals_evidence_notes",
-        "build_result": build_fundamentals_analyst_result,
-    },
-}
 _NATIVE_SEARCH_CONTEXT_TOKENS: dict[str, Any] = {}
 
 
@@ -243,7 +197,7 @@ def build_native_analysis_nodes(
     config: Mapping[str, Any],
 ) -> list[BaseNode]:
     """Build ordered ADK workflow nodes for a Diverge analysis run."""
-    native_analysts = _ordered_native_analysts(selected_analysts)
+    native_analysts = ordered_native_analysts(selected_analysts)
     resources = _create_runtime_resources(config)
     native_nodes: list[BaseNode] = []
     for analyst in native_analysts:
@@ -261,121 +215,34 @@ def build_native_analysis_nodes(
     return native_nodes
 
 
-def _ordered_native_analysts(selected_analysts: Sequence[str]) -> list[str]:
-    selected = [analyst for analyst in ANALYST_ORDER if analyst in selected_analysts]
-    native_analysts = [
-        analyst for analyst in selected if analyst in _NATIVE_ANALYST_SPECS
-    ]
-    remaining_analysts = [
-        analyst for analyst in selected if analyst not in _NATIVE_ANALYST_SPECS
-    ]
-    if remaining_analysts:
-        raise ValueError(
-            f"Unsupported analysts for ADK-native runtime: {remaining_analysts}"
-        )
-    return native_analysts
-
-
-def _native_agent_name(analyst: str) -> str:
-    if analyst == "social":
-        return "social_media_analyst"
-    return f"{analyst}_analyst"
-
-
 def _build_native_analyst_nodes(
     analyst: str,
     resources: _NativeRuntimeResources,
 ) -> list[BaseNode]:
-    spec = _NATIVE_ANALYST_SPECS[analyst]
-    if spec.get("evidence_output_key"):
-        return _build_native_evidence_report_analyst_nodes(analyst, resources)
-
-    model = _native_model(resources.quick_model, f"{spec['display_name']}")
-    output_schema = spec["output_schema"]
-    output_key = str(spec["output_key"])
-    display_name = str(spec["display_name"])
-    build_prompt = spec["build_prompt"]
-    build_result = spec["build_result"]
-    tools = list(resources.tool_nodes[analyst].tools)
-
-    llm_kwargs: dict[str, Any] = {
-        "name": _native_agent_name(analyst),
-        "model": model,
-        "instruction": _native_prompt_instruction(build_prompt),
-        "tools": tools,
-        "generate_content_config": resources.generation_config,
-        "include_contents": "none",
-        "before_tool_callback": _native_analyst_before_tool_callback(
-            build_prompt=build_prompt,
-            display_name=display_name,
-        ),
-        "after_tool_callback": _native_analyst_after_tool_callback(display_name),
-        "on_tool_error_callback": _native_analyst_tool_error_callback(display_name),
-        "output_schema": output_schema,
-        "output_key": output_key,
-        "after_model_callback": _native_structured_after_model_callback(
-            output_schema,
-            display_name,
-        ),
-        "on_model_error_callback": _native_model_error_callback(
-            output_schema,
-            display_name,
-        ),
-    }
-
-    return [
-        FunctionNode(
-            func=_start_native_state_llm_turn(display_name),
-            name=f"{_native_agent_name(analyst)}_start",
-        ),
-        LlmAgent(**llm_kwargs),
-        FunctionNode(
-            func=_finalize_native_state_llm_turn(
-                build_prompt=build_prompt,
-                build_result=build_result,
-                output_key=output_key,
-                display_name=display_name,
-                output_schema=output_schema,
-            ),
-            name=f"{_native_agent_name(analyst)}_finalize",
-        ),
-    ]
-
-
-def _build_native_evidence_report_analyst_nodes(
-    analyst: str,
-    resources: _NativeRuntimeResources,
-) -> list[BaseNode]:
-    spec = _NATIVE_ANALYST_SPECS[analyst]
-    model = _native_model(resources.quick_model, f"{spec['display_name']}")
-    output_schema = spec["output_schema"]
-    output_key = str(spec["output_key"])
-    evidence_output_key = str(spec["evidence_output_key"])
-    evidence_tool_calls_key = _evidence_tool_calls_state_key(evidence_output_key)
-    display_name = str(spec["display_name"])
-    evidence_display_name = f"{display_name} Evidence"
-    report_display_name = f"{display_name} Report"
-    build_prompt = spec["build_prompt"]
-    build_result = spec["build_result"]
+    spec = NATIVE_ANALYST_SPECS[analyst]
+    model = _native_model(resources.quick_model, spec.display_name)
+    evidence_tool_calls_key = _evidence_tool_calls_state_key(spec.evidence_output_key)
+    evidence_display_name = f"{spec.display_name} Evidence"
+    report_display_name = f"{spec.display_name} Report"
 
     return [
         FunctionNode(
             func=_start_native_state_llm_turn(evidence_display_name),
-            name=f"{_native_agent_name(analyst)}_evidence_start",
+            name=f"{spec.agent_name}_evidence_start",
         ),
         LlmAgent(
-            name=f"{_native_agent_name(analyst)}_evidence",
+            name=f"{spec.agent_name}_evidence",
             model=model,
             instruction=_native_evidence_prompt_instruction(
-                build_prompt,
-                evidence_output_key=evidence_output_key,
+                spec.build_prompt,
+                evidence_output_key=spec.evidence_output_key,
             ),
             tools=list(resources.tool_nodes[analyst].tools),
-            output_key=evidence_output_key,
+            output_key=spec.evidence_output_key,
             generate_content_config=resources.generation_config,
             include_contents="none",
             before_tool_callback=_native_analyst_before_tool_callback(
-                build_prompt=build_prompt,
+                build_prompt=spec.build_prompt,
                 display_name=evidence_display_name,
             ),
             after_tool_callback=_native_analyst_after_tool_callback(
@@ -386,50 +253,50 @@ def _build_native_evidence_report_analyst_nodes(
                 evidence_display_name
             ),
             on_model_error_callback=_native_evidence_model_error_callback(
-                evidence_output_key,
+                spec.evidence_output_key,
                 evidence_display_name,
             ),
         ),
         FunctionNode(
             func=_finalize_native_evidence_turn(
-                evidence_output_key=evidence_output_key,
+                evidence_output_key=spec.evidence_output_key,
                 evidence_tool_calls_key=evidence_tool_calls_key,
                 display_name=evidence_display_name,
             ),
-            name=f"{_native_agent_name(analyst)}_evidence_finalize",
+            name=f"{spec.agent_name}_evidence_finalize",
         ),
         FunctionNode(
             func=_start_native_state_llm_turn(report_display_name),
-            name=f"{_native_agent_name(analyst)}_report_start",
+            name=f"{spec.agent_name}_report_start",
         ),
         LlmAgent(
-            name=f"{_native_agent_name(analyst)}_report",
+            name=f"{spec.agent_name}_report",
             model=model,
             instruction=_native_report_prompt_instruction(
-                build_prompt,
-                evidence_output_key=evidence_output_key,
+                spec.build_prompt,
+                evidence_output_key=spec.evidence_output_key,
             ),
-            output_schema=output_schema,
-            output_key=output_key,
+            output_schema=spec.output_schema,
+            output_key=spec.output_key,
             generate_content_config=resources.generation_config,
             include_contents="none",
             after_model_callback=_native_structured_after_model_callback(
-                output_schema,
+                spec.output_schema,
                 report_display_name,
             ),
             on_model_error_callback=_native_model_error_callback(
-                output_schema,
+                spec.output_schema,
                 report_display_name,
             ),
         ),
         FunctionNode(
             func=_finalize_native_state_llm_turn(
-                build_prompt=build_prompt,
-                build_result=build_result,
-                output_key=output_key,
-                display_name=display_name,
+                build_prompt=spec.build_prompt,
+                build_result=spec.build_result,
+                output_key=spec.output_key,
+                display_name=spec.display_name,
             ),
-            name=f"{_native_agent_name(analyst)}_finalize",
+            name=f"{spec.agent_name}_finalize",
         ),
     ]
 
@@ -807,7 +674,6 @@ def _finalize_native_state_llm_turn(
     build_result: Any | None = None,
     output_key: str,
     display_name: str,
-    output_schema: Any | None = None,
 ):
     def finalize(ctx: Context):
         structured_payload = ctx.state.get(output_key)
@@ -952,14 +818,14 @@ def _native_structured_after_model_callback(output_schema: Any, display_name: st
         try:
             output_schema.model_validate_json(raw_response)
         except Exception as exc:
-            repaired = _repair_structured_output(output_schema, raw_response)
+            repaired = repair_structured_output(output_schema, raw_response)
             if repaired is not None:
                 return _llm_response_from_structured(repaired)
             _append_runtime_warning(
                 callback_context.state,
-                _structured_output_warning(display_name, exc),
+                structured_output_warning(display_name, exc),
             )
-            structured = _fallback_structured_output(
+            structured = fallback_structured_output(
                 output_schema,
                 raw_response,
                 display_name,
@@ -968,82 +834,6 @@ def _native_structured_after_model_callback(output_schema: Any, display_name: st
         return None
 
     return callback
-
-
-def _repair_structured_output(output_schema: Any, raw_response: str):
-    text = (raw_response or "").strip()
-    if not text:
-        return None
-
-    candidates = [text]
-    stripped = _strip_json_fence(text)
-    if stripped != text:
-        candidates.insert(0, stripped)
-
-    for candidate in candidates:
-        structured = _validate_first_json_object(output_schema, candidate)
-        if structured is not None:
-            return structured
-
-    return _repair_markdown_json_highlights_output(output_schema, text)
-
-
-def _validate_first_json_object(output_schema: Any, text: str):
-    try:
-        payload, _index = json.JSONDecoder().raw_decode(text.lstrip())
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    try:
-        return output_schema.model_validate(payload)
-    except Exception:
-        return None
-
-
-def _repair_markdown_json_highlights_output(output_schema: Any, text: str):
-    block = _extract_json_highlights_block(text)
-    if block is None:
-        return None
-
-    report_markdown, highlights_text = block
-    try:
-        highlights, _index = json.JSONDecoder().raw_decode(highlights_text.lstrip())
-    except json.JSONDecodeError:
-        return None
-    if not isinstance(highlights, dict):
-        return None
-
-    try:
-        return output_schema.model_validate(
-            {
-                "report_markdown": report_markdown,
-                "highlights": highlights,
-            }
-        )
-    except Exception:
-        return None
-
-
-def _extract_json_highlights_block(text: str) -> tuple[str, str] | None:
-    marker = "```json-highlights"
-    start = text.lower().rfind(marker)
-    if start < 0:
-        return None
-
-    body_start = text.find("\n", start)
-    if body_start < 0:
-        return None
-    body_start += 1
-
-    body_end = text.find("```", body_start)
-    if body_end < 0:
-        return None
-
-    before = text[:start].strip()
-    after = text[body_end + 3 :].strip()
-    report_parts = [part for part in (before, after) if part]
-    return "\n\n".join(report_parts).strip(), text[body_start:body_end].strip()
 
 
 def _evidence_tool_calls_state_key(output_key: str) -> str:
@@ -1083,7 +873,7 @@ def _native_model_error_callback(output_schema: Any, display_name: str):
             callback_context.state,
             _transient_llm_warning(display_name, error),
         )
-        structured = _fallback_structured_output(output_schema, "", display_name)
+        structured = fallback_structured_output(output_schema, "", display_name)
         return _llm_response_from_structured(structured)
 
     return callback
@@ -1111,196 +901,6 @@ def _native_evidence_model_error_callback(
         return _llm_response_from_text(notes)
 
     return callback
-
-
-def _structured_output_warning(stage: str, error: BaseException) -> dict[str, str]:
-    error_note = str(error).strip()[:500] or error.__class__.__name__
-    return {
-        "stage": stage,
-        "kind": "structured_output_validation_failed",
-        "message": (
-            f"{stage} response did not match the ADK output schema; "
-            "using a conservative schema-valid fallback. "
-            f"Error type: {error.__class__.__name__}; detail: {error_note}"
-        ),
-    }
-
-
-def _fallback_report_markdown(raw_response: str, stage: str) -> str:
-    report = (raw_response or "").strip()
-    if report:
-        payload_text = _strip_json_fence(report)
-        try:
-            payload = json.loads(payload_text)
-        except json.JSONDecodeError:
-            return report
-        if isinstance(payload, dict):
-            report_markdown = payload.get("report_markdown")
-            if isinstance(report_markdown, str) and report_markdown.strip():
-                return report_markdown.strip()
-        return report
-
-    return (
-        f"## {stage} Fallback\n\n"
-        "The model response was empty or invalid, so Diverge generated a "
-        "conservative schema-validation fallback."
-    )
-
-
-def _strip_json_fence(text: str) -> str:
-    stripped = text.strip()
-    if not stripped.startswith("```"):
-        return stripped
-    lines = stripped.splitlines()
-    if len(lines) >= 3 and lines[-1].strip() == "```":
-        return "\n".join(lines[1:-1]).strip()
-    return stripped
-
-
-def _fallback_structured_output(output_schema: Any, raw_response: str, stage: str):
-    report = _fallback_report_markdown(raw_response, stage)
-    summary = (
-        f"{stage} returned a response that could not be validated against the "
-        "structured output schema."
-    )
-    common = {
-        "signal": "HOLD",
-        "signal_confidence": "low",
-        "summary": summary,
-        "evidence_blocks": [],
-        "unknowns": ["Original model response failed structured validation."],
-    }
-    if output_schema is MarketReportStructuredOutput:
-        highlights = {
-            **common,
-            "category": "market",
-            "stance": "neutral",
-            "trend_direction": "neutral",
-            "key_levels": {"support": [], "resistance": []},
-            "indicators": [],
-            "volatility": None,
-        }
-    elif output_schema is FundamentalsReportStructuredOutput:
-        highlights = {
-            **common,
-            "category": "fundamentals",
-            "stance": "neutral",
-            "metrics": [],
-            "financial_health": None,
-        }
-    elif output_schema is SentimentReportStructuredOutput:
-        highlights = {
-            **common,
-            "category": "sentiment",
-            "stance": "neutral",
-            "overall_sentiment": "neutral",
-            "sentiment_score": None,
-            "key_topics": [],
-            "social_buzz": None,
-        }
-    elif output_schema is NewsReportStructuredOutput:
-        highlights = {
-            **common,
-            "category": "news",
-            "stance": "neutral",
-            "market_impact": "neutral",
-            "key_events": [],
-            "macro_outlook": None,
-        }
-    elif output_schema is BullCaseStructuredOutput:
-        highlights = {
-            **common,
-            "category": "bull_case",
-            "stance": "bullish",
-            "contrary_evidence": [],
-            "key_arguments": [],
-            "counterpoints": [],
-        }
-    elif output_schema is BearCaseStructuredOutput:
-        highlights = {
-            **common,
-            "category": "bear_case",
-            "stance": "bearish",
-            "contrary_evidence": [],
-            "key_arguments": [],
-            "counterpoints": [],
-        }
-    elif output_schema is ResearchDecisionStructuredOutput:
-        highlights = {
-            **common,
-            "category": "research_decision",
-            "stance": "neutral",
-            "decision": "HOLD",
-            "aligned_with": "bull",
-            "rationale": "Structured validation failed, so no directional research edge is reliable.",
-            "action_items": ["Regenerate a schema-valid research decision."],
-        }
-    elif output_schema is TraderStructuredOutput:
-        highlights = {
-            **common,
-            "category": "trader",
-            "stance": "neutral",
-            "entry_exit": {
-                "action": "Wait for a schema-valid trading plan.",
-                "entry_condition": None,
-                "exit_target": None,
-                "stop_loss": None,
-                "invalidation": "A regenerated response validates against the trading schema.",
-                "re_entry": None,
-            },
-            "position_sizing": "No sizing until the trading plan validates.",
-            "risk_budget": "No new risk budget from fallback output.",
-            "risk_factors": ["Trading plan structured validation failed."],
-        }
-    elif output_schema is AggressiveRiskStructuredOutput:
-        highlights = _fallback_risk_highlights(
-            common,
-            category="risk_aggressive",
-            stance_label="Aggressive",
-            risk_assessment="high",
-        )
-    elif output_schema is ConservativeRiskStructuredOutput:
-        highlights = _fallback_risk_highlights(
-            common,
-            category="risk_conservative",
-            stance_label="Conservative",
-            risk_assessment="low",
-        )
-    elif output_schema is NeutralRiskStructuredOutput:
-        highlights = _fallback_risk_highlights(
-            common,
-            category="risk_neutral",
-            stance_label="Neutral",
-            risk_assessment="moderate",
-        )
-    else:
-        raise TypeError(f"Unsupported structured output schema: {output_schema!r}")
-
-    return output_schema.model_validate(
-        {
-            "report_markdown": report,
-            "highlights": highlights,
-        }
-    )
-
-
-def _fallback_risk_highlights(
-    common: dict[str, Any],
-    *,
-    category: str,
-    stance_label: str,
-    risk_assessment: str,
-) -> dict[str, Any]:
-    return {
-        **common,
-        "category": category,
-        "stance": "neutral",
-        "stance_label": stance_label,
-        "core_argument": "Structured validation failed, so risk posture should stay conservative until regenerated.",
-        "risk_assessment": risk_assessment,
-        "key_recommendations": ["Regenerate a schema-valid risk debate response."],
-        "risk_budget": None,
-    }
 
 
 def _build_native_portfolio_manager_nodes(
@@ -1378,7 +978,7 @@ def _portfolio_after_model_callback(callback_context, llm_response):
     try:
         PortfolioManagerStructuredOutput.model_validate_json(raw_response)
     except Exception as exc:
-        repaired = _repair_structured_output(
+        repaired = repair_structured_output(
             PortfolioManagerStructuredOutput,
             raw_response,
         )

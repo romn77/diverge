@@ -13,6 +13,7 @@ from google.adk.workflow import START
 from google.genai import types
 from langchain_core.messages import AIMessage
 
+from diverge.agents.analysts.news_analyst import build_news_analyst_prompt
 from diverge.agents.managers.portfolio_manager import PortfolioManagerStructuredOutput
 from diverge.agents.report_output import (
     AggressiveRiskStructuredOutput,
@@ -207,7 +208,7 @@ def test_news_report_instruction_receives_evidence_notes():
     state = create_initial_state("CEG", "2026-05-20", output_language="cn")
     state["news_evidence_notes"] = "get_news: CEG had mixed source-backed news."
     instruction = adk_native_runner._native_report_prompt_instruction(
-        adk_native_runner.build_news_analyst_prompt,
+        build_news_analyst_prompt,
         evidence_output_key="news_evidence_notes",
     )
 
