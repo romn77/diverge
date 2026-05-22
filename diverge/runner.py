@@ -328,11 +328,6 @@ class AnalysisTracker:
             message = warning_message
             dirty = True
 
-        runtime_message = self._consume_runtime_progress_events(chunk)
-        if runtime_message:
-            message = runtime_message
-            dirty = True
-
         if self._update_analyst_statuses(chunk):
             dirty = True
 
@@ -343,6 +338,11 @@ class AnalysisTracker:
             dirty = True
 
         if self._update_risk_status(chunk):
+            dirty = True
+
+        runtime_message = self._consume_runtime_progress_events(chunk)
+        if runtime_message:
+            message = runtime_message
             dirty = True
 
         if not dirty:
@@ -383,7 +383,7 @@ class AnalysisTracker:
         if not isinstance(incoming, list):
             return None
 
-        latest_message = None
+        messages = []
         for event in incoming:
             if not isinstance(event, dict):
                 continue
@@ -394,13 +394,13 @@ class AnalysisTracker:
                 self._seen_runtime_progress_ids.add(event_id)
 
             current_agent = str(event.get("current_agent") or "").strip()
-            if current_agent in self.agent_status:
+            if current_agent:
                 self.current_agent = current_agent
             message = str(event.get("message") or "").strip()
             if message:
-                latest_message = message
+                messages.append(message)
 
-        return latest_message
+        return " / ".join(messages) if messages else None
 
     def _build_stage_status(self) -> dict[str, str]:
         stage_status = {}
@@ -732,15 +732,11 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         bear_report = debate.get("current_bear_response") or debate.get("bear_history")
         if bull_report:
             research_dir.mkdir(exist_ok=True)
-            (research_dir / "bull.md").write_text(
-                bull_report, encoding="utf-8"
-            )
+            (research_dir / "bull.md").write_text(bull_report, encoding="utf-8")
             research_parts.append(("Bull Researcher", bull_report))
         if bear_report:
             research_dir.mkdir(exist_ok=True)
-            (research_dir / "bear.md").write_text(
-                bear_report, encoding="utf-8"
-            )
+            (research_dir / "bear.md").write_text(bear_report, encoding="utf-8")
             research_parts.append(("Bear Researcher", bear_report))
         if debate.get("judge_decision"):
             research_dir.mkdir(exist_ok=True)
@@ -779,9 +775,7 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         )
         if aggressive_report:
             risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "aggressive.md").write_text(
-                aggressive_report, encoding="utf-8"
-            )
+            (risk_dir / "aggressive.md").write_text(aggressive_report, encoding="utf-8")
             risk_parts.append(("Aggressive Analyst", aggressive_report))
         if conservative_report:
             risk_dir.mkdir(exist_ok=True)
@@ -791,9 +785,7 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
             risk_parts.append(("Conservative Analyst", conservative_report))
         if neutral_report:
             risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "neutral.md").write_text(
-                neutral_report, encoding="utf-8"
-            )
+            (risk_dir / "neutral.md").write_text(neutral_report, encoding="utf-8")
             risk_parts.append(("Neutral Analyst", neutral_report))
         if risk_parts:
             content = "\n\n".join(f"### {name}\n{text}" for name, text in risk_parts)

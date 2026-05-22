@@ -108,6 +108,7 @@ _NATIVE_ANALYST_SPECS = {
         "output_schema": MarketReportStructuredOutput,
         "output_key": "market_report_structured",
         "build_prompt": build_market_analyst_prompt,
+        "evidence_output_key": "market_evidence_notes",
         "build_result": build_market_analyst_result,
     },
     "social": {
@@ -115,6 +116,7 @@ _NATIVE_ANALYST_SPECS = {
         "output_schema": SentimentReportStructuredOutput,
         "output_key": "sentiment_report_structured",
         "build_prompt": build_social_media_analyst_prompt,
+        "evidence_output_key": "sentiment_evidence_notes",
         "build_result": build_social_media_analyst_result,
     },
     "news": {
@@ -123,12 +125,14 @@ _NATIVE_ANALYST_SPECS = {
         "output_key": "news_report_structured",
         "build_prompt": build_news_analyst_prompt,
         "build_result": build_news_analyst_result,
+        "evidence_output_key": "news_evidence_notes",
     },
     "fundamentals": {
         "display_name": "Fundamentals Analyst",
         "output_schema": FundamentalsReportStructuredOutput,
         "output_key": "fundamentals_report_structured",
         "build_prompt": build_fundamentals_analyst_prompt,
+        "evidence_output_key": "fundamentals_evidence_notes",
         "build_result": build_fundamentals_analyst_result,
     },
 }
@@ -259,7 +263,9 @@ def build_native_analysis_nodes(
 
 def _ordered_native_analysts(selected_analysts: Sequence[str]) -> list[str]:
     selected = [analyst for analyst in ANALYST_ORDER if analyst in selected_analysts]
-    native_analysts = [analyst for analyst in selected if analyst in _NATIVE_ANALYST_SPECS]
+    native_analysts = [
+        analyst for analyst in selected if analyst in _NATIVE_ANALYST_SPECS
+    ]
     remaining_analysts = [
         analyst for analyst in selected if analyst not in _NATIVE_ANALYST_SPECS
     ]
@@ -281,35 +287,139 @@ def _build_native_analyst_nodes(
     resources: _NativeRuntimeResources,
 ) -> list[BaseNode]:
     spec = _NATIVE_ANALYST_SPECS[analyst]
+    if spec.get("evidence_output_key"):
+        return _build_native_evidence_report_analyst_nodes(analyst, resources)
+
     model = _native_model(resources.quick_model, f"{spec['display_name']}")
     output_schema = spec["output_schema"]
     output_key = str(spec["output_key"])
     display_name = str(spec["display_name"])
     build_prompt = spec["build_prompt"]
     build_result = spec["build_result"]
+    tools = list(resources.tool_nodes[analyst].tools)
+
+    llm_kwargs: dict[str, Any] = {
+        "name": _native_agent_name(analyst),
+        "model": model,
+        "instruction": _native_prompt_instruction(build_prompt),
+        "tools": tools,
+        "generate_content_config": resources.generation_config,
+        "include_contents": "none",
+        "before_tool_callback": _native_analyst_before_tool_callback(
+            build_prompt=build_prompt,
+            display_name=display_name,
+        ),
+        "after_tool_callback": _native_analyst_after_tool_callback(display_name),
+        "on_tool_error_callback": _native_analyst_tool_error_callback(display_name),
+        "output_schema": output_schema,
+        "output_key": output_key,
+        "after_model_callback": _native_structured_after_model_callback(
+            output_schema,
+            display_name,
+        ),
+        "on_model_error_callback": _native_model_error_callback(
+            output_schema,
+            display_name,
+        ),
+    }
+
     return [
         FunctionNode(
             func=_start_native_state_llm_turn(display_name),
             name=f"{_native_agent_name(analyst)}_start",
         ),
+        LlmAgent(**llm_kwargs),
+        FunctionNode(
+            func=_finalize_native_state_llm_turn(
+                build_prompt=build_prompt,
+                build_result=build_result,
+                output_key=output_key,
+                display_name=display_name,
+                output_schema=output_schema,
+            ),
+            name=f"{_native_agent_name(analyst)}_finalize",
+        ),
+    ]
+
+
+def _build_native_evidence_report_analyst_nodes(
+    analyst: str,
+    resources: _NativeRuntimeResources,
+) -> list[BaseNode]:
+    spec = _NATIVE_ANALYST_SPECS[analyst]
+    model = _native_model(resources.quick_model, f"{spec['display_name']}")
+    output_schema = spec["output_schema"]
+    output_key = str(spec["output_key"])
+    evidence_output_key = str(spec["evidence_output_key"])
+    evidence_tool_calls_key = _evidence_tool_calls_state_key(evidence_output_key)
+    display_name = str(spec["display_name"])
+    evidence_display_name = f"{display_name} Evidence"
+    report_display_name = f"{display_name} Report"
+    build_prompt = spec["build_prompt"]
+    build_result = spec["build_result"]
+
+    return [
+        FunctionNode(
+            func=_start_native_state_llm_turn(evidence_display_name),
+            name=f"{_native_agent_name(analyst)}_evidence_start",
+        ),
         LlmAgent(
-            name=_native_agent_name(analyst),
+            name=f"{_native_agent_name(analyst)}_evidence",
             model=model,
-            instruction=_native_prompt_instruction(build_prompt),
+            instruction=_native_evidence_prompt_instruction(
+                build_prompt,
+                evidence_output_key=evidence_output_key,
+            ),
             tools=list(resources.tool_nodes[analyst].tools),
-            output_schema=output_schema,
-            output_key=output_key,
+            output_key=evidence_output_key,
             generate_content_config=resources.generation_config,
             include_contents="none",
             before_tool_callback=_native_analyst_before_tool_callback(
                 build_prompt=build_prompt,
-                display_name=display_name,
+                display_name=evidence_display_name,
             ),
-            after_tool_callback=_native_analyst_after_tool_callback(display_name),
-            on_tool_error_callback=_native_analyst_tool_error_callback(display_name),
+            after_tool_callback=_native_analyst_after_tool_callback(
+                evidence_display_name,
+                evidence_tool_calls_key=evidence_tool_calls_key,
+            ),
+            on_tool_error_callback=_native_analyst_tool_error_callback(
+                evidence_display_name
+            ),
+            on_model_error_callback=_native_evidence_model_error_callback(
+                evidence_output_key,
+                evidence_display_name,
+            ),
+        ),
+        FunctionNode(
+            func=_finalize_native_evidence_turn(
+                evidence_output_key=evidence_output_key,
+                evidence_tool_calls_key=evidence_tool_calls_key,
+                display_name=evidence_display_name,
+            ),
+            name=f"{_native_agent_name(analyst)}_evidence_finalize",
+        ),
+        FunctionNode(
+            func=_start_native_state_llm_turn(report_display_name),
+            name=f"{_native_agent_name(analyst)}_report_start",
+        ),
+        LlmAgent(
+            name=f"{_native_agent_name(analyst)}_report",
+            model=model,
+            instruction=_native_report_prompt_instruction(
+                build_prompt,
+                evidence_output_key=evidence_output_key,
+            ),
+            output_schema=output_schema,
+            output_key=output_key,
+            generate_content_config=resources.generation_config,
+            include_contents="none",
             after_model_callback=_native_structured_after_model_callback(
                 output_schema,
-                display_name,
+                report_display_name,
+            ),
+            on_model_error_callback=_native_model_error_callback(
+                output_schema,
+                report_display_name,
             ),
         ),
         FunctionNode(
@@ -566,6 +676,10 @@ def _build_native_state_llm_nodes(
                 output_schema,
                 display_name,
             ),
+            on_model_error_callback=_native_model_error_callback(
+                output_schema,
+                display_name,
+            ),
         ),
         FunctionNode(
             func=_finalize_native_state_llm_turn(
@@ -593,12 +707,98 @@ def _start_native_state_llm_turn(display_name: str):
 
 def _native_prompt_instruction(build_prompt: Any):
     def instruction(ctx) -> str:
-        prompt, _tools, _metadata = build_prompt(snapshot_state(ctx.state))
-        if getattr(prompt, "messages", None):
-            return prompt.to_string()
-        return str(getattr(prompt, "system_message", prompt))
+        return _prompt_text(build_prompt, snapshot_state(ctx.state))
 
     return instruction
+
+
+def _native_evidence_prompt_instruction(
+    build_prompt: Any,
+    *,
+    evidence_output_key: str,
+):
+    def instruction(ctx) -> str:
+        content = _prompt_text(build_prompt, snapshot_state(ctx.state))
+        return (
+            f"{content}\n\nEvidence phase contract:\n"
+            "- This is the evidence-gathering phase, not the final report phase.\n"
+            "- Use the available evidence tools before you write final notes.\n"
+            "- Return concise evidence notes only: claims, source/tool names, dates, "
+            "limitations, and unresolved unknowns.\n"
+            "- Do not return JSON, `json-highlights`, or the final user-facing report.\n"
+            f"- The runtime stores these notes in state key `{evidence_output_key}` "
+            "for the report-only agent."
+        )
+
+    return instruction
+
+
+def _native_report_prompt_instruction(
+    build_prompt: Any,
+    *,
+    evidence_output_key: str,
+):
+    def instruction(ctx) -> str:
+        state = snapshot_state(ctx.state)
+        content = _prompt_text(build_prompt, state)
+        evidence_notes = str(state.get(evidence_output_key) or "").strip()
+        if not evidence_notes:
+            evidence_notes = "No evidence notes were produced by the evidence phase."
+        return (
+            f"{content}\n\nReport phase contract:\n"
+            "- This is the final report-formatting phase. You have no tools.\n"
+            f"- Use the evidence notes from `{evidence_output_key}` below as the "
+            "primary source of facts.\n"
+            "- Do not claim that you performed additional tool calls in this phase.\n"
+            "- Return only the structured response requested by the runtime schema.\n\n"
+            f"Evidence notes:\n{evidence_notes}"
+        )
+
+    return instruction
+
+
+def _prompt_text(build_prompt: Any, state: Mapping[str, Any]) -> str:
+    prompt, _tools, _metadata = build_prompt(state)
+    if getattr(prompt, "messages", None):
+        return prompt.to_string()
+    return str(getattr(prompt, "system_message", prompt))
+
+
+def _finalize_native_evidence_turn(
+    *,
+    evidence_output_key: str,
+    evidence_tool_calls_key: str,
+    display_name: str,
+):
+    def finalize(ctx: Context):
+        notes = str(ctx.state.get(evidence_output_key) or "").strip()
+        tool_calls = int(ctx.state.get(evidence_tool_calls_key) or 0)
+        if tool_calls <= 0:
+            _append_runtime_warning(
+                ctx.state,
+                _missing_evidence_warning(display_name),
+            )
+            notes = (
+                "No evidence-gathering tool returned data in the evidence phase. "
+                "Treat this report as data-insufficient and avoid unsupported "
+                "fresh-news claims."
+            )
+            ctx.state[evidence_output_key] = notes
+        elif not notes:
+            notes = (
+                "Evidence tools were called, but the evidence agent returned no "
+                "usable notes. Treat the final report as data-insufficient."
+            )
+            ctx.state[evidence_output_key] = notes
+
+        append_runtime_progress_event(
+            ctx.state,
+            current_agent=display_name,
+            message=f"{display_name} completed with {tool_calls} evidence tool call(s).",
+        )
+        return None
+
+    return finalize
 
 
 def _finalize_native_state_llm_turn(
@@ -607,6 +807,7 @@ def _finalize_native_state_llm_turn(
     build_result: Any | None = None,
     output_key: str,
     display_name: str,
+    output_schema: Any | None = None,
 ):
     def finalize(ctx: Context):
         structured_payload = ctx.state.get(output_key)
@@ -680,11 +881,19 @@ def _native_analyst_before_tool_callback(
     return callback
 
 
-def _native_analyst_after_tool_callback(display_name: str):
+def _native_analyst_after_tool_callback(
+    display_name: str,
+    *,
+    evidence_tool_calls_key: str | None = None,
+):
     def callback(tool, args: dict[str, Any], tool_context, tool_response):
         del args
         tool_name = str(getattr(tool, "name", "") or "")
         _reset_search_context_token(tool_context, tool_name)
+        if evidence_tool_calls_key:
+            tool_context.state[evidence_tool_calls_key] = (
+                int(tool_context.state.get(evidence_tool_calls_key) or 0) + 1
+            )
         response_length = len(str(tool_response))
         append_runtime_progress_event(
             tool_context.state,
@@ -743,6 +952,9 @@ def _native_structured_after_model_callback(output_schema: Any, display_name: st
         try:
             output_schema.model_validate_json(raw_response)
         except Exception as exc:
+            repaired = _repair_structured_output(output_schema, raw_response)
+            if repaired is not None:
+                return _llm_response_from_structured(repaired)
             _append_runtime_warning(
                 callback_context.state,
                 _structured_output_warning(display_name, exc),
@@ -754,6 +966,149 @@ def _native_structured_after_model_callback(output_schema: Any, display_name: st
             )
             return _llm_response_from_structured(structured)
         return None
+
+    return callback
+
+
+def _repair_structured_output(output_schema: Any, raw_response: str):
+    text = (raw_response or "").strip()
+    if not text:
+        return None
+
+    candidates = [text]
+    stripped = _strip_json_fence(text)
+    if stripped != text:
+        candidates.insert(0, stripped)
+
+    for candidate in candidates:
+        structured = _validate_first_json_object(output_schema, candidate)
+        if structured is not None:
+            return structured
+
+    return _repair_markdown_json_highlights_output(output_schema, text)
+
+
+def _validate_first_json_object(output_schema: Any, text: str):
+    try:
+        payload, _index = json.JSONDecoder().raw_decode(text.lstrip())
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+    try:
+        return output_schema.model_validate(payload)
+    except Exception:
+        return None
+
+
+def _repair_markdown_json_highlights_output(output_schema: Any, text: str):
+    block = _extract_json_highlights_block(text)
+    if block is None:
+        return None
+
+    report_markdown, highlights_text = block
+    try:
+        highlights, _index = json.JSONDecoder().raw_decode(highlights_text.lstrip())
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(highlights, dict):
+        return None
+
+    try:
+        return output_schema.model_validate(
+            {
+                "report_markdown": report_markdown,
+                "highlights": highlights,
+            }
+        )
+    except Exception:
+        return None
+
+
+def _extract_json_highlights_block(text: str) -> tuple[str, str] | None:
+    marker = "```json-highlights"
+    start = text.lower().rfind(marker)
+    if start < 0:
+        return None
+
+    body_start = text.find("\n", start)
+    if body_start < 0:
+        return None
+    body_start += 1
+
+    body_end = text.find("```", body_start)
+    if body_end < 0:
+        return None
+
+    before = text[:start].strip()
+    after = text[body_end + 3 :].strip()
+    report_parts = [part for part in (before, after) if part]
+    return "\n\n".join(report_parts).strip(), text[body_start:body_end].strip()
+
+
+def _evidence_tool_calls_state_key(output_key: str) -> str:
+    return f"{output_key.removesuffix('_structured')}_evidence_tool_calls"
+
+
+def _missing_evidence_warning(stage: str) -> dict[str, str]:
+    return {
+        "stage": stage,
+        "kind": "missing_evidence_tool_call",
+        "message": (
+            f"{stage} did not complete any evidence-gathering tool call; "
+            "the report phase will receive a data-insufficient evidence note."
+        ),
+    }
+
+
+def _transient_llm_warning(stage: str, error: BaseException) -> dict[str, str]:
+    error_note = str(error).strip()[:500] or error.__class__.__name__
+    return {
+        "stage": stage,
+        "kind": "transient_llm_error",
+        "message": (
+            f"{stage} used a conservative fallback because the LLM request "
+            f"failed with a transient connection error: {error_note}"
+        ),
+    }
+
+
+def _native_model_error_callback(output_schema: Any, display_name: str):
+    def callback(callback_context, llm_request, error: Exception):
+        del llm_request
+        if not is_transient_portfolio_llm_error(error):
+            return None
+
+        _append_runtime_warning(
+            callback_context.state,
+            _transient_llm_warning(display_name, error),
+        )
+        structured = _fallback_structured_output(output_schema, "", display_name)
+        return _llm_response_from_structured(structured)
+
+    return callback
+
+
+def _native_evidence_model_error_callback(
+    output_key: str,
+    display_name: str,
+):
+    def callback(callback_context, llm_request, error: Exception):
+        del llm_request
+        if not is_transient_portfolio_llm_error(error):
+            return None
+
+        _append_runtime_warning(
+            callback_context.state,
+            _transient_llm_warning(display_name, error),
+        )
+        notes = (
+            f"{display_name} could not complete because the LLM request failed "
+            "with a transient connection error. Treat the final report as "
+            "data-insufficient unless regenerated."
+        )
+        callback_context.state[output_key] = notes
+        return _llm_response_from_text(notes)
 
     return callback
 
@@ -771,14 +1126,39 @@ def _structured_output_warning(stage: str, error: BaseException) -> dict[str, st
     }
 
 
-def _fallback_structured_output(output_schema: Any, raw_response: str, stage: str):
+def _fallback_report_markdown(raw_response: str, stage: str) -> str:
     report = (raw_response or "").strip()
-    if not report:
-        report = (
-            f"## {stage} Fallback\n\n"
-            "The model response was empty or invalid, so Diverge generated a "
-            "conservative schema-validation fallback."
-        )
+    if report:
+        payload_text = _strip_json_fence(report)
+        try:
+            payload = json.loads(payload_text)
+        except json.JSONDecodeError:
+            return report
+        if isinstance(payload, dict):
+            report_markdown = payload.get("report_markdown")
+            if isinstance(report_markdown, str) and report_markdown.strip():
+                return report_markdown.strip()
+        return report
+
+    return (
+        f"## {stage} Fallback\n\n"
+        "The model response was empty or invalid, so Diverge generated a "
+        "conservative schema-validation fallback."
+    )
+
+
+def _strip_json_fence(text: str) -> str:
+    stripped = text.strip()
+    if not stripped.startswith("```"):
+        return stripped
+    lines = stripped.splitlines()
+    if len(lines) >= 3 and lines[-1].strip() == "```":
+        return "\n".join(lines[1:-1]).strip()
+    return stripped
+
+
+def _fallback_structured_output(output_schema: Any, raw_response: str, stage: str):
+    report = _fallback_report_markdown(raw_response, stage)
     summary = (
         f"{stage} returned a response that could not be validated against the "
         "structured output schema."
@@ -998,6 +1378,12 @@ def _portfolio_after_model_callback(callback_context, llm_response):
     try:
         PortfolioManagerStructuredOutput.model_validate_json(raw_response)
     except Exception as exc:
+        repaired = _repair_structured_output(
+            PortfolioManagerStructuredOutput,
+            raw_response,
+        )
+        if repaired is not None:
+            return _llm_response_from_structured(repaired)
         _append_runtime_warning(
             callback_context.state,
             portfolio_structured_output_warning(exc),
@@ -1045,13 +1431,17 @@ def _llm_response_has_function_call(response) -> bool:
 
 
 def _llm_response_from_structured(structured: Any):
+    payload = json.dumps(structured.model_dump(mode="json"), ensure_ascii=False)
+    return _llm_response_from_text(payload)
+
+
+def _llm_response_from_text(text: str):
     from google.adk.models.llm_response import LlmResponse
 
-    payload = json.dumps(structured.model_dump(mode="json"), ensure_ascii=False)
     return LlmResponse(
         content=types.Content(
             role="model",
-            parts=[types.Part.from_text(text=payload)],
+            parts=[types.Part.from_text(text=text)],
         )
     )
 

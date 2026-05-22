@@ -157,11 +157,7 @@ export function TaskProgress({
 
   const stageStatus = task?.latest_progress?.stage_status ?? {};
   const eventLog = useMemo(
-    () =>
-      events
-        .slice()
-        .reverse()
-        .slice(0, 12),
+    () => events.slice().reverse(),
     [events]
   );
   const canCancelTask = task
@@ -364,27 +360,27 @@ export function TaskProgress({
         </Card>
 
         <Card className="viewer-frame rounded-[30px]">
-          <CardContent className="p-6 md:p-8">
+          <CardContent className="p-4 md:p-5">
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[var(--primary)]">
                 {t("task.eventLog", "Event Log")}
               </p>
-              <h2 className="workbench-section-title mt-3 text-2xl font-bold">
+              <h2 className="workbench-section-title mt-1.5 text-lg font-bold">
                 {t("task.liveFeed", "Live progress feed")}
               </h2>
             </div>
-            <Badge variant="secondary" className="tracking-[0.24em] text-slate-500">
+            <Badge variant="secondary" className="tracking-[0.18em] text-slate-500">
               {t("common.updates", ({ count }) => `${count} updates`, {
                 count: eventLog.length,
               })}
             </Badge>
           </div>
 
-          <ScrollArea className="mt-6 max-h-[24rem] pr-3">
-          <div className="space-y-3">
+          <ScrollArea className="mt-3 h-[min(34rem,calc(100dvh-12rem))] min-h-[18rem] pr-2">
+          <div className="space-y-1.5">
             {eventLog.length === 0 ? (
-              <div className="rounded-[24px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-4 py-6 text-sm text-slate-600">
+              <div className="rounded-[12px] border border-dashed border-[var(--border)] bg-[var(--surface-strong)] px-3 py-3 text-[13px] text-slate-600">
                 {t("task.waitingUpdate", "Waiting for the first streamed update...")}
               </div>
             ) : (
@@ -393,11 +389,11 @@ export function TaskProgress({
                   key={buildEventKey(event)}
                   className="task-event-item"
                 >
-                  <div className="ml-3 flex flex-wrap items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                  <div className="ml-1.5 flex flex-wrap items-center gap-1.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     <span>{event.timestamp}</span>
                     {event.current_agent ? <span>{event.current_agent}</span> : null}
                   </div>
-                  <p className="ml-3 mt-2 text-sm leading-6 text-slate-700">
+                  <p className="ml-1.5 mt-0.5 text-[12px] leading-4 text-slate-700">
                     {describeProgressEvent(event, t)}
                   </p>
                 </div>

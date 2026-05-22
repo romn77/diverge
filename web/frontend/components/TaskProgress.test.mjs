@@ -20,6 +20,14 @@ test("TaskProgress subscribes to backend task snapshots and renders the six-stag
   assert.match(source, /<Input/);
   assert.match(source, /<Select/);
   assert.match(source, /<ScrollArea/);
+  assert.match(source, /events\.slice\(\)\.reverse\(\)/);
+  assert.doesNotMatch(source, /\.slice\(0,\s*12\)/);
+  assert.match(source, /h-\[min\(34rem,calc\(100dvh-12rem\)\)\] min-h-\[18rem\]/);
+  assert.match(source, /<CardContent className="p-4 md:p-5">/);
+  assert.match(source, /workbench-section-title mt-1\.5 text-lg/);
+  assert.match(source, /<div className="space-y-1\.5">/);
+  assert.match(source, /text-\[9px\].*tracking-\[0\.14em\]/);
+  assert.match(source, /text-\[12px\] leading-4/);
   assert.doesNotMatch(source, /<input/);
   assert.doesNotMatch(source, /<select/);
   assert.match(source, /subscribeToTask/);
