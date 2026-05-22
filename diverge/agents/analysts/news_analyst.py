@@ -1,7 +1,4 @@
 from diverge.agents.report_output import (
-    NewsReportStructuredOutput,
-    merge_structured_agent_output,
-    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
@@ -17,10 +14,8 @@ from diverge.agents.utils.news_data_tools import get_global_news, get_news
 from diverge.agents.utils.search_tools import web_search_evidence
 from diverge.research.earnings import (
     build_earnings_workflow_context,
-    inject_earnings_section,
 )
 from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
 
 
 def build_news_analyst_prompt(state):
@@ -109,44 +104,3 @@ Keep the JSON keys and enum literals in English constants exactly as shown (`cat
         "earnings_report_section": earnings_context.report_section,
     }
     return prompt, tools, metadata
-
-
-def build_news_analyst_result(
-    state,
-    *,
-    response_content,
-    tool_calls=None,
-    earnings_report_section="",
-    **_unused,
-):
-    report = ""
-
-    if len(tool_calls or []) == 0:
-        try:
-            structured = parse_structured_output(
-                response_content,
-                NewsReportStructuredOutput,
-            )
-        except Exception:
-            report = inject_earnings_section(
-                response_content,
-                earnings_report_section,
-            )
-        else:
-            report = render_markdown_with_highlights(
-                inject_earnings_section(
-                    structured.report_markdown,
-                    earnings_report_section,
-                ),
-                structured.highlights,
-            )
-            return {
-                "news_report": report,
-                "structured_agent_outputs": merge_structured_agent_output(
-                    state,
-                    agent_name="news_analyst",
-                    payload=structured.model_dump(mode="json"),
-                ),
-            }
-
-    return {"news_report": report}

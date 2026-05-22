@@ -1,8 +1,3 @@
-from diverge.agents.report_output import (
-    NeutralRiskStructuredOutput,
-    merge_structured_agent_output,
-    render_markdown_with_highlights,
-)
 from diverge.agents.utils.agent_utils import (
     get_evidence_rules_instruction,
     get_language_instruction,
@@ -17,7 +12,6 @@ from diverge.agents.risk_mgmt.debate_phase import (
 )
 from diverge.agents.risk_mgmt.prompt_builder import build_risk_debator_prompt
 from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
 
 
 AGENT_NAME = "neutral_analyst"
@@ -114,9 +108,7 @@ This is the opening cycle of the risk debate. Lead with your own neutral thesis 
         {
             "history": history,
             "aggressive_history": risk_debate_state.get("aggressive_history", ""),
-            "conservative_history": risk_debate_state.get(
-                "conservative_history", ""
-            ),
+            "conservative_history": risk_debate_state.get("conservative_history", ""),
             "neutral_history": neutral_history,
             "current_aggressive_response": risk_debate_state.get(
                 "current_aggressive_response", ""
@@ -127,53 +119,3 @@ This is the opening cycle of the risk debate. Lead with your own neutral thesis 
             "count": risk_debate_state["count"],
         },
     )
-
-
-def build_neutral_risk_result(
-    state,
-    *,
-    response_content,
-    history,
-    aggressive_history,
-    conservative_history,
-    neutral_history,
-    current_aggressive_response,
-    current_conservative_response,
-    count,
-    **_unused,
-) -> dict:
-    try:
-        structured = parse_structured_output(
-            response_content,
-            NeutralRiskStructuredOutput,
-        )
-    except Exception:
-        rendered = response_content
-    else:
-        rendered = render_markdown_with_highlights(
-            structured.report_markdown,
-            structured.highlights,
-        )
-
-    argument = f"Neutral Analyst: {rendered}"
-
-    new_risk_debate_state = {
-        "history": history + "\n" + argument,
-        "aggressive_history": aggressive_history,
-        "conservative_history": conservative_history,
-        "neutral_history": neutral_history + "\n" + argument,
-        "latest_speaker": "Neutral",
-        "current_aggressive_response": current_aggressive_response,
-        "current_conservative_response": current_conservative_response,
-        "current_neutral_response": argument,
-        "count": count + 1,
-    }
-
-    result = {"risk_debate_state": new_risk_debate_state}
-    if "structured" in locals():
-        result["structured_agent_outputs"] = merge_structured_agent_output(
-            state,
-            agent_name=AGENT_NAME,
-            payload=structured.model_dump(mode="json"),
-        )
-    return result

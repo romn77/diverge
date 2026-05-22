@@ -1,7 +1,4 @@
 from diverge.agents.report_output import (
-    SentimentReportStructuredOutput,
-    merge_structured_agent_output,
-    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
@@ -16,7 +13,6 @@ from diverge.agents.utils.agent_utils import (
 from diverge.agents.utils.news_data_tools import get_news
 from diverge.agents.utils.search_tools import web_search_evidence
 from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
 
 
 def build_social_media_analyst_prompt(state):
@@ -93,37 +89,3 @@ def build_social_media_analyst_prompt(state):
         "language": output_language,
     }
     return prompt, tools, metadata
-
-
-def build_social_media_analyst_result(
-    state,
-    *,
-    response_content,
-    tool_calls=None,
-    **_unused,
-):
-    report = ""
-
-    if len(tool_calls or []) == 0:
-        try:
-            structured = parse_structured_output(
-                response_content,
-                SentimentReportStructuredOutput,
-            )
-        except Exception:
-            report = response_content
-        else:
-            report = render_markdown_with_highlights(
-                structured.report_markdown,
-                structured.highlights,
-            )
-            return {
-                "sentiment_report": report,
-                "structured_agent_outputs": merge_structured_agent_output(
-                    state,
-                    agent_name="social_media_analyst",
-                    payload=structured.model_dump(mode="json"),
-                ),
-            }
-
-    return {"sentiment_report": report}

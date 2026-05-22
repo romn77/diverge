@@ -8,9 +8,11 @@ from langchain_core.runnables import RunnableLambda
 
 from diverge.agents.analysts.fundamentals_analyst import (
     build_fundamentals_analyst_prompt,
-    build_fundamentals_analyst_result,
 )
 from diverge.agents.report_output import FundamentalsReportStructuredOutput
+from diverge.runtime.adk_native.specs import NATIVE_ANALYST_SPECS
+from diverge.runtime.adk_native.state_commit import commit_analyst_output
+from diverge.runtime.structured_output import repair_structured_output
 from diverge.runner import save_report_to_disk
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
@@ -64,7 +66,7 @@ def _valuation_input() -> ValuationInput:
     )
 
 
-@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+@patch("diverge.runtime.adk_native.state_commit.get_valuation_ready_fundamentals")
 def test_skill_adoption_flow_generates_valuation_report_and_artifacts(
     mock_get_valuation_ready_fundamentals,
 ):
@@ -85,14 +87,15 @@ def test_skill_adoption_flow_generates_valuation_report_and_artifacts(
         },
     }
 
-    prompt, tools, metadata = build_fundamentals_analyst_prompt(state)
+    prompt, tools, _metadata = build_fundamentals_analyst_prompt(state)
     response = llm.bind_tools(tools).invoke(prompt)
-    result = build_fundamentals_analyst_result(
+    result = commit_analyst_output(
         state,
-        response_content=response.content,
-        tool_calls=response.tool_calls,
-        output_schema=FundamentalsReportStructuredOutput,
-        **metadata,
+        spec=NATIVE_ANALYST_SPECS["fundamentals"],
+        structured_payload=repair_structured_output(
+            FundamentalsReportStructuredOutput,
+            response.content,
+        ),
     )
     fundamentals_report = result["fundamentals_report"]
 

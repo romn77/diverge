@@ -5,8 +5,11 @@ from langchain_core.messages import HumanMessage
 
 from diverge.agents.analysts.fundamentals_analyst import (
     build_fundamentals_analyst_prompt,
-    build_fundamentals_analyst_result,
 )
+from diverge.agents.report_output import FundamentalsReportStructuredOutput
+from diverge.runtime.adk_native.specs import NATIVE_ANALYST_SPECS
+from diverge.runtime.adk_native.state_commit import commit_analyst_output
+from diverge.runtime.structured_output import repair_structured_output
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
 
@@ -46,25 +49,28 @@ def _state():
     }
 
 
-@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+@patch("diverge.runtime.adk_native.state_commit.get_valuation_ready_fundamentals")
 def test_fundamentals_report_includes_valuation_sections_before_highlights(
     mock_get_valuation_ready_fundamentals,
 ):
     mock_get_valuation_ready_fundamentals.return_value = _valuation_input()
     state = _state()
-    _prompt, _tools, metadata = build_fundamentals_analyst_prompt(state)
-    result = build_fundamentals_analyst_result(
+    _prompt, _tools, _metadata = build_fundamentals_analyst_prompt(state)
+    raw_response = (
+        "Fundamentals analysis body.\n\n"
+        "```json-highlights\n"
+        '{\n  "category": "fundamentals",\n  "signal": "BUY",\n'
+        '  "signal_confidence": "medium",\n  "summary": "Stable cash generation.",\n'
+        '  "metrics": [],\n  "financial_health": "Strong"\n}\n'
+        "```"
+    )
+    result = commit_analyst_output(
         state,
-        response_content=(
-            "Fundamentals analysis body.\n\n"
-            "```json-highlights\n"
-            '{\n  "category": "fundamentals",\n  "signal": "BUY",\n'
-            '  "signal_confidence": "medium",\n  "summary": "Stable cash generation.",\n'
-            '  "metrics": [],\n  "financial_health": "Strong"\n}\n'
-            "```"
+        spec=NATIVE_ANALYST_SPECS["fundamentals"],
+        structured_payload=repair_structured_output(
+            FundamentalsReportStructuredOutput,
+            raw_response,
         ),
-        tool_calls=[],
-        **metadata,
     )
     report = result["fundamentals_report"]
 
@@ -77,25 +83,28 @@ def test_fundamentals_report_includes_valuation_sections_before_highlights(
     assert result["valuation_applicability"] == "applicable"
 
 
-@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
+@patch("diverge.runtime.adk_native.state_commit.get_valuation_ready_fundamentals")
 def test_fundamentals_report_surfaces_valuation_preparation_failures(
     mock_get_valuation_ready_fundamentals,
 ):
     mock_get_valuation_ready_fundamentals.side_effect = RuntimeError("bad payload")
     state = _state()
-    _prompt, _tools, metadata = build_fundamentals_analyst_prompt(state)
-    result = build_fundamentals_analyst_result(
+    _prompt, _tools, _metadata = build_fundamentals_analyst_prompt(state)
+    raw_response = (
+        "Fundamentals analysis body.\n\n"
+        "```json-highlights\n"
+        '{\n  "category": "fundamentals",\n  "signal": "HOLD",\n'
+        '  "signal_confidence": "low",\n  "summary": "Needs more work.",\n'
+        '  "metrics": [],\n  "financial_health": "Mixed"\n}\n'
+        "```"
+    )
+    result = commit_analyst_output(
         state,
-        response_content=(
-            "Fundamentals analysis body.\n\n"
-            "```json-highlights\n"
-            '{\n  "category": "fundamentals",\n  "signal": "HOLD",\n'
-            '  "signal_confidence": "low",\n  "summary": "Needs more work.",\n'
-            '  "metrics": [],\n  "financial_health": "Mixed"\n}\n'
-            "```"
+        spec=NATIVE_ANALYST_SPECS["fundamentals"],
+        structured_payload=repair_structured_output(
+            FundamentalsReportStructuredOutput,
+            raw_response,
         ),
-        tool_calls=[],
-        **metadata,
     )
     report = result["fundamentals_report"]
 

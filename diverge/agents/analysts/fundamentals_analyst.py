@@ -1,7 +1,4 @@
 from diverge.agents.report_output import (
-    FundamentalsReportStructuredOutput,
-    merge_structured_agent_output,
-    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
@@ -18,19 +15,12 @@ from diverge.agents.utils.fundamental_data_tools import (
     get_cashflow,
     get_fundamentals,
     get_income_statement,
-    get_valuation_ready_fundamentals,
 )
 from diverge.agents.utils.news_data_tools import get_insider_transactions
 from diverge.research.earnings import (
     build_earnings_workflow_context,
-    inject_earnings_section,
 )
 from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
-from diverge.valuation.formatter import (
-    format_valuation_sections,
-    inject_valuation_sections,
-)
 
 
 def build_fundamentals_analyst_prompt(state):
@@ -87,84 +77,3 @@ def build_fundamentals_analyst_prompt(state):
         "earnings_report_section": earnings_context.report_section,
     }
     return prompt, tools, metadata
-
-
-def build_fundamentals_analyst_result(
-    state,
-    *,
-    response_content,
-    tool_calls=None,
-    ticker,
-    current_date,
-    earnings_report_section,
-    **_unused,
-):
-    report = ""
-    instrument_type = state.get("instrument_type")
-    valuation_applicability = state.get("valuation_applicability")
-    valuation_applicability_reason = state.get("valuation_applicability_reason")
-
-    if len(tool_calls or []) == 0:
-        structured_payload = None
-        try:
-            structured = parse_structured_output(
-                response_content,
-                FundamentalsReportStructuredOutput,
-            )
-        except Exception:
-            base_report = response_content
-        else:
-            base_report = structured.report_markdown
-            structured_payload = structured.model_dump(mode="json")
-
-        report = inject_earnings_section(
-            base_report,
-            earnings_report_section,
-        )
-        try:
-            valuation_input = get_valuation_ready_fundamentals(
-                ticker,
-                curr_date=current_date,
-                freq="annual",
-            )
-            instrument_type = valuation_input.instrument_type
-            valuation_applicability = valuation_input.valuation_applicability
-            valuation_applicability_reason = (
-                valuation_input.valuation_applicability_reason
-            )
-            valuation_sections = format_valuation_sections(valuation_input)
-            report = inject_valuation_sections(report, valuation_sections)
-        except ValueError as exc:
-            report = inject_valuation_sections(
-                report,
-                f"## Valuation Availability\n\nValuation sections unavailable: {exc}",
-            )
-        except Exception:
-            report = inject_valuation_sections(
-                report,
-                "## Valuation Availability\n\nValuation sections unavailable due to unexpected preparation failure.",
-            )
-
-        if structured_payload is not None:
-            report = render_markdown_with_highlights(
-                report,
-                structured.highlights,
-            )
-            return {
-                "fundamentals_report": report,
-                "instrument_type": instrument_type,
-                "valuation_applicability": valuation_applicability,
-                "valuation_applicability_reason": valuation_applicability_reason,
-                "structured_agent_outputs": merge_structured_agent_output(
-                    state,
-                    agent_name="fundamentals_analyst",
-                    payload=structured_payload,
-                ),
-            }
-
-    return {
-        "fundamentals_report": report,
-        "instrument_type": instrument_type,
-        "valuation_applicability": valuation_applicability,
-        "valuation_applicability_reason": valuation_applicability_reason,
-    }

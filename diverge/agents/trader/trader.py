@@ -1,7 +1,4 @@
 from diverge.agents.report_output import (
-    TraderStructuredOutput,
-    merge_structured_agent_output,
-    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import build_instrument_context
@@ -16,7 +13,6 @@ from diverge.agents.utils.agent_utils import (
     get_upstream_decision_boundary_instruction,
 )
 from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
 
 
 AGENT_NAME = "trader"
@@ -126,36 +122,3 @@ Keep the JSON keys and enum literals in English exactly as shown, even when the 
         (),
         {},
     )
-
-
-def build_trader_result(
-    state,
-    *,
-    response_content,
-    **_unused,
-) -> dict:
-    try:
-        structured = parse_structured_output(
-            response_content,
-            TraderStructuredOutput,
-        )
-    except Exception:
-        rendered = response_content
-    else:
-        rendered = render_markdown_with_highlights(
-            structured.report_markdown,
-            structured.highlights,
-        )
-
-    result = {
-        "messages": [],
-        "trader_investment_plan": rendered,
-        "sender": SENDER_NAME,
-    }
-    if "structured" in locals():
-        result["structured_agent_outputs"] = merge_structured_agent_output(
-            state,
-            agent_name=AGENT_NAME,
-            payload=structured.model_dump(mode="json"),
-        )
-    return result

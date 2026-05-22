@@ -1,7 +1,4 @@
 from diverge.agents.report_output import (
-    ResearchDecisionStructuredOutput,
-    merge_structured_agent_output,
-    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
@@ -16,7 +13,6 @@ from diverge.agents.utils.agent_utils import (
 
 from diverge.agents.utils.agent_utils import build_instrument_context
 from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
 
 
 AGENT_NAME = "research_manager"
@@ -131,52 +127,3 @@ Keep the JSON keys and enum literals in English exactly as shown, even when the 
             "count": investment_debate_state["count"],
         },
     )
-
-
-def build_research_manager_result(
-    state,
-    *,
-    response_content,
-    history,
-    bear_history,
-    bull_history,
-    current_bull_response,
-    current_bear_response,
-    count,
-    **_unused,
-) -> dict:
-    try:
-        structured = parse_structured_output(
-            response_content,
-            ResearchDecisionStructuredOutput,
-        )
-    except Exception:
-        rendered = response_content
-    else:
-        rendered = render_markdown_with_highlights(
-            structured.report_markdown,
-            structured.highlights,
-        )
-
-    new_investment_debate_state = {
-        "judge_decision": rendered,
-        "history": history,
-        "bear_history": bear_history,
-        "bull_history": bull_history,
-        "current_response": rendered,
-        "current_bull_response": current_bull_response,
-        "current_bear_response": current_bear_response,
-        "count": count,
-    }
-
-    result = {
-        "investment_debate_state": new_investment_debate_state,
-        "investment_plan": rendered,
-    }
-    if "structured" in locals():
-        result["structured_agent_outputs"] = merge_structured_agent_output(
-            state,
-            agent_name=AGENT_NAME,
-            payload=structured.model_dump(mode="json"),
-        )
-    return result
