@@ -24,7 +24,10 @@ from diverge.agents.managers.portfolio_manager import (
     portfolio_transient_llm_warning,
     structured_fallback_from_transient_error,
 )
-from diverge.agents.managers.research_manager import build_research_manager_prompt
+from diverge.agents.managers.research_manager import (
+    build_research_manager_prompt,
+    commit_research_manager_output,
+)
 from diverge.agents.report_output import (
     AggressiveRiskStructuredOutput,
     BearCaseStructuredOutput,
@@ -38,24 +41,28 @@ from diverge.agents.report_output import (
     SentimentReportStructuredOutput,
     TraderStructuredOutput,
 )
-from diverge.agents.researchers.bear_researcher import build_bear_researcher_prompt
-from diverge.agents.researchers.bull_researcher import build_bull_researcher_prompt
-from diverge.agents.risk_mgmt.aggressive_debator import build_aggressive_risk_prompt
+from diverge.agents.researchers.bear_researcher import (
+    build_bear_researcher_prompt,
+    commit_bear_researcher_output,
+)
+from diverge.agents.researchers.bull_researcher import (
+    build_bull_researcher_prompt,
+    commit_bull_researcher_output,
+)
+from diverge.agents.risk_mgmt.aggressive_debator import (
+    build_aggressive_risk_prompt,
+    commit_aggressive_risk_output,
+)
 from diverge.agents.risk_mgmt.conservative_debator import (
     build_conservative_risk_prompt,
-)
-from diverge.agents.risk_mgmt.neutral_debator import build_neutral_risk_prompt
-from diverge.agents.trader.trader import build_trader_prompt
-from diverge.agents.utils.agent_utils import format_untrusted_context_block
-from diverge.runtime.adk_native.state_commit import (
-    commit_aggressive_risk_output,
-    commit_bear_researcher_output,
-    commit_bull_researcher_output,
     commit_conservative_risk_output,
-    commit_neutral_risk_output,
-    commit_research_manager_output,
-    commit_trader_output,
 )
+from diverge.agents.risk_mgmt.neutral_debator import (
+    build_neutral_risk_prompt,
+    commit_neutral_risk_output,
+)
+from diverge.agents.trader.trader import build_trader_prompt, commit_trader_output
+from diverge.agents.utils.agent_utils import format_untrusted_context_block
 from diverge.runtime.structured_output import (
     fallback_structured_output,
     repair_structured_output,

@@ -1,17 +1,20 @@
 from diverge.agents.report_output import (
+    ResearchDecisionStructuredOutput,
     structured_agent_output_instruction,
 )
-from diverge.agents.utils.agent_utils import (
-    format_untrusted_context_block,
-    get_evidence_rules_instruction,
-    get_language_instruction,
-    get_memory_skepticism_instruction,
-    get_research_note_style_instruction,
-    get_trade_feedback_message,
-    get_upstream_decision_boundary_instruction,
+from diverge.agents.agent_context import (
+    build_agent_prompt_context,
+    context_block,
+    investment_debate_from_state,
+    memory_recommendations_block,
+    upstream_reports_from_state,
 )
-
-from diverge.agents.utils.agent_utils import build_instrument_context
+from diverge.agents.debate_state import record_research_decision
+from diverge.agents.structured_commit import (
+    merge_structured_output,
+    render_structured_report,
+)
+from diverge.agents.structured_turn import StructuredAgentTurn
 from diverge.runtime.messages import AdkPrompt
 
 
@@ -19,45 +22,26 @@ AGENT_NAME = "research_manager"
 
 
 def build_research_manager_prompt(state, memory):
-    instrument_context = build_instrument_context(state["company_of_interest"])
-    history = state["investment_debate_state"].get("history", "")
-    market_research_report = state["market_report"]
-    sentiment_report = state["sentiment_report"]
-    news_report = state["news_report"]
-    fundamentals_report = state["fundamentals_report"]
-
-    investment_debate_state = state["investment_debate_state"]
-    output_language = state.get("output_language", "en")
-    language_instruction = get_language_instruction(output_language)
-    style_instruction = get_research_note_style_instruction(output_language)
-    trade_feedback_message = get_trade_feedback_message(state)
-    evidence_rules_instruction = get_evidence_rules_instruction()
-    memory_skepticism_instruction = get_memory_skepticism_instruction()
-    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
-
-    curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
-    past_memories = memory.get_memories(curr_situation, n_matches=2)
-
-    past_memory_str = ""
-    for _i, rec in enumerate(past_memories, 1):
-        past_memory_str += rec["recommendation"] + "\n\n"
-
-    past_memory_block = format_untrusted_context_block(
-        "past_decision_memory",
-        past_memory_str,
+    context = build_agent_prompt_context(state)
+    debate_context = investment_debate_from_state(state)
+    reports = upstream_reports_from_state(state)
+    past_memory_block = memory_recommendations_block(
+        memory,
+        reports.combined,
+        default="",
         limit=4000,
     )
-    history_block = format_untrusted_context_block(
+    history_block = context_block(
         "investment_debate_history",
-        history,
+        debate_context.history,
         limit=6000,
     )
 
     prompt = f"""As the research debate facilitator, your role is to critically evaluate this round of debate and produce a provisional research stance for the trader and Portfolio Manager: align with the bear analyst, align with the bull analyst, or recommend a neutral/hold research posture only if it is strongly justified based on the evidence.
 
-{decision_boundary_instruction}
-{evidence_rules_instruction}
-{memory_skepticism_instruction}
+{context.decision_boundary_instruction}
+{context.evidence_rules_instruction}
+{context.memory_skepticism_instruction}
 
 Summarize the key points from both sides concisely, focusing on the most compelling evidence or reasoning. Your provisional recommendation must be clear and actionable for the trader, but it is not the final user-facing portfolio verdict. Do not force a directional stance when the evidence is mixed, stale, or incomplete; HOLD or a neutral posture is valid when supported by evidence quality and unresolved risks.
 
@@ -71,9 +55,9 @@ Take into account your past mistakes on similar situations. Use these insights t
 Here are your past reflections on mistakes:
 {past_memory_block}
 
-{trade_feedback_message}
+{context.trade_feedback_message}
 
-{instrument_context}
+{context.instrument_context}
 
 Here is the debate:
 Debate History:
@@ -108,22 +92,45 @@ Use the following structure for the `highlights` field in your structured respon
 
 Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in another language; free-form string values should follow the report language.
 
-{style_instruction}
-{language_instruction}
+{context.style_instruction}
+{context.language_instruction}
 {structured_agent_output_instruction()}"""
     return (
         AdkPrompt(system_message=prompt),
         (),
-        {
-            "history": investment_debate_state.get("history", ""),
-            "bear_history": investment_debate_state.get("bear_history", ""),
-            "bull_history": investment_debate_state.get("bull_history", ""),
-            "current_bull_response": investment_debate_state.get(
-                "current_bull_response", ""
-            ),
-            "current_bear_response": investment_debate_state.get(
-                "current_bear_response", ""
-            ),
-            "count": investment_debate_state["count"],
-        },
+        debate_context.metadata(),
     )
+
+
+def commit_research_manager_output(state, structured_payload):
+    debate = state["investment_debate_state"]
+    rendered = render_structured_report(
+        structured_payload,
+        ResearchDecisionStructuredOutput,
+    )
+    result = {
+        "investment_debate_state": record_research_decision(
+            debate,
+            decision=rendered,
+        ),
+        "investment_plan": rendered,
+    }
+    merge_structured_output(
+        result,
+        state,
+        agent_name=AGENT_NAME,
+        schema=ResearchDecisionStructuredOutput,
+        structured_payload=structured_payload,
+    )
+    return result
+
+
+RESEARCH_MANAGER_AGENT = StructuredAgentTurn(
+    agent_name=AGENT_NAME,
+    display_name="Research Manager",
+    output_schema=ResearchDecisionStructuredOutput,
+    output_key="research_decision_structured",
+    build_prompt=build_research_manager_prompt,
+    commit_output=commit_research_manager_output,
+    memory_key="invest_judge_memory",
+)

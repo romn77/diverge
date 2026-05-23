@@ -1,11 +1,12 @@
-from diverge.agents.utils.agent_utils import (
-    get_evidence_rules_instruction,
-    get_language_instruction,
-    get_risk_budget_role_instruction,
-    get_research_note_style_instruction,
-    get_trade_feedback_message,
-    get_upstream_decision_boundary_instruction,
+from diverge.agents.report_output import ConservativeRiskStructuredOutput
+from diverge.agents.agent_context import (
+    build_agent_prompt_context,
+    risk_debate_from_state,
+    upstream_reports_from_state,
 )
+from diverge.agents.structured_turn import StructuredAgentTurn
+from diverge.agents.risk_mgmt.output import commit_risk_debater_output
+from diverge.agents.utils.agent_utils import get_risk_budget_role_instruction
 from diverge.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
     get_risk_debate_mode,
@@ -18,29 +19,16 @@ AGENT_NAME = "conservative_analyst"
 
 
 def build_conservative_risk_prompt(state):
-    risk_debate_state = state["risk_debate_state"]
-    history = risk_debate_state.get("history", "")
-    conservative_history = risk_debate_state.get("conservative_history", "")
-
-    current_aggressive_response = risk_debate_state.get(
-        "current_aggressive_response", ""
-    )
-    current_neutral_response = risk_debate_state.get("current_neutral_response", "")
-
-    market_research_report = state["market_report"]
-    sentiment_report = state["sentiment_report"]
-    news_report = state["news_report"]
-    fundamentals_report = state["fundamentals_report"]
+    context = build_agent_prompt_context(state)
+    reports = upstream_reports_from_state(state)
+    risk_context = risk_debate_from_state(state)
+    history = risk_context.history
+    current_aggressive_response = risk_context.current_aggressive_response
+    current_neutral_response = risk_context.current_neutral_response
 
     trader_decision = state["trader_investment_plan"]
-    output_language = state.get("output_language", "en")
-    language_instruction = get_language_instruction(output_language)
-    style_instruction = get_research_note_style_instruction(output_language)
-    trade_feedback_message = get_trade_feedback_message(state)
-    evidence_rules_instruction = get_evidence_rules_instruction()
-    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
     risk_budget_instruction = get_risk_budget_role_instruction("conservative")
-    debate_mode = get_risk_debate_mode(risk_debate_state.get("count", 0))
+    debate_mode = get_risk_debate_mode(risk_context.count)
 
     if debate_mode == REBUTTAL_MODE:
         mode_instruction = """Debate mode: rebuttal
@@ -80,25 +68,25 @@ This is the opening cycle of the risk debate. Lead with your own conservative th
             "the firm to undue risk and where more cautious alternatives could secure long-term gains."
         ),
         risk_budget_instruction=risk_budget_instruction,
-        decision_boundary_instruction=decision_boundary_instruction,
-        evidence_rules_instruction=evidence_rules_instruction,
+        decision_boundary_instruction=context.decision_boundary_instruction,
+        evidence_rules_instruction=context.evidence_rules_instruction,
         mode_instruction=mode_instruction,
         trader_decision=trader_decision,
         task_instruction=task_instruction,
         source_intro="Draw from the following data sources to build a convincing case for a low-risk adjustment to the trader's decision:",
-        market_research_report=market_research_report,
-        sentiment_report=sentiment_report,
-        news_report=news_report,
-        fundamentals_report=fundamentals_report,
+        market_research_report=reports.market,
+        sentiment_report=reports.sentiment,
+        news_report=reports.news,
+        fundamentals_report=reports.fundamentals,
         history=history,
         counterpart_context=counterpart_context,
-        trade_feedback_message=trade_feedback_message,
+        trade_feedback_message=context.trade_feedback_message,
         engagement_instruction=engagement_instruction,
         highlights_intro="Use",
         category="risk_conservative",
         stance_label="Conservative",
-        style_instruction=style_instruction,
-        language_instruction=language_instruction,
+        style_instruction=context.style_instruction,
+        language_instruction=context.language_instruction,
     )
 
     return (
@@ -106,15 +94,32 @@ This is the opening cycle of the risk debate. Lead with your own conservative th
         (),
         {
             "history": history,
-            "aggressive_history": risk_debate_state.get("aggressive_history", ""),
-            "conservative_history": conservative_history,
-            "neutral_history": risk_debate_state.get("neutral_history", ""),
-            "current_aggressive_response": risk_debate_state.get(
-                "current_aggressive_response", ""
-            ),
-            "current_neutral_response": risk_debate_state.get(
-                "current_neutral_response", ""
-            ),
-            "count": risk_debate_state["count"],
+            "aggressive_history": risk_context.aggressive_history,
+            "conservative_history": risk_context.conservative_history,
+            "neutral_history": risk_context.neutral_history,
+            "current_aggressive_response": risk_context.current_aggressive_response,
+            "current_neutral_response": risk_context.current_neutral_response,
+            "count": risk_context.count,
         },
     )
+
+
+def commit_conservative_risk_output(state, structured_payload):
+    return commit_risk_debater_output(
+        state,
+        structured_payload,
+        schema=ConservativeRiskStructuredOutput,
+        agent_name=AGENT_NAME,
+        speaker_label="Conservative Analyst",
+        speaker="conservative",
+    )
+
+
+CONSERVATIVE_RISK_AGENT = StructuredAgentTurn(
+    agent_name=AGENT_NAME,
+    display_name="Conservative Analyst",
+    output_schema=ConservativeRiskStructuredOutput,
+    output_key="risk_conservative_structured",
+    build_prompt=build_conservative_risk_prompt,
+    commit_output=commit_conservative_risk_output,
+)

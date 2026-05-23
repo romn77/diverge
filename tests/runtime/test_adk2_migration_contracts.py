@@ -59,6 +59,7 @@ def test_legacy_graph_runtime_modules_are_removed():
     assert not list(Path("diverge/graph").glob("*.py"))
     assert not Path("diverge/runtime/workflow_runner.py").exists()
     assert not Path("diverge/runtime/adk_native/tool_registry.py").exists()
+    assert not Path("diverge/runtime/adk_native/state_commit.py").exists()
 
     state_source = Path("diverge/runtime/state.py").read_text(encoding="utf-8")
     native_runner = Path("diverge/runtime/adk_native/runner.py").read_text(
@@ -102,6 +103,24 @@ def test_runtime_agents_use_adk_prompt_envelope_not_langchain_templates():
         assert "bind_tools(" not in source, path
 
 
+def test_agent_turn_contracts_share_one_deep_module():
+    from diverge.agents.analysts.news_analyst import NEWS_ANALYST_AGENT
+    from diverge.agents.managers.research_manager import RESEARCH_MANAGER_AGENT
+    from diverge.agents.turn import AgentTurn
+
+    analyst_turn_source = Path("diverge/agents/analyst_turn.py").read_text(
+        encoding="utf-8"
+    )
+    structured_turn_source = Path("diverge/agents/structured_turn.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert isinstance(NEWS_ANALYST_AGENT, AgentTurn)
+    assert isinstance(RESEARCH_MANAGER_AGENT, AgentTurn)
+    assert "class AnalystTurn(AgentTurn)" in analyst_turn_source
+    assert "class StructuredAgentTurn(AgentTurn)" in structured_turn_source
+
+
 def test_agent_tools_use_local_tool_wrapper_not_langchain_tool_decorator():
     tool_paths = [
         Path("diverge/agents/utils/core_stock_tools.py"),
@@ -137,15 +156,71 @@ def test_adk_runtime_has_no_unused_langchain_message_helpers():
 def test_adk_tool_registry_builds_function_tools():
     from google.adk.tools import FunctionTool
 
+    from diverge.runtime.adk_native.specs import NATIVE_ANALYST_AGENTS
     from diverge.runtime.tools import create_adk_tool_registry
 
-    registry = create_adk_tool_registry()
+    registry = create_adk_tool_registry(NATIVE_ANALYST_AGENTS)
 
     assert isinstance(registry["market"][0], FunctionTool)
     assert registry["market"][0].name == "get_stock_data"
+    assert [tool.name for tool in registry["news"]] == list(
+        NATIVE_ANALYST_AGENTS["news"].tool_names
+    )
     assert "get_insider_transactions" in {
         tool.name for tool in registry["fundamentals"]
     }
+    runtime_tools_source = Path("diverge/runtime/tools.py").read_text(
+        encoding="utf-8"
+    )
+    assert "create_raw_tool_registry" not in runtime_tools_source
+
+
+def test_report_artifact_publication_is_runtime_owned():
+    runner_source = Path("diverge/runner.py").read_text(encoding="utf-8")
+    artifact_source = Path("diverge/runtime/report_artifacts.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "SECTION_FILE_MAP" not in runner_source
+    assert "write_partial_report_section" in runner_source
+    assert "StateReportArtifact" in artifact_source
+    assert "DebateReportArtifact" in artifact_source
+    assert "ANALYST_REPORT_ARTIFACTS" in artifact_source
+    assert "RESEARCH_REPORT_ARTIFACTS" in artifact_source
+    assert "RISK_REPORT_ARTIFACTS" in artifact_source
+    assert "for artifact in ANALYST_REPORT_ARTIFACTS" in artifact_source
+    assert "for artifact in RESEARCH_REPORT_ARTIFACTS" in artifact_source
+    assert "for artifact in RISK_REPORT_ARTIFACTS" in artifact_source
+    assert "PARTIAL_REPORT_SECTION_FILES" in artifact_source
+    assert "def save_report_to_disk" in artifact_source
+
+
+def test_evidence_tool_lifecycle_is_not_owned_by_runner():
+    runner_source = Path("diverge/runtime/adk_native/runner.py").read_text(
+        encoding="utf-8"
+    )
+    evidence_source = Path("diverge/runtime/adk_native/evidence.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "current_search_context" not in runner_source
+    assert "contextual_tool_args" not in runner_source
+    assert "analyst_before_tool_callback" in evidence_source
+    assert "finalize_evidence_turn" in evidence_source
+
+
+def test_portfolio_decision_output_is_split_from_prompt_module():
+    manager_source = Path("diverge/agents/managers/portfolio_manager.py").read_text(
+        encoding="utf-8"
+    )
+    output_source = Path("diverge/agents/managers/portfolio_output.py").read_text(
+        encoding="utf-8"
+    )
+
+    assert "class PortfolioDecisionCardOutput" not in manager_source
+    assert "def _salvage_structured_output" not in manager_source
+    assert "class PortfolioDecisionCardOutput" in output_source
+    assert "def render_structured_portfolio_decision" in output_source
 
 
 def test_adk_model_factory_uses_gemini_for_google_and_litellm_for_others():
@@ -330,6 +405,7 @@ def test_adk_native_runner_builds_decision_nodes_from_round_limits():
         _NativeRuntimeResources,
         _build_native_decision_nodes,
     )
+    from diverge.runtime.adk_native.topology import build_decision_turn_specs
 
     resources = _NativeRuntimeResources(
         tool_nodes={},
@@ -341,10 +417,10 @@ def test_adk_native_runner_builds_decision_nodes_from_round_limits():
         quick_model="fake-quick-model",
         deep_model="fake-portfolio-model",
     )
-    nodes = _build_native_decision_nodes(
-        resources,
-        {"max_debate_rounds": 2, "max_risk_discuss_rounds": 4},
+    turn_specs = build_decision_turn_specs(
+        {"max_debate_rounds": 2, "max_risk_discuss_rounds": 4}
     )
+    nodes = _build_native_decision_nodes(resources, turn_specs)
     names = [node.name for node in nodes]
 
     runner_source = Path("diverge/runtime/adk_native/runner.py").read_text(

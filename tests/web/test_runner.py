@@ -14,8 +14,8 @@ from diverge.runner import (
     classify_message_type,
     resolve_analysis_runtime,
     run_analysis_streaming,
-    save_report_to_disk,
 )
+from diverge.runtime.report_artifacts import save_report_to_disk
 
 
 class AnalysisTrackerTests(unittest.TestCase):

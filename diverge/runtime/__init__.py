@@ -20,7 +20,6 @@ _EXPORTS = {
         "create_adk_tool_registry",
     ),
     "create_initial_state": ("diverge.runtime.state", "create_initial_state"),
-    "create_raw_tool_registry": ("diverge.runtime.tools", "create_raw_tool_registry"),
 }
 
 __all__ = list(_EXPORTS)

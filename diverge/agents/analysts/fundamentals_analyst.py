@@ -7,14 +7,9 @@ from diverge.agents.report_output import (
     render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
+from diverge.agents.agent_context import build_agent_prompt_context
 from diverge.agents.utils.agent_utils import (
-    build_instrument_context,
     get_analyst_evidence_role_instruction,
-    get_evidence_rules_instruction,
-    get_language_instruction,
-    get_research_note_style_instruction,
-    get_trade_feedback_message,
-    get_upstream_decision_boundary_instruction,
 )
 from diverge.agents.utils.fundamental_data_tools import (
     get_balance_sheet,
@@ -46,16 +41,10 @@ FUNDAMENTALS_ANALYST_TOOLS = (
 
 
 def build_fundamentals_analyst_prompt(state):
-    current_date = state["trade_date"]
-    ticker = state["company_of_interest"]
-    instrument_context = build_instrument_context(ticker)
-    output_language = state.get("output_language", "en")
-    language_instruction = get_language_instruction(output_language)
-    style_instruction = get_research_note_style_instruction(output_language)
-    trade_feedback_message = get_trade_feedback_message(state)
-    evidence_rules_instruction = get_evidence_rules_instruction()
+    context = build_agent_prompt_context(state)
+    current_date = context.trade_date
+    ticker = context.ticker
     role_instruction = get_analyst_evidence_role_instruction("fundamentals")
-    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
     earnings_context = build_earnings_workflow_context(
         trade_date=current_date,
         ticker=ticker,
@@ -68,7 +57,7 @@ def build_fundamentals_analyst_prompt(state):
         "You are a researcher tasked with analyzing fundamental information over the past week about a company. Please write a comprehensive report of the company's fundamental information such as financial documents, company profile, basic company financials, and company financial history to gain a full view of the company's fundamental information to inform traders. Make sure to include as much detail as possible. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
         + " Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."
         + " Use the available tools: `get_fundamentals` for comprehensive company analysis, `get_balance_sheet`, `get_cashflow`, and `get_income_statement` for specific financial statements, and `get_insider_transactions` for recent insider activity."
-        + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
+        + f"\n\n{role_instruction}\n{context.decision_boundary_instruction}\n{context.evidence_rules_instruction}"
         + f"\n\n{earnings_context.prompt_instruction}"
         + ' Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:\n```json-highlights\n{\n  "category": "fundamentals",\n  "signal": "HOLD",\n  "signal_confidence": "medium",\n  "summary": "1-2 sentence executive summary of fundamental analysis",\n  "stance": "neutral",\n  "metrics": [\n    {\n      "name": "metric name",\n      "value": "metric value",\n      "assessment": "brief assessment"\n    }\n  ],\n  "financial_health": "brief financial health assessment",\n  "evidence_blocks": [\n    {\n      "claim": "fundamental claim",\n      "evidence": "specific reported metric or fact",\n      "source": "tool/source name",\n      "data_date": "YYYY-MM-DD or unknown",\n      "confidence": "medium",\n      "limitation": "missing/stale/ambiguous input, or null"\n    }\n  ],\n  "unknowns": ["material fundamental unknown or unavailable input"]\n}\n```'
         + " Keep keys/enums as English constants; free-form values should follow the report language."
@@ -79,11 +68,11 @@ def build_fundamentals_analyst_prompt(state):
             f"Available tools: {', '.join([tool.name for tool in tools])}. "
             "Use them only for the fundamentals evidence task described below.\n"
             f"{system_message}"
-            f"\n{style_instruction}"
-            f"\n{language_instruction}"
-            f"\n{trade_feedback_message}"
+            f"\n{context.style_instruction}"
+            f"\n{context.language_instruction}"
+            f"\n{context.trade_feedback_message}"
             f"\n{structured_agent_output_instruction()}"
-            f"\nFor your reference, the current date is {current_date}. {instrument_context}"
+            f"\nFor your reference, the current date is {current_date}. {context.instrument_context}"
         ),
         messages=tuple(state["messages"]),
     )

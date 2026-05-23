@@ -19,7 +19,10 @@ from diverge.agents.analysts.market_analyst import MARKET_ANALYST_AGENT
 from diverge.agents.analysts.news_analyst import NEWS_ANALYST_AGENT
 from diverge.agents.analysts.news_analyst import build_news_analyst_prompt
 from diverge.agents.analysts.social_media_analyst import SOCIAL_MEDIA_ANALYST_AGENT
-from diverge.agents.managers.portfolio_manager import PortfolioManagerStructuredOutput
+from diverge.agents.managers.portfolio_manager import (
+    PORTFOLIO_MANAGER_AGENT,
+    PortfolioManagerStructuredOutput,
+)
 from diverge.agents.report_output import (
     AggressiveRiskStructuredOutput,
     BearCaseStructuredOutput,
@@ -34,6 +37,8 @@ from diverge.agents.report_output import (
     TraderStructuredOutput,
 )
 from diverge.runtime.adk_native.agents import append_runtime_progress_event
+from diverge.runtime.adk_native import callbacks as adk_callbacks
+from diverge.runtime.adk_native import evidence as adk_evidence
 from diverge.runtime.adk_native import runner as adk_native_runner
 from diverge.runtime.adk_native.progress_adapter import state_delta_from_event
 from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
@@ -276,7 +281,8 @@ def test_native_analysts_use_two_stage_evidence_report_contract():
         output_schema,
         output_key,
     ) in cases.items():
-        nodes = adk_native_runner._build_native_analyst_nodes(analyst, resources)
+        del analyst
+        nodes = adk_native_runner._build_native_analyst_nodes(turn, resources)
         evidence_agent = nodes[1]
         report_agent = nodes[4]
 
@@ -298,7 +304,7 @@ def test_native_analysts_use_two_stage_evidence_report_contract():
 
 def test_news_evidence_tool_callback_counts_evidence_tool_calls():
     state = {"runtime_warnings": []}
-    callback = adk_native_runner._native_analyst_after_tool_callback(
+    callback = adk_evidence.analyst_after_tool_callback(
         "News Analyst Evidence",
         evidence_tool_calls_key="news_evidence_notes_evidence_tool_calls",
     )
@@ -318,7 +324,7 @@ def test_news_evidence_tool_callback_counts_evidence_tool_calls():
 
 def test_news_evidence_finalize_warns_when_no_evidence_tool_was_called():
     state = {"runtime_warnings": []}
-    finalize = adk_native_runner._finalize_native_evidence_turn(
+    finalize = adk_evidence.finalize_evidence_turn(
         evidence_output_key="news_evidence_notes",
         evidence_tool_calls_key="news_evidence_notes_evidence_tool_calls",
         display_name="News Analyst Evidence",
@@ -356,7 +362,7 @@ def test_news_report_instruction_receives_evidence_notes():
 def test_news_evidence_model_error_callback_returns_data_insufficient_notes():
     callback_context = SimpleNamespace(state={"runtime_warnings": []})
 
-    replacement = adk_native_runner._native_evidence_model_error_callback(
+    replacement = adk_callbacks.evidence_model_error_callback(
         "news_evidence_notes",
         "News Analyst Evidence",
     )(
@@ -378,7 +384,7 @@ def test_news_evidence_model_error_callback_returns_data_insufficient_notes():
 def test_native_structured_model_error_callback_returns_schema_fallback_for_timeout():
     callback_context = SimpleNamespace(state={"runtime_warnings": []})
 
-    replacement = adk_native_runner._native_model_error_callback(
+    replacement = adk_callbacks.structured_model_error_callback(
         NewsReportStructuredOutput,
         "News Analyst",
     )(
@@ -435,7 +441,7 @@ def test_native_structured_callback_repairs_json_with_trailing_characters():
         )
     )
 
-    replacement = adk_native_runner._native_structured_after_model_callback(
+    replacement = adk_callbacks.structured_after_model_callback(
         BearCaseStructuredOutput,
         "Bear Researcher",
     )(
@@ -474,7 +480,7 @@ def test_native_structured_callback_repairs_markdown_json_highlights_block():
         )
     )
 
-    replacement = adk_native_runner._native_structured_after_model_callback(
+    replacement = adk_callbacks.structured_after_model_callback(
         NeutralRiskStructuredOutput,
         "Neutral Analyst",
     )(
@@ -514,7 +520,7 @@ def test_native_structured_callback_unwraps_report_markdown_when_schema_is_inval
         )
     )
 
-    replacement = adk_native_runner._native_structured_after_model_callback(
+    replacement = adk_callbacks.structured_after_model_callback(
         NewsReportStructuredOutput,
         "News Analyst",
     )(
@@ -566,7 +572,7 @@ def test_native_portfolio_callback_repairs_json_with_trailing_characters():
         )
     )
 
-    replacement = adk_native_runner._portfolio_after_model_callback(
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
         callback_context=callback_context,
         llm_response=invalid_response,
     )
@@ -592,7 +598,7 @@ def test_native_portfolio_callback_replaces_invalid_schema_response():
         )
     )
 
-    replacement = adk_native_runner._portfolio_after_model_callback(
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
         callback_context=callback_context,
         llm_response=invalid_response,
     )
@@ -629,7 +635,7 @@ def test_native_portfolio_callback_recovers_partial_json_card():
         )
     )
 
-    replacement = adk_native_runner._portfolio_after_model_callback(
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
         callback_context=callback_context,
         llm_response=invalid_response,
     )
@@ -691,7 +697,7 @@ def test_native_portfolio_callback_normalizes_partial_card_evidence_enums():
         )
     )
 
-    replacement = adk_native_runner._portfolio_after_model_callback(
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
         callback_context=callback_context,
         llm_response=invalid_response,
     )

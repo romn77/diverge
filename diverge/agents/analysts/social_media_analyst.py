@@ -7,14 +7,9 @@ from diverge.agents.report_output import (
     render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
+from diverge.agents.agent_context import build_agent_prompt_context
 from diverge.agents.utils.agent_utils import (
-    build_instrument_context,
     get_analyst_evidence_role_instruction,
-    get_evidence_rules_instruction,
-    get_language_instruction,
-    get_research_note_style_instruction,
-    get_trade_feedback_message,
-    get_upstream_decision_boundary_instruction,
 )
 from diverge.agents.utils.news_data_tools import get_news
 from diverge.agents.utils.search_tools import web_search_evidence
@@ -29,18 +24,12 @@ SOCIAL_MEDIA_ANALYST_TOOLS = (
 
 
 def build_social_media_analyst_prompt(state):
-    current_date = state["trade_date"]
-    ticker = state["company_of_interest"]
-    instrument_context = build_instrument_context(ticker)
-    output_language = state.get("output_language", "en")
-    language_instruction = get_language_instruction(output_language)
-    style_instruction = get_research_note_style_instruction(output_language)
-    trade_feedback_message = get_trade_feedback_message(state)
-    evidence_rules_instruction = get_evidence_rules_instruction()
+    context = build_agent_prompt_context(state)
+    current_date = context.trade_date
+    ticker = context.ticker
     role_instruction = get_analyst_evidence_role_instruction(
         "public sentiment/company news"
     )
-    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
 
     tools = SOCIAL_MEDIA_ANALYST_TOOLS
 
@@ -50,7 +39,7 @@ def build_social_media_analyst_prompt(state):
         "You are a public sentiment and company-specific news researcher/analyst tasked with analyzing recent company news and verifiable public sentiment for a specific company over the past week. Use the get_news(ticker, start_date, end_date) tool for company-specific news; use web_search_evidence(query, purpose, max_results) only when you need a search-style query or source-backed supplement. Do not claim broad social-media sentiment unless the tool output contains actual social-media, forum, or community evidence. Provide specific, actionable insights with supporting evidence to help traders make informed decisions."
         + """ Make sure to append a Markdown table at the end of the report to organize key points in the report, organized and easy to read."""
         + f"\n\n{web_search_instruction}"
-        + f"\n\n{role_instruction}\n{decision_boundary_instruction}\n{evidence_rules_instruction}"
+        + f"\n\n{role_instruction}\n{context.decision_boundary_instruction}\n{context.evidence_rules_instruction}"
         + """ Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis. Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in Chinese; free-form string values should follow the report language.
 
 ```json-highlights
@@ -84,11 +73,11 @@ def build_social_media_analyst_prompt(state):
             f"Available tools: {', '.join([tool.name for tool in tools])}. "
             "Use them only for the sentiment/company-news evidence task described below.\n"
             f"{system_message}"
-            f"\n{style_instruction}"
-            f"\n{language_instruction}"
-            f"\n{trade_feedback_message}"
+            f"\n{context.style_instruction}"
+            f"\n{context.language_instruction}"
+            f"\n{context.trade_feedback_message}"
             f"\n{structured_agent_output_instruction()}"
-            f"\nFor your reference, the current date is {current_date}. {instrument_context}"
+            f"\nFor your reference, the current date is {current_date}. {context.instrument_context}"
         ),
         messages=tuple(state["messages"]),
     )
@@ -96,7 +85,7 @@ def build_social_media_analyst_prompt(state):
         "agent": "Social Analyst",
         "ticker": ticker,
         "analysis_date": current_date,
-        "language": output_language,
+        "language": context.output_language,
     }
     return prompt, tools, metadata
 

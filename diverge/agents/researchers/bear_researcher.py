@@ -1,16 +1,21 @@
 from diverge.agents.report_output import (
+    BearCaseStructuredOutput,
     structured_agent_output_instruction,
 )
-from diverge.agents.utils.agent_utils import (
-    format_untrusted_context_block,
-    get_evidence_rules_instruction,
-    get_language_instruction,
-    get_memory_skepticism_instruction,
-    get_research_note_style_instruction,
-    get_thesis_stress_test_instruction,
-    get_trade_feedback_message,
-    get_upstream_decision_boundary_instruction,
+from diverge.agents.agent_context import (
+    build_agent_prompt_context,
+    context_block,
+    investment_debate_from_state,
+    memory_recommendations_block,
+    upstream_reports_from_state,
 )
+from diverge.agents.debate_state import append_investment_argument
+from diverge.agents.structured_commit import (
+    merge_structured_output,
+    render_structured_report,
+)
+from diverge.agents.structured_turn import StructuredAgentTurn
+from diverge.agents.utils.agent_utils import get_thesis_stress_test_instruction
 from diverge.runtime.messages import AdkPrompt
 
 
@@ -18,76 +23,55 @@ AGENT_NAME = "bear_researcher"
 
 
 def build_bear_researcher_prompt(state, memory):
-    investment_debate_state = state["investment_debate_state"]
-    history = investment_debate_state.get("history", "")
-    bear_history = investment_debate_state.get("bear_history", "")
-
-    current_response = investment_debate_state.get(
-        "current_bull_response",
-        investment_debate_state.get("current_response", ""),
-    )
-    output_language = state.get("output_language", "en")
-    language_instruction = get_language_instruction(output_language)
-    style_instruction = get_research_note_style_instruction(output_language)
-    trade_feedback_message = get_trade_feedback_message(state)
-    evidence_rules_instruction = get_evidence_rules_instruction()
-    memory_skepticism_instruction = get_memory_skepticism_instruction()
-    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
+    context = build_agent_prompt_context(state)
+    debate_context = investment_debate_from_state(state)
+    reports = upstream_reports_from_state(state)
+    history = debate_context.history
+    current_response = debate_context.latest_bull_argument
     stress_test_instruction = get_thesis_stress_test_instruction("bearish")
-    market_research_report = state["market_report"]
-    sentiment_report = state["sentiment_report"]
-    news_report = state["news_report"]
-    fundamentals_report = state["fundamentals_report"]
 
-    curr_situation = f"{market_research_report}\n\n{sentiment_report}\n\n{news_report}\n\n{fundamentals_report}"
-    past_memories = memory.get_memories(curr_situation, n_matches=2)
-
-    past_memory_str = ""
-    for _i, rec in enumerate(past_memories, 1):
-        past_memory_str += rec["recommendation"] + "\n\n"
-
-    market_report_block = format_untrusted_context_block(
-        "market_research_report",
-        market_research_report,
+    past_memory_block = memory_recommendations_block(
+        memory,
+        reports.combined,
+        default="",
+    )
+    market_report_block = reports.block(
+        "market",
+        label="market_research_report",
         limit=4000,
     )
-    sentiment_report_block = format_untrusted_context_block(
-        "sentiment_report",
-        sentiment_report,
+    sentiment_report_block = reports.block(
+        "sentiment",
+        label="sentiment_report",
         limit=4000,
     )
-    news_report_block = format_untrusted_context_block(
-        "news_report",
-        news_report,
+    news_report_block = reports.block(
+        "news",
+        label="news_report",
         limit=4000,
     )
-    fundamentals_report_block = format_untrusted_context_block(
-        "fundamentals_report",
-        fundamentals_report,
+    fundamentals_report_block = reports.block(
+        "fundamentals",
+        label="fundamentals_report",
         limit=4000,
     )
-    history_block = format_untrusted_context_block(
+    history_block = context_block(
         "investment_debate_history",
         history,
         limit=4000,
     )
-    current_response_block = format_untrusted_context_block(
+    current_response_block = context_block(
         "latest_bull_argument",
         current_response,
-        limit=4000,
-    )
-    past_memory_block = format_untrusted_context_block(
-        "past_decision_memory",
-        past_memory_str,
         limit=4000,
     )
 
     prompt = f"""You are a Bear Analyst stress-testing the bearish case against the stock. Your goal is to present a well-reasoned argument emphasizing risks, challenges, and negative indicators while clearly acknowledging material contrary evidence. Leverage the provided research and data to highlight potential downsides and counter bullish arguments effectively.
 
 {stress_test_instruction}
-{decision_boundary_instruction}
-{evidence_rules_instruction}
-{memory_skepticism_instruction}
+{context.decision_boundary_instruction}
+{context.evidence_rules_instruction}
+{context.memory_skepticism_instruction}
 
 Key points to focus on:
 
@@ -113,7 +97,7 @@ Last bull argument:
 {current_response_block}
 Reflections from similar situations and lessons learned:
 {past_memory_block}
-{trade_feedback_message}
+{context.trade_feedback_message}
 Use this information to deliver a compelling bear argument, refute the bull's claims, and engage in a dynamic debate that demonstrates the risks and weaknesses of investing in the stock. You must also address reflections and learn from lessons and mistakes you made in the past.
 
 Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:
@@ -144,8 +128,8 @@ Use the following structure for the `highlights` field in your structured respon
 }}
 ```
 Keep the JSON keys and enum literals in English exactly as shown, even when the rest of the report is in another language. Free-form string values should follow the report language.
-{style_instruction}
-{language_instruction}
+{context.style_instruction}
+{context.language_instruction}
 {structured_agent_output_instruction()}
 """
 
@@ -154,11 +138,44 @@ Keep the JSON keys and enum literals in English exactly as shown, even when the 
         (),
         {
             "history": history,
-            "bear_history": bear_history,
-            "bull_history": investment_debate_state.get("bull_history", ""),
-            "current_bull_response": investment_debate_state.get(
-                "current_bull_response", current_response
-            ),
-            "count": investment_debate_state["count"],
+            "bear_history": debate_context.bear_history,
+            "bull_history": debate_context.bull_history,
+            "current_bull_response": debate_context.current_bull_response,
+            "count": debate_context.count,
         },
     )
+
+
+def commit_bear_researcher_output(state, structured_payload):
+    debate = state["investment_debate_state"]
+    rendered = render_structured_report(
+        structured_payload,
+        BearCaseStructuredOutput,
+    )
+    argument = f"Bear Analyst: {rendered}"
+    result = {
+        "investment_debate_state": append_investment_argument(
+            debate,
+            speaker="bear",
+            argument=argument,
+        )
+    }
+    merge_structured_output(
+        result,
+        state,
+        agent_name=AGENT_NAME,
+        schema=BearCaseStructuredOutput,
+        structured_payload=structured_payload,
+    )
+    return result
+
+
+BEAR_RESEARCHER_AGENT = StructuredAgentTurn(
+    agent_name=AGENT_NAME,
+    display_name="Bear Researcher",
+    output_schema=BearCaseStructuredOutput,
+    output_key="bear_case_structured",
+    build_prompt=build_bear_researcher_prompt,
+    commit_output=commit_bear_researcher_output,
+    memory_key="bear_memory",
+)
