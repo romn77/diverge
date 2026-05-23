@@ -8,9 +8,13 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableLambda
 
 from diverge.agents.analysts.fundamentals_analyst import (
+    FUNDAMENTALS_ANALYST_AGENT,
     build_fundamentals_analyst_prompt,
 )
-from diverge.agents.analysts.market_analyst import build_market_analyst_prompt
+from diverge.agents.analysts.market_analyst import (
+    MARKET_ANALYST_AGENT,
+    build_market_analyst_prompt,
+)
 from diverge.agents.managers.portfolio_manager import (
     PortfolioManagerStructuredOutput,
     build_portfolio_manager_prompt,
@@ -43,10 +47,8 @@ from diverge.agents.risk_mgmt.conservative_debator import (
 from diverge.agents.risk_mgmt.neutral_debator import build_neutral_risk_prompt
 from diverge.agents.trader.trader import build_trader_prompt
 from diverge.agents.utils.agent_utils import format_untrusted_context_block
-from diverge.runtime.adk_native.specs import NATIVE_ANALYST_SPECS
 from diverge.runtime.adk_native.state_commit import (
     commit_aggressive_risk_output,
-    commit_analyst_output,
     commit_bear_researcher_output,
     commit_bull_researcher_output,
     commit_conservative_risk_output,
@@ -608,7 +610,9 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertIn('"evidence_blocks"', risk_prompt)
         self.assertIn("Do not write `FINAL TRANSACTION PROPOSAL`", risk_prompt)
 
-    @patch("diverge.runtime.adk_native.state_commit.get_valuation_ready_fundamentals")
+    @patch(
+        "diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals"
+    )
     def test_fundamentals_analyst_runtime_supports_valuation_sections(
         self,
         mock_get_valuation_ready_fundamentals,
@@ -637,10 +641,9 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             tools=_tools,
             output_schema=FundamentalsReportStructuredOutput,
         )
-        result = commit_analyst_output(
+        result = FUNDAMENTALS_ANALYST_AGENT.commit_output(
             state,
-            spec=NATIVE_ANALYST_SPECS["fundamentals"],
-            structured_payload=repair_structured_output(
+            repair_structured_output(
                 FundamentalsReportStructuredOutput,
                 response.content,
             ),
@@ -686,10 +689,9 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
             tools=tools,
             output_schema=MarketReportStructuredOutput,
         )
-        result = commit_analyst_output(
+        result = MARKET_ANALYST_AGENT.commit_output(
             state,
-            spec=NATIVE_ANALYST_SPECS["market"],
-            structured_payload=response.content,
+            response.content,
         )
 
         self.assertIs(llm.output_schema, MarketReportStructuredOutput)

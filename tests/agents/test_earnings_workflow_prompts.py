@@ -1,7 +1,3 @@
-from unittest.mock import patch
-
-from langchain_core.messages import HumanMessage
-
 from diverge.agents.analysts.fundamentals_analyst import (
     build_fundamentals_analyst_prompt,
 )
@@ -13,7 +9,7 @@ def _base_state():
         "trade_date": "2026-03-20",
         "company_of_interest": "AAPL",
         "output_language": "en",
-        "messages": [HumanMessage(content="Analyze the company")],
+        "messages": [("human", "Analyze the company")],
     }
 
 
@@ -33,11 +29,7 @@ def test_news_analyst_uses_preview_mode_prompt_when_future_earnings_event_exists
     assert "Consensus revenue: 95B" in prompt
 
 
-@patch("diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals")
-def test_fundamentals_analyst_uses_post_earnings_mode_prompt_when_event_has_passed(
-    mock_get_valuation_ready_fundamentals,
-):
-    mock_get_valuation_ready_fundamentals.side_effect = RuntimeError("skip valuation")
+def test_fundamentals_analyst_uses_post_earnings_mode_prompt_when_event_has_passed():
     state = _base_state()
     state["earnings_event"] = {
         "earnings_date": "2026-03-15",

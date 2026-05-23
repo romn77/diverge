@@ -4,11 +4,10 @@ from unittest.mock import patch
 from langchain_core.messages import HumanMessage
 
 from diverge.agents.analysts.fundamentals_analyst import (
+    FUNDAMENTALS_ANALYST_AGENT,
     build_fundamentals_analyst_prompt,
 )
 from diverge.agents.report_output import FundamentalsReportStructuredOutput
-from diverge.runtime.adk_native.specs import NATIVE_ANALYST_SPECS
-from diverge.runtime.adk_native.state_commit import commit_analyst_output
 from diverge.runtime.structured_output import repair_structured_output
 from diverge.valuation.schemas import FinancialSnapshot, MarketContext, ValuationInput
 
@@ -49,7 +48,9 @@ def _state():
     }
 
 
-@patch("diverge.runtime.adk_native.state_commit.get_valuation_ready_fundamentals")
+@patch(
+    "diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals"
+)
 def test_fundamentals_report_includes_valuation_sections_before_highlights(
     mock_get_valuation_ready_fundamentals,
 ):
@@ -64,10 +65,9 @@ def test_fundamentals_report_includes_valuation_sections_before_highlights(
         '  "metrics": [],\n  "financial_health": "Strong"\n}\n'
         "```"
     )
-    result = commit_analyst_output(
+    result = FUNDAMENTALS_ANALYST_AGENT.commit_output(
         state,
-        spec=NATIVE_ANALYST_SPECS["fundamentals"],
-        structured_payload=repair_structured_output(
+        repair_structured_output(
             FundamentalsReportStructuredOutput,
             raw_response,
         ),
@@ -83,7 +83,9 @@ def test_fundamentals_report_includes_valuation_sections_before_highlights(
     assert result["valuation_applicability"] == "applicable"
 
 
-@patch("diverge.runtime.adk_native.state_commit.get_valuation_ready_fundamentals")
+@patch(
+    "diverge.agents.analysts.fundamentals_analyst.get_valuation_ready_fundamentals"
+)
 def test_fundamentals_report_surfaces_valuation_preparation_failures(
     mock_get_valuation_ready_fundamentals,
 ):
@@ -98,10 +100,9 @@ def test_fundamentals_report_surfaces_valuation_preparation_failures(
         '  "metrics": [],\n  "financial_health": "Mixed"\n}\n'
         "```"
     )
-    result = commit_analyst_output(
+    result = FUNDAMENTALS_ANALYST_AGENT.commit_output(
         state,
-        spec=NATIVE_ANALYST_SPECS["fundamentals"],
-        structured_payload=repair_structured_output(
+        repair_structured_output(
             FundamentalsReportStructuredOutput,
             raw_response,
         ),

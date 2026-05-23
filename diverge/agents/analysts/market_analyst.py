@@ -1,4 +1,10 @@
+from typing import Any
+
+from diverge.agents.analyst_turn import AnalystTurn
 from diverge.agents.report_output import (
+    MarketReportStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
@@ -13,6 +19,13 @@ from diverge.agents.utils.agent_utils import (
 from diverge.agents.utils.core_stock_tools import get_stock_data
 from diverge.agents.utils.technical_indicators_tools import get_indicators
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
+
+
+MARKET_ANALYST_TOOLS = (
+    get_stock_data,
+    get_indicators,
+)
 
 
 def build_market_analyst_prompt(state):
@@ -27,10 +40,7 @@ def build_market_analyst_prompt(state):
     role_instruction = get_analyst_evidence_role_instruction("market/technical")
     decision_boundary_instruction = get_upstream_decision_boundary_instruction()
 
-    tools = (
-        get_stock_data,
-        get_indicators,
-    )
+    tools = MARKET_ANALYST_TOOLS
 
     system_message = (
         """You are a trading assistant tasked with analyzing financial markets. Your role is to select the **most relevant indicators** for a given market condition or trading strategy from the following list. The goal is to choose up to **8 indicators** that provide complementary insights without redundancy. Categories and each category's indicators are:
@@ -108,3 +118,39 @@ Keep the JSON keys and enum literals in English constants exactly as shown; free
         messages=tuple(state["messages"]),
     )
     return prompt, tools, {}
+
+
+def commit_market_analyst_output(
+    state: dict[str, Any],
+    structured_payload: Any,
+) -> dict[str, Any]:
+    structured = parse_structured_output(
+        structured_payload,
+        MarketReportStructuredOutput,
+    )
+    return {
+        "market_report": render_markdown_with_highlights(
+            structured.report_markdown,
+            structured.highlights,
+        ),
+        "structured_agent_outputs": merge_structured_agent_output(
+            state,
+            agent_name="market_analyst",
+            payload=structured.model_dump(mode="json"),
+        ),
+    }
+
+
+MARKET_ANALYST_AGENT = AnalystTurn(
+    analyst_key="market",
+    agent_name="market_analyst",
+    display_name="Market Analyst",
+    output_schema=MarketReportStructuredOutput,
+    output_key="market_report_structured",
+    build_prompt=build_market_analyst_prompt,
+    evidence_output_key="market_evidence_notes",
+    report_key="market_report",
+    structured_agent_name="market_analyst",
+    tools=MARKET_ANALYST_TOOLS,
+    commit_output=commit_market_analyst_output,
+)

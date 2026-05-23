@@ -11,6 +11,7 @@ from diverge.runner import (
     AnalysisRequest,
     AnalysisTracker,
     build_analysis_config,
+    classify_message_type,
     resolve_analysis_runtime,
     run_analysis_streaming,
     save_report_to_disk,
@@ -154,6 +155,20 @@ class AnalysisTrackerTests(unittest.TestCase):
                 "Momentum is positive", market_path.read_text(encoding="utf-8")
             )
             self.assertIn("Reduce risk", trader_path.read_text(encoding="utf-8"))
+
+    def test_message_classification_uses_local_adk_message_shapes(self):
+        self.assertEqual(
+            classify_message_type(("human", "Continue")),
+            ("Control", "Continue"),
+        )
+        self.assertEqual(
+            classify_message_type({"role": "tool", "content": "tool result"}),
+            ("Data", "tool result"),
+        )
+        self.assertEqual(
+            classify_message_type({"role": "assistant", "content": "agent note"}),
+            ("Agent", "agent note"),
+        )
 
     def test_tracker_surfaces_runtime_warning_progress_message(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -498,6 +513,7 @@ class AnalysisTrackerTests(unittest.TestCase):
         def fake_stream_analysis_state_chunks(**kwargs):
             self.assertEqual(kwargs["selected_analysts"], ["market"])
             self.assertEqual(kwargs["init_agent_state"]["company_of_interest"], "MSFT")
+            self.assertNotIn("graph_args", kwargs)
             yield {
                 "market_report": "ADK native market report",
                 "runtime_progress_events": [

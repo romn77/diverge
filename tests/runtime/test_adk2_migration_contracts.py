@@ -39,6 +39,8 @@ def test_runner_uses_adk_native_runtime_directly():
     assert "DivergeGraph" not in source
     assert "graph.stream(" not in source
     assert "stream_analysis_state_chunks(" in source
+    assert "Propagator" not in source
+    assert "get_graph_args" not in source
 
 
 def test_adk_web_standard_app_entrypoint_exists():
@@ -56,6 +58,17 @@ def test_adk_web_standard_app_entrypoint_exists():
 def test_legacy_graph_runtime_modules_are_removed():
     assert not list(Path("diverge/graph").glob("*.py"))
     assert not Path("diverge/runtime/workflow_runner.py").exists()
+    assert not Path("diverge/runtime/adk_native/tool_registry.py").exists()
+
+    state_source = Path("diverge/runtime/state.py").read_text(encoding="utf-8")
+    native_runner = Path("diverge/runtime/adk_native/runner.py").read_text(
+        encoding="utf-8"
+    )
+    runtime_exports = Path("diverge/runtime/__init__.py").read_text(encoding="utf-8")
+    assert "class Propagator" not in state_source
+    assert "get_graph_args" not in state_source
+    assert "graph_args" not in native_runner
+    assert "Propagator" not in runtime_exports
 
 
 def test_runtime_agents_use_adk_prompt_envelope_not_langchain_templates():
@@ -102,6 +115,23 @@ def test_agent_tools_use_local_tool_wrapper_not_langchain_tool_decorator():
         source = path.read_text(encoding="utf-8")
         assert "langchain_core.tools" not in source, path
         assert "diverge.agents.utils.tooling import tool" in source, path
+
+
+def test_adk_runtime_has_no_unused_langchain_message_helpers():
+    paths = [
+        Path("diverge/agents/utils/agent_utils.py"),
+        Path("diverge/runtime/tool_loop.py"),
+        Path("diverge/runner.py"),
+    ]
+
+    for path in paths:
+        source = path.read_text(encoding="utf-8")
+        assert "langchain_core.messages" not in source, path
+
+    agent_exports = Path("diverge/agents/__init__.py").read_text(encoding="utf-8")
+    agent_stub = Path("diverge/agents/__init__.pyi").read_text(encoding="utf-8")
+    assert "create_msg_delete" not in agent_exports
+    assert "create_msg_delete" not in agent_stub
 
 
 def test_adk_tool_registry_builds_function_tools():

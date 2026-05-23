@@ -1,22 +1,7 @@
 from __future__ import annotations
 
-import itertools
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-
-
-_IDS = itertools.count(1)
-
-
-@dataclass
-class AdkMessage:
-    content: str
-    role: str = "assistant"
-    tool_calls: list[dict[str, Any]] = field(default_factory=list)
-    id: str = field(default_factory=lambda: f"adk-message-{next(_IDS)}")
-
-    def pretty_print(self) -> None:
-        print(self.content)
 
 
 @dataclass(frozen=True)
@@ -71,7 +56,9 @@ def message_role(message: Any) -> str:
         role = str(message.get("role", "user")).lower()
     else:
         class_name = message.__class__.__name__.lower()
-        if "system" in class_name:
+        if "tool" in class_name:
+            role = "tool"
+        elif "system" in class_name:
             role = "system"
         elif "ai" in class_name or "assistant" in class_name:
             role = "assistant"
@@ -82,6 +69,8 @@ def message_role(message: Any) -> str:
         return "user"
     if role in {"ai", "assistant", "model"}:
         return "model"
+    if role == "tool":
+        return "tool"
     if role == "system":
         return "system"
     return "user"

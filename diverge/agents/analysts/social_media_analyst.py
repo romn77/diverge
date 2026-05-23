@@ -1,4 +1,10 @@
+from typing import Any
+
+from diverge.agents.analyst_turn import AnalystTurn
 from diverge.agents.report_output import (
+    SentimentReportStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
@@ -13,6 +19,13 @@ from diverge.agents.utils.agent_utils import (
 from diverge.agents.utils.news_data_tools import get_news
 from diverge.agents.utils.search_tools import web_search_evidence
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
+
+
+SOCIAL_MEDIA_ANALYST_TOOLS = (
+    get_news,
+    web_search_evidence,
+)
 
 
 def build_social_media_analyst_prompt(state):
@@ -29,10 +42,7 @@ def build_social_media_analyst_prompt(state):
     )
     decision_boundary_instruction = get_upstream_decision_boundary_instruction()
 
-    tools = (
-        get_news,
-        web_search_evidence,
-    )
+    tools = SOCIAL_MEDIA_ANALYST_TOOLS
 
     web_search_instruction = """Web Search is an optional evidence supplement. You may use web_search_evidence at most 2 times in this analyst step. Prefer existing financial news tools first. Use Web Search only for fresh-news verification, missing coverage, Chinese/local sources, or source-backed risks/catalysts. If Web Search returns no results or warnings, continue with available tools and clearly note the limitation. Do not make web-search-backed claims unless supported by the returned evidence."""
 
@@ -89,3 +99,39 @@ def build_social_media_analyst_prompt(state):
         "language": output_language,
     }
     return prompt, tools, metadata
+
+
+def commit_social_media_analyst_output(
+    state: dict[str, Any],
+    structured_payload: Any,
+) -> dict[str, Any]:
+    structured = parse_structured_output(
+        structured_payload,
+        SentimentReportStructuredOutput,
+    )
+    return {
+        "sentiment_report": render_markdown_with_highlights(
+            structured.report_markdown,
+            structured.highlights,
+        ),
+        "structured_agent_outputs": merge_structured_agent_output(
+            state,
+            agent_name="social_media_analyst",
+            payload=structured.model_dump(mode="json"),
+        ),
+    }
+
+
+SOCIAL_MEDIA_ANALYST_AGENT = AnalystTurn(
+    analyst_key="social",
+    agent_name="social_media_analyst",
+    display_name="Social Analyst",
+    output_schema=SentimentReportStructuredOutput,
+    output_key="sentiment_report_structured",
+    build_prompt=build_social_media_analyst_prompt,
+    evidence_output_key="sentiment_evidence_notes",
+    report_key="sentiment_report",
+    structured_agent_name="social_media_analyst",
+    tools=SOCIAL_MEDIA_ANALYST_TOOLS,
+    commit_output=commit_social_media_analyst_output,
+)

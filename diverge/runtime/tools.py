@@ -6,27 +6,29 @@ from typing import Annotated, Any, Callable, Optional
 
 from google.adk.tools import FunctionTool
 
-from diverge.agents.utils.core_stock_tools import get_stock_data as _lc_get_stock_data
+from diverge.agents.utils.core_stock_tools import (
+    get_stock_data as _tool_get_stock_data,
+)
 from diverge.agents.utils.fundamental_data_tools import (
-    get_balance_sheet as _lc_get_balance_sheet,
-    get_cashflow as _lc_get_cashflow,
-    get_fundamentals as _lc_get_fundamentals,
-    get_income_statement as _lc_get_income_statement,
+    get_balance_sheet as _tool_get_balance_sheet,
+    get_cashflow as _tool_get_cashflow,
+    get_fundamentals as _tool_get_fundamentals,
+    get_income_statement as _tool_get_income_statement,
 )
 from diverge.agents.utils.news_data_tools import (
-    get_global_news as _lc_get_global_news,
-    get_insider_transactions as _lc_get_insider_transactions,
-    get_news as _lc_get_news,
+    get_global_news as _tool_get_global_news,
+    get_insider_transactions as _tool_get_insider_transactions,
+    get_news as _tool_get_news,
 )
 from diverge.agents.utils.search_tools import (
-    web_search_evidence as _lc_web_search_evidence,
+    web_search_evidence as _tool_web_search_evidence,
 )
 from diverge.agents.utils.technical_indicators_tools import (
-    get_indicators as _lc_get_indicators,
+    get_indicators as _tool_get_indicators,
 )
 
 
-def _invoke_legacy_tool(tool: Any, arguments: dict[str, Any]) -> str:
+def _invoke_tool(tool: Any, arguments: dict[str, Any]) -> str:
     if hasattr(tool, "invoke"):
         return str(tool.invoke(arguments))
     if hasattr(tool, "func") and callable(tool.func):
@@ -42,8 +44,8 @@ def get_stock_data(
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ) -> str:
     """Retrieve stock price data (OHLCV) for a ticker and date range."""
-    return _invoke_legacy_tool(
-        _lc_get_stock_data,
+    return _invoke_tool(
+        _tool_get_stock_data,
         {"symbol": symbol, "start_date": start_date, "end_date": end_date},
     )
 
@@ -55,8 +57,8 @@ def get_indicators(
     look_back_days: Annotated[int, "How many days to look back"] = 30,
 ) -> str:
     """Retrieve one or more technical indicators for a ticker."""
-    return _invoke_legacy_tool(
-        _lc_get_indicators,
+    return _invoke_tool(
+        _tool_get_indicators,
         {
             "symbol": symbol,
             "indicator": indicator,
@@ -71,8 +73,8 @@ def get_fundamentals(
     curr_date: Annotated[str, "current date you are trading at, yyyy-mm-dd"],
 ) -> str:
     """Retrieve comprehensive fundamental data for a ticker."""
-    return _invoke_legacy_tool(
-        _lc_get_fundamentals,
+    return _invoke_tool(
+        _tool_get_fundamentals,
         {"ticker": ticker, "curr_date": curr_date},
     )
 
@@ -85,8 +87,8 @@ def get_balance_sheet(
     ] = None,
 ) -> str:
     """Retrieve balance sheet data for a ticker."""
-    return _invoke_legacy_tool(
-        _lc_get_balance_sheet,
+    return _invoke_tool(
+        _tool_get_balance_sheet,
         {"ticker": ticker, "freq": freq, "curr_date": curr_date},
     )
 
@@ -99,8 +101,8 @@ def get_cashflow(
     ] = None,
 ) -> str:
     """Retrieve cash flow statement data for a ticker."""
-    return _invoke_legacy_tool(
-        _lc_get_cashflow,
+    return _invoke_tool(
+        _tool_get_cashflow,
         {"ticker": ticker, "freq": freq, "curr_date": curr_date},
     )
 
@@ -113,8 +115,8 @@ def get_income_statement(
     ] = None,
 ) -> str:
     """Retrieve income statement data for a ticker."""
-    return _invoke_legacy_tool(
-        _lc_get_income_statement,
+    return _invoke_tool(
+        _tool_get_income_statement,
         {"ticker": ticker, "freq": freq, "curr_date": curr_date},
     )
 
@@ -125,8 +127,8 @@ def get_news(
     end_date: Annotated[str, "End date in yyyy-mm-dd format"],
 ) -> str:
     """Retrieve news data for a ticker and date range."""
-    return _invoke_legacy_tool(
-        _lc_get_news,
+    return _invoke_tool(
+        _tool_get_news,
         {"ticker": ticker, "start_date": start_date, "end_date": end_date},
     )
 
@@ -137,8 +139,8 @@ def get_global_news(
     limit: Annotated[int, "Maximum number of articles to return"] = 5,
 ) -> str:
     """Retrieve global macro and market news data."""
-    return _invoke_legacy_tool(
-        _lc_get_global_news,
+    return _invoke_tool(
+        _tool_get_global_news,
         {
             "curr_date": curr_date,
             "look_back_days": look_back_days,
@@ -151,8 +153,8 @@ def get_insider_transactions(
     ticker: Annotated[str, "ticker symbol"],
 ) -> str:
     """Retrieve insider transaction information for a ticker."""
-    return _invoke_legacy_tool(
-        _lc_get_insider_transactions,
+    return _invoke_tool(
+        _tool_get_insider_transactions,
         {"ticker": ticker},
     )
 
@@ -165,8 +167,8 @@ def web_search_evidence(
     max_results: Annotated[int, "Maximum results to return, clamped to 1..5"] = 5,
 ) -> str:
     """Return controlled Web Search evidence as Markdown for analyst use."""
-    return _invoke_legacy_tool(
-        _lc_web_search_evidence,
+    return _invoke_tool(
+        _tool_web_search_evidence,
         {
             "query": query,
             "purpose": purpose,
@@ -177,7 +179,7 @@ def web_search_evidence(
 
 @dataclass(frozen=True)
 class AdkToolCollection:
-    """Small compatibility wrapper for ADK tools grouped by analyst role."""
+    """Grouped ADK tools plus a name lookup surface."""
 
     tools: tuple[FunctionTool, ...]
 
@@ -207,7 +209,6 @@ def create_raw_tool_registry() -> dict[str, list[Callable[..., str]]]:
         "news": [
             get_news,
             get_global_news,
-            get_insider_transactions,
             web_search_evidence,
         ],
         "fundamentals": [

@@ -1,4 +1,10 @@
+from typing import Any
+
+from diverge.agents.analyst_turn import AnalystTurn
 from diverge.agents.report_output import (
+    NewsReportStructuredOutput,
+    merge_structured_agent_output,
+    render_markdown_with_highlights,
     structured_agent_output_instruction,
 )
 from diverge.agents.utils.agent_utils import (
@@ -14,8 +20,17 @@ from diverge.agents.utils.news_data_tools import get_global_news, get_news
 from diverge.agents.utils.search_tools import web_search_evidence
 from diverge.research.earnings import (
     build_earnings_workflow_context,
+    inject_earnings_section,
 )
 from diverge.runtime.messages import AdkPrompt
+from diverge.runtime.structured_output import parse_structured_output
+
+
+NEWS_ANALYST_TOOLS = (
+    get_news,
+    get_global_news,
+    web_search_evidence,
+)
 
 
 def build_news_analyst_prompt(state):
@@ -35,11 +50,7 @@ def build_news_analyst_prompt(state):
         earnings_event=state.get("earnings_event"),
     )
 
-    tools = (
-        get_news,
-        get_global_news,
-        web_search_evidence,
-    )
+    tools = NEWS_ANALYST_TOOLS
 
     web_search_instruction = """Web Search is an optional evidence supplement. You may use web_search_evidence at most 2 times in this analyst step. Prefer existing financial news tools first. Use Web Search only for fresh-news verification, missing coverage, Chinese/local sources, or source-backed risks/catalysts. If Web Search returns no results or warnings, continue with available tools and clearly note the limitation. Do not make web-search-backed claims unless supported by the returned evidence."""
 
@@ -104,3 +115,46 @@ Keep the JSON keys and enum literals in English constants exactly as shown (`cat
         "earnings_report_section": earnings_context.report_section,
     }
     return prompt, tools, metadata
+
+
+def commit_news_analyst_output(
+    state: dict[str, Any],
+    structured_payload: Any,
+) -> dict[str, Any]:
+    structured = parse_structured_output(structured_payload, NewsReportStructuredOutput)
+    payload = structured.model_dump(mode="json")
+    earnings_context = build_earnings_workflow_context(
+        trade_date=state["trade_date"],
+        ticker=state["company_of_interest"],
+        earnings_event=state.get("earnings_event"),
+    )
+    report_markdown = inject_earnings_section(
+        structured.report_markdown,
+        earnings_context.report_section,
+    )
+    return {
+        "news_report": render_markdown_with_highlights(
+            report_markdown,
+            structured.highlights,
+        ),
+        "structured_agent_outputs": merge_structured_agent_output(
+            state,
+            agent_name="news_analyst",
+            payload=payload,
+        ),
+    }
+
+
+NEWS_ANALYST_AGENT = AnalystTurn(
+    analyst_key="news",
+    agent_name="news_analyst",
+    display_name="News Analyst",
+    output_schema=NewsReportStructuredOutput,
+    output_key="news_report_structured",
+    build_prompt=build_news_analyst_prompt,
+    evidence_output_key="news_evidence_notes",
+    report_key="news_report",
+    structured_agent_name="news_analyst",
+    tools=NEWS_ANALYST_TOOLS,
+    commit_output=commit_news_analyst_output,
+)

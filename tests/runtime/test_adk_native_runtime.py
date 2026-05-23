@@ -8,12 +8,17 @@ from google.adk.apps import App
 from google.adk.cli.utils.agent_loader import AgentLoader
 from google.adk.models.base_llm import BaseLlm
 from google.adk.models.llm_response import LlmResponse
+from google.adk.tools import FunctionTool
 from google.adk.workflow import FunctionNode, Workflow
 from google.adk.workflow import START
 from google.genai import types
 from langchain_core.messages import AIMessage
 
+from diverge.agents.analysts.fundamentals_analyst import FUNDAMENTALS_ANALYST_AGENT
+from diverge.agents.analysts.market_analyst import MARKET_ANALYST_AGENT
+from diverge.agents.analysts.news_analyst import NEWS_ANALYST_AGENT
 from diverge.agents.analysts.news_analyst import build_news_analyst_prompt
+from diverge.agents.analysts.social_media_analyst import SOCIAL_MEDIA_ANALYST_AGENT
 from diverge.agents.managers.portfolio_manager import PortfolioManagerStructuredOutput
 from diverge.agents.report_output import (
     AggressiveRiskStructuredOutput,
@@ -28,6 +33,7 @@ from diverge.agents.report_output import (
     SentimentReportStructuredOutput,
     TraderStructuredOutput,
 )
+from diverge.runtime.adk_native.agents import append_runtime_progress_event
 from diverge.runtime.adk_native import runner as adk_native_runner
 from diverge.runtime.adk_native.progress_adapter import state_delta_from_event
 from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
@@ -38,6 +44,81 @@ from diverge.runtime.analysis_schema import HISTORICAL_TRADE_FEEDBACK_KEY
 from diverge.runtime.state import create_initial_state
 from diverge.runtime.tool_loop import looks_like_incomplete_tool_preface
 from diverge.runtime.tools import AdkToolCollection
+
+
+def get_stock_data(symbol: str, start_date: str, end_date: str) -> str:
+    del symbol, start_date, end_date
+    return "stock data"
+
+
+def get_indicators(
+    symbol: str,
+    indicator: str,
+    curr_date: str,
+    look_back_days: int = 30,
+) -> str:
+    del symbol, indicator, curr_date, look_back_days
+    return "indicators"
+
+
+def get_news(ticker: str, start_date: str, end_date: str) -> str:
+    del ticker, start_date, end_date
+    return "news"
+
+
+def get_global_news(curr_date: str, look_back_days: int = 7, limit: int = 5) -> str:
+    del curr_date, look_back_days, limit
+    return "global news"
+
+
+def web_search_evidence(
+    query: str = "",
+    purpose: str = "default",
+    max_results: int = 5,
+) -> str:
+    del query, purpose, max_results
+    return "search evidence"
+
+
+def get_fundamentals(ticker: str, curr_date: str) -> str:
+    del ticker, curr_date
+    return "fundamentals"
+
+
+def get_balance_sheet(
+    ticker: str,
+    freq: str = "quarterly",
+    curr_date: str | None = None,
+) -> str:
+    del ticker, freq, curr_date
+    return "balance sheet"
+
+
+def get_cashflow(
+    ticker: str,
+    freq: str = "quarterly",
+    curr_date: str | None = None,
+) -> str:
+    del ticker, freq, curr_date
+    return "cashflow"
+
+
+def get_income_statement(
+    ticker: str,
+    freq: str = "quarterly",
+    curr_date: str | None = None,
+) -> str:
+    del ticker, freq, curr_date
+    return "income statement"
+
+
+def get_insider_transactions(ticker: str) -> str:
+    del ticker
+    return "insider transactions"
+
+
+def _tool_collection(*tools) -> AdkToolCollection:
+    return AdkToolCollection(tuple(FunctionTool(tool) for tool in tools))
 
 
 def test_state_adapter_applies_adk_state_delta_without_mutating_input():
@@ -70,6 +151,39 @@ def test_progress_adapter_extracts_event_actions_state_delta():
     )
 
 
+def test_runtime_progress_event_append_reassigns_state_list_for_adk_deltas():
+    state = {
+        "runtime_progress_events": [
+            {
+                "id": "runtime-progress-1",
+                "current_agent": "News Analyst Evidence",
+                "message": "News Analyst Evidence started.",
+            }
+        ]
+    }
+    original_events = state["runtime_progress_events"]
+
+    append_runtime_progress_event(
+        state,
+        current_agent="News Analyst Report",
+        message="News Analyst Report started.",
+    )
+
+    assert state["runtime_progress_events"] is not original_events
+    assert original_events == [
+        {
+            "id": "runtime-progress-1",
+            "current_agent": "News Analyst Evidence",
+            "message": "News Analyst Evidence started.",
+        }
+    ]
+    assert state["runtime_progress_events"][-1] == {
+        "id": "runtime-progress-2",
+        "current_agent": "News Analyst Report",
+        "message": "News Analyst Report started.",
+    }
+
+
 def test_tool_preface_detector_retries_chinese_literal_tool_calls():
     content = (
         "我们需要先获取股票数据，然后调用指标。"
@@ -100,10 +214,20 @@ def test_native_analysts_use_two_stage_evidence_report_contract():
 
     resources = adk_native_runner._NativeRuntimeResources(
         tool_nodes={
-            "market": AdkToolCollection(()),
-            "social": AdkToolCollection(()),
-            "news": AdkToolCollection(()),
-            "fundamentals": AdkToolCollection(()),
+            "market": _tool_collection(get_stock_data, get_indicators),
+            "social": _tool_collection(get_news, web_search_evidence),
+            "news": _tool_collection(
+                get_news,
+                get_global_news,
+                web_search_evidence,
+            ),
+            "fundamentals": _tool_collection(
+                get_fundamentals,
+                get_balance_sheet,
+                get_cashflow,
+                get_income_statement,
+                get_insider_transactions,
+            ),
         },
         bull_memory=object(),
         bear_memory=object(),
@@ -116,24 +240,28 @@ def test_native_analysts_use_two_stage_evidence_report_contract():
     )
     cases = {
         "market": (
+            MARKET_ANALYST_AGENT,
             "market_analyst",
             "market_evidence_notes",
             MarketReportStructuredOutput,
             "market_report_structured",
         ),
         "social": (
+            SOCIAL_MEDIA_ANALYST_AGENT,
             "social_media_analyst",
             "sentiment_evidence_notes",
             SentimentReportStructuredOutput,
             "sentiment_report_structured",
         ),
         "news": (
+            NEWS_ANALYST_AGENT,
             "news_analyst",
             "news_evidence_notes",
             NewsReportStructuredOutput,
             "news_report_structured",
         ),
         "fundamentals": (
+            FUNDAMENTALS_ANALYST_AGENT,
             "fundamentals_analyst",
             "fundamentals_evidence_notes",
             FundamentalsReportStructuredOutput,
@@ -141,7 +269,13 @@ def test_native_analysts_use_two_stage_evidence_report_contract():
         ),
     }
 
-    for analyst, (agent_name, evidence_key, output_schema, output_key) in cases.items():
+    for analyst, (
+        turn,
+        agent_name,
+        evidence_key,
+        output_schema,
+        output_key,
+    ) in cases.items():
         nodes = adk_native_runner._build_native_analyst_nodes(analyst, resources)
         evidence_agent = nodes[1]
         report_agent = nodes[4]
@@ -156,7 +290,7 @@ def test_native_analysts_use_two_stage_evidence_report_contract():
         ]
         assert evidence_agent.output_schema is None
         assert evidence_agent.output_key == evidence_key
-        assert evidence_agent.tools == []
+        assert [tool.name for tool in evidence_agent.tools] == list(turn.tool_names)
         assert report_agent.output_schema is output_schema
         assert report_agent.output_key == output_key
         assert report_agent.tools == []
@@ -876,10 +1010,20 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
         captured_resource_configs.append(dict(config))
         return adk_native_runner._NativeRuntimeResources(
             tool_nodes={
-                "market": AdkToolCollection(()),
-                "social": AdkToolCollection(()),
-                "news": AdkToolCollection(()),
-                "fundamentals": AdkToolCollection(()),
+                "market": _tool_collection(get_stock_data, get_indicators),
+                "social": _tool_collection(get_news, web_search_evidence),
+                "news": _tool_collection(
+                    get_news,
+                    get_global_news,
+                    web_search_evidence,
+                ),
+                "fundamentals": _tool_collection(
+                    get_fundamentals,
+                    get_balance_sheet,
+                    get_cashflow,
+                    get_income_statement,
+                    get_insider_transactions,
+                ),
             },
             bull_memory=FakeMemory(),
             bear_memory=FakeMemory(),
@@ -902,9 +1046,13 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
             selected_analysts=["market", "social", "news", "fundamentals"],
             config={"max_recur_limit": 10},
             init_agent_state=create_initial_state("MSFT", "2026-04-03"),
-            graph_args={},
         )
     )
+    progress_events = [
+        event
+        for chunk in chunks
+        for event in chunk.get("runtime_progress_events", [])
+    ]
 
     assert captured_resource_configs == [{"max_recur_limit": 10}]
     assert any(
@@ -923,6 +1071,16 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
     assert chunks[-1]["trader_investment_plan"]
     assert chunks[-1]["final_trade_decision"]
     assert chunks[-1]["portfolio_decision_card"]["rating"] == "HOLD"
+    assert {
+        ("News Analyst Evidence", "News Analyst Evidence started."),
+        ("News Analyst Report", "News Analyst Report started."),
+        ("News Analyst Report", "News Analyst Report completed."),
+    }.issubset(
+        {
+            (event.get("current_agent"), event.get("message"))
+            for event in progress_events
+        }
+    )
     assert {
         MarketReportStructuredOutput,
         SentimentReportStructuredOutput,

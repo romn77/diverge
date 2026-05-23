@@ -54,13 +54,16 @@ from diverge.runtime.model_factory import (
     create_adk_model,
 )
 from diverge.runtime.adk_native.agents import append_runtime_progress_event
+from diverge.runtime.adk_native.analyst_adapter import (
+    NativeAnalystAdapterRuntime,
+    build_adk_analyst_turn_nodes,
+)
 from diverge.runtime.adk_native.specs import (
-    NATIVE_ANALYST_SPECS,
+    NATIVE_ANALYST_AGENTS,
     ordered_native_analysts,
 )
 from diverge.runtime.adk_native.state_commit import (
     commit_aggressive_risk_output,
-    commit_analyst_output,
     commit_bear_researcher_output,
     commit_bull_researcher_output,
     commit_conservative_risk_output,
@@ -105,7 +108,6 @@ def stream_analysis_state_chunks(
     selected_analysts: list[str],
     config: Mapping[str, Any],
     init_agent_state: Mapping[str, Any],
-    graph_args: Mapping[str, Any] | None = None,
 ) -> Generator[dict[str, Any], None, dict[str, Any]]:
     """Stream analysis state through an ADK Runner-managed workflow.
 
@@ -213,91 +215,28 @@ def _build_native_analyst_nodes(
     analyst: str,
     resources: _NativeRuntimeResources,
 ) -> list[BaseNode]:
-    spec = NATIVE_ANALYST_SPECS[analyst]
-    model = _native_model(resources.quick_model, spec.display_name)
-    evidence_tool_calls_key = _evidence_tool_calls_state_key(spec.evidence_output_key)
-    evidence_display_name = f"{spec.display_name} Evidence"
-    report_display_name = f"{spec.display_name} Report"
-
-    return [
-        FunctionNode(
-            func=_start_native_state_llm_turn(evidence_display_name),
-            name=f"{spec.agent_name}_evidence_start",
-        ),
-        LlmAgent(
-            name=f"{spec.agent_name}_evidence",
+    turn = NATIVE_ANALYST_AGENTS[analyst]
+    model = _native_model(resources.quick_model, turn.display_name)
+    return build_adk_analyst_turn_nodes(
+        turn,
+        NativeAnalystAdapterRuntime(
             model=model,
-            instruction=_native_evidence_prompt_instruction(
-                spec.build_prompt,
-                evidence_output_key=spec.evidence_output_key,
-            ),
-            tools=list(resources.tool_nodes[analyst].tools),
-            output_key=spec.evidence_output_key,
-            generate_content_config=resources.generation_config,
-            include_contents="none",
-            before_tool_callback=_native_analyst_before_tool_callback(
-                build_prompt=spec.build_prompt,
-                display_name=evidence_display_name,
-            ),
-            after_tool_callback=_native_analyst_after_tool_callback(
-                evidence_display_name,
-                evidence_tool_calls_key=evidence_tool_calls_key,
-            ),
-            on_tool_error_callback=_native_analyst_tool_error_callback(
-                evidence_display_name
-            ),
-            on_model_error_callback=_native_evidence_model_error_callback(
-                spec.evidence_output_key,
-                evidence_display_name,
-            ),
+            generation_config=resources.generation_config,
+            tool_nodes=resources.tool_nodes,
+            start_turn=_start_native_state_llm_turn,
+            evidence_instruction=_native_evidence_prompt_instruction,
+            report_instruction=_native_report_prompt_instruction,
+            before_tool_callback=_native_analyst_before_tool_callback,
+            after_tool_callback=_native_analyst_after_tool_callback,
+            tool_error_callback=_native_analyst_tool_error_callback,
+            evidence_model_error_callback=_native_evidence_model_error_callback,
+            structured_after_model_callback=_native_structured_after_model_callback,
+            model_error_callback=_native_model_error_callback,
+            finalize_evidence_turn=_finalize_native_evidence_turn,
+            finalize_state_llm_turn=_finalize_native_state_llm_turn,
+            evidence_tool_calls_state_key=_evidence_tool_calls_state_key,
         ),
-        FunctionNode(
-            func=_finalize_native_evidence_turn(
-                evidence_output_key=spec.evidence_output_key,
-                evidence_tool_calls_key=evidence_tool_calls_key,
-                display_name=evidence_display_name,
-            ),
-            name=f"{spec.agent_name}_evidence_finalize",
-        ),
-        FunctionNode(
-            func=_start_native_state_llm_turn(report_display_name),
-            name=f"{spec.agent_name}_report_start",
-        ),
-        LlmAgent(
-            name=f"{spec.agent_name}_report",
-            model=model,
-            instruction=_native_report_prompt_instruction(
-                spec.build_prompt,
-                evidence_output_key=spec.evidence_output_key,
-            ),
-            output_schema=spec.output_schema,
-            output_key=spec.output_key,
-            generate_content_config=resources.generation_config,
-            include_contents="none",
-            after_model_callback=_native_structured_after_model_callback(
-                spec.output_schema,
-                report_display_name,
-            ),
-            on_model_error_callback=_native_model_error_callback(
-                spec.output_schema,
-                report_display_name,
-            ),
-        ),
-        FunctionNode(
-            func=_finalize_native_state_llm_turn(
-                commit_result=lambda state, structured_payload, spec=spec: (
-                    commit_analyst_output(
-                        state,
-                        spec=spec,
-                        structured_payload=structured_payload,
-                    )
-                ),
-                output_key=spec.output_key,
-                display_name=spec.display_name,
-            ),
-            name=f"{spec.agent_name}_finalize",
-        ),
-    ]
+    )
 
 
 def _build_native_decision_nodes(

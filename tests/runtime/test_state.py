@@ -1,8 +1,8 @@
-from diverge.runtime.state import Propagator
+from diverge.runtime.state import create_initial_state
 
 
 def test_create_initial_state_initializes_v3_metadata_fields():
-    state = Propagator().create_initial_state("MSFT", "2026-03-20")
+    state = create_initial_state("MSFT", "2026-03-20")
 
     assert "earnings_event" in state
     assert "instrument_type" in state

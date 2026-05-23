@@ -24,7 +24,8 @@ from diverge.runtime.analysis_context import (
     use_search_context,
 )
 from diverge.runtime.analysis_schema import trade_feedback_artifact_from_state
-from diverge.runtime.state import Propagator
+from diverge.runtime.messages import message_content, message_role
+from diverge.runtime.state import create_initial_state
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
@@ -117,20 +118,19 @@ def extract_content_string(content):
 
 
 def classify_message_type(message) -> tuple[str, str | None]:
-    """Classify LangChain message into a compact event payload."""
-    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+    """Classify runtime messages into compact progress event payloads."""
+    role = message_role(message)
+    content = extract_content_string(message_content(message))
 
-    content = extract_content_string(getattr(message, "content", None))
-
-    if isinstance(message, HumanMessage):
+    if role == "user":
         if content and content.strip() == "Continue":
             return ("Control", content)
         return ("User", content)
 
-    if isinstance(message, ToolMessage):
+    if role == "tool":
         return ("Data", content)
 
-    if isinstance(message, AIMessage):
+    if role == "model":
         return ("Agent", content)
 
     return ("System", content)
@@ -642,19 +642,12 @@ def run_analysis_streaming(
         resolve_analysis_runtime()
         from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
 
-        propagator = Propagator(
-            max_recur_limit=config.get(
-                "max_recur_limit",
-                DEFAULT_CONFIG["max_recur_limit"],
-            )
-        )
-        init_agent_state = propagator.create_initial_state(
+        init_agent_state = create_initial_state(
             request.ticker,
             request.analysis_date,
             request.output_language,
             **context_pack.initial_state_kwargs(),
         )
-        args = propagator.get_graph_args()
 
         yield tracker.to_progress(
             status="running",
@@ -666,7 +659,6 @@ def run_analysis_streaming(
             selected_analysts=selected_analysts,
             config=config,
             init_agent_state=init_agent_state,
-            graph_args=args,
         ):
             trace.append(chunk)
             progress = tracker.consume_chunk(chunk, status="running")

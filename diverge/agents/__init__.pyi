@@ -44,7 +44,6 @@ from diverge.agents.trader.trader import (
 from diverge.agents.utils.agent_states import AgentState as AgentState
 from diverge.agents.utils.agent_states import InvestDebateState as InvestDebateState
 from diverge.agents.utils.agent_states import RiskDebateState as RiskDebateState
-from diverge.agents.utils.agent_utils import create_msg_delete as create_msg_delete
 from diverge.agents.utils.memory import (
     FinancialSituationMemory as FinancialSituationMemory,
 )

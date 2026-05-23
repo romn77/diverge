@@ -13,62 +13,7 @@ from diverge.agents.report_output import (
     merge_structured_agent_output,
     render_markdown_with_highlights,
 )
-from diverge.agents.utils.fundamental_data_tools import (
-    get_valuation_ready_fundamentals,
-)
-from diverge.research.earnings import (
-    build_earnings_workflow_context,
-    inject_earnings_section,
-)
 from diverge.runtime.structured_output import parse_structured_output
-from diverge.valuation.formatter import (
-    format_valuation_sections,
-    inject_valuation_sections,
-)
-
-
-def commit_analyst_output(
-    state: dict[str, Any],
-    *,
-    spec: Any,
-    structured_payload: Any,
-) -> dict[str, Any]:
-    """Commit an analyst ADK output directly into Diverge's read-model state."""
-
-    structured = parse_structured_output(structured_payload, spec.output_schema)
-    payload = structured.model_dump(mode="json")
-    report_markdown = structured.report_markdown
-    result: dict[str, Any] = {}
-
-    if spec.analyst_key in {"news", "fundamentals"}:
-        earnings_context = build_earnings_workflow_context(
-            trade_date=state["trade_date"],
-            ticker=state["company_of_interest"],
-            earnings_event=state.get("earnings_event"),
-        )
-        report_markdown = inject_earnings_section(
-            report_markdown,
-            earnings_context.report_section,
-        )
-
-    if spec.analyst_key == "fundamentals":
-        valuation_result = _valuation_report_sections(state)
-        report_markdown = inject_valuation_sections(
-            report_markdown,
-            valuation_result.pop("valuation_sections"),
-        )
-        result.update(valuation_result)
-
-    result[spec.report_key] = render_markdown_with_highlights(
-        report_markdown,
-        structured.highlights,
-    )
-    result["structured_agent_outputs"] = merge_structured_agent_output(
-        state,
-        agent_name=spec.structured_agent_name,
-        payload=payload,
-    )
-    return result
 
 
 def commit_bull_researcher_output(
@@ -304,33 +249,3 @@ def _merge_structured_output(
         agent_name=agent_name,
         payload=structured.model_dump(mode="json"),
     )
-
-
-def _valuation_report_sections(state: dict[str, Any]) -> dict[str, Any]:
-    instrument_type = state.get("instrument_type")
-    valuation_applicability = state.get("valuation_applicability")
-    valuation_applicability_reason = state.get("valuation_applicability_reason")
-
-    try:
-        valuation_input = get_valuation_ready_fundamentals(
-            state["company_of_interest"],
-            curr_date=state["trade_date"],
-            freq="annual",
-        )
-        instrument_type = valuation_input.instrument_type
-        valuation_applicability = valuation_input.valuation_applicability
-        valuation_applicability_reason = valuation_input.valuation_applicability_reason
-        valuation_sections = format_valuation_sections(valuation_input)
-    except ValueError as exc:
-        valuation_sections = (
-            f"## Valuation Availability\n\nValuation sections unavailable: {exc}"
-        )
-    except Exception:
-        valuation_sections = "## Valuation Availability\n\nValuation sections unavailable due to unexpected preparation failure."
-
-    return {
-        "instrument_type": instrument_type,
-        "valuation_applicability": valuation_applicability,
-        "valuation_applicability_reason": valuation_applicability_reason,
-        "valuation_sections": valuation_sections,
-    }

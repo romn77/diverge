@@ -6,7 +6,6 @@ from importlib import import_module
 _EXPORTS = {
     "AdkPrompt": ("diverge.runtime.messages", "AdkPrompt"),
     "AdkToolCollection": ("diverge.runtime.tools", "AdkToolCollection"),
-    "Propagator": ("diverge.runtime.state", "Propagator"),
     "create_adk_generation_config": (
         "diverge.runtime.model_factory",
         "create_adk_generation_config",

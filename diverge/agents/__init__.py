@@ -11,7 +11,6 @@ _EXPORTS = {
     "AgentState": ("diverge.agents.utils.agent_states", "AgentState"),
     "InvestDebateState": ("diverge.agents.utils.agent_states", "InvestDebateState"),
     "RiskDebateState": ("diverge.agents.utils.agent_states", "RiskDebateState"),
-    "create_msg_delete": ("diverge.agents.utils.agent_utils", "create_msg_delete"),
     "build_fundamentals_analyst_prompt": (
         "diverge.agents.analysts.fundamentals_analyst",
         "build_fundamentals_analyst_prompt",
