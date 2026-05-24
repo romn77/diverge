@@ -12,14 +12,14 @@ def append_runtime_progress_event(
     events = state.setdefault("runtime_progress_events", [])
     if not isinstance(events, list):
         events = []
-        state["runtime_progress_events"] = events
-    events.append(
+    state["runtime_progress_events"] = [
+        *events,
         {
             "id": f"runtime-progress-{len(events) + 1}",
             "current_agent": current_agent,
             "message": message,
-        }
-    )
+        },
+    ]
 
 
 def _append_runtime_progress_event(

@@ -1,6 +1,5 @@
 import datetime
 import copy
-import json
 import os
 from collections.abc import Collection
 from dataclasses import asdict, dataclass, field
@@ -16,27 +15,21 @@ from diverge.llm_clients.model_config import (
 from diverge.llm_clients.validators import validate_model
 from diverge.common.market_calendar import resolve_market_trading_date
 from diverge.common.symbols import detect_market, normalize_analysis_ticker_symbol
-from diverge.research.thesis_tracker import build_thesis_artifact
 from diverge.runtime.analysis_context import (
     AnalysisContextPackAdapters,
     AnalysisContextPackRequest,
     build_analysis_context_pack,
     use_search_context,
 )
-from diverge.runtime.analysis_schema import trade_feedback_artifact_from_state
-from diverge.runtime.state import Propagator
+from diverge.runtime.messages import message_content, message_role
+from diverge.runtime.report_artifacts import (
+    save_report_to_disk,
+    write_partial_report_section,
+)
+from diverge.runtime.state import create_initial_state
 from diverge.trade_feedback import get_trade_feedback_payload
 
 
-SECTION_FILE_MAP = {
-    "market_report": ("1_analysts", "market.md"),
-    "sentiment_report": ("1_analysts", "sentiment.md"),
-    "news_report": ("1_analysts", "news.md"),
-    "fundamentals_report": ("1_analysts", "fundamentals.md"),
-    "investment_plan": ("2_research", "manager.md"),
-    "trader_investment_plan": ("3_trading", "trader.md"),
-    "final_trade_decision": ("5_portfolio", "decision.md"),
-}
 RESEARCH_TEAM = ["Bull Researcher", "Bear Researcher", "Research Manager"]
 RISK_TEAM = ["Aggressive Analyst", "Neutral Analyst", "Conservative Analyst"]
 STAGE_AGENT_MAP = {
@@ -117,20 +110,19 @@ def extract_content_string(content):
 
 
 def classify_message_type(message) -> tuple[str, str | None]:
-    """Classify LangChain message into a compact event payload."""
-    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+    """Classify runtime messages into compact progress event payloads."""
+    role = message_role(message)
+    content = extract_content_string(message_content(message))
 
-    content = extract_content_string(getattr(message, "content", None))
-
-    if isinstance(message, HumanMessage):
+    if role == "user":
         if content and content.strip() == "Continue":
             return ("Control", content)
         return ("User", content)
 
-    if isinstance(message, ToolMessage):
+    if role == "tool":
         return ("Data", content)
 
-    if isinstance(message, AIMessage):
+    if role == "model":
         return ("Agent", content)
 
     return ("System", content)
@@ -328,11 +320,6 @@ class AnalysisTracker:
             message = warning_message
             dirty = True
 
-        runtime_message = self._consume_runtime_progress_events(chunk)
-        if runtime_message:
-            message = runtime_message
-            dirty = True
-
         if self._update_analyst_statuses(chunk):
             dirty = True
 
@@ -343,6 +330,11 @@ class AnalysisTracker:
             dirty = True
 
         if self._update_risk_status(chunk):
+            dirty = True
+
+        runtime_message = self._consume_runtime_progress_events(chunk)
+        if runtime_message:
+            message = runtime_message
             dirty = True
 
         if not dirty:
@@ -383,7 +375,7 @@ class AnalysisTracker:
         if not isinstance(incoming, list):
             return None
 
-        latest_message = None
+        messages = []
         for event in incoming:
             if not isinstance(event, dict):
                 continue
@@ -394,13 +386,13 @@ class AnalysisTracker:
                 self._seen_runtime_progress_ids.add(event_id)
 
             current_agent = str(event.get("current_agent") or "").strip()
-            if current_agent in self.agent_status:
+            if current_agent:
                 self.current_agent = current_agent
             message = str(event.get("message") or "").strip()
             if message:
-                latest_message = message
+                messages.append(message)
 
-        return latest_message
+        return " / ".join(messages) if messages else None
 
     def _build_stage_status(self) -> dict[str, str]:
         stage_status = {}
@@ -581,10 +573,11 @@ class AnalysisTracker:
         return dirty
 
     def _write_partial_artifact(self, section_name: str, content: str) -> None:
-        stage_dir_name, file_name = SECTION_FILE_MAP[section_name]
-        stage_dir = self.temp_dir / stage_dir_name
-        stage_dir.mkdir(parents=True, exist_ok=True)
-        (stage_dir / file_name).write_text(content, encoding="utf-8")
+        write_partial_report_section(
+            base_path=self.temp_dir,
+            section_name=section_name,
+            content=content,
+        )
 
 
 def build_analysis_config(request: AnalysisRequest) -> dict:
@@ -642,19 +635,12 @@ def run_analysis_streaming(
         resolve_analysis_runtime()
         from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
 
-        propagator = Propagator(
-            max_recur_limit=config.get(
-                "max_recur_limit",
-                DEFAULT_CONFIG["max_recur_limit"],
-            )
-        )
-        init_agent_state = propagator.create_initial_state(
+        init_agent_state = create_initial_state(
             request.ticker,
             request.analysis_date,
             request.output_language,
             **context_pack.initial_state_kwargs(),
         )
-        args = propagator.get_graph_args()
 
         yield tracker.to_progress(
             status="running",
@@ -666,7 +652,6 @@ def run_analysis_streaming(
             selected_analysts=selected_analysts,
             config=config,
             init_agent_state=init_agent_state,
-            graph_args=args,
         ):
             trace.append(chunk)
             progress = tracker.consume_chunk(chunk, status="running")
@@ -685,174 +670,3 @@ def run_analysis_streaming(
             message=f"System: Completed analysis for {request.analysis_date}",
         )
         return final_state
-
-
-def save_report_to_disk(final_state, ticker: str, save_path: Path):
-    """Save complete analysis report to disk with organized subfolders."""
-    save_path.mkdir(parents=True, exist_ok=True)
-    sections = []
-
-    analysts_dir = save_path / "1_analysts"
-    analyst_parts = []
-    if final_state.get("market_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "market.md").write_text(
-            final_state["market_report"], encoding="utf-8"
-        )
-        analyst_parts.append(("Market Analyst", final_state["market_report"]))
-    if final_state.get("sentiment_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "sentiment.md").write_text(
-            final_state["sentiment_report"], encoding="utf-8"
-        )
-        analyst_parts.append(("Social Analyst", final_state["sentiment_report"]))
-    if final_state.get("news_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "news.md").write_text(
-            final_state["news_report"], encoding="utf-8"
-        )
-        analyst_parts.append(("News Analyst", final_state["news_report"]))
-    if final_state.get("fundamentals_report"):
-        analysts_dir.mkdir(exist_ok=True)
-        (analysts_dir / "fundamentals.md").write_text(
-            final_state["fundamentals_report"], encoding="utf-8"
-        )
-        analyst_parts.append(
-            ("Fundamentals Analyst", final_state["fundamentals_report"])
-        )
-    if analyst_parts:
-        content = "\n\n".join(f"### {name}\n{text}" for name, text in analyst_parts)
-        sections.append(f"## I. Analyst Team Reports\n\n{content}")
-
-    if final_state.get("investment_debate_state"):
-        research_dir = save_path / "2_research"
-        debate = final_state["investment_debate_state"]
-        research_parts = []
-        bull_report = debate.get("current_bull_response") or debate.get("bull_history")
-        bear_report = debate.get("current_bear_response") or debate.get("bear_history")
-        if bull_report:
-            research_dir.mkdir(exist_ok=True)
-            (research_dir / "bull.md").write_text(
-                bull_report, encoding="utf-8"
-            )
-            research_parts.append(("Bull Researcher", bull_report))
-        if bear_report:
-            research_dir.mkdir(exist_ok=True)
-            (research_dir / "bear.md").write_text(
-                bear_report, encoding="utf-8"
-            )
-            research_parts.append(("Bear Researcher", bear_report))
-        if debate.get("judge_decision"):
-            research_dir.mkdir(exist_ok=True)
-            (research_dir / "manager.md").write_text(
-                debate["judge_decision"], encoding="utf-8"
-            )
-            research_parts.append(("Research Manager", debate["judge_decision"]))
-        if research_parts:
-            content = "\n\n".join(
-                f"### {name}\n{text}" for name, text in research_parts
-            )
-            sections.append(f"## II. Research Team Decision\n\n{content}")
-
-    if final_state.get("trader_investment_plan"):
-        trading_dir = save_path / "3_trading"
-        trading_dir.mkdir(exist_ok=True)
-        (trading_dir / "trader.md").write_text(
-            final_state["trader_investment_plan"], encoding="utf-8"
-        )
-        sections.append(
-            f"## III. Trading Team Plan\n\n### Trader\n{final_state['trader_investment_plan']}"
-        )
-
-    if final_state.get("risk_debate_state"):
-        risk_dir = save_path / "4_risk"
-        risk = final_state["risk_debate_state"]
-        risk_parts = []
-        aggressive_report = risk.get("current_aggressive_response") or risk.get(
-            "aggressive_history"
-        )
-        conservative_report = risk.get("current_conservative_response") or risk.get(
-            "conservative_history"
-        )
-        neutral_report = risk.get("current_neutral_response") or risk.get(
-            "neutral_history"
-        )
-        if aggressive_report:
-            risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "aggressive.md").write_text(
-                aggressive_report, encoding="utf-8"
-            )
-            risk_parts.append(("Aggressive Analyst", aggressive_report))
-        if conservative_report:
-            risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "conservative.md").write_text(
-                conservative_report, encoding="utf-8"
-            )
-            risk_parts.append(("Conservative Analyst", conservative_report))
-        if neutral_report:
-            risk_dir.mkdir(exist_ok=True)
-            (risk_dir / "neutral.md").write_text(
-                neutral_report, encoding="utf-8"
-            )
-            risk_parts.append(("Neutral Analyst", neutral_report))
-        if risk_parts:
-            content = "\n\n".join(f"### {name}\n{text}" for name, text in risk_parts)
-            sections.append(f"## IV. Risk Management Team Decision\n\n{content}")
-
-        if risk.get("judge_decision"):
-            portfolio_dir = save_path / "5_portfolio"
-            portfolio_dir.mkdir(exist_ok=True)
-            (portfolio_dir / "decision.md").write_text(
-                risk["judge_decision"], encoding="utf-8"
-            )
-            sections.append(
-                f"## V. Portfolio Manager Decision\n\n### Portfolio Manager\n{risk['judge_decision']}"
-            )
-
-    runtime_warnings = final_state.get("runtime_warnings")
-    if isinstance(runtime_warnings, list) and runtime_warnings:
-        warning_lines = []
-        for warning in runtime_warnings:
-            if not isinstance(warning, dict):
-                continue
-            stage = str(warning.get("stage") or "Runtime").strip()
-            message = str(warning.get("message") or warning).strip()
-            warning_lines.append(f"- **{stage}**: {message}")
-        if warning_lines:
-            sections.append("## Runtime Warnings\n\n" + "\n".join(warning_lines))
-
-    header = (
-        f"# Trading Analysis Report: {ticker}\n\n"
-        f"Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-    )
-    (save_path / "complete_report.md").write_text(
-        header + "\n\n".join(sections), encoding="utf-8"
-    )
-
-    thesis_artifact = build_thesis_artifact(final_state, ticker=ticker)
-    artifacts_dir = save_path / "artifacts"
-    artifacts_dir.mkdir(exist_ok=True)
-    (artifacts_dir / "thesis.json").write_text(
-        json.dumps(thesis_artifact, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    trade_feedback_artifact = trade_feedback_artifact_from_state(
-        final_state,
-        ticker=ticker,
-    )
-    if trade_feedback_artifact is not None:
-        (artifacts_dir / "trade_feedback.json").write_text(
-            json.dumps(trade_feedback_artifact, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-    if isinstance(runtime_warnings, list) and runtime_warnings:
-        runtime_warning_artifact = {
-            "type": "runtime_warnings",
-            "ticker": ticker,
-            "warnings": runtime_warnings,
-        }
-        (artifacts_dir / "runtime_warnings.json").write_text(
-            json.dumps(runtime_warning_artifact, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-    return save_path / "complete_report.md"

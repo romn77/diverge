@@ -124,6 +124,12 @@ class TraderEntryExitOutput(StrictModel):
 
 class TraderHighlightsOutput(BaseHighlightsOutput):
     category: Literal["trader"]
+    decision: TradeSignal = Field(
+        description=(
+            "Legacy card compatibility copy of signal. This is not the final "
+            "Portfolio Manager decision."
+        )
+    )
     entry_exit: TraderEntryExitOutput
     position_sizing: str | None = None
     risk_budget: str | None = None
@@ -219,7 +225,7 @@ def render_markdown_with_highlights(
 ) -> str:
     report = str(report_markdown or "").strip()
     highlights_block = json.dumps(
-        highlights.model_dump(mode="json"),
+        highlights.model_dump(mode="json", exclude_none=True),
         ensure_ascii=False,
         indent=2,
     )

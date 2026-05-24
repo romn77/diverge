@@ -8,12 +8,21 @@ from google.adk.apps import App
 from google.adk.cli.utils.agent_loader import AgentLoader
 from google.adk.models.base_llm import BaseLlm
 from google.adk.models.llm_response import LlmResponse
+from google.adk.tools import FunctionTool
 from google.adk.workflow import FunctionNode, Workflow
 from google.adk.workflow import START
 from google.genai import types
 from langchain_core.messages import AIMessage
 
-from diverge.agents.managers.portfolio_manager import PortfolioManagerStructuredOutput
+from diverge.agents.analysts.fundamentals_analyst import FUNDAMENTALS_ANALYST_AGENT
+from diverge.agents.analysts.market_analyst import MARKET_ANALYST_AGENT
+from diverge.agents.analysts.news_analyst import NEWS_ANALYST_AGENT
+from diverge.agents.analysts.news_analyst import build_news_analyst_prompt
+from diverge.agents.analysts.social_media_analyst import SOCIAL_MEDIA_ANALYST_AGENT
+from diverge.agents.managers.portfolio_manager import (
+    PORTFOLIO_MANAGER_AGENT,
+    PortfolioManagerStructuredOutput,
+)
 from diverge.agents.report_output import (
     AggressiveRiskStructuredOutput,
     BearCaseStructuredOutput,
@@ -27,6 +36,9 @@ from diverge.agents.report_output import (
     SentimentReportStructuredOutput,
     TraderStructuredOutput,
 )
+from diverge.runtime.adk_native.agents import append_runtime_progress_event
+from diverge.runtime.adk_native import callbacks as adk_callbacks
+from diverge.runtime.adk_native import evidence as adk_evidence
 from diverge.runtime.adk_native import runner as adk_native_runner
 from diverge.runtime.adk_native.progress_adapter import state_delta_from_event
 from diverge.runtime.adk_native.runner import stream_analysis_state_chunks
@@ -37,6 +49,81 @@ from diverge.runtime.analysis_schema import HISTORICAL_TRADE_FEEDBACK_KEY
 from diverge.runtime.state import create_initial_state
 from diverge.runtime.tool_loop import looks_like_incomplete_tool_preface
 from diverge.runtime.tools import AdkToolCollection
+
+
+def get_stock_data(symbol: str, start_date: str, end_date: str) -> str:
+    del symbol, start_date, end_date
+    return "stock data"
+
+
+def get_indicators(
+    symbol: str,
+    indicator: str,
+    curr_date: str,
+    look_back_days: int = 30,
+) -> str:
+    del symbol, indicator, curr_date, look_back_days
+    return "indicators"
+
+
+def get_news(ticker: str, start_date: str, end_date: str) -> str:
+    del ticker, start_date, end_date
+    return "news"
+
+
+def get_global_news(curr_date: str, look_back_days: int = 7, limit: int = 5) -> str:
+    del curr_date, look_back_days, limit
+    return "global news"
+
+
+def web_search_evidence(
+    query: str = "",
+    purpose: str = "default",
+    max_results: int = 5,
+) -> str:
+    del query, purpose, max_results
+    return "search evidence"
+
+
+def get_fundamentals(ticker: str, curr_date: str) -> str:
+    del ticker, curr_date
+    return "fundamentals"
+
+
+def get_balance_sheet(
+    ticker: str,
+    freq: str = "quarterly",
+    curr_date: str | None = None,
+) -> str:
+    del ticker, freq, curr_date
+    return "balance sheet"
+
+
+def get_cashflow(
+    ticker: str,
+    freq: str = "quarterly",
+    curr_date: str | None = None,
+) -> str:
+    del ticker, freq, curr_date
+    return "cashflow"
+
+
+def get_income_statement(
+    ticker: str,
+    freq: str = "quarterly",
+    curr_date: str | None = None,
+) -> str:
+    del ticker, freq, curr_date
+    return "income statement"
+
+
+def get_insider_transactions(ticker: str) -> str:
+    del ticker
+    return "insider transactions"
+
+
+def _tool_collection(*tools) -> AdkToolCollection:
+    return AdkToolCollection(tuple(FunctionTool(tool) for tool in tools))
 
 
 def test_state_adapter_applies_adk_state_delta_without_mutating_input():
@@ -69,6 +156,39 @@ def test_progress_adapter_extracts_event_actions_state_delta():
     )
 
 
+def test_runtime_progress_event_append_reassigns_state_list_for_adk_deltas():
+    state = {
+        "runtime_progress_events": [
+            {
+                "id": "runtime-progress-1",
+                "current_agent": "News Analyst Evidence",
+                "message": "News Analyst Evidence started.",
+            }
+        ]
+    }
+    original_events = state["runtime_progress_events"]
+
+    append_runtime_progress_event(
+        state,
+        current_agent="News Analyst Report",
+        message="News Analyst Report started.",
+    )
+
+    assert state["runtime_progress_events"] is not original_events
+    assert original_events == [
+        {
+            "id": "runtime-progress-1",
+            "current_agent": "News Analyst Evidence",
+            "message": "News Analyst Evidence started.",
+        }
+    ]
+    assert state["runtime_progress_events"][-1] == {
+        "id": "runtime-progress-2",
+        "current_agent": "News Analyst Report",
+        "message": "News Analyst Report started.",
+    }
+
+
 def test_tool_preface_detector_retries_chinese_literal_tool_calls():
     content = (
         "我们需要先获取股票数据，然后调用指标。"
@@ -90,6 +210,568 @@ def test_tool_preface_detector_accepts_completed_highlight_report():
     assert not looks_like_incomplete_tool_preface(AIMessage(content=content))
 
 
+def test_native_analysts_use_two_stage_evidence_report_contract():
+    class FakeModel(BaseLlm):
+        async def generate_content_async(self, llm_request, stream=False):
+            raise AssertionError(
+                "model should not be invoked by node construction test"
+            )
+
+    resources = adk_native_runner._NativeRuntimeResources(
+        tool_nodes={
+            "market": _tool_collection(get_stock_data, get_indicators),
+            "social": _tool_collection(get_news, web_search_evidence),
+            "news": _tool_collection(
+                get_news,
+                get_global_news,
+                web_search_evidence,
+            ),
+            "fundamentals": _tool_collection(
+                get_fundamentals,
+                get_balance_sheet,
+                get_cashflow,
+                get_income_statement,
+                get_insider_transactions,
+            ),
+        },
+        bull_memory=object(),
+        bear_memory=object(),
+        trader_memory=object(),
+        invest_judge_memory=object(),
+        portfolio_manager_memory=object(),
+        quick_model=FakeModel(model="fake-quick-model"),
+        deep_model=FakeModel(model="fake-deep-model"),
+        generation_config=None,
+    )
+    cases = {
+        "market": (
+            MARKET_ANALYST_AGENT,
+            "market_analyst",
+            "market_evidence_notes",
+            MarketReportStructuredOutput,
+            "market_report_structured",
+        ),
+        "social": (
+            SOCIAL_MEDIA_ANALYST_AGENT,
+            "social_media_analyst",
+            "sentiment_evidence_notes",
+            SentimentReportStructuredOutput,
+            "sentiment_report_structured",
+        ),
+        "news": (
+            NEWS_ANALYST_AGENT,
+            "news_analyst",
+            "news_evidence_notes",
+            NewsReportStructuredOutput,
+            "news_report_structured",
+        ),
+        "fundamentals": (
+            FUNDAMENTALS_ANALYST_AGENT,
+            "fundamentals_analyst",
+            "fundamentals_evidence_notes",
+            FundamentalsReportStructuredOutput,
+            "fundamentals_report_structured",
+        ),
+    }
+
+    for analyst, (
+        turn,
+        agent_name,
+        evidence_key,
+        output_schema,
+        output_key,
+    ) in cases.items():
+        del analyst
+        nodes = adk_native_runner._build_native_analyst_nodes(turn, resources)
+        evidence_agent = nodes[1]
+        report_agent = nodes[4]
+
+        assert [node.name for node in nodes] == [
+            f"{agent_name}_evidence_start",
+            f"{agent_name}_evidence",
+            f"{agent_name}_evidence_finalize",
+            f"{agent_name}_report_start",
+            f"{agent_name}_report",
+            f"{agent_name}_finalize",
+        ]
+        assert evidence_agent.output_schema is None
+        assert evidence_agent.output_key == evidence_key
+        assert [tool.name for tool in evidence_agent.tools] == list(turn.tool_names)
+        assert report_agent.output_schema is output_schema
+        assert report_agent.output_key == output_key
+        assert report_agent.tools == []
+
+
+def test_news_evidence_tool_callback_counts_evidence_tool_calls():
+    state = {"runtime_warnings": []}
+    callback = adk_evidence.analyst_after_tool_callback(
+        "News Analyst Evidence",
+        evidence_tool_calls_key="news_evidence_notes_evidence_tool_calls",
+    )
+
+    callback(
+        SimpleNamespace(name="get_news"),
+        {},
+        SimpleNamespace(state=state),
+        "news evidence",
+    )
+
+    assert state["news_evidence_notes_evidence_tool_calls"] == 1
+    assert state["runtime_progress_events"][-1]["current_agent"] == (
+        "News Analyst Evidence"
+    )
+
+
+def test_news_evidence_finalize_warns_when_no_evidence_tool_was_called():
+    state = {"runtime_warnings": []}
+    finalize = adk_evidence.finalize_evidence_turn(
+        evidence_output_key="news_evidence_notes",
+        evidence_tool_calls_key="news_evidence_notes_evidence_tool_calls",
+        display_name="News Analyst Evidence",
+    )
+
+    finalize(SimpleNamespace(state=state))
+
+    assert state["news_evidence_notes"].startswith("No evidence-gathering tool")
+    assert state["runtime_warnings"][-1] == {
+        "stage": "News Analyst Evidence",
+        "kind": "missing_evidence_tool_call",
+        "message": (
+            "News Analyst Evidence did not complete any evidence-gathering "
+            "tool call; the report phase will receive a data-insufficient "
+            "evidence note."
+        ),
+    }
+
+
+def test_news_report_instruction_receives_evidence_notes():
+    state = create_initial_state("CEG", "2026-05-20", output_language="cn")
+    state["news_evidence_notes"] = "get_news: CEG had mixed source-backed news."
+    instruction = adk_native_runner._native_report_prompt_instruction(
+        build_news_analyst_prompt,
+        evidence_output_key="news_evidence_notes",
+    )
+
+    prompt = instruction(SimpleNamespace(state=state))
+
+    assert "Report phase contract" in prompt
+    assert "You have no tools" in prompt
+    assert "get_news: CEG had mixed source-backed news." in prompt
+
+
+def test_news_evidence_model_error_callback_returns_data_insufficient_notes():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+
+    replacement = adk_callbacks.evidence_model_error_callback(
+        "news_evidence_notes",
+        "News Analyst Evidence",
+    )(
+        callback_context=callback_context,
+        llm_request=object(),
+        error=Exception("504 Gateway Time-out"),
+    )
+
+    assert replacement is not None
+    assert "data-insufficient" in replacement.content.parts[0].text
+    assert callback_context.state["news_evidence_notes"].endswith(
+        "data-insufficient unless regenerated."
+    )
+    assert callback_context.state["runtime_warnings"][-1]["kind"] == (
+        "transient_llm_error"
+    )
+
+
+def test_native_structured_model_error_callback_returns_schema_fallback_for_timeout():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+
+    replacement = adk_callbacks.structured_model_error_callback(
+        NewsReportStructuredOutput,
+        "News Analyst",
+    )(
+        callback_context=callback_context,
+        llm_request=object(),
+        error=Exception("504 Gateway Time-out"),
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["report_markdown"].startswith("## News Analyst Fallback")
+    assert payload["highlights"]["category"] == "news"
+    assert payload["highlights"]["signal"] == "HOLD"
+    assert callback_context.state["runtime_warnings"] == [
+        {
+            "stage": "News Analyst",
+            "kind": "transient_llm_error",
+            "message": (
+                "News Analyst used a conservative fallback because the LLM "
+                "request failed with a transient connection error: "
+                "504 Gateway Time-out"
+            ),
+        }
+    ]
+
+
+def test_native_finalize_uses_schema_fallback_when_output_key_is_missing():
+    def commit_result(_state, structured_payload):
+        return {"captured_payload": structured_payload}
+
+    ctx = SimpleNamespace(state={"runtime_warnings": []})
+    finalize = adk_native_runner._finalize_native_state_llm_turn(
+        commit_result=commit_result,
+        output_key="fundamentals_report_structured",
+        display_name="Fundamentals Analyst Report",
+        output_schema=FundamentalsReportStructuredOutput,
+    )
+
+    finalize(ctx)
+
+    payload = ctx.state["captured_payload"]
+    assert payload["report_markdown"].startswith(
+        "## Fundamentals Analyst Report Fallback"
+    )
+    assert payload["highlights"]["category"] == "fundamentals"
+    assert ctx.state["fundamentals_report_structured"] == payload
+    assert ctx.state["runtime_warnings"] == [
+        {
+            "stage": "Fundamentals Analyst Report",
+            "kind": "structured_output_missing",
+            "message": (
+                "Fundamentals Analyst Report did not write "
+                "`fundamentals_report_structured`; using a conservative "
+                "schema-valid fallback so report artifacts and highlight cards "
+                "can still be generated."
+            ),
+        }
+    ]
+    assert ctx.state["runtime_progress_events"][-1]["current_agent"] == (
+        "Fundamentals Analyst Report"
+    )
+
+
+def test_native_structured_callback_repairs_json_with_trailing_characters():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    valid_payload = {
+        "report_markdown": "## Bear case\n\nAMD has valuation risk.",
+        "highlights": {
+            "category": "bear_case",
+            "signal": "UNDERWEIGHT",
+            "signal_confidence": "medium",
+            "summary": "Valuation risk offsets AI optimism.",
+            "stance": "bearish",
+            "contrary_evidence": ["AI demand remains strong."],
+            "key_arguments": [
+                {"point": "Valuation", "evidence": "Multiples remain elevated."}
+            ],
+            "counterpoints": ["Supply-chain improvements could help."],
+            "evidence_blocks": [],
+            "unknowns": [],
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text=json.dumps(valid_payload, ensure_ascii=False) + '"}'
+                )
+            ],
+        )
+    )
+
+    replacement = adk_callbacks.structured_after_model_callback(
+        BearCaseStructuredOutput,
+        "Bear Researcher",
+    )(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["report_markdown"] == valid_payload["report_markdown"]
+    assert payload["highlights"]["category"] == "bear_case"
+    assert payload["highlights"]["key_arguments"][0]["point"] == "Valuation"
+    assert callback_context.state["runtime_warnings"] == []
+
+
+def test_native_structured_callback_repairs_markdown_json_highlights_block():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    raw_response = """## AMD risk view\n\nKeep risk moderate until evidence improves.\n\n```json-highlights\n{
+  "category": "risk_neutral",
+  "signal": "HOLD",
+  "signal_confidence": "medium",
+  "summary": "Risk is balanced.",
+  "stance": "neutral",
+  "stance_label": "Neutral",
+  "core_argument": "Wait for cleaner confirmation.",
+  "risk_assessment": "moderate",
+  "key_recommendations": ["Keep sizing moderate."],
+  "risk_budget": null,
+  "evidence_blocks": [],
+  "unknowns": []
+}\n```"""
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[types.Part.from_text(text=raw_response)],
+        )
+    )
+
+    replacement = adk_callbacks.structured_after_model_callback(
+        NeutralRiskStructuredOutput,
+        "Neutral Analyst",
+    )(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["report_markdown"] == (
+        "## AMD risk view\n\nKeep risk moderate until evidence improves."
+    )
+    assert payload["highlights"]["category"] == "risk_neutral"
+    assert payload["highlights"]["risk_assessment"] == "moderate"
+    assert "json-highlights" not in payload["report_markdown"]
+    assert callback_context.state["runtime_warnings"] == []
+
+
+def test_native_structured_callback_normalizes_market_highlight_enums():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    raw_payload = {
+        "report_markdown": "## Market view\n\nShort-term support, long-term caution.",
+        "highlights": {
+            "category": "market",
+            "signal": "WATCH",
+            "signal_confidence": "moderate",
+            "summary": "Trend is mixed.",
+            "stance": "neutral",
+            "trend_direction": "slightly_bullish_short_term_bearish_long_term",
+            "key_levels": {"support": [], "resistance": []},
+            "indicators": [],
+            "volatility": None,
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text=json.dumps(raw_payload, ensure_ascii=False)
+                )
+            ],
+        )
+    )
+
+    replacement = adk_callbacks.structured_after_model_callback(
+        MarketReportStructuredOutput,
+        "Market Analyst Report",
+    )(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["highlights"]["signal"] == "HOLD"
+    assert payload["highlights"]["signal_confidence"] == "medium"
+    assert payload["highlights"]["trend_direction"] == "mixed"
+    assert callback_context.state["runtime_warnings"] == []
+
+
+def test_native_structured_callback_prunes_research_argument_extras():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    raw_payload = {
+        "report_markdown": "## Bear case\n\nValuation remains stretched.",
+        "highlights": {
+            "category": "bear_case",
+            "signal": "UNDERWEIGHT",
+            "signal_confidence": "medium",
+            "summary": "Valuation risk remains material.",
+            "stance": "bearish",
+            "contrary_evidence": ["Demand remains resilient."],
+            "key_arguments": [
+                {
+                    "point": "Valuation",
+                    "evidence": "Multiple expansion is unsupported.",
+                    "source": "fundamentals_report",
+                    "data_date": "2026-05-22",
+                }
+            ],
+            "counterpoints": ["Bull case depends on faster growth."],
+            "evidence_blocks": [],
+            "unknowns": [],
+            "unsupported_extra": "remove me",
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text="```json\n"
+                    + json.dumps(raw_payload, ensure_ascii=False)
+                    + "\n```"
+                )
+            ],
+        )
+    )
+
+    replacement = adk_callbacks.structured_after_model_callback(
+        BearCaseStructuredOutput,
+        "Bear Researcher",
+    )(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    argument = payload["highlights"]["key_arguments"][0]
+    assert argument == {
+        "point": "Valuation",
+        "evidence": "Multiple expansion is unsupported.",
+    }
+    assert "unsupported_extra" not in payload["highlights"]
+    assert callback_context.state["runtime_warnings"] == []
+
+
+def test_native_structured_callback_derives_trader_decision_from_signal():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    raw_payload = {
+        "report_markdown": "## Trader plan\n\nKeep BABA on watch.",
+        "highlights": {
+            "category": "trader",
+            "signal": "HOLD",
+            "signal_confidence": "medium",
+            "summary": "Wait for a cleaner entry trigger.",
+            "stance": "neutral",
+            "entry_exit": {
+                "action": "Watch",
+                "entry_condition": "Wait for trend repair.",
+                "exit_target": None,
+                "stop_loss": None,
+                "invalidation": "Fundamental and technical evidence improves.",
+                "re_entry": None,
+            },
+            "position_sizing": "Small or none.",
+            "risk_budget": "Low.",
+            "risk_factors": ["Event risk"],
+            "evidence_blocks": [],
+            "unknowns": [],
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text=json.dumps(raw_payload, ensure_ascii=False)
+                )
+            ],
+        )
+    )
+
+    replacement = adk_callbacks.structured_after_model_callback(
+        TraderStructuredOutput,
+        "Trader",
+    )(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["highlights"]["decision"] == "HOLD"
+    assert callback_context.state["runtime_warnings"] == []
+
+
+def test_native_structured_callback_unwraps_report_markdown_when_schema_is_invalid():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    invalid_payload = {
+        "report_markdown": "## News view\n\nCEG news flow is mixed.",
+        "highlights": {
+            "category": "news",
+            "signal": "HOLD",
+            "summary": "News is mixed.",
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text=json.dumps(invalid_payload, ensure_ascii=False)
+                )
+            ],
+        )
+    )
+
+    replacement = adk_callbacks.structured_after_model_callback(
+        NewsReportStructuredOutput,
+        "News Analyst",
+    )(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["report_markdown"] == "## News view\n\nCEG news flow is mixed."
+    assert not payload["report_markdown"].lstrip().startswith("{")
+    assert payload["highlights"]["category"] == "news"
+    assert callback_context.state["runtime_warnings"][0]["stage"] == "News Analyst"
+
+
+def test_native_portfolio_callback_repairs_json_with_trailing_characters():
+    callback_context = SimpleNamespace(state={"runtime_warnings": []})
+    valid_payload = {
+        "decision_report": "## Portfolio Manager Decision\n\nRating: HOLD.",
+        "decision_card": {
+            "rating": "HOLD",
+            "action": "WATCH",
+            "confidence": "medium",
+            "conviction_score": 55,
+            "time_horizon": "5-20 trading days",
+            "one_line_summary": "Watch for cleaner confirmation.",
+            "thesis": "The debate supports caution until stronger evidence arrives.",
+            "key_reasons": [
+                {
+                    "pillar": "portfolio",
+                    "point": "Balanced risk",
+                    "evidence": "Risk debate did not support immediate action.",
+                    "strength": "medium",
+                }
+            ],
+            "key_risks": ["Execution risk"],
+            "trade_readiness": "WAITING_FOR_TRIGGER",
+            "data_quality_level": "partial",
+        },
+    }
+    invalid_response = LlmResponse(
+        content=types.Content(
+            role="model",
+            parts=[
+                types.Part.from_text(
+                    text=json.dumps(valid_payload, ensure_ascii=False) + '"}'
+                )
+            ],
+        )
+    )
+
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
+        callback_context=callback_context,
+        llm_response=invalid_response,
+    )
+
+    assert replacement is not None
+    payload = json.loads(replacement.content.parts[0].text)
+    assert payload["decision_report"] == valid_payload["decision_report"]
+    assert payload["decision_card"]["rating"] == "HOLD"
+    assert payload["decision_card"]["key_reasons"][0]["point"] == "Balanced risk"
+    assert callback_context.state["runtime_warnings"] == []
+
+
 def test_native_portfolio_callback_replaces_invalid_schema_response():
     callback_context = SimpleNamespace(state={"runtime_warnings": []})
     invalid_response = LlmResponse(
@@ -103,7 +785,7 @@ def test_native_portfolio_callback_replaces_invalid_schema_response():
         )
     )
 
-    replacement = adk_native_runner._portfolio_after_model_callback(
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
         callback_context=callback_context,
         llm_response=invalid_response,
     )
@@ -140,7 +822,7 @@ def test_native_portfolio_callback_recovers_partial_json_card():
         )
     )
 
-    replacement = adk_native_runner._portfolio_after_model_callback(
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
         callback_context=callback_context,
         llm_response=invalid_response,
     )
@@ -154,9 +836,7 @@ def test_native_portfolio_callback_recovers_partial_json_card():
         "2026 年一季度"
     )
     assert payload["decision_card"]["key_risks"] == ["高杠杆可能放大股权波动。"]
-    assert callback_context.state["runtime_warnings"][0]["kind"] == (
-        "structured_output_validation_failed"
-    )
+    assert callback_context.state["runtime_warnings"] == []
 
 
 def test_native_portfolio_callback_normalizes_partial_card_evidence_enums():
@@ -190,6 +870,12 @@ def test_native_portfolio_callback_normalizes_partial_card_evidence_enums():
                     "evidence": "缺少资金流和持仓集中度。",
                     "strength": "low",
                 },
+                {
+                    "pillar": "evidence",
+                    "point": "证据等级不足",
+                    "evidence": "缺少公司级确认。",
+                    "strength": "medium",
+                },
             ],
         },
     }
@@ -202,7 +888,7 @@ def test_native_portfolio_callback_normalizes_partial_card_evidence_enums():
         )
     )
 
-    replacement = adk_native_runner._portfolio_after_model_callback(
+    replacement = adk_callbacks.turn_after_model_callback(PORTFOLIO_MANAGER_AGENT)(
         callback_context=callback_context,
         llm_response=invalid_response,
     )
@@ -216,6 +902,9 @@ def test_native_portfolio_callback_normalizes_partial_card_evidence_enums():
     assert reasons[1]["strength"] == "strong"
     assert reasons[2]["pillar"] == "portfolio"
     assert reasons[2]["strength"] == "weak"
+    assert reasons[3]["pillar"] == "portfolio"
+    assert reasons[3]["strength"] == "medium"
+    assert callback_context.state["runtime_warnings"] == []
 
 
 def test_analysis_workflow_uses_native_nodes_without_bridge():
@@ -317,6 +1006,8 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
             return []
 
     def structured_payload_for_schema(schema):
+        if schema is None:
+            return {"message": "Fake evidence notes from schema-free evidence agent."}
         report = f"## {schema.__name__}\n\nNative structured response."
         common = {
             "signal": "HOLD",
@@ -418,6 +1109,7 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
                     **common,
                     "category": "trader",
                     "stance": "neutral",
+                    "decision": "HOLD",
                     "entry_exit": {
                         "action": "Watch",
                         "entry_condition": "Wait for confirmation.",
@@ -491,11 +1183,14 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
         raise AssertionError(f"Unexpected response schema: {schema!r}")
 
     class FakeNativeStructuredModel(BaseLlm):
+        evidence_response_count: ClassVar[int] = 0
         seen_response_schemas: ClassVar[set] = set()
 
         async def generate_content_async(self, llm_request, stream=False):
             schema = llm_request.config.response_schema
             type(self).seen_response_schemas.add(schema)
+            if schema is None:
+                type(self).evidence_response_count += 1
             payload = structured_payload_for_schema(schema)
             yield LlmResponse(
                 content=types.Content(
@@ -516,10 +1211,20 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
         captured_resource_configs.append(dict(config))
         return adk_native_runner._NativeRuntimeResources(
             tool_nodes={
-                "market": AdkToolCollection(()),
-                "social": AdkToolCollection(()),
-                "news": AdkToolCollection(()),
-                "fundamentals": AdkToolCollection(()),
+                "market": _tool_collection(get_stock_data, get_indicators),
+                "social": _tool_collection(get_news, web_search_evidence),
+                "news": _tool_collection(
+                    get_news,
+                    get_global_news,
+                    web_search_evidence,
+                ),
+                "fundamentals": _tool_collection(
+                    get_fundamentals,
+                    get_balance_sheet,
+                    get_cashflow,
+                    get_income_statement,
+                    get_insider_transactions,
+                ),
             },
             bull_memory=FakeMemory(),
             bear_memory=FakeMemory(),
@@ -542,19 +1247,23 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
             selected_analysts=["market", "social", "news", "fundamentals"],
             config={"max_recur_limit": 10},
             init_agent_state=create_initial_state("MSFT", "2026-04-03"),
-            graph_args={},
         )
     )
+    progress_events = [
+        event
+        for chunk in chunks
+        for event in chunk.get("runtime_progress_events", [])
+    ]
 
     assert captured_resource_configs == [{"max_recur_limit": 10}]
-    assert any("MarketReportStructuredOutput" in chunk["market_report"] for chunk in chunks)
+    assert any(
+        "MarketReportStructuredOutput" in chunk["market_report"] for chunk in chunks
+    )
     assert any(
         "SentimentReportStructuredOutput" in chunk["sentiment_report"]
         for chunk in chunks
     )
-    assert any(
-        "NewsReportStructuredOutput" in chunk["news_report"] for chunk in chunks
-    )
+    assert any("NewsReportStructuredOutput" in chunk["news_report"] for chunk in chunks)
     assert any(
         "FundamentalsReportStructuredOutput" in chunk["fundamentals_report"]
         for chunk in chunks
@@ -564,10 +1273,20 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
     assert chunks[-1]["final_trade_decision"]
     assert chunks[-1]["portfolio_decision_card"]["rating"] == "HOLD"
     assert {
+        ("News Analyst Evidence", "News Analyst Evidence started."),
+        ("News Analyst Report", "News Analyst Report started."),
+        ("News Analyst Report", "News Analyst Report completed."),
+    }.issubset(
+        {
+            (event.get("current_agent"), event.get("message"))
+            for event in progress_events
+        }
+    )
+    assert {
         MarketReportStructuredOutput,
         SentimentReportStructuredOutput,
-        NewsReportStructuredOutput,
         FundamentalsReportStructuredOutput,
+        NewsReportStructuredOutput,
         BullCaseStructuredOutput,
         BearCaseStructuredOutput,
         ResearchDecisionStructuredOutput,
@@ -577,3 +1296,5 @@ def test_adk_native_runner_streams_native_workflow_chunks(monkeypatch):
         NeutralRiskStructuredOutput,
         PortfolioManagerStructuredOutput,
     }.issubset(FakeNativeStructuredModel.seen_response_schemas)
+    assert None in FakeNativeStructuredModel.seen_response_schemas
+    assert FakeNativeStructuredModel.evidence_response_count == 4

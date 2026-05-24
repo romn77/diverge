@@ -145,6 +145,85 @@ test("parseHighlights accepts compatible stance, evidence blocks, and risk budge
   assert.equal(result.highlights?.risk_budget?.required_pm_adjustment, "WATCH");
 });
 
+test("parseHighlights accepts schema-rendered null optionals from saved reports", () => {
+  const { parseHighlights } = loadHighlightsModule();
+  const markdown = [
+    "Risk debate.",
+    "```json-highlights",
+    JSON.stringify({
+      category: "risk_aggressive",
+      signal: "HOLD",
+      signal_confidence: "medium",
+      summary: "Keep risk tightly bounded while preserving optionality.",
+      stance: null,
+      stance_label: "Aggressive",
+      core_argument: "Use only a small validation budget.",
+      risk_assessment: "moderate",
+      key_recommendations: ["Use a validation position only"],
+      risk_budget: {
+        max_position_size: null,
+        portfolio_exposure_impact: null,
+        stop_or_invalidation: ["Trend failure"],
+        liquidity_risk: null,
+        event_risk: [],
+        correlation_or_factor_risk: [],
+        required_pm_adjustment: null,
+      },
+      evidence_blocks: [
+        {
+          claim: "Trend has not repaired.",
+          evidence: "Price remains below key averages.",
+          confidence: null,
+          limitation: null,
+        },
+      ],
+      unknowns: [],
+    }),
+    "```",
+  ].join("\n");
+
+  const result = parseHighlights(markdown);
+
+  assert.equal(result.highlights?.category, "risk_aggressive");
+  assert.equal(result.highlights?.stance, undefined);
+  assert.equal(result.highlights?.risk_budget?.stop_or_invalidation?.[0], "Trend failure");
+});
+
+test("parseHighlights derives legacy trader decision from signal", () => {
+  const { parseHighlights } = loadHighlightsModule();
+  const markdown = [
+    "Trader plan.",
+    "```json-highlights",
+    JSON.stringify({
+      category: "trader",
+      signal: "HOLD",
+      signal_confidence: "medium",
+      summary: "Wait for technical and fundamental confirmation.",
+      stance: "neutral",
+      entry_exit: {
+        action: "Watch only",
+        entry_condition: null,
+        exit_target: null,
+        stop_loss: null,
+        invalidation: "Trend and earnings repair invalidate the wait stance.",
+        re_entry: null,
+      },
+      position_sizing: null,
+      risk_budget: null,
+      risk_factors: ["Event risk"],
+      evidence_blocks: [],
+      unknowns: [],
+    }),
+    "```",
+  ].join("\n");
+
+  const result = parseHighlights(markdown);
+
+  assert.equal(result.highlights?.category, "trader");
+  assert.equal(result.highlights?.decision, "HOLD");
+  assert.equal(result.highlights?.entry_exit.action, "Watch only");
+});
+
 test("parseHighlights strips json-decision-card blocks from markdown output", () => {
   const { parseHighlights } = loadHighlightsModule();
   const markdown = [

@@ -7,7 +7,6 @@ from typing import Any
 from diverge.common.dates import days_before_or_original
 from diverge.common.market_calendar import last_n_trading_days
 from diverge.common.symbols import resolve_symbol_market
-from diverge.runtime.messages import AdkMessage
 
 
 DEFAULT_STOCK_DATA_TRADING_DAYS = 90
@@ -168,32 +167,3 @@ def looks_like_incomplete_tool_preface(message: Any) -> bool:
     return any(marker in lowered for marker in intent_markers) and any(
         marker in lowered for marker in tool_markers
     )
-
-
-def tool_retry_instruction(state: dict[str, Any], analyst: str) -> str:
-    ticker = str(state.get("company_of_interest") or "").strip().upper()
-    trade_date = str(state.get("trade_date") or "").strip()
-    return (
-        "Your previous response described tool use but did not issue an executable "
-        f"tool call. For the {analyst} analyst step, call the required tool now "
-        f"using ticker/symbol {ticker} and current date {trade_date}. Do not write "
-        "the final report until tool results have been returned."
-    )
-
-
-def human_message(content: str) -> Any:
-    try:
-        from langchain_core.messages import HumanMessage
-
-        return HumanMessage(content=content)
-    except Exception:
-        return ("human", content)
-
-
-def tool_message(content: str, *, name: str, tool_call_id: str) -> Any:
-    try:
-        from langchain_core.messages import ToolMessage
-
-        return ToolMessage(content=content, name=name, tool_call_id=tool_call_id)
-    except Exception:
-        return AdkMessage(content=content, role="tool")

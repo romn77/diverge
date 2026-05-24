@@ -145,7 +145,6 @@ export type ReportHighlights =
 
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-const HIGHLIGHTS_BLOCK_RE = /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/m;
 const HIGHLIGHTS_BLOCK_RE_GLOBAL = /```json-highlights[ \t]*\r?\n[\s\S]*?\r?\n?```/g;
 const HIGHLIGHTS_BLOCK_RE_CAPTURE_GLOBAL =
   /```json-highlights[ \t]*\r?\n([\s\S]*?)\r?\n?```/g;
@@ -163,6 +162,116 @@ const FINAL_PROPOSAL_RE =
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function removeNullFields(value: Record<string, unknown>, fields: string[]): void {
+  for (const field of fields) {
+    if (value[field] === null) {
+      delete value[field];
+    }
+  }
+}
+
+function normalizeEvidenceBlocksForValidation(
+  value: unknown
+): EvidenceBlock[] | unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((block) => {
+    if (!isObject(block)) {
+      return block;
+    }
+    const nextBlock = { ...block };
+    removeNullFields(nextBlock, ["confidence"]);
+    return nextBlock;
+  });
+}
+
+function normalizeRiskBudgetForValidation(value: unknown): RiskBudget | unknown {
+  if (!isObject(value)) {
+    return value;
+  }
+
+  const riskBudget = { ...value };
+  removeNullFields(riskBudget, [
+    "max_position_size",
+    "portfolio_exposure_impact",
+    "stop_or_invalidation",
+    "liquidity_risk",
+    "event_risk",
+    "correlation_or_factor_risk",
+    "required_pm_adjustment",
+  ]);
+  return riskBudget;
+}
+
+function normalizeEntryExitForValidation(value: unknown): unknown {
+  if (!isObject(value)) {
+    return value;
+  }
+
+  const entryExit = { ...value };
+  removeNullFields(entryExit, [
+    "entry_condition",
+    "exit_target",
+    "stop_loss",
+    "invalidation",
+    "re_entry",
+  ]);
+  return entryExit;
+}
+
+function normalizeHighlightsForValidation(
+  value: Record<string, unknown>
+): Record<string, unknown> {
+  const normalized = { ...value };
+  removeNullFields(normalized, [
+    "signal_confidence",
+    "stance",
+    "evidence_blocks",
+    "unknowns",
+    "volatility",
+    "financial_health",
+    "sentiment_score",
+    "social_buzz",
+    "macro_outlook",
+    "counterpoints",
+    "position_sizing",
+    "risk_budget",
+  ]);
+
+  if (normalized.evidence_blocks !== undefined) {
+    normalized.evidence_blocks = normalizeEvidenceBlocksForValidation(
+      normalized.evidence_blocks
+    );
+  }
+
+  if (normalized.category === "trader") {
+    if (
+      (normalized.decision === undefined || normalized.decision === null) &&
+      isEnumValue(normalized.signal, TRADE_SIGNALS)
+    ) {
+      normalized.decision = normalized.signal;
+    }
+    normalized.entry_exit = normalizeEntryExitForValidation(normalized.entry_exit);
+  }
+
+  if (
+    normalized.category === "risk_aggressive" ||
+    normalized.category === "risk_conservative" ||
+    normalized.category === "risk_neutral"
+  ) {
+    normalized.risk_budget = normalizeRiskBudgetForValidation(
+      normalized.risk_budget
+    );
+    if (normalized.risk_budget === null) {
+      delete normalized.risk_budget;
+    }
+  }
+
+  return normalized;
 }
 
 function isString(value: unknown): value is string {
@@ -547,19 +656,21 @@ export function parseHighlights(markdown: string): {
       continue;
     }
 
-    if (parsed.signal === undefined) {
+    const normalized = normalizeHighlightsForValidation(parsed);
+
+    if (normalized.signal === undefined) {
       const fallbackSignal = extractSignalFromMarkdown(markdown);
       if (fallbackSignal) {
-        parsed.signal = fallbackSignal;
+        normalized.signal = fallbackSignal;
       }
     }
 
-    if (!validateReportHighlights(parsed)) {
+    if (!validateReportHighlights(normalized)) {
       continue;
     }
 
     return {
-      highlights: parsed,
+      highlights: normalized,
       cleanMarkdown: stripStructuredDecisionBlocks(markdown),
     };
   }

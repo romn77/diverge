@@ -1,15 +1,13 @@
-from diverge.agents.report_output import (
-    AggressiveRiskStructuredOutput,
-    merge_structured_agent_output,
-    render_markdown_with_highlights,
+from diverge.agents.report_output import AggressiveRiskStructuredOutput
+from diverge.agents.agent_context import (
+    build_agent_prompt_context,
+    risk_debate_from_state,
+    upstream_reports_from_state,
 )
+from diverge.agents.structured_turn import StructuredAgentTurn
+from diverge.agents.risk_mgmt.output import commit_risk_debater_output
 from diverge.agents.utils.agent_utils import (
-    get_evidence_rules_instruction,
-    get_language_instruction,
     get_risk_budget_role_instruction,
-    get_research_note_style_instruction,
-    get_trade_feedback_message,
-    get_upstream_decision_boundary_instruction,
 )
 from diverge.agents.risk_mgmt.debate_phase import (
     REBUTTAL_MODE,
@@ -17,36 +15,22 @@ from diverge.agents.risk_mgmt.debate_phase import (
 )
 from diverge.agents.risk_mgmt.prompt_builder import build_risk_debator_prompt
 from diverge.runtime.messages import AdkPrompt
-from diverge.runtime.structured_output import parse_structured_output
 
 
 AGENT_NAME = "aggressive_analyst"
 
 
 def build_aggressive_risk_prompt(state):
-    risk_debate_state = state["risk_debate_state"]
-    history = risk_debate_state.get("history", "")
-    aggressive_history = risk_debate_state.get("aggressive_history", "")
-
-    current_conservative_response = risk_debate_state.get(
-        "current_conservative_response", ""
-    )
-    current_neutral_response = risk_debate_state.get("current_neutral_response", "")
-
-    market_research_report = state["market_report"]
-    sentiment_report = state["sentiment_report"]
-    news_report = state["news_report"]
-    fundamentals_report = state["fundamentals_report"]
+    context = build_agent_prompt_context(state)
+    reports = upstream_reports_from_state(state)
+    risk_context = risk_debate_from_state(state)
+    history = risk_context.history
+    current_conservative_response = risk_context.current_conservative_response
+    current_neutral_response = risk_context.current_neutral_response
 
     trader_decision = state["trader_investment_plan"]
-    output_language = state.get("output_language", "en")
-    language_instruction = get_language_instruction(output_language)
-    style_instruction = get_research_note_style_instruction(output_language)
-    trade_feedback_message = get_trade_feedback_message(state)
-    evidence_rules_instruction = get_evidence_rules_instruction()
-    decision_boundary_instruction = get_upstream_decision_boundary_instruction()
     risk_budget_instruction = get_risk_budget_role_instruction("aggressive")
-    debate_mode = get_risk_debate_mode(risk_debate_state.get("count", 0))
+    debate_mode = get_risk_debate_mode(risk_context.count)
 
     if debate_mode == REBUTTAL_MODE:
         mode_instruction = """Debate mode: rebuttal
@@ -86,25 +70,25 @@ This is the opening cycle of the risk debate. Lead with your own aggressive thes
             "and challenge the opposing views."
         ),
         risk_budget_instruction=risk_budget_instruction,
-        decision_boundary_instruction=decision_boundary_instruction,
-        evidence_rules_instruction=evidence_rules_instruction,
+        decision_boundary_instruction=context.decision_boundary_instruction,
+        evidence_rules_instruction=context.evidence_rules_instruction,
         mode_instruction=mode_instruction,
         trader_decision=trader_decision,
         task_instruction=task_instruction,
         source_intro="Incorporate insights from the following sources into your arguments:",
-        market_research_report=market_research_report,
-        sentiment_report=sentiment_report,
-        news_report=news_report,
-        fundamentals_report=fundamentals_report,
+        market_research_report=reports.market,
+        sentiment_report=reports.sentiment,
+        news_report=reports.news,
+        fundamentals_report=reports.fundamentals,
         history=history,
         counterpart_context=counterpart_context,
-        trade_feedback_message=trade_feedback_message,
+        trade_feedback_message=context.trade_feedback_message,
         engagement_instruction=engagement_instruction,
         highlights_intro="Use",
         category="risk_aggressive",
         stance_label="Aggressive",
-        style_instruction=style_instruction,
-        language_instruction=language_instruction,
+        style_instruction=context.style_instruction,
+        language_instruction=context.language_instruction,
     )
 
     return (
@@ -112,65 +96,32 @@ This is the opening cycle of the risk debate. Lead with your own aggressive thes
         (),
         {
             "history": history,
-            "aggressive_history": aggressive_history,
-            "conservative_history": risk_debate_state.get("conservative_history", ""),
-            "neutral_history": risk_debate_state.get("neutral_history", ""),
-            "current_conservative_response": risk_debate_state.get(
-                "current_conservative_response", ""
-            ),
-            "current_neutral_response": risk_debate_state.get(
-                "current_neutral_response", ""
-            ),
-            "count": risk_debate_state["count"],
+            "aggressive_history": risk_context.aggressive_history,
+            "conservative_history": risk_context.conservative_history,
+            "neutral_history": risk_context.neutral_history,
+            "current_conservative_response": risk_context.current_conservative_response,
+            "current_neutral_response": risk_context.current_neutral_response,
+            "count": risk_context.count,
         },
     )
 
 
-def build_aggressive_risk_result(
-    state,
-    *,
-    response_content,
-    history,
-    aggressive_history,
-    conservative_history,
-    neutral_history,
-    current_conservative_response,
-    current_neutral_response,
-    count,
-    **_unused,
-) -> dict:
-    try:
-        structured = parse_structured_output(
-            response_content,
-            AggressiveRiskStructuredOutput,
-        )
-    except Exception:
-        rendered = response_content
-    else:
-        rendered = render_markdown_with_highlights(
-            structured.report_markdown,
-            structured.highlights,
-        )
+def commit_aggressive_risk_output(state, structured_payload):
+    return commit_risk_debater_output(
+        state,
+        structured_payload,
+        schema=AggressiveRiskStructuredOutput,
+        agent_name=AGENT_NAME,
+        speaker_label="Aggressive Analyst",
+        speaker="aggressive",
+    )
 
-    argument = f"Aggressive Analyst: {rendered}"
 
-    new_risk_debate_state = {
-        "history": history + "\n" + argument,
-        "aggressive_history": aggressive_history + "\n" + argument,
-        "conservative_history": conservative_history,
-        "neutral_history": neutral_history,
-        "latest_speaker": "Aggressive",
-        "current_aggressive_response": argument,
-        "current_conservative_response": current_conservative_response,
-        "current_neutral_response": current_neutral_response,
-        "count": count + 1,
-    }
-
-    result = {"risk_debate_state": new_risk_debate_state}
-    if "structured" in locals():
-        result["structured_agent_outputs"] = merge_structured_agent_output(
-            state,
-            agent_name=AGENT_NAME,
-            payload=structured.model_dump(mode="json"),
-        )
-    return result
+AGGRESSIVE_RISK_AGENT = StructuredAgentTurn(
+    agent_name=AGENT_NAME,
+    display_name="Aggressive Analyst",
+    output_schema=AggressiveRiskStructuredOutput,
+    output_key="risk_aggressive_structured",
+    build_prompt=build_aggressive_risk_prompt,
+    commit_output=commit_aggressive_risk_output,
+)

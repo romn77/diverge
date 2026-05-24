@@ -1,7 +1,5 @@
 import re
 
-from langchain_core.messages import HumanMessage, RemoveMessage
-
 # Import tools from separate utility files
 
 _CODE_FENCE_RE = re.compile(r"```+")
@@ -92,27 +90,6 @@ def build_instrument_context(ticker: str) -> str:
 def get_trade_feedback_message(state) -> str:
     feedback = state.get("historical_trade_feedback")
     return str(feedback).strip() if feedback else ""
-
-
-def create_msg_delete():
-    def delete_messages(state):
-        """Clear messages and add placeholder for Anthropic compatibility"""
-        messages = state["messages"]
-        trade_feedback_message = get_trade_feedback_message(state)
-
-        # Remove all messages
-        removal_operations = [RemoveMessage(id=m.id) for m in messages]
-
-        replacement_messages = []
-        if trade_feedback_message:
-            replacement_messages.append(HumanMessage(content=trade_feedback_message))
-
-        # Add a minimal placeholder message
-        replacement_messages.append(HumanMessage(content="Continue"))
-
-        return {"messages": removal_operations + replacement_messages}
-
-    return delete_messages
 
 
 def get_language_instruction(language_code: str | None) -> str:

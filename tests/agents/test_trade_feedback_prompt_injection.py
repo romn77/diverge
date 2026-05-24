@@ -1,11 +1,8 @@
 import unittest
 
-from langchain_core.messages import HumanMessage, RemoveMessage
-
 from diverge.agents.analysts.market_analyst import build_market_analyst_prompt
 from diverge.agents.trader.trader import build_trader_prompt
-from diverge.agents.utils.agent_utils import create_msg_delete
-from diverge.runtime.state import Propagator
+from diverge.runtime.state import create_initial_state
 
 
 class _FakeMemory:
@@ -14,8 +11,8 @@ class _FakeMemory:
 
 
 class TradeFeedbackPromptInjectionTests(unittest.TestCase):
-    def test_propagator_places_trade_feedback_into_initial_messages(self):
-        state = Propagator().create_initial_state(
+    def test_create_initial_state_places_trade_feedback_into_initial_messages(self):
+        state = create_initial_state(
             "MSFT",
             "2026-04-01",
             historical_trade_feedback="Historical trade feedback for ticker MSFT:\n1. Prior lesson",
@@ -23,25 +20,8 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
 
         self.assertIn("Historical trade feedback", state["messages"][0][1])
 
-    def test_message_delete_preserves_trade_feedback_context(self):
-        delete_node = create_msg_delete()
-        state = {
-            "messages": [HumanMessage(content="Analyze MSFT")],
-            "historical_trade_feedback": "Historical trade feedback for ticker MSFT:\n1. Prior lesson",
-        }
-
-        result = delete_node(state)
-        self.assertTrue(
-            any(
-                isinstance(message, HumanMessage)
-                and "Historical trade feedback" in message.content
-                for message in result["messages"]
-                if not isinstance(message, RemoveMessage)
-            )
-        )
-
     def test_market_analyst_prompt_contains_historical_trade_feedback(self):
-        state = Propagator().create_initial_state(
+        state = create_initial_state(
             "MSFT",
             "2026-04-01",
             historical_trade_feedback="Historical trade feedback for ticker MSFT:\n1. Prior lesson",
@@ -55,7 +35,7 @@ class TradeFeedbackPromptInjectionTests(unittest.TestCase):
         )
 
     def test_market_analyst_prompt_limits_price_history_to_120_trading_days(self):
-        state = Propagator().create_initial_state("MSFT", "2026-04-01")
+        state = create_initial_state("MSFT", "2026-04-01")
 
         prompt, _tools, _metadata = build_market_analyst_prompt(state)
         prompt_text = prompt.to_string()
