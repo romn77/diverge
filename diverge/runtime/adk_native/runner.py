@@ -28,6 +28,7 @@ from diverge.runtime.adk_native.analyst_adapter import (
     build_adk_analyst_turn_nodes,
 )
 from diverge.runtime.adk_native.callbacks import (
+    append_runtime_warning,
     evidence_model_error_callback,
     structured_after_model_callback,
     structured_model_error_callback,
@@ -54,6 +55,7 @@ from diverge.runtime.adk_native.topology import (
 )
 from diverge.runtime.adk_native.workflow import build_analysis_workflow
 from diverge.runtime.analysis_schema import HISTORICAL_TRADE_FEEDBACK_KEY
+from diverge.runtime.structured_output import fallback_structured_output
 from diverge.runtime.tools import create_adk_tool_collections
 
 
@@ -425,11 +427,19 @@ def _finalize_native_state_llm_turn(
     commit_result: Any,
     output_key: str,
     display_name: str,
+    output_schema: Any | None = None,
+    fallback_from_invalid_response: Any | None = None,
 ):
     def finalize(ctx: Context):
         structured_payload = ctx.state.get(output_key)
         if not structured_payload:
-            raise RuntimeError(f"{display_name} did not produce structured state")
+            structured_payload = _fallback_structured_state_payload(
+                ctx.state,
+                output_key=output_key,
+                display_name=display_name,
+                output_schema=output_schema,
+                fallback_from_invalid_response=fallback_from_invalid_response,
+            )
 
         result = commit_result(
             snapshot_state(ctx.state),
@@ -444,6 +454,40 @@ def _finalize_native_state_llm_turn(
         return None
 
     return finalize
+
+
+def _fallback_structured_state_payload(
+    state: dict[str, Any],
+    *,
+    output_key: str,
+    display_name: str,
+    output_schema: Any | None,
+    fallback_from_invalid_response: Any | None,
+) -> dict[str, Any]:
+    if output_schema is None:
+        raise RuntimeError(f"{display_name} did not produce structured state")
+
+    error = RuntimeError(f"{display_name} did not produce structured state")
+    append_runtime_warning(
+        state,
+        {
+            "stage": display_name,
+            "kind": "structured_output_missing",
+            "message": (
+                f"{display_name} did not write `{output_key}`; using a "
+                "conservative schema-valid fallback so report artifacts and "
+                "highlight cards can still be generated."
+            ),
+        },
+    )
+    structured = (
+        fallback_from_invalid_response("", error)
+        if fallback_from_invalid_response is not None
+        else fallback_structured_output(output_schema, "", display_name)
+    )
+    payload = structured.model_dump(mode="json")
+    state[output_key] = payload
+    return payload
 
 
 def _merge_result_into_context_state(state: dict[str, Any], result: dict[str, Any]):

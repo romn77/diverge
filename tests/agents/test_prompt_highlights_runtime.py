@@ -605,7 +605,9 @@ class PromptHighlightsRuntimeTests(unittest.TestCase):
         self.assertIn("execution planner", trader_prompt)
         self.assertIn('"evidence_blocks"', trader_prompt)
         self.assertIn('"risk_budget"', trader_prompt)
-        self.assertNotIn('"decision"', trader_prompt)
+        self.assertIn('"decision"', trader_prompt)
+        self.assertIn("legacy card compatibility only", trader_prompt)
+        self.assertIn("not the final Portfolio Manager decision", trader_prompt)
         self.assertIn("Do not write `FINAL TRANSACTION PROPOSAL`", trader_prompt)
         self.assertNotIn("Conclude your narrative analysis", trader_prompt)
 

@@ -19,6 +19,7 @@ from diverge.agents.report_output import (
     TraderStructuredOutput,
 )
 from diverge.runtime.messages import message_content
+from diverge.runtime.structured_repair import normalize_structured_payload
 
 
 def parse_structured_output(content: Any, schema: Any) -> Any:
@@ -147,6 +148,7 @@ def fallback_structured_output(output_schema: Any, raw_response: str, stage: str
             **common,
             "category": "trader",
             "stance": "neutral",
+            "decision": "HOLD",
             "entry_exit": {
                 "action": "Wait for a schema-valid trading plan.",
                 "entry_condition": None,
@@ -273,10 +275,20 @@ def _validate_first_json_object(output_schema: Any, text: str):
         return None
     if not isinstance(payload, dict):
         return None
+    return _validate_or_repair_payload(output_schema, payload)
+
+
+def _validate_or_repair_payload(output_schema: Any, payload: dict[str, Any]):
     try:
         return output_schema.model_validate(payload)
     except Exception:
-        return None
+        normalized = normalize_structured_payload(output_schema, payload)
+        if normalized is None:
+            return None
+        try:
+            return output_schema.model_validate(normalized)
+        except Exception:
+            return None
 
 
 def _repair_markdown_json_highlights_output(output_schema: Any, text: str):
@@ -292,15 +304,13 @@ def _repair_markdown_json_highlights_output(output_schema: Any, text: str):
     if not isinstance(highlights, dict):
         return None
 
-    try:
-        return output_schema.model_validate(
-            {
-                "report_markdown": report_markdown,
-                "highlights": highlights,
-            }
-        )
-    except Exception:
-        return None
+    return _validate_or_repair_payload(
+        output_schema,
+        {
+            "report_markdown": report_markdown,
+            "highlights": highlights,
+        },
+    )
 
 
 def _extract_json_highlights_block(text: str) -> tuple[str, str] | None:

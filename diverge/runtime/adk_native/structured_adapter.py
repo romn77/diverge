@@ -50,6 +50,8 @@ def build_adk_structured_turn_nodes(
                 commit_result=turn.commit_output,
                 output_key=turn.output_key,
                 display_name=turn.display_name,
+                output_schema=turn.output_schema,
+                fallback_from_invalid_response=turn.fallback_from_invalid_response,
             ),
             name=f"{name}_finalize",
         ),

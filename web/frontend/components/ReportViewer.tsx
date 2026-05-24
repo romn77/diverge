@@ -213,7 +213,7 @@ function injectValuationMetricsIntoHighlights(markdown: string): string {
       2
     )}\n\`\`\``;
 
-    return markdown.replace(HIGHLIGHTS_BLOCK_RE, nextBlock);
+    return markdown.replace(HIGHLIGHTS_BLOCK_RE, () => nextBlock);
   } catch {
     return markdown;
   }

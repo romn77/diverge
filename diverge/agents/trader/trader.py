@@ -60,11 +60,13 @@ Reflections from similar situations and lessons learned:
 {context.trade_feedback_message}
 
 Use the following structure for the `highlights` field in your structured response. Values in this example are illustrative placeholders, not defaults; choose enum values based on the actual analysis:
+For `category: "trader"`, set `decision` to the same value as `signal` for legacy card compatibility only; it is not the final Portfolio Manager decision.
 
 ```json-highlights
 {{
   "category": "trader",
   "signal": "HOLD",
+  "decision": "HOLD",
   "signal_confidence": "medium",
   "summary": "1-2 sentence executive summary of your trading decision",
   "stance": "neutral",

@@ -22,6 +22,7 @@ from diverge.agents.utils.agent_utils import (
     build_instrument_context,
 )
 from diverge.agents.structured_turn import StructuredAgentTurn
+from diverge.runtime.structured_output import parse_structured_output
 
 
 def _empty_portfolio_context(output_language: str | None) -> str:
@@ -253,12 +254,11 @@ def build_portfolio_manager_result(
 def build_portfolio_manager_result_from_structured(
     *,
     state: dict,
-    structured_payload: dict | PortfolioManagerStructuredOutput,
+    structured_payload: object,
 ) -> dict:
-    structured = (
-        structured_payload
-        if isinstance(structured_payload, PortfolioManagerStructuredOutput)
-        else PortfolioManagerStructuredOutput.model_validate(structured_payload)
+    structured = parse_structured_output(
+        structured_payload,
+        PortfolioManagerStructuredOutput,
     )
     decision_card = structured.decision_card.model_dump(mode="json")
     structured_output = structured.model_dump(mode="json")

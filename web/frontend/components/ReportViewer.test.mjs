@@ -45,6 +45,7 @@ test("ReportViewer decorates reports with valuation-aware highlights without inj
   assert.match(source, /injectValuationMetricsIntoHighlights/);
   assert.match(source, /extractDcfApplicabilityMetrics/);
   assert.match(source, /extractDcfScenarioMetrics/);
+  assert.match(source, /markdown\.replace\(HIGHLIGHTS_BLOCK_RE, \(\) => nextBlock\)/);
   assert.match(source, /"DCF Scenario Summary"/);
   assert.match(source, /"DCF Applicability"/);
   assert.doesNotMatch(source, /buildThesisSummaryMarkdown/);

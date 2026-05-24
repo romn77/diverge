@@ -493,6 +493,39 @@ def _salvage_structured_output(
     )
 
 
+def normalize_invalid_portfolio_manager_payload(
+    payload: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Normalize recoverable Portfolio Manager payloads after strict validation fails."""
+
+    decision_card = payload.get("decision_card")
+    if not isinstance(decision_card, dict):
+        return None
+    has_substance = any(
+        decision_card.get(key)
+        for key in (
+            "one_line_summary",
+            "summary",
+            "thesis",
+            "key_reasons",
+            "evidence_blocks",
+        )
+    )
+    if not has_substance:
+        return None
+    decision_report = _clean_string(payload.get("decision_report")) or (
+        "## Portfolio Manager Decision\n\n"
+        + (
+            _clean_string(decision_card.get("thesis"))
+            or "Portfolio Manager provided a partial structured decision card."
+        )
+    )
+    return {
+        "decision_report": decision_report,
+        "decision_card": _normalize_partial_decision_card_payload(decision_card),
+    }
+
+
 class PortfolioDecisionCardOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

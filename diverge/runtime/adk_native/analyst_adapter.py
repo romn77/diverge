@@ -107,6 +107,7 @@ def build_adk_analyst_turn_nodes(
                 commit_result=turn.commit_output,
                 output_key=turn.output_key,
                 display_name=report_display_name,
+                output_schema=turn.output_schema,
             ),
             name=f"{turn.agent_name}_finalize",
         ),
